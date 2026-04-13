@@ -67,10 +67,10 @@ export default function Staff() {
   }
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Staff & Providers</h1>
-        <p className="text-sm text-slate-400 mt-1">{staffList.length} active staff members</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Staff & Providers</h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">{staffList.length} active staff members</p>
       </div>
 
       <Tabs defaultValue="clinicians">

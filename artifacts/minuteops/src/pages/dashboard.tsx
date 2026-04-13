@@ -72,15 +72,15 @@ export default function Dashboard() {
   const serviceData = (complianceByService as any[]) ?? [];
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto space-y-8">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-5 md:space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-1">Jefferson Unified · Lincoln High School · IEP Year 2025–2026</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1 hidden sm:block">Jefferson Unified · Lincoln High School · IEP Year 2025–2026</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard title="Active Students" value={s?.totalActiveStudents} icon={Users} accent="indigo" subtitle="on IEPs" href="/students" />
         <MetricCard title="Open Alerts" value={alerts?.total} icon={Bell} accent="red" subtitle={`${alerts?.critical ?? 0} critical`} href="/alerts" />
         <MetricCard title="Makeup Needed" value={s?.openMakeupObligations} icon={Clock} accent="amber" subtitle="sessions" href="/sessions" />

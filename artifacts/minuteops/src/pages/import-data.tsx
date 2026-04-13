@@ -135,10 +135,10 @@ export default function ImportData() {
   }
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-8">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Import Data</h1>
-        <p className="text-sm text-slate-400 mt-1">Bulk import students, IEP requirements, and session logs from CSV files</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Import Data</h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">Bulk import students, IEP requirements, and session logs from CSV</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -11,6 +11,7 @@ export const behaviorDataTable = pgTable("behavior_data", {
   value: numeric("value").notNull(),
   intervalCount: integer("interval_count"),
   intervalsWith: integer("intervals_with"),
+  hourBlock: text("hour_block"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

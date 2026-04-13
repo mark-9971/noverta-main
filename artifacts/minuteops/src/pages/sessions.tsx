@@ -109,14 +109,14 @@ export default function Sessions() {
   }
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Session Log</h1>
-          <p className="text-sm text-slate-400 mt-1">{sessionList.length} sessions loaded · Page {page + 1}</p>
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Session Log</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
         </div>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Log Session
+        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] flex-shrink-0" onClick={() => setShowAddModal(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
         </Button>
       </div>
 
@@ -131,7 +131,7 @@ export default function Sessions() {
             key={item.key}
             aria-pressed={statusFilter === item.key}
             onClick={() => setStatusFilter(item.key)}
-            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
               statusFilter === item.key ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
             }`}
           >{item.label} ({item.count})</button>
@@ -140,10 +140,53 @@ export default function Sessions() {
 
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student, service, or provider..." value={search} onChange={e => setSearch(e.target.value)} />
+        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search sessions..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <Card>
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-2">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
+        ) : filtered.map(session => (
+          <Card key={session.id} className="p-3.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-800 truncate">{session.studentName ?? `Student ${session.studentId}`}</p>
+                <p className="text-xs text-slate-400 mt-0.5 truncate">{session.serviceTypeName ?? "—"} · {session.staffName ?? "—"}</p>
+              </div>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                session.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                session.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+              }`}>
+                {session.status === "completed" ? <CheckCircle className="w-3 h-3" /> :
+                 session.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
+                {session.isMakeup ? "Makeup" : session.status}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+              <span>{formatDate(session.sessionDate)}</span>
+              <span>{session.durationMinutes} min</span>
+            </div>
+          </Card>
+        ))}
+        {!isLoading && filtered.length === 0 && (
+          <p className="text-center text-slate-400 text-sm py-12">No sessions found</p>
+        )}
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-[11px] text-slate-400">{filtered.length} sessions</p>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="h-8 text-[11px]" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-[11px]" disabled={sessionList.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop table view */}
+      <Card className="hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -204,16 +247,16 @@ export default function Sessions() {
       </Card>
 
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">Log Session</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Student *</Label>
                 <Select value={form.studentId} onValueChange={v => { updateForm("studentId", v); updateForm("serviceRequirementId", ""); }}>
-                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select student" /></SelectTrigger>
+                  <SelectTrigger className="h-10 md:h-9 text-[13px]"><SelectValue placeholder="Select student" /></SelectTrigger>
                   <SelectContent>
                     {studentList.map((s: any) => (
                       <SelectItem key={s.id} value={String(s.id)}>{s.firstName} {s.lastName}</SelectItem>
@@ -224,7 +267,7 @@ export default function Sessions() {
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Service</Label>
                 <Select value={form.serviceRequirementId} onValueChange={v => updateForm("serviceRequirementId", v)} disabled={!form.studentId}>
-                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder={form.studentId ? "Select service" : "Select student first"} /></SelectTrigger>
+                  <SelectTrigger className="h-10 md:h-9 text-[13px]"><SelectValue placeholder={form.studentId ? "Select service" : "Select student first"} /></SelectTrigger>
                   <SelectContent>
                     {reqList.map((r: any) => (
                       <SelectItem key={r.id} value={String(r.id)}>{r.serviceTypeName} — {r.minutesPerWeek} min/wk</SelectItem>
@@ -236,7 +279,7 @@ export default function Sessions() {
             <div className="space-y-1.5">
               <Label className="text-[12px] text-slate-500">Provider</Label>
               <Select value={form.staffId} onValueChange={v => updateForm("staffId", v)}>
-                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select provider" /></SelectTrigger>
+                <SelectTrigger className="h-10 md:h-9 text-[13px]"><SelectValue placeholder="Select provider" /></SelectTrigger>
                 <SelectContent>
                   {staffAllList.map((s: any) => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.firstName} {s.lastName} — {s.role}</SelectItem>
@@ -244,21 +287,21 @@ export default function Sessions() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Date *</Label>
-                <Input type="date" className="h-9 text-[13px]" value={form.sessionDate} onChange={e => updateForm("sessionDate", e.target.value)} />
+                <Input type="date" className="h-10 md:h-9 text-[13px]" value={form.sessionDate} onChange={e => updateForm("sessionDate", e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Start Time</Label>
-                <Input type="time" className="h-9 text-[13px]" value={form.startTime} onChange={e => updateForm("startTime", e.target.value)} />
+                <Input type="time" className="h-10 md:h-9 text-[13px]" value={form.startTime} onChange={e => updateForm("startTime", e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">End Time</Label>
-                <Input type="time" className="h-9 text-[13px]" value={form.endTime} onChange={e => updateForm("endTime", e.target.value)} />
+                <Input type="time" className="h-10 md:h-9 text-[13px]" value={form.endTime} onChange={e => updateForm("endTime", e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Duration (min) *</Label>
                 <Input type="number" className="h-9 text-[13px]" value={form.durationMinutes} onChange={e => updateForm("durationMinutes", e.target.value)} />

@@ -48,10 +48,10 @@ export default function Compliance() {
   }));
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Compliance & Risk</h1>
-        <p className="text-sm text-slate-400 mt-1">IEP minute delivery compliance for current school year</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Compliance & Risk</h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">IEP minute delivery compliance for current school year</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -120,7 +120,38 @@ export default function Compliance() {
         })}
       </div>
 
-      <Card>
+      <div className="md:hidden space-y-2">
+        {isLoading ? [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />) :
+          filtered.length === 0 ? <p className="text-center text-slate-400 text-sm py-12">No requirements found</p> :
+          filtered.slice(0, 100).map((p: any, i: number) => {
+            const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
+            const pct = Math.min(100, p.percentComplete ?? 0);
+            return (
+              <Link key={i} href={`/students/${p.studentId}`}>
+                <Card className="p-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-800 truncate">{p.studentName}</p>
+                      <p className="text-xs text-slate-400 mt-0.5 truncate">{p.serviceTypeName}</p>
+                    </div>
+                    <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0`}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex-1 bg-slate-100 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: cfg.ringColor }} />
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">{pct}%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">{p.deliveredMinutes} / {p.requiredMinutes} min</p>
+                </Card>
+              </Link>
+            );
+          })}
+      </div>
+
+      <Card className="hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

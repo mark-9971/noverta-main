@@ -14,6 +14,7 @@ export const programDataTable = pgTable("program_data", {
   stepNumber: integer("step_number"),
   independenceLevel: text("independence_level"),
   percentCorrect: numeric("percent_correct"),
+  promptLevelUsed: text("prompt_level_used"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

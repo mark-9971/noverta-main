@@ -29,10 +29,10 @@ export default function Reports() {
   const riskList = (complianceRisk as any[]) ?? [];
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reports</h1>
-        <p className="text-sm text-slate-400 mt-1">Compliance and service delivery reports for IEP year 2025–2026</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Reports</h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">Compliance and service delivery reports for IEP year 2025–2026</p>
       </div>
 
       <Tabs defaultValue="minutes">

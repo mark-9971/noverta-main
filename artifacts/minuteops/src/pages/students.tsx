@@ -54,10 +54,10 @@ export default function Students() {
   });
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Students</h1>
-        <p className="text-sm text-slate-400 mt-1">{studentList.length} students on active IEPs</p>
+        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Students</h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">{studentList.length} students on active IEPs</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -110,14 +110,14 @@ export default function Students() {
                     <p className="text-[14px] font-semibold text-slate-800">{s.firstName} {s.lastName}</p>
                     <p className="text-[12px] text-slate-400">Grade {s.grade} · CM #{s.caseManagerId}</p>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0 hidden sm:inline-flex`}>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0 hidden md:inline-flex`}>
                     {cfg.label}
                   </span>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                     <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={cfg.ringColor} />
-                    <div className="text-right w-20">
+                    <div className="text-right w-14 md:w-20">
                       <p className="text-[13px] font-bold text-slate-700">{pct}%</p>
-                      <p className="text-[10px] text-slate-400">{mins.delivered}/{mins.required}</p>
+                      <p className="text-[10px] text-slate-400 hidden sm:block">{mins.delivered}/{mins.required}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />

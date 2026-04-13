@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable, dataSessionsTable,
-  behaviorDataTable, programDataTable, studentsTable, staffTable
+  behaviorDataTable, programDataTable, studentsTable, staffTable,
+  programStepsTable, programTemplatesTable
 } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc } from "drizzle-orm";
 
@@ -27,7 +28,8 @@ router.get("/students/:studentId/behavior-targets", async (req, res): Promise<vo
 router.post("/students/:studentId/behavior-targets", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const { name, description, measurementType, targetDirection, baselineValue, goalValue } = req.body;
+    const { name, description, measurementType, targetDirection, baselineValue, goalValue,
+            trackingMethod, intervalLengthSeconds, enableHourlyTracking, templateId } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
     const [target] = await db.insert(behaviorTargetsTable).values({
       studentId, name, description: description || null,
@@ -35,6 +37,10 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
       targetDirection: targetDirection || "decrease",
       baselineValue: baselineValue != null ? String(baselineValue) : null,
       goalValue: goalValue != null ? String(goalValue) : null,
+      trackingMethod: trackingMethod || "per_session",
+      intervalLengthSeconds: intervalLengthSeconds || null,
+      enableHourlyTracking: enableHourlyTracking ?? false,
+      templateId: templateId || null,
     }).returning();
     res.status(201).json({ ...target, createdAt: target.createdAt.toISOString(), updatedAt: target.updatedAt.toISOString() });
   } catch (e: any) {
@@ -47,13 +53,11 @@ router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const updates: any = {};
-    if (req.body.name !== undefined) updates.name = req.body.name;
-    if (req.body.description !== undefined) updates.description = req.body.description;
-    if (req.body.measurementType !== undefined) updates.measurementType = req.body.measurementType;
-    if (req.body.targetDirection !== undefined) updates.targetDirection = req.body.targetDirection;
+    for (const key of ["name","description","measurementType","targetDirection","active","trackingMethod","intervalLengthSeconds","enableHourlyTracking"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
     if (req.body.baselineValue !== undefined) updates.baselineValue = req.body.baselineValue != null ? String(req.body.baselineValue) : null;
     if (req.body.goalValue !== undefined) updates.goalValue = req.body.goalValue != null ? String(req.body.goalValue) : null;
-    if (req.body.active !== undefined) updates.active = req.body.active;
     const [updated] = await db.update(behaviorTargetsTable).set(updates).where(eq(behaviorTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
@@ -82,15 +86,52 @@ router.get("/students/:studentId/program-targets", async (req, res): Promise<voi
 router.post("/students/:studentId/program-targets", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const { name, description, programType, targetCriterion, domain } = req.body;
+    const { name, description, programType, targetCriterion, domain, promptHierarchy,
+            currentPromptLevel, autoProgressEnabled, masteryCriterionPercent,
+            masteryCriterionSessions, regressionThreshold, regressionSessions,
+            reinforcementSchedule, reinforcementType, tutorInstructions, templateId, steps } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
-    const [target] = await db.insert(programTargetsTable).values({
-      studentId, name, description: description || null,
-      programType: programType || "discrete_trial",
-      targetCriterion: targetCriterion || null,
-      domain: domain || null,
-    }).returning();
-    res.status(201).json({ ...target, createdAt: target.createdAt.toISOString(), updatedAt: target.updatedAt.toISOString() });
+
+    const result = await db.transaction(async (tx) => {
+      const [target] = await tx.insert(programTargetsTable).values({
+        studentId, name, description: description || null,
+        programType: programType || "discrete_trial",
+        targetCriterion: targetCriterion || null,
+        domain: domain || null,
+        templateId: templateId || null,
+        promptHierarchy: promptHierarchy || ["full_physical","partial_physical","model","gestural","verbal","independent"],
+        currentPromptLevel: currentPromptLevel || "verbal",
+        autoProgressEnabled: autoProgressEnabled ?? true,
+        masteryCriterionPercent: masteryCriterionPercent ?? 80,
+        masteryCriterionSessions: masteryCriterionSessions ?? 3,
+        regressionThreshold: regressionThreshold ?? 50,
+        regressionSessions: regressionSessions ?? 2,
+        reinforcementSchedule: reinforcementSchedule || "continuous",
+        reinforcementType: reinforcementType || null,
+        tutorInstructions: tutorInstructions || null,
+      }).returning();
+
+      if (steps && Array.isArray(steps) && steps.length > 0) {
+        for (let i = 0; i < steps.length; i++) {
+          const s = steps[i];
+          await tx.insert(programStepsTable).values({
+            programTargetId: target.id,
+            stepNumber: i + 1,
+            name: s.name,
+            sdInstruction: s.sdInstruction || null,
+            targetResponse: s.targetResponse || null,
+            materials: s.materials || null,
+            promptStrategy: s.promptStrategy || null,
+            errorCorrection: s.errorCorrection || null,
+            reinforcementNotes: s.reinforcementNotes || null,
+          });
+        }
+      }
+
+      return target;
+    });
+
+    res.status(201).json({ ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("POST program-target error:", e);
     res.status(500).json({ error: "Failed to create program target" });
@@ -101,18 +142,170 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const updates: any = {};
-    if (req.body.name !== undefined) updates.name = req.body.name;
-    if (req.body.description !== undefined) updates.description = req.body.description;
-    if (req.body.programType !== undefined) updates.programType = req.body.programType;
-    if (req.body.targetCriterion !== undefined) updates.targetCriterion = req.body.targetCriterion;
-    if (req.body.domain !== undefined) updates.domain = req.body.domain;
-    if (req.body.active !== undefined) updates.active = req.body.active;
+    for (const key of ["name","description","programType","targetCriterion","domain","active",
+                        "promptHierarchy","currentPromptLevel","currentStep","autoProgressEnabled",
+                        "masteryCriterionPercent","masteryCriterionSessions","regressionThreshold",
+                        "regressionSessions","reinforcementSchedule","reinforcementType","tutorInstructions"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
     const [updated] = await db.update(programTargetsTable).set(updates).where(eq(programTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("PATCH program-target error:", e);
     res.status(500).json({ error: "Failed to update program target" });
+  }
+});
+
+router.get("/program-targets/:id/steps", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.id);
+    const steps = await db.select().from(programStepsTable)
+      .where(eq(programStepsTable.programTargetId, programTargetId))
+      .orderBy(asc(programStepsTable.stepNumber));
+    res.json(steps.map(s => ({ ...s, createdAt: s.createdAt.toISOString() })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch steps" });
+  }
+});
+
+router.post("/program-targets/:id/steps", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.id);
+    const { name, sdInstruction, targetResponse, materials, promptStrategy, errorCorrection, reinforcementNotes } = req.body;
+    if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    const existing = await db.select({ maxStep: sql<number>`COALESCE(MAX(${programStepsTable.stepNumber}), 0)` })
+      .from(programStepsTable).where(eq(programStepsTable.programTargetId, programTargetId));
+    const nextStep = (existing[0]?.maxStep ?? 0) + 1;
+    const [step] = await db.insert(programStepsTable).values({
+      programTargetId, stepNumber: nextStep, name,
+      sdInstruction: sdInstruction || null, targetResponse: targetResponse || null,
+      materials: materials || null, promptStrategy: promptStrategy || null,
+      errorCorrection: errorCorrection || null, reinforcementNotes: reinforcementNotes || null,
+    }).returning();
+    res.status(201).json({ ...step, createdAt: step.createdAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to create step" });
+  }
+});
+
+router.patch("/program-steps/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const key of ["name","sdInstruction","targetResponse","materials","promptStrategy","errorCorrection","reinforcementNotes","active","mastered","stepNumber"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    const [updated] = await db.update(programStepsTable).set(updates).where(eq(programStepsTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to update step" });
+  }
+});
+
+router.delete("/program-steps/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.delete(programStepsTable).where(eq(programStepsTable.id, id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete step" });
+  }
+});
+
+router.get("/program-templates", async (req, res): Promise<void> => {
+  try {
+    const { category } = req.query;
+    const conditions: any[] = [];
+    if (category && category !== "all") conditions.push(eq(programTemplatesTable.category, category as string));
+    const templates = await db.select().from(programTemplatesTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(programTemplatesTable.category), asc(programTemplatesTable.name));
+    res.json(templates.map(t => ({ ...t, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch templates" });
+  }
+});
+
+router.post("/program-templates", async (req, res): Promise<void> => {
+  try {
+    const { name, description, category, programType, domain, isGlobal, schoolId,
+            promptHierarchy, defaultMasteryPercent, defaultMasterySessions,
+            defaultRegressionThreshold, defaultReinforcementSchedule, defaultReinforcementType,
+            tutorInstructions, steps } = req.body;
+    if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    const [template] = await db.insert(programTemplatesTable).values({
+      name, description: description || null, category: category || "academic",
+      programType: programType || "discrete_trial", domain: domain || null,
+      isGlobal: isGlobal ?? true, schoolId: schoolId || null,
+      promptHierarchy: promptHierarchy || ["full_physical","partial_physical","model","gestural","verbal","independent"],
+      defaultMasteryPercent: defaultMasteryPercent ?? 80,
+      defaultMasterySessions: defaultMasterySessions ?? 3,
+      defaultRegressionThreshold: defaultRegressionThreshold ?? 50,
+      defaultReinforcementSchedule: defaultReinforcementSchedule || "continuous",
+      defaultReinforcementType: defaultReinforcementType || null,
+      tutorInstructions: tutorInstructions || null,
+      steps: steps || [],
+    }).returning();
+    res.status(201).json({ ...template, createdAt: template.createdAt.toISOString(), updatedAt: template.updatedAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to create template" });
+  }
+});
+
+router.post("/program-templates/:id/clone-to-student", async (req, res): Promise<void> => {
+  try {
+    const templateId = parseInt(req.params.id);
+    const { studentId } = req.body;
+    if (!studentId) { res.status(400).json({ error: "studentId is required" }); return; }
+
+    const [template] = await db.select().from(programTemplatesTable).where(eq(programTemplatesTable.id, templateId));
+    if (!template) { res.status(404).json({ error: "Template not found" }); return; }
+
+    const result = await db.transaction(async (tx) => {
+      const [target] = await tx.insert(programTargetsTable).values({
+        studentId,
+        name: template.name,
+        description: template.description,
+        programType: template.programType,
+        domain: template.domain,
+        templateId: template.id,
+        promptHierarchy: template.promptHierarchy as string[],
+        currentPromptLevel: "verbal",
+        autoProgressEnabled: true,
+        masteryCriterionPercent: template.defaultMasteryPercent ?? 80,
+        masteryCriterionSessions: template.defaultMasterySessions ?? 3,
+        regressionThreshold: template.defaultRegressionThreshold ?? 50,
+        regressionSessions: 2,
+        reinforcementSchedule: template.defaultReinforcementSchedule || "continuous",
+        reinforcementType: template.defaultReinforcementType,
+        tutorInstructions: template.tutorInstructions,
+        targetCriterion: `${template.defaultMasteryPercent ?? 80}% across ${template.defaultMasterySessions ?? 3} sessions`,
+      }).returning();
+
+      const stepsData = template.steps as any[] ?? [];
+      for (let i = 0; i < stepsData.length; i++) {
+        const s = stepsData[i];
+        await tx.insert(programStepsTable).values({
+          programTargetId: target.id,
+          stepNumber: i + 1,
+          name: s.name,
+          sdInstruction: s.sdInstruction || null,
+          targetResponse: s.targetResponse || null,
+          materials: s.materials || null,
+          promptStrategy: s.promptStrategy || null,
+          errorCorrection: s.errorCorrection || null,
+        });
+      }
+
+      return target;
+    });
+
+    res.status(201).json({ ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString() });
+  } catch (e: any) {
+    console.error("Clone template error:", e);
+    res.status(500).json({ error: "Failed to clone template" });
   }
 });
 
@@ -153,6 +346,57 @@ router.get("/students/:studentId/data-sessions", async (req, res): Promise<void>
   }
 });
 
+async function checkAutoProgress(tx: any, programTargetId: number) {
+  const [target] = await tx.select().from(programTargetsTable).where(eq(programTargetsTable.id, programTargetId));
+  if (!target || !target.autoProgressEnabled) return null;
+
+  const recentData = await tx.select({
+    percentCorrect: programDataTable.percentCorrect,
+    promptLevelUsed: programDataTable.promptLevelUsed,
+  }).from(programDataTable)
+    .where(eq(programDataTable.programTargetId, programTargetId))
+    .orderBy(desc(programDataTable.createdAt))
+    .limit(Math.max(target.masteryCriterionSessions ?? 3, target.regressionSessions ?? 2));
+
+  if (recentData.length === 0) return null;
+
+  const masterySessions = target.masteryCriterionSessions ?? 3;
+  const masteryPct = target.masteryCriterionPercent ?? 80;
+  const regressionSessions = target.regressionSessions ?? 2;
+  const regressionThreshold = target.regressionThreshold ?? 50;
+
+  const hierarchy = (target.promptHierarchy as string[]) ?? ["full_physical","partial_physical","model","gestural","verbal","independent"];
+  const currentIdx = hierarchy.indexOf(target.currentPromptLevel ?? "verbal");
+
+  if (recentData.length >= masterySessions) {
+    const masteryCheck = recentData.slice(0, masterySessions);
+    const allAboveMastery = masteryCheck.every(d => parseFloat(d.percentCorrect ?? "0") >= masteryPct);
+
+    if (allAboveMastery && currentIdx < hierarchy.length - 1) {
+      const newLevel = hierarchy[currentIdx + 1];
+      await tx.update(programTargetsTable)
+        .set({ currentPromptLevel: newLevel })
+        .where(eq(programTargetsTable.id, programTargetId));
+      return { action: "advanced", from: target.currentPromptLevel, to: newLevel };
+    }
+  }
+
+  if (recentData.length >= regressionSessions) {
+    const regressionCheck = recentData.slice(0, regressionSessions);
+    const allBelowThreshold = regressionCheck.every(d => parseFloat(d.percentCorrect ?? "0") < regressionThreshold);
+
+    if (allBelowThreshold && currentIdx > 0) {
+      const newLevel = hierarchy[currentIdx - 1];
+      await tx.update(programTargetsTable)
+        .set({ currentPromptLevel: newLevel })
+        .where(eq(programTargetsTable.id, programTargetId));
+      return { action: "regressed", from: target.currentPromptLevel, to: newLevel };
+    }
+  }
+
+  return null;
+}
+
 router.post("/students/:studentId/data-sessions", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
@@ -166,6 +410,8 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
     const validProgTargets = await db.select({ id: programTargetsTable.id }).from(programTargetsTable)
       .where(eq(programTargetsTable.studentId, studentId));
     const validProgIds = new Set(validProgTargets.map(t => t.id));
+
+    const progressUpdates: any[] = [];
 
     const result = await db.transaction(async (tx) => {
       const [session] = await tx.insert(dataSessionsTable).values({
@@ -186,6 +432,7 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
               value: String(bd.value),
               intervalCount: bd.intervalCount || null,
               intervalsWith: bd.intervalsWith || null,
+              hourBlock: bd.hourBlock || null,
               notes: bd.notes || null,
             });
           }
@@ -203,9 +450,13 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
               prompted: pd.prompted || 0,
               stepNumber: pd.stepNumber || null,
               independenceLevel: pd.independenceLevel || null,
+              promptLevelUsed: pd.promptLevelUsed || null,
               percentCorrect: pd.trialsTotal > 0 ? String(Math.round((pd.trialsCorrect / pd.trialsTotal) * 100)) : "0",
               notes: pd.notes || null,
             });
+
+            const progress = await checkAutoProgress(tx, pd.programTargetId);
+            if (progress) progressUpdates.push({ programTargetId: pd.programTargetId, ...progress });
           }
         }
       }
@@ -213,7 +464,10 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
       return session;
     });
 
-    res.status(201).json({ ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString() });
+    res.status(201).json({
+      ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString(),
+      progressUpdates,
+    });
   } catch (e: any) {
     console.error("POST data-session error:", e);
     res.status(500).json({ error: "Failed to create data session" });
@@ -249,6 +503,7 @@ router.get("/data-sessions/:id", async (req, res): Promise<void> => {
       value: behaviorDataTable.value,
       intervalCount: behaviorDataTable.intervalCount,
       intervalsWith: behaviorDataTable.intervalsWith,
+      hourBlock: behaviorDataTable.hourBlock,
       notes: behaviorDataTable.notes,
       targetName: behaviorTargetsTable.name,
       measurementType: behaviorTargetsTable.measurementType,
@@ -265,6 +520,7 @@ router.get("/data-sessions/:id", async (req, res): Promise<void> => {
       stepNumber: programDataTable.stepNumber,
       independenceLevel: programDataTable.independenceLevel,
       percentCorrect: programDataTable.percentCorrect,
+      promptLevelUsed: programDataTable.promptLevelUsed,
       notes: programDataTable.notes,
       targetName: programTargetsTable.name,
       programType: programTargetsTable.programType,
@@ -304,6 +560,7 @@ router.get("/students/:studentId/behavior-data/trends", async (req, res): Promis
       targetName: behaviorTargetsTable.name,
       measurementType: behaviorTargetsTable.measurementType,
       value: behaviorDataTable.value,
+      hourBlock: behaviorDataTable.hourBlock,
     }).from(behaviorDataTable)
       .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
       .innerJoin(behaviorTargetsTable, eq(behaviorDataTable.behaviorTargetId, behaviorTargetsTable.id))
@@ -338,6 +595,7 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
       trialsTotal: programDataTable.trialsTotal,
       prompted: programDataTable.prompted,
       percentCorrect: programDataTable.percentCorrect,
+      promptLevelUsed: programDataTable.promptLevelUsed,
     }).from(programDataTable)
       .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
       .innerJoin(programTargetsTable, eq(programDataTable.programTargetId, programTargetsTable.id))

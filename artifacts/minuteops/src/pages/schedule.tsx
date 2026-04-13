@@ -54,15 +54,15 @@ export default function Schedule() {
   }
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Weekly Schedule</h1>
-          <p className="text-sm text-slate-400 mt-1">{blockList.length} recurring schedule blocks</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Weekly Schedule</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">{blockList.length} recurring schedule blocks</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
           <Select value={staffFilter} onValueChange={setStaffFilter}>
-            <SelectTrigger className="w-52 h-9 text-[13px] bg-white">
+            <SelectTrigger className="flex-1 sm:w-52 h-9 text-[13px] bg-white">
               <SelectValue placeholder="All staff" />
             </SelectTrigger>
             <SelectContent>

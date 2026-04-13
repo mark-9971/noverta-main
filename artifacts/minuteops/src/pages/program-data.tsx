@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  BarChart3, TrendingDown, TrendingUp, Target, BookOpen, Plus,
-  ChevronDown, Activity, GraduationCap, X, Save, Calendar
+  TrendingDown, TrendingUp, Target, Plus, Activity, GraduationCap, X, Save,
+  Calendar, ChevronRight, Copy, Settings2, Timer, Minus, Check, RotateCcw,
+  BookOpen, Layers, Play, Pause, ArrowUp, ArrowDown, Hand, Eye, Mic, Sparkles
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ReferenceLine
+  ReferenceLine, BarChart, Bar
 } from "recharts";
 
 const API = "/api";
@@ -17,27 +18,65 @@ interface BehaviorTarget {
   id: number; studentId: number; name: string; description: string;
   measurementType: string; targetDirection: string;
   baselineValue: string | null; goalValue: string | null; active: boolean;
+  trackingMethod?: string; intervalLengthSeconds?: number; enableHourlyTracking?: boolean;
 }
 interface ProgramTarget {
   id: number; studentId: number; name: string; description: string;
   programType: string; targetCriterion: string; domain: string; active: boolean;
+  promptHierarchy?: string[]; currentPromptLevel?: string; currentStep?: number;
+  autoProgressEnabled?: boolean; masteryCriterionPercent?: number;
+  masteryCriterionSessions?: number; regressionThreshold?: number;
+  regressionSessions?: number; reinforcementSchedule?: string;
+  reinforcementType?: string; tutorInstructions?: string; templateId?: number;
+}
+interface ProgramStep {
+  id: number; programTargetId: number; stepNumber: number; name: string;
+  sdInstruction?: string; targetResponse?: string; materials?: string;
+  promptStrategy?: string; errorCorrection?: string; reinforcementNotes?: string;
+  active: boolean; mastered: boolean;
 }
 interface DataSession {
   id: number; studentId: number; sessionDate: string; staffName: string | null;
   startTime: string; endTime: string;
+}
+interface ProgramTemplate {
+  id: number; name: string; description: string; category: string;
+  programType: string; domain: string; isGlobal: boolean;
+  promptHierarchy: string[]; defaultMasteryPercent: number;
+  defaultMasterySessions: number; tutorInstructions: string;
+  steps: Array<{ name: string; sdInstruction?: string; targetResponse?: string; materials?: string }>;
 }
 interface Student { id: number; firstName: string; lastName: string; }
 interface TrendPoint {
   sessionDate: string; value?: string; targetName?: string; measurementType?: string;
   behaviorTargetId?: number; programTargetId?: number;
   trialsCorrect?: number; trialsTotal?: number; percentCorrect?: string;
+  promptLevelUsed?: string; hourBlock?: string;
 }
 
 const COLORS = ["#6366f1", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
+const PROMPT_LABELS: Record<string, { label: string; short: string; icon: any; color: string }> = {
+  full_physical: { label: "Full Physical", short: "FP", icon: Hand, color: "bg-red-100 text-red-700" },
+  partial_physical: { label: "Partial Physical", short: "PP", icon: Hand, color: "bg-orange-100 text-orange-700" },
+  model: { label: "Model", short: "M", icon: Eye, color: "bg-amber-100 text-amber-700" },
+  gestural: { label: "Gestural", short: "G", icon: Hand, color: "bg-yellow-100 text-yellow-700" },
+  verbal: { label: "Verbal", short: "V", icon: Mic, color: "bg-blue-100 text-blue-700" },
+  independent: { label: "Independent", short: "I", icon: Sparkles, color: "bg-emerald-100 text-emerald-700" },
+};
+
+const REINFORCEMENT_SCHEDULES = [
+  { value: "continuous", label: "Continuous (CRF)" },
+  { value: "fixed_ratio", label: "Fixed Ratio (FR)" },
+  { value: "variable_ratio", label: "Variable Ratio (VR)" },
+  { value: "fixed_interval", label: "Fixed Interval (FI)" },
+  { value: "variable_interval", label: "Variable Interval (VI)" },
+];
+
 function measureLabel(t: string) {
   if (t === "frequency") return "Count";
   if (t === "interval") return "% of intervals";
+  if (t === "duration") return "Duration (sec)";
   return "Percentage";
 }
 
@@ -49,16 +88,22 @@ export default function ProgramDataPage() {
   const [dataSessions, setDataSessions] = useState<DataSession[]>([]);
   const [behaviorTrends, setBehaviorTrends] = useState<TrendPoint[]>([]);
   const [programTrends, setProgramTrends] = useState<TrendPoint[]>([]);
+  const [templates, setTemplates] = useState<ProgramTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"behaviors" | "programs" | "sessions">("behaviors");
+  const [tab, setTab] = useState<"behaviors" | "programs" | "sessions" | "templates" | "collect">("behaviors");
   const [showAddBehavior, setShowAddBehavior] = useState(false);
   const [showAddProgram, setShowAddProgram] = useState(false);
   const [showLogSession, setShowLogSession] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<ProgramTarget | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/students`).then(r => r.json()).then(data => {
+    Promise.all([
+      fetch(`${API}/students`).then(r => r.json()),
+      fetch(`${API}/program-templates`).then(r => r.json()),
+    ]).then(([data, tmpl]) => {
       const withData = data.filter((s: any) => s.status === "active");
       setStudents(withData);
+      setTemplates(tmpl);
       if (withData.length > 0) setSelectedStudent(withData[0].id);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -103,54 +148,66 @@ export default function ProgramDataPage() {
 
   const uniqueBehaviorNames = [...new Set(behaviorTrends.map(t => t.targetName!))];
   const uniqueProgramNames = [...new Set(programTrends.map(t => t.targetName!))];
-
   const student = students.find(s => s.id === selectedStudent);
 
   if (loading) return <div className="p-8"><Skeleton className="w-full h-96" /></div>;
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Program Data</h1>
-          <p className="text-sm text-slate-400 mt-1">Track behaviors, skill acquisition programs, and visualize progress</p>
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Program Data</h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1 hidden sm:block">ABA programs, behavior tracking, and data collection</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedStudent ?? ""}
-            onChange={e => setSelectedStudent(parseInt(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            {students.map(s => (
-              <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={selectedStudent ?? ""}
+          onChange={e => setSelectedStudent(parseInt(e.target.value))}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 w-full sm:w-auto"
+        >
+          {students.map(s => (
+            <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+          ))}
+        </select>
       </div>
 
       {selectedStudent && (
         <>
-          <div className="flex items-center gap-1 border-b border-slate-200">
+          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             {([
-              { key: "behaviors" as const, label: "Behavior Targets", icon: Activity, count: behaviorTargets.length },
-              { key: "programs" as const, label: "Skill Programs", icon: GraduationCap, count: programTargets.length },
-              { key: "sessions" as const, label: "Data Sessions", icon: Calendar, count: dataSessions.length },
+              { key: "collect" as const, label: "Collect", fullLabel: "Data Collection", icon: Play, count: null, mobile: true },
+              { key: "behaviors" as const, label: "Behaviors", fullLabel: "Behavior Targets", icon: Activity, count: behaviorTargets.length, mobile: false },
+              { key: "programs" as const, label: "Programs", fullLabel: "Skill Programs", icon: GraduationCap, count: programTargets.length, mobile: false },
+              { key: "sessions" as const, label: "Sessions", fullLabel: "Data Sessions", icon: Calendar, count: dataSessions.length, mobile: false },
+              { key: "templates" as const, label: "Library", fullLabel: "Template Library", icon: Layers, count: templates.length, mobile: false },
             ]).map(t => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium border-b-2 transition-all ${
+                className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
                   tab === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                <t.icon className="w-4 h-4" /> {t.label} ({t.count})
+                <t.icon className="w-4 h-4" />
+                <span className="md:hidden">{t.label}</span>
+                <span className="hidden md:inline">{t.fullLabel}</span>
+                {t.count !== null && <span className="hidden sm:inline">({t.count})</span>}
               </button>
             ))}
           </div>
 
+          {tab === "collect" && (
+            <LiveDataCollection
+              studentId={selectedStudent}
+              student={student!}
+              behaviorTargets={behaviorTargets}
+              programTargets={programTargets}
+              onSessionSaved={() => loadStudentData(selectedStudent)}
+            />
+          )}
+
           {tab === "behaviors" && (
-            <div className="space-y-6">
-              <Card>
+            <div className="space-y-4 md:space-y-6">
+              <Card className="hidden md:block">
                 <CardHeader className="pb-0 flex-row items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-slate-600">
                     <TrendingDown className="w-4 h-4 inline mr-1.5 text-red-500" />
@@ -167,13 +224,10 @@ export default function ProgramDataPage() {
                         <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} />
                         <Tooltip labelFormatter={d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
-                        {uniqueBehaviorNames.map((name, i) => {
-                          const target = behaviorTargets.find(t => t.name === name);
-                          return (
-                            <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]}
-                              strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-                          );
-                        })}
+                        {uniqueBehaviorNames.map((name, i) => (
+                          <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]}
+                            strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+                        ))}
                         {behaviorTargets.map((bt, i) => bt.goalValue ? (
                           <ReferenceLine key={`goal-${bt.id}`} y={parseFloat(bt.goalValue)} stroke={COLORS[i % COLORS.length]}
                             strokeDasharray="5 5" strokeOpacity={0.5} />
@@ -181,7 +235,7 @@ export default function ProgramDataPage() {
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="py-12 text-center text-slate-400 text-sm">No behavior data yet. Log a data session to start tracking.</div>
+                    <div className="py-12 text-center text-slate-400 text-sm">No behavior data yet. Use Data Collection tab to start tracking.</div>
                   )}
                 </CardContent>
               </Card>
@@ -190,11 +244,11 @@ export default function ProgramDataPage() {
                 <h3 className="text-sm font-semibold text-slate-600">Active Behavior Targets</h3>
                 <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
                   onClick={() => setShowAddBehavior(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Behavior
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {behaviorTargets.map((bt, i) => {
                   const latest = behaviorTrends.filter(t => t.behaviorTargetId === bt.id);
                   const lastVal = latest.length > 0 ? parseFloat(latest[latest.length - 1].value!) : null;
@@ -203,51 +257,53 @@ export default function ProgramDataPage() {
 
                   return (
                     <Card key={bt.id}>
-                      <CardContent className="p-4">
+                      <CardContent className="p-3.5 md:p-4">
                         <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="text-[14px] font-semibold text-slate-700">{bt.name}</p>
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold text-slate-700 truncate">{bt.name}</p>
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {measureLabel(bt.measurementType)} · Goal: {bt.targetDirection} to {bt.goalValue ?? "—"}
+                              {measureLabel(bt.measurementType)} · {bt.targetDirection} to {bt.goalValue ?? "—"}
+                              {bt.enableHourlyTracking && " · Hourly"}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            {improving !== null && (
-                              <span className={`flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                                improving ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
-                              }`}>
-                                {improving ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                                {improving ? "Improving" : "Worsening"}
-                              </span>
-                            )}
-                          </div>
+                          {improving !== null && (
+                            <span className={`flex items-center gap-0.5 text-[10px] md:text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              improving ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"
+                            }`}>
+                              {improving ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                              {improving ? "Improving" : "Worsening"}
+                            </span>
+                          )}
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mt-3">
+                        <div className="grid grid-cols-3 gap-2 md:gap-3 mt-3">
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-slate-400">Baseline</p>
-                            <p className="text-[16px] font-bold text-slate-600">{bt.baselineValue ?? "—"}</p>
+                            <p className="text-[15px] md:text-[16px] font-bold text-slate-600">{bt.baselineValue ?? "—"}</p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-slate-400">Current</p>
-                            <p className="text-[16px] font-bold text-indigo-600">{lastVal ?? "—"}</p>
+                            <p className="text-[15px] md:text-[16px] font-bold text-indigo-600">{lastVal ?? "—"}</p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-slate-400">Goal</p>
-                            <p className="text-[16px] font-bold text-emerald-600">{bt.goalValue ?? "—"}</p>
+                            <p className="text-[15px] md:text-[16px] font-bold text-emerald-600">{bt.goalValue ?? "—"}</p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-2">{latest.length} data points collected</p>
+                        <p className="text-[11px] text-slate-400 mt-2">{latest.length} data points</p>
                       </CardContent>
                     </Card>
                   );
                 })}
+                {behaviorTargets.length === 0 && (
+                  <div className="col-span-full text-center py-8 text-slate-400 text-sm">No behavior targets. Add one to start tracking.</div>
+                )}
               </div>
             </div>
           )}
 
           {tab === "programs" && (
-            <div className="space-y-6">
-              <Card>
+            <div className="space-y-4 md:space-y-6">
+              <Card className="hidden md:block">
                 <CardHeader className="pb-0">
                   <CardTitle className="text-sm font-semibold text-slate-600">
                     <TrendingUp className="w-4 h-4 inline mr-1.5 text-emerald-500" />
@@ -261,12 +317,11 @@ export default function ProgramDataPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }}
                           tickFormatter={d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} />
-                        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 100]}
-                          tickFormatter={v => `${v}%`} />
+                        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
                         <Tooltip labelFormatter={d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                           formatter={(v: any) => [`${v}%`, undefined]} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <ReferenceLine y={80} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} label={{ value: "Mastery (80%)", position: "right", fontSize: 10, fill: "#10b981" }} />
+                        <ReferenceLine y={80} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} label={{ value: "Mastery", position: "right", fontSize: 10, fill: "#10b981" }} />
                         {uniqueProgramNames.map((name, i) => (
                           <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]}
                             strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
@@ -287,51 +342,70 @@ export default function ProgramDataPage() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {programTargets.map((pt, i) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                {programTargets.map((pt) => {
                   const data = programTrends.filter(t => t.programTargetId === pt.id);
                   const lastPct = data.length > 0 ? parseFloat(data[data.length - 1].percentCorrect!) : null;
                   const last3 = data.slice(-3);
                   const avgLast3 = last3.length > 0 ? Math.round(last3.reduce((s, d) => s + parseFloat(d.percentCorrect!), 0) / last3.length) : null;
-                  const mastered = avgLast3 !== null && avgLast3 >= 80;
+                  const mastered = avgLast3 !== null && avgLast3 >= (pt.masteryCriterionPercent ?? 80);
+                  const promptInfo = PROMPT_LABELS[pt.currentPromptLevel ?? "verbal"];
 
                   return (
-                    <Card key={pt.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="text-[14px] font-semibold text-slate-700">{pt.name}</p>
+                    <Card key={pt.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setEditingProgram(pt)}>
+                      <CardContent className="p-3.5 md:p-4">
+                        <div className="flex items-start justify-between mb-2 gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold text-slate-700 truncate">{pt.name}</p>
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {pt.programType === "discrete_trial" ? "Discrete Trial" : "Task Analysis"} · {pt.domain}
+                              {pt.programType === "discrete_trial" ? "DTT" : "Task Analysis"} · {pt.domain || "General"}
                             </p>
                           </div>
-                          {mastered && (
-                            <span className="flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                              <Target className="w-3 h-3" /> Mastered
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {promptInfo && (
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${promptInfo.color}`}>
+                                {promptInfo.short}
+                              </span>
+                            )}
+                            {mastered && (
+                              <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+                                <Target className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mt-3">
+                        <div className="grid grid-cols-3 gap-2 mt-3">
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-slate-400">Last Session</p>
-                            <p className="text-[16px] font-bold text-indigo-600">{lastPct != null ? `${lastPct}%` : "—"}</p>
+                            <p className="text-[10px] text-slate-400">Last</p>
+                            <p className="text-[15px] font-bold text-indigo-600">{lastPct != null ? `${lastPct}%` : "—"}</p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-slate-400">Avg Last 3</p>
-                            <p className={`text-[16px] font-bold ${(avgLast3 ?? 0) >= 80 ? "text-emerald-600" : "text-slate-600"}`}>
+                            <p className="text-[10px] text-slate-400">Avg 3</p>
+                            <p className={`text-[15px] font-bold ${(avgLast3 ?? 0) >= (pt.masteryCriterionPercent ?? 80) ? "text-emerald-600" : "text-slate-600"}`}>
                               {avgLast3 != null ? `${avgLast3}%` : "—"}
                             </p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
-                            <p className="text-[10px] text-slate-400">Data Points</p>
-                            <p className="text-[16px] font-bold text-slate-600">{data.length}</p>
+                            <p className="text-[10px] text-slate-400">Mastery</p>
+                            <p className="text-[15px] font-bold text-slate-600">{pt.masteryCriterionPercent ?? 80}%</p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-2">Criterion: {pt.targetCriterion}</p>
+                        {pt.autoProgressEnabled && (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <ArrowUp className="w-3 h-3 text-emerald-500" />
+                            <span className="text-[10px] text-slate-400">Auto-progress at {pt.masteryCriterionPercent ?? 80}% x{pt.masteryCriterionSessions ?? 3}</span>
+                            <ArrowDown className="w-3 h-3 text-red-400 ml-2" />
+                            <span className="text-[10px] text-slate-400">Regress &lt;{pt.regressionThreshold ?? 50}% x{pt.regressionSessions ?? 2}</span>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400 mt-1">{data.length} data points · Tap to edit</p>
                       </CardContent>
                     </Card>
                   );
                 })}
+                {programTargets.length === 0 && (
+                  <div className="col-span-full text-center py-8 text-slate-400 text-sm">No skill programs. Add one or use a template from the Library tab.</div>
+                )}
               </div>
             </div>
           )}
@@ -339,44 +413,67 @@ export default function ProgramDataPage() {
           {tab === "sessions" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-600">Recent Data Collection Sessions</h3>
+                <h3 className="text-sm font-semibold text-slate-600">Recent Data Sessions</h3>
                 <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
                   onClick={() => setShowLogSession(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Log Data Session
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Log Session
                 </Button>
               </div>
 
               {dataSessions.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-sm">No data sessions recorded yet.</div>
               ) : (
-                <Card>
-                  <CardContent className="p-0">
-                    <table className="w-full text-[13px]">
-                      <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50/50">
-                          <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Date</th>
-                          <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Time</th>
-                          <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Staff</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {dataSessions.map(ds => (
-                          <tr key={ds.id} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-2.5 font-medium text-slate-700">
-                              {new Date(ds.sessionDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-500">
-                              {ds.startTime && ds.endTime ? `${ds.startTime}–${ds.endTime}` : "—"}
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-500">{ds.staffName || "—"}</td>
+                <>
+                  <div className="md:hidden space-y-2">
+                    {dataSessions.map(ds => (
+                      <Card key={ds.id} className="p-3.5">
+                        <p className="text-sm font-medium text-slate-700">
+                          {new Date(ds.sessionDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {ds.startTime && ds.endTime ? `${ds.startTime}–${ds.endTime}` : "—"} · {ds.staffName || "—"}
+                        </p>
+                      </Card>
+                    ))}
+                  </div>
+                  <Card className="hidden md:block">
+                    <CardContent className="p-0">
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="border-b border-slate-100 bg-slate-50/50">
+                            <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Date</th>
+                            <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Time</th>
+                            <th className="text-left px-4 py-2.5 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Staff</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {dataSessions.map(ds => (
+                            <tr key={ds.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5 font-medium text-slate-700">
+                                {new Date(ds.sessionDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">
+                                {ds.startTime && ds.endTime ? `${ds.startTime}–${ds.endTime}` : "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">{ds.staffName || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+                </>
               )}
             </div>
+          )}
+
+          {tab === "templates" && (
+            <TemplateLibrary
+              templates={templates}
+              studentId={selectedStudent}
+              onCloned={() => loadStudentData(selectedStudent)}
+              onTemplateCreated={(t) => setTemplates(prev => [...prev, t])}
+            />
           )}
         </>
       )}
@@ -391,6 +488,7 @@ export default function ProgramDataPage() {
       {showAddProgram && selectedStudent && (
         <AddProgramModal
           studentId={selectedStudent}
+          templates={templates}
           onClose={() => setShowAddProgram(false)}
           onSaved={() => { setShowAddProgram(false); loadStudentData(selectedStudent); }}
         />
@@ -404,6 +502,636 @@ export default function ProgramDataPage() {
           onSaved={() => { setShowLogSession(false); loadStudentData(selectedStudent); }}
         />
       )}
+      {editingProgram && (
+        <ProgramDetailModal
+          program={editingProgram}
+          onClose={() => setEditingProgram(null)}
+          onSaved={() => { setEditingProgram(null); if (selectedStudent) loadStudentData(selectedStudent); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LiveDataCollection({ studentId, student, behaviorTargets, programTargets, onSessionSaved }: {
+  studentId: number; student: Student; behaviorTargets: BehaviorTarget[]; programTargets: ProgramTarget[];
+  onSessionSaved: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [behaviorCounts, setBehaviorCounts] = useState<Record<number, number>>({});
+  const [programResults, setProgramResults] = useState<Record<number, { correct: number; total: number; prompted: number; promptLevel: string }>>({});
+  const [trialHistory, setTrialHistory] = useState<Record<number, Array<{ correct: boolean; prompted: boolean }>>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const timerRef = useRef<any>(null);
+  const startTimeRef = useRef<string>("");
+
+  useEffect(() => {
+    const bc: Record<number, number> = {};
+    behaviorTargets.forEach(bt => { bc[bt.id] = 0; });
+    setBehaviorCounts(bc);
+    const pr: Record<number, { correct: number; total: number; prompted: number; promptLevel: string }> = {};
+    const th: Record<number, Array<{ correct: boolean; prompted: boolean }>> = {};
+    programTargets.forEach(pt => {
+      pr[pt.id] = { correct: 0, total: 0, prompted: 0, promptLevel: pt.currentPromptLevel ?? "verbal" };
+      th[pt.id] = [];
+    });
+    setProgramResults(pr);
+    setTrialHistory(th);
+  }, [behaviorTargets, programTargets]);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startSession() {
+    setRunning(true);
+    setSaved(false);
+    setElapsed(0);
+    startTimeRef.current = new Date().toTimeString().slice(0, 5);
+    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+  }
+
+  function stopSession() {
+    setRunning(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+  }
+
+  async function saveSession() {
+    setSaving(true);
+    const now = new Date();
+    const endTime = now.toTimeString().slice(0, 5);
+    const sessionDate = now.toISOString().split("T")[0];
+
+    const behaviorData = behaviorTargets
+      .filter(bt => behaviorCounts[bt.id] > 0)
+      .map(bt => ({
+        behaviorTargetId: bt.id,
+        value: behaviorCounts[bt.id],
+        hourBlock: `${now.getHours()}:00`,
+      }));
+
+    const programData = programTargets
+      .filter(pt => programResults[pt.id]?.total > 0)
+      .map(pt => ({
+        programTargetId: pt.id,
+        trialsCorrect: programResults[pt.id].correct,
+        trialsTotal: programResults[pt.id].total,
+        prompted: programResults[pt.id].prompted,
+        promptLevelUsed: programResults[pt.id].promptLevel,
+      }));
+
+    const res = await fetch(`${API}/students/${studentId}/data-sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionDate,
+        startTime: startTimeRef.current,
+        endTime,
+        behaviorData,
+        programData,
+      }),
+    });
+
+    if (res.ok) {
+      setSaved(true);
+      onSessionSaved();
+    }
+    setSaving(false);
+  }
+
+  function formatTime(seconds: number) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
+
+  function recordTrial(ptId: number, correct: boolean, prompted: boolean) {
+    setProgramResults(prev => ({
+      ...prev,
+      [ptId]: {
+        ...prev[ptId],
+        total: (prev[ptId]?.total ?? 0) + 1,
+        correct: (prev[ptId]?.correct ?? 0) + (correct ? 1 : 0),
+        prompted: (prev[ptId]?.prompted ?? 0) + (prompted ? 1 : 0),
+      },
+    }));
+    setTrialHistory(prev => ({
+      ...prev,
+      [ptId]: [...(prev[ptId] ?? []), { correct, prompted }],
+    }));
+  }
+
+  function undoLastTrial(ptId: number) {
+    const history = trialHistory[ptId] ?? [];
+    if (history.length === 0) return;
+    const lastTrial = history[history.length - 1];
+    setProgramResults(prev => ({
+      ...prev,
+      [ptId]: {
+        ...prev[ptId],
+        total: Math.max(0, prev[ptId].total - 1),
+        correct: Math.max(0, prev[ptId].correct - (lastTrial.correct ? 1 : 0)),
+        prompted: Math.max(0, prev[ptId].prompted - (lastTrial.prompted ? 1 : 0)),
+      },
+    }));
+    setTrialHistory(prev => ({
+      ...prev,
+      [ptId]: prev[ptId].slice(0, -1),
+    }));
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className={`border-2 ${running ? "border-indigo-300 bg-indigo-50/30" : saved ? "border-emerald-300 bg-emerald-50/30" : "border-slate-200"}`}>
+        <CardContent className="p-4 md:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">{student.firstName} {student.lastName}</h2>
+              <p className="text-xs text-slate-400">Live Data Collection</p>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl md:text-4xl font-mono font-bold text-slate-800">{formatTime(elapsed)}</p>
+              <p className="text-xs text-slate-400">{running ? "Recording..." : saved ? "Session Saved" : "Ready"}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {!running && !saved && (
+              <Button className="flex-1 h-12 md:h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" onClick={startSession}>
+                <Play className="w-4 h-4 mr-2" /> Start Session
+              </Button>
+            )}
+            {running && (
+              <Button className="flex-1 h-12 md:h-10 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold" onClick={stopSession}>
+                <Pause className="w-4 h-4 mr-2" /> Stop
+              </Button>
+            )}
+            {!running && elapsed > 0 && !saved && (
+              <>
+                <Button className="flex-1 h-12 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold" onClick={saveSession} disabled={saving}>
+                  <Save className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save Session"}
+                </Button>
+                <Button variant="outline" className="h-12 md:h-10" onClick={startSession}>
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+            {saved && (
+              <Button className="flex-1 h-12 md:h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" onClick={() => {
+                setSaved(false); setElapsed(0);
+                const bc: Record<number, number> = {};
+                behaviorTargets.forEach(bt => { bc[bt.id] = 0; });
+                setBehaviorCounts(bc);
+                const pr: Record<number, any> = {};
+                const th: Record<number, any[]> = {};
+                programTargets.forEach(pt => { pr[pt.id] = { correct: 0, total: 0, prompted: 0, promptLevel: pt.currentPromptLevel ?? "verbal" }; th[pt.id] = []; });
+                setProgramResults(pr);
+                setTrialHistory(th);
+              }}>
+                <Play className="w-4 h-4 mr-2" /> New Session
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {behaviorTargets.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+            <Activity className="w-4 h-4 text-red-500" /> Behavior Tracking
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {behaviorTargets.map(bt => (
+              <Card key={bt.id} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex items-center">
+                    <div className="flex-1 p-3 md:p-4 min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{bt.name}</p>
+                      <p className="text-[10px] text-slate-400">{measureLabel(bt.measurementType)} · Goal: {bt.goalValue ?? "—"}</p>
+                    </div>
+                    <div className="flex items-center gap-0 border-l border-slate-100">
+                      <button
+                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-slate-400 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                        onClick={() => setBehaviorCounts(prev => ({ ...prev, [bt.id]: Math.max(0, (prev[bt.id] ?? 0) - 1) }))}
+                        disabled={!running}
+                      >
+                        <Minus className="w-5 h-5" />
+                      </button>
+                      <div className="w-14 md:w-12 text-center">
+                        <p className="text-2xl md:text-xl font-bold text-indigo-600">{behaviorCounts[bt.id] ?? 0}</p>
+                      </div>
+                      <button
+                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
+                        onClick={() => setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }))}
+                        disabled={!running}
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {programTargets.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+            <GraduationCap className="w-4 h-4 text-indigo-500" /> Discrete Trial Data
+          </h3>
+          <div className="space-y-2">
+            {programTargets.map(pt => {
+              const result = programResults[pt.id] ?? { correct: 0, total: 0, prompted: 0, promptLevel: "verbal" };
+              const pct = result.total > 0 ? Math.round((result.correct / result.total) * 100) : null;
+              const promptInfo = PROMPT_LABELS[result.promptLevel ?? "verbal"];
+
+              return (
+                <Card key={pt.id}>
+                  <CardContent className="p-3.5 md:p-4">
+                    <div className="flex items-start justify-between mb-3 gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-700 truncate">{pt.name}</p>
+                        <p className="text-[10px] text-slate-400">{pt.domain || "General"} · Step {pt.currentStep ?? 1}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${promptInfo?.color ?? "bg-slate-100 text-slate-600"}`}>
+                          {promptInfo?.short ?? "?"}
+                        </span>
+                        {pct !== null && (
+                          <span className={`text-sm font-bold ${pct >= (pt.masteryCriterionPercent ?? 80) ? "text-emerald-600" : "text-slate-600"}`}>
+                            {pct}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {pt.tutorInstructions && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-3 text-[11px] text-amber-800">
+                        <BookOpen className="w-3 h-3 inline mr-1" /> {pt.tutorInstructions}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5 mb-3 overflow-x-auto">
+                      {(pt.promptHierarchy ?? []).map(level => (
+                        <button
+                          key={level}
+                          onClick={() => setProgramResults(prev => ({ ...prev, [pt.id]: { ...prev[pt.id], promptLevel: level } }))}
+                          className={`text-[10px] font-semibold px-2 py-1 rounded transition-all whitespace-nowrap ${
+                            result.promptLevel === level
+                              ? PROMPT_LABELS[level]?.color ?? "bg-slate-800 text-white"
+                              : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                          }`}
+                        >
+                          {PROMPT_LABELS[level]?.short ?? level.slice(0, 2).toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        className="flex-1 h-14 md:h-12 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border-2 border-emerald-200 text-emerald-700 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        onClick={() => recordTrial(pt.id, true, false)}
+                        disabled={!running}
+                      >
+                        <Check className="w-5 h-5" /> Correct
+                      </button>
+                      <button
+                        className="flex-1 h-14 md:h-12 rounded-xl bg-amber-50 hover:bg-amber-100 active:bg-amber-200 border-2 border-amber-200 text-amber-700 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        onClick={() => recordTrial(pt.id, true, true)}
+                        disabled={!running}
+                      >
+                        <Hand className="w-5 h-5" /> Prompted
+                      </button>
+                      <button
+                        className="flex-1 h-14 md:h-12 rounded-xl bg-red-50 hover:bg-red-100 active:bg-red-200 border-2 border-red-200 text-red-600 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                        onClick={() => recordTrial(pt.id, false, false)}
+                        disabled={!running}
+                      >
+                        <X className="w-5 h-5" /> Incorrect
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 text-[11px] text-slate-400">
+                      <span>{result.correct}/{result.total} correct · {result.prompted} prompted</span>
+                      {result.total > 0 && (
+                        <button className="text-red-400 hover:text-red-600" onClick={() => undoLastTrial(pt.id)}>
+                          <RotateCcw className="w-3 h-3" /> Undo
+                        </button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {behaviorTargets.length === 0 && programTargets.length === 0 && (
+        <div className="text-center py-12 text-slate-400">
+          <p className="font-medium">No targets set up for this student</p>
+          <p className="text-sm mt-1">Add behavior or program targets first from the other tabs</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateLibrary({ templates, studentId, onCloned, onTemplateCreated }: {
+  templates: ProgramTemplate[]; studentId: number;
+  onCloned: () => void; onTemplateCreated: (t: ProgramTemplate) => void;
+}) {
+  const [filter, setFilter] = useState("all");
+  const [cloning, setCloning] = useState<number | null>(null);
+
+  const filtered = templates.filter(t => filter === "all" || t.category === filter);
+
+  async function cloneToStudent(templateId: number) {
+    setCloning(templateId);
+    const res = await fetch(`${API}/program-templates/${templateId}/clone-to-student`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    if (res.ok) onCloned();
+    setCloning(null);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-600">Program Templates</h3>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[{ key: "all", label: "All" }, { key: "academic", label: "Academic" }, { key: "behavior", label: "Behavior" }].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+              filter === f.key ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200"
+            }`}>{f.label}</button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filtered.map(t => (
+          <Card key={t.id} className="hover:shadow-sm transition-shadow">
+            <CardContent className="p-3.5 md:p-4">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-slate-700 truncate">{t.name}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{t.domain || t.category} · {t.programType === "discrete_trial" ? "DTT" : "Task Analysis"}</p>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                  t.category === "academic" ? "bg-indigo-100 text-indigo-700" : "bg-red-100 text-red-700"
+                }`}>{t.category}</span>
+              </div>
+              {t.description && <p className="text-[11px] text-slate-500 mb-2 line-clamp-2">{t.description}</p>}
+              <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-3">
+                {(t.steps as any[])?.length > 0 && <span>{(t.steps as any[]).length} steps</span>}
+                <span>Mastery: {t.defaultMasteryPercent}%</span>
+                {t.isGlobal && <span className="px-1 py-0.5 bg-slate-100 rounded">Global</span>}
+              </div>
+              <Button size="sm" className="w-full h-9 md:h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]"
+                onClick={() => cloneToStudent(t.id)} disabled={cloning === t.id}>
+                <Copy className="w-3.5 h-3.5 mr-1" /> {cloning === t.id ? "Cloning..." : "Clone to Student"}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTarget; onClose: () => void; onSaved: () => void }) {
+  const [steps, setSteps] = useState<ProgramStep[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState({ ...program });
+  const [saving, setSaving] = useState(false);
+  const [newStepName, setNewStepName] = useState("");
+  const [newStepSd, setNewStepSd] = useState("");
+  const [newStepResponse, setNewStepResponse] = useState("");
+
+  useEffect(() => {
+    fetch(`${API}/program-targets/${program.id}/steps`).then(r => r.json()).then(s => { setSteps(s); setLoading(false); }).catch(() => setLoading(false));
+  }, [program.id]);
+
+  async function saveSettings() {
+    setSaving(true);
+    const res = await fetch(`${API}/program-targets/${program.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name,
+        description: form.description,
+        tutorInstructions: form.tutorInstructions,
+        promptHierarchy: form.promptHierarchy,
+        currentPromptLevel: form.currentPromptLevel,
+        autoProgressEnabled: form.autoProgressEnabled,
+        masteryCriterionPercent: form.masteryCriterionPercent,
+        masteryCriterionSessions: form.masteryCriterionSessions,
+        regressionThreshold: form.regressionThreshold,
+        regressionSessions: form.regressionSessions,
+        reinforcementSchedule: form.reinforcementSchedule,
+        reinforcementType: form.reinforcementType,
+      }),
+    });
+    if (res.ok) { onSaved(); }
+    setSaving(false);
+  }
+
+  async function addStep() {
+    if (!newStepName.trim()) return;
+    const res = await fetch(`${API}/program-targets/${program.id}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null }),
+    });
+    if (res.ok) {
+      const step = await res.json();
+      setSteps(prev => [...prev, step]);
+      setNewStepName(""); setNewStepSd(""); setNewStepResponse("");
+    }
+  }
+
+  const allPrompts = ["full_physical","partial_physical","model","gestural","verbal","independent"];
+  const hierarchy = form.promptHierarchy ?? allPrompts;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl my-auto max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-slate-100 p-4 md:p-5 flex items-center justify-between z-10">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">{program.name}</h2>
+            <p className="text-xs text-slate-400">{program.domain || "General"} · {program.programType === "discrete_trial" ? "Discrete Trial" : "Task Analysis"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setEditMode(!editMode)}>
+              <Settings2 className="w-3.5 h-3.5 mr-1" /> {editMode ? "View" : "Edit"}
+            </Button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+
+        <div className="p-4 md:p-5 space-y-5">
+          {editMode ? (
+            <>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Program Name</label>
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
+                  <textarea value={form.tutorInstructions ?? ""} onChange={e => setForm({ ...form, tutorInstructions: e.target.value })}
+                    rows={3} placeholder="Detailed instructions for the tutor..."
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[12px] font-medium text-slate-500 mb-2 block">Prompt Hierarchy (drag to reorder)</label>
+                <div className="space-y-1">
+                  {hierarchy.map((level, idx) => {
+                    const info = PROMPT_LABELS[level];
+                    return (
+                      <div key={level} className={`flex items-center gap-2 p-2 rounded-lg border ${form.currentPromptLevel === level ? "border-indigo-300 bg-indigo-50" : "border-slate-100"}`}>
+                        <span className="text-[11px] text-slate-400 w-5">{idx + 1}</span>
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${info?.color ?? "bg-slate-100"}`}>{info?.label ?? level}</span>
+                        {form.currentPromptLevel === level && <span className="text-[10px] text-indigo-600 font-medium ml-auto">Current Level</span>}
+                        <button className="text-[10px] text-indigo-600 ml-auto hover:text-indigo-800"
+                          onClick={() => setForm({ ...form, currentPromptLevel: level })}>Set Current</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Mastery %</label>
+                  <input type="number" value={form.masteryCriterionPercent ?? 80} onChange={e => setForm({ ...form, masteryCriterionPercent: parseInt(e.target.value) || 80 })}
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Mastery Sessions</label>
+                  <input type="number" value={form.masteryCriterionSessions ?? 3} onChange={e => setForm({ ...form, masteryCriterionSessions: parseInt(e.target.value) || 3 })}
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Regression %</label>
+                  <input type="number" value={form.regressionThreshold ?? 50} onChange={e => setForm({ ...form, regressionThreshold: parseInt(e.target.value) || 50 })}
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-slate-500">Regression Sessions</label>
+                  <input type="number" value={form.regressionSessions ?? 2} onChange={e => setForm({ ...form, regressionSessions: parseInt(e.target.value) || 2 })}
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.autoProgressEnabled ?? true}
+                    onChange={e => setForm({ ...form, autoProgressEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300" />
+                  <span className="text-[12px] text-slate-600">Auto-progress through prompt hierarchy</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="text-[12px] font-medium text-slate-500">Reinforcement Schedule</label>
+                <select value={form.reinforcementSchedule ?? "continuous"} onChange={e => setForm({ ...form, reinforcementSchedule: e.target.value })}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  {REINFORCEMENT_SCHEDULES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setEditMode(false)} className="text-[12px]">Cancel</Button>
+                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={saveSettings} disabled={saving}>
+                  <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Settings"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {program.tutorInstructions && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[12px] text-amber-800">
+                  <BookOpen className="w-4 h-4 inline mr-1.5" /> <strong>Tutor Instructions:</strong> {program.tutorInstructions}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-slate-400">Prompt Level</p>
+                  <p className={`text-sm font-bold mt-1 ${PROMPT_LABELS[program.currentPromptLevel ?? "verbal"]?.color?.split(" ")[1] ?? "text-slate-600"}`}>
+                    {PROMPT_LABELS[program.currentPromptLevel ?? "verbal"]?.label ?? program.currentPromptLevel}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-slate-400">Mastery</p>
+                  <p className="text-sm font-bold text-slate-600 mt-1">{program.masteryCriterionPercent ?? 80}% x{program.masteryCriterionSessions ?? 3}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-slate-400">Reinforcement</p>
+                  <p className="text-sm font-bold text-slate-600 mt-1 capitalize">{(program.reinforcementSchedule ?? "continuous").replace(/_/g, " ")}</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 text-center">
+                  <p className="text-[10px] text-slate-400">Auto-Progress</p>
+                  <p className={`text-sm font-bold mt-1 ${program.autoProgressEnabled ? "text-emerald-600" : "text-slate-400"}`}>
+                    {program.autoProgressEnabled ? "On" : "Off"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-slate-600">Program Steps ({steps.length})</h3>
+                </div>
+                {loading ? (
+                  <Skeleton className="h-32 w-full" />
+                ) : steps.length === 0 ? (
+                  <p className="text-[12px] text-slate-400 py-4 text-center">No steps defined. Add steps below.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {steps.map(s => (
+                      <div key={s.id} className={`flex items-center gap-3 p-2.5 md:p-3 rounded-lg border ${s.mastered ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-100"}`}>
+                        <span className="text-sm font-bold text-slate-400 w-6 text-center">{s.stepNumber}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-slate-700 truncate">{s.name}</p>
+                          {s.sdInstruction && <p className="text-[11px] text-slate-400 truncate">SD: "{s.sdInstruction}"</p>}
+                          {s.targetResponse && <p className="text-[11px] text-slate-400 truncate">R: {s.targetResponse}</p>}
+                        </div>
+                        {s.mastered && <span className="text-[10px] font-semibold text-emerald-600 px-1.5 py-0.5 bg-emerald-100 rounded">Mastered</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3 border border-dashed border-slate-200 rounded-lg p-3 space-y-2">
+                  <p className="text-[11px] font-medium text-slate-500">Add Step</p>
+                  <input value={newStepName} onChange={e => setNewStepName(e.target.value)} placeholder="Step name (e.g., Touch red)"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={newStepSd} onChange={e => setNewStepSd(e.target.value)} placeholder="SD instruction"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    <input value={newStepResponse} onChange={e => setNewStepResponse(e.target.value)} placeholder="Target response"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  </div>
+                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={addStep} disabled={!newStepName.trim()}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Step
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -415,6 +1143,8 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
   const [baselineValue, setBaselineValue] = useState("");
   const [goalValue, setGoalValue] = useState("");
   const [description, setDescription] = useState("");
+  const [enableHourly, setEnableHourly] = useState(false);
+  const [intervalLen, setIntervalLen] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -427,6 +1157,8 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
         name: name.trim(), description: description || null, measurementType, targetDirection,
         baselineValue: baselineValue ? parseFloat(baselineValue) : null,
         goalValue: goalValue ? parseFloat(goalValue) : null,
+        enableHourlyTracking: enableHourly,
+        intervalLengthSeconds: intervalLen ? parseInt(intervalLen) : null,
       }),
     });
     if (res.ok) onSaved();
@@ -434,8 +1166,8 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[16px] font-bold text-slate-800">Add Behavior Target</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
@@ -444,27 +1176,28 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
           <div>
             <label className="text-[12px] font-medium text-slate-500">Behavior Name *</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elopement, Aggression"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Description</label>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Operational definition"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[12px] font-medium text-slate-500">Measurement</label>
               <select value={measurementType} onChange={e => setMeasurementType(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
                 <option value="frequency">Frequency (count)</option>
-                <option value="interval">Interval (% of intervals)</option>
+                <option value="interval">Interval (%)</option>
                 <option value="percentage">Percentage</option>
+                <option value="duration">Duration (sec)</option>
               </select>
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Direction</label>
               <select value={targetDirection} onChange={e => setTargetDirection(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
                 <option value="decrease">Decrease</option>
                 <option value="increase">Increase</option>
               </select>
@@ -474,18 +1207,29 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
             <div>
               <label className="text-[12px] font-medium text-slate-500">Baseline Value</label>
               <input type="number" value={baselineValue} onChange={e => setBaselineValue(e.target.value)} placeholder="e.g. 12"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Goal Value</label>
               <input type="number" value={goalValue} onChange={e => setGoalValue(e.target.value)} placeholder="e.g. 2"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
           </div>
+          {measurementType === "interval" && (
+            <div>
+              <label className="text-[12px] font-medium text-slate-500">Interval Length (seconds)</label>
+              <input type="number" value={intervalLen} onChange={e => setIntervalLen(e.target.value)} placeholder="e.g. 30"
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+            </div>
+          )}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={enableHourly} onChange={e => setEnableHourly(e.target.checked)} className="w-4 h-4 rounded border-slate-300" />
+            <span className="text-[12px] text-slate-600">Enable hourly tracking breakdown</span>
+          </label>
         </div>
         <div className="flex justify-end gap-2 mt-5">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-[12px]">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" disabled={!name.trim() || saving} onClick={save}>
+          <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
+          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Target"}
           </Button>
         </div>
@@ -494,12 +1238,17 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
   );
 }
 
-function AddProgramModal({ studentId, onClose, onSaved }: { studentId: number; onClose: () => void; onSaved: () => void }) {
+function AddProgramModal({ studentId, templates, onClose, onSaved }: {
+  studentId: number; templates: ProgramTemplate[]; onClose: () => void; onSaved: () => void;
+}) {
+  const [mode, setMode] = useState<"manual" | "template">("manual");
   const [name, setName] = useState("");
   const [programType, setProgramType] = useState("discrete_trial");
-  const [targetCriterion, setTargetCriterion] = useState("");
   const [domain, setDomain] = useState("");
   const [description, setDescription] = useState("");
+  const [tutorInstructions, setTutorInstructions] = useState("");
+  const [masteryPct, setMasteryPct] = useState("80");
+  const [masterySessions, setMasterySessions] = useState("3");
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -510,58 +1259,110 @@ function AddProgramModal({ studentId, onClose, onSaved }: { studentId: number; o
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: name.trim(), description: description || null, programType,
-        targetCriterion: targetCriterion || null, domain: domain || null,
+        domain: domain || null, tutorInstructions: tutorInstructions || null,
+        masteryCriterionPercent: parseInt(masteryPct) || 80,
+        masteryCriterionSessions: parseInt(masterySessions) || 3,
+        targetCriterion: `${masteryPct}% across ${masterySessions} sessions`,
       }),
     });
     if (res.ok) onSaved();
     setSaving(false);
   }
 
+  async function cloneTemplate(templateId: number) {
+    setSaving(true);
+    const res = await fetch(`${API}/program-templates/${templateId}/clone-to-student`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    if (res.ok) onSaved();
+    setSaving(false);
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[16px] font-bold text-slate-800">Add Skill Program</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-3">
-          <div>
-            <label className="text-[12px] font-medium text-slate-500">Program Name *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Receptive ID: Colors"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setMode("manual")} className={`px-3 py-1.5 rounded-full text-[12px] font-medium ${mode === "manual" ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200"}`}>
+            Create Manually
+          </button>
+          <button onClick={() => setMode("template")} className={`px-3 py-1.5 rounded-full text-[12px] font-medium ${mode === "template" ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200"}`}>
+            From Template
+          </button>
+        </div>
+
+        {mode === "template" ? (
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {templates.filter(t => t.category === "academic").map(t => (
+              <button key={t.id} onClick={() => cloneTemplate(t.id)} disabled={saving}
+                className="w-full text-left p-3 rounded-lg border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                <p className="text-[13px] font-semibold text-slate-700">{t.name}</p>
+                <p className="text-[11px] text-slate-400">{t.domain} · {(t.steps as any[])?.length ?? 0} steps · Mastery {t.defaultMasteryPercent}%</p>
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="text-[12px] font-medium text-slate-500">Description</label>
-            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What the student will demonstrate"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        ) : (
+          <div className="space-y-3">
             <div>
-              <label className="text-[12px] font-medium text-slate-500">Program Type</label>
-              <select value={programType} onChange={e => setProgramType(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                <option value="discrete_trial">Discrete Trial (DTT)</option>
-                <option value="task_analysis">Task Analysis</option>
-              </select>
+              <label className="text-[12px] font-medium text-slate-500">Program Name *</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Receptive ID: Colors"
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
             <div>
-              <label className="text-[12px] font-medium text-slate-500">Domain</label>
-              <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="e.g. Language"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              <label className="text-[12px] font-medium text-slate-500">Description</label>
+              <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What the student will demonstrate"
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] font-medium text-slate-500">Type</label>
+                <select value={programType} onChange={e => setProgramType(e.target.value)}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  <option value="discrete_trial">Discrete Trial (DTT)</option>
+                  <option value="task_analysis">Task Analysis</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-slate-500">Domain</label>
+                <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="e.g. Language"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
+              <textarea value={tutorInstructions} onChange={e => setTutorInstructions(e.target.value)}
+                rows={2} placeholder="Instructions for the tutor..."
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] font-medium text-slate-500">Mastery %</label>
+                <input type="number" value={masteryPct} onChange={e => setMasteryPct(e.target.value)} placeholder="80"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-slate-500">Sessions Required</label>
+                <input type="number" value={masterySessions} onChange={e => setMasterySessions(e.target.value)} placeholder="3"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
             </div>
           </div>
-          <div>
-            <label className="text-[12px] font-medium text-slate-500">Mastery Criterion</label>
-            <input value={targetCriterion} onChange={e => setTargetCriterion(e.target.value)} placeholder="e.g. 80% across 3 consecutive sessions"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+        )}
+
+        {mode === "manual" && (
+          <div className="flex justify-end gap-2 mt-5">
+            <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
+              <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Program"}
+            </Button>
           </div>
-        </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-[12px]">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" disabled={!name.trim() || saving} onClick={save}>
-            <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Program"}
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -576,16 +1377,16 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
   const [endTime, setEndTime] = useState("10:00");
   const [notes, setNotes] = useState("");
   const [behaviorValues, setBehaviorValues] = useState<Record<number, string>>({});
-  const [programValues, setProgramValues] = useState<Record<number, { correct: string; total: string; prompted: string }>>({});
+  const [programValues, setProgramValues] = useState<Record<number, { correct: string; total: string; prompted: string; promptLevel: string }>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const bv: Record<number, string> = {};
     behaviorTargets.forEach(bt => { bv[bt.id] = ""; });
     setBehaviorValues(bv);
-    const pv: Record<number, { correct: string; total: string; prompted: string }> = {};
+    const pv: Record<number, { correct: string; total: string; prompted: string; promptLevel: string }> = {};
     programTargets.forEach(pt => {
-      pv[pt.id] = { correct: "", total: pt.programType === "discrete_trial" ? "10" : "8", prompted: "" };
+      pv[pt.id] = { correct: "", total: pt.programType === "discrete_trial" ? "10" : "8", prompted: "", promptLevel: pt.currentPromptLevel ?? "verbal" };
     });
     setProgramValues(pv);
   }, [behaviorTargets, programTargets]);
@@ -608,6 +1409,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
         trialsCorrect: parseInt(programValues[pt.id].correct) || 0,
         trialsTotal: parseInt(programValues[pt.id].total) || 10,
         prompted: parseInt(programValues[pt.id].prompted) || 0,
+        promptLevelUsed: programValues[pt.id].promptLevel,
       }));
 
     const res = await fetch(`${API}/students/${studentId}/data-sessions`, {
@@ -620,29 +1422,29 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={onClose}>
-      <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl my-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-lg shadow-xl my-auto max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[16px] font-bold text-slate-800">Log Data Session</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-[12px] font-medium text-slate-500">Date *</label>
               <input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Start</label>
               <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">End</label>
               <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
             </div>
           </div>
 
@@ -662,7 +1464,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                       type="number" min="0" placeholder="Value"
                       value={behaviorValues[bt.id] ?? ""}
                       onChange={e => setBehaviorValues({ ...behaviorValues, [bt.id]: e.target.value })}
-                      className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      className="w-20 border border-slate-200 rounded-lg px-2 py-2 md:py-1.5 text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200"
                     />
                   </div>
                 ))}
@@ -680,7 +1482,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                   <div key={pt.id} className="bg-slate-50 rounded-lg p-2.5">
                     <p className="text-[13px] font-medium text-slate-700">{pt.name}</p>
                     <p className="text-[10px] text-slate-400 mb-1.5">
-                      {pt.programType === "discrete_trial" ? "DTT" : "Task Analysis"}
+                      {pt.programType === "discrete_trial" ? "DTT" : "Task Analysis"} · {PROMPT_LABELS[programValues[pt.id]?.promptLevel ?? "verbal"]?.label ?? "Verbal"}
                     </p>
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
@@ -688,7 +1490,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                         <input type="number" min="0" placeholder="0"
                           value={programValues[pt.id]?.correct ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], correct: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
                       </div>
                       <span className="text-slate-400 text-[12px] mt-3">/</span>
                       <div className="flex-1">
@@ -696,14 +1498,14 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                         <input type="number" min="1" placeholder="10"
                           value={programValues[pt.id]?.total ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], total: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
                       </div>
                       <div className="flex-1">
                         <label className="text-[10px] text-slate-400">Prompted</label>
                         <input type="number" min="0" placeholder="0"
                           value={programValues[pt.id]?.prompted ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], prompted: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
                       </div>
                     </div>
                   </div>
@@ -715,13 +1517,13 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
           <div>
             <label className="text-[12px] font-medium text-slate-500">Session Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional notes..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-[12px]">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" disabled={saving} onClick={save}>
+          <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
+          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={saving} onClick={save}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Session"}
           </Button>
         </div>
@@ -729,5 +1531,3 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
     </div>
   );
 }
-
-const API_BASE = "/api";

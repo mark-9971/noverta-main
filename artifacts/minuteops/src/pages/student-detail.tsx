@@ -71,28 +71,26 @@ export default function StudentDetail() {
   }
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-8">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
       <div>
         <Link href="/students" className="text-indigo-600 text-sm flex items-center gap-1.5 mb-4 hover:text-indigo-700">
           <ArrowLeft className="w-4 h-4" /> All Students
         </Link>
 
         {s ? (
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 text-lg font-bold" aria-hidden="true">
+          <div className="flex items-center gap-3 md:gap-5 flex-wrap">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 text-base md:text-lg font-bold flex-shrink-0" aria-hidden="true">
               {s.firstName?.[0]}{s.lastName?.[0]}
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">{s.firstName} {s.lastName}</h1>
-              <p className="text-sm text-slate-400 mt-0.5">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-slate-800 truncate">{s.firstName} {s.lastName}</h1>
+              <p className="text-xs md:text-sm text-slate-400 mt-0.5 truncate">
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
               </p>
             </div>
-            <div className="ml-auto">
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
-                {riskCfg.label}
-              </span>
-            </div>
+            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color} flex-shrink-0`}>
+              {riskCfg.label}
+            </span>
           </div>
         ) : (
           <div className="flex items-center gap-5">
@@ -105,9 +103,9 @@ export default function StudentDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
-          <CardContent className="p-5 flex items-center gap-4">
+          <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
             <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
             <div>
               <p className="text-2xl font-bold text-slate-800">{overallPct}%</p>
@@ -216,38 +214,56 @@ export default function StudentDetail() {
         </CardHeader>
         <CardContent className="pt-4">
           {recentSessions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Date</th>
-                    <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Service</th>
-                    <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Provider</th>
-                    <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Duration</th>
-                    <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {recentSessions.map((se: any) => (
-                    <tr key={se.id} className="hover:bg-slate-50/50">
-                      <td className="py-2.5 text-[13px] text-slate-600">{formatDate(se.sessionDate)}</td>
-                      <td className="py-2.5 text-[13px] text-slate-600">{se.serviceTypeName ?? "—"}</td>
-                      <td className="py-2.5 text-[13px] text-slate-500">{se.staffName ?? "—"}</td>
-                      <td className="py-2.5 text-[13px] text-slate-600">{se.durationMinutes ?? "—"} min</td>
-                      <td className="py-2.5">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                          se.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-                          se.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
-                        }`}>
-                          {se.status === "completed" ? <CheckCircle className="w-3 h-3" /> : se.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
-                          {se.isMakeup ? "Makeup" : se.status}
-                        </span>
-                      </td>
+            <>
+              <div className="md:hidden space-y-2">
+                {recentSessions.map((se: any) => (
+                  <div key={se.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-slate-700 truncate">{se.serviceTypeName ?? "—"}</p>
+                      <p className="text-[11px] text-slate-400">{formatDate(se.sessionDate)} · {se.durationMinutes ?? "—"} min · {se.staffName ?? "—"}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
+                      se.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                      se.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {se.isMakeup ? "Makeup" : se.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Date</th>
+                      <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Service</th>
+                      <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Provider</th>
+                      <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Duration</th>
+                      <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {recentSessions.map((se: any) => (
+                      <tr key={se.id} className="hover:bg-slate-50/50">
+                        <td className="py-2.5 text-[13px] text-slate-600">{formatDate(se.sessionDate)}</td>
+                        <td className="py-2.5 text-[13px] text-slate-600">{se.serviceTypeName ?? "—"}</td>
+                        <td className="py-2.5 text-[13px] text-slate-500">{se.staffName ?? "—"}</td>
+                        <td className="py-2.5 text-[13px] text-slate-600">{se.durationMinutes ?? "—"} min</td>
+                        <td className="py-2.5">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                            se.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                            se.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {se.status === "completed" ? <CheckCircle className="w-3 h-3" /> : se.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
+                            {se.isMakeup ? "Makeup" : se.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="py-8 text-center text-sm text-slate-400">No sessions recorded yet.</div>
           )}

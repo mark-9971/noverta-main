@@ -37,11 +37,13 @@ MinuteOps is a production-quality school special education and ABA service deliv
 - `staff_assignments` — Staff-to-student assignments
 - `missed_reasons` — Lookup table for missed session reasons
 - `alerts` — Compliance alerts with severity levels
-- `behavior_targets` — ABA behavior reduction targets per student (frequency/interval/percentage measurement)
-- `program_targets` — Skill acquisition programs per student (discrete trial/task analysis)
+- `behavior_targets` — ABA behavior reduction targets per student (frequency/interval/percentage/duration measurement, hourly tracking option)
+- `program_targets` — Skill acquisition programs per student (discrete trial/task analysis) with prompt hierarchy (JSONB), auto-progression settings, mastery/regression criteria, reinforcement schedule/type, tutor instructions
+- `program_steps` — Discrete trial steps within a program target (SD instruction, target response, materials, prompt strategy, error correction), unique index on (program_target_id, step_number)
+- `program_templates` — Global/local reusable program templates with steps (JSONB), default mastery/regression settings, prompt hierarchies; 8 global templates seeded
 - `data_sessions` — Data collection sessions linking staff, student, date/time
-- `behavior_data` — Per-session behavior measurements (value, interval counts)
-- `program_data` — Per-session program trial data (trials correct/total, prompted, percent correct)
+- `behavior_data` — Per-session behavior measurements (value, interval counts, hour block for hourly tracking)
+- `program_data` — Per-session program trial data (trials correct/total, prompted, percent correct, prompt level used)
 
 ### API Routes
 All routes prefixed with `/api/`:
@@ -63,11 +65,15 @@ All routes prefixed with `/api/`:
 - `/imports/students` — POST bulk student import from CSV
 - `/imports/service-requirements` — POST bulk IEP service requirement import from CSV
 - `/imports/sessions` — POST bulk session log import from CSV
-- `/students/:id/behavior-targets` — GET/POST behavior reduction targets for a student
-- `/behavior-targets/:id` — PATCH update behavior target (deactivate, update goal, etc.)
-- `/students/:id/program-targets` — GET/POST skill acquisition programs for a student
-- `/program-targets/:id` — PATCH update program target
-- `/students/:id/data-sessions` — GET/POST data collection sessions (with nested behavior + program data)
+- `/students/:id/behavior-targets` — GET/POST behavior reduction targets (frequency/interval/percentage/duration, hourly tracking)
+- `/behavior-targets/:id` — PATCH update behavior target
+- `/students/:id/program-targets` — GET/POST skill acquisition programs with prompt hierarchy, auto-progression, mastery/regression criteria
+- `/program-targets/:id` — PATCH update program target (settings, prompt level, etc.)
+- `/program-targets/:id/steps` — GET/POST discrete trial steps for a program
+- `/program-steps/:id` — PATCH/DELETE individual steps
+- `/program-templates` — GET/POST program templates (global library)
+- `/program-templates/:id/clone-to-student` — POST clone template as new program target with all steps
+- `/students/:id/data-sessions` — GET/POST data collection sessions (with nested behavior + program data, auto-progression check on save)
 - `/data-sessions/:id` — GET detailed data session with all behavior and program data
 - `/students/:id/behavior-data/trends` — GET time-series behavior data for charting
 - `/students/:id/program-data/trends` — GET time-series program data for charting
@@ -83,7 +89,12 @@ All routes prefixed with `/api/`:
 - `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars
 - `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
 - `/import` — Bulk CSV import page with drag-and-drop upload, data preview, template downloads (MinuteOps standard, Aspen X2, eSPED), import history, support for students/IEP requirements/session logs
-- `/program-data` — ABA program data tracking: behavior targets (frequency/interval/percentage), skill acquisition programs (DTT/task analysis), data collection sessions with inline data entry, trend visualization over time with Recharts line charts and goal reference lines
+- `/program-data` — ABA program data page with 5 tabs:
+  - **Data Collection**: Live session timer, frequency counter for behaviors (+/- buttons), one-tap discrete trial recording (Correct/Prompted/Incorrect), prompt level selector (FP/PP/M/G/V/I), undo with trial history, session save
+  - **Behavior Targets**: Cards with baseline/current/goal, trend charts, improving/worsening badges, add behavior modal with measurement type/direction/hourly options
+  - **Skill Programs**: Cards with last/avg3/mastery %, prompt level badge, auto-progress indicators, detail modal with step editor, mastery/regression/reinforcement settings
+  - **Data Sessions**: Manual session logging with behavior + program data entry per target
+  - **Template Library**: 8 global templates (DTT + Task Analysis), filter by category, one-click clone to student with all steps
 
 ### UI Components
 - `ProgressRing` — Circular SVG progress indicator (configurable size, stroke, color, label)
