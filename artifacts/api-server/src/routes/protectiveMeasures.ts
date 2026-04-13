@@ -931,6 +931,11 @@ router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (
     .where(and(eq(incidentSignaturesTable.id, sigId), eq(incidentSignaturesTable.incidentId, incidentId)));
   if (!existing) { res.status(404).json({ error: "Signature request not found" }); return; }
 
+  if (existing.status !== "pending") {
+    res.status(400).json({ error: "Signature has already been completed" });
+    return;
+  }
+
   const now = new Date().toISOString();
   const [updated] = await db.update(incidentSignaturesTable).set({
     signatureName,
@@ -938,6 +943,13 @@ router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (
     status: "signed",
     notes: notes || existing.notes,
   }).where(eq(incidentSignaturesTable.id, sigId)).returning();
+
+  if (existing.role === "reporting_staff") {
+    await db.update(restraintIncidentsTable).set({
+      reportingStaffSignature: signatureName,
+      reportingStaffSignedAt: now,
+    }).where(eq(restraintIncidentsTable.id, incidentId));
+  }
 
   if (existing.role === "admin_reviewer") {
     const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
@@ -962,8 +974,19 @@ router.post("/protective-measures/incidents/:id/signatures/request", async (req:
   const { staffId, role } = req.body;
   if (!staffId || !role) { res.status(400).json({ error: "staffId and role required" }); return; }
 
-  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
-  if (!existing) { res.status(404).json({ error: "Incident not found" }); return; }
+  const [existingIncident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
+  if (!existingIncident) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const [existingSig] = await db.select().from(incidentSignaturesTable)
+    .where(and(
+      eq(incidentSignaturesTable.incidentId, incidentId),
+      eq(incidentSignaturesTable.staffId, Number(staffId)),
+      eq(incidentSignaturesTable.role, role),
+    ));
+  if (existingSig) {
+    res.status(409).json({ error: "Signature request already exists for this staff member and role", existing: existingSig });
+    return;
+  }
 
   const now = new Date().toISOString();
   const [sig] = await db.insert(incidentSignaturesTable).values({
