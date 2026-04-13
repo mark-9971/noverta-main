@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart,
-  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles
+  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles,
+  Timer, Clipboard
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -20,18 +21,24 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/students", label: "Students", icon: Users, primary: true },
-      { href: "/sessions", label: "Sessions", icon: BookOpen, primary: true },
-      { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
   {
-    label: "Compliance",
+    label: "Service Delivery",
     items: [
-      { href: "/program-data", label: "Program Data", icon: Activity, primary: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/compliance", label: "Service Minutes", icon: Timer },
+    ],
+  },
+  {
+    label: "Clinical & IEP",
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
+      { href: "/search", label: "IEP Search", icon: Search },
     ],
   },
   {
@@ -42,13 +49,12 @@ const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Tools",
+    label: "Reports & Admin",
     items: [
-      { href: "/analytics", label: "Analytics", icon: PieChart, primary: true },
+      { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/staff", label: "Staff", icon: UserCheck },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/import", label: "Import", icon: Upload },
+      { href: "/staff", label: "Staff Directory", icon: UserCheck },
+      { href: "/import", label: "Data Import", icon: Upload },
     ],
   },
 ];
@@ -58,25 +64,30 @@ const spedTeacherNav: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/students", label: "My Students", icon: Users, primary: true },
-      { href: "/sessions", label: "Sessions", icon: BookOpen, primary: true },
-      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
   {
-    label: "Clinical",
+    label: "Service Delivery",
     items: [
-      { href: "/program-data", label: "Program Data", icon: Activity },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/compliance", label: "Service Minutes", icon: Timer },
     ],
   },
   {
-    label: "Tools",
+    label: "Clinical & IEP",
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
+      { href: "/search", label: "IEP Search", icon: Search },
+    ],
+  },
+  {
+    label: "Insights",
     items: [
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/search", label: "IEP Search", icon: Search },
     ],
   },
 ];

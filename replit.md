@@ -36,7 +36,7 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 - `announcements` — class or school-wide announcements
 
 **Role-Based Views:**
-- **Admin:** Full access to compliance, special ed, gen ed, analytics. Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/analytics`, etc.
+- **Admin:** Full access to compliance, special ed, gen ed, analytics. Sidebar organized by workflow priority: top-level (Dashboard, Students, Alerts), Service Delivery (Sessions, Schedule, Service Minutes), Clinical & IEP (Programs & Behaviors, IEP Suggestions, Restraint & Seclusion, IEP Search), Academics (Classes, Gradebook), Reports & Admin (Analytics, Reports, Staff Directory, Data Import). Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/analytics`, etc.
 - **Teacher:** Class management, gradebook, assignments, student roster, grading interface. Routes: `/teacher`, `/teacher/classes`, `/teacher/gradebook`, `/teacher/assignments`, etc.
 - **Student:** Dashboard with GPA/assignments, class list, assignment submission, grade transcript. Routes: `/portal`, `/portal/classes`, `/portal/assignments`, `/portal/grades`
 
