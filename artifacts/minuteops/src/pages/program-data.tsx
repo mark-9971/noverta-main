@@ -6,8 +6,12 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import {
   TrendingDown, TrendingUp, Target, Plus, Activity, GraduationCap, X, Save,
   Calendar, ChevronRight, ChevronDown, ChevronUp, Copy, Settings2, Timer, Minus, Check, RotateCcw,
-  BookOpen, Layers, Play, Pause, ArrowUp, ArrowDown, Hand, Eye, Mic, Sparkles, Hash, Percent, Clock
+  BookOpen, Layers, Play, Pause, ArrowUp, ArrowDown, Hand, Eye, Mic, Sparkles, Hash, Percent, Clock,
+  Wand2, FileUp
 } from "lucide-react";
+import ProgramBuilderWizard from "@/components/program-builder/ProgramBuilderWizard";
+import TemplateManager from "@/components/program-builder/TemplateManager";
+import SaveAsTemplateModal from "@/components/program-builder/SaveAsTemplateModal";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine, BarChart, Bar
@@ -97,6 +101,10 @@ export default function ProgramDataPage() {
   const [showAddProgram, setShowAddProgram] = useState(false);
   const [showLogSession, setShowLogSession] = useState(false);
   const [editingProgram, setEditingProgram] = useState<ProgramTarget | null>(null);
+  const [showProgramBuilder, setShowProgramBuilder] = useState(false);
+  const [builderEditProgram, setBuilderEditProgram] = useState<ProgramTarget | null>(null);
+  const [builderEditSteps, setBuilderEditSteps] = useState<any[]>([]);
+  const [saveAsTemplateProgram, setSaveAsTemplateProgram] = useState<ProgramTarget | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -336,12 +344,17 @@ export default function ProgramDataPage() {
                 </CardContent>
               </Card>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-sm font-semibold text-slate-600">Active Skill Programs</h3>
-                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
-                  onClick={() => setShowAddProgram(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Program
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAddProgram(true)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Quick Add
+                  </Button>
+                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+                    onClick={() => setShowProgramBuilder(true)}>
+                    <Wand2 className="w-3.5 h-3.5 mr-1" /> Program Builder
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -354,13 +367,13 @@ export default function ProgramDataPage() {
                   const promptInfo = PROMPT_LABELS[pt.currentPromptLevel ?? "verbal"];
 
                   return (
-                    <Card key={pt.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => setEditingProgram(pt)}>
+                    <Card key={pt.id} className="hover:shadow-sm transition-shadow">
                       <CardContent className="p-3.5 md:p-4">
                         <div className="flex items-start justify-between mb-2 gap-2">
-                          <div className="min-w-0">
+                          <div className="min-w-0 cursor-pointer" onClick={() => setEditingProgram(pt)}>
                             <p className="text-[14px] font-semibold text-slate-700 truncate">{pt.name}</p>
                             <p className="text-[11px] text-slate-400 mt-0.5">
-                              {pt.programType === "discrete_trial" ? "DTT" : "Task Analysis"} · {pt.domain || "General"}
+                              {pt.programType === "discrete_trial" ? "DTT" : pt.programType === "task_analysis" ? "Task Analysis" : pt.programType === "natural_environment" ? "NET" : pt.programType === "fluency" ? "Fluency" : pt.programType} · {pt.domain || "General"}
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -376,18 +389,18 @@ export default function ProgramDataPage() {
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-3">
-                          <div className="bg-slate-50 rounded-lg p-2 text-center">
+                        <div className="grid grid-cols-3 gap-2 mt-3" onClick={() => setEditingProgram(pt)}>
+                          <div className="bg-slate-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-slate-400">Last</p>
                             <p className="text-[15px] font-bold text-indigo-600">{lastPct != null ? `${lastPct}%` : "—"}</p>
                           </div>
-                          <div className="bg-slate-50 rounded-lg p-2 text-center">
+                          <div className="bg-slate-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-slate-400">Avg 3</p>
                             <p className={`text-[15px] font-bold ${(avgLast3 ?? 0) >= (pt.masteryCriterionPercent ?? 80) ? "text-emerald-600" : "text-slate-600"}`}>
                               {avgLast3 != null ? `${avgLast3}%` : "—"}
                             </p>
                           </div>
-                          <div className="bg-slate-50 rounded-lg p-2 text-center">
+                          <div className="bg-slate-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-slate-400">Mastery</p>
                             <p className="text-[15px] font-bold text-slate-600">{pt.masteryCriterionPercent ?? 80}%</p>
                           </div>
@@ -400,7 +413,22 @@ export default function ProgramDataPage() {
                             <span className="text-[10px] text-slate-400">Regress &lt;{pt.regressionThreshold ?? 50}% x{pt.regressionSessions ?? 2}</span>
                           </div>
                         )}
-                        <p className="text-[11px] text-slate-400 mt-1">{data.length} data points · Tap to edit</p>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                          <p className="text-[11px] text-slate-400">{data.length} data points</p>
+                          <div className="flex gap-1">
+                            <button onClick={() => {
+                              fetch(`${API}/program-targets/${pt.id}/steps`).then(r => r.json()).then(s => {
+                                setBuilderEditProgram(pt); setBuilderEditSteps(s);
+                              });
+                            }} className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium px-1.5 py-0.5 rounded hover:bg-indigo-50">
+                              <Wand2 className="w-3 h-3 inline mr-0.5" /> Builder
+                            </button>
+                            <button onClick={() => setSaveAsTemplateProgram(pt)}
+                              className="text-[10px] text-slate-500 hover:text-slate-700 font-medium px-1.5 py-0.5 rounded hover:bg-slate-100">
+                              <FileUp className="w-3 h-3 inline mr-0.5" /> Save Template
+                            </button>
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -420,11 +448,10 @@ export default function ProgramDataPage() {
           )}
 
           {tab === "templates" && (
-            <TemplateLibrary
-              templates={templates}
+            <TemplateManager
               studentId={selectedStudent}
               onCloned={() => loadStudentData(selectedStudent)}
-              onTemplateCreated={(t) => setTemplates(prev => [...prev, t])}
+              onTemplateUpdated={() => fetch(`${API}/program-templates`).then(r => r.json()).then(t => setTemplates(t))}
             />
           )}
         </>
@@ -459,6 +486,32 @@ export default function ProgramDataPage() {
           program={editingProgram}
           onClose={() => setEditingProgram(null)}
           onSaved={() => { setEditingProgram(null); if (selectedStudent) loadStudentData(selectedStudent); }}
+        />
+      )}
+      {showProgramBuilder && selectedStudent && student && (
+        <ProgramBuilderWizard
+          studentId={selectedStudent}
+          studentName={`${student.firstName} ${student.lastName}`}
+          onClose={() => setShowProgramBuilder(false)}
+          onSaved={() => { setShowProgramBuilder(false); if (selectedStudent) loadStudentData(selectedStudent); }}
+        />
+      )}
+      {builderEditProgram && student && (
+        <ProgramBuilderWizard
+          studentId={builderEditProgram.studentId}
+          studentName={`${student.firstName} ${student.lastName}`}
+          editingProgram={builderEditProgram}
+          existingSteps={builderEditSteps}
+          onClose={() => { setBuilderEditProgram(null); setBuilderEditSteps([]); }}
+          onSaved={() => { setBuilderEditProgram(null); setBuilderEditSteps([]); if (selectedStudent) loadStudentData(selectedStudent); }}
+        />
+      )}
+      {saveAsTemplateProgram && (
+        <SaveAsTemplateModal
+          programId={saveAsTemplateProgram.id}
+          programName={saveAsTemplateProgram.name}
+          onClose={() => setSaveAsTemplateProgram(null)}
+          onSaved={() => { setSaveAsTemplateProgram(null); fetch(`${API}/program-templates`).then(r => r.json()).then(t => setTemplates(t)); }}
         />
       )}
     </div>
