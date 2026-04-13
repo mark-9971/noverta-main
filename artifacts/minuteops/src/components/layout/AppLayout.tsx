@@ -41,8 +41,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => {
             const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
             return (
-              <Link key={item.href} href={item.href}>
-                <a className={cn(
+              <Link key={item.href} href={item.href} className={cn(
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors group",
                   isActive
                     ? "bg-indigo-600 text-white"
@@ -56,7 +55,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </Badge>
                   )}
                   {isActive && <ChevronRight className="w-3 h-3 opacity-60" />}
-                </a>
               </Link>
             );
           })}

@@ -16,7 +16,6 @@ const SEVERITY_CONFIG: Record<string, { color: string; bg: string; dot: string }
 export default function Alerts() {
   const [showResolved, setShowResolved] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<string>("all");
-  const queryClient = useQueryClient();
 
   const { data: alerts, isLoading, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false" } as any);
   const { mutateAsync: resolveAlert } = useResolveAlert();

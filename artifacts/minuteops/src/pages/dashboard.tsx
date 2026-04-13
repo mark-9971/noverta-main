@@ -42,7 +42,7 @@ function StatCard({ title, value, subtitle, icon: Icon, color = "text-slate-700"
       </CardContent>
     </Card>
   );
-  return href ? <Link href={href}><a>{content}</a></Link> : content;
+  return href ? <Link href={href}>{content}</Link> : content;
 }
 
 export default function Dashboard() {
@@ -183,9 +183,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-slate-700">Recent Alerts</CardTitle>
-            <Link href="/alerts">
-              <a className="text-xs text-indigo-600 hover:underline">View all</a>
-            </Link>
+            <Link href="/alerts" className="text-xs text-indigo-600 hover:underline">View all</Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {recent.length > 0 ? recent.map((a: any) => (
