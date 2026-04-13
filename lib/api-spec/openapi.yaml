@@ -350,6 +350,10 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
         - name: caseManagerId
           in: query
           schema:
@@ -523,6 +527,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Staff list
@@ -2558,7 +2570,15 @@ components:
           type: integer
         compliance:
           $ref: "#/components/schemas/SchoolComplianceSummary"
-      required: [id, name, studentCount, staffCount, compliance]
+        alerts:
+          type: object
+          properties:
+            total:
+              type: integer
+            critical:
+              type: integer
+          required: [total, critical]
+      required: [id, name, studentCount, staffCount, compliance, alerts]
 
     DistrictOverview:
       type: object

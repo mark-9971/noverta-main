@@ -119,7 +119,7 @@ router.get("/district-overview", async (req, res): Promise<void> => {
     return;
   }
 
-  const [studentCounts, staffCounts, alertCounts] = await Promise.all([
+  const [studentCounts, staffCounts, alertsBySchool] = await Promise.all([
     db.select({ schoolId: studentsTable.schoolId, count: count() })
       .from(studentsTable)
       .where(and(eq(studentsTable.status, "active"), inArray(studentsTable.schoolId, schoolIds)))
@@ -129,17 +129,23 @@ router.get("/district-overview", async (req, res): Promise<void> => {
       .where(and(eq(staffTable.status, "active"), inArray(staffTable.schoolId, schoolIds)))
       .groupBy(staffTable.schoolId),
     db.select({
+      schoolId: studentsTable.schoolId,
       total: count(),
       critical: sql<number>`count(*) filter (where ${alertsTable.severity} = 'critical')`,
     }).from(alertsTable)
       .innerJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
-      .where(and(eq(alertsTable.resolved, false), inArray(studentsTable.schoolId, schoolIds))),
+      .where(and(eq(alertsTable.resolved, false), inArray(studentsTable.schoolId, schoolIds)))
+      .groupBy(studentsTable.schoolId),
   ]);
 
   const studentCountMap = new Map<number, number>();
   for (const sc of studentCounts) { if (sc.schoolId != null) studentCountMap.set(sc.schoolId, sc.count); }
   const staffCountMap = new Map<number, number>();
   for (const sc of staffCounts) { if (sc.schoolId != null) staffCountMap.set(sc.schoolId, sc.count); }
+  const alertCountMap = new Map<number, { total: number; critical: number }>();
+  for (const ac of alertsBySchool) { if (ac.schoolId != null) alertCountMap.set(ac.schoolId, { total: ac.total, critical: Number(ac.critical) }); }
+  const totalAlerts = alertsBySchool.reduce((sum, a) => sum + a.total, 0);
+  const totalCritical = alertsBySchool.reduce((sum, a) => sum + Number(a.critical), 0);
 
   const allProgress = await computeAllActiveMinuteProgress();
   const studentSchoolMap = new Map<number, number>();
@@ -182,6 +188,7 @@ router.get("/district-overview", async (req, res): Promise<void> => {
     studentCount: studentCountMap.get(s.id) ?? 0,
     staffCount: staffCountMap.get(s.id) ?? 0,
     compliance: schoolCompliance.get(s.id) ?? { onTrack: 0, atRisk: 0, outOfCompliance: 0, total: 0 },
+    alerts: alertCountMap.get(s.id) ?? { total: 0, critical: 0 },
   }));
 
   const totalStudents = [...studentCountMap.values()].reduce((a, b) => a + b, 0);
@@ -192,7 +199,7 @@ router.get("/district-overview", async (req, res): Promise<void> => {
     totalStudents,
     totalStaff,
     complianceSummary: { onTrack: totalOnTrack, atRisk: totalAtRisk, outOfCompliance: totalOoc, total: totalCompliance },
-    alertsSummary: { total: alertCounts[0]?.total ?? 0, critical: alertCounts[0]?.critical ?? 0 },
+    alertsSummary: { total: totalAlerts, critical: totalCritical },
   });
 });
 

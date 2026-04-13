@@ -216,6 +216,10 @@ export const GetDistrictOverviewResponse = zod.object({
         outOfCompliance: zod.number(),
         total: zod.number(),
       }),
+      alerts: zod.object({
+        total: zod.number(),
+        critical: zod.number(),
+      }),
     }),
   ),
   totalStudents: zod.number(),
@@ -281,6 +285,7 @@ export const ListStudentsQueryParams = zod.object({
   status: zod.coerce.string().nullish(),
   programId: zod.coerce.number().nullish(),
   schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
   caseManagerId: zod.coerce.number().nullish(),
   riskStatus: zod.coerce.string().nullish(),
   grade: zod.coerce.string().nullish(),
@@ -590,6 +595,8 @@ export const GetStudentAlertsResponse = zod.array(GetStudentAlertsResponseItem);
 export const ListStaffQueryParams = zod.object({
   role: zod.coerce.string().nullish(),
   status: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
 });
 
 export const ListStaffResponseItem = zod.object({

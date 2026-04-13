@@ -31,6 +31,7 @@ export * from "./districtDetail";
 export * from "./districtOverview";
 export * from "./districtOverviewAlertsSummary";
 export * from "./districtSchoolOverview";
+export * from "./districtSchoolOverviewAlerts";
 export * from "./districtSummary";
 export * from "./errorResponse";
 export * from "./generatedSchedule";

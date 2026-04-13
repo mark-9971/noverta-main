@@ -22,6 +22,10 @@ export type ListStudentsParams = {
   /**
    * @nullable
    */
+  districtId?: number | null;
+  /**
+   * @nullable
+   */
   caseManagerId?: number | null;
   /**
    * @nullable

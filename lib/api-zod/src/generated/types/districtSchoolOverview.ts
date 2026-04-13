@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DistrictSchoolOverviewAlerts } from "./districtSchoolOverviewAlerts";
 import type { SchoolComplianceSummary } from "./schoolComplianceSummary";
 
 export interface DistrictSchoolOverview {
@@ -17,4 +18,5 @@ export interface DistrictSchoolOverview {
   studentCount: number;
   staffCount: number;
   compliance: SchoolComplianceSummary;
+  alerts: DistrictSchoolOverviewAlerts;
 }

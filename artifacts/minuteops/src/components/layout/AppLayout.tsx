@@ -12,6 +12,7 @@ import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { RoleSwitcher } from "./RoleSwitcher";
+import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 
 type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
@@ -248,6 +249,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <RoleSwitcher />
+          {(role === "admin" || role === "sped_teacher") && (
+            <div className="mt-2">
+              <SchoolDistrictSelector />
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 px-3 py-3 overflow-y-auto">

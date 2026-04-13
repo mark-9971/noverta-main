@@ -15,4 +15,12 @@ export type ListStaffParams = {
    * @nullable
    */
   status?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };

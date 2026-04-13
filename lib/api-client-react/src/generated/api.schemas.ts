@@ -800,6 +800,11 @@ export interface SchoolComplianceSummary {
   total: number;
 }
 
+export type DistrictSchoolOverviewAlerts = {
+  total: number;
+  critical: number;
+};
+
 export interface DistrictSchoolOverview {
   id: number;
   name: string;
@@ -810,6 +815,7 @@ export interface DistrictSchoolOverview {
   studentCount: number;
   staffCount: number;
   compliance: SchoolComplianceSummary;
+  alerts: DistrictSchoolOverviewAlerts;
 }
 
 export type DistrictOverviewAlertsSummary = {
@@ -849,6 +855,10 @@ export type ListStudentsParams = {
   /**
    * @nullable
    */
+  districtId?: number | null;
+  /**
+   * @nullable
+   */
   caseManagerId?: number | null;
   /**
    * @nullable
@@ -880,6 +890,14 @@ export type ListStaffParams = {
    * @nullable
    */
   status?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
 
 export type ListServiceRequirementsParams = {

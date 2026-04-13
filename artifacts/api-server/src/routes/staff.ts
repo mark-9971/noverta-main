@@ -9,7 +9,7 @@ import {
   UpdateStaffBody,
   GetStaffCaseloadParams,
 } from "@workspace/api-zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -23,6 +23,8 @@ router.get("/staff", async (req, res): Promise<void> => {
   const conditions = [];
   if (params.success && params.data.role) conditions.push(eq(staffTable.role, params.data.role));
   if (params.success && params.data.status) conditions.push(eq(staffTable.status, params.data.status));
+  if (params.success && (params.data as any).schoolId) conditions.push(eq(staffTable.schoolId, Number((params.data as any).schoolId)));
+  if (params.success && (params.data as any).districtId) conditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number((params.data as any).districtId)})`);
 
   const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;

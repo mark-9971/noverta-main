@@ -51,6 +51,7 @@ router.get("/students", async (req, res): Promise<void> => {
     if (params.data.status) conditions.push(eq(studentsTable.status, params.data.status) as any);
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)) as any);
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)) as any);
+    if ((params.data as any).districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number((params.data as any).districtId)})` as any);
     if (params.data.caseManagerId) conditions.push(eq(studentsTable.caseManagerId, Number(params.data.caseManagerId)) as any);
     if (params.data.grade) conditions.push(eq(studentsTable.grade, params.data.grade) as any);
     if ((params.data as any).type === "sped") {

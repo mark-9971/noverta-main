@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole } from "@/lib/role-context";
+import { SchoolProvider } from "@/lib/school-context";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
@@ -148,9 +149,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RoleProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppRouter />
-          </WouterRouter>
+          <SchoolProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppRouter />
+            </WouterRouter>
+          </SchoolProvider>
         </RoleProvider>
         <Toaster />
       </TooltipProvider>

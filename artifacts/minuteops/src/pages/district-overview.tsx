@@ -155,7 +155,7 @@ export default function DistrictOverview() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="grid grid-cols-3 gap-3 mb-3">
                           <div className="text-center p-2 bg-slate-50 rounded-lg">
                             <span className="text-lg font-bold text-slate-700">{school.studentCount}</span>
                             <p className="text-[10px] text-slate-400">Students</p>
@@ -163,6 +163,10 @@ export default function DistrictOverview() {
                           <div className="text-center p-2 bg-slate-50 rounded-lg">
                             <span className="text-lg font-bold text-slate-700">{school.staffCount}</span>
                             <p className="text-[10px] text-slate-400">Staff</p>
+                          </div>
+                          <div className="text-center p-2 bg-slate-50 rounded-lg">
+                            <span className={`text-lg font-bold ${school.alerts?.critical > 0 ? "text-red-600" : "text-slate-700"}`}>{school.alerts?.total ?? 0}</span>
+                            <p className="text-[10px] text-slate-400">Alerts</p>
                           </div>
                         </div>
 
