@@ -59,7 +59,7 @@ Database is seeded with realistic demo data:
 - 50 students across grades K-12 with varied disability categories
 - 18 staff (3 BCBAs, 2 SLPs, 2 OTs, 1 PT, 2 counselors, 6 paras, 2 case managers)
 - 187 IEP service requirements with staggered start/end dates
-- 8,035 session logs spanning Sep 2025-Apr 2026 with realistic durations by service type (ABA: 45-75min, OT/SLP: 20-45min, Para: 45-90min, BCBA: 15-45min), ~11% miss rate (higher in winter)
+- 12,238 session logs spanning Sep 2025-Apr 2026 with realistic durations by service type (ABA: 45-75min, OT/SLP: 20-45min, Para: 45-90min, BCBA: 15-45min), ~3% miss rate for compliant students, ~45% for 5 struggling students. Zero makeup sessions.
 - IEP documents with staggered start dates across the entire school year (Sep 2025 - Apr 2026), not all starting together
 - 42 behavior targets across 14 students with natural trend patterns (steady improvement, plateau-then-improve, regression-then-recovery)
 - 42 program targets across 14 students with varied learning curves and mastery tracking

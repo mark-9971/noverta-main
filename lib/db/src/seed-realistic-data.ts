@@ -464,12 +464,45 @@ export async function seedRealisticData() {
     cur.setDate(cur.getDate() + 1);
   }
 
+  const REALISTIC_MONTHLY: Record<number, number> = {
+    1: 240,
+    2: 90,
+    3: 90,
+    4: 120,
+    5: 300,
+    6: 90,
+    7: 90,
+    8: 120,
+  };
+
+  const struggleStudentIds = new Set([3, 12, 27, 38, 45]);
+
+  for (const sr of allSRs) {
+    let newRequired = REALISTIC_MONTHLY[sr.serviceTypeId] || 60;
+    if (struggleStudentIds.has(sr.studentId)) {
+      newRequired = Math.round(newRequired * 1.8);
+    }
+    const updates: any = { requiredMinutes: newRequired };
+    if (sr.intervalType === "weekly") {
+      updates.intervalType = "monthly";
+      sr.intervalType = "monthly";
+    }
+    sr.requiredMinutes = newRequired;
+    await db.update(serviceRequirementsTable)
+      .set(updates)
+      .where(eq(serviceRequirementsTable.id, sr.id));
+  }
+  console.log("  Adjusted service requirement minutes and intervals to realistic values");
+
+  const MIN_SESS_PER_WEEK: Record<number, number> = {
+    1: 3, 2: 2, 3: 2, 4: 2, 5: 3, 6: 2, 7: 2, 8: 2,
+  };
+
   const sessionBatch: any[] = [];
   for (const sr of allSRs) {
     const svc = SERVICE_DURATIONS[sr.serviceTypeId] || { typical: 30, min: 20, max: 45 };
-    let sessPerWeek = sr.intervalType === "weekly"
-      ? Math.max(1, Math.round(sr.requiredMinutes / svc.typical))
-      : Math.max(1, Math.round((sr.requiredMinutes / 4.3) / svc.typical));
+    const minSess = MIN_SESS_PER_WEEK[sr.serviceTypeId] || 1;
+    let sessPerWeek = Math.max(minSess, Math.round((sr.requiredMinutes / 4.3) / svc.typical));
     sessPerWeek = Math.min(sessPerWeek, 5);
 
     const preferred: number[] = [];
@@ -486,14 +519,19 @@ export async function seedRealisticData() {
     const progNames = (programTargetsByStudent[sr.studentId] || []).map(p => p.name);
     const svcGoals = goalsByStudentService[`${sr.studentId}-${sr.serviceTypeId}`] || [];
 
+    const isStruggling = struggleStudentIds.has(sr.studentId);
+
     let sessionIndex = 0;
     for (const date of schoolDays) {
       const dow = new Date(date + "T00:00:00").getDay();
       if (!preferred.includes(dow)) continue;
 
-      const month = parseInt(date.substring(5, 7));
-      let missRate = sr.serviceTypeId === 5 ? 0.06 : 0.13;
-      if (month === 12 || month === 1 || month === 2) missRate += 0.05;
+      let missRate: number;
+      if (isStruggling) {
+        missRate = 0.45;
+      } else {
+        missRate = 0.03;
+      }
       const isMissed = Math.random() < missRate;
 
       let duration = 0;
@@ -511,10 +549,10 @@ export async function seedRealisticData() {
         const missedReasons = [
           "Student absent from school.",
           "Provider absent — session rescheduled.",
-          "Student refused services; will attempt makeup.",
           "School-wide assembly conflicted with session time.",
-          "Student pulled for testing — makeup to be scheduled.",
+          "Student pulled for testing — session not held.",
           "Fire drill during scheduled session.",
+          "Student in crisis — services deferred.",
         ];
         notes = pick(missedReasons);
       }
