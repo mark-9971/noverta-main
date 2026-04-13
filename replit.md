@@ -37,6 +37,11 @@ MinuteOps is a production-quality school special education and ABA service deliv
 - `staff_assignments` — Staff-to-student assignments
 - `missed_reasons` — Lookup table for missed session reasons
 - `alerts` — Compliance alerts with severity levels
+- `behavior_targets` — ABA behavior reduction targets per student (frequency/interval/percentage measurement)
+- `program_targets` — Skill acquisition programs per student (discrete trial/task analysis)
+- `data_sessions` — Data collection sessions linking staff, student, date/time
+- `behavior_data` — Per-session behavior measurements (value, interval counts)
+- `program_data` — Per-session program trial data (trials correct/total, prompted, percent correct)
 
 ### API Routes
 All routes prefixed with `/api/`:
@@ -58,6 +63,14 @@ All routes prefixed with `/api/`:
 - `/imports/students` — POST bulk student import from CSV
 - `/imports/service-requirements` — POST bulk IEP service requirement import from CSV
 - `/imports/sessions` — POST bulk session log import from CSV
+- `/students/:id/behavior-targets` — GET/POST behavior reduction targets for a student
+- `/behavior-targets/:id` — PATCH update behavior target (deactivate, update goal, etc.)
+- `/students/:id/program-targets` — GET/POST skill acquisition programs for a student
+- `/program-targets/:id` — PATCH update program target
+- `/students/:id/data-sessions` — GET/POST data collection sessions (with nested behavior + program data)
+- `/data-sessions/:id` — GET detailed data session with all behavior and program data
+- `/students/:id/behavior-data/trends` — GET time-series behavior data for charting
+- `/students/:id/program-data/trends` — GET time-series program data for charting
 
 ### Frontend Pages
 - `/` — Dashboard with KPI cards, compliance ring gauge, session delivery bar chart, compliance by service progress bars, recent alerts
@@ -70,6 +83,7 @@ All routes prefixed with `/api/`:
 - `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars
 - `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
 - `/import` — Bulk CSV import page with drag-and-drop upload, data preview, template downloads (MinuteOps standard, Aspen X2, eSPED), import history, support for students/IEP requirements/session logs
+- `/program-data` — ABA program data tracking: behavior targets (frequency/interval/percentage), skill acquisition programs (DTT/task analysis), data collection sessions with inline data entry, trend visualization over time with Recharts line charts and goal reference lines
 
 ### UI Components
 - `ProgressRing` — Circular SVG progress indicator (configurable size, stroke, color, label)
@@ -103,5 +117,8 @@ Database is seeded with realistic demo data:
 - 2855 session logs
 - 330 recurring schedule blocks
 - 106 compliance alerts (68 critical, 38 high)
+- 24 behavior targets across 8 students (elopement, aggression, non-compliance, SIB, vocal stereotypy)
+- 22 program targets across 8 students (receptive ID, tacting, hand washing, intraverbal, matching)
+- 184 data collection sessions with behavior and program data spanning 6 weeks
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

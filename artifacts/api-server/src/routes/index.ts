@@ -11,6 +11,7 @@ import dashboardRouter from "./dashboard";
 import minuteProgressRouter from "./minuteProgress";
 import reportsRouter from "./reports";
 import importsRouter from "./imports";
+import programDataRouter from "./programData";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(dashboardRouter);
 router.use(minuteProgressRouter);
 router.use(reportsRouter);
 router.use(importsRouter);
+router.use(programDataRouter);
 
 export default router;

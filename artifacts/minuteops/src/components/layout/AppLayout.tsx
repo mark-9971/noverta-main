@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
-  BarChart3, BookOpen, UserCheck, Bell, Upload
+  BarChart3, BookOpen, UserCheck, Bell, Upload, Activity
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 
@@ -15,6 +15,7 @@ const navItems = [
   { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
   { href: "/compliance", label: "Compliance", icon: ClipboardList },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/program-data", label: "Program Data", icon: Activity },
   { href: "/import", label: "Import Data", icon: Upload },
 ];
 
