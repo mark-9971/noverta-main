@@ -12,6 +12,7 @@ import minuteProgressRouter from "./minuteProgress";
 import reportsRouter from "./reports";
 import importsRouter from "./imports";
 import programDataRouter from "./programData";
+import iepRouter from "./iep";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(minuteProgressRouter);
 router.use(reportsRouter);
 router.use(importsRouter);
 router.use(programDataRouter);
+router.use(iepRouter);
 
 export default router;

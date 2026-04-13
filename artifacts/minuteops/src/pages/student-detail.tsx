@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, TrendingUp, FileText, Target } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const RISK_CONFIG: Record<string, { label: string; color: string; ringColor: string; bg: string }> = {
@@ -88,9 +88,14 @@ export default function StudentDetail() {
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
               </p>
             </div>
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color} flex-shrink-0`}>
-              {riskCfg.label}
-            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
+                {riskCfg.label}
+              </span>
+              <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                <FileText className="w-3.5 h-3.5" /> IEP & Reports
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-5">

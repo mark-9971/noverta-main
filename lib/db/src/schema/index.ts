@@ -17,3 +17,5 @@ export * from "./behaviorData";
 export * from "./programData";
 export * from "./programSteps";
 export * from "./programTemplates";
+export * from "./iepGoals";
+export * from "./progressReports";
