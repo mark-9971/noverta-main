@@ -134,6 +134,25 @@ router.post("/students", async (req, res): Promise<void> => {
   res.status(201).json({ ...student, createdAt: student.createdAt.toISOString(), updatedAt: student.updatedAt.toISOString() });
 });
 
+router.get("/sped-students", async (_req, res): Promise<void> => {
+  const students = await db.selectDistinct({
+    id: studentsTable.id,
+    firstName: studentsTable.firstName,
+    lastName: studentsTable.lastName,
+    grade: studentsTable.grade,
+    programName: programsTable.name,
+    caseManagerFirst: staffTable.firstName,
+    caseManagerLast: staffTable.lastName,
+  }).from(studentsTable)
+    .innerJoin(serviceRequirementsTable, eq(serviceRequirementsTable.studentId, studentsTable.id))
+    .leftJoin(programsTable, eq(studentsTable.programId, programsTable.id))
+    .leftJoin(staffTable, eq(studentsTable.caseManagerId, staffTable.id))
+    .where(eq(studentsTable.status, "active"))
+    .orderBy(studentsTable.lastName, studentsTable.firstName);
+
+  res.json(students);
+});
+
 router.get("/students/:id", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) {

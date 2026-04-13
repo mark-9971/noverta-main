@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart,
-  GraduationCap, FileText, Award, Inbox, Bookmark
+  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -52,7 +52,34 @@ const adminNav: NavSection[] = [
   },
 ];
 
-const teacherNav: NavSection[] = [
+const spedTeacherNav: NavSection[] = [
+  {
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/students", label: "My Students", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: BookOpen, primary: true },
+      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+    ],
+  },
+  {
+    label: "Clinical",
+    items: [
+      { href: "/program-data", label: "Program Data", icon: Activity },
+      { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { href: "/analytics", label: "Analytics", icon: PieChart },
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/search", label: "IEP Search", icon: Search },
+    ],
+  },
+];
+
+const genEdTeacherNav: NavSection[] = [
   {
     items: [
       { href: "/teacher", label: "Dashboard", icon: LayoutDashboard, primary: true },
@@ -70,7 +97,18 @@ const teacherNav: NavSection[] = [
   },
 ];
 
-const studentNav: NavSection[] = [
+const spedStudentNav: NavSection[] = [
+  {
+    items: [
+      { href: "/sped-portal", label: "My Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/sped-portal/goals", label: "My Goals", icon: Star, primary: true },
+      { href: "/sped-portal/sessions", label: "My Sessions", icon: Clock, primary: true },
+      { href: "/sped-portal/services", label: "My Services", icon: ClipboardList, primary: true },
+    ],
+  },
+];
+
+const genEdStudentNav: NavSection[] = [
   {
     items: [
       { href: "/portal", label: "Dashboard", icon: LayoutDashboard, primary: true },
@@ -82,9 +120,56 @@ const studentNav: NavSection[] = [
 ];
 
 const roleConfig = {
-  admin: { nav: adminNav, color: "bg-indigo-600", textColor: "text-indigo-600", bgActive: "bg-indigo-50 text-indigo-700", iconActive: "text-indigo-600", label: "MinuteOps", subtitle: "School Management" },
-  teacher: { nav: teacherNav, color: "bg-emerald-600", textColor: "text-emerald-600", bgActive: "bg-emerald-50 text-emerald-700", iconActive: "text-emerald-600", label: "MinuteOps", subtitle: "Teacher Portal" },
-  student: { nav: studentNav, color: "bg-blue-600", textColor: "text-blue-600", bgActive: "bg-blue-50 text-blue-700", iconActive: "text-blue-600", label: "MinuteOps", subtitle: "Student Portal" },
+  admin: {
+    nav: adminNav,
+    color: "bg-indigo-600",
+    textColor: "text-indigo-600",
+    bgActive: "bg-indigo-50 text-indigo-700",
+    iconActive: "text-indigo-600",
+    label: "MinuteOps",
+    subtitle: "Admin / Compliance",
+    homeHref: "/",
+  },
+  sped_teacher: {
+    nav: spedTeacherNav,
+    color: "bg-purple-600",
+    textColor: "text-purple-600",
+    bgActive: "bg-purple-50 text-purple-700",
+    iconActive: "text-purple-600",
+    label: "MinuteOps",
+    subtitle: "SPED Teacher",
+    homeHref: "/",
+  },
+  gen_ed_teacher: {
+    nav: genEdTeacherNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700",
+    iconActive: "text-emerald-600",
+    label: "MinuteOps",
+    subtitle: "Teacher Portal",
+    homeHref: "/teacher",
+  },
+  sped_student: {
+    nav: spedStudentNav,
+    color: "bg-violet-600",
+    textColor: "text-violet-600",
+    bgActive: "bg-violet-50 text-violet-700",
+    iconActive: "text-violet-600",
+    label: "MinuteOps",
+    subtitle: "Student Portal",
+    homeHref: "/sped-portal",
+  },
+  gen_ed_student: {
+    nav: genEdStudentNav,
+    color: "bg-blue-600",
+    textColor: "text-blue-600",
+    bgActive: "bg-blue-50 text-blue-700",
+    iconActive: "text-blue-600",
+    label: "MinuteOps",
+    subtitle: "Student Portal",
+    homeHref: "/portal",
+  },
 };
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -101,11 +186,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const primaryItems = navItems.filter(i => i.primary);
   const secondaryItems = navItems.filter(i => !i.primary);
 
+  const homeHref = config.homeHref;
+
   const isSecondaryActive = secondaryItems.some(i =>
-    i.href === "/" ? location === "/" : location.startsWith(i.href)
+    i.href === homeHref ? location === homeHref : location.startsWith(i.href)
   );
 
-  const initials = user.name.split(" ").map(n => n[0]).join("").slice(0, 2);
+  const initials = user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="flex h-screen bg-slate-50/80 overflow-hidden">
@@ -119,10 +206,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <aside className={cn(
         "bg-white border-r border-slate-200/80 flex flex-col flex-shrink-0 z-50",
-        "fixed inset-y-0 left-0 w-[260px] transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:w-[220px]",
+        "fixed inset-y-0 left-0 w-[220px] transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="px-5 py-4 border-b border-slate-100">
+        <div className="px-4 py-3 border-b border-slate-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
               <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-sm", config.color)}>
@@ -151,7 +238,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
               <div className="space-y-0.5">
                 {section.items.map((item) => {
-                  const isActive = item.href === "/" || item.href === "/teacher" || item.href === "/portal"
+                  const isActive = item.href === homeHref
                     ? location === item.href
                     : location.startsWith(item.href);
                   return (
@@ -211,7 +298,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-stretch z-30 safe-area-bottom">
           {primaryItems.map((item) => {
-            const isActive = item.href === "/" || item.href === "/teacher" || item.href === "/portal"
+            const isActive = item.href === homeHref
               ? location === item.href
               : location.startsWith(item.href);
             return (
@@ -245,7 +332,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
                   <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-slate-200 py-2 w-52 z-50">
                     {secondaryItems.map((item) => {
-                      const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+                      const isActive = item.href === homeHref ? location === homeHref : location.startsWith(item.href);
                       return (
                         <Link
                           key={item.href}
@@ -256,7 +343,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           )}
                           onClick={() => setMoreOpen(false)}
                         >
-                          <item.icon className="w-4.5 h-4.5" />
+                          <item.icon className="w-4 h-4" />
                           <span className="flex-1">{item.label}</span>
                         </Link>
                       );

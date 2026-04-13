@@ -23,9 +23,9 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 
 - **Modular Monorepo:** Organizes code into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for API clients, Zod schemas, and the database layer.
 - **RESTful API Design:** Backend interactions are exposed via a REST API.
-- **Role-Based Architecture:** Three user roles (admin, teacher, student) with distinct navigation and views. Role switching via sidebar toggle for demo purposes.
+- **Role-Based Architecture:** Five user roles with distinct navigation, theming, and routing — `admin` (indigo, `/`), `sped_teacher` (purple, `/`), `gen_ed_teacher` (emerald, `/teacher`), `sped_student` (violet, `/sped-portal`), `gen_ed_student` (blue, `/portal`). Role switching via vertical list in sidebar. SPED Teacher reuses admin routes. Each role has a demo picker; SPED/gen ed student IDs are stored in separate localStorage keys.
 - **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, ABA data, classes, assignments, submissions, grades, and announcements.
-- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (indigo=admin, emerald=teacher, blue=student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design with mobile bottom nav.
+- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (indigo=admin, purple=sped_teacher, emerald=gen_ed_teacher, violet=sped_student, blue=gen_ed_student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design.
 
 **Database Schema (Gen Ed):**
 - `classes` — courses with teacher, period, room, subject, grade level

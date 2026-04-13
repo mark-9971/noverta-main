@@ -146,7 +146,7 @@ function SelectTeacherPrompt() {
         {staff.map(s => (
           <button
             key={s.id}
-            onClick={() => setTeacherId(s.id)}
+            onClick={() => setTeacherId(s.id, `${s.firstName} ${s.lastName}`)}
             className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-emerald-50 transition-colors flex items-center gap-3"
           >
             <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">

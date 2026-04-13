@@ -41,6 +41,11 @@ import TeacherGradeAssignment from "@/pages/teacher-portal/TeacherGradeAssignmen
 import TeacherSubmissions from "@/pages/teacher-portal/TeacherSubmissions";
 import TeacherRoster from "@/pages/teacher-portal/TeacherRoster";
 
+import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
+import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
+import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
+import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -77,7 +82,7 @@ function AdminRouter() {
   );
 }
 
-function TeacherRouter() {
+function GenEdTeacherRouter() {
   return (
     <Switch>
       <Route path="/teacher" component={TeacherDashboard} />
@@ -93,7 +98,7 @@ function TeacherRouter() {
   );
 }
 
-function StudentRouter() {
+function GenEdStudentRouter() {
   return (
     <Switch>
       <Route path="/portal" component={StudentDashboard} />
@@ -107,14 +112,27 @@ function StudentRouter() {
   );
 }
 
+function SpedStudentRouter() {
+  return (
+    <Switch>
+      <Route path="/sped-portal" component={SpedStudentDashboard} />
+      <Route path="/sped-portal/goals" component={SpedStudentGoals} />
+      <Route path="/sped-portal/sessions" component={SpedStudentSessions} />
+      <Route path="/sped-portal/services" component={SpedStudentServices} />
+      <Route>{() => <Redirect to="/sped-portal" />}</Route>
+    </Switch>
+  );
+}
+
 function AppRouter() {
   const { role } = useRole();
 
   return (
     <AppLayout>
-      {role === "admin" && <AdminRouter />}
-      {role === "teacher" && <TeacherRouter />}
-      {role === "student" && <StudentRouter />}
+      {(role === "admin" || role === "sped_teacher") && <AdminRouter />}
+      {role === "gen_ed_teacher" && <GenEdTeacherRouter />}
+      {role === "gen_ed_student" && <GenEdStudentRouter />}
+      {role === "sped_student" && <SpedStudentRouter />}
     </AppLayout>
   );
 }

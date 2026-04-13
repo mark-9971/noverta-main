@@ -210,7 +210,7 @@ function SelectStudentPrompt() {
           {filtered.map(s => (
             <button
               key={s.id}
-              onClick={() => setStudentId(s.id)}
+              onClick={() => setStudentId(s.id, `${s.firstName} ${s.lastName}`)}
               className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-3"
             >
               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
