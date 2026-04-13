@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { dataSessionsTable } from "./dataSessions";
@@ -17,7 +17,10 @@ export const programDataTable = pgTable("program_data", {
   promptLevelUsed: text("prompt_level_used"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("pd_session_idx").on(table.dataSessionId),
+  index("pd_target_idx").on(table.programTargetId),
+]);
 
 export const insertProgramDataSchema = createInsertSchema(programDataTable).omit({ id: true, createdAt: true });
 export type InsertProgramData = z.infer<typeof insertProgramDataSchema>;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { dataSessionsTable } from "./dataSessions";
@@ -14,7 +14,10 @@ export const behaviorDataTable = pgTable("behavior_data", {
   hourBlock: text("hour_block"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("bd_session_idx").on(table.dataSessionId),
+  index("bd_target_idx").on(table.behaviorTargetId),
+]);
 
 export const insertBehaviorDataSchema = createInsertSchema(behaviorDataTable).omit({ id: true, createdAt: true });
 export type InsertBehaviorData = z.infer<typeof insertBehaviorDataSchema>;

@@ -68,6 +68,32 @@ Database is seeded with realistic demo data:
 - School holidays/breaks modeled (Thanksgiving, winter, February, April breaks)
 - 44 goal bank entries across 7 domains
 
+## Scalability & Performance
+
+The platform is optimized to handle 10K schools, 100K students, and millions of session logs/IEP goals:
+
+**Database Indexes** (30+ indexes across 11 tables):
+- `session_logs`: composite indexes on (student_id, session_date), (service_requirement_id, session_date), (staff_id, session_date), plus status and date indexes
+- `students`: (school_id, status), case_manager, status, (last_name, first_name)
+- `service_requirements`: (student_id, active), provider, active
+- `iep_goals`: (student_id, active), (student_id, service_area), iep_document_id
+- `alerts`: resolved, (student_id, resolved), (severity, resolved), (staff_id, resolved), type
+- `schedule_blocks`: (staff_id, day_of_week), (is_recurring, staff_id), student_id
+- `staff_assignments`, `data_sessions`, `behavior_data`, `program_data`, `compliance_events`: all indexed on FK columns
+
+**Query Optimization**:
+- `computeAllActiveMinuteProgress()` uses 2 bulk queries (requirements + sessions via `inArray`) instead of N+1 pattern
+- Supports `studentIds[]` filter for scoped queries (e.g., paginated student list only computes progress for visible students)
+- Dashboard routes parallelized with `Promise.all` — summary endpoint runs 6 queries concurrently
+- Compliance engine uses bulk UPDATE (resolve all) and batched INSERT (500/chunk) instead of per-row loops
+- Provider/para summaries use grouped COUNT queries instead of per-provider N+1
+- Alerts summary uses single GROUP BY query instead of 5 sequential queries
+- Missed sessions trend uses single GROUP BY query instead of 16 sequential queries
+
+**Pagination**:
+- `GET /students` and `GET /staff` support `limit` (1-500, default 100) and `offset` (≥0) query params
+- Zod validation enforces bounds on pagination parameters
+
 ## External Dependencies
 
 - **Node.js**: Runtime environment for the backend.

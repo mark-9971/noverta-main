@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schoolsTable } from "./schools";
@@ -11,8 +11,8 @@ export const studentsTable = pgTable("students", {
   lastName: text("last_name").notNull(),
   externalId: text("external_id"),
   grade: text("grade"),
-  placementType: text("placement_type"), // gen_ed | sub_separate | mixed | resource
-  status: text("status").notNull().default("active"), // active | inactive
+  placementType: text("placement_type"),
+  status: text("status").notNull().default("active"),
   schoolId: integer("school_id").references(() => schoolsTable.id),
   programId: integer("program_id").references(() => programsTable.id),
   caseManagerId: integer("case_manager_id").references(() => staffTable.id),
@@ -23,7 +23,12 @@ export const studentsTable = pgTable("students", {
   tags: text("tags"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("stu_school_status_idx").on(table.schoolId, table.status),
+  index("stu_case_manager_idx").on(table.caseManagerId),
+  index("stu_status_idx").on(table.status),
+  index("stu_name_idx").on(table.lastName, table.firstName),
+]);
 
 export const insertStudentSchema = createInsertSchema(studentsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertStudent = z.infer<typeof insertStudentSchema>;

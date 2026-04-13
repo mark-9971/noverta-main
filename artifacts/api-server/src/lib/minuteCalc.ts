@@ -1,12 +1,11 @@
 import { db } from "@workspace/db";
 import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable } from "@workspace/db";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, inArray } from "drizzle-orm";
 
 export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance" | "completed";
 
 function getIntervalDates(intervalType: string, startDate: string, endDate?: string | null): { intervalStart: Date; intervalEnd: Date } {
   const now = new Date();
-  const start = new Date(startDate);
 
   if (intervalType === "monthly") {
     const intervalStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -40,7 +39,6 @@ function getIntervalDates(intervalType: string, startDate: string, endDate?: str
     return { intervalStart, intervalEnd };
   }
 
-  // daily
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayEnd = new Date(today);
@@ -55,8 +53,6 @@ export function computeRiskStatus(
   projectedMinutes: number
 ): RiskStatus {
   if (deliveredMinutes >= requiredMinutes) return "completed";
-  const pct = deliveredMinutes / requiredMinutes;
-  const expectedPct = expectedByNow / requiredMinutes;
 
   if (projectedMinutes >= requiredMinutes * 0.95) return "on_track";
   if (deliveredMinutes < expectedByNow * 0.7) return "out_of_compliance";
@@ -65,7 +61,29 @@ export function computeRiskStatus(
   return "on_track";
 }
 
-export async function computeMinuteProgress(serviceRequirementId: number) {
+export type MinuteProgressResult = {
+  serviceRequirementId: number;
+  studentId: number;
+  studentName: string;
+  serviceTypeId: number;
+  serviceTypeName: string;
+  providerId: number | null;
+  providerName: string | null;
+  intervalType: string;
+  requiredMinutes: number;
+  deliveredMinutes: number;
+  remainingMinutes: number;
+  percentComplete: number;
+  expectedMinutesByNow: number;
+  projectedMinutes: number;
+  riskStatus: RiskStatus;
+  intervalStart: string;
+  intervalEnd: string;
+  missedSessionsCount: number;
+  makeupSessionsCount: number;
+};
+
+export async function computeMinuteProgress(serviceRequirementId: number): Promise<MinuteProgressResult | null> {
   const [req] = await db
     .select({
       id: serviceRequirementsTable.id,
@@ -91,11 +109,9 @@ export async function computeMinuteProgress(serviceRequirementId: number) {
   if (!req) return null;
 
   const { intervalStart, intervalEnd } = getIntervalDates(req.intervalType, req.startDate, req.endDate);
-
   const intervalStartStr = intervalStart.toISOString().substring(0, 10);
   const intervalEndStr = intervalEnd.toISOString().substring(0, 10);
 
-  // Get all sessions in the interval for this student and service requirement
   const sessions = await db
     .select({
       durationMinutes: sessionLogsTable.durationMinutes,
@@ -112,6 +128,31 @@ export async function computeMinuteProgress(serviceRequirementId: number) {
       )
     );
 
+  return buildProgressFromSessions(req, sessions, intervalStart, intervalEnd, intervalStartStr, intervalEndStr);
+}
+
+function buildProgressFromSessions(
+  req: {
+    id: number;
+    studentId: number;
+    serviceTypeId: number;
+    providerId: number | null;
+    requiredMinutes: number;
+    intervalType: string;
+    startDate: string;
+    endDate: string | null;
+    studentFirstName: string | null;
+    studentLastName: string | null;
+    serviceTypeName: string | null;
+    providerFirstName: string | null;
+    providerLastName: string | null;
+  },
+  sessions: { durationMinutes: number; status: string; isMakeup: boolean }[],
+  intervalStart: Date,
+  intervalEnd: Date,
+  intervalStartStr: string,
+  intervalEndStr: string
+): MinuteProgressResult {
   const completedSessions = sessions.filter(s => s.status === "completed" || s.status === "makeup");
   const missedSessions = sessions.filter(s => s.status === "missed");
   const makeupSessions = sessions.filter(s => s.isMakeup);
@@ -124,9 +165,7 @@ export async function computeMinuteProgress(serviceRequirementId: number) {
   const progressFraction = Math.min(1, elapsedDays / totalDays);
 
   const expectedByNow = req.requiredMinutes * progressFraction;
-  const remainingDaysFraction = Math.max(0, 1 - progressFraction);
 
-  // Simple projection: delivered + (current pace * remaining days)
   const currentPacePerDay = elapsedDays > 0 ? deliveredMinutes / elapsedDays : 0;
   const remainingDays = Math.max(0, totalDays - elapsedDays);
   const projectedMinutes = deliveredMinutes + (currentPacePerDay * remainingDays);
@@ -161,27 +200,105 @@ export async function computeMinuteProgress(serviceRequirementId: number) {
 
 export async function computeAllActiveMinuteProgress(filters?: {
   studentId?: number;
+  studentIds?: number[];
   staffId?: number;
   serviceTypeId?: number;
   programId?: number;
   riskStatus?: string;
-}) {
-  const conditions = [eq(serviceRequirementsTable.active, true)];
-  if (filters?.studentId) conditions.push(eq(serviceRequirementsTable.studentId, filters.studentId));
-  if (filters?.serviceTypeId) conditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId));
-  if (filters?.staffId) conditions.push(eq(serviceRequirementsTable.providerId, filters.staffId));
+}): Promise<MinuteProgressResult[]> {
+  const conditions: ReturnType<typeof eq>[] = [eq(serviceRequirementsTable.active, true) as any];
+  if (filters?.studentId) conditions.push(eq(serviceRequirementsTable.studentId, filters.studentId) as any);
+  if (filters?.studentIds && filters.studentIds.length > 0) conditions.push(inArray(serviceRequirementsTable.studentId, filters.studentIds) as any);
+  if (filters?.serviceTypeId) conditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId) as any);
+  if (filters?.staffId) conditions.push(eq(serviceRequirementsTable.providerId, filters.staffId) as any);
 
   const reqs = await db
-    .select({ id: serviceRequirementsTable.id })
+    .select({
+      id: serviceRequirementsTable.id,
+      studentId: serviceRequirementsTable.studentId,
+      serviceTypeId: serviceRequirementsTable.serviceTypeId,
+      providerId: serviceRequirementsTable.providerId,
+      requiredMinutes: serviceRequirementsTable.requiredMinutes,
+      intervalType: serviceRequirementsTable.intervalType,
+      startDate: serviceRequirementsTable.startDate,
+      endDate: serviceRequirementsTable.endDate,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+      serviceTypeName: serviceTypesTable.name,
+      providerFirstName: staffTable.firstName,
+      providerLastName: staffTable.lastName,
+    })
     .from(serviceRequirementsTable)
+    .leftJoin(studentsTable, eq(studentsTable.id, serviceRequirementsTable.studentId))
+    .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+    .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
     .where(conditions.length === 1 ? conditions[0] : and(...conditions));
 
-  const results = await Promise.all(reqs.map(r => computeMinuteProgress(r.id)));
-  const filtered = results.filter(Boolean) as NonNullable<typeof results[0]>[];
+  if (reqs.length === 0) return [];
 
-  if (filters?.riskStatus) {
-    return filtered.filter(r => r.riskStatus === filters.riskStatus);
+  const reqIds = reqs.map(r => r.id);
+
+  const intervalsByType = new Map<string, { intervalStart: Date; intervalEnd: Date; startStr: string; endStr: string }>();
+  for (const r of reqs) {
+    const key = `${r.intervalType}|${r.startDate}|${r.endDate ?? ""}`;
+    if (!intervalsByType.has(key)) {
+      const { intervalStart, intervalEnd } = getIntervalDates(r.intervalType, r.startDate, r.endDate);
+      intervalsByType.set(key, {
+        intervalStart,
+        intervalEnd,
+        startStr: intervalStart.toISOString().substring(0, 10),
+        endStr: intervalEnd.toISOString().substring(0, 10),
+      });
+    }
   }
 
-  return filtered;
+  let globalEarliestStr = "9999-12-31";
+  let globalLatestStr = "0000-01-01";
+  for (const iv of intervalsByType.values()) {
+    if (iv.startStr < globalEarliestStr) globalEarliestStr = iv.startStr;
+    if (iv.endStr > globalLatestStr) globalLatestStr = iv.endStr;
+  }
+
+  const allSessions = await db
+    .select({
+      serviceRequirementId: sessionLogsTable.serviceRequirementId,
+      durationMinutes: sessionLogsTable.durationMinutes,
+      status: sessionLogsTable.status,
+      isMakeup: sessionLogsTable.isMakeup,
+      sessionDate: sessionLogsTable.sessionDate,
+    })
+    .from(sessionLogsTable)
+    .where(
+      and(
+        inArray(sessionLogsTable.serviceRequirementId, reqIds),
+        gte(sessionLogsTable.sessionDate, globalEarliestStr),
+        lte(sessionLogsTable.sessionDate, globalLatestStr)
+      )
+    );
+
+  const sessionsByReqId = new Map<number, typeof allSessions>();
+  for (const s of allSessions) {
+    if (s.serviceRequirementId == null) continue;
+    if (!sessionsByReqId.has(s.serviceRequirementId)) sessionsByReqId.set(s.serviceRequirementId, []);
+    sessionsByReqId.get(s.serviceRequirementId)!.push(s);
+  }
+
+  const results: MinuteProgressResult[] = [];
+  for (const req of reqs) {
+    const key = `${req.intervalType}|${req.startDate}|${req.endDate ?? ""}`;
+    const iv = intervalsByType.get(key)!;
+
+    const reqSessions = sessionsByReqId.get(req.id) ?? [];
+    const filteredSessions = reqSessions
+      .filter(s => s.sessionDate >= iv.startStr && s.sessionDate <= iv.endStr)
+      .map(s => ({ durationMinutes: s.durationMinutes, status: s.status, isMakeup: s.isMakeup }));
+
+    results.push(buildProgressFromSessions(req, filteredSessions, iv.intervalStart, iv.intervalEnd, iv.startStr, iv.endStr));
+  }
+
+  if (filters?.riskStatus) {
+    return results.filter(r => r.riskStatus === filters.riskStatus);
+  }
+
+  return results;
 }

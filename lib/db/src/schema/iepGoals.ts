@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -25,7 +25,11 @@ export const iepGoalsTable = pgTable("iep_goals", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("ig_student_active_idx").on(table.studentId, table.active),
+  index("ig_student_area_idx").on(table.studentId, table.serviceArea),
+  index("ig_iep_doc_idx").on(table.iepDocumentId),
+]);
 
 export const insertIepGoalSchema = createInsertSchema(iepGoalsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertIepGoal = z.infer<typeof insertIepGoalSchema>;

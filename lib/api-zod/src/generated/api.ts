@@ -165,6 +165,8 @@ export const ListStudentsQueryParams = zod.object({
   riskStatus: zod.coerce.string().nullish(),
   grade: zod.coerce.string().nullish(),
   search: zod.coerce.string().nullish(),
+  limit: zod.coerce.number().min(1).max(500).nullish(),
+  offset: zod.coerce.number().min(0).nullish(),
 });
 
 export const ListStudentsResponseItem = zod.object({
@@ -470,6 +472,8 @@ export const GetStudentAlertsResponse = zod.array(GetStudentAlertsResponseItem);
 export const ListStaffQueryParams = zod.object({
   role: zod.coerce.string().nullish(),
   status: zod.coerce.string().nullish(),
+  limit: zod.coerce.number().min(1).max(500).nullish(),
+  offset: zod.coerce.number().min(0).nullish(),
 });
 
 export const ListStaffResponseItem = zod.object({

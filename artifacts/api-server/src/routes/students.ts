@@ -17,7 +17,7 @@ import {
   GetStudentAlertsParams,
 } from "@workspace/api-zod";
 import { eq, and, ilike, or, desc, sql } from "drizzle-orm";
-import { computeMinuteProgress, computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
 
@@ -65,12 +65,18 @@ router.get("/students", async (req, res): Promise<void> => {
     }
   }
 
-  const students = conditions.length > 0
-    ? await (query as any).where(and(...conditions)).orderBy(studentsTable.lastName)
-    : await (query as any).orderBy(studentsTable.lastName);
+  const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
+  const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
 
-  // Get active requirements with quick risk counts
-  const allProgress = await computeAllActiveMinuteProgress();
+  const students = conditions.length > 0
+    ? await (query as any).where(and(...conditions)).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset)
+    : await (query as any).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset);
+
+  const studentIds = students.map((s: any) => s.id);
+
+  const allProgress = studentIds.length > 0
+    ? await computeAllActiveMinuteProgress({ studentIds })
+    : [];
   const progressByStudent = new Map<number, typeof allProgress>();
   for (const p of allProgress) {
     if (!progressByStudent.has(p.studentId)) progressByStudent.set(p.studentId, []);
@@ -79,14 +85,14 @@ router.get("/students", async (req, res): Promise<void> => {
 
   const enriched = students.map((s: any) => {
     const prog = progressByStudent.get(s.id) ?? [];
-    const onTrackCount = prog.filter(p => p.riskStatus === "on_track" || p.riskStatus === "completed").length;
-    const atRiskCount = prog.filter(p => p.riskStatus === "at_risk").length;
-    const behindCount = prog.filter(p => p.riskStatus === "out_of_compliance" || p.riskStatus === "slightly_behind").length;
+    const onTrackCount = prog.filter((p: any) => p.riskStatus === "on_track" || p.riskStatus === "completed").length;
+    const atRiskCount = prog.filter((p: any) => p.riskStatus === "at_risk").length;
+    const behindCount = prog.filter((p: any) => p.riskStatus === "out_of_compliance" || p.riskStatus === "slightly_behind").length;
 
     let riskStatus: string | null = null;
-    if (prog.some(p => p.riskStatus === "out_of_compliance")) riskStatus = "out_of_compliance";
-    else if (prog.some(p => p.riskStatus === "at_risk")) riskStatus = "at_risk";
-    else if (prog.some(p => p.riskStatus === "slightly_behind")) riskStatus = "slightly_behind";
+    if (prog.some((p: any) => p.riskStatus === "out_of_compliance")) riskStatus = "out_of_compliance";
+    else if (prog.some((p: any) => p.riskStatus === "at_risk")) riskStatus = "at_risk";
+    else if (prog.some((p: any) => p.riskStatus === "slightly_behind")) riskStatus = "slightly_behind";
     else if (prog.length > 0) riskStatus = "on_track";
 
     return {
@@ -111,9 +117,8 @@ router.get("/students", async (req, res): Promise<void> => {
     };
   });
 
-  // Apply risk status filter if specified
   const finalResult = params.success && params.data.riskStatus
-    ? enriched.filter(s => s.riskStatus === params.data.riskStatus)
+    ? enriched.filter((s: any) => s.riskStatus === params.data.riskStatus)
     : enriched;
 
   res.json(finalResult);
@@ -193,9 +198,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     .leftJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
     .where(eq(serviceRequirementsTable.studentId, params.data.id));
 
-  // Minute progress
-  const activeReqs = reqs.filter(r => r.active);
-  const minuteProgress = await Promise.all(activeReqs.map(r => computeMinuteProgress(r.id)));
+  const minuteProgress = await computeAllActiveMinuteProgress({ studentId: params.data.id });
 
   // Recent sessions
   const recentSessions = await db

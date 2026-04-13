@@ -1,28 +1,15 @@
 import { db } from "@workspace/db";
 import {
   alertsTable,
-  serviceRequirementsTable,
-  sessionLogsTable,
-  studentsTable,
-  staffTable,
   scheduleBlocksTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, ne } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import { logger } from "./logger";
 
 export async function runComplianceChecks(): Promise<{ newAlerts: number; resolvedAlerts: number }> {
   logger.info("Running compliance checks");
-  let newAlerts = 0;
-  let resolvedAlerts = 0;
 
-  // Mark existing unresolved alerts as resolved initially (we'll re-create relevant ones)
-  const existingUnresolved = await db
-    .select({ id: alertsTable.id })
-    .from(alertsTable)
-    .where(eq(alertsTable.resolved, false));
-
-  // Compute minute progress for all active requirements
   const allProgress = await computeAllActiveMinuteProgress();
 
   const alertsToCreate: Array<{
@@ -65,7 +52,6 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
       });
     }
 
-    // Check projected shortfall
     if (p.projectedMinutes < p.requiredMinutes * 0.9 && p.riskStatus !== "out_of_compliance") {
       alertsToCreate.push({
         type: "projected_shortfall",
@@ -77,7 +63,6 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
       });
     }
 
-    // Check repeated missed sessions
     if (p.missedSessionsCount >= 3) {
       alertsToCreate.push({
         type: "missed_sessions",
@@ -90,7 +75,6 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     }
   }
 
-  // Check for schedule conflicts
   const allBlocks = await db
     .select({
       id: scheduleBlocksTable.id,
@@ -102,7 +86,6 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     .from(scheduleBlocksTable)
     .where(eq(scheduleBlocksTable.isRecurring, true));
 
-  // Group by staff + day
   const blocksByStaffDay = new Map<string, typeof allBlocks>();
   for (const block of allBlocks) {
     const key = `${block.staffId}-${block.dayOfWeek}`;
@@ -112,17 +95,15 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
 
   for (const [key, blocks] of blocksByStaffDay.entries()) {
     if (blocks.length < 2) continue;
-    // Check for overlaps
     for (let i = 0; i < blocks.length; i++) {
       for (let j = i + 1; j < blocks.length; j++) {
         const a = blocks[i];
         const b = blocks[j];
         if (a.startTime < b.endTime && b.startTime < a.endTime) {
-          const staffId = a.staffId;
           alertsToCreate.push({
             type: "conflict",
             severity: "high",
-            staffId,
+            staffId: a.staffId,
             message: `Schedule conflict on ${a.dayOfWeek}: blocks overlap (${a.startTime}-${a.endTime} and ${b.startTime}-${b.endTime}).`,
             suggestedAction: "Resolve the overlapping schedule assignments.",
           });
@@ -132,28 +113,22 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     }
   }
 
-  // Resolve all existing unresolved alerts that match types we're re-checking
-  const alertTypesToRefresh = ["behind_on_minutes", "projected_shortfall", "missed_sessions", "conflict"];
-  const existingToResolve = await db
-    .select({ id: alertsTable.id })
-    .from(alertsTable)
-    .where(and(eq(alertsTable.resolved, false)));
+  const resolvedResult = await db
+    .update(alertsTable)
+    .set({ resolved: true, resolvedAt: new Date(), resolvedNote: "Auto-resolved by compliance engine re-check" })
+    .where(eq(alertsTable.resolved, false))
+    .returning({ id: alertsTable.id });
 
-  for (const alert of existingToResolve) {
-    await db
-      .update(alertsTable)
-      .set({ resolved: true, resolvedAt: new Date(), resolvedNote: "Auto-resolved by compliance engine re-check" })
-      .where(eq(alertsTable.id, alert.id));
-    resolvedAlerts++;
-  }
+  const resolvedAlerts = resolvedResult.length;
 
-  // Create new alerts
-  for (const alertData of alertsToCreate) {
-    await db.insert(alertsTable).values({
-      ...alertData,
-      resolved: false,
-    });
-    newAlerts++;
+  let newAlerts = 0;
+  if (alertsToCreate.length > 0) {
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < alertsToCreate.length; i += BATCH_SIZE) {
+      const batch = alertsToCreate.slice(i, i + BATCH_SIZE).map(a => ({ ...a, resolved: false }));
+      await db.insert(alertsTable).values(batch);
+    }
+    newAlerts = alertsToCreate.length;
   }
 
   logger.info({ newAlerts, resolvedAlerts }, "Compliance checks complete");

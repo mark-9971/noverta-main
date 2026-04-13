@@ -10,7 +10,7 @@ import {
   GetStaffCaseloadParams,
 } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
-import { computeMinuteProgress } from "../lib/minuteCalc";
+import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
 
@@ -24,9 +24,12 @@ router.get("/staff", async (req, res): Promise<void> => {
   if (params.success && params.data.role) conditions.push(eq(staffTable.role, params.data.role));
   if (params.success && params.data.status) conditions.push(eq(staffTable.status, params.data.status));
 
+  const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
+  const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
+
   const staff = conditions.length > 0
-    ? await db.select().from(staffTable).where(and(...conditions)).orderBy(staffTable.lastName)
-    : await db.select().from(staffTable).orderBy(staffTable.lastName);
+    ? await db.select().from(staffTable).where(and(...conditions)).orderBy(staffTable.lastName).limit(pageLimit).offset(pageOffset)
+    : await db.select().from(staffTable).orderBy(staffTable.lastName).limit(pageLimit).offset(pageOffset);
 
   res.json(staff.map(staffToJson));
 });
@@ -125,13 +128,8 @@ router.get("/staff/:id/caseload", async (req, res): Promise<void> => {
     return;
   }
 
-  const reqs = await db
-    .select({ id: serviceRequirementsTable.id })
-    .from(serviceRequirementsTable)
-    .where(and(eq(serviceRequirementsTable.providerId, params.data.id), eq(serviceRequirementsTable.active, true)));
-
-  const progress = await Promise.all(reqs.map(r => computeMinuteProgress(r.id)));
-  res.json(progress.filter(Boolean));
+  const progress = await computeAllActiveMinuteProgress({ staffId: params.data.id });
+  res.json(progress);
 });
 
 export default router;
