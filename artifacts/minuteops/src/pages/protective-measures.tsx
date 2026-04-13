@@ -73,7 +73,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   pending_review: "bg-amber-100 text-amber-700",
   reviewed: "bg-emerald-100 text-emerald-700",
-  closed: "bg-slate-100 text-slate-600",
+  closed: "bg-gray-100 text-gray-600",
 };
 const RESTRAINT_TYPES: Record<string, string> = {
   floor: "Floor Restraint",
@@ -159,16 +159,16 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
     <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <Shield className="w-6 h-6 text-emerald-700" />
             Protective Measures
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Restraint & seclusion tracking · 603 CMR 46.00</p>
+          <p className="text-sm text-gray-500 mt-1">Restraint & seclusion tracking · 603 CMR 46.00</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1.5">
+          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
             <select value={exportYear} onChange={e => setExportYear(e.target.value)}
-              className="text-xs bg-transparent border-none focus:outline-none text-slate-600">
+              className="text-xs bg-transparent border-none focus:outline-none text-gray-600">
               <option value="2025-2026">SY 2025-26</option>
               <option value="2024-2025">SY 2024-25</option>
               <option value="2023-2024">SY 2023-24</option>
@@ -189,7 +189,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
           <SummaryCard
             label="Total Incidents"
             value={summary.totalIncidents}
-            icon={<Shield className="w-4 h-4 text-slate-400" />}
+            icon={<Shield className="w-4 h-4 text-gray-400" />}
             detail={[
               summary.byType.physical_restraint > 0 ? `${summary.byType.physical_restraint} restraint${summary.byType.physical_restraint !== 1 ? "s" : ""}` : null,
               summary.byType.seclusion > 0 ? `${summary.byType.seclusion} seclusion${summary.byType.seclusion !== 1 ? "s" : ""}` : null,
@@ -200,20 +200,20 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
             label="Needs Review"
             value={summary.pendingReview}
             icon={<Clock className="w-4 h-4 text-amber-400" />}
-            color={summary.pendingReview > 0 ? "text-amber-600" : "text-slate-600"}
+            color={summary.pendingReview > 0 ? "text-amber-600" : "text-gray-600"}
           />
           <SummaryCard
             label="Action Items Due"
             value={summary.parentNotificationsPending + summary.writtenReportsPending}
             icon={<Bell className="w-4 h-4 text-red-400" />}
-            color={summary.parentNotificationsPending + summary.writtenReportsPending > 0 ? "text-red-600" : "text-slate-600"}
+            color={summary.parentNotificationsPending + summary.writtenReportsPending > 0 ? "text-red-600" : "text-gray-600"}
             detail={`${summary.parentNotificationsPending} notices · ${summary.writtenReportsPending} reports`}
           />
           <SummaryCard
             label="DESE Reports Due"
             value={summary.deseReportsPending}
             icon={<Send className="w-4 h-4 text-purple-400" />}
-            color={summary.deseReportsPending > 0 ? "text-purple-600" : "text-slate-600"}
+            color={summary.deseReportsPending > 0 ? "text-purple-600" : "text-gray-600"}
           />
         </div>
       )}
@@ -232,20 +232,20 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input type="text" placeholder="Search by student name or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
         </div>
         <div className="flex gap-2">
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Types</option>
             <option value="physical_restraint">Physical Restraint</option>
             <option value="seclusion">Seclusion</option>
             <option value="time_out">Time-Out</option>
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Status</option>
             <option value="pending_review">Pending Review</option>
             <option value="reviewed">Reviewed</option>
@@ -254,20 +254,20 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-12 text-center text-sm text-slate-400">Loading incidents...</div>
+          <div className="p-12 text-center text-sm text-gray-400">Loading incidents...</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <Shield className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No incidents recorded</p>
-            <p className="text-xs text-slate-400 mt-1">Use "Report Incident" to document a restraint, seclusion, or time-out event</p>
+            <Shield className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-500">No incidents recorded</p>
+            <p className="text-xs text-gray-400 mt-1">Use "Report Incident" to document a restraint, seclusion, or time-out event</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-gray-100">
             {filtered.map(inc => (
               <button key={inc.id} onClick={() => onDetail(inc.id)}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50/60 transition-colors text-left">
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50/60 transition-colors text-left">
                 <div className="flex-shrink-0">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-orange-100" : "bg-amber-100"}`}>
                     <Shield className={`w-5 h-5 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-orange-600" : "text-amber-600"}`} />
@@ -275,22 +275,22 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-slate-800">{inc.studentFirstName} {inc.studentLastName}</span>
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[inc.incidentType] || "bg-slate-100 text-slate-600"}`}>
+                    <span className="font-semibold text-sm text-gray-800">{inc.studentFirstName} {inc.studentLastName}</span>
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[inc.incidentType] || "bg-gray-100 text-gray-600"}`}>
                       {TYPE_LABELS[inc.incidentType] || inc.incidentType}
                     </span>
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[inc.status] || "bg-slate-100 text-slate-600"}`}>
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[inc.status] || "bg-gray-100 text-gray-600"}`}>
                       {STATUS_LABELS[inc.status] || inc.status}
                     </span>
                     {inc.deseReportRequired && !inc.deseReportSentAt && (
                       <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">DESE DUE</span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 truncate">{inc.behaviorDescription}</p>
+                  <p className="text-xs text-gray-500 mt-1 truncate">{inc.behaviorDescription}</p>
                 </div>
                 <div className="flex-shrink-0 text-right space-y-1">
-                  <p className="text-xs font-medium text-slate-700">{formatDate(inc.incidentDate)}</p>
-                  <p className="text-[11px] text-slate-400">{formatTime(inc.incidentTime)}{inc.durationMinutes ? ` · ${inc.durationMinutes} min` : ""}</p>
+                  <p className="text-xs font-medium text-gray-700">{formatDate(inc.incidentDate)}</p>
+                  <p className="text-[11px] text-gray-400">{formatTime(inc.incidentTime)}{inc.durationMinutes ? ` · ${inc.durationMinutes} min` : ""}</p>
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
                   {inc.studentInjury && <span className="w-2 h-2 rounded-full bg-red-500" title="Student injury" />}
@@ -302,7 +302,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
                         : "OVERDUE"}
                     </span>
                   )}
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
                 </div>
               </button>
             ))}
@@ -315,10 +315,10 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
 
 function SummaryCard({ label, value, icon, color, detail }: { label: string; value: string | number; icon: React.ReactNode; color?: string; detail?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-1.5">{icon}<span className="text-[11px] text-slate-500 font-medium">{label}</span></div>
-      <p className={`text-2xl font-bold ${color || "text-slate-800"}`}>{value}</p>
-      {detail && <p className="text-[11px] text-slate-400 mt-1">{detail}</p>}
+    <div className="bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-1.5">{icon}<span className="text-[11px] text-gray-500 font-medium">{label}</span></div>
+      <p className={`text-2xl font-bold ${color || "text-gray-800"}`}>{value}</p>
+      {detail && <p className="text-[11px] text-gray-400 mt-1">{detail}</p>}
     </div>
   );
 }
@@ -414,20 +414,20 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+        <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Report Incident</h1>
-          <p className="text-sm text-slate-500">603 CMR 46.06 Compliant Documentation</p>
+          <h1 className="text-xl font-bold text-gray-800">Report Incident</h1>
+          <p className="text-sm text-gray-500">603 CMR 46.06 Compliant Documentation</p>
         </div>
       </div>
 
       <div className="flex gap-1.5 mb-4">
         {["Incident", "Context & Staff", "Injuries", "Signatures & Submit"].map((label, i) => (
           <div key={i} className="flex-1">
-            <div className={`h-1.5 rounded-full ${i < step ? "bg-emerald-500" : "bg-slate-200"}`} />
-            <p className={`text-[10px] mt-1 text-center ${i < step ? "text-emerald-700 font-medium" : "text-slate-400"}`}>{label}</p>
+            <div className={`h-1.5 rounded-full ${i < step ? "bg-emerald-500" : "bg-gray-200"}`} />
+            <p className={`text-[10px] mt-1 text-center ${i < step ? "text-emerald-700 font-medium" : "text-gray-400"}`}>{label}</p>
           </div>
         ))}
       </div>
@@ -435,60 +435,60 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
 
       {step === 1 && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 space-y-5">
-          <h2 className="text-base font-semibold text-slate-800">Incident Details — 603 CMR 46.06(4)(a)</h2>
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">Incident Details — 603 CMR 46.06(4)(a)</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Student *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Student *</label>
               <select value={form.studentId} onChange={e => set("studentId", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="">Select student...</option>
                 {(students || []).map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — Grade {s.grade}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Incident Type *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Incident Type *</label>
               <select value={form.incidentType} onChange={e => set("incidentType", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="physical_restraint">Physical Restraint</option>
                 <option value="seclusion">Seclusion (Emergency Only)</option>
                 <option value="time_out">Time-Out (Exclusionary)</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Date *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Date *</label>
               <input type="date" value={form.incidentDate} onChange={e => set("incidentDate", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Time Restraint Began *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Time Restraint Began *</label>
               <input type="time" value={form.incidentTime} onChange={e => set("incidentTime", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Time Restraint Ended *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Time Restraint Ended *</label>
               <input type="time" value={form.endTime} onChange={e => set("endTime", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Location</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Location</label>
               <input type="text" placeholder="e.g., Classroom 204, Hallway" value={form.location} onChange={e => set("location", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             {form.incidentType === "physical_restraint" && (
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Type of Restraint</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Type of Restraint</label>
                 <select value={form.restraintType} onChange={e => set("restraintType", e.target.value)}
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                   <option value="">Select type...</option>
                   {Object.entries(RESTRAINT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Principal/Designee Notified</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Principal/Designee Notified</label>
               <input type="text" placeholder="Name of principal or designee verbally informed" value={form.principalNotifiedName} onChange={e => set("principalNotifiedName", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
           </div>
 
@@ -517,60 +517,60 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
       )}
 
       {step === 2 && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 space-y-5">
-          <h2 className="text-base font-semibold text-slate-800">Behavioral Context — 603 CMR 46.06(4)(b)</h2>
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">Behavioral Context — 603 CMR 46.06(4)(b)</h2>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Activity Preceding Incident *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Activity Preceding Incident *</label>
             <textarea value={form.precedingActivity} onChange={e => set("precedingActivity", e.target.value)} rows={2}
               placeholder="Describe the activity the student and others were engaged in immediately before the restraint..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Behavior That Prompted Restraint *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Behavior That Prompted Restraint *</label>
             <textarea value={form.behaviorDescription} onChange={e => set("behaviorDescription", e.target.value)} rows={3}
               placeholder="Describe the specific behavior that posed a threat of imminent, serious physical harm..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">De-escalation Strategies Used *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">De-escalation Strategies Used *</label>
             <textarea value={form.deescalationAttempts} onChange={e => set("deescalationAttempts", e.target.value)} rows={2}
               placeholder="List all specific de-escalation strategies attempted before physical intervention (e.g., verbal redirection, offering breaks, sensory tools)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Alternatives to Restraint Attempted *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Alternatives to Restraint Attempted *</label>
             <textarea value={form.alternativesAttempted} onChange={e => set("alternativesAttempted", e.target.value)} rows={2}
               placeholder="What alternatives to physical restraint were tried? (e.g., moved other students, offered choice, called crisis team)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Justification for Initiating Restraint *</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Justification for Initiating Restraint *</label>
             <textarea value={form.justification} onChange={e => set("justification", e.target.value)} rows={2}
               placeholder="Explain why physical restraint was necessary — what imminent serious physical harm was the restraint preventing..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Calming Strategies Used During/After</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Calming Strategies Used During/After</label>
             <textarea value={form.calmingStrategiesUsed} onChange={e => set("calmingStrategiesUsed", e.target.value)} rows={2}
               placeholder="Describe strategies used to help the student calm (e.g., deep breathing prompts, reduced demands, quiet space)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Student's Physical/Emotional State After</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Student's Physical/Emotional State After</label>
             <textarea value={form.studentStateAfter} onChange={e => set("studentStateAfter", e.target.value)} rows={2}
               placeholder="Describe the student's condition after the restraint ended..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
-          <hr className="border-slate-200" />
-          <h3 className="text-sm font-semibold text-slate-800">Staff Involved — 603 CMR 46.06(4)(a)</h3>
+          <hr className="border-gray-200" />
+          <h3 className="text-sm font-semibold text-gray-800">Staff Involved — 603 CMR 46.06(4)(a)</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Primary Staff Who Administered *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Primary Staff Who Administered *</label>
               <select value={form.primaryStaffId} onChange={e => set("primaryStaffId", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
+                className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="">Select staff...</option>
                 {(staff || []).map((s: Staff) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.title || s.role}</option>)}
               </select>
@@ -578,11 +578,11 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Additional Staff Who Administered</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Additional Staff Who Administered</label>
             <div className="flex flex-wrap gap-2">
               {(staff || []).filter(s => String(s.id) !== form.primaryStaffId).map((s: Staff) => (
                 <button key={s.id} type="button" onClick={() => toggleStaffMulti("additionalStaffIds", String(s.id))}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.additionalStaffIds.includes(String(s.id)) ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.additionalStaffIds.includes(String(s.id)) ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
                   {s.firstName} {s.lastName}
                 </button>
               ))}
@@ -590,11 +590,11 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Observers (staff who witnessed but did not administer)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Observers (staff who witnessed but did not administer)</label>
             <div className="flex flex-wrap gap-2">
               {(staff || []).filter(s => String(s.id) !== form.primaryStaffId && !form.additionalStaffIds.includes(String(s.id))).map((s: Staff) => (
                 <button key={s.id} type="button" onClick={() => toggleStaffMulti("observerStaffIds", String(s.id))}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.observerStaffIds.includes(String(s.id)) ? "bg-blue-100 border-blue-300 text-blue-700" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.observerStaffIds.includes(String(s.id)) ? "bg-blue-100 border-blue-300 text-blue-700" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
                   {s.firstName} {s.lastName}
                 </button>
               ))}
@@ -602,14 +602,14 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Trigger / Antecedent Events</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Trigger / Antecedent Events</label>
             <textarea value={form.triggerDescription} onChange={e => set("triggerDescription", e.target.value)} rows={2}
               placeholder="What happened immediately before the incident?"
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
           <div className="flex justify-between">
-            <button onClick={() => setStep(1)} className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">Back</button>
+            <button onClick={() => setStep(1)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Back</button>
             <button onClick={() => {
               if (!form.behaviorDescription) { setError("Behavior description is required"); return; }
               setError(""); setStep(3);
@@ -619,33 +619,33 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
       )}
 
       {step === 3 && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 space-y-5">
-          <h2 className="text-base font-semibold text-slate-800">Injuries & Medical Attention — 603 CMR 46.06(4)(c)-(g)</h2>
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">Injuries & Medical Attention — 603 CMR 46.06(4)(c)-(g)</h2>
           <div className="space-y-4">
-            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
               <input type="checkbox" checked={form.studentInjury} onChange={e => set("studentInjury", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500" />
+                className="w-4 h-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500" />
               <div>
-                <span className="text-sm font-medium text-slate-700">Student sustained injury</span>
-                <p className="text-xs text-slate-500">Any visible mark, bruise, or reported pain</p>
+                <span className="text-sm font-medium text-gray-700">Student sustained injury</span>
+                <p className="text-xs text-gray-500">Any visible mark, bruise, or reported pain</p>
               </div>
             </label>
             {form.studentInjury && (
               <textarea value={form.studentInjuryDescription} onChange={e => set("studentInjuryDescription", e.target.value)} rows={2}
-                placeholder="Describe student injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+                placeholder="Describe student injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             )}
 
-            <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
               <input type="checkbox" checked={form.staffInjury} onChange={e => set("staffInjury", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500" />
+                className="w-4 h-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500" />
               <div>
-                <span className="text-sm font-medium text-slate-700">Staff sustained injury</span>
-                <p className="text-xs text-slate-500">Any injury to staff member(s) during the incident</p>
+                <span className="text-sm font-medium text-gray-700">Staff sustained injury</span>
+                <p className="text-xs text-gray-500">Any injury to staff member(s) during the incident</p>
               </div>
             </label>
             {form.staffInjury && (
               <textarea value={form.staffInjuryDescription} onChange={e => set("staffInjuryDescription", e.target.value)} rows={2}
-                placeholder="Describe staff injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+                placeholder="Describe staff injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             )}
 
             <label className="flex items-center gap-3 p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100/70 transition-colors">
@@ -671,45 +671,45 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
 
           {form.incidentType === "physical_restraint" && !form.restraintType && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Restraint Description</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Restraint Description</label>
               <textarea value={form.restraintDescription} onChange={e => set("restraintDescription", e.target.value)} rows={2}
-                placeholder="Describe the physical hold or intervention used..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+                placeholder="Describe the physical hold or intervention used..." className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Additional Notes</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Additional Notes</label>
             <textarea value={form.notes} onChange={e => set("notes", e.target.value)} rows={2}
-              placeholder="Any other relevant details..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
+              placeholder="Any other relevant details..." className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
           <div className="flex justify-between">
-            <button onClick={() => setStep(2)} className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">Back</button>
+            <button onClick={() => setStep(2)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Back</button>
             <button onClick={() => setStep(4)} className="px-5 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">Next: Sign & Submit</button>
           </div>
         </div>
       )}
 
       {step === 4 && (
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 space-y-5">
-          <h2 className="text-base font-semibold text-slate-800">Review, Sign & Submit</h2>
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">Review, Sign & Submit</h2>
 
-          <div className="bg-slate-50 rounded-lg p-4 space-y-3 text-sm">
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-3">
-              <div><span className="text-slate-500">Student:</span> <span className="font-medium text-slate-800">{students?.find((s: any) => s.id === Number(form.studentId))?.firstName} {students?.find((s: any) => s.id === Number(form.studentId))?.lastName}</span></div>
-              <div><span className="text-slate-500">Type:</span> <span className="font-medium text-slate-800">{TYPE_LABELS[form.incidentType]}</span></div>
-              <div><span className="text-slate-500">Date:</span> <span className="font-medium text-slate-800">{formatDate(form.incidentDate)}</span></div>
-              <div><span className="text-slate-500">Time:</span> <span className="font-medium text-slate-800">{form.incidentTime ? formatTime(form.incidentTime) : "—"}{form.endTime ? ` – ${formatTime(form.endTime)}` : ""}</span></div>
-              {form.location && <div><span className="text-slate-500">Location:</span> <span className="font-medium text-slate-800">{form.location}</span></div>}
-              {form.restraintType && <div><span className="text-slate-500">Restraint:</span> <span className="font-medium text-slate-800">{RESTRAINT_TYPES[form.restraintType]}</span></div>}
-              {form.principalNotifiedName && <div className="col-span-2"><span className="text-slate-500">Principal Notified:</span> <span className="font-medium text-slate-800">{form.principalNotifiedName}</span></div>}
+              <div><span className="text-gray-500">Student:</span> <span className="font-medium text-gray-800">{students?.find((s: any) => s.id === Number(form.studentId))?.firstName} {students?.find((s: any) => s.id === Number(form.studentId))?.lastName}</span></div>
+              <div><span className="text-gray-500">Type:</span> <span className="font-medium text-gray-800">{TYPE_LABELS[form.incidentType]}</span></div>
+              <div><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-800">{formatDate(form.incidentDate)}</span></div>
+              <div><span className="text-gray-500">Time:</span> <span className="font-medium text-gray-800">{form.incidentTime ? formatTime(form.incidentTime) : "—"}{form.endTime ? ` – ${formatTime(form.endTime)}` : ""}</span></div>
+              {form.location && <div><span className="text-gray-500">Location:</span> <span className="font-medium text-gray-800">{form.location}</span></div>}
+              {form.restraintType && <div><span className="text-gray-500">Restraint:</span> <span className="font-medium text-gray-800">{RESTRAINT_TYPES[form.restraintType]}</span></div>}
+              {form.principalNotifiedName && <div className="col-span-2"><span className="text-gray-500">Principal Notified:</span> <span className="font-medium text-gray-800">{form.principalNotifiedName}</span></div>}
             </div>
-            {form.precedingActivity && <div><span className="text-slate-500">Preceding Activity:</span> <p className="text-slate-700 mt-1">{form.precedingActivity}</p></div>}
-            {form.behaviorDescription && <div><span className="text-slate-500">Behavior:</span> <p className="text-slate-700 mt-1">{form.behaviorDescription}</p></div>}
-            {form.deescalationAttempts && <div><span className="text-slate-500">De-escalation:</span> <p className="text-slate-700 mt-1">{form.deescalationAttempts}</p></div>}
-            {form.alternativesAttempted && <div><span className="text-slate-500">Alternatives Attempted:</span> <p className="text-slate-700 mt-1">{form.alternativesAttempted}</p></div>}
-            {form.justification && <div><span className="text-slate-500">Justification:</span> <p className="text-slate-700 mt-1">{form.justification}</p></div>}
-            {form.calmingStrategiesUsed && <div><span className="text-slate-500">Calming Strategies:</span> <p className="text-slate-700 mt-1">{form.calmingStrategiesUsed}</p></div>}
+            {form.precedingActivity && <div><span className="text-gray-500">Preceding Activity:</span> <p className="text-gray-700 mt-1">{form.precedingActivity}</p></div>}
+            {form.behaviorDescription && <div><span className="text-gray-500">Behavior:</span> <p className="text-gray-700 mt-1">{form.behaviorDescription}</p></div>}
+            {form.deescalationAttempts && <div><span className="text-gray-500">De-escalation:</span> <p className="text-gray-700 mt-1">{form.deescalationAttempts}</p></div>}
+            {form.alternativesAttempted && <div><span className="text-gray-500">Alternatives Attempted:</span> <p className="text-gray-700 mt-1">{form.alternativesAttempted}</p></div>}
+            {form.justification && <div><span className="text-gray-500">Justification:</span> <p className="text-gray-700 mt-1">{form.justification}</p></div>}
+            {form.calmingStrategiesUsed && <div><span className="text-gray-500">Calming Strategies:</span> <p className="text-gray-700 mt-1">{form.calmingStrategiesUsed}</p></div>}
             {(form.studentInjury || form.staffInjury) && (
               <div className="bg-red-50 rounded p-2">
                 {form.studentInjury && <p className="text-red-700">Student injury: {form.studentInjuryDescription || "Yes"}</p>}
@@ -724,11 +724,11 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><PenLine className="w-4 h-4" /> Reporting Staff Signature</h3>
-            <p className="text-xs text-slate-500">By typing your name, you attest that this report is accurate and complete to the best of your knowledge.</p>
+          <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><PenLine className="w-4 h-4" /> Reporting Staff Signature</h3>
+            <p className="text-xs text-gray-500">By typing your name, you attest that this report is accurate and complete to the best of your knowledge.</p>
             <input type="text" placeholder="Type your full name to sign" value={form.reportingStaffSignature} onChange={e => set("reportingStaffSignature", e.target.value)}
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium italic" />
+              className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium italic" />
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
@@ -745,7 +745,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex justify-between">
-            <button onClick={() => setStep(3)} className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">Back</button>
+            <button onClick={() => setStep(3)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Back</button>
             <button onClick={() => {
               if (!form.studentId || !form.incidentTime || !form.incidentDate) { setError("Go back to Step 1 and complete student/date/time fields"); return; }
               if (!form.behaviorDescription) { setError("Go back to Step 2 and complete the behavior description"); return; }
@@ -858,48 +858,48 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   const [showComment, setShowComment] = useState(false);
   const [commentForm, setCommentForm] = useState({ parentComment: "", studentComment: "" });
 
-  if (isLoading) return <div className="p-8 text-center text-sm text-slate-400">Loading...</div>;
+  if (isLoading) return <div className="p-8 text-center text-sm text-gray-400">Loading...</div>;
   if (!incident) return <div className="p-8 text-center text-sm text-red-500">Incident not found</div>;
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><ArrowLeft className="w-5 h-5" /></button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-slate-800">Incident #{incident.id}</h1>
-          <p className="text-sm text-slate-500">{incident.student?.firstName} {incident.student?.lastName} — {formatDate(incident.incidentDate)}</p>
+          <h1 className="text-xl font-bold text-gray-800">Incident #{incident.id}</h1>
+          <p className="text-sm text-gray-500">{incident.student?.firstName} {incident.student?.lastName} — {formatDate(incident.incidentDate)}</p>
         </div>
         <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${STATUS_COLORS[incident.status]}`}>{STATUS_LABELS[incident.status]}</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-slate-800">Incident Details</h3>
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Incident Details</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-slate-500 text-xs">Type</span><p className="font-medium">{TYPE_LABELS[incident.incidentType]}</p></div>
-              <div><span className="text-slate-500 text-xs">Date & Time</span><p className="font-medium">{formatDate(incident.incidentDate)} at {formatTime(incident.incidentTime)}{incident.endTime ? ` – ${formatTime(incident.endTime)}` : ""}</p></div>
-              {incident.durationMinutes && <div><span className="text-slate-500 text-xs">Duration</span><p className="font-medium">{incident.durationMinutes} minutes</p></div>}
-              {incident.location && <div><span className="text-slate-500 text-xs">Location</span><p className="font-medium">{incident.location}</p></div>}
-              {incident.restraintType && <div><span className="text-slate-500 text-xs">Restraint Type</span><p className="font-medium">{RESTRAINT_TYPES[incident.restraintType] || incident.restraintType}</p></div>}
-              {incident.primaryStaff && <div><span className="text-slate-500 text-xs">Primary Staff</span><p className="font-medium">{incident.primaryStaff.firstName} {incident.primaryStaff.lastName} — {incident.primaryStaff.title || incident.primaryStaff.role}</p></div>}
-              {incident.principalNotifiedName && <div><span className="text-slate-500 text-xs">Principal Notified</span><p className="font-medium">{incident.principalNotifiedName}</p></div>}
-              {incident.continuedOver20Min && <div><span className="text-slate-500 text-xs">20+ Min Approved By</span><p className="font-medium text-amber-700">{incident.over20MinApproverName || "—"}</p></div>}
+              <div><span className="text-gray-500 text-xs">Type</span><p className="font-medium">{TYPE_LABELS[incident.incidentType]}</p></div>
+              <div><span className="text-gray-500 text-xs">Date & Time</span><p className="font-medium">{formatDate(incident.incidentDate)} at {formatTime(incident.incidentTime)}{incident.endTime ? ` – ${formatTime(incident.endTime)}` : ""}</p></div>
+              {incident.durationMinutes && <div><span className="text-gray-500 text-xs">Duration</span><p className="font-medium">{incident.durationMinutes} minutes</p></div>}
+              {incident.location && <div><span className="text-gray-500 text-xs">Location</span><p className="font-medium">{incident.location}</p></div>}
+              {incident.restraintType && <div><span className="text-gray-500 text-xs">Restraint Type</span><p className="font-medium">{RESTRAINT_TYPES[incident.restraintType] || incident.restraintType}</p></div>}
+              {incident.primaryStaff && <div><span className="text-gray-500 text-xs">Primary Staff</span><p className="font-medium">{incident.primaryStaff.firstName} {incident.primaryStaff.lastName} — {incident.primaryStaff.title || incident.primaryStaff.role}</p></div>}
+              {incident.principalNotifiedName && <div><span className="text-gray-500 text-xs">Principal Notified</span><p className="font-medium">{incident.principalNotifiedName}</p></div>}
+              {incident.continuedOver20Min && <div><span className="text-gray-500 text-xs">20+ Min Approved By</span><p className="font-medium text-amber-700">{incident.over20MinApproverName || "—"}</p></div>}
             </div>
 
             {incident.additionalStaff?.length > 0 && (
               <div>
-                <span className="text-xs text-slate-500 font-medium">Additional Staff Who Administered</span>
+                <span className="text-xs text-gray-500 font-medium">Additional Staff Who Administered</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {incident.additionalStaff.map((s: any) => (
-                    <span key={s.id} className="text-xs bg-slate-100 rounded px-2 py-1">{s.firstName} {s.lastName} — {s.title || s.role}</span>
+                    <span key={s.id} className="text-xs bg-gray-100 rounded px-2 py-1">{s.firstName} {s.lastName} — {s.title || s.role}</span>
                   ))}
                 </div>
               </div>
             )}
             {incident.observerStaff?.length > 0 && (
               <div>
-                <span className="text-xs text-slate-500 font-medium">Observers</span>
+                <span className="text-xs text-gray-500 font-medium">Observers</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {incident.observerStaff.map((s: any) => (
                     <span key={s.id} className="text-xs bg-blue-50 rounded px-2 py-1">{s.firstName} {s.lastName} — {s.title || s.role}</span>
@@ -909,29 +909,29 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-slate-800">Behavioral Context — 603 CMR 46.06(4)(b)</h3>
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Behavioral Context — 603 CMR 46.06(4)(b)</h3>
             {incident.precedingActivity && (
-              <div><span className="text-xs text-slate-500 font-medium">Activity Preceding Incident</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.precedingActivity}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Activity Preceding Incident</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.precedingActivity}</p></div>
             )}
-            <div><span className="text-xs text-slate-500 font-medium">Behavior That Prompted Restraint</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.behaviorDescription}</p></div>
+            <div><span className="text-xs text-gray-500 font-medium">Behavior That Prompted Restraint</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.behaviorDescription}</p></div>
             {incident.deescalationAttempts && (
-              <div><span className="text-xs text-slate-500 font-medium">De-escalation Strategies Used</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.deescalationAttempts}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">De-escalation Strategies Used</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.deescalationAttempts}</p></div>
             )}
             {incident.alternativesAttempted && (
-              <div><span className="text-xs text-slate-500 font-medium">Alternatives to Restraint Attempted</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.alternativesAttempted}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Alternatives to Restraint Attempted</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.alternativesAttempted}</p></div>
             )}
             {incident.justification && (
-              <div><span className="text-xs text-slate-500 font-medium">Justification for Initiating Restraint</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.justification}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Justification for Initiating Restraint</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.justification}</p></div>
             )}
             {incident.calmingStrategiesUsed && (
-              <div><span className="text-xs text-slate-500 font-medium">Calming Strategies Used</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.calmingStrategiesUsed}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Calming Strategies Used</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.calmingStrategiesUsed}</p></div>
             )}
             {incident.studentStateAfter && (
-              <div><span className="text-xs text-slate-500 font-medium">Student State After Incident</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.studentStateAfter}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Student State After Incident</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.studentStateAfter}</p></div>
             )}
             {incident.triggerDescription && (
-              <div><span className="text-xs text-slate-500 font-medium">Trigger / Antecedent</span><p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-lg p-3">{incident.triggerDescription}</p></div>
+              <div><span className="text-xs text-gray-500 font-medium">Trigger / Antecedent</span><p className="text-sm text-gray-700 mt-1 bg-gray-50 rounded-lg p-3">{incident.triggerDescription}</p></div>
             )}
           </div>
 
@@ -959,26 +959,26 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             </div>
           )}
 
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><PenLine className="w-4 h-4" /> Signatures</h3>
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><PenLine className="w-4 h-4" /> Signatures</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className={`rounded-lg p-3 ${incident.reportingStaffSignature ? "bg-emerald-50" : "bg-slate-50"}`}>
-                <p className="text-xs font-medium text-slate-600">Reporting Staff Signature</p>
+              <div className={`rounded-lg p-3 ${incident.reportingStaffSignature ? "bg-emerald-50" : "bg-gray-50"}`}>
+                <p className="text-xs font-medium text-gray-600">Reporting Staff Signature</p>
                 {incident.reportingStaffSignature ? (
                   <p className="text-sm font-medium italic mt-1">{incident.reportingStaffSignature}</p>
                 ) : (
-                  <p className="text-xs text-slate-400 mt-1">Not signed</p>
+                  <p className="text-xs text-gray-400 mt-1">Not signed</p>
                 )}
-                {incident.reportingStaffSignedAt && <p className="text-[10px] text-slate-400 mt-0.5">{incident.reportingStaffSignedAt}</p>}
+                {incident.reportingStaffSignedAt && <p className="text-[10px] text-gray-400 mt-0.5">{incident.reportingStaffSignedAt}</p>}
               </div>
-              <div className={`rounded-lg p-3 ${incident.adminSignature ? "bg-emerald-50" : "bg-slate-50"}`}>
-                <p className="text-xs font-medium text-slate-600">Administrator Signature</p>
+              <div className={`rounded-lg p-3 ${incident.adminSignature ? "bg-emerald-50" : "bg-gray-50"}`}>
+                <p className="text-xs font-medium text-gray-600">Administrator Signature</p>
                 {incident.adminSignature ? (
                   <p className="text-sm font-medium italic mt-1">{incident.adminSignature}</p>
                 ) : (
-                  <p className="text-xs text-slate-400 mt-1">Not signed</p>
+                  <p className="text-xs text-gray-400 mt-1">Not signed</p>
                 )}
-                {incident.adminSignedAt && <p className="text-[10px] text-slate-400 mt-0.5">{incident.adminSignedAt}</p>}
+                {incident.adminSignedAt && <p className="text-[10px] text-gray-400 mt-0.5">{incident.adminSignedAt}</p>}
               </div>
             </div>
             {!incident.reportingStaffSignature && (
@@ -987,20 +987,20 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
           </div>
 
           {(incident.parentComment || incident.studentComment || incident.parentCommentOpportunityGiven) && (
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-slate-800">Parent/Student Comments — 603 CMR 46.06(3)</h3>
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800">Parent/Student Comments — 603 CMR 46.06(3)</h3>
               {incident.parentComment && <div className="bg-blue-50 rounded-lg p-3"><p className="text-xs font-medium text-blue-700">Parent Comment</p><p className="text-sm text-blue-800 mt-1">{incident.parentComment}</p></div>}
               {incident.studentComment && <div className="bg-blue-50 rounded-lg p-3"><p className="text-xs font-medium text-blue-700">Student Comment</p><p className="text-sm text-blue-800 mt-1">{incident.studentComment}</p></div>}
               {incident.parentCommentOpportunityGiven && !incident.parentComment && !incident.studentComment && (
-                <p className="text-xs text-slate-500">Comment opportunity was provided; no comments were submitted.</p>
+                <p className="text-xs text-gray-500">Comment opportunity was provided; no comments were submitted.</p>
               )}
             </div>
           )}
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-slate-800">Compliance Checklist — 603 CMR 46.06</h3>
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Compliance Checklist — 603 CMR 46.06</h3>
 
             <ComplianceItem
               done={incident.parentVerbalNotification}
@@ -1029,7 +1029,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                   <option value="in_person">In Person</option>
                 </select>
                 <div className="flex gap-2">
-                  <button onClick={() => setShowNotify(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
+                  <button onClick={() => setShowNotify(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                   <button onClick={() => { if (notifyForm.staffId) notifyMutation.mutate({ notifiedById: Number(notifyForm.staffId), method: notifyForm.method, verbal: true }); }}
                     disabled={!notifyForm.staffId || notifyMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-red-600 text-white rounded disabled:opacity-50">
@@ -1061,7 +1061,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                   <option value="hand_delivered">Hand Delivered</option>
                 </select>
                 <div className="flex gap-2">
-                  <button onClick={() => setShowWritten(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
+                  <button onClick={() => setShowWritten(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                   <button onClick={() => writtenReportMutation.mutate(writtenMethod)}
                     disabled={writtenReportMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-amber-600 text-white rounded disabled:opacity-50">
@@ -1091,7 +1091,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                 <textarea value={commentForm.studentComment} onChange={e => setCommentForm(f => ({ ...f, studentComment: e.target.value }))}
                   placeholder="Student comment (leave blank if none)..." rows={2} className="w-full px-2 py-1.5 border border-blue-200 rounded text-xs bg-white resize-none" />
                 <div className="flex gap-2">
-                  <button onClick={() => setShowComment(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
+                  <button onClick={() => setShowComment(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                   <button onClick={() => commentMutation.mutate({ parentComment: commentForm.parentComment || undefined, studentComment: commentForm.studentComment || undefined })}
                     disabled={commentMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-blue-600 text-white rounded disabled:opacity-50">
@@ -1126,7 +1126,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                 <input type="text" placeholder="Admin signature (type full name)" value={reviewForm.signature} onChange={e => setReviewForm(f => ({ ...f, signature: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white italic" />
                 <div className="flex gap-2">
-                  <button onClick={() => setShowReview(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
+                  <button onClick={() => setShowReview(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                   <button onClick={() => { if (reviewForm.adminStaffId) reviewMutation.mutate({ adminStaffId: Number(reviewForm.adminStaffId), notes: reviewForm.notes, signature: reviewForm.signature }); }}
                     disabled={!reviewForm.adminStaffId || reviewMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
@@ -1138,7 +1138,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
 
             {incident.deseReportRequired && (
               <>
-                <hr className="border-slate-200" />
+                <hr className="border-gray-200" />
                 <ComplianceItem
                   done={!!incident.deseReportSentAt}
                   label="DESE Injury Report (3 days)"
@@ -1164,23 +1164,23 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
           </div>
 
           {incident.notes && (
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">Notes</h3>
-              <p className="text-sm text-slate-600">{incident.notes}</p>
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Notes</h3>
+              <p className="text-sm text-gray-600">{incident.notes}</p>
             </div>
           )}
 
           {incident.adminReviewNotes && (
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">Admin Review Notes</h3>
-              <p className="text-sm text-slate-600">{incident.adminReviewNotes}</p>
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Admin Review Notes</h3>
+              <p className="text-sm text-gray-600">{incident.adminReviewNotes}</p>
             </div>
           )}
 
           {incident.followUpPlan && (
-            <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">Follow-Up Plan</h3>
-              <p className="text-sm text-slate-600">{incident.followUpPlan}</p>
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Follow-Up Plan</h3>
+              <p className="text-sm text-gray-600">{incident.followUpPlan}</p>
             </div>
           )}
         </div>
@@ -1194,17 +1194,17 @@ function SignatureInput({ label, onSign, isPending }: { label: string; onSign: (
   const [show, setShow] = useState(false);
 
   if (!show) return (
-    <button onClick={() => setShow(true)} className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 flex items-center justify-center gap-1.5">
+    <button onClick={() => setShow(true)} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
       <PenLine className="w-3.5 h-3.5" /> {label}
     </button>
   );
 
   return (
-    <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
       <input type="text" placeholder="Type your full name to sign" value={name} onChange={e => setName(e.target.value)}
-        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white italic" />
+        className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-white italic" />
       <div className="flex gap-2">
-        <button onClick={() => setShow(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
+        <button onClick={() => setShow(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
         <button onClick={() => { if (name) onSign(name); }} disabled={!name || isPending}
           className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
           {isPending ? "..." : "Sign"}
@@ -1216,7 +1216,7 @@ function SignatureInput({ label, onSign, isPending }: { label: string; onSign: (
 
 function ComplianceItem({ done, label, sublabel, urgent }: { done: boolean; label: string; sublabel: string; urgent?: boolean }) {
   return (
-    <div className={`flex items-start gap-3 p-2.5 rounded-lg ${done ? "bg-emerald-50" : urgent ? "bg-red-50" : "bg-slate-50"}`}>
+    <div className={`flex items-start gap-3 p-2.5 rounded-lg ${done ? "bg-emerald-50" : urgent ? "bg-red-50" : "bg-gray-50"}`}>
       {done
         ? <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
         : urgent
@@ -1224,8 +1224,8 @@ function ComplianceItem({ done, label, sublabel, urgent }: { done: boolean; labe
           : <Clock className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
       }
       <div>
-        <p className={`text-xs font-semibold ${done ? "text-emerald-700" : urgent ? "text-red-700" : "text-slate-700"}`}>{label}</p>
-        <p className={`text-[11px] ${done ? "text-emerald-600" : urgent ? "text-red-600" : "text-slate-500"}`}>{sublabel}</p>
+        <p className={`text-xs font-semibold ${done ? "text-emerald-700" : urgent ? "text-red-700" : "text-gray-700"}`}>{label}</p>
+        <p className={`text-[11px] ${done ? "text-emerald-600" : urgent ? "text-red-600" : "text-gray-500"}`}>{sublabel}</p>
       </div>
     </div>
   );

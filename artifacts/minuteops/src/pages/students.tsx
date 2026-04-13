@@ -83,8 +83,8 @@ export default function Students() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Students</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Students</h1>
+        <p className="text-xs md:text-sm text-gray-400 mt-1">
           {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
         </p>
       </div>
@@ -100,14 +100,14 @@ export default function Students() {
             aria-pressed={typeFilter === t.key}
             onClick={() => setTypeFilter(typeFilter === t.key && t.key !== "all" ? "all" : t.key)}
             className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all flex items-center gap-1.5 ${
-              typeFilter === t.key ? "bg-emerald-700 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+              typeFilter === t.key ? "bg-emerald-700 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
             }`}
           >
             {t.icon && <t.icon className="w-3.5 h-3.5" />}
             {t.label} ({t.count})
           </button>
         ))}
-        <div className="w-px bg-slate-200 mx-1 self-stretch" />
+        <div className="w-px bg-gray-200 mx-1 self-stretch" />
         {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
           const cfg = RISK_CONFIG[r];
           return (
@@ -116,7 +116,7 @@ export default function Students() {
               aria-pressed={riskFilter === r}
               onClick={() => setRiskFilter(riskFilter === r ? "all" : r)}
               className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                riskFilter === r ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+                riskFilter === r ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
               }`}
             >{cfg.label} ({riskCounts[r] ?? 0})</button>
           );
@@ -124,7 +124,7 @@ export default function Students() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student name..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
@@ -134,7 +134,7 @@ export default function Students() {
         ) : loading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-slate-400"><p className="font-medium">No students found</p></div>
+          <div className="text-center py-16 text-gray-400"><p className="font-medium">No students found</p></div>
         ) : filtered.map(s => {
           const isSped = spedIds.has(s.id);
           const risk = studentRisk[s.id] ?? "on_track";
@@ -153,14 +153,14 @@ export default function Students() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-semibold text-slate-800">{s.firstName} {s.lastName}</p>
+                      <p className="text-[14px] font-semibold text-gray-800">{s.firstName} {s.lastName}</p>
                       <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${
                         isSped ? "bg-violet-50 text-violet-600 border-violet-200" : "bg-blue-50 text-blue-600 border-blue-200"
                       }`}>
                         {isSped ? "SPED" : "Gen Ed"}
                       </Badge>
                     </div>
-                    <p className="text-[12px] text-slate-400">
+                    <p className="text-[12px] text-gray-400">
                       Grade {s.grade}{s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
                     </p>
                   </div>
@@ -172,8 +172,8 @@ export default function Students() {
                       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
                         <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={cfg.ringColor} />
                         <div className="text-right w-14 md:w-20">
-                          <p className="text-[13px] font-bold text-slate-700">{pct}%</p>
-                          <p className="text-[10px] text-slate-400 hidden sm:block">{mins.delivered}/{mins.required}</p>
+                          <p className="text-[13px] font-bold text-gray-700">{pct}%</p>
+                          <p className="text-[10px] text-gray-400 hidden sm:block">{mins.delivered}/{mins.required}</p>
                         </div>
                       </div>
                     </>
@@ -182,7 +182,7 @@ export default function Students() {
                       General Education
                     </span>
                   )}
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
                 </div>
               </Card>
             </Link>

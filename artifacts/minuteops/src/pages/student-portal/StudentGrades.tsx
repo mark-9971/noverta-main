@@ -18,7 +18,7 @@ export default function StudentGrades() {
     });
   }, [studentId]);
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const overall = grades?.overall || {};
   const classes = grades?.classes || [];
@@ -26,8 +26,8 @@ export default function StudentGrades() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">My Grades</h1>
-        <p className="text-slate-500 mt-1">Academic performance overview</p>
+        <h1 className="text-2xl font-bold text-gray-800">My Grades</h1>
+        <p className="text-gray-500 mt-1">Academic performance overview</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -44,26 +44,26 @@ export default function StudentGrades() {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Class</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Teacher</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">Percentage</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">Grade</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">Assignments</th>
+              <tr className="border-b bg-gray-50">
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Class</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Teacher</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">Percentage</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">Grade</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">Assignments</th>
               </tr>
             </thead>
             <tbody>
               {classes.map((c: any) => (
-                <tr key={c.classId} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={c.classId} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4">
-                    <p className="font-medium text-slate-700">{c.className}</p>
-                    <p className="text-xs text-slate-400">{c.subject}</p>
+                    <p className="font-medium text-gray-700">{c.className}</p>
+                    <p className="text-xs text-gray-400">{c.subject}</p>
                   </td>
-                  <td className="py-3 px-4 text-slate-500">{c.teacherFirstName} {c.teacherLastName}</td>
+                  <td className="py-3 px-4 text-gray-500">{c.teacherFirstName} {c.teacherLastName}</td>
                   <td className="text-center py-3 px-4">
                     {c.percentage !== null ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${pctBarColor(c.percentage)}`} style={{ width: `${Math.min(c.percentage, 100)}%` }} />
                         </div>
                         <span className="text-sm font-mono">{c.percentage}%</span>
@@ -73,7 +73,7 @@ export default function StudentGrades() {
                   <td className={`text-center py-3 px-4 font-bold text-lg ${letterColor(c.letterGrade)}`}>
                     {c.letterGrade || "—"}
                   </td>
-                  <td className="text-center py-3 px-4 text-slate-500">{c.gradedAssignments}</td>
+                  <td className="text-center py-3 px-4 text-gray-500">{c.gradedAssignments}</td>
                 </tr>
               ))}
             </tbody>
@@ -101,10 +101,10 @@ export default function StudentGrades() {
               { grade: "D", range: "63-66", gpa: "1.0" },
               { grade: "F", range: "0-59", gpa: "0.0" },
             ].map(g => (
-              <div key={g.grade} className="p-2 rounded-lg bg-slate-50 text-center">
+              <div key={g.grade} className="p-2 rounded-lg bg-gray-50 text-center">
                 <p className={`font-bold ${letterColor(g.grade)}`}>{g.grade}</p>
-                <p className="text-slate-400">{g.range}</p>
-                <p className="text-slate-500 font-mono">{g.gpa}</p>
+                <p className="text-gray-400">{g.range}</p>
+                <p className="text-gray-500 font-mono">{g.gpa}</p>
               </div>
             ))}
           </div>
@@ -129,8 +129,8 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
             <Icon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-2xl font-bold text-gray-800">{value}</p>
+            <p className="text-xs text-gray-400">{label}</p>
           </div>
         </div>
       </CardContent>
@@ -139,7 +139,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 }
 
 function letterColor(g: string) {
-  if (!g) return "text-slate-400";
+  if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
   if (g.startsWith("B")) return "text-blue-600";
   if (g.startsWith("C")) return "text-amber-600";

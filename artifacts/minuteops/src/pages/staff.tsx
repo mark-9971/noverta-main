@@ -31,19 +31,19 @@ export default function Staff() {
     const utilPct = summary?.utilizationPercent ?? 0;
     return (
       <Link href={`/staff/${member.id}`}>
-        <div className="flex items-center gap-4 p-4 hover:bg-slate-50/50 transition-colors cursor-pointer group">
-          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
+        <div className="flex items-center gap-4 p-4 hover:bg-gray-50/50 transition-colors cursor-pointer group">
+          <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 text-[13px] font-bold flex-shrink-0">
             {member.firstName?.[0]}{member.lastName?.[0]}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-semibold text-slate-800">{member.firstName} {member.lastName}</p>
-            <p className="text-[12px] text-slate-400">{member.email}</p>
+            <p className="text-[14px] font-semibold text-gray-800">{member.firstName} {member.lastName}</p>
+            <p className="text-[12px] text-gray-400">{member.email}</p>
           </div>
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role]} flex-shrink-0`}>
             {ROLE_LABELS[member.role] ?? member.role}
           </span>
           <div className="flex items-center gap-2 flex-shrink-0 w-24 justify-end">
-            <span className="text-[12px] text-slate-500">{summary?.assignedStudents ?? 0} students</span>
+            <span className="text-[12px] text-gray-500">{summary?.assignedStudents ?? 0} students</span>
           </div>
           {summary?.studentsAtRisk > 0 ? (
             <span className="flex items-center gap-1 text-red-500 text-[12px] font-medium flex-shrink-0 w-16 justify-end">
@@ -54,9 +54,9 @@ export default function Staff() {
           )}
           <div className="flex items-center gap-2 flex-shrink-0">
             <MiniProgressRing value={utilPct} size={32} strokeWidth={3} color={utilPct >= 80 ? "#10b981" : utilPct >= 40 ? "#f59e0b" : "#ef4444"} />
-            <span className="text-[12px] font-medium text-slate-600 w-8 text-right">{utilPct}%</span>
+            <span className="text-[12px] font-medium text-gray-600 w-8 text-right">{utilPct}%</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0" />
         </div>
       </Link>
     );
@@ -65,8 +65,8 @@ export default function Staff() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Staff & Providers</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">{staffList.length} active staff members</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Staff & Providers</h1>
+        <p className="text-xs md:text-sm text-gray-400 mt-1">{staffList.length} active staff members</p>
       </div>
 
       <Tabs defaultValue="clinicians">
@@ -78,7 +78,7 @@ export default function Staff() {
 
         <TabsContent value="clinicians" className="mt-4">
           <Card>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-gray-100">
               {isLoading ? [...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 m-4" />) :
                 clinicians.map(m => <StaffRow key={m.id} member={m} summary={providerMap[m.id]} />)}
             </div>
@@ -87,7 +87,7 @@ export default function Staff() {
 
         <TabsContent value="paras" className="mt-4">
           <Card>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-gray-100">
               {isLoading ? [...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 m-4" />) :
                 parasList.map(m => <StaffRow key={m.id} member={m} summary={providerMap[m.id]} />)}
             </div>
@@ -96,17 +96,17 @@ export default function Staff() {
 
         <TabsContent value="case_managers" className="mt-4">
           <Card>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-gray-100">
               {caseManagers.map(cm => (
                 <div key={cm.id} className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
+                  <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 text-[13px] font-bold flex-shrink-0">
                     {cm.firstName?.[0]}{cm.lastName?.[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-slate-800">{cm.firstName} {cm.lastName}</p>
-                    <p className="text-[12px] text-slate-400">{cm.email}</p>
+                    <p className="text-[14px] font-semibold text-gray-800">{cm.firstName} {cm.lastName}</p>
+                    <p className="text-[12px] text-gray-400">{cm.email}</p>
                   </div>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Case Manager</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Case Manager</span>
                 </div>
               ))}
             </div>

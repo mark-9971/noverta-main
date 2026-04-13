@@ -54,7 +54,7 @@ const CATEGORY_META: Record<Category, { label: string; icon: any; color: string;
 function RelevanceBadge({ score }: { score: number }) {
   if (score >= 5) return <Badge className="bg-green-100 text-green-700 text-[10px]">High Match</Badge>;
   if (score >= 3) return <Badge className="bg-amber-100 text-amber-700 text-[10px]">Good Match</Badge>;
-  return <Badge className="bg-slate-100 text-slate-600 text-[10px]">Possible</Badge>;
+  return <Badge className="bg-gray-100 text-gray-600 text-[10px]">Possible</Badge>;
 }
 
 export default function IepSuggestions() {
@@ -159,11 +159,11 @@ export default function IepSuggestions() {
 
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-emerald-600" />
               IEP Suggestions: {stu.firstName} {stu.lastName}
             </h1>
-            <p className="text-slate-500 mt-1">
+            <p className="text-gray-500 mt-1">
               Grade {stu.grade} · {detail.iepGoalAreas.length} IEP goal areas · {detail.serviceTypes.length} services
             </p>
           </div>
@@ -191,15 +191,15 @@ export default function IepSuggestions() {
 
         {detail.iepGoalAreas.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-slate-400 mr-1 self-center">Goal areas:</span>
+            <span className="text-xs text-gray-400 mr-1 self-center">Goal areas:</span>
             {detail.iepGoalAreas.map(a => (
-              <Badge key={a} variant="outline" className="text-[11px] bg-slate-50">{a}</Badge>
+              <Badge key={a} variant="outline" className="text-[11px] bg-gray-50">{a}</Badge>
             ))}
           </div>
         )}
         {detail.serviceTypes.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            <span className="text-xs text-slate-400 mr-1 self-center">Services:</span>
+            <span className="text-xs text-gray-400 mr-1 self-center">Services:</span>
             {detail.serviceTypes.map(s => (
               <Badge key={s} variant="outline" className="text-[11px] bg-emerald-50 text-emerald-700">{s}</Badge>
             ))}
@@ -207,9 +207,9 @@ export default function IepSuggestions() {
         )}
 
         {detail.totalSuggestions === 0 ? (
-          <Card className="text-center py-12 text-slate-400">
+          <Card className="text-center py-12 text-gray-400">
             <Check className="w-10 h-10 mx-auto mb-3 text-green-400" />
-            <p className="font-medium text-slate-600">All caught up!</p>
+            <p className="font-medium text-gray-600">All caught up!</p>
             <p className="text-sm mt-1">This student already has programs assigned for all IEP-matched areas</p>
           </Card>
         ) : (
@@ -224,18 +224,18 @@ export default function IepSuggestions() {
             return (
               <Card key={cat} className="overflow-hidden">
                 <button
-                  className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left"
                   onClick={() => toggleCategory(cat)}
                 >
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${meta.bgColor}`}>
                     <Icon className={`w-5 h-5 ${meta.color}`} />
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-slate-800 text-sm">{meta.label}</p>
-                    <p className="text-xs text-slate-400">{meta.description}</p>
+                    <p className="font-semibold text-gray-800 text-sm">{meta.label}</p>
+                    <p className="text-xs text-gray-400">{meta.description}</p>
                   </div>
-                  <Badge className="bg-slate-100 text-slate-600">{items.length}</Badge>
-                  {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                  <Badge className="bg-gray-100 text-gray-600">{items.length}</Badge>
+                  {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                 </button>
                 {isExpanded && (
                   <CardContent className="pt-0 pb-3 space-y-2">
@@ -253,7 +253,7 @@ export default function IepSuggestions() {
                           key={item.name}
                           className={`rounded-lg border p-3 transition-all cursor-pointer ${
                             isRelated ? "cursor-default" : ""
-                          } ${isSelected ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200" : "border-slate-200 hover:border-slate-300"}`}
+                          } ${isSelected ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200" : "border-gray-200 hover:border-gray-300"}`}
                           onClick={() => {
                             if (isRelated) return;
                             isBehavior ? toggleBehavior(item.name) : toggleProgram(item.name);
@@ -262,14 +262,14 @@ export default function IepSuggestions() {
                           <div className="flex items-start gap-3">
                             {!isRelated && (
                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                                isSelected ? "bg-emerald-700 border-emerald-700" : "border-slate-300"
+                                isSelected ? "bg-emerald-700 border-emerald-700" : "border-gray-300"
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-sm text-slate-800">{item.name}</p>
+                                <p className="font-medium text-sm text-gray-800">{item.name}</p>
                                 <RelevanceBadge score={item.relevance} />
                                 {item.programType && (
                                   <Badge variant="outline" className="text-[10px]">
@@ -277,35 +277,35 @@ export default function IepSuggestions() {
                                   </Badge>
                                 )}
                                 {item.domain && (
-                                  <Badge variant="outline" className="text-[10px] bg-slate-50">{item.domain}</Badge>
+                                  <Badge variant="outline" className="text-[10px] bg-gray-50">{item.domain}</Badge>
                                 )}
                                 {item.linkedService && (
                                   <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600">{item.linkedService}</Badge>
                                 )}
                               </div>
                               {item.description && (
-                                <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
                               )}
                               {item.reason && (
-                                <p className="text-[11px] text-slate-400 mt-1">
+                                <p className="text-[11px] text-gray-400 mt-1">
                                   <TrendingUp className="w-3 h-3 inline mr-1" />
                                   {item.reason}
                                 </p>
                               )}
                               {item.measurementType && (
-                                <div className="flex gap-3 mt-1.5 text-[11px] text-slate-500">
+                                <div className="flex gap-3 mt-1.5 text-[11px] text-gray-500">
                                   <span>Measure: {item.measurementType}</span>
                                   <span>Direction: {item.targetDirection}</span>
                                   <span>Baseline: {item.baselineValue} → Goal: {item.goalValue}</span>
                                 </div>
                               )}
                               {item.targetCriterion && (
-                                <p className="text-[11px] text-slate-500 mt-1">Criterion: {item.targetCriterion}</p>
+                                <p className="text-[11px] text-gray-500 mt-1">Criterion: {item.targetCriterion}</p>
                               )}
                               {item.steps && item.steps.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1">
                                   {item.steps.map((s, i) => (
-                                    <span key={i} className="text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5">
+                                    <span key={i} className="text-[10px] bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">
                                       {i + 1}. {s}
                                     </span>
                                   ))}
@@ -329,17 +329,17 @@ export default function IepSuggestions() {
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-emerald-600" />
           IEP Program Suggestions
         </h1>
-        <p className="text-slate-500 mt-1">
+        <p className="text-gray-500 mt-1">
           Auto-generated suggestions for behaviors, DTTs, task analyses, academic programs, and related services based on each student's IEP goals and service requirements.
         </p>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input
           placeholder="Search students..."
           value={search}
@@ -350,10 +350,10 @@ export default function IepSuggestions() {
 
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3,4,5].map(i => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)}
+          {[1,2,3,4,5].map(i => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
+        <div className="text-center py-12 text-gray-400">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>No SPED students found</p>
         </div>
@@ -392,15 +392,15 @@ export default function IepSuggestions() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-800">{stu.firstName} {stu.lastName}</p>
-                      <span className="text-xs text-slate-400">Grade {stu.grade}</span>
+                      <p className="font-semibold text-gray-800">{stu.firstName} {stu.lastName}</p>
+                      <span className="text-xs text-gray-400">Grade {stu.grade}</span>
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {stu.serviceTypes.slice(0, 4).map(s => (
                         <Badge key={s} variant="outline" className="text-[10px] py-0">{s}</Badge>
                       ))}
                       {stu.goalAreas.slice(0, 3).map(a => (
-                        <Badge key={a} variant="outline" className="text-[10px] py-0 bg-slate-50 text-slate-500">{a}</Badge>
+                        <Badge key={a} variant="outline" className="text-[10px] py-0 bg-gray-50 text-gray-500">{a}</Badge>
                       ))}
                     </div>
                   </div>
@@ -408,9 +408,9 @@ export default function IepSuggestions() {
                     <div className="text-right">
                       <div className="flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="font-bold text-lg text-slate-800">{stu.totalSuggestions}</span>
+                        <span className="font-bold text-lg text-gray-800">{stu.totalSuggestions}</span>
                       </div>
-                      <p className="text-[10px] text-slate-400">suggestions</p>
+                      <p className="text-[10px] text-gray-400">suggestions</p>
                     </div>
                     <div className="text-right hidden md:block">
                       <div className="flex gap-2 text-[11px]">
@@ -418,11 +418,11 @@ export default function IepSuggestions() {
                         {stu.suggestedPrograms > 0 && <span className="text-blue-500">{stu.suggestedPrograms} prog</span>}
                         {stu.suggestedRelatedServices > 0 && <span className="text-purple-500">{stu.suggestedRelatedServices} svc</span>}
                       </div>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[10px] text-gray-400">
                         {stu.existingBehaviors} bhv + {stu.existingPrograms} prog assigned
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-gray-300" />
                   </div>
                 </CardContent>
               </Card>
@@ -435,7 +435,7 @@ export default function IepSuggestions() {
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 flex items-center gap-3 shadow-lg">
             <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-            <p className="text-slate-600">Analyzing IEP data...</p>
+            <p className="text-gray-600">Analyzing IEP data...</p>
           </div>
         </div>
       )}

@@ -57,8 +57,8 @@ export default function Alerts() {
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Alerts</h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Alerts</h1>
+          <p className="text-xs md:text-sm text-gray-400 mt-1">
             {showResolved ? "Resolved alerts" : `${alertList.length} open alerts`}
           </p>
         </div>
@@ -79,7 +79,7 @@ export default function Alerts() {
             aria-pressed={severityFilter === "all"}
             onClick={() => setSeverityFilter("all")}
             className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-              severityFilter === "all" ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200"
+              severityFilter === "all" ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200"
             }`}
           >All ({alertList.length})</button>
           {["critical", "high", "medium", "low"].map(sev => {
@@ -90,7 +90,7 @@ export default function Alerts() {
                 aria-pressed={severityFilter === sev}
                 onClick={() => setSeverityFilter(severityFilter === sev ? "all" : sev)}
                 className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all flex items-center gap-1.5 ${
-                  severityFilter === sev ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200"
+                  severityFilter === sev ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200"
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${severityFilter === sev ? "bg-white" : cfg.dot}`} />
@@ -107,7 +107,7 @@ export default function Alerts() {
         ) : isLoading ? (
           [...Array(6)].map((_, i) => <Skeleton key={i} className="w-full h-20 rounded-xl" />)
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
+          <div className="text-center py-16 text-gray-400">
             <CheckCircle className="w-10 h-10 mx-auto mb-3 text-emerald-300" />
             <p className="font-medium">No alerts found</p>
             <p className="text-sm mt-1">All compliance checks are passing</p>
@@ -121,12 +121,12 @@ export default function Alerts() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[11px] font-bold uppercase tracking-wider ${cfg.color}`}>{a.severity}</span>
-                    <span className="text-[11px] text-slate-400 bg-white/60 px-1.5 py-0.5 rounded">{a.type?.replace(/_/g, " ")}</span>
-                    {a.studentName && <span className="text-[12px] font-medium text-slate-700">{a.studentName}</span>}
+                    <span className="text-[11px] text-gray-400 bg-white/60 px-1.5 py-0.5 rounded">{a.type?.replace(/_/g, " ")}</span>
+                    {a.studentName && <span className="text-[12px] font-medium text-gray-700">{a.studentName}</span>}
                   </div>
-                  <p className="text-[13px] text-slate-700 mt-1">{a.message}</p>
-                  {a.suggestedAction && <p className="text-[12px] text-slate-400 mt-0.5 italic">{a.suggestedAction}</p>}
-                  <p className="text-[11px] text-slate-400 mt-1.5">
+                  <p className="text-[13px] text-gray-700 mt-1">{a.message}</p>
+                  {a.suggestedAction && <p className="text-[12px] text-gray-400 mt-0.5 italic">{a.suggestedAction}</p>}
+                  <p className="text-[11px] text-gray-400 mt-1.5">
                     {new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </p>
                 </div>
@@ -150,14 +150,14 @@ export default function Alerts() {
             <AlertDialogTitle>Resolve Alert</AlertDialogTitle>
             <AlertDialogDescription>
               {resolveConfirm && <>
-                <span className="font-medium text-slate-700">{resolveConfirm.severity?.toUpperCase()}</span>
+                <span className="font-medium text-gray-700">{resolveConfirm.severity?.toUpperCase()}</span>
                 {" — "}
                 {resolveConfirm.message}
               </>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-1.5">
-            <Label className="text-[12px] text-slate-500">Resolution note (optional)</Label>
+            <Label className="text-[12px] text-gray-500">Resolution note (optional)</Label>
             <Textarea className="text-[13px] resize-none" rows={2} value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="What was done to resolve this..." />
           </div>
           <AlertDialogFooter>

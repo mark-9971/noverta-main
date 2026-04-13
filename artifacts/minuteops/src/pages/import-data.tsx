@@ -137,8 +137,8 @@ export default function ImportData() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Import Data</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">Bulk import students, IEP requirements, and session logs from CSV</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Import Data</h1>
+        <p className="text-xs md:text-sm text-gray-400 mt-1">Bulk import students, IEP requirements, and session logs from CSV</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -149,16 +149,16 @@ export default function ImportData() {
               key={type.key}
               onClick={() => { setSelectedType(type.key); resetForm(); }}
               className={`text-left p-5 rounded-xl border transition-all ${
-                active ? "border-emerald-300 bg-emerald-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                active ? "border-emerald-300 bg-emerald-50/50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"
               }`}
             >
               <div className="flex items-center gap-3 mb-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
                   <type.icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className={`text-[14px] font-semibold ${active ? "text-emerald-800" : "text-slate-700"}`}>{type.label}</p>
-                  <p className="text-[12px] text-slate-400">{type.description}</p>
+                  <p className={`text-[14px] font-semibold ${active ? "text-emerald-800" : "text-gray-700"}`}>{type.label}</p>
+                  <p className="text-[12px] text-gray-400">{type.description}</p>
                 </div>
               </div>
             </button>
@@ -171,14 +171,14 @@ export default function ImportData() {
           <div className="lg:col-span-8 space-y-6">
             <Card>
               <CardHeader className="pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-600">
+                <CardTitle className="text-sm font-semibold text-gray-600">
                   Upload {IMPORT_TYPES.find(t => t.key === selectedType)?.label} CSV
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-4">
                 <div
                   className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                    dragActive ? "border-emerald-400 bg-emerald-50/50" : "border-slate-200 hover:border-slate-300 bg-slate-50/30"
+                    dragActive ? "border-emerald-400 bg-emerald-50/50" : "border-gray-200 hover:border-gray-300 bg-gray-50/30"
                   }`}
                   onDragOver={e => { e.preventDefault(); setDragActive(true); }}
                   onDragLeave={() => setDragActive(false)}
@@ -196,8 +196,8 @@ export default function ImportData() {
                     <div className="flex items-center justify-center gap-3">
                       <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
                       <div className="text-left">
-                        <p className="text-[14px] font-semibold text-slate-700">{file.name}</p>
-                        <p className="text-[12px] text-slate-400">{(file.size / 1024).toFixed(1)} KB · {csvPreview?.rows.length ?? 0}+ data rows</p>
+                        <p className="text-[14px] font-semibold text-gray-700">{file.name}</p>
+                        <p className="text-[12px] text-gray-400">{(file.size / 1024).toFixed(1)} KB · {csvPreview?.rows.length ?? 0}+ data rows</p>
                       </div>
                       <Button variant="outline" size="sm" className="ml-4 text-[11px]" onClick={e => { e.stopPropagation(); resetForm(); }}>
                         Change file
@@ -205,30 +205,30 @@ export default function ImportData() {
                     </div>
                   ) : (
                     <>
-                      <Upload className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-[14px] font-medium text-slate-600">Drop your CSV file here</p>
-                      <p className="text-[12px] text-slate-400 mt-1">or click to browse · Supports .csv, .tsv, .txt</p>
+                      <Upload className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-[14px] font-medium text-gray-600">Drop your CSV file here</p>
+                      <p className="text-[12px] text-gray-400 mt-1">or click to browse · Supports .csv, .tsv, .txt</p>
                     </>
                   )}
                 </div>
 
                 {csvPreview && (
                   <div className="mt-4">
-                    <p className="text-[12px] font-semibold text-slate-500 mb-2">Preview (first {csvPreview.rows.length} rows)</p>
-                    <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                    <p className="text-[12px] font-semibold text-gray-500 mb-2">Preview (first {csvPreview.rows.length} rows)</p>
+                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
                       <table className="w-full text-[11px]">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
+                          <tr className="bg-gray-50 border-b border-gray-200">
                             {csvPreview.headers.map((h, i) => (
-                              <th key={i} className="text-left px-3 py-2 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                              <th key={i} className="text-left px-3 py-2 text-gray-500 font-semibold uppercase tracking-wider whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-gray-100">
                           {csvPreview.rows.map((row, i) => (
-                            <tr key={i} className="hover:bg-slate-50/50">
+                            <tr key={i} className="hover:bg-gray-50/50">
                               {row.map((cell, j) => (
-                                <td key={j} className="px-3 py-1.5 text-slate-600 whitespace-nowrap max-w-[200px] truncate">{cell || "—"}</td>
+                                <td key={j} className="px-3 py-1.5 text-gray-600 whitespace-nowrap max-w-[200px] truncate">{cell || "—"}</td>
                               ))}
                             </tr>
                           ))}
@@ -262,31 +262,31 @@ export default function ImportData() {
                       ) : (
                         <XCircle className="w-5 h-5 text-red-500" />
                       )}
-                      <p className="text-[14px] font-semibold text-slate-700">
+                      <p className="text-[14px] font-semibold text-gray-700">
                         {result.status === "completed" ? "Import Complete" : "Import Failed"}
                       </p>
                     </div>
                     <div className="grid grid-cols-3 gap-4 mt-3">
                       <div>
-                        <p className="text-[11px] text-slate-400">Processed</p>
-                        <p className="text-lg font-bold text-slate-700">{result.rowsProcessed}</p>
+                        <p className="text-[11px] text-gray-400">Processed</p>
+                        <p className="text-lg font-bold text-gray-700">{result.rowsProcessed}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-400">Imported</p>
+                        <p className="text-[11px] text-gray-400">Imported</p>
                         <p className="text-lg font-bold text-emerald-600">{result.rowsImported}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-slate-400">Errors</p>
+                        <p className="text-[11px] text-gray-400">Errors</p>
                         <p className="text-lg font-bold text-red-500">{result.rowsErrored}</p>
                       </div>
                     </div>
                     {result.errors && result.errors.length > 0 && (
                       <div className="mt-3 space-y-1">
-                        <p className="text-[11px] font-semibold text-slate-500">Error Details:</p>
+                        <p className="text-[11px] font-semibold text-gray-500">Error Details:</p>
                         {result.errors.slice(0, 10).map((err, i) => (
                           <div key={i} className="flex items-start gap-2 text-[11px]">
                             <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 flex-shrink-0" />
-                            <span className="text-slate-600">{err}</span>
+                            <span className="text-gray-600">{err}</span>
                           </div>
                         ))}
                       </div>
@@ -303,19 +303,19 @@ export default function ImportData() {
           <div className="lg:col-span-4 space-y-4">
             <Card>
               <CardHeader className="pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-600">Templates</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-600">Templates</CardTitle>
               </CardHeader>
               <CardContent className="pt-3 space-y-2">
-                <p className="text-[12px] text-slate-400 mb-3">Download a template, fill it in, then upload here.</p>
+                <p className="text-[12px] text-gray-400 mb-3">Download a template, fill it in, then upload here.</p>
 
                 <button
                   onClick={() => downloadTemplate(IMPORT_TYPES.find(t => t.key === selectedType)?.templateKey ?? "students")}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
                 >
                   <Download className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <div>
-                    <p className="text-[13px] font-medium text-slate-700">Trellis Template</p>
-                    <p className="text-[11px] text-slate-400">Standard format with sample data</p>
+                    <p className="text-[13px] font-medium text-gray-700">Trellis Template</p>
+                    <p className="text-[11px] text-gray-400">Standard format with sample data</p>
                   </div>
                 </button>
 
@@ -323,12 +323,12 @@ export default function ImportData() {
                   <button
                     key={tmpl.key}
                     onClick={() => downloadTemplate(tmpl.key)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
                   >
-                    <Download className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <div>
-                      <p className="text-[13px] font-medium text-slate-700">{tmpl.label}</p>
-                      <p className="text-[11px] text-slate-400">{tmpl.description}</p>
+                      <p className="text-[13px] font-medium text-gray-700">{tmpl.label}</p>
+                      <p className="text-[11px] text-gray-400">{tmpl.description}</p>
                     </div>
                   </button>
                 ))}
@@ -337,29 +337,29 @@ export default function ImportData() {
 
             <Card>
               <CardHeader className="pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-600">Supported Sources</CardTitle>
+                <CardTitle className="text-sm font-semibold text-gray-600">Supported Sources</CardTitle>
               </CardHeader>
               <CardContent className="pt-3">
-                <div className="space-y-2 text-[12px] text-slate-500">
+                <div className="space-y-2 text-[12px] text-gray-500">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                    <span><span className="font-semibold text-slate-700">Aspen X2</span> — Student roster export</span>
+                    <span><span className="font-semibold text-gray-700">Aspen X2</span> — Student roster export</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                    <span><span className="font-semibold text-slate-700">eSPED</span> — Service grid export</span>
+                    <span><span className="font-semibold text-gray-700">eSPED</span> — Service grid export</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                    <span><span className="font-semibold text-slate-700">Excel / Sheets</span> — Save as CSV</span>
+                    <span><span className="font-semibold text-gray-700">Excel / Sheets</span> — Save as CSV</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                    <span><span className="font-semibold text-slate-700">Any CSV</span> — Flexible column matching</span>
+                    <span><span className="font-semibold text-gray-700">Any CSV</span> — Flexible column matching</span>
                   </div>
                 </div>
-                <div className="mt-3 p-3 bg-slate-50 rounded-lg">
-                  <p className="text-[11px] text-slate-500">
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-[11px] text-gray-500">
                     <span className="font-semibold">Tip:</span> Export from your SIS as CSV. The importer matches columns by name — exact headers aren't required.
                     Common variations like "first" / "first_name" / "First Name" all work.
                   </p>
@@ -372,7 +372,7 @@ export default function ImportData() {
 
       <Card>
         <CardHeader className="pb-0 flex-row items-center justify-between">
-          <CardTitle className="text-sm font-semibold text-slate-600">Import History</CardTitle>
+          <CardTitle className="text-sm font-semibold text-gray-600">Import History</CardTitle>
           <Button variant="outline" size="sm" className="text-[11px] h-7" onClick={loadHistory}>
             <RefreshCw className="w-3 h-3 mr-1" /> Refresh
           </Button>
@@ -381,11 +381,11 @@ export default function ImportData() {
           {loadingHistory ? (
             <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="w-full h-14" />)}</div>
           ) : history.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-sm">No imports yet. Upload a file above to get started.</div>
+            <div className="py-8 text-center text-gray-400 text-sm">No imports yet. Upload a file above to get started.</div>
           ) : (
             <div className="space-y-2">
               {history.slice(0, 20).map(imp => (
-                <div key={imp.id} className="flex items-center gap-4 p-3 rounded-lg border border-slate-100 bg-white">
+                <div key={imp.id} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 bg-white">
                   {imp.status === "completed" ? (
                     <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                   ) : imp.status === "failed" ? (
@@ -394,23 +394,23 @@ export default function ImportData() {
                     <RefreshCw className="w-5 h-5 text-amber-500 flex-shrink-0 animate-spin" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-slate-700">
+                    <p className="text-[13px] font-medium text-gray-700">
                       {imp.importType?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
-                      {imp.fileName && <span className="text-slate-400 font-normal"> — {imp.fileName}</span>}
+                      {imp.fileName && <span className="text-gray-400 font-normal"> — {imp.fileName}</span>}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-gray-400">
                       {new Date(imp.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   <div className="flex items-center gap-4 text-[12px] flex-shrink-0">
                     <div className="text-center">
                       <p className="font-bold text-emerald-600">{imp.rowsImported}</p>
-                      <p className="text-slate-400 text-[10px]">imported</p>
+                      <p className="text-gray-400 text-[10px]">imported</p>
                     </div>
                     {(imp.rowsErrored ?? 0) > 0 && (
                       <div className="text-center">
                         <p className="font-bold text-red-500">{imp.rowsErrored}</p>
-                        <p className="text-slate-400 text-[10px]">errors</p>
+                        <p className="text-gray-400 text-[10px]">errors</p>
                       </div>
                     )}
                   </div>

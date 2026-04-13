@@ -159,13 +159,13 @@ export function InteractiveChart({
       if (!active || !payload?.length) return null;
       const d = payload[0].payload;
       return (
-        <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-lg text-xs">
-          <p className="font-medium text-slate-700">{formatChartDate(d.date)}</p>
-          <p className="text-slate-600 mt-0.5">
+        <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-lg text-xs">
+          <p className="font-medium text-gray-700">{formatChartDate(d.date)}</p>
+          <p className="text-gray-600 mt-0.5">
             {yLabel || "Value"}: <span className="font-bold" style={{ color }}>{valueFormatter(d.value)}</span>
           </p>
           {d.staffName && (
-            <p className="text-slate-400 mt-0.5">Staff: {d.staffName}</p>
+            <p className="text-gray-400 mt-0.5">Staff: {d.staffName}</p>
           )}
         </div>
       );
@@ -216,19 +216,19 @@ export function InteractiveChart({
             />
           </AreaChart>
         </ResponsiveContainer>
-        <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/5 rounded transition-colors flex items-center justify-center">
-          <Maximize2 className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-gray-900/0 group-hover:bg-gray-900/5 rounded transition-colors flex items-center justify-center">
+          <Maximize2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </button>
     );
   }
 
   return (
-    <div className="border border-slate-200 rounded-xl bg-white shadow-sm mt-2 mb-1 overflow-hidden w-full">
+    <div className="border border-gray-200 rounded-xl bg-white shadow-sm mt-2 mb-1 overflow-hidden w-full">
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <div className="flex items-center gap-2">
-          {title && <h4 className="text-xs font-semibold text-slate-600">{title}</h4>}
-          <span className="text-[10px] text-slate-400">{filteredData.length} data points</span>
+          {title && <h4 className="text-xs font-semibold text-gray-600">{title}</h4>}
+          <span className="text-[10px] text-gray-400">{filteredData.length} data points</span>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="text-[10px] text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5">
               <X className="w-3 h-3" /> Clear filters
@@ -238,7 +238,7 @@ export function InteractiveChart({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-1.5 rounded-md transition-colors ${showFilters ? "bg-emerald-50 text-emerald-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"}`}
+            className={`p-1.5 rounded-md transition-colors ${showFilters ? "bg-emerald-50 text-emerald-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
             title="Filters"
           >
             <Filter className="w-3.5 h-3.5" />
@@ -246,7 +246,7 @@ export function InteractiveChart({
           {onPhaseLinesChange && (
             <button
               onClick={() => setShowAddPhase(!showAddPhase)}
-              className={`p-1.5 rounded-md transition-colors ${showAddPhase ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"}`}
+              className={`p-1.5 rounded-md transition-colors ${showAddPhase ? "bg-violet-50 text-violet-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
               title="Add phase line"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -255,7 +255,7 @@ export function InteractiveChart({
           {!hideCollapse && (
             <button
               onClick={() => { setExpanded(false); setHighlightedIdx(null); }}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
               title="Collapse chart"
             >
               <Minimize2 className="w-3.5 h-3.5" />
@@ -265,14 +265,14 @@ export function InteractiveChart({
       </div>
 
       {showFilters && (
-        <div className="px-4 py-2 bg-slate-50 border-y border-slate-100 flex flex-wrap items-center gap-3">
+        <div className="px-4 py-2 bg-gray-50 border-y border-gray-100 flex flex-wrap items-center gap-3">
           {staffList.length > 0 && (
             <div className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-slate-400" />
+              <Users className="w-3.5 h-3.5 text-gray-400" />
               <select
                 value={staffFilter}
                 onChange={(e) => setStaffFilter(e.target.value)}
-                className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
               >
                 <option value="all">All Staff</option>
                 {staffList.map((s) => (
@@ -282,20 +282,20 @@ export function InteractiveChart({
             </div>
           )}
           <div className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <Calendar className="w-3.5 h-3.5 text-gray-400" />
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+              className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
               placeholder="From"
             />
-            <span className="text-xs text-slate-400">to</span>
+            <span className="text-xs text-gray-400">to</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
+              className="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
               placeholder="To"
             />
           </div>
@@ -331,7 +331,7 @@ export function InteractiveChart({
 
       {phaseLines.length > 0 && (
         <div className="px-4 py-1.5 flex flex-wrap items-center gap-2">
-          <span className="text-[10px] text-slate-400 font-medium">Phase lines:</span>
+          <span className="text-[10px] text-gray-400 font-medium">Phase lines:</span>
           {phaseLines.map((pl) => (
             <span
               key={pl.id}
@@ -399,10 +399,10 @@ export function InteractiveChart({
               {masteryLine != null && (
                 <ReferenceLine
                   y={masteryLine}
-                  stroke="#047857"
+                  stroke="#059669"
                   strokeDasharray="6 3"
                   strokeWidth={1}
-                  label={{ value: `Mastery: ${valueFormatter(masteryLine)}%`, position: "insideTopRight", fontSize: 10, fill: "#047857" }}
+                  label={{ value: `Mastery: ${valueFormatter(masteryLine)}%`, position: "insideTopRight", fontSize: 10, fill: "#059669" }}
                 />
               )}
 
@@ -430,7 +430,7 @@ export function InteractiveChart({
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-[220px] flex items-center justify-center text-xs text-slate-400">
+          <div className="h-[220px] flex items-center justify-center text-xs text-gray-400">
             No data points match the current filters.
           </div>
         )}
@@ -438,21 +438,21 @@ export function InteractiveChart({
 
       {highlightedIdx !== null && filteredData[highlightedIdx] && (
         <div className="px-4 pb-3">
-          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 flex items-center justify-between">
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-medium text-slate-600">
+              <span className="text-xs font-medium text-gray-600">
                 {formatChartDate(filteredData[highlightedIdx].date)}
               </span>
               <span className="text-xs font-bold" style={{ color }}>
                 {valueFormatter(filteredData[highlightedIdx].value)}
               </span>
               {filteredData[highlightedIdx].staffName && (
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[10px] text-gray-400">
                   by {filteredData[highlightedIdx].staffName}
                 </span>
               )}
             </div>
-            <button onClick={() => setHighlightedIdx(null)} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setHighlightedIdx(null)} className="text-gray-400 hover:text-gray-600">
               <X className="w-3 h-3" />
             </button>
           </div>

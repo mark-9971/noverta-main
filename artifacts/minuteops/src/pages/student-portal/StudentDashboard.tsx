@@ -33,7 +33,7 @@ export default function StudentDashboard() {
     );
   }
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const upcoming = data?.upcomingAssignments || [];
   const recentGrades = data?.recentGrades || [];
@@ -43,8 +43,8 @@ export default function StudentDashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Welcome back!</h1>
-        <p className="text-slate-500 mt-1">Here's your academic overview</p>
+        <h1 className="text-2xl font-bold text-gray-800">Welcome back!</h1>
+        <p className="text-gray-500 mt-1">Here's your academic overview</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -64,15 +64,15 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             {upcoming.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">No upcoming assignments</p>
+              <p className="text-sm text-gray-400 py-4 text-center">No upcoming assignments</p>
             ) : upcoming.slice(0, 5).map((a: any) => (
-              <Link key={a.assignmentId} href={`/portal/assignments/${a.assignmentId}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
+              <Link key={a.assignmentId} href={`/portal/assignments/${a.assignmentId}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{a.title}</p>
-                  <p className="text-xs text-slate-400">{a.className} · Due {a.dueDate}</p>
+                  <p className="text-sm font-medium text-gray-700 truncate">{a.title}</p>
+                  <p className="text-xs text-gray-400">{a.className} · Due {a.dueDate}</p>
                 </div>
                 <StatusBadge status={a.status} />
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500" />
               </Link>
             ))}
           </CardContent>
@@ -87,15 +87,15 @@ export default function StudentDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             {recentGrades.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">No grades yet</p>
+              <p className="text-sm text-gray-400 py-4 text-center">No grades yet</p>
             ) : recentGrades.slice(0, 5).map((g: any, i: number) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50">
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{g.assignmentTitle}</p>
-                  <p className="text-xs text-slate-400">{g.className}</p>
+                  <p className="text-sm font-medium text-gray-700 truncate">{g.assignmentTitle}</p>
+                  <p className="text-xs text-gray-400">{g.className}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-slate-700">{g.pointsEarned}/{g.pointsPossible}</p>
+                  <p className="text-sm font-bold text-gray-700">{g.pointsEarned}/{g.pointsPossible}</p>
                   <p className={`text-xs font-semibold ${gradeColor(g.letterGrade)}`}>{g.letterGrade}</p>
                 </div>
               </div>
@@ -119,9 +119,9 @@ export default function StudentDashboard() {
                 <Link key={c.classId} href={`/portal/classes/${c.classId}`} className="p-4 border rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-700 group-hover:text-blue-700">{c.className}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{c.teacherFirstName} {c.teacherLastName}</p>
-                      <p className="text-xs text-slate-400">Period {c.period}</p>
+                      <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-700">{c.className}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{c.teacherFirstName} {c.teacherLastName}</p>
+                      <p className="text-xs text-gray-400">Period {c.period}</p>
                     </div>
                     {classGrade?.letterGrade && (
                       <div className={`text-lg font-bold ${gradeColor(classGrade.letterGrade)}`}>
@@ -154,8 +154,8 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
             <Icon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-2xl font-bold text-gray-800">{value}</p>
+            <p className="text-xs text-gray-400">{label}</p>
           </div>
         </div>
       </CardContent>
@@ -171,7 +171,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function gradeColor(grade: string): string {
-  if (!grade) return "text-slate-400";
+  if (!grade) return "text-gray-400";
   if (grade.startsWith("A")) return "text-emerald-600";
   if (grade.startsWith("B")) return "text-blue-600";
   if (grade.startsWith("C")) return "text-amber-600";
@@ -196,7 +196,7 @@ function SelectStudentPrompt() {
     <Card className="max-w-lg mx-auto mt-8">
       <CardHeader>
         <CardTitle>Select a Student</CardTitle>
-        <p className="text-sm text-slate-500">Choose which student to view the portal as</p>
+        <p className="text-sm text-gray-500">Choose which student to view the portal as</p>
       </CardHeader>
       <CardContent className="space-y-3">
         <input
@@ -204,7 +204,7 @@ function SelectStudentPrompt() {
           placeholder="Search students..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div className="max-h-64 overflow-y-auto space-y-1">
           {filtered.map(s => (
@@ -217,8 +217,8 @@ function SelectStudentPrompt() {
                 {s.firstName[0]}{s.lastName[0]}
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-700">{s.firstName} {s.lastName}</p>
-                <p className="text-xs text-slate-400">Grade {s.grade}</p>
+                <p className="text-sm font-medium text-gray-700">{s.firstName} {s.lastName}</p>
+                <p className="text-xs text-gray-400">Grade {s.grade}</p>
               </div>
             </button>
           ))}

@@ -20,7 +20,7 @@ export default function TeacherClasses() {
     });
   }, [teacherId]);
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const subjectColors: Record<string, string> = {
     Math: "from-blue-500 to-blue-600", ELA: "from-purple-500 to-purple-600",
@@ -33,8 +33,8 @@ export default function TeacherClasses() {
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">My Classes</h1>
-          <p className="text-slate-500 mt-1">{classes.length} classes this semester</p>
+          <h1 className="text-2xl font-bold text-gray-800">My Classes</h1>
+          <p className="text-gray-500 mt-1">{classes.length} classes this semester</p>
         </div>
       </div>
 
@@ -50,17 +50,17 @@ export default function TeacherClasses() {
                 </div>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Users className="w-4 h-4" />
                       {c.studentCount} students
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Clock className="w-4 h-4" />
                       Period {c.period}
                     </div>
                   </div>
                   {c.room && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
                       <MapPin className="w-4 h-4" />
                       Room {c.room}
                     </div>

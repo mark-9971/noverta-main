@@ -14,7 +14,7 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 const DIRECTION_COLORS = {
   decrease: { good: "#10b981", bad: "#ef4444", bg: "bg-emerald-50", text: "text-emerald-700" },
-  increase: { good: "#047857", bad: "#f97316", bg: "bg-emerald-50", text: "text-emerald-800" },
+  increase: { good: "#059669", bad: "#f97316", bg: "bg-emerald-50", text: "text-emerald-800" },
 };
 
 export default function StudentDetail() {
@@ -131,7 +131,7 @@ export default function StudentDetail() {
         <Link href="/students" className="text-emerald-700 text-sm flex items-center gap-1 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to Students
         </Link>
-        <p className="text-slate-500">Student not found.</p>
+        <p className="text-gray-500">Student not found.</p>
       </div>
     );
   }
@@ -200,8 +200,8 @@ export default function StudentDetail() {
               {s.firstName?.[0]}{s.lastName?.[0]}
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-slate-800 truncate">{s.firstName} {s.lastName}</h1>
-              <p className="text-xs md:text-sm text-slate-400 mt-0.5 truncate">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">{s.firstName} {s.lastName}</h1>
+              <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate">
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
               </p>
             </div>
@@ -230,8 +230,8 @@ export default function StudentDetail() {
           <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
             <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
             <div>
-              <p className="text-2xl font-bold text-slate-800">{overallPct}%</p>
-              <p className="text-[11px] text-slate-400">Overall Progress</p>
+              <p className="text-2xl font-bold text-gray-800">{overallPct}%</p>
+              <p className="text-[11px] text-gray-400">Overall Progress</p>
             </div>
           </CardContent>
         </Card>
@@ -241,8 +241,8 @@ export default function StudentDetail() {
               <TrendingUp className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-800">{totalDelivered}<span className="text-sm text-slate-400 font-normal"> / {totalRequired}</span></p>
-              <p className="text-[11px] text-slate-400">Minutes Delivered</p>
+              <p className="text-2xl font-bold text-gray-800">{totalDelivered}<span className="text-sm text-gray-400 font-normal"> / {totalRequired}</span></p>
+              <p className="text-[11px] text-gray-400">Minutes Delivered</p>
             </div>
           </CardContent>
         </Card>
@@ -252,8 +252,8 @@ export default function StudentDetail() {
               <CheckCircle className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-800">{completedSessions}</p>
-              <p className="text-[11px] text-slate-400">Completed Sessions</p>
+              <p className="text-2xl font-bold text-gray-800">{completedSessions}</p>
+              <p className="text-[11px] text-gray-400">Completed Sessions</p>
             </div>
           </CardContent>
         </Card>
@@ -263,8 +263,8 @@ export default function StudentDetail() {
               <XCircle className="w-5 h-5 text-red-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-800">{missedSessions}</p>
-              <p className="text-[11px] text-slate-400">Missed Sessions</p>
+              <p className="text-2xl font-bold text-gray-800">{missedSessions}</p>
+              <p className="text-[11px] text-gray-400">Missed Sessions</p>
             </div>
           </CardContent>
         </Card>
@@ -274,10 +274,10 @@ export default function StudentDetail() {
         <Card className="lg:col-span-7">
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-slate-600">Minutes by Service</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-600">Minutes by Service</CardTitle>
               <button
                 onClick={() => setMinutesExpanded(!minutesExpanded)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
                 title={minutesExpanded ? "Collapse" : "Expand chart"}
               >
                 {minutesExpanded ? <ChevronUp className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -288,17 +288,17 @@ export default function StudentDetail() {
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={minutesExpanded ? Math.max(300, chartData.length * 64) : Math.max(200, chartData.length * 48)}>
                 <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+                    contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
                     formatter={(val: any, name: string) => [val + " min", name === "delivered" ? "Delivered" : "Required"]}
                   />
-                  <Bar dataKey="required" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={minutesExpanded ? 24 : 18} name="Required" />
+                  <Bar dataKey="required" fill="#e5e7eb" radius={[0, 4, 4, 0]} barSize={minutesExpanded ? 24 : 18} name="Required" />
                   <Bar dataKey="delivered" radius={[0, 4, 4, 0]} barSize={minutesExpanded ? 24 : 18} name="Delivered">
                     {chartData.map((entry: any, idx: number) => (
-                      <Cell key={idx} fill={RISK_CONFIG[entry.riskStatus]?.ringColor ?? "#047857"} />
+                      <Cell key={idx} fill={RISK_CONFIG[entry.riskStatus]?.ringColor ?? "#059669"} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -307,15 +307,15 @@ export default function StudentDetail() {
               <Skeleton className="w-full h-48" />
             )}
             {minutesExpanded && chartData.length > 0 && (
-              <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+              <div className="mt-4 space-y-2 border-t border-gray-100 pt-3">
                 {chartData.map((entry: any, idx: number) => {
                   const rCfg = RISK_CONFIG[entry.riskStatus] ?? RISK_CONFIG.on_track;
                   return (
-                    <div key={idx} className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-lg">
-                      <span className="font-medium text-slate-700">{entry.name}</span>
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded-lg">
+                      <span className="font-medium text-gray-700">{entry.name}</span>
                       <div className="flex items-center gap-3">
-                        <span className="text-slate-500">{entry.delivered} / {entry.required} min</span>
-                        <span className="font-bold text-slate-700">{entry.pct}%</span>
+                        <span className="text-gray-500">{entry.delivered} / {entry.required} min</span>
+                        <span className="font-bold text-gray-700">{entry.pct}%</span>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${rCfg.bg} ${rCfg.color}`}>{rCfg.label}</span>
                       </div>
                     </div>
@@ -324,11 +324,11 @@ export default function StudentDetail() {
               </div>
             )}
             {minutesExpanded && minutesTrend.length > 0 && (
-              <div className="mt-4 border-t border-slate-100 pt-3">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Minutes Delivered Over Time</p>
+              <div className="mt-4 border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 mb-1">Minutes Delivered Over Time</p>
                 <InteractiveChart
                   data={minutesTrend}
-                  color="#047857"
+                  color="#059669"
                   gradientId="grad-minutes-trend"
                   title="Session Minutes"
                   yLabel="Minutes"
@@ -345,23 +345,23 @@ export default function StudentDetail() {
 
         <Card className="lg:col-span-5">
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-600">Service Breakdown</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-600">Service Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {progressList.length > 0 ? progressList.map((p: any, idx: number) => {
               const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
               const rCfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
               return (
-                <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/50">
+                <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50">
                   <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={rCfg.ringColor} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-slate-700 truncate">{p.serviceTypeName}</p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[13px] font-medium text-gray-700 truncate">{p.serviceTypeName}</p>
+                    <p className="text-[11px] text-gray-400">
                       {p.deliveredMinutes} / {p.requiredMinutes} min · {p.minutesPerWeek} min/wk
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-slate-700">{pct}%</p>
+                    <p className="text-sm font-bold text-gray-700">{pct}%</p>
                     <p className={`text-[10px] font-medium ${rCfg.color}`}>{rCfg.label}</p>
                   </div>
                 </div>
@@ -377,11 +377,11 @@ export default function StudentDetail() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-rose-500" />
                 Behavior Data
               </CardTitle>
-              <span className="text-xs text-slate-400">{behaviorTargets.length} active target{behaviorTargets.length !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-gray-400">{behaviorTargets.length} active target{behaviorTargets.length !== 1 ? "s" : ""}</span>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
@@ -398,7 +398,7 @@ export default function StudentDetail() {
                   const dirColors = DIRECTION_COLORS[bt.targetDirection as keyof typeof DIRECTION_COLORS] || DIRECTION_COLORS.decrease;
                   const isGoodTrend = (bt.targetDirection === "decrease" && direction === "down") ||
                                        (bt.targetDirection === "increase" && direction === "up");
-                  const trendColor = direction === "flat" ? "#94a3b8" : isGoodTrend ? dirColors.good : dirColors.bad;
+                  const trendColor = direction === "flat" ? "#9ca3af" : isGoodTrend ? dirColors.good : dirColors.bad;
 
                   const progressPct = bt.targetDirection === "decrease"
                     ? baseline > goal ? Math.round(((baseline - (latest ?? baseline)) / (baseline - goal)) * 100) : 0
@@ -406,11 +406,11 @@ export default function StudentDetail() {
                   const clampedPct = Math.max(0, Math.min(100, progressPct));
 
                   return (
-                    <div key={bt.id} className="border border-slate-100 rounded-xl p-4">
+                    <div key={bt.id} className="border border-gray-100 rounded-xl p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-[13px] font-semibold text-slate-700">{bt.name}</p>
+                            <p className="text-[13px] font-semibold text-gray-700">{bt.name}</p>
                             <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                               bt.targetDirection === "decrease" ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"
                             }`}>
@@ -418,7 +418,7 @@ export default function StudentDetail() {
                               {bt.targetDirection}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-gray-400 mt-0.5">
                             {bt.measurementType} · Baseline: {bt.baselineValue} · Goal: {bt.goalValue}
                           </p>
                         </div>
@@ -426,21 +426,21 @@ export default function StudentDetail() {
                           <div className="flex items-center gap-1">
                             {direction === "up" ? <ArrowUpRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
                              direction === "down" ? <ArrowDownRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
-                             <Minus className="w-3.5 h-3.5 text-slate-400" />}
-                            <span className="text-lg font-bold text-slate-800">{latest != null ? latest : "\u2014"}</span>
+                             <Minus className="w-3.5 h-3.5 text-gray-400" />}
+                            <span className="text-lg font-bold text-gray-800">{latest != null ? latest : "\u2014"}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400">latest</p>
+                          <p className="text-[10px] text-gray-400">latest</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex-1">
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all"
                               style={{ width: `${clampedPct}%`, backgroundColor: clampedPct >= 80 ? "#10b981" : clampedPct >= 50 ? "#f59e0b" : "#ef4444" }}
                             />
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-1">{clampedPct}% toward goal</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{clampedPct}% toward goal</p>
                         </div>
                         {trendData.length > 1 && (
                           <InteractiveChart
@@ -470,11 +470,11 @@ export default function StudentDetail() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-emerald-600" />
                 Academic Programs
               </CardTitle>
-              <span className="text-xs text-slate-400">{programTargets.length} active program{programTargets.length !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-gray-400">{programTargets.length} active program{programTargets.length !== 1 ? "s" : ""}</span>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
@@ -488,25 +488,25 @@ export default function StudentDetail() {
                   const direction = getTrendDirection(trendData);
                   const masteryPct = pt.masteryCriterionPercent || 80;
                   const isGoodTrend = direction === "up";
-                  const trendColor = direction === "flat" ? "#94a3b8" : isGoodTrend ? "#047857" : "#f97316";
+                  const trendColor = direction === "flat" ? "#9ca3af" : isGoodTrend ? "#059669" : "#f97316";
                   const atMastery = latest != null && latest >= masteryPct;
 
                   return (
-                    <div key={pt.id} className="border border-slate-100 rounded-xl p-4">
+                    <div key={pt.id} className="border border-gray-100 rounded-xl p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-[13px] font-semibold text-slate-700">{pt.name}</p>
+                            <p className="text-[13px] font-semibold text-gray-700">{pt.name}</p>
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
                               {pt.domain || pt.programType?.replace(/_/g, " ")}
                             </span>
                             {pt.currentPromptLevel && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
                                 {pt.currentPromptLevel}
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-gray-400 mt-0.5">
                             {pt.targetCriterion || `${masteryPct}% mastery`}
                           </p>
                         </div>
@@ -514,27 +514,27 @@ export default function StudentDetail() {
                           <div className="flex items-center gap-1">
                             {direction === "up" ? <ArrowUpRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
                              direction === "down" ? <ArrowDownRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
-                             <Minus className="w-3.5 h-3.5 text-slate-400" />}
-                            <span className="text-lg font-bold text-slate-800">{latest != null ? `${Math.round(latest)}%` : "\u2014"}</span>
+                             <Minus className="w-3.5 h-3.5 text-gray-400" />}
+                            <span className="text-lg font-bold text-gray-800">{latest != null ? `${Math.round(latest)}%` : "\u2014"}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400">latest accuracy</p>
+                          <p className="text-[10px] text-gray-400">latest accuracy</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex-1">
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative">
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden relative">
                             <div
                               className="h-full rounded-full transition-all"
-                              style={{ width: `${Math.min(100, latest ?? 0)}%`, backgroundColor: atMastery ? "#10b981" : (latest ?? 0) >= 60 ? "#047857" : "#f97316" }}
+                              style={{ width: `${Math.min(100, latest ?? 0)}%`, backgroundColor: atMastery ? "#10b981" : (latest ?? 0) >= 60 ? "#059669" : "#f97316" }}
                             />
                             <div
-                              className="absolute top-0 h-full w-0.5 bg-slate-400/60"
+                              className="absolute top-0 h-full w-0.5 bg-gray-400/60"
                               style={{ left: `${masteryPct}%` }}
                               title={`Mastery: ${masteryPct}%`}
                             />
                           </div>
                           <div className="flex items-center justify-between mt-1">
-                            <p className="text-[10px] text-slate-400">{atMastery ? "At mastery criterion" : `${masteryPct}% mastery criterion`}</p>
+                            <p className="text-[10px] text-gray-400">{atMastery ? "At mastery criterion" : `${masteryPct}% mastery criterion`}</p>
                             {atMastery && <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5"><CheckCircle className="w-3 h-3" /> Mastered</span>}
                           </div>
                         </div>
@@ -565,7 +565,7 @@ export default function StudentDetail() {
       {(dataSessions.length > 0 || dataLoading) && (
         <Card>
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-600">Recent Data Sessions</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-600">Recent Data Sessions</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             {dataLoading ? (
@@ -579,11 +579,11 @@ export default function StudentDetail() {
                     <Fragment key={ds.id}>
                       <button
                         onClick={() => toggleDataSession(ds.id)}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-left"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors text-left"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium text-slate-700">{formatDate(ds.sessionDate)}</p>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="text-[13px] font-medium text-gray-700">{formatDate(ds.sessionDate)}</p>
+                          <p className="text-[11px] text-gray-400">
                             {ds.staffName || "Staff"} · {ds.startTime && ds.endTime ? `${formatTime(ds.startTime)}\u2013${formatTime(ds.endTime)}` : "No time recorded"}
                           </p>
                         </div>
@@ -591,39 +591,39 @@ export default function StudentDetail() {
                           <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
                             <Activity className="w-3 h-3" /> Data
                           </span>
-                          {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                         </div>
                       </button>
                       {isExpanded && (
-                        <div className="ml-3 mr-3 mb-2 p-4 bg-white border border-slate-200 rounded-lg space-y-4">
+                        <div className="ml-3 mr-3 mb-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
                           {expandedDataLoading ? (
-                            <div className="flex items-center gap-2 text-sm text-slate-400"><Clock className="w-4 h-4 animate-spin" /> Loading details...</div>
+                            <div className="flex items-center gap-2 text-sm text-gray-400"><Clock className="w-4 h-4 animate-spin" /> Loading details...</div>
                           ) : detail ? (
                             <>
                               {detail.notes && (
                                 <div>
-                                  <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Session Notes</h5>
-                                  <p className="text-[13px] text-slate-700 bg-slate-50 rounded-lg p-3 border border-slate-100 leading-relaxed">{detail.notes}</p>
+                                  <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Session Notes</h5>
+                                  <p className="text-[13px] text-gray-700 bg-gray-50 rounded-lg p-3 border border-gray-100 leading-relaxed">{detail.notes}</p>
                                 </div>
                               )}
                               {detail.behaviorData?.length > 0 && (
                                 <div>
-                                  <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                  <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                     <Activity className="w-3.5 h-3.5 text-rose-500" /> Behavior Data ({detail.behaviorData.length})
                                   </h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {detail.behaviorData.map((bd: any) => (
-                                      <div key={bd.id} className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                                      <div key={bd.id} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
                                         <div className="flex items-center justify-between">
-                                          <span className="text-[12px] font-medium text-slate-700">{bd.targetName || `Target #${bd.behaviorTargetId}`}</span>
-                                          <span className="text-[13px] font-bold text-slate-800">{bd.value}</span>
+                                          <span className="text-[12px] font-medium text-gray-700">{bd.targetName || `Target #${bd.behaviorTargetId}`}</span>
+                                          <span className="text-[13px] font-bold text-gray-800">{bd.value}</span>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                                           <span>{bd.measurementType}</span>
                                           {bd.intervalCount != null && <span>· {bd.intervalsWith}/{bd.intervalCount} intervals</span>}
                                           {bd.hourBlock && <span>· Hour: {bd.hourBlock}</span>}
                                         </div>
-                                        {bd.notes && <p className="text-[11px] text-slate-500 mt-1 italic">{bd.notes}</p>}
+                                        {bd.notes && <p className="text-[11px] text-gray-500 mt-1 italic">{bd.notes}</p>}
                                       </div>
                                     ))}
                                   </div>
@@ -631,36 +631,36 @@ export default function StudentDetail() {
                               )}
                               {detail.programData?.length > 0 && (
                                 <div>
-                                  <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                  <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                     <BookOpen className="w-3.5 h-3.5 text-emerald-600" /> Program Data ({detail.programData.length})
                                   </h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {detail.programData.map((pd: any) => (
-                                      <div key={pd.id} className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                                      <div key={pd.id} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
                                         <div className="flex items-center justify-between">
-                                          <span className="text-[12px] font-medium text-slate-700">{pd.targetName || `Program #${pd.programTargetId}`}</span>
-                                          <span className="text-[13px] font-bold text-slate-800">
+                                          <span className="text-[12px] font-medium text-gray-700">{pd.targetName || `Program #${pd.programTargetId}`}</span>
+                                          <span className="text-[13px] font-bold text-gray-800">
                                             {pd.percentCorrect != null ? `${Math.round(parseFloat(pd.percentCorrect))}%` : "\u2014"}
                                           </span>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                                           {pd.trialsCorrect != null && pd.trialsTotal != null && <span>{pd.trialsCorrect}/{pd.trialsTotal} trials</span>}
                                           {pd.promptLevelUsed && <span>· {pd.promptLevelUsed.replace(/_/g, " ")}</span>}
                                           {pd.stepNumber != null && <span>· Step {pd.stepNumber}</span>}
                                           {pd.programType && <span>· {pd.programType.replace(/_/g, " ")}</span>}
                                         </div>
-                                        {pd.notes && <p className="text-[11px] text-slate-500 mt-1 italic">{pd.notes}</p>}
+                                        {pd.notes && <p className="text-[11px] text-gray-500 mt-1 italic">{pd.notes}</p>}
                                       </div>
                                     ))}
                                   </div>
                                 </div>
                               )}
                               {(!detail.behaviorData?.length && !detail.programData?.length && !detail.notes) && (
-                                <p className="text-[12px] text-slate-400 italic">No detailed data recorded for this session.</p>
+                                <p className="text-[12px] text-gray-400 italic">No detailed data recorded for this session.</p>
                               )}
                             </>
                           ) : (
-                            <p className="text-[12px] text-slate-400 italic">Failed to load session details.</p>
+                            <p className="text-[12px] text-gray-400 italic">Failed to load session details.</p>
                           )}
                         </div>
                       )}
@@ -669,7 +669,7 @@ export default function StudentDetail() {
                 })}
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-slate-400">No data sessions recorded yet.</div>
+              <div className="py-8 text-center text-sm text-gray-400">No data sessions recorded yet.</div>
             )}
           </CardContent>
         </Card>
@@ -679,12 +679,12 @@ export default function StudentDetail() {
         <Card>
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-red-500" />
                 Protective Measures
               </CardTitle>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-gray-500">
                   {protectiveData.summary.totalIncidents} incident{protectiveData.summary.totalIncidents !== 1 ? "s" : ""}
                   {protectiveData.summary.thisMonth > 0 && (
                     <span className="text-red-600 font-semibold ml-1">({protectiveData.summary.thisMonth} this month)</span>
@@ -703,7 +703,7 @@ export default function StudentDetail() {
             )}
             <div className="space-y-2">
               {protectiveData.incidents.slice(0, 5).map((inc: any) => (
-                <div key={inc.id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/50 hover:bg-slate-100/50 transition-colors">
+                <div key={inc.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-orange-100" : "bg-amber-100"}`}>
                     <Shield className={`w-4 h-4 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-orange-600" : "text-amber-600"}`} />
                   </div>
@@ -712,16 +712,16 @@ export default function StudentDetail() {
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.incidentType === "physical_restraint" ? "bg-red-100 text-red-700" : inc.incidentType === "seclusion" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
                         {inc.incidentType === "physical_restraint" ? "Restraint" : inc.incidentType === "seclusion" ? "Seclusion" : "Time-Out"}
                       </span>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.status === "pending_review" ? "bg-amber-100 text-amber-700" : inc.status === "reviewed" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.status === "pending_review" ? "bg-amber-100 text-amber-700" : inc.status === "reviewed" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
                         {inc.status === "pending_review" ? "Pending" : inc.status === "reviewed" ? "Reviewed" : "Closed"}
                       </span>
                       {(inc.studentInjury || inc.staffInjury) && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Injury reported" />}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{inc.behaviorDescription}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">{inc.behaviorDescription}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-medium text-slate-700">{formatDate(inc.incidentDate)}</p>
-                    <p className="text-[10px] text-slate-400">{inc.durationMinutes ? `${inc.durationMinutes} min` : ""}</p>
+                    <p className="text-xs font-medium text-gray-700">{formatDate(inc.incidentDate)}</p>
+                    <p className="text-[10px] text-gray-400">{inc.durationMinutes ? `${inc.durationMinutes} min` : ""}</p>
                   </div>
                 </div>
               ))}
@@ -732,7 +732,7 @@ export default function StudentDetail() {
 
       <Card>
         <CardHeader className="pb-0">
-          <CardTitle className="text-sm font-semibold text-slate-600">Recent Service Sessions</CardTitle>
+          <CardTitle className="text-sm font-semibold text-gray-600">Recent Service Sessions</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           {recentSessions.length > 0 ? (
@@ -744,67 +744,67 @@ export default function StudentDetail() {
                   <Fragment key={se.id}>
                     <button
                       onClick={() => toggleServiceSession(se.id)}
-                      className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-left"
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors text-left"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-medium text-slate-700 truncate">{se.serviceTypeName ?? "\u2014"}</p>
-                        <p className="text-[11px] text-slate-400">{formatDate(se.sessionDate)} · {se.durationMinutes ?? "\u2014"} min · {se.staffName ?? "\u2014"}</p>
+                        <p className="text-[13px] font-medium text-gray-700 truncate">{se.serviceTypeName ?? "\u2014"}</p>
+                        <p className="text-[11px] text-gray-400">{formatDate(se.sessionDate)} · {se.durationMinutes ?? "\u2014"} min · {se.staffName ?? "\u2014"}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
                           se.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-                          se.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+                          se.status === "missed" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
                         }`}>
                           {se.status === "completed" ? <CheckCircle className="w-3 h-3" /> : se.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
                           {se.isMakeup ? "Makeup" : se.status}
                         </span>
-                        {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                       </div>
                     </button>
                     {isExpanded && (
-                      <div className="ml-3 mr-3 mb-2 p-4 bg-white border border-slate-200 rounded-lg space-y-4">
+                      <div className="ml-3 mr-3 mb-2 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
                         {expandedServiceLoading ? (
-                          <div className="flex items-center gap-2 text-sm text-slate-400"><Clock className="w-4 h-4 animate-spin" /> Loading details...</div>
+                          <div className="flex items-center gap-2 text-sm text-gray-400"><Clock className="w-4 h-4 animate-spin" /> Loading details...</div>
                         ) : detail ? (
                           <>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="space-y-2">
-                                <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Session Info</h5>
+                                <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Session Info</h5>
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="text-[11px] text-slate-400 min-w-[60px]">Duration</span>
-                                    <span className="text-[13px] text-slate-700">{detail.durationMinutes} min</span>
+                                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                    <span className="text-[11px] text-gray-400 min-w-[60px]">Duration</span>
+                                    <span className="text-[13px] text-gray-700">{detail.durationMinutes} min</span>
                                   </div>
                                   {(detail.startTime || detail.endTime) && (
                                     <div className="flex items-center gap-2">
-                                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                      <span className="text-[11px] text-slate-400 min-w-[60px]">Time</span>
-                                      <span className="text-[13px] text-slate-700">{formatTime(detail.startTime) || "\u2014"} — {formatTime(detail.endTime) || "\u2014"}</span>
+                                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-[11px] text-gray-400 min-w-[60px]">Time</span>
+                                      <span className="text-[13px] text-gray-700">{formatTime(detail.startTime) || "\u2014"} — {formatTime(detail.endTime) || "\u2014"}</span>
                                     </div>
                                   )}
                                   {detail.location && (
                                     <div className="flex items-center gap-2">
-                                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                                      <span className="text-[11px] text-slate-400 min-w-[60px]">Location</span>
-                                      <span className="text-[13px] text-slate-700">{detail.location}</span>
+                                      <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-[11px] text-gray-400 min-w-[60px]">Location</span>
+                                      <span className="text-[13px] text-gray-700">{detail.location}</span>
                                     </div>
                                   )}
                                   {detail.deliveryMode && (
                                     <div className="flex items-center gap-2">
-                                      <Monitor className="w-3.5 h-3.5 text-slate-400" />
-                                      <span className="text-[11px] text-slate-400 min-w-[60px]">Mode</span>
-                                      <span className="text-[13px] text-slate-700">{detail.deliveryMode === "in_person" ? "In Person" : detail.deliveryMode === "remote" ? "Remote/Telehealth" : detail.deliveryMode}</span>
+                                      <Monitor className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-[11px] text-gray-400 min-w-[60px]">Mode</span>
+                                      <span className="text-[13px] text-gray-700">{detail.deliveryMode === "in_person" ? "In Person" : detail.deliveryMode === "remote" ? "Remote/Telehealth" : detail.deliveryMode}</span>
                                     </div>
                                   )}
                                 </div>
                               </div>
                               <div className="md:col-span-2 space-y-2">
-                                <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Session Notes</h5>
+                                <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Session Notes</h5>
                                 {detail.notes ? (
-                                  <p className="text-[13px] text-slate-700 bg-slate-50 rounded-lg p-3 border border-slate-100 leading-relaxed">{detail.notes}</p>
+                                  <p className="text-[13px] text-gray-700 bg-gray-50 rounded-lg p-3 border border-gray-100 leading-relaxed">{detail.notes}</p>
                                 ) : (
-                                  <p className="text-[11px] text-slate-400 italic">No session notes recorded.</p>
+                                  <p className="text-[11px] text-gray-400 italic">No session notes recorded.</p>
                                 )}
                                 {detail.missedReasonLabel && (
                                   <div className="flex items-center gap-1.5 text-[12px] text-red-600">
@@ -815,17 +815,17 @@ export default function StudentDetail() {
                             </div>
                             {detail.linkedGoals?.length > 0 && (
                               <div className="space-y-2">
-                                <h5 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                                   <Target className="w-3.5 h-3.5 text-emerald-600" /> IEP Goals Addressed ({detail.linkedGoals.length})
                                 </h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {detail.linkedGoals.map((g: any) => (
-                                    <div key={g.id} className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                                    <div key={g.id} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
                                       <div className="flex items-start gap-2">
                                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 flex-shrink-0 mt-0.5">{g.goalArea}</span>
-                                        <p className="text-[12px] text-slate-700 leading-snug line-clamp-2">{g.annualGoal}</p>
+                                        <p className="text-[12px] text-gray-700 leading-snug line-clamp-2">{g.annualGoal}</p>
                                       </div>
-                                      {g.targetCriterion && <p className="text-[10px] text-slate-400 mt-1 ml-0.5">Target: {g.targetCriterion}</p>}
+                                      {g.targetCriterion && <p className="text-[10px] text-gray-400 mt-1 ml-0.5">Target: {g.targetCriterion}</p>}
                                     </div>
                                   ))}
                                 </div>
@@ -833,7 +833,7 @@ export default function StudentDetail() {
                             )}
                           </>
                         ) : (
-                          <p className="text-[12px] text-slate-400 italic">Failed to load session details.</p>
+                          <p className="text-[12px] text-gray-400 italic">Failed to load session details.</p>
                         )}
                       </div>
                     )}
@@ -842,7 +842,7 @@ export default function StudentDetail() {
               })}
             </div>
           ) : (
-            <div className="py-8 text-center text-sm text-slate-400">No sessions recorded yet.</div>
+            <div className="py-8 text-center text-sm text-gray-400">No sessions recorded yet.</div>
           )}
         </CardContent>
       </Card>

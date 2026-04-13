@@ -52,8 +52,8 @@ export default function StudentAssignmentDetail() {
     setSubmitting(false);
   };
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
-  if (!assignment) return <div className="p-6 text-center text-slate-400">Assignment not found</div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
+  if (!assignment) return <div className="p-6 text-center text-gray-400">Assignment not found</div>;
 
   const sub = submissions[0];
   const isGraded = sub?.status === "graded";
@@ -63,8 +63,8 @@ export default function StudentAssignmentDetail() {
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
       <div>
         <Link href="/portal/assignments" className="text-xs text-blue-500 hover:underline">← Back to Assignments</Link>
-        <h1 className="text-2xl font-bold text-slate-800 mt-2">{assignment.title}</h1>
-        <div className="flex items-center gap-3 mt-2 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-gray-800 mt-2">{assignment.title}</h1>
+        <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
           <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Due {assignment.dueDate}</span>
           <span>{assignment.pointsPossible} points</span>
           <Badge variant="outline">{assignment.assignmentType}</Badge>
@@ -80,8 +80,8 @@ export default function StudentAssignmentDetail() {
                 <div className={`text-2xl font-bold ${letterColor(sub.letterGrade)}`}>{sub.letterGrade}</div>
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-800">{sub.pointsEarned} / {assignment.pointsPossible}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-lg font-bold text-gray-800">{sub.pointsEarned} / {assignment.pointsPossible}</p>
+                <p className="text-sm text-gray-500">
                   {Math.round((parseFloat(sub.pointsEarned) / parseFloat(assignment.pointsPossible)) * 100)}%
                 </p>
               </div>
@@ -89,11 +89,11 @@ export default function StudentAssignmentDetail() {
             </div>
             {sub.feedback && (
               <div className="mt-4 p-3 bg-white rounded-lg border">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
                   <MessageSquare className="w-3.5 h-3.5" />
                   Teacher Feedback
                 </div>
-                <p className="text-sm text-slate-600">{sub.feedback}</p>
+                <p className="text-sm text-gray-600">{sub.feedback}</p>
               </div>
             )}
           </CardContent>
@@ -105,7 +105,7 @@ export default function StudentAssignmentDetail() {
           <CardTitle className="text-base">Instructions</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-600 whitespace-pre-wrap">{assignment.instructions || assignment.description || "No instructions provided."}</p>
+          <p className="text-sm text-gray-600 whitespace-pre-wrap">{assignment.instructions || assignment.description || "No instructions provided."}</p>
         </CardContent>
       </Card>
 
@@ -132,7 +132,7 @@ export default function StudentAssignmentDetail() {
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   placeholder="Type or paste your work here..."
-                  className="w-full min-h-[150px] px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full min-h-[150px] px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                 />
                 <div className="flex justify-end">
                   <Button onClick={handleSubmit} disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
@@ -149,7 +149,7 @@ export default function StudentAssignmentDetail() {
 }
 
 function letterColor(g: string) {
-  if (!g) return "text-slate-400";
+  if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
   if (g.startsWith("B")) return "text-blue-600";
   if (g.startsWith("C")) return "text-amber-600";

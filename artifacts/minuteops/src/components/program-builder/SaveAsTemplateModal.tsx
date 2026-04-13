@@ -40,51 +40,51 @@ export default function SaveAsTemplateModal({ programId, programName, onClose, o
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-bold text-slate-800">Save as Template</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <h2 className="text-[16px] font-bold text-gray-800">Save as Template</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
-        <p className="text-[12px] text-slate-400 mb-4">
+        <p className="text-[12px] text-gray-400 mb-4">
           Save this program's configuration, steps, and settings as a reusable template.
         </p>
 
         <div className="space-y-3">
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Template Name *</label>
+            <label className="text-[12px] font-medium text-gray-500">Template Name *</label>
             <input value={name} onChange={e => setName(e.target.value)} autoFocus
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Description</label>
+            <label className="text-[12px] font-medium text-gray-500">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               rows={2} placeholder="What is this template for?"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
 
           <div>
-            <label className="text-[12px] font-medium text-slate-500 mb-2 block">Scope</label>
+            <label className="text-[12px] font-medium text-gray-500 mb-2 block">Scope</label>
             <div className="flex gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={!isGlobal} onChange={() => setIsGlobal(false)} className="w-4 h-4" />
-                <span className="text-[12px] text-slate-600"><Building2 className="w-3 h-3 inline mr-1" />My Templates</span>
+                <span className="text-[12px] text-gray-600"><Building2 className="w-3 h-3 inline mr-1" />My Templates</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={isGlobal} onChange={() => setIsGlobal(true)} className="w-4 h-4" />
-                <span className="text-[12px] text-slate-600"><Globe className="w-3 h-3 inline mr-1" />Shared (Global)</span>
+                <span className="text-[12px] text-gray-600"><Globe className="w-3 h-3 inline mr-1" />Shared (Global)</span>
               </label>
             </div>
           </div>
 
           <div>
-            <label className="text-[12px] font-medium text-slate-500 mb-2 block">Access Tier</label>
+            <label className="text-[12px] font-medium text-gray-500 mb-2 block">Access Tier</label>
             <div className="flex gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={tier === "free"} onChange={() => setTier("free")} className="w-4 h-4" />
-                <span className="text-[12px] text-slate-600">Free</span>
+                <span className="text-[12px] text-gray-600">Free</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={tier === "premium"} onChange={() => setTier("premium")} className="w-4 h-4" />
-                <span className="text-[12px] text-slate-600"><Crown className="w-3 h-3 inline mr-1 text-amber-500" />Premium</span>
+                <span className="text-[12px] text-gray-600"><Crown className="w-3 h-3 inline mr-1 text-amber-500" />Premium</span>
               </label>
             </div>
           </div>

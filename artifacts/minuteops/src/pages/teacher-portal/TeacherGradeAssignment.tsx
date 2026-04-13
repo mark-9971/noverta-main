@@ -63,8 +63,8 @@ export default function TeacherGradeAssignment() {
     }
   };
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-slate-200 rounded-xl" />)}</div></div>;
-  if (!assignment) return <div className="p-6 text-center text-slate-400">Assignment not found</div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div></div>;
+  if (!assignment) return <div className="p-6 text-center text-gray-400">Assignment not found</div>;
 
   const gradedCount = submissions.filter(s => s.pointsEarned != null).length;
   const submittedCount = submissions.filter(s => s.status === "submitted").length;
@@ -74,8 +74,8 @@ export default function TeacherGradeAssignment() {
       <div className="flex items-start justify-between">
         <div>
           <Link href="/teacher/assignments" className="text-xs text-emerald-500 hover:underline">← Back to Assignments</Link>
-          <h1 className="text-2xl font-bold text-slate-800 mt-1">{assignment.title}</h1>
-          <div className="flex items-center gap-3 mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-gray-800 mt-1">{assignment.title}</h1>
+          <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
             <span>{assignment.className}</span>
             <span>Due {assignment.dueDate}</span>
             <span>{assignment.pointsPossible} pts</span>
@@ -83,8 +83,8 @@ export default function TeacherGradeAssignment() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right text-sm">
-            <p className="font-bold text-slate-700">{gradedCount}/{submissions.length}</p>
-            <p className="text-slate-400 text-xs">graded</p>
+            <p className="font-bold text-gray-700">{gradedCount}/{submissions.length}</p>
+            <p className="text-gray-400 text-xs">graded</p>
           </div>
           {submittedCount > 0 && (
             <Button onClick={handleGradeAll} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
@@ -98,23 +98,23 @@ export default function TeacherGradeAssignment() {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Student</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">Status</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500 w-24">Score</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Feedback</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500 w-20">Action</th>
+              <tr className="border-b bg-gray-50">
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Student</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">Status</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500 w-24">Score</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Feedback</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500 w-20">Action</th>
               </tr>
             </thead>
             <tbody>
               {submissions.map(s => (
-                <tr key={s.id} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-[10px] font-bold">
                         {s.firstName[0]}{s.lastName[0]}
                       </div>
-                      <span className="font-medium text-slate-700">{s.lastName}, {s.firstName}</span>
+                      <span className="font-medium text-gray-700">{s.lastName}, {s.firstName}</span>
                     </div>
                   </td>
                   <td className="text-center py-3 px-4">
@@ -132,11 +132,11 @@ export default function TeacherGradeAssignment() {
                         className="w-20 px-2 py-1 rounded border text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         placeholder={`/${assignment.pointsPossible}`}
                       />
-                    ) : <span className="text-slate-300">—</span>}
+                    ) : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="py-3 px-4">
                     {s.status === "graded" ? (
-                      <span className="text-sm text-slate-500">{s.feedback || "—"}</span>
+                      <span className="text-sm text-gray-500">{s.feedback || "—"}</span>
                     ) : (s.status === "submitted" || s.status === "missing") ? (
                       <input
                         type="text"

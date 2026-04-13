@@ -75,7 +75,7 @@ export default function SpedStudentGoals() {
   if (!studentId) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <div className="p-8 text-center text-slate-400 bg-white rounded-xl border">
+        <div className="p-8 text-center text-gray-400 bg-white rounded-xl border">
           <Brain className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No student selected</p>
           <p className="text-sm mt-1">Go to the dashboard and pick a student first</p>
@@ -85,7 +85,7 @@ export default function SpedStudentGoals() {
   }
 
   if (loading) {
-    return <div className="p-6 space-y-4">{[1,2,3].map(i=><div key={i} className="h-40 bg-slate-200 rounded-xl animate-pulse"/>)}</div>;
+    return <div className="p-6 space-y-4">{[1,2,3].map(i=><div key={i} className="h-40 bg-gray-200 rounded-xl animate-pulse"/>)}</div>;
   }
 
   const services = student?.serviceRequirements || [];
@@ -94,17 +94,17 @@ export default function SpedStudentGoals() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Star className="w-6 h-6 text-amber-500" />
           My IEP Goals
         </h1>
-        <p className="text-slate-500 mt-1">
+        <p className="text-gray-500 mt-1">
           {student?.firstName} {student?.lastName} · {totalGoals} active goals across {services.length} service areas
         </p>
       </div>
 
       {services.length === 0 ? (
-        <div className="text-center text-slate-400 py-12">
+        <div className="text-center text-gray-400 py-12">
           <Star className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>No service goals found for this student</p>
         </div>
@@ -125,27 +125,27 @@ export default function SpedStudentGoals() {
                       {svc.requiredMinutes || 0} min/week
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-400 ml-5">{svc.deliveryType || "direct"} · {goals.length} goals</p>
+                  <p className="text-xs text-gray-400 ml-5">{svc.deliveryType || "direct"} · {goals.length} goals</p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {goals.map((goal, gi) => (
-                    <div key={gi} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-100 shadow-sm">
+                    <div key={gi} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                       <div className="mt-0.5">
                         <TrendingUp className="w-4 h-4 text-violet-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-[13px] text-slate-700 leading-relaxed">{goal}</p>
+                        <p className="text-[13px] text-gray-700 leading-relaxed">{goal}</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full ${colors.bg}`}
                               style={{ width: `${30 + (gi * 20 + si * 10) % 50}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-slate-400 font-medium">{30 + (gi * 20 + si * 10) % 50}%</span>
+                          <span className="text-[10px] text-gray-400 font-medium">{30 + (gi * 20 + si * 10) % 50}%</span>
                         </div>
                       </div>
-                      <CheckCircle className="w-4 h-4 text-slate-200 flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-4 h-4 text-gray-200 flex-shrink-0 mt-0.5" />
                     </div>
                   ))}
                 </CardContent>

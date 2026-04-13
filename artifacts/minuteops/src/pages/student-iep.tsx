@@ -88,7 +88,7 @@ const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any
   sufficient_progress: { label: "Sufficient Progress", color: "text-blue-700", icon: TrendingUp, bg: "bg-blue-50" },
   some_progress: { label: "Some Progress", color: "text-amber-700", icon: Clock, bg: "bg-amber-50" },
   insufficient_progress: { label: "Insufficient Progress", color: "text-red-700", icon: AlertTriangle, bg: "bg-red-50" },
-  not_addressed: { label: "Not Addressed", color: "text-slate-500", icon: MinusIcon, bg: "bg-slate-50" },
+  not_addressed: { label: "Not Addressed", color: "text-gray-500", icon: MinusIcon, bg: "bg-gray-50" },
 };
 
 const MA_PROGRESS_CODES: Record<string, { label: string; fullLabel: string; color: string; bg: string }> = {
@@ -96,14 +96,14 @@ const MA_PROGRESS_CODES: Record<string, { label: string; fullLabel: string; colo
   SP: { label: "SP", fullLabel: "Sufficient Progress", color: "text-blue-700", bg: "bg-blue-50" },
   IP: { label: "IP", fullLabel: "Insufficient Progress", color: "text-amber-700", bg: "bg-amber-50" },
   NP: { label: "NP", fullLabel: "No Progress", color: "text-red-700", bg: "bg-red-50" },
-  NA: { label: "NA", fullLabel: "Not Addressed", color: "text-slate-500", bg: "bg-slate-50" },
+  NA: { label: "NA", fullLabel: "Not Addressed", color: "text-gray-500", bg: "bg-gray-50" },
   R: { label: "R", fullLabel: "Regression", color: "text-red-800", bg: "bg-red-100" },
 };
 
 const TREND_ICONS: Record<string, { icon: any; color: string; label: string }> = {
   improving: { icon: TrendingUp, color: "text-emerald-500", label: "Improving" },
   declining: { icon: TrendingDown, color: "text-red-500", label: "Declining" },
-  stable: { icon: MinusIcon, color: "text-slate-400", label: "Stable" },
+  stable: { icon: MinusIcon, color: "text-gray-400", label: "Stable" },
 };
 
 export default function StudentIepPage() {
@@ -178,8 +178,8 @@ export default function StudentIepPage() {
         <ArrowLeft className="w-4 h-4" /> Back to Students
       </Link>
       <div className="text-center py-16">
-        <p className="text-lg font-semibold text-slate-700">Student not found</p>
-        <p className="text-sm text-slate-400 mt-1">The student you're looking for doesn't exist or has been removed.</p>
+        <p className="text-lg font-semibold text-gray-700">Student not found</p>
+        <p className="text-sm text-gray-400 mt-1">The student you're looking for doesn't exist or has been removed.</p>
       </div>
     </div>
   );
@@ -197,8 +197,8 @@ export default function StudentIepPage() {
                 {student.firstName[0]}{student.lastName[0]}
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-slate-800">{student.firstName} {student.lastName}</h1>
-                <p className="text-xs md:text-sm text-slate-400">IEP — 603 CMR 28.00 · Grade {student.grade}</p>
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800">{student.firstName} {student.lastName}</h1>
+                <p className="text-xs md:text-sm text-gray-400">IEP — 603 CMR 28.00 · Grade {student.grade}</p>
               </div>
             </div>
           </div>
@@ -209,30 +209,30 @@ export default function StudentIepPage() {
         <Card>
           <CardContent className="p-3.5 md:p-4 text-center">
             <p className="text-2xl md:text-3xl font-bold text-emerald-700">{goals.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">IEP Goals</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">IEP Goals</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3.5 md:p-4 text-center">
             <p className="text-2xl md:text-3xl font-bold text-emerald-600">{programTargets.length + behaviorTargets.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Data Targets</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Data Targets</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3.5 md:p-4 text-center">
             <p className="text-2xl md:text-3xl font-bold text-amber-600">{reports.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Reports</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Reports</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3.5 md:p-4 text-center">
-            <p className="text-2xl md:text-3xl font-bold text-slate-600">{Object.keys(goalsByArea).length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Goal Areas</p>
+            <p className="text-2xl md:text-3xl font-bold text-gray-600">{Object.keys(goalsByArea).length}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Goal Areas</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-slate-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-gray-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
         {([
           { key: "document" as const, label: "IEP Document", icon: FileCheck },
           { key: "goals" as const, label: "Goals", icon: Target },
@@ -243,7 +243,7 @@ export default function StudentIepPage() {
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-              tab === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-400 hover:text-slate-600"
+              tab === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}>
             <t.icon className="w-4 h-4" />
             {t.label}
@@ -275,7 +275,7 @@ export default function StudentIepPage() {
       {tab === "goals" && (
         <div className="space-y-4 md:space-y-6">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-slate-600">Annual IEP Goals</h3>
+            <h3 className="text-sm font-semibold text-gray-600">Annual IEP Goals</h3>
             <div className="flex gap-2">
               {(programTargets.length > 0 || behaviorTargets.length > 0) && goals.length === 0 && (
                 <Button size="sm" variant="outline" className="text-[12px] h-8"
@@ -305,9 +305,9 @@ export default function StudentIepPage() {
           {goals.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Target className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-slate-600">No IEP Goals Yet</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600">No IEP Goals Yet</p>
+                <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
                   {programTargets.length > 0 || behaviorTargets.length > 0
                     ? `You have ${programTargets.length} program targets and ${behaviorTargets.length} behavior targets. Click "Auto-Create from Data Targets" to generate IEP goals from your existing data tracking.`
                     : "Add program and behavior targets in the Data page first, then create IEP goals from them."}
@@ -317,7 +317,7 @@ export default function StudentIepPage() {
           ) : (
             Object.entries(goalsByArea).map(([area, areaGoals]) => (
               <div key={area}>
-                <h4 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">{area}</h4>
+                <h4 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider mb-2">{area}</h4>
                 <div className="space-y-2">
                   {areaGoals.map(goal => (
                     <GoalCard key={goal.id} goal={goal} onUpdated={loadData} />
@@ -332,7 +332,7 @@ export default function StudentIepPage() {
       {tab === "reports" && (
         <div className="space-y-4 md:space-y-6">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-slate-600">Progress Reports</h3>
+            <h3 className="text-sm font-semibold text-gray-600">Progress Reports</h3>
             <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
               onClick={() => setShowGenerateReport(true)} disabled={goals.length === 0}>
               <FileCheck className="w-3.5 h-3.5 mr-1" /> Generate Report
@@ -342,7 +342,7 @@ export default function StudentIepPage() {
           {goals.length === 0 && (
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-sm text-slate-400">Create IEP goals first before generating progress reports.</p>
+                <p className="text-sm text-gray-400">Create IEP goals first before generating progress reports.</p>
               </CardContent>
             </Card>
           )}
@@ -350,9 +350,9 @@ export default function StudentIepPage() {
           {reports.length === 0 && goals.length > 0 && (
             <Card>
               <CardContent className="p-8 text-center">
-                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-slate-600">No Progress Reports Yet</p>
-                <p className="text-xs text-slate-400 mt-1">Click "Generate Report" to auto-populate a progress report from your data collection sessions.</p>
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600">No Progress Reports Yet</p>
+                <p className="text-xs text-gray-400 mt-1">Click "Generate Report" to auto-populate a progress report from your data collection sessions.</p>
               </CardContent>
             </Card>
           )}
@@ -363,8 +363,8 @@ export default function StudentIepPage() {
                 <CardContent className="p-3.5 md:p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[14px] font-semibold text-slate-700">{report.reportingPeriod}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-[14px] font-semibold text-gray-700">{report.reportingPeriod}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
                         {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}
                         {report.preparedByName && ` · By ${report.preparedByName}`}
                       </p>
@@ -373,9 +373,9 @@ export default function StudentIepPage() {
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                         report.status === "final" ? "bg-emerald-50 text-emerald-700" :
                         report.status === "draft" ? "bg-amber-50 text-amber-700" :
-                        "bg-slate-100 text-slate-600"
+                        "bg-gray-100 text-gray-600"
                       }`}>{report.status}</span>
-                      <ChevronRight className="w-4 h-4 text-slate-300" />
+                      <ChevronRight className="w-4 h-4 text-gray-300" />
                     </div>
                   </div>
                   {report.goalProgress && report.goalProgress.length > 0 && (
@@ -454,9 +454,9 @@ function GoalCard({ goal, onUpdated }: { goal: IepGoal; onUpdated: () => void })
             {goal.goalNumber}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-slate-700">{goal.annualGoal}</p>
+            <p className="text-[13px] font-semibold text-gray-700">{goal.annualGoal}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{goal.goalArea}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{goal.goalArea}</span>
               {goal.serviceArea && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">{goal.serviceArea}</span>}
               {goal.linkedTarget && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${
@@ -467,24 +467,24 @@ function GoalCard({ goal, onUpdated }: { goal: IepGoal; onUpdated: () => void })
               )}
             </div>
           </div>
-          <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform flex-shrink-0 ${expanded ? "rotate-90" : ""}`} />
+          <ChevronRight className={`w-4 h-4 text-gray-300 transition-transform flex-shrink-0 ${expanded ? "rotate-90" : ""}`} />
         </div>
 
         {expanded && (
-          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
             {goal.baseline && (
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Baseline</p><p className="text-[12px] text-slate-600">{goal.baseline}</p></div>
+              <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Baseline</p><p className="text-[12px] text-gray-600">{goal.baseline}</p></div>
             )}
             {goal.targetCriterion && (
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Target Criterion</p><p className="text-[12px] text-slate-600">{goal.targetCriterion}</p></div>
+              <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Target Criterion</p><p className="text-[12px] text-gray-600">{goal.targetCriterion}</p></div>
             )}
             {goal.measurementMethod && (
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Measurement Method</p><p className="text-[12px] text-slate-600">{goal.measurementMethod}</p></div>
+              <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Measurement Method</p><p className="text-[12px] text-gray-600">{goal.measurementMethod}</p></div>
             )}
             {goal.benchmarks && (
-              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Benchmarks / Short-Term Objectives</p><p className="text-[12px] text-slate-600 whitespace-pre-line">{goal.benchmarks}</p></div>
+              <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Benchmarks / Short-Term Objectives</p><p className="text-[12px] text-gray-600 whitespace-pre-line">{goal.benchmarks}</p></div>
             )}
-            <div className="flex items-center gap-3 text-[11px] text-slate-400">
+            <div className="flex items-center gap-3 text-[11px] text-gray-400">
               <span>Reporting: {goal.scheduleOfReporting}</span>
               {goal.startDate && <span>Start: {formatDate(goal.startDate)}</span>}
               {goal.endDate && <span>End: {formatDate(goal.endDate)}</span>}
@@ -570,30 +570,30 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={onClose}>
       <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-lg shadow-xl my-auto max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-bold text-slate-800">Add IEP Goal</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <h2 className="text-[16px] font-bold text-gray-800">Add IEP Goal</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
         {(availablePrograms.length > 0 || availableBehaviors.length > 0) && (
           <div className="mb-4">
-            <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">Link to Data Target (auto-fills goal details)</label>
-            <div className="space-y-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2">
+            <label className="text-[12px] font-medium text-gray-500 mb-1.5 block">Link to Data Target (auto-fills goal details)</label>
+            <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
               {availablePrograms.map(pt => (
                 <button key={`p-${pt.id}`} onClick={() => selectLinkedTarget("program", pt.id)}
                   className={`w-full text-left px-2.5 py-2 rounded text-[12px] transition-all ${
-                    linkedType === "program" && linkedId === pt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"
+                    linkedType === "program" && linkedId === pt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-gray-50"
                   }`}>
-                  <span className="font-medium text-slate-700">{pt.name}</span>
-                  <span className="text-slate-400 ml-1">· Program · {pt.domain || "General"}</span>
+                  <span className="font-medium text-gray-700">{pt.name}</span>
+                  <span className="text-gray-400 ml-1">· Program · {pt.domain || "General"}</span>
                 </button>
               ))}
               {availableBehaviors.map(bt => (
                 <button key={`b-${bt.id}`} onClick={() => selectLinkedTarget("behavior", bt.id)}
                   className={`w-full text-left px-2.5 py-2 rounded text-[12px] transition-all ${
-                    linkedType === "behavior" && linkedId === bt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"
+                    linkedType === "behavior" && linkedId === bt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-gray-50"
                   }`}>
-                  <span className="font-medium text-slate-700">{bt.name}</span>
-                  <span className="text-slate-400 ml-1">· Behavior · {bt.measurementType}</span>
+                  <span className="font-medium text-gray-700">{bt.name}</span>
+                  <span className="text-gray-400 ml-1">· Behavior · {bt.measurementType}</span>
                 </button>
               ))}
             </div>
@@ -603,42 +603,42 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[12px] font-medium text-slate-500">Goal Area *</label>
+              <label className="text-[12px] font-medium text-gray-500">Goal Area *</label>
               <input value={goalArea} onChange={e => setGoalArea(e.target.value)} placeholder="e.g. Skill Acquisition"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
-              <label className="text-[12px] font-medium text-slate-500">Service Area</label>
+              <label className="text-[12px] font-medium text-gray-500">Service Area</label>
               <input value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="e.g. ABA, Speech"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Annual Goal *</label>
+            <label className="text-[12px] font-medium text-gray-500">Annual Goal *</label>
             <textarea value={annualGoal} onChange={e => setAnnualGoal(e.target.value)} rows={3}
               placeholder="The student will..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Baseline</label>
+            <label className="text-[12px] font-medium text-gray-500">Baseline</label>
             <input value={baseline} onChange={e => setBaseline(e.target.value)} placeholder="Current performance level"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Target Criterion</label>
+            <label className="text-[12px] font-medium text-gray-500">Target Criterion</label>
             <input value={targetCriterion} onChange={e => setTargetCriterion(e.target.value)} placeholder="80% across 3 sessions"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Measurement Method</label>
+            <label className="text-[12px] font-medium text-gray-500">Measurement Method</label>
             <input value={measurementMethod} onChange={e => setMeasurementMethod(e.target.value)} placeholder="Discrete trial data collection"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Benchmarks / Short-Term Objectives</label>
+            <label className="text-[12px] font-medium text-gray-500">Benchmarks / Short-Term Objectives</label>
             <textarea value={benchmarks} onChange={e => setBenchmarks(e.target.value)} rows={3}
               placeholder="1. By [date], student will...&#10;2. By [date], student will..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
         </div>
 
@@ -701,8 +701,8 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl p-5 md:p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[16px] font-bold text-slate-800">Generate Progress Report</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <h2 className="text-[16px] font-bold text-gray-800">Generate Progress Report</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="bg-emerald-50 rounded-lg p-3 mb-4 text-[12px] text-emerald-800">
@@ -712,20 +712,20 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
 
         <div className="space-y-3">
           <div>
-            <label className="text-[12px] font-medium text-slate-500">Reporting Period Name</label>
+            <label className="text-[12px] font-medium text-gray-500">Reporting Period Name</label>
             <input value={reportingPeriod} onChange={e => setReportingPeriod(e.target.value)}
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[12px] font-medium text-slate-500">Start Date</label>
+              <label className="text-[12px] font-medium text-gray-500">Start Date</label>
               <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
-              <label className="text-[12px] font-medium text-slate-500">End Date</label>
+              <label className="text-[12px] font-medium text-gray-500">End Date</label>
               <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
         </div>
@@ -801,10 +801,10 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-3xl shadow-xl my-auto max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b border-slate-100 p-4 md:p-5 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 md:p-5 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">{report.reportingPeriod}</h2>
-            <p className="text-xs text-slate-400">{studentName} · {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}</p>
+            <h2 className="text-lg font-bold text-gray-800">{report.reportingPeriod}</h2>
+            <p className="text-xs text-gray-400">{studentName} · {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}</p>
           </div>
           <div className="flex items-center gap-2">
             {report.status === "draft" && (
@@ -812,14 +812,14 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Finalize
               </Button>
             )}
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
         <div className="p-4 md:p-5 space-y-5">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Overall Summary</h3>
+              <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider">Overall Summary</h3>
               {report.status === "draft" && (
                 <button className="text-[11px] text-emerald-700 hover:text-emerald-900" onClick={() => setEditingSummary(!editingSummary)}>
                   <Edit2 className="w-3 h-3 inline mr-0.5" /> Edit
@@ -829,18 +829,18 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             {editingSummary ? (
               <div className="space-y-2">
                 <textarea value={summaryText} onChange={e => setSummaryText(e.target.value)} rows={4}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                 <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
                   <Save className="w-3.5 h-3.5 mr-1" /> Save
                 </Button>
               </div>
             ) : (
-              <p className="text-[13px] text-slate-600 whitespace-pre-line">{report.overallSummary}</p>
+              <p className="text-[13px] text-gray-600 whitespace-pre-line">{report.overallSummary}</p>
             )}
           </div>
 
           <div>
-            <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Goal-by-Goal Progress</h3>
+            <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Goal-by-Goal Progress</h3>
             <div className="space-y-3">
               {goalProgress.map((gp, idx) => {
                 const rating = PROGRESS_RATINGS[gp.progressRating] ?? PROGRESS_RATINGS.not_addressed;
@@ -856,8 +856,8 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                           {gp.goalNumber}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">{gp.goalArea}</p>
-                          <p className="text-[13px] font-medium text-slate-700 mt-0.5">{gp.annualGoal}</p>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">{gp.goalArea}</p>
+                          <p className="text-[13px] font-medium text-gray-700 mt-0.5">{gp.annualGoal}</p>
                         </div>
                       </div>
 
@@ -877,25 +877,25 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                           <RatingIcon className={`w-4 h-4 mx-auto ${rating.color}`} />
                           <p className={`text-[10px] font-semibold mt-0.5 ${rating.color}`}>{rating.label}</p>
                         </div>
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
+                        <div className="bg-gray-50 rounded-lg p-2 text-center">
                           <TrendIcon className={`w-4 h-4 mx-auto ${trend.color}`} />
-                          <p className="text-[10px] font-medium text-slate-500 mt-0.5">{trend.label}</p>
+                          <p className="text-[10px] font-medium text-gray-500 mt-0.5">{trend.label}</p>
                         </div>
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
-                          <BarChart3 className="w-4 h-4 mx-auto text-slate-400" />
-                          <p className="text-[10px] font-medium text-slate-500 mt-0.5">{gp.dataPoints} pts</p>
+                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                          <BarChart3 className="w-4 h-4 mx-auto text-gray-400" />
+                          <p className="text-[10px] font-medium text-gray-500 mt-0.5">{gp.dataPoints} pts</p>
                         </div>
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
+                        <div className="bg-gray-50 rounded-lg p-2 text-center">
                           <p className="text-sm font-bold text-emerald-700">
                             {gp.percentCorrect != null ? `${gp.percentCorrect}%` : gp.behaviorValue != null ? gp.behaviorValue : "—"}
                           </p>
-                          <p className="text-[10px] font-medium text-slate-500 mt-0.5">Current</p>
+                          <p className="text-[10px] font-medium text-gray-500 mt-0.5">Current</p>
                         </div>
                       </div>
 
-                      <div className="bg-slate-50 rounded-lg p-3">
+                      <div className="bg-gray-50 rounded-lg p-3">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Narrative</p>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">Narrative</p>
                           {report.status === "draft" && (
                             <button className="text-[10px] text-emerald-700 hover:text-emerald-900"
                               onClick={() => { setEditingNarrative(gp.iepGoalId); setNarrativeText(gp.narrative); }}>
@@ -906,19 +906,19 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                         {editingNarrative === gp.iepGoalId ? (
                           <div className="space-y-2">
                             <textarea value={narrativeText} onChange={e => setNarrativeText(e.target.value)} rows={3}
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                             <div className="flex gap-2">
                               <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] h-7" onClick={saveChanges} disabled={saving}>Save</Button>
                               <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={() => setEditingNarrative(null)}>Cancel</Button>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-[12px] text-slate-600">{gp.narrative}</p>
+                          <p className="text-[12px] text-gray-600">{gp.narrative}</p>
                         )}
                       </div>
 
                       {(gp.baseline || gp.targetCriterion || gp.promptLevel) && (
-                        <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400 flex-wrap">
+                        <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400 flex-wrap">
                           {gp.baseline && <span>Baseline: {gp.baseline}</span>}
                           {gp.targetCriterion && <span>Target: {gp.targetCriterion}</span>}
                           {gp.promptLevel && <span>Prompt: {gp.promptLevel}</span>}
@@ -933,7 +933,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Recommendations</h3>
+              <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider">Recommendations</h3>
               {report.status === "draft" && !editingSummary && (
                 <button className="text-[11px] text-emerald-700 hover:text-emerald-900" onClick={() => setEditingSummary(true)}>
                   <Edit2 className="w-3 h-3 inline mr-0.5" /> Edit
@@ -942,20 +942,20 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             </div>
             {editingSummary ? (
               <textarea value={recommendationsText} onChange={e => setRecommendationsText(e.target.value)} rows={3}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             ) : (
-              <p className="text-[13px] text-slate-600">{report.recommendations || "None"}</p>
+              <p className="text-[13px] text-gray-600">{report.recommendations || "None"}</p>
             )}
           </div>
 
           <div>
-            <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Parent / Guardian Notes</h3>
+            <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Parent / Guardian Notes</h3>
             {report.status === "draft" ? (
               <textarea value={parentNotesText} onChange={e => setParentNotesText(e.target.value)} rows={2}
                 placeholder="Optional notes for parent/guardian..."
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             ) : (
-              <p className="text-[13px] text-slate-600">{report.parentNotes || "None"}</p>
+              <p className="text-[13px] text-gray-600">{report.parentNotes || "None"}</p>
             )}
           </div>
 
@@ -1023,11 +1023,11 @@ function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-        <h3 className="text-sm font-semibold text-slate-800 mb-3">Create IEP Amendment</h3>
-        <p className="text-[12px] text-slate-500 mb-3">This will copy the current IEP as a draft amendment. The original remains active until the amendment is finalized.</p>
-        <label className="text-[11px] font-medium text-slate-500">Reason for Amendment</label>
+        <h3 className="text-sm font-semibold text-gray-800 mb-3">Create IEP Amendment</h3>
+        <p className="text-[12px] text-gray-500 mb-3">This will copy the current IEP as a draft amendment. The original remains active until the amendment is finalized.</p>
+        <label className="text-[11px] font-medium text-gray-500">Reason for Amendment</label>
         <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="Describe why this IEP needs to be amended..."
-          className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+          className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
         <div className="flex justify-end gap-2 mt-4">
           <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => { setShowDialog(false); setReason(""); }}>Cancel</Button>
           <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-[12px] h-8" onClick={createAmendment} disabled={submitting || !reason.trim()}>
@@ -1103,17 +1103,17 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
     if (editing) {
       return (
         <div>
-          <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{label}</label>
+          <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">{label}</label>
           <textarea value={val} onChange={e => updateField(fieldKey, e.target.value)} rows={rows}
-            className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+            className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
         </div>
       );
     }
     if (!displayVal) return null;
     return (
       <div>
-        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
-        <p className="text-[13px] text-slate-600 whitespace-pre-line">{displayVal}</p>
+        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+        <p className="text-[13px] text-gray-600 whitespace-pre-line">{displayVal}</p>
       </div>
     );
   }
@@ -1122,9 +1122,9 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-600">IEP Document (MA DESE Form)</h3>
+          <h3 className="text-sm font-semibold text-gray-600">IEP Document (MA DESE Form)</h3>
           {activeDoc?.iepType && (
-            <span className="text-[10px] text-slate-400 mt-0.5">
+            <span className="text-[10px] text-gray-400 mt-0.5">
               Type: {activeDoc.iepType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
               {activeDoc.version ? ` (v${activeDoc.version})` : ""}
             </span>
@@ -1154,22 +1154,22 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
         <Card>
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-2">
-              <History className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">IEP History & Amendments</span>
+              <History className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">IEP History & Amendments</span>
             </div>
             <div className="space-y-1">
               {iepDocs.map(doc => (
-                <div key={doc.id} className={`flex items-center justify-between px-2 py-1.5 rounded text-[12px] ${doc.active ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"}`}>
+                <div key={doc.id} className={`flex items-center justify-between px-2 py-1.5 rounded text-[12px] ${doc.active ? "bg-emerald-50 border border-emerald-200" : "hover:bg-gray-50"}`}>
                   <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-700">
+                    <FileText className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-gray-700">
                       {doc.iepType ? doc.iepType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "IEP"}
                       {doc.version ? ` v${doc.version}` : ""}
                     </span>
                     {doc.active && <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-medium">Active</span>}
                     {doc.status === "draft" && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-medium">Draft</span>}
                   </div>
-                  <span className="text-slate-400 text-[11px]">
+                  <span className="text-gray-400 text-[11px]">
                     {doc.iepStartDate ? formatDate(doc.iepStartDate) : ""} - {doc.iepEndDate ? formatDate(doc.iepEndDate) : ""}
                   </span>
                 </div>
@@ -1182,9 +1182,9 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
       {!activeDoc && !editing && (
         <Card>
           <CardContent className="p-8 text-center">
-            <FileCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No IEP document yet</p>
-            <p className="text-xs text-slate-400 mt-1">Create one to track all MA-required IEP sections</p>
+            <FileCheck className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No IEP document yet</p>
+            <p className="text-xs text-gray-400 mt-1">Create one to track all MA-required IEP sections</p>
           </CardContent>
         </Card>
       )}
@@ -1197,23 +1197,23 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
               {editing ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500">IEP Start Date</label>
+                    <label className="text-[11px] font-medium text-gray-500">IEP Start Date</label>
                     <input type="date" value={form.iepStartDate || ""} onChange={e => updateField("iepStartDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                      className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500">IEP End Date</label>
+                    <label className="text-[11px] font-medium text-gray-500">IEP End Date</label>
                     <input type="date" value={form.iepEndDate || ""} onChange={e => updateField("iepEndDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                      className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500">Meeting Date</label>
+                    <label className="text-[11px] font-medium text-gray-500">Meeting Date</label>
                     <input type="date" value={form.meetingDate || ""} onChange={e => updateField("meetingDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                      className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-4 text-[13px] text-slate-600">
+                <div className="flex items-center gap-4 text-[13px] text-gray-600">
                   <span>Start: {formatDate(activeDoc!.iepStartDate)}</span>
                   <span>End: {formatDate(activeDoc!.iepEndDate)}</span>
                   {activeDoc!.meetingDate && <span>Meeting: {formatDate(activeDoc!.meetingDate)}</span>}
@@ -1248,7 +1248,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
               <CardContent className="p-4 space-y-4">
                 <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">
                   Transition Planning (Age 14+)
-                  {studentAge !== null && <span className="text-slate-400 font-normal ml-2">Student age: {studentAge}</span>}
+                  {studentAge !== null && <span className="text-gray-400 font-normal ml-2">Student age: {studentAge}</span>}
                 </h4>
                 <TextSection label="Transition Assessment" fieldKey="transitionAssessment" />
                 <TextSection label="Postsecondary Goals" fieldKey="transitionPostsecGoals" />
@@ -1264,10 +1264,10 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
               {editing ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-medium text-slate-500">ESY Eligible?</label>
+                    <label className="text-[11px] font-medium text-gray-500">ESY Eligible?</label>
                     <select value={form.esyEligible == null ? "" : form.esyEligible ? "yes" : "no"}
                       onChange={e => updateField("esyEligible", e.target.value === "" ? null : e.target.value === "yes")}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                      className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                       <option value="">Not determined</option>
                       <option value="yes">Yes</option>
                       <option value="no">No</option>
@@ -1278,7 +1278,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-[13px] text-slate-600">
+                  <p className="text-[13px] text-gray-600">
                     Eligible: {activeDoc!.esyEligible == null ? "Not determined" : activeDoc!.esyEligible ? "Yes" : "No"}
                   </p>
                   <TextSection label="ESY Services" fieldKey="esyServices" />
@@ -1355,7 +1355,7 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-600">Accommodations & Modifications</h3>
+        <h3 className="text-sm font-semibold text-gray-600">Accommodations & Modifications</h3>
         <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Add
         </Button>
@@ -1366,34 +1366,34 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Category *</label>
+                <label className="text-[11px] font-medium text-gray-500">Category *</label>
                 <select value={category} onChange={e => setCategory(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {ACCOMMODATION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Setting</label>
+                <label className="text-[11px] font-medium text-gray-500">Setting</label>
                 <input value={setting} onChange={e => setSetting(e.target.value)} placeholder="Gen ed, special ed, all settings"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-slate-500">Description *</label>
+              <label className="text-[11px] font-medium text-gray-500">Description *</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
                 placeholder="Extended time on tests, preferential seating..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Frequency</label>
+                <label className="text-[11px] font-medium text-gray-500">Frequency</label>
                 <input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="Daily, as needed, during testing"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Provider</label>
+                <label className="text-[11px] font-medium text-gray-500">Provider</label>
                 <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="Special ed teacher, aide"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -1410,8 +1410,8 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
       {accommodations.length === 0 && !showAdd && (
         <Card>
           <CardContent className="p-8 text-center">
-            <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No accommodations added yet</p>
+            <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No accommodations added yet</p>
           </CardContent>
         </Card>
       )}
@@ -1427,8 +1427,8 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
                   <div key={a.id} className="flex items-start gap-2 group">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-slate-700">{a.description}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5 flex-wrap">
+                      <p className="text-[13px] text-gray-700">{a.description}</p>
+                      <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5 flex-wrap">
                         {a.setting && <span>Setting: {a.setting}</span>}
                         {a.frequency && <span>Frequency: {a.frequency}</span>}
                         {a.provider && <span>Provider: {a.provider}</span>}
@@ -1510,7 +1510,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-600">Team Meetings</h3>
+        <h3 className="text-sm font-semibold text-gray-600">Team Meetings</h3>
         <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Schedule Meeting
         </Button>
@@ -1521,32 +1521,32 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Meeting Type *</label>
+                <label className="text-[11px] font-medium text-gray-500">Meeting Type *</label>
                 <select value={meetingType} onChange={e => setMeetingType(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Date *</label>
+                <label className="text-[11px] font-medium text-gray-500">Date *</label>
                 <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Time</label>
+                <label className="text-[11px] font-medium text-gray-500">Time</label>
                 <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-slate-500">Location</label>
+              <label className="text-[11px] font-medium text-gray-500">Location</label>
               <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Conference room, Zoom link, etc."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-slate-500">Notes</label>
+              <label className="text-[11px] font-medium text-gray-500">Notes</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Meeting agenda, items to discuss..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
@@ -1562,8 +1562,8 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
       {meetings.length === 0 && !showAdd && (
         <Card>
           <CardContent className="p-8 text-center">
-            <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No team meetings scheduled</p>
+            <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No team meetings scheduled</p>
           </CardContent>
         </Card>
       )}
@@ -1586,21 +1586,21 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[13px] font-semibold text-slate-700">{typeLabel}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[m.status] || "bg-slate-50 text-slate-500"}`}>
+                      <p className="text-[13px] font-semibold text-gray-700">{typeLabel}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[m.status] || "bg-gray-50 text-gray-500"}`}>
                         {m.status}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[12px] text-slate-500 mt-0.5 flex-wrap">
+                    <div className="flex items-center gap-3 text-[12px] text-gray-500 mt-0.5 flex-wrap">
                       <span>{formatDate(m.scheduledDate)}</span>
                       {m.scheduledTime && <span>{m.scheduledTime}</span>}
                       {m.location && <span>{m.location}</span>}
                     </div>
-                    {m.notes && <p className="text-[12px] text-slate-400 mt-1">{m.notes}</p>}
+                    {m.notes && <p className="text-[12px] text-gray-400 mt-1">{m.notes}</p>}
                     {m.attendees && m.attendees.length > 0 && (
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <Users className="w-3 h-3 text-slate-400" />
-                        <span className="text-[11px] text-slate-400">
+                        <Users className="w-3 h-3 text-gray-400" />
+                        <span className="text-[11px] text-gray-400">
                           {m.attendees.map(a => a.name).join(", ")}
                         </span>
                       </div>
@@ -1679,22 +1679,22 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-10 md:pt-20 px-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div>
-            <h3 className="text-base font-bold text-slate-800">Goal Bank</h3>
-            <p className="text-[11px] text-slate-400">Pre-written IEP goals — click to add to student</p>
+            <h3 className="text-base font-bold text-gray-800">Goal Bank</h3>
+            <p className="text-[11px] text-gray-400">Pre-written IEP goals — click to add to student</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+        <div className="p-3 border-b border-gray-100 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search goals..."
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+            className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
             <option value="">All Domains</option>
             {domains.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
@@ -1703,22 +1703,22 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {loading && <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-700 mx-auto" /></div>}
           {!loading && goals.length === 0 && (
-            <p className="text-center text-sm text-slate-400 py-8">No matching goals found</p>
+            <p className="text-center text-sm text-gray-400 py-8">No matching goals found</p>
           )}
           {goals.map(g => (
-            <div key={g.id} className="border border-slate-200 rounded-lg p-3 hover:border-emerald-200 transition-colors">
+            <div key={g.id} className="border border-gray-200 rounded-lg p-3 hover:border-emerald-200 transition-colors">
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">{g.domain}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{g.goalArea}</span>
-                    {g.gradeRange && <span className="text-[10px] text-slate-400">Grades {g.gradeRange}</span>}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{g.goalArea}</span>
+                    {g.gradeRange && <span className="text-[10px] text-gray-400">Grades {g.gradeRange}</span>}
                   </div>
-                  <p className="text-[12px] text-slate-700 leading-relaxed">{g.goalText}</p>
+                  <p className="text-[12px] text-gray-700 leading-relaxed">{g.goalText}</p>
                   {g.benchmarkText && (
                     <details className="mt-1">
                       <summary className="text-[11px] text-emerald-700 cursor-pointer hover:text-emerald-900">View benchmarks</summary>
-                      <p className="text-[11px] text-slate-500 mt-1 whitespace-pre-line pl-2 border-l-2 border-emerald-100">{g.benchmarkText}</p>
+                      <p className="text-[11px] text-gray-500 mt-1 whitespace-pre-line pl-2 border-l-2 border-emerald-100">{g.benchmarkText}</p>
                     </details>
                   )}
                 </div>
@@ -1760,16 +1760,16 @@ function IepCompletenessIndicator({ studentId, docId }: { studentId: number; doc
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-semibold text-slate-700">
+              <p className="text-[13px] font-semibold text-gray-700">
                 {data.isComplete ? "IEP Document Complete" : "IEP Document Incomplete"}
               </p>
               <p className={`text-[13px] font-bold ${textColor}`}>{data.percentage}%</p>
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1.5">
+            <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
               <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${data.percentage}%` }} />
             </div>
             {data.missingSections.length > 0 && (
-              <p className="text-[11px] text-slate-400 mt-1.5">
+              <p className="text-[11px] text-gray-400 mt-1.5">
                 Missing: {data.missingSections.map(m => m.label).join(", ")}
               </p>
             )}
@@ -1831,7 +1831,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-600">Parent Communication Log</h3>
+        <h3 className="text-sm font-semibold text-gray-600">Parent Communication Log</h3>
         <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
           onClick={() => setShowAdd(!showAdd)}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Log Contact
@@ -1843,16 +1843,16 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Contact Type</label>
+                <label className="text-[11px] font-medium text-gray-500">Contact Type</label>
                 <select value={form.contactType} onChange={e => setForm(p => ({ ...p, contactType: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {Object.entries(CONTACT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Method</label>
+                <label className="text-[11px] font-medium text-gray-500">Method</label>
                 <select value={form.contactMethod} onChange={e => setForm(p => ({ ...p, contactMethod: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   <option value="phone">Phone Call</option>
                   <option value="email">Email</option>
                   <option value="in_person">In Person</option>
@@ -1861,42 +1861,42 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
                 </select>
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Date</label>
+                <label className="text-[11px] font-medium text-gray-500">Date</label>
                 <input type="date" value={form.contactDate} onChange={e => setForm(p => ({ ...p, contactDate: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Parent/Guardian Name</label>
+                <label className="text-[11px] font-medium text-gray-500">Parent/Guardian Name</label>
                 <input type="text" value={form.parentName} onChange={e => setForm(p => ({ ...p, parentName: e.target.value }))}
                   placeholder="e.g. Maria Alvarez"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Subject *</label>
+                <label className="text-[11px] font-medium text-gray-500">Subject *</label>
                 <input type="text" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))}
                   placeholder="Brief description of the contact"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
-              <label className="text-[11px] font-medium text-slate-500">Notes</label>
+              <label className="text-[11px] font-medium text-gray-500">Notes</label>
               <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3}
                 placeholder="Details of the conversation or communication..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Outcome</label>
+                <label className="text-[11px] font-medium text-gray-500">Outcome</label>
                 <input type="text" value={form.outcome} onChange={e => setForm(p => ({ ...p, outcome: e.target.value }))}
                   placeholder="Result of the contact"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
-                <label className="text-[11px] font-medium text-slate-500">Follow-up Date</label>
+                <label className="text-[11px] font-medium text-gray-500">Follow-up Date</label>
                 <input type="date" value={form.followUpDate} onChange={e => setForm(p => ({ ...p, followUpDate: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -1912,9 +1912,9 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
       {contacts.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <Phone className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No parent contacts logged yet</p>
-            <p className="text-xs text-slate-400 mt-1">Document phone calls, emails, meetings, and notices</p>
+            <Phone className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No parent contacts logged yet</p>
+            <p className="text-xs text-gray-400 mt-1">Document phone calls, emails, meetings, and notices</p>
           </CardContent>
         </Card>
       ) : (
@@ -1936,17 +1936,17 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[13px] font-medium text-slate-700">{c.subject}</span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-600">
+                        <span className="text-[13px] font-medium text-gray-700">{c.subject}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-600">
                           {CONTACT_TYPES[c.contactType] || c.contactType}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-400">
+                      <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
                         <span>{formatDate(c.contactDate)}</span>
                         {c.parentName && <span>with {c.parentName}</span>}
                         <span className="capitalize">{(c.contactMethod || "").replace(/_/g, " ")}</span>
                       </div>
-                      {c.notes && <p className="text-[12px] text-slate-500 mt-1.5 line-clamp-2">{c.notes}</p>}
+                      {c.notes && <p className="text-[12px] text-gray-500 mt-1.5 line-clamp-2">{c.notes}</p>}
                       {c.outcome && (
                         <p className="text-[11px] text-emerald-600 mt-1">Outcome: {c.outcome}</p>
                       )}

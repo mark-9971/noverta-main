@@ -41,17 +41,17 @@ export default function TeacherRoster() {
     `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div></div>;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Student Roster</h1>
-        <p className="text-slate-500 mt-1">{allStudents.length} students across {classes.length} classes</p>
+        <h1 className="text-2xl font-bold text-gray-800">Student Roster</h1>
+        <p className="text-gray-500 mt-1">{allStudents.length} students across {classes.length} classes</p>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -64,25 +64,25 @@ export default function TeacherRoster() {
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Student</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">Grade</th>
-                <th className="text-center py-3 px-4 font-medium text-slate-500">IEP</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500">Classes</th>
+              <tr className="border-b bg-gray-50">
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Student</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">Grade</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-500">IEP</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Classes</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(s => (
-                <tr key={s.studentId} className="border-b last:border-0 hover:bg-slate-50">
+                <tr key={s.studentId} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">
                         {s.firstName[0]}{s.lastName[0]}
                       </div>
-                      <span className="font-medium text-slate-700">{s.lastName}, {s.firstName}</span>
+                      <span className="font-medium text-gray-700">{s.lastName}, {s.firstName}</span>
                     </div>
                   </td>
-                  <td className="text-center py-3 px-4 text-slate-500">{s.grade}</td>
+                  <td className="text-center py-3 px-4 text-gray-500">{s.grade}</td>
                   <td className="text-center py-3 px-4">
                     {s.hasIep ? <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px]">IEP</Badge> : "—"}
                   </td>

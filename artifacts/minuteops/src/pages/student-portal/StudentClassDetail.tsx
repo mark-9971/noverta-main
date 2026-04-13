@@ -30,8 +30,8 @@ export default function StudentClassDetail() {
     });
   }, [id, studentId]);
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
-  if (!cls) return <div className="p-6 text-center text-slate-400">Class not found</div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
+  if (!cls) return <div className="p-6 text-center text-gray-400">Class not found</div>;
 
   const graded = assignments.filter(a => a.status === "graded");
   const totalEarned = graded.reduce((s, a) => s + parseFloat(a.pointsEarned || "0"), 0);
@@ -43,13 +43,13 @@ export default function StudentClassDetail() {
       <div className="flex items-start justify-between">
         <div>
           <Link href="/portal/classes" className="text-xs text-blue-500 hover:underline">← Back to Classes</Link>
-          <h1 className="text-2xl font-bold text-slate-800 mt-1">{cls.name}</h1>
-          <p className="text-slate-500 text-sm">{cls.teacherFirstName} {cls.teacherLastName} · Period {cls.period} · Room {cls.room}</p>
+          <h1 className="text-2xl font-bold text-gray-800 mt-1">{cls.name}</h1>
+          <p className="text-gray-500 text-sm">{cls.teacherFirstName} {cls.teacherLastName} · Period {cls.period} · Room {cls.room}</p>
         </div>
         {pct !== null && (
           <div className="text-right">
             <p className={`text-3xl font-bold ${pctColor(pct)}`}>{pct}%</p>
-            <p className="text-xs text-slate-400">{graded.length} graded</p>
+            <p className="text-xs text-gray-400">{graded.length} graded</p>
           </div>
         )}
       </div>
@@ -63,13 +63,13 @@ export default function StudentClassDetail() {
 
         <TabsContent value="assignments" className="mt-4 space-y-2">
           {assignments.length === 0 ? (
-            <p className="text-center text-slate-400 py-8">No assignments yet</p>
+            <p className="text-center text-gray-400 py-8">No assignments yet</p>
           ) : assignments.map(a => (
             <Link key={a.submissionId} href={`/portal/assignments/${a.assignmentId}`} className="block">
               <div className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-blue-200 hover:bg-blue-50/20 transition-all group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 group-hover:text-blue-700">{a.title}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{a.title}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Due {a.dueDate}</span>
                     <span>{a.pointsPossible} pts</span>
                     <Badge variant="outline" className="text-[10px]">{a.assignmentType}</Badge>
@@ -77,13 +77,13 @@ export default function StudentClassDetail() {
                 </div>
                 {a.status === "graded" ? (
                   <div className="text-right">
-                    <p className="text-sm font-bold text-slate-700">{a.pointsEarned}/{a.pointsPossible}</p>
+                    <p className="text-sm font-bold text-gray-700">{a.pointsEarned}/{a.pointsPossible}</p>
                     <p className={`text-xs font-semibold ${letterColor(a.letterGrade)}`}>{a.letterGrade}</p>
                   </div>
                 ) : (
                   <StatusBadge status={a.status} />
                 )}
-                <ChevronRight className="w-4 h-4 text-slate-300" />
+                <ChevronRight className="w-4 h-4 text-gray-300" />
               </div>
             </Link>
           ))}
@@ -94,17 +94,17 @@ export default function StudentClassDetail() {
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-slate-50">
-                    <th className="text-left py-3 px-4 font-medium text-slate-500">Assignment</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">Type</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">Score</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">Grade</th>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-3 px-4 font-medium text-gray-500">Assignment</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">Type</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">Score</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">Grade</th>
                   </tr>
                 </thead>
                 <tbody>
                   {graded.map(a => (
-                    <tr key={a.submissionId} className="border-b last:border-0 hover:bg-slate-50">
-                      <td className="py-3 px-4 font-medium text-slate-700">{a.title}</td>
+                    <tr key={a.submissionId} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium text-gray-700">{a.title}</td>
                       <td className="text-center py-3 px-4"><Badge variant="outline" className="text-[10px]">{a.assignmentType}</Badge></td>
                       <td className="text-center py-3 px-4 font-mono">{a.pointsEarned}/{a.pointsPossible}</td>
                       <td className={`text-center py-3 px-4 font-bold ${letterColor(a.letterGrade)}`}>{a.letterGrade}</td>
@@ -118,16 +118,16 @@ export default function StudentClassDetail() {
 
         <TabsContent value="announcements" className="mt-4 space-y-3">
           {announcements.length === 0 ? (
-            <p className="text-center text-slate-400 py-8">No announcements</p>
+            <p className="text-center text-gray-400 py-8">No announcements</p>
           ) : announcements.map((a: any) => (
             <Card key={a.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <Bell className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-slate-700">{a.title}</p>
-                    <p className="text-sm text-slate-500 mt-1">{a.content}</p>
-                    <p className="text-xs text-slate-400 mt-2">{a.authorFirstName} {a.authorLastName}</p>
+                    <p className="font-semibold text-gray-700">{a.title}</p>
+                    <p className="text-sm text-gray-500 mt-1">{a.content}</p>
+                    <p className="text-xs text-gray-400 mt-2">{a.authorFirstName} {a.authorLastName}</p>
                   </div>
                 </div>
               </CardContent>
@@ -146,7 +146,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function letterColor(g: string) {
-  if (!g) return "text-slate-400";
+  if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
   if (g.startsWith("B")) return "text-blue-600";
   if (g.startsWith("C")) return "text-amber-600";

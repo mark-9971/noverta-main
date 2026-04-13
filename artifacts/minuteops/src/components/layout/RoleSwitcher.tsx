@@ -15,7 +15,7 @@ export function RoleSwitcher() {
 
   return (
     <div className="space-y-1">
-      <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider px-0.5 mb-1">Demo Role</p>
+      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider px-0.5 mb-1">Demo Role</p>
       <div className="grid grid-cols-1 gap-0.5">
         {roles.map((r) => (
           <button
@@ -25,7 +25,7 @@ export function RoleSwitcher() {
               "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all w-full text-left",
               role === r.value
                 ? r.activeClass
-                : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             )}
           >
             <r.icon className="w-3.5 h-3.5 flex-shrink-0" />

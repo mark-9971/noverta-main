@@ -17,7 +17,7 @@ export function SchoolDistrictSelector() {
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
         <select
-          className="flex-1 text-[11px] border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 truncate"
+          className="flex-1 text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 truncate"
           value={
             selectedSchoolId ? `school:${selectedSchoolId}` :
             selectedDistrictId ? `district:${selectedDistrictId}` : ""
@@ -50,7 +50,7 @@ export function SchoolDistrictSelector() {
         </select>
         {(selectedSchoolId || selectedDistrictId) && (
           <button
-            className="p-0.5 rounded hover:bg-slate-100 text-slate-400"
+            className="p-0.5 rounded hover:bg-gray-100 text-gray-400"
             onClick={() => { setSelectedDistrictId(null); setSelectedSchoolId(null); }}
             title="Clear filter"
           >

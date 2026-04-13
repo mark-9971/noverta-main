@@ -19,7 +19,7 @@ export default function AdminClasses() {
     `${c.name} ${c.subject} ${c.teacherFirstName} ${c.teacherLastName}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const subjectColors: Record<string, string> = {
     Math: "bg-blue-100 text-blue-700", ELA: "bg-purple-100 text-purple-700",
@@ -32,13 +32,13 @@ export default function AdminClasses() {
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Classes</h1>
-          <p className="text-slate-500 mt-1">{classes.length} classes this semester</p>
+          <h1 className="text-2xl font-bold text-gray-800">Classes</h1>
+          <p className="text-gray-500 mt-1">{classes.length} classes this semester</p>
         </div>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -53,12 +53,12 @@ export default function AdminClasses() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-slate-800">{c.name}</h3>
-                  <Badge className={`mt-1 text-[10px] hover:opacity-90 ${subjectColors[c.subject] || "bg-slate-100 text-slate-700"}`}>{c.subject}</Badge>
+                  <h3 className="font-semibold text-gray-800">{c.name}</h3>
+                  <Badge className={`mt-1 text-[10px] hover:opacity-90 ${subjectColors[c.subject] || "bg-gray-100 text-gray-700"}`}>{c.subject}</Badge>
                 </div>
                 <Badge variant="outline" className="text-[10px]">{c.courseCode}</Badge>
               </div>
-              <div className="space-y-1.5 text-xs text-slate-500">
+              <div className="space-y-1.5 text-xs text-gray-500">
                 <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5" />{c.teacherFirstName} {c.teacherLastName}</div>
                 <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" />Period {c.period} · {c.studentCount} students</div>
                 {c.room && <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" />Room {c.room}</div>}

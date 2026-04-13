@@ -37,16 +37,16 @@ export default function TeacherClassDetail() {
 
   useEffect(reload, [id]);
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
-  if (!cls) return <div className="p-6 text-center text-slate-400">Class not found</div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
+  if (!cls) return <div className="p-6 text-center text-gray-400">Class not found</div>;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between">
         <div>
           <Link href="/teacher/classes" className="text-xs text-emerald-500 hover:underline">← Back to Classes</Link>
-          <h1 className="text-2xl font-bold text-slate-800 mt-1">{cls.name}</h1>
-          <p className="text-slate-500 text-sm">Period {cls.period} · Room {cls.room} · {roster.length} students</p>
+          <h1 className="text-2xl font-bold text-gray-800 mt-1">{cls.name}</h1>
+          <p className="text-gray-500 text-sm">Period {cls.period} · Room {cls.room} · {roster.length} students</p>
         </div>
       </div>
 
@@ -64,22 +64,22 @@ export default function TeacherClassDetail() {
             <div key={a.id} className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-emerald-200 transition-all">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-slate-700">{a.title}</p>
+                  <p className="text-sm font-medium text-gray-700">{a.title}</p>
                   <Badge variant="outline" className="text-[10px]">{a.assignmentType}</Badge>
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                   <span>Due {a.dueDate}</span>
                   <span>{a.pointsPossible} pts</span>
                   {a.categoryName && <span>{a.categoryName}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-500">
+              <div className="flex items-center gap-4 text-xs text-gray-500">
                 <div className="text-center">
-                  <p className="font-bold text-slate-700">{a.submissionCount}</p>
+                  <p className="font-bold text-gray-700">{a.submissionCount}</p>
                   <p>submitted</p>
                 </div>
                 <div className="text-center">
-                  <p className="font-bold text-slate-700">{a.gradedCount}</p>
+                  <p className="font-bold text-gray-700">{a.gradedCount}</p>
                   <p>graded</p>
                 </div>
                 {a.avgScore && (
@@ -101,29 +101,29 @@ export default function TeacherClassDetail() {
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b bg-slate-50">
-                    <th className="text-left py-3 px-4 font-medium text-slate-500">Student</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">Grade</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">IEP</th>
-                    <th className="text-center py-3 px-4 font-medium text-slate-500">Status</th>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-3 px-4 font-medium text-gray-500">Student</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">Grade</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">IEP</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-500">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {roster.map(s => (
-                    <tr key={s.studentId} className="border-b last:border-0 hover:bg-slate-50">
+                    <tr key={s.studentId} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs font-bold">
                             {s.firstName[0]}{s.lastName[0]}
                           </div>
-                          <p className="font-medium text-slate-700">{s.firstName} {s.lastName}</p>
+                          <p className="font-medium text-gray-700">{s.firstName} {s.lastName}</p>
                         </div>
                       </td>
-                      <td className="text-center py-3 px-4 text-slate-500">{s.grade}</td>
+                      <td className="text-center py-3 px-4 text-gray-500">{s.grade}</td>
                       <td className="text-center py-3 px-4">
                         {s.hasIep ? (
                           <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px]">IEP</Badge>
-                        ) : <span className="text-slate-300">—</span>}
+                        ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="text-center py-3 px-4">
                         <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200">{s.status}</Badge>
@@ -144,8 +144,8 @@ export default function TeacherClassDetail() {
           {announcements.map((a: any) => (
             <Card key={a.id}>
               <CardContent className="p-4">
-                <p className="font-semibold text-slate-700">{a.title}</p>
-                <p className="text-sm text-slate-500 mt-1">{a.content}</p>
+                <p className="font-semibold text-gray-700">{a.title}</p>
+                <p className="text-sm text-gray-500 mt-1">{a.content}</p>
               </CardContent>
             </Card>
           ))}
@@ -219,8 +219,8 @@ function GradebookView({ classId }: { classId: number }) {
     });
   }, [classId]);
 
-  if (loading) return <div className="animate-pulse h-64 bg-slate-100 rounded-xl" />;
-  if (!data) return <p className="text-center text-slate-400">No data</p>;
+  if (loading) return <div className="animate-pulse h-64 bg-gray-100 rounded-xl" />;
+  if (!data) return <p className="text-center text-gray-400">No data</p>;
 
   const { assignments, students } = data;
 
@@ -229,23 +229,23 @@ function GradebookView({ classId }: { classId: number }) {
       <CardContent className="p-0 overflow-x-auto">
         <table className="w-full text-xs min-w-[800px]">
           <thead>
-            <tr className="border-b bg-slate-50">
-              <th className="text-left py-2 px-3 font-medium text-slate-500 sticky left-0 bg-slate-50 min-w-[160px]">Student</th>
+            <tr className="border-b bg-gray-50">
+              <th className="text-left py-2 px-3 font-medium text-gray-500 sticky left-0 bg-gray-50 min-w-[160px]">Student</th>
               {assignments.map((a: any) => (
-                <th key={a.id} className="text-center py-2 px-2 font-medium text-slate-500 min-w-[70px]" title={a.title}>
+                <th key={a.id} className="text-center py-2 px-2 font-medium text-gray-500 min-w-[70px]" title={a.title}>
                   <div className="truncate max-w-[70px]">{a.title}</div>
-                  <div className="text-[9px] text-slate-400 font-normal">{a.pointsPossible}pts</div>
+                  <div className="text-[9px] text-gray-400 font-normal">{a.pointsPossible}pts</div>
                 </th>
               ))}
-              <th className="text-center py-2 px-3 font-medium text-slate-500 min-w-[80px]">Overall</th>
+              <th className="text-center py-2 px-3 font-medium text-gray-500 min-w-[80px]">Overall</th>
             </tr>
           </thead>
           <tbody>
             {students.map((s: any) => (
-              <tr key={s.studentId} className="border-b last:border-0 hover:bg-slate-50">
+              <tr key={s.studentId} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="py-2 px-3 sticky left-0 bg-white">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-slate-700">{s.lastName}, {s.firstName}</span>
+                    <span className="font-medium text-gray-700">{s.lastName}, {s.firstName}</span>
                     {s.hasIep && <span className="w-2 h-2 rounded-full bg-purple-400" title="Has IEP" />}
                   </div>
                 </td>
@@ -262,7 +262,7 @@ function GradebookView({ classId }: { classId: number }) {
                       ) : grade?.status === "missing" ? (
                         <span className="text-red-400">M</span>
                       ) : (
-                        <span className="text-slate-200">—</span>
+                        <span className="text-gray-200">—</span>
                       )}
                     </td>
                   );
@@ -293,7 +293,7 @@ function cellColor(earned: number, possible: number) {
 }
 
 function letterColor(g: string) {
-  if (!g) return "text-slate-400";
+  if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
   if (g.startsWith("B")) return "text-blue-600";
   if (g.startsWith("C")) return "text-amber-600";

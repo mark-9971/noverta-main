@@ -36,7 +36,7 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string; 
   overdue: { label: "Overdue", color: "text-red-700", bg: "bg-red-50", icon: AlertTriangle },
   critical: { label: "Due This Week", color: "text-orange-700", bg: "bg-orange-50", icon: AlertTriangle },
   due_soon: { label: "Due Soon", color: "text-amber-700", bg: "bg-amber-50", icon: Clock },
-  upcoming: { label: "Upcoming", color: "text-slate-500", bg: "bg-slate-50", icon: Calendar },
+  upcoming: { label: "Upcoming", color: "text-gray-500", bg: "bg-gray-50", icon: Calendar },
   completed: { label: "Completed", color: "text-emerald-700", bg: "bg-emerald-50", icon: CheckCircle2 },
 };
 
@@ -108,8 +108,8 @@ export default function ComplianceTimelinePage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-800">Compliance Timeline</h1>
-          <p className="text-xs md:text-sm text-slate-400">IEP annual reviews, reevaluations, and deadline tracking (IDEA-compliant)</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compliance Timeline</h1>
+          <p className="text-xs md:text-sm text-gray-400">IEP annual reviews, reevaluations, and deadline tracking (IDEA-compliant)</p>
         </div>
         <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={recalculate} disabled={recalculating}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${recalculating ? "animate-spin" : ""}`} />
@@ -120,31 +120,31 @@ export default function ComplianceTimelinePage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className={overdue.length > 0 ? "border-red-200 bg-red-50/30" : ""}>
           <CardContent className="p-3.5 text-center">
-            <p className={`text-2xl font-bold ${overdue.length > 0 ? "text-red-600" : "text-slate-300"}`}>{overdue.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Overdue</p>
+            <p className={`text-2xl font-bold ${overdue.length > 0 ? "text-red-600" : "text-gray-300"}`}>{overdue.length}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Overdue</p>
           </CardContent>
         </Card>
         <Card className={critical.length > 0 ? "border-orange-200 bg-orange-50/30" : ""}>
           <CardContent className="p-3.5 text-center">
-            <p className={`text-2xl font-bold ${critical.length > 0 ? "text-orange-600" : "text-slate-300"}`}>{critical.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Due This Week</p>
+            <p className={`text-2xl font-bold ${critical.length > 0 ? "text-orange-600" : "text-gray-300"}`}>{critical.length}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Due This Week</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3.5 text-center">
             <p className="text-2xl font-bold text-amber-600">{dueSoon.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Due in 30 Days</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Due in 30 Days</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3.5 text-center">
-            <p className="text-2xl font-bold text-slate-400">{upcoming.length + completed.length}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Total Events</p>
+            <p className="text-2xl font-bold text-gray-400">{upcoming.length + completed.length}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Total Events</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-slate-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-gray-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
         {[
           { key: "all", label: "All" },
           { key: "overdue", label: `Overdue (${overdue.length})` },
@@ -153,7 +153,7 @@ export default function ComplianceTimelinePage() {
         ].map(t => (
           <button key={t.key} onClick={() => setFilter(t.key === "overdue" || t.key === "due_soon" || t.key === "completed" ? t.key : "all")}
             className={`px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-              (filter === "all" && t.key === "all") || filter === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-400 hover:text-slate-600"
+              (filter === "all" && t.key === "all") || filter === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}>
             {t.label}
           </button>
@@ -163,9 +163,9 @@ export default function ComplianceTimelinePage() {
       {events.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center">
-            <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No compliance events found</p>
-            <p className="text-xs text-slate-400 mt-1">Click "Recalculate Deadlines" to auto-generate from IEP documents</p>
+            <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No compliance events found</p>
+            <p className="text-xs text-gray-400 mt-1">Click "Recalculate Deadlines" to auto-generate from IEP documents</p>
           </CardContent>
         </Card>
       )}
@@ -185,17 +185,17 @@ export default function ComplianceTimelinePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/students/${event.student.id}/iep`} className="text-[13px] font-semibold text-slate-700 hover:text-emerald-700">
+                      <Link href={`/students/${event.student.id}/iep`} className="text-[13px] font-semibold text-gray-700 hover:text-emerald-700">
                         {event.student.firstName} {event.student.lastName}
                       </Link>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${eventStyle.bg} ${eventStyle.color}`}>
                         {eventStyle.label}
                       </span>
                     </div>
-                    <p className="text-[12px] text-slate-500 mt-0.5">{event.title}</p>
+                    <p className="text-[12px] text-gray-500 mt-0.5">{event.title}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[12px] text-slate-500">{formatDate(event.dueDate)}</p>
+                    <p className="text-[12px] text-gray-500">{formatDate(event.dueDate)}</p>
                     <p className={`text-[11px] font-medium ${statusStyle.color}`}>
                       {event.computedStatus === "completed" ? "Completed" :
                        event.daysRemaining < 0 ? `${Math.abs(event.daysRemaining)}d overdue` :

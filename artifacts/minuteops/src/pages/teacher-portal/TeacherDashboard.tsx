@@ -21,7 +21,7 @@ export default function TeacherDashboard() {
   }, [teacherId]);
 
   if (!teacherId) return <div className="p-6"><SelectTeacherPrompt /></div>;
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-xl" />)}</div></div>;
+  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const classes = data?.classes || [];
   const pending = data?.pendingGradingCount || 0;
@@ -31,8 +31,8 @@ export default function TeacherDashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Teacher Dashboard</h1>
-        <p className="text-slate-500 mt-1">Welcome back</p>
+        <h1 className="text-2xl font-bold text-gray-800">Teacher Dashboard</h1>
+        <p className="text-gray-500 mt-1">Welcome back</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -55,15 +55,15 @@ export default function TeacherDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             {classes.map((c: any) => (
-              <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
+              <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group">
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 font-bold text-sm">
                   P{c.period}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 group-hover:text-emerald-700">{c.name}</p>
-                  <p className="text-xs text-slate-400">Room {c.room} · {c.studentCount} students</p>
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">{c.name}</p>
+                  <p className="text-xs text-gray-400">Room {c.room} · {c.studentCount} students</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-300" />
+                <ChevronRight className="w-4 h-4 text-gray-300" />
               </Link>
             ))}
           </CardContent>
@@ -84,15 +84,15 @@ export default function TeacherDashboard() {
           </CardHeader>
           <CardContent className="space-y-2">
             {recent.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">All caught up!</p>
+              <p className="text-sm text-gray-400 py-4 text-center">All caught up!</p>
             ) : recent.map((s: any) => (
-              <div key={s.submissionId} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+              <div key={s.submissionId} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
                   {s.studentFirstName[0]}{s.studentLastName[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{s.studentFirstName} {s.studentLastName}</p>
-                  <p className="text-xs text-slate-400 truncate">{s.assignmentTitle} · {s.className}</p>
+                  <p className="text-sm font-medium text-gray-700">{s.studentFirstName} {s.studentLastName}</p>
+                  <p className="text-xs text-gray-400 truncate">{s.assignmentTitle} · {s.className}</p>
                 </div>
                 <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Review</Badge>
               </div>
@@ -119,8 +119,8 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
             <Icon className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-            <p className="text-xs text-slate-400">{label}</p>
+            <p className="text-2xl font-bold text-gray-800">{value}</p>
+            <p className="text-xs text-gray-400">{label}</p>
           </div>
         </div>
       </CardContent>
@@ -140,7 +140,7 @@ function SelectTeacherPrompt() {
     <Card className="max-w-lg mx-auto mt-8">
       <CardHeader>
         <CardTitle>Select a Teacher</CardTitle>
-        <p className="text-sm text-slate-500">Choose which teacher to view the portal as</p>
+        <p className="text-sm text-gray-500">Choose which teacher to view the portal as</p>
       </CardHeader>
       <CardContent className="space-y-1">
         {staff.map(s => (
@@ -153,8 +153,8 @@ function SelectTeacherPrompt() {
               {s.firstName[0]}{s.lastName[0]}
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">{s.firstName} {s.lastName}</p>
-              <p className="text-xs text-slate-400">{s.title || s.role}</p>
+              <p className="text-sm font-medium text-gray-700">{s.firstName} {s.lastName}</p>
+              <p className="text-xs text-gray-400">{s.title || s.role}</p>
             </div>
           </button>
         ))}
