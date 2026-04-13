@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { useSchoolContext } from "@/lib/school-context";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -50,16 +51,17 @@ export default function Sessions() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const sessionParams: any = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
+  const { filterParams } = useSchoolContext();
+  const sessionParams: any = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE), ...filterParams };
   if (dateFrom) sessionParams.dateFrom = dateFrom;
   if (dateTo) sessionParams.dateTo = dateTo;
   if (statusFilter !== "all" && statusFilter !== "makeup") sessionParams.status = statusFilter;
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
-  const { data: students } = useListStudents({} as any);
+  const { data: students } = useListStudents({ ...filterParams } as any);
   const { data: serviceReqs } = useListServiceRequirements(
     form.studentId ? { studentId: Number(form.studentId) } as any : ({} as any)
   );
-  const { data: staffData } = useListStaff({} as any);
+  const { data: staffData } = useListStaff({ ...filterParams } as any);
   const { data: missedReasonsData } = useListMissedReasons();
   const { mutateAsync: createSession } = useCreateSession();
 

@@ -6,7 +6,7 @@ import {
   ResolveAlertParams,
   ResolveAlertBody,
 } from "@workspace/api-zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { runComplianceChecks } from "../lib/complianceEngine";
 
 const router: IRouter = Router();
@@ -29,6 +29,8 @@ router.get("/alerts", async (req, res): Promise<void> => {
     if (params.data.studentId) conditions.push(eq(alertsTable.studentId, Number(params.data.studentId)));
     if (params.data.staffId) conditions.push(eq(alertsTable.staffId, Number(params.data.staffId)));
     if (params.data.type) conditions.push(eq(alertsTable.type, params.data.type));
+    if (params.data.schoolId) conditions.push(sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
+    if (params.data.districtId) conditions.push(sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
   }
 
   const alerts = await db

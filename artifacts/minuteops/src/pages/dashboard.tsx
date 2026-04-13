@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { useSchoolContext } from "@/lib/school-context";
 
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
@@ -43,12 +44,13 @@ const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
 const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
 
 export default function Dashboard() {
+  const { filterParams } = useSchoolContext();
   const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: riskOverview } = useGetDashboardRiskOverview();
   const { data: trend } = useGetMissedSessionsTrend();
   const { data: complianceByService } = useGetComplianceByService();
   const { data: alertsSummary } = useGetDashboardAlertsSummary();
-  const { data: recentAlerts } = useListAlerts({ resolved: "false" } as any);
+  const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
   const [deadlines, setDeadlines] = useState<any[]>([]);
   const [academics, setAcademics] = useState<any>(null);
 

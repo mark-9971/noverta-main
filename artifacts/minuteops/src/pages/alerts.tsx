@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useSchoolContext } from "@/lib/school-context";
 
 const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }> = {
   critical: { dot: "bg-red-500", bg: "bg-red-50/60 border-red-100", color: "text-red-700" },
@@ -24,7 +25,8 @@ export default function Alerts() {
   const [resolveNote, setResolveNote] = useState("");
   const [resolving, setResolving] = useState(false);
 
-  const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false" } as any);
+  const { filterParams } = useSchoolContext();
+  const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false", ...filterParams } as any);
   const { mutateAsync: resolveAlert } = useResolveAlert();
 
   const alertList = (alerts as any[]) ?? [];

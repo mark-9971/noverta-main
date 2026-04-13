@@ -872,6 +872,14 @@ export type ListStudentsParams = {
    * @nullable
    */
   search?: string | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+  /**
+   * @nullable
+   */
+  offset?: number | null;
 };
 
 export type GetStudentSessionsParams = {
@@ -898,6 +906,14 @@ export type ListStaffParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+  /**
+   * @nullable
+   */
+  offset?: number | null;
 };
 
 export type ListServiceRequirementsParams = {
@@ -944,6 +960,14 @@ export type ListSessionsParams = {
    * @nullable
    */
   dateTo?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
   /**
    * @nullable
    */
@@ -1024,6 +1048,14 @@ export type ListAlertsParams = {
    * @nullable
    */
   type?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
 
 export type ListStaffAssignmentsParams = {

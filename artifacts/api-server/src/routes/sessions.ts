@@ -10,7 +10,7 @@ import {
   DeleteSessionParams,
   BulkCreateSessionsBody,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -46,6 +46,8 @@ router.get("/sessions", async (req, res): Promise<void> => {
     if (params.data.status) conditions.push(eq(sessionLogsTable.status, params.data.status));
     if (params.data.dateFrom) conditions.push(gte(sessionLogsTable.sessionDate, params.data.dateFrom));
     if (params.data.dateTo) conditions.push(lte(sessionLogsTable.sessionDate, params.data.dateTo));
+    if (params.data.schoolId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
+    if (params.data.districtId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
   }
 
   const limit = params.success && params.data.limit ? Number(params.data.limit) : 100;

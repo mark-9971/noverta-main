@@ -370,6 +370,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: List of students
@@ -532,6 +540,14 @@ paths:
           schema:
             type: ["integer", "null"]
         - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
           in: query
           schema:
             type: ["integer", "null"]
@@ -794,6 +810,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
         - name: limit
           in: query
           schema:
@@ -1131,6 +1155,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Alerts

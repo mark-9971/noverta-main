@@ -34,6 +34,14 @@ export type ListSessionsParams = {
   /**
    * @nullable
    */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+  /**
+   * @nullable
+   */
   limit?: number | null;
   /**
    * @nullable

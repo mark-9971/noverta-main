@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { useSchoolContext } from "@/lib/school-context";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DAY_LABELS: Record<string, string> = {
@@ -26,8 +27,9 @@ export default function Schedule() {
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  const { filterParams } = useSchoolContext();
   const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({} as any);
-  const { data: staff } = useListStaff({} as any);
+  const { data: staff } = useListStaff({ ...filterParams } as any);
 
   const blockList = (blocks as any[]) ?? [];
   const staffList = (staff as any[]) ?? [];

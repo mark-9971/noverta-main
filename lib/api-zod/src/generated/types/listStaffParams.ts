@@ -23,4 +23,12 @@ export type ListStaffParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+  /**
+   * @nullable
+   */
+  offset?: number | null;
 };

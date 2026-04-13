@@ -6,9 +6,11 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
+import { useSchoolContext } from "@/lib/school-context";
 
 export default function Staff() {
-  const { data: staff, isLoading } = useListStaff({} as any);
+  const { filterParams } = useSchoolContext();
+  const { data: staff, isLoading } = useListStaff({ ...filterParams } as any);
   const { data: providerSummary } = useGetProviderDashboardSummary();
   const { data: paraSummary } = useGetParaDashboardSummary();
 

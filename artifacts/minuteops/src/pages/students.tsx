@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { Search, ChevronRight, GraduationCap, BookOpen } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
+import { useSchoolContext } from "@/lib/school-context";
 
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
@@ -22,7 +23,8 @@ export default function Students() {
   const [loadingAll, setLoadingAll] = useState(true);
   const [spedIds, setSpedIds] = useState<Set<number>>(new Set());
 
-  const { data: students, isLoading, isError, refetch } = useListStudents({} as any);
+  const { filterParams } = useSchoolContext();
+  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams } as any);
   const { data: progress } = useListMinuteProgress({} as any);
 
   useEffect(() => {

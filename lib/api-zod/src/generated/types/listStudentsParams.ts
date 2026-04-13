@@ -39,4 +39,12 @@ export type ListStudentsParams = {
    * @nullable
    */
   search?: string | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+  /**
+   * @nullable
+   */
+  offset?: number | null;
 };

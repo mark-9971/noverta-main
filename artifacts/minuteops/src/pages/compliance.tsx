@@ -7,8 +7,10 @@ import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
 import { RISK_CONFIG } from "@/lib/constants";
+import { useSchoolContext } from "@/lib/school-context";
 
 export default function Compliance() {
+  const { filterParams } = useSchoolContext();
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const { data: progress, isLoading, isError, refetch } = useListMinuteProgress({} as any);
   const { data: complianceByService } = useGetComplianceByService();

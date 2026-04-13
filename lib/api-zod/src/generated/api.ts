@@ -290,6 +290,8 @@ export const ListStudentsQueryParams = zod.object({
   riskStatus: zod.coerce.string().nullish(),
   grade: zod.coerce.string().nullish(),
   search: zod.coerce.string().nullish(),
+  limit: zod.coerce.number().nullish(),
+  offset: zod.coerce.number().nullish(),
 });
 
 export const ListStudentsResponseItem = zod.object({
@@ -597,6 +599,8 @@ export const ListStaffQueryParams = zod.object({
   status: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  limit: zod.coerce.number().nullish(),
+  offset: zod.coerce.number().nullish(),
 });
 
 export const ListStaffResponseItem = zod.object({
@@ -897,6 +901,8 @@ export const ListSessionsQueryParams = zod.object({
   status: zod.coerce.string().nullish(),
   dateFrom: zod.coerce.string().nullish(),
   dateTo: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
   limit: zod.coerce.number().nullish(),
   offset: zod.coerce.number().nullish(),
 });
@@ -1321,6 +1327,8 @@ export const ListAlertsQueryParams = zod.object({
   studentId: zod.coerce.number().nullish(),
   staffId: zod.coerce.number().nullish(),
   type: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
 });
 
 export const ListAlertsResponseItem = zod.object({

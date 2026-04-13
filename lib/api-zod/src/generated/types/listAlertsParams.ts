@@ -27,4 +27,12 @@ export type ListAlertsParams = {
    * @nullable
    */
   type?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
