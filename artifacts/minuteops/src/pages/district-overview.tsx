@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Building2, Users, UserCheck, AlertTriangle, School, TrendingUp, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSchoolContext } from "@/lib/school-context";
 
 function StatCard({ title, value, icon: Icon, accent = "emerald", subtitle }: any) {
   const accents: Record<string, string> = {
@@ -57,10 +58,17 @@ function ComplianceBar({ onTrack, atRisk, outOfCompliance, total }: { onTrack: n
 
 export default function DistrictOverview() {
   const { data: districts } = useListDistricts();
-  const [selectedDistrictId, setSelectedDistrictId] = useState<number | undefined>(undefined);
+  const { selectedDistrictId: contextDistrictId, selectedSchoolId: contextSchoolId } = useSchoolContext();
+  const [localDistrictId, setLocalDistrictId] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (contextDistrictId) setLocalDistrictId(contextDistrictId);
+  }, [contextDistrictId]);
+
+  const effectiveDistrictId = localDistrictId;
 
   const { data: overview, isLoading } = useGetDistrictOverview(
-    selectedDistrictId ? { districtId: selectedDistrictId } : {},
+    effectiveDistrictId ? { districtId: effectiveDistrictId } : {},
     { query: { enabled: true } }
   ) as any;
 
@@ -76,8 +84,8 @@ export default function DistrictOverview() {
         <div className="flex items-center gap-3">
           <select
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            value={selectedDistrictId ?? ""}
-            onChange={(e) => setSelectedDistrictId(e.target.value ? Number(e.target.value) : undefined)}
+            value={localDistrictId ?? ""}
+            onChange={(e) => setLocalDistrictId(e.target.value ? Number(e.target.value) : undefined)}
           >
             <option value="">All Schools</option>
             {(districts as any[])?.map((d: any) => (
