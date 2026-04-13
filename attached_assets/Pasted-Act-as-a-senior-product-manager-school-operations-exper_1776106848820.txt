@@ -1,0 +1,241 @@
+Act as a senior product manager, school operations expert, special education systems designer, BCBA-informed workflow reviewer, QA lead, and software architect.
+
+You are reviewing an app for a school administrator.
+
+This app is intended to manage and analyze:
+- all student data tracking
+- academic data
+- behavioral data
+- IEP goal tracking
+- ABA tutor / paraprofessional / related service support
+- protective measures / student safety planning
+- service minutes tracking
+- support staff scheduling based on student need
+
+Your job is to critique the app and identify everything that is missing, weak, incomplete, risky, confusing, or not yet ready for real-world use in a school setting.
+
+Context:
+This is not a generic school app. It is meant for a school / special education / ABA-informed environment where staff need to track services, student needs, progress, compliance, and day-to-day support logistics.
+
+Review the app through these lenses:
+
+1. Product completeness
+Assess whether the app fully supports the real workflows a school administrator would need.
+Look for missing modules, weak workflows, and partial implementations.
+
+Questions to answer:
+- What major features are missing for a strong v1?
+- What school admin tasks are not actually supported end to end?
+- What workflows would break in real use?
+- What data is being tracked insufficiently?
+- What parts of the app seem too shallow for real school operations?
+
+2. Student records and data tracking
+Review whether the app properly supports:
+- student profiles
+- grade / classroom / caseload assignment
+- academic performance tracking
+- behavioral incident tracking
+- ABC data
+- frequency / duration / intensity tracking
+- intervention tracking
+- notes / observations
+- trends over time
+- attachments / documents
+- filtering by student, classroom, staff, goal, date range, and program
+
+Identify what is missing, too simplistic, or poorly structured.
+
+3. IEP and goal tracking
+Review whether the app properly supports:
+- IEP goals and objectives
+- baseline data
+- progress monitoring
+- mastery criteria
+- reporting periods
+- evidence collection
+- progress summaries
+- service delivery tied to goals
+- goal ownership by staff or discipline
+- alerts for goals lacking data
+
+Identify missing features, missing validations, and likely compliance gaps.
+
+4. Minutes and service tracking
+Review whether the app properly supports:
+- mandated minutes by service type
+- delivered vs scheduled minutes
+- monthly and weekly rollups
+- missed minutes
+- makeup minutes
+- service logs
+- discrepancies between required and delivered services
+- minute tracking by student and by provider
+- exportable reports for compliance review
+
+Identify what is missing for a truly useful compliance-ready system.
+
+5. Support staff scheduling
+Review whether the app properly supports:
+- assigning paras / ABA tutors / related service staff to students
+- scheduling by time blocks
+- prioritizing based on student need
+- handling staff availability
+- avoiding double-booking
+- substitutions / absences
+- classroom coverage
+- recurring schedules
+- last-minute changes
+- balancing staff workloads
+- matching staff skillset to student needs
+- flagging uncovered supports
+
+Identify what scheduling capabilities are missing or unrealistic.
+
+6. Protective measures and student safety planning
+Review whether the app properly supports:
+- protective measures plans
+- medical / allergy / elopement / aggression / toileting / communication-related supports
+- supervision levels
+- transportation supports
+- crisis response instructions
+- de-escalation protocols
+- staff alerts and acknowledgments
+- version history of plans
+- restricted access for sensitive student information
+- emergency quick-view summaries
+
+Identify what is missing, unsafe, or too weak for real-world school use.
+
+7. User roles and permissions
+Review whether the app properly distinguishes between:
+- school administrators
+- BCBAs
+- teachers
+- paraprofessionals / ABA tutors
+- related service providers
+- support staff
+- parents or guardians if applicable
+
+Identify missing permissions, visibility rules, approval flows, or audit history.
+Call out where sensitive student data could be exposed improperly.
+
+8. UX / UI critique
+Review the app for actual day-to-day usability in a busy school setting.
+
+Questions to answer:
+- What would be confusing or too slow for staff?
+- What screens are missing?
+- What tables, dashboards, filters, alerts, quick actions, or mobile-friendly views are missing?
+- What would create duplicate work?
+- What would frustrate admins, teachers, paras, or clinicians?
+
+9. Data model / business logic
+Review whether the app’s underlying logic appears complete.
+
+Look for missing or weak handling of:
+- student-to-staff relationships
+- service mandates
+- scheduling conflicts
+- goal-to-data linkage
+- compliance calculations
+- archival / inactive students
+- school year rollover
+- attendance interactions
+- missed session logic
+- data validation
+- duplicate entries
+- change logs
+- required fields
+- exceptions and edge cases
+
+10. Reliability / bugs / QA
+Identify likely bugs and fragile areas, especially around:
+- minute totals
+- schedule conflicts
+- duplicate logging
+- stale data
+- filtering problems
+- incorrect rollups
+- date logic
+- permissions bugs
+- race conditions
+- partial saves
+- deleted or inactive users/students breaking historical records
+
+11. Security / privacy / compliance
+Review the app as if it contains real student information.
+
+Call out issues involving:
+- FERPA/privacy concerns
+- role-based access
+- audit logs
+- sensitive note visibility
+- security of student behavioral / medical / IEP information
+- session handling
+- export controls
+- data retention
+- backup / recovery needs
+
+12. Launch readiness
+Determine whether this app is actually ready for school use.
+
+Identify what is still needed before launch, including:
+- onboarding
+- settings
+- admin controls
+- report exports
+- parent-safe documentation if relevant
+- print-friendly views
+- staff training aids
+- error handling
+- help text
+- analytics
+- notifications / reminders
+
+Important instructions:
+- Do not just praise the app
+- Be critical, specific, and practical
+- Assume this app will be used in a real school with real compliance pressure
+- Point out anything that is missing, risky, underbuilt, or likely to fail in daily operations
+- Call out features that look complete on the surface but are actually too shallow for real use
+- Suggest concrete fixes, not vague advice
+
+Return your answer in this exact structure:
+
+1. Overall assessment
+Briefly describe the app’s maturity level and whether it feels like an early prototype, decent v1, or something closer to production.
+
+2. Findings table
+Create a table with these columns:
+- Issue / Missing Feature
+- Area
+- Why It Matters
+- Severity (Critical / High / Medium / Low)
+- Recommended Fix
+
+3. Top missing features
+List the 15 most important missing features to build next.
+
+4. Top likely bugs / fragile points
+List the 10 areas most likely to break or produce incorrect data.
+
+5. Top UX improvements
+List the 10 highest-impact interface or workflow improvements.
+
+6. Top technical / architecture improvements
+List the 10 most important backend / database / system design improvements.
+
+7. Compliance / privacy / permissions risks
+List the biggest risks related to school data, sensitive student info, and role access.
+
+8. Launch blockers
+State what absolutely must be fixed before real school staff should rely on this app.
+
+9. Prioritized roadmap
+Break recommendations into:
+- Must fix before launch
+- Build soon after launch
+- Nice to have later
+
+Be brutally honest and think like someone responsible for student safety, compliance, staffing, and operational reliability.

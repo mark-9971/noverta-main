@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Search, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
@@ -11,7 +12,7 @@ import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
-  const { data: students, isLoading } = useListStudents({} as any);
+  const { data: students, isLoading, isError, refetch } = useListStudents({} as any);
   const { data: progress } = useListMinuteProgress({} as any);
 
   const studentList = (students as any[]) ?? [];
@@ -82,7 +83,9 @@ export default function Students() {
       </div>
 
       <div className="space-y-2">
-        {isLoading ? (
+        {isError ? (
+          <ErrorBanner message="Failed to load student list." onRetry={() => refetch()} />
+        ) : isLoading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-slate-400"><p className="font-medium">No students found</p></div>

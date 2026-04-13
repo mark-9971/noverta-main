@@ -31,6 +31,10 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use("/api", router);
 
+app.use("/api/*", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error({ err, method: req.method, url: req.url }, "Unhandled error");
   const status = (err as any).status || (err as any).statusCode || 500;

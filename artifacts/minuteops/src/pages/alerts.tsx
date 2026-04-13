@@ -3,7 +3,9 @@ import { useListAlerts, useResolveAlert } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { CheckCircle, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }> = {
   critical: { dot: "bg-red-500", bg: "bg-red-50/60 border-red-100", color: "text-red-700" },
@@ -16,7 +18,7 @@ export default function Alerts() {
   const [showResolved, setShowResolved] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
-  const { data: alerts, isLoading, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false" } as any);
+  const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false" } as any);
   const { mutateAsync: resolveAlert } = useResolveAlert();
 
   const alertList = (alerts as any[]) ?? [];
@@ -28,8 +30,13 @@ export default function Alerts() {
   }, {} as Record<string, number>);
 
   async function handleResolve(id: number) {
-    await resolveAlert({ id, resolveAlertBody: { resolvedNote: "Resolved from dashboard" } } as any);
-    refetch();
+    try {
+      await resolveAlert({ id, resolveAlertBody: { resolvedNote: "Resolved from dashboard" } } as any);
+      toast.success("Alert resolved");
+      refetch();
+    } catch {
+      toast.error("Failed to resolve alert");
+    }
   }
 
   return (
@@ -81,7 +88,9 @@ export default function Alerts() {
       )}
 
       <div className="space-y-2">
-        {isLoading ? (
+        {isError ? (
+          <ErrorBanner message="Failed to load alerts." onRetry={() => refetch()} />
+        ) : isLoading ? (
           [...Array(6)].map((_, i) => <Skeleton key={i} className="w-full h-20 rounded-xl" />)
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-slate-400">

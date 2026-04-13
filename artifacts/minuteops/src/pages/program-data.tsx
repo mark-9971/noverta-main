@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import {
   TrendingDown, TrendingUp, Target, Plus, Activity, GraduationCap, X, Save,
   Calendar, ChevronRight, ChevronDown, ChevronUp, Copy, Settings2, Timer, Minus, Check, RotateCcw,
@@ -11,6 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine, BarChart, Bar
 } from "recharts";
+import { toast } from "sonner";
 
 const API = "/api";
 
@@ -1098,20 +1100,23 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!name.trim()) return;
+    if (!name.trim()) { toast.error("Please enter a target name"); return; }
     setSaving(true);
-    const res = await fetch(`${API}/students/${studentId}/behavior-targets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: name.trim(), description: description || null, measurementType, targetDirection,
-        baselineValue: baselineValue ? parseFloat(baselineValue) : null,
-        goalValue: goalValue ? parseFloat(goalValue) : null,
-        enableHourlyTracking: enableHourly,
-        intervalLengthSeconds: intervalLen ? parseInt(intervalLen) : null,
-      }),
-    });
-    if (res.ok) onSaved();
+    try {
+      const res = await fetch(`${API}/students/${studentId}/behavior-targets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(), description: description || null, measurementType, targetDirection,
+          baselineValue: baselineValue ? parseFloat(baselineValue) : null,
+          goalValue: goalValue ? parseFloat(goalValue) : null,
+          enableHourlyTracking: enableHourly,
+          intervalLengthSeconds: intervalLen ? parseInt(intervalLen) : null,
+        }),
+      });
+      if (res.ok) { toast.success("Behavior target added"); onSaved(); }
+      else toast.error("Failed to save behavior target");
+    } catch { toast.error("Network error. Please try again."); }
     setSaving(false);
   }
 
@@ -1202,20 +1207,23 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!name.trim()) return;
+    if (!name.trim()) { toast.error("Please enter a program name"); return; }
     setSaving(true);
-    const res = await fetch(`${API}/students/${studentId}/program-targets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: name.trim(), description: description || null, programType,
-        domain: domain || null, tutorInstructions: tutorInstructions || null,
-        masteryCriterionPercent: parseInt(masteryPct) || 80,
-        masteryCriterionSessions: parseInt(masterySessions) || 3,
-        targetCriterion: `${masteryPct}% across ${masterySessions} sessions`,
-      }),
-    });
-    if (res.ok) onSaved();
+    try {
+      const res = await fetch(`${API}/students/${studentId}/program-targets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(), description: description || null, programType,
+          domain: domain || null, tutorInstructions: tutorInstructions || null,
+          masteryCriterionPercent: parseInt(masteryPct) || 80,
+          masteryCriterionSessions: parseInt(masterySessions) || 3,
+          targetCriterion: `${masteryPct}% across ${masterySessions} sessions`,
+        }),
+      });
+      if (res.ok) { toast.success("Program target added"); onSaved(); }
+      else toast.error("Failed to save program target");
+    } catch { toast.error("Network error. Please try again."); }
     setSaving(false);
   }
 

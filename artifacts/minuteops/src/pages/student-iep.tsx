@@ -10,6 +10,7 @@ import {
   Download, Edit2, BookOpen, BarChart3, Loader2, FileCheck, Search,
   CalendarDays, Users, Copy, History, Phone, Mail, MessageSquare
 } from "lucide-react";
+import { toast } from "sonner";
 
 const API = "/api";
 
@@ -543,22 +544,25 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
   }
 
   async function save() {
-    if (!annualGoal.trim()) return;
+    if (!annualGoal.trim()) { toast.error("Please enter the annual goal text"); return; }
     setSaving(true);
-    const goalNumber = existingGoals.filter(g => g.goalArea === goalArea).length + 1;
-    const res = await fetch(`${API}/students/${studentId}/iep-goals`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        goalArea, goalNumber, annualGoal: annualGoal.trim(),
-        baseline: baseline || null, targetCriterion: targetCriterion || null,
-        measurementMethod: measurementMethod || null, serviceArea: serviceArea || null,
-        benchmarks: benchmarks || null,
-        programTargetId: linkedType === "program" ? linkedId : null,
-        behaviorTargetId: linkedType === "behavior" ? linkedId : null,
-      }),
-    });
-    if (res.ok) onSaved();
+    try {
+      const goalNumber = existingGoals.filter(g => g.goalArea === goalArea).length + 1;
+      const res = await fetch(`${API}/students/${studentId}/iep-goals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goalArea, goalNumber, annualGoal: annualGoal.trim(),
+          baseline: baseline || null, targetCriterion: targetCriterion || null,
+          measurementMethod: measurementMethod || null, serviceArea: serviceArea || null,
+          benchmarks: benchmarks || null,
+          programTargetId: linkedType === "program" ? linkedId : null,
+          behaviorTargetId: linkedType === "behavior" ? linkedId : null,
+        }),
+      });
+      if (res.ok) { toast.success("IEP goal added"); onSaved(); }
+      else toast.error("Failed to save goal");
+    } catch { toast.error("Network error. Please try again."); }
     setSaving(false);
   }
 

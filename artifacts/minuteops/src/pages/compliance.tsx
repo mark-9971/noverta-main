@@ -2,6 +2,7 @@ import { useListMinuteProgress, useGetComplianceByService, useGetDashboardRiskOv
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
@@ -9,7 +10,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 
 export default function Compliance() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
-  const { data: progress, isLoading } = useListMinuteProgress({} as any);
+  const { data: progress, isLoading, isError, refetch } = useListMinuteProgress({} as any);
   const { data: complianceByService } = useGetComplianceByService();
   const { data: riskOverview } = useGetDashboardRiskOverview();
 
@@ -122,7 +123,8 @@ export default function Compliance() {
       </div>
 
       <div className="md:hidden space-y-2">
-        {isLoading ? [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />) :
+        {isError ? <ErrorBanner message="Failed to load compliance data." onRetry={() => refetch()} /> :
+          isLoading ? [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />) :
           filtered.length === 0 ? <p className="text-center text-slate-400 text-sm py-12">No requirements found</p> :
           filtered.slice(0, 100).map((p: any, i: number) => {
             const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;

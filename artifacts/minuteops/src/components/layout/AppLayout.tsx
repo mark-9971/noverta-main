@@ -7,6 +7,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
+import { Toaster } from "sonner";
 
 type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
@@ -58,6 +59,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-slate-50/80 overflow-hidden">
+      <Toaster position="top-right" richColors closeButton duration={4000} />
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-40 lg:hidden"

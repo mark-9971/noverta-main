@@ -3,6 +3,7 @@ import { useListScheduleBlocks, useListStaff } from "@workspace/api-client-react
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DAY_LABELS: Record<string, string> = {
@@ -25,7 +26,7 @@ export default function Schedule() {
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const { data: blocks, isLoading } = useListScheduleBlocks({} as any);
+  const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({} as any);
   const { data: staff } = useListStaff({} as any);
 
   const blockList = (blocks as any[]) ?? [];
@@ -96,7 +97,9 @@ export default function Schedule() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
+                {isError ? (
+                  <tr><td colSpan={6}><ErrorBanner message="Failed to load schedule." onRetry={() => refetch()} /></td></tr>
+                ) : isLoading ? (
                   HOURS.slice(0, 5).map(h => (
                     <tr key={h} className="border-b border-slate-50">
                       <td className="px-2.5 py-2 border-r border-slate-100 text-[11px] text-slate-400">{h}</td>

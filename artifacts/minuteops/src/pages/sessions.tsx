@@ -4,11 +4,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target } from "lucide-react";
+import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -40,7 +42,7 @@ export default function Sessions() {
   const [expandedData, setExpandedData] = useState<any>(null);
   const [expandLoading, setExpandLoading] = useState(false);
 
-  const { data: sessions, isLoading, refetch } = useListSessions({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) } as any);
+  const { data: sessions, isLoading, isError, refetch } = useListSessions({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) } as any);
   const { data: students } = useListStudents({} as any);
   const { data: serviceReqs } = useListServiceRequirements(
     form.studentId ? { studentId: Number(form.studentId) } as any : ({} as any)
@@ -74,8 +76,10 @@ export default function Sessions() {
   }
 
   async function handleSubmit() {
+    if (!form.studentId) { toast.error("Please select a student"); return; }
+    if (!form.sessionDate) { toast.error("Please enter a session date"); return; }
     const dur = Number(form.durationMinutes);
-    if (!form.studentId || !form.sessionDate || !dur || dur <= 0 || dur > 480) return;
+    if (!dur || dur <= 0 || dur > 480) { toast.error("Duration must be between 1 and 480 minutes"); return; }
     setSubmitting(true);
     try {
       const selectedReq = reqList.find((r: any) => String(r.id) === form.serviceRequirementId);
@@ -99,9 +103,10 @@ export default function Sessions() {
       } as any);
       setShowAddModal(false);
       setForm(INITIAL_FORM);
+      toast.success("Session logged successfully");
       refetch();
     } catch (e) {
-      console.error("Failed to create session:", e);
+      toast.error("Failed to save session. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -239,7 +244,9 @@ export default function Sessions() {
       </div>
 
       <div className="md:hidden space-y-2">
-        {isLoading ? (
+        {isError ? (
+          <ErrorBanner message="Failed to load sessions." onRetry={() => refetch()} />
+        ) : isLoading ? (
           [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
         ) : filtered.map(session => (
           <Card key={session.id} className="overflow-hidden">

@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Link } from "wouter";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import {
@@ -20,10 +21,12 @@ export default function StaffDetail() {
   const [staff, setStaff] = useState<any>(null);
   const [caseload, setCaseload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  function loadData() {
     if (!staffId) return;
     setLoading(true);
+    setLoadError(false);
     Promise.all([
       fetch(`${API}/staff/${staffId}`).then(r => r.ok ? r.json() : null),
       fetch(`${API}/staff/${staffId}/caseload-summary`).then(r => r.ok ? r.json() : { students: [], summary: {} }),
@@ -31,8 +34,10 @@ export default function StaffDetail() {
     ]).then(([s, cs, cl]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });
-    }).catch(console.error).finally(() => setLoading(false));
-  }, [staffId]);
+    }).catch(() => setLoadError(true)).finally(() => setLoading(false));
+  }
+
+  useEffect(() => { loadData(); }, [staffId]);
 
   if (loading) return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4">
@@ -41,7 +46,22 @@ export default function StaffDetail() {
       <Skeleton className="w-full h-64" />
     </div>
   );
-  if (!staff) return <div className="p-8 text-center text-slate-400">Staff member not found</div>;
+  if (loadError) return (
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4">
+        <ArrowLeft className="w-4 h-4" /> All Staff
+      </Link>
+      <ErrorBanner message="Failed to load staff details. Please check your connection." onRetry={loadData} />
+    </div>
+  );
+  if (!staff) return (
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4">
+        <ArrowLeft className="w-4 h-4" /> All Staff
+      </Link>
+      <div className="p-8 text-center text-slate-400">Staff member not found</div>
+    </div>
+  );
 
   const initials = `${(staff.firstName || "")[0] || ""}${(staff.lastName || "")[0] || ""}`;
   const summary = caseload?.summary || {};

@@ -7,6 +7,7 @@ import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDay
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 function MetricCard({ title, value, icon: Icon, accent = "indigo", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -40,7 +41,7 @@ const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
 const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
 
 export default function Dashboard() {
-  const { data: summary } = useGetDashboardSummary();
+  const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary();
   const { data: riskOverview } = useGetDashboardRiskOverview();
   const { data: trend } = useGetMissedSessionsTrend();
   const { data: complianceByService } = useGetComplianceByService();
@@ -59,7 +60,7 @@ export default function Dashboard() {
           daysUntilDue: e.daysRemaining,
         })));
       })
-      .catch(() => {});
+      .catch(() => setDeadlines([]));
   }, []);
 
   const s = summary as any;
@@ -86,6 +87,12 @@ export default function Dashboard() {
   })) ?? [];
 
   const serviceData = (complianceByService as any[]) ?? [];
+
+  if (summaryError) return (
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <ErrorBanner message="Failed to load dashboard data. The server may be unavailable." onRetry={() => refetchSummary()} />
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-5 md:space-y-8">
