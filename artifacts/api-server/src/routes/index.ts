@@ -14,6 +14,7 @@ import importsRouter from "./imports";
 import programDataRouter from "./programData";
 import iepRouter from "./iep";
 import complianceTimelineRouter from "./complianceTimeline";
+import additionalFeaturesRouter from "./additionalFeatures";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(importsRouter);
 router.use(programDataRouter);
 router.use(iepRouter);
 router.use(complianceTimelineRouter);
+router.use(additionalFeaturesRouter);
 
 export default router;

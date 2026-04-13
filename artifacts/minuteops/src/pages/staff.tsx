@@ -2,8 +2,9 @@ import { useListStaff, useGetProviderDashboardSummary, useGetParaDashboardSummar
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
+import { Link } from "wouter";
 
 const ROLE_LABELS: Record<string, string> = {
   bcba: "BCBA", slp: "SLP", ot: "OT", pt: "PT",
@@ -37,32 +38,35 @@ export default function Staff() {
   function StaffRow({ member, summary }: { member: any; summary: any }) {
     const utilPct = summary?.utilizationPercent ?? 0;
     return (
-      <div className="flex items-center gap-4 p-4 hover:bg-slate-50/50 transition-colors">
-        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
-          {member.firstName?.[0]}{member.lastName?.[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-slate-800">{member.firstName} {member.lastName}</p>
-          <p className="text-[12px] text-slate-400">{member.email}</p>
-        </div>
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role]} flex-shrink-0`}>
-          {ROLE_LABELS[member.role] ?? member.role}
-        </span>
-        <div className="flex items-center gap-2 flex-shrink-0 w-24 justify-end">
-          <span className="text-[12px] text-slate-500">{summary?.assignedStudents ?? 0} students</span>
-        </div>
-        {summary?.studentsAtRisk > 0 ? (
-          <span className="flex items-center gap-1 text-red-500 text-[12px] font-medium flex-shrink-0 w-16 justify-end">
-            <AlertTriangle className="w-3.5 h-3.5" /> {summary.studentsAtRisk}
+      <Link href={`/staff/${member.id}`}>
+        <div className="flex items-center gap-4 p-4 hover:bg-slate-50/50 transition-colors cursor-pointer group">
+          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
+            {member.firstName?.[0]}{member.lastName?.[0]}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-semibold text-slate-800">{member.firstName} {member.lastName}</p>
+            <p className="text-[12px] text-slate-400">{member.email}</p>
+          </div>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role]} flex-shrink-0`}>
+            {ROLE_LABELS[member.role] ?? member.role}
           </span>
-        ) : (
-          <span className="text-emerald-500 text-[12px] font-medium flex-shrink-0 w-16 text-right">OK</span>
-        )}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <MiniProgressRing value={utilPct} size={32} strokeWidth={3} color={utilPct >= 80 ? "#10b981" : utilPct >= 40 ? "#f59e0b" : "#ef4444"} />
-          <span className="text-[12px] font-medium text-slate-600 w-8 text-right">{utilPct}%</span>
+          <div className="flex items-center gap-2 flex-shrink-0 w-24 justify-end">
+            <span className="text-[12px] text-slate-500">{summary?.assignedStudents ?? 0} students</span>
+          </div>
+          {summary?.studentsAtRisk > 0 ? (
+            <span className="flex items-center gap-1 text-red-500 text-[12px] font-medium flex-shrink-0 w-16 justify-end">
+              <AlertTriangle className="w-3.5 h-3.5" /> {summary.studentsAtRisk}
+            </span>
+          ) : (
+            <span className="text-emerald-500 text-[12px] font-medium flex-shrink-0 w-16 text-right">OK</span>
+          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <MiniProgressRing value={utilPct} size={32} strokeWidth={3} color={utilPct >= 80 ? "#10b981" : utilPct >= 40 ? "#f59e0b" : "#ef4444"} />
+            <span className="text-[12px] font-medium text-slate-600 w-8 text-right">{utilPct}%</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
         </div>
-      </div>
+      </Link>
     );
   }
 

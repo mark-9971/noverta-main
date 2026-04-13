@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
-  Menu, X, MoreHorizontal
+  Menu, X, MoreHorizontal, Search
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
   { href: "/compliance", label: "Compliance", icon: ClipboardList },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/search", label: "IEP Search", icon: Search },
   { href: "/import", label: "Import", icon: Upload },
 ];
 

@@ -24,3 +24,4 @@ export * from "./iepAccommodations";
 export * from "./complianceEvents";
 export * from "./goalBank";
 export * from "./teamMeetings";
+export * from "./parentContacts";

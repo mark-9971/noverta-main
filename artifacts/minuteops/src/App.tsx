@@ -17,6 +17,8 @@ import ImportData from "@/pages/import-data";
 import ProgramDataPage from "@/pages/program-data";
 import StudentIepPage from "@/pages/student-iep";
 import ComplianceTimelinePage from "@/pages/compliance-timeline";
+import StaffDetailPage from "@/pages/staff-detail";
+import IepSearchPage from "@/pages/iep-search";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,7 +39,9 @@ function Router() {
         <Route path="/students" component={Students} />
         <Route path="/sessions" component={Sessions} />
         <Route path="/schedule" component={Schedule} />
+        <Route path="/staff/:id" component={StaffDetailPage} />
         <Route path="/staff" component={StaffPage} />
+        <Route path="/search" component={IepSearchPage} />
         <Route path="/alerts" component={AlertsPage} />
         <Route path="/compliance/timeline" component={ComplianceTimelinePage} />
         <Route path="/compliance" component={Compliance} />

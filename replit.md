@@ -37,6 +37,7 @@ MinuteOps is a production-quality school special education and ABA service deliv
 - `compliance_events` — IDEA compliance deadline tracking: studentId, eventType (annual_review/reeval_3yr/initial_eval/transition_age), dueDate, completedDate, status (upcoming/overdue/completed), notes
 - `goal_bank` — Pre-written IEP goal library: 44 goals across 7 domains (Communication, Academic, Behavioral, Motor, Social-Emotional, ABA, Transition), searchable by domain/text
 - `team_meetings` — IEP team meeting management: studentId, meetingType (annual/initial/amendment/reeval), scheduledDate/Time, location, status, notes, attendees (JSONB), consentStatus, noticeSentDate
+- `parent_contacts` — Parent contact log entries per student: contactType, contactDate, contactMethod, subject, notes, outcome, followUpNeeded, followUpDate, contactedBy, parentName
 - `session_logs` — Delivered session records with status (completed/missed/makeup)
 - `schedule_blocks` — Recurring weekly schedule blocks
 - `staff_assignments` — Staff-to-student assignments
@@ -95,6 +96,12 @@ All routes prefixed with `/api/`:
 - `/students/:id/team-meetings` — GET/POST team meeting CRUD
 - `/team-meetings/:id` — PATCH/DELETE team meeting
 - `/dashboard/compliance-deadlines` — GET upcoming IEP deadlines for dashboard widget
+- `/students/:id/parent-contacts` — GET/POST parent contact log entries
+- `/parent-contacts/:id` — PATCH/DELETE parent contact (field allowlist enforced)
+- `/search/iep?q=&type=` — GET global search across IEP goals, accommodations, students
+- `/staff/:id/caseload-summary` — GET staff caseload summary with IEP status
+- `/students/:id/iep-summary` — GET comprehensive IEP summary for a student
+- `/sessions/quick` — POST quick session log creation
 
 ### Frontend Pages
 - `/` — Dashboard with KPI cards, compliance ring gauge, session delivery bar chart, compliance by service progress bars, recent alerts
@@ -107,12 +114,15 @@ All routes prefixed with `/api/`:
 - `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars, link to IEP Compliance Timeline
 - `/compliance/timeline` — IDEA compliance deadline tracker: summary cards (overdue/due this week/30 days), filterable event list, recalculate deadlines from IEP docs, mark events completed
 - `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
-- `/students/:id/iep` — MA 603 CMR 28.00 compliant IEP page with 5 tabs:
+- `/students/:id/iep` — MA 603 CMR 28.00 compliant IEP page with 6 tabs:
   - **IEP Document**: Create/edit MA DESE form with all required sections, IEP completeness indicator (% complete with missing fields), IEP type/version display, amendment workflow (copy-and-modify), amendment history
   - **Goals**: Annual IEP goals with benchmarks/short-term objectives, auto-create from data targets, linked program/behavior targets, Goal Bank button (search 44 pre-written goals by domain)
   - **Accommodations**: Manage accommodations by category (instructional, assessment, testing, environmental, behavioral)
   - **Meetings**: Team meeting management (schedule, track attendance, consent status, meeting types: annual/initial/amendment/reeval)
   - **Progress Reports**: Generate/view with MA standard progress codes (M/SP/IP/NP/NA/R), goal-by-goal narrative
+  - **Parent Log**: Parent contact log with contact type, method, date, subject, notes, outcome, follow-up tracking
+- `/staff/:id` — Staff caseload dashboard with assigned students, IEP expiry status cards, service delivery progress
+- `/search` — Global IEP search across goals, accommodations, and students by keyword
 - `/import` — Bulk CSV import page with drag-and-drop upload, data preview, template downloads (MinuteOps standard, Aspen X2, eSPED), import history, support for students/IEP requirements/session logs
 - `/program-data` — ABA program data page with 5 tabs:
   - **Data Collection**: Live session timer, frequency counter for behaviors (+/- buttons), one-tap discrete trial recording (Correct/Prompted/Incorrect), prompt level selector (FP/PP/M/G/V/I), undo with trial history, session save
