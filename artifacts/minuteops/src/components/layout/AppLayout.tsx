@@ -8,20 +8,39 @@ import {
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
-  { href: "/students", label: "Students", icon: Users, primary: true },
-  { href: "/sessions", label: "Sessions", icon: BookOpen, primary: true },
-  { href: "/program-data", label: "Data", icon: Activity, primary: true },
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/staff", label: "Staff", icon: UserCheck },
-  { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
-  { href: "/compliance", label: "Compliance", icon: ClipboardList },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/protective-measures", label: "Protective Measures", icon: Shield },
-  { href: "/search", label: "IEP Search", icon: Search },
-  { href: "/import", label: "Import", icon: Upload },
+type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
+type NavSection = { label?: string; items: NavItem[] };
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/students", label: "Students", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: BookOpen, primary: true },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+    ],
+  },
+  {
+    label: "Compliance",
+    items: [
+      { href: "/program-data", label: "Program Data", icon: Activity, primary: true },
+      { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/staff", label: "Staff", icon: UserCheck },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/import", label: "Import", icon: Upload },
+    ],
+  },
 ];
+
+const navItems = navSections.flatMap(s => s.items);
 
 const primaryItems = navItems.filter(i => i.primary);
 const secondaryItems = navItems.filter(i => !i.primary);
@@ -69,26 +88,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
-            return (
-              <Link key={item.href} href={item.href} className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150",
-                isActive
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              )} onClick={() => setSidebarOpen(false)}>
-                <item.icon className={cn("w-[18px] h-[18px]", isActive ? "text-indigo-600" : "text-slate-400")} />
-                <span className="flex-1">{item.label}</span>
-                {item.alertBadge && openAlerts > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
-                    {openAlerts > 99 ? "99+" : openAlerts}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-3 overflow-y-auto">
+          {navSections.map((section, si) => (
+            <div key={si} className={si > 0 ? "mt-4" : ""}>
+              {section.label && (
+                <p className="px-3 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{section.label}</p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+                  return (
+                    <Link key={item.href} href={item.href} className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150",
+                      isActive
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    )} onClick={() => setSidebarOpen(false)}>
+                      <item.icon className={cn("w-[18px] h-[18px]", isActive ? "text-indigo-600" : "text-slate-400")} />
+                      <span className="flex-1">{item.label}</span>
+                      {item.alertBadge && openAlerts > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
+                          {openAlerts > 99 ? "99+" : openAlerts}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="px-4 py-4 border-t border-slate-100">

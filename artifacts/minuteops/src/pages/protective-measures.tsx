@@ -163,7 +163,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
             <Shield className="w-6 h-6 text-indigo-600" />
             Protective Measures
           </h1>
-          <p className="text-sm text-slate-500 mt-1">603 CMR 46.00 Restraint & Seclusion Tracking — MA DESE Compliant</p>
+          <p className="text-sm text-slate-500 mt-1">Restraint & seclusion tracking · 603 CMR 46.00</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1.5">
@@ -185,14 +185,36 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <SummaryCard label="Total Incidents" value={summary.totalIncidents} icon={<Shield className="w-4 h-4 text-slate-400" />} />
-          <SummaryCard label="Restraints" value={summary.byType.physical_restraint} icon={<AlertTriangle className="w-4 h-4 text-red-400" />} color="text-red-600" />
-          <SummaryCard label="Seclusions" value={summary.byType.seclusion} icon={<AlertTriangle className="w-4 h-4 text-orange-400" />} color="text-orange-600" />
-          <SummaryCard label="Pending Review" value={summary.pendingReview} icon={<Clock className="w-4 h-4 text-amber-400" />} color={summary.pendingReview > 0 ? "text-amber-600" : "text-slate-600"} />
-          <SummaryCard label="Parent Notice Due" value={summary.parentNotificationsPending} icon={<Bell className="w-4 h-4 text-red-400" />} color={summary.parentNotificationsPending > 0 ? "text-red-600" : "text-slate-600"} />
-          <SummaryCard label="Written Reports Due" value={summary.writtenReportsPending} icon={<FileText className="w-4 h-4 text-amber-400" />} color={summary.writtenReportsPending > 0 ? "text-amber-600" : "text-slate-600"} />
-          <SummaryCard label="DESE Reports Due" value={summary.deseReportsPending} icon={<Send className="w-4 h-4 text-red-400" />} color={summary.deseReportsPending > 0 ? "text-red-600" : "text-slate-600"} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard
+            label="Total Incidents"
+            value={summary.totalIncidents}
+            icon={<Shield className="w-4 h-4 text-slate-400" />}
+            detail={[
+              summary.byType.physical_restraint > 0 ? `${summary.byType.physical_restraint} restraint${summary.byType.physical_restraint !== 1 ? "s" : ""}` : null,
+              summary.byType.seclusion > 0 ? `${summary.byType.seclusion} seclusion${summary.byType.seclusion !== 1 ? "s" : ""}` : null,
+              summary.byType.time_out > 0 ? `${summary.byType.time_out} time-out${summary.byType.time_out !== 1 ? "s" : ""}` : null,
+            ].filter(Boolean).join(" · ") || undefined}
+          />
+          <SummaryCard
+            label="Needs Review"
+            value={summary.pendingReview}
+            icon={<Clock className="w-4 h-4 text-amber-400" />}
+            color={summary.pendingReview > 0 ? "text-amber-600" : "text-slate-600"}
+          />
+          <SummaryCard
+            label="Action Items Due"
+            value={summary.parentNotificationsPending + summary.writtenReportsPending}
+            icon={<Bell className="w-4 h-4 text-red-400" />}
+            color={summary.parentNotificationsPending + summary.writtenReportsPending > 0 ? "text-red-600" : "text-slate-600"}
+            detail={`${summary.parentNotificationsPending} notices · ${summary.writtenReportsPending} reports`}
+          />
+          <SummaryCard
+            label="DESE Reports Due"
+            value={summary.deseReportsPending}
+            icon={<Send className="w-4 h-4 text-purple-400" />}
+            color={summary.deseReportsPending > 0 ? "text-purple-600" : "text-slate-600"}
+          />
         </div>
       )}
 
@@ -291,11 +313,12 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
   );
 }
 
-function SummaryCard({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color?: string }) {
+function SummaryCard({ label, value, icon, color, detail }: { label: string; value: string | number; icon: React.ReactNode; color?: string; detail?: string }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-[11px] text-slate-500 font-medium">{label}</span></div>
-      <p className={`text-xl font-bold ${color || "text-slate-800"}`}>{value}</p>
+      <div className="flex items-center gap-2 mb-1.5">{icon}<span className="text-[11px] text-slate-500 font-medium">{label}</span></div>
+      <p className={`text-2xl font-bold ${color || "text-slate-800"}`}>{value}</p>
+      {detail && <p className="text-[11px] text-slate-400 mt-1">{detail}</p>}
     </div>
   );
 }
