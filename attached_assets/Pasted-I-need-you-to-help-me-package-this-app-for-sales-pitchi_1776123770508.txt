@@ -1,0 +1,161 @@
+I need you to help me package this app for sales, pitching, and outreach.
+
+First, analyze the current app and extract all the information someone would need to create:
+
+* a slide deck
+* a buyer pitch
+* a one-pager
+* homepage copy
+* a demo script
+* a cold email sequence
+* a cold call script
+* a pricing / packaging draft
+* a pilot proposal
+
+Your job is to inspect the app and return a complete business-facing summary of what has been built so far.
+
+Please do all of the following:
+
+1. Product summary
+   Write a clear summary of:
+
+* what the app is
+* what problem it solves
+* who it is for
+* what makes it valuable
+* why someone would buy it instead of using spreadsheets, shared docs, or existing workflows
+
+2. Target users and buyers
+   Identify:
+
+* end users
+* economic buyers
+* champions
+* admins
+* secondary users
+* who feels the pain most
+* who would likely approve budget
+
+3. Main problems solved
+   List the top problems the app appears to solve.
+   For each one, explain:
+
+* the pain point
+* who experiences it
+* why it matters
+* what happens today without this app
+
+4. Feature inventory
+   Create a structured list of all major features currently present in the app.
+   Group them by category, such as:
+
+* student records
+* academic tracking
+* behavior tracking
+* IEP goal tracking
+* service minutes
+* scheduling
+* protective measures / safety
+* dashboards
+* reporting
+* permissions
+* admin tools
+* notifications
+* documents / exports
+* anything else present
+
+For each feature, state:
+
+* what it does
+* who uses it
+* whether it appears fully functional, partial, or mostly UI only
+
+5. Recently added components
+   Create a separate section for recently added pages, modules, components, or workflows.
+   For each one, explain:
+
+* what it is
+* why it matters
+* whether it is actually wired end to end
+* whether it is ready to mention in a pitch
+* whether it is still too rough to emphasize externally
+
+6. Strongest selling points
+   Based on the actual implementation, identify:
+
+* the 3 strongest differentiators
+* the 3 most impressive workflows
+* the 3 most buyer-relevant outcomes
+* the 3 features that are most pitch-worthy right now
+
+7. Weak points / risks
+   Identify anything that would weaken a sales pitch, buyer confidence, or demo.
+   Examples:
+
+* incomplete flows
+* features that look finished but are not
+* missing exports
+* weak reporting
+* poor permissions
+* missing mobile support
+* confusing UX
+* fake-complete modules
+
+8. Demo-friendly workflow
+   Describe the best demo story for this app.
+   Give a step-by-step recommended walkthrough of the product that would look strongest to a school administrator or special education leader.
+
+9. Packaging and pricing clues
+   Based on the app, suggest:
+
+* what product category this should be sold as
+* what wedge / entry point it should lead with
+* what modules could be bundled later
+* whether it feels more like a district product, school product, or therapeutic-school product
+* what kind of pricing structure might make sense
+
+10. Output content for me to reuse
+    At the end, create these reusable outputs:
+
+A. 1-sentence product description
+B. 3-sentence product description
+C. 1-paragraph product overview
+D. bullet list of key benefits
+E. bullet list of core features
+F. ideal customer profile
+G. top buyer objections the current product may face
+H. best-case sales positioning statement
+I. strongest pilot use case
+J. what not to claim yet because the product is not ready
+
+Important instructions:
+
+* Base this on the actual app as implemented
+* Inspect all major pages, components, workflows, and recent additions
+* Do not invent features that are not really there
+* Clearly separate:
+
+  * working features
+  * partial features
+  * visual-only or rough features
+* Be honest and practical
+* Think like a product marketer, salesperson, and buyer all at once
+* This is not just a code review; it is a business extraction and positioning exercise
+
+Return your answer in this exact structure:
+
+1. Executive summary
+2. Product summary
+3. User / buyer analysis
+4. Problems solved
+5. Full feature inventory
+6. Recently added components audit
+7. Strongest selling points
+8. Weak points / pitch risks
+9. Recommended demo workflow
+10. Product packaging and pricing clues
+11. Reusable sales content block
+
+Important:
+Do not stay vague.
+I want enough detail that I can hand your response to ChatGPT and ask it to create a slide deck, pitch deck, one-pager, landing page copy, cold outreach, and sales scripts from it.

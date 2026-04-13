@@ -86,6 +86,11 @@ export const restraintIncidentsTable = pgTable("restraint_incidents", {
   adminReviewedBy: integer("admin_reviewed_by").references(() => staffTable.id),
   adminReviewedAt: text("admin_reviewed_at"),
   adminReviewNotes: text("admin_review_notes"),
+  parentNotificationDraft: text("parent_notification_draft"),
+  parentNotificationSentAt: text("parent_notification_sent_at"),
+  parentNotificationSentBy: integer("parent_notification_sent_by").references(() => staffTable.id),
+  parentNotificationPdfGenerated: boolean("parent_notification_pdf_generated").notNull().default(false),
+
   status: text("status").notNull().default("pending_review"),
   followUpPlan: text("follow_up_plan"),
   notes: text("notes"),

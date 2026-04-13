@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "t6I71PV2TrHJP7g2vXgRR"
+uri = "file://Trellis-Business-Analysis.md"
+type = "text"
+title = "Trellis — Complete Business Extraction & Sales Positioning"

@@ -1,11 +1,13 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Shield, Plus, AlertTriangle, Clock, User, Search,
   ChevronRight, FileText, Bell, CheckCircle, XCircle,
   Filter, Calendar, Eye, ChevronDown, ChevronUp,
-  ArrowLeft, TrendingUp, Download, PenLine, Send, UserCheck, Users
+  ArrowLeft, TrendingUp, Download, PenLine, Send, UserCheck, Users,
+  Mail, FilePenLine, Printer
 } from "lucide-react";
+import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -1126,6 +1128,29 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
     onSuccess: invalidateAll,
   });
 
+  const saveDraftMutation = useMutation({
+    mutationFn: async (draft: string) => {
+      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/parent-notification-draft`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: invalidateAll,
+  });
+
+  const sendNotificationMutation = useMutation({
+    mutationFn: async (data: { senderId: number; draft: string; method: string }) => {
+      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/send-parent-notification`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: () => { invalidateAll(); toast.success("Parent notification sent successfully"); },
+    onError: (err: Error) => { toast.error(err.message); },
+  });
+
   const [showNotify, setShowNotify] = useState(false);
   const [showWritten, setShowWritten] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -1330,6 +1355,14 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             )}
           </div>
 
+          <ParentNotificationPanel
+            incident={incident}
+            staff={staff}
+            incidentId={id}
+            saveDraftMutation={saveDraftMutation}
+            sendNotificationMutation={sendNotificationMutation}
+          />
+
           <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
             <h3 className="text-sm font-semibold text-gray-800">Compliance Checklist — 603 CMR 46.06</h3>
 
@@ -1501,6 +1534,187 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutation, sendNotificationMutation }: {
+  incident: any;
+  staff: Staff[];
+  incidentId: number;
+  saveDraftMutation: any;
+  sendNotificationMutation: any;
+}) {
+  const [draftText, setDraftText] = useState(incident.parentNotificationDraft || "");
+  const [senderId, setSenderId] = useState("");
+  const [sendMethod, setSendMethod] = useState("email");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+
+  const isAdminReviewed = incident.status === "reviewed";
+  const alreadySent = !!incident.parentNotificationSentAt;
+
+  const eligibleSenders = staff.filter(s =>
+    s.role === "case_manager" || s.role === "bcba" || s.role === "coordinator" || s.role === "admin"
+  );
+
+  const generateDraft = async () => {
+    setLoadingDraft(true);
+    try {
+      const res = await fetch(`${API}/api/protective-measures/incidents/${incidentId}/generate-draft`);
+      if (!res.ok) throw new Error("Failed to generate draft");
+      const data = await res.json();
+      setDraftText(data.draft);
+      if (data.caseManager && !senderId) {
+        setSenderId(String(data.caseManager.id));
+      }
+    } catch { toast.error("Failed to generate draft"); }
+    setLoadingDraft(false);
+  };
+
+  useEffect(() => {
+    if (isAdminReviewed && !alreadySent && !draftText && !incident.parentNotificationDraft) {
+      generateDraft();
+    }
+  }, [isAdminReviewed, alreadySent]);
+
+  const handleDownloadPdf = () => {
+    window.open(`${API}/api/protective-measures/incidents/${incidentId}/report-pdf`, "_blank");
+  };
+
+  const handleSaveDraft = () => {
+    saveDraftMutation.mutate(draftText);
+    toast.success("Draft saved");
+  };
+
+  const handleSend = () => {
+    if (!senderId) { toast.error("Select who is authorizing this notification"); return; }
+    sendNotificationMutation.mutate({ senderId: Number(senderId), draft: draftText, method: sendMethod });
+    setShowConfirm(false);
+  };
+
+  if (!isAdminReviewed && !alreadySent) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <Mail className="w-4 h-4" /> Parent Notification
+        </h3>
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs text-gray-500">Admin review must be completed before sending parent notification.</p>
+        </div>
+        <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+          <Printer className="w-3.5 h-3.5" /> Preview Restraint Report PDF
+        </button>
+      </div>
+    );
+  }
+
+  if (alreadySent) {
+    const senderStaff = incident.parentNotificationSentBy ? staff.find(s => s.id === incident.parentNotificationSentBy) : null;
+    return (
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <Mail className="w-4 h-4 text-emerald-600" /> Parent Notification
+        </h3>
+        <div className="bg-emerald-50 rounded-lg p-3 space-y-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-500" />
+            <p className="text-xs font-semibold text-emerald-700">Notification Sent</p>
+          </div>
+          <p className="text-[11px] text-emerald-600">
+            Sent {new Date(incident.parentNotificationSentAt).toLocaleDateString()} via {incident.parentNotificationMethod || "email"}
+            {senderStaff ? ` by ${senderStaff.firstName} ${senderStaff.lastName}` : ""}
+          </p>
+        </div>
+        {incident.parentNotificationDraft && (
+          <details className="group">
+            <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 flex items-center gap-1">
+              <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform" /> View sent message
+            </summary>
+            <div className="mt-2 bg-gray-50 rounded-lg p-3">
+              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{incident.parentNotificationDraft}</pre>
+            </div>
+          </details>
+        )}
+        <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+          <Download className="w-3.5 h-3.5" /> Download Restraint Report PDF
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-emerald-200 shadow-sm p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+        <Mail className="w-4 h-4 text-emerald-600" /> Parent Notification & Report
+      </h3>
+      <p className="text-xs text-gray-500">
+        Admin has reviewed this incident. Compose and authorize the parent notification below. The restraint report PDF will be attached.
+      </p>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-gray-700">Notification Letter</label>
+          <div className="flex gap-1.5">
+            <button onClick={generateDraft} disabled={loadingDraft}
+              className="text-[10px] px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 flex items-center gap-1">
+              <FilePenLine className="w-3 h-3" /> {loadingDraft ? "Generating..." : "Auto-Generate"}
+            </button>
+            <button onClick={handleSaveDraft} disabled={saveDraftMutation.isPending || !draftText}
+              className="text-[10px] px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 disabled:opacity-50">
+              {saveDraftMutation.isPending ? "..." : "Save Draft"}
+            </button>
+          </div>
+        </div>
+        <textarea
+          value={draftText}
+          onChange={e => setDraftText(e.target.value)}
+          rows={12}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white resize-y font-sans leading-relaxed focus:ring-1 focus:ring-emerald-300 focus:border-emerald-300"
+          placeholder="Write the parent notification letter here..."
+        />
+      </div>
+
+      <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+        <Printer className="w-3.5 h-3.5" /> Preview / Download Restraint Report PDF
+      </button>
+
+      <div className="border-t border-gray-100 pt-3 space-y-2">
+        <label className="text-xs font-medium text-gray-700">Authorize & Send</label>
+        <p className="text-[11px] text-gray-500">Only the SPED teacher or case manager may authorize sending this notification.</p>
+        <select value={senderId} onChange={e => setSenderId(e.target.value)}
+          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white">
+          <option value="">Select authorizing staff...</option>
+          {eligibleSenders.map(s => (
+            <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.title || s.role}</option>
+          ))}
+        </select>
+        <select value={sendMethod} onChange={e => setSendMethod(e.target.value)}
+          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white">
+          <option value="email">Email</option>
+          <option value="certified_mail">Certified Mail</option>
+          <option value="hand_delivered">Hand Delivered</option>
+        </select>
+
+        {!showConfirm ? (
+          <button onClick={() => setShowConfirm(true)} disabled={!senderId || !draftText}
+            className="w-full px-3 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+            <Send className="w-3.5 h-3.5" /> Send Parent Notification with Report
+          </button>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-amber-800">Confirm Send</p>
+            <p className="text-[11px] text-amber-700">This will mark the parent notification as sent and attach the restraint report. This action cannot be undone.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowConfirm(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
+              <button onClick={handleSend} disabled={sendNotificationMutation.isPending}
+                className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50 font-medium">
+                {sendNotificationMutation.isPending ? "Sending..." : "Confirm & Send"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

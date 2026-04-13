@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
-import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable } from "@workspace/db";
+import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
+import PDFDocument from "pdfkit";
 
 const router = Router();
 
@@ -278,9 +279,9 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
     "writtenReportSent", "writtenReportSentAt", "writtenReportSentMethod",
     "parentCommentOpportunityGiven", "parentComment", "studentComment",
     "deseReportRequired", "deseReportSentAt", "thirtyDayLogSentToDese",
-    "reportingStaffSignature", "reportingStaffSignedAt", "adminSignature", "adminSignedAt",
-    "adminReviewedBy", "adminReviewedAt", "adminReviewNotes",
-    "status", "followUpPlan", "notes",
+    "reportingStaffSignature", "reportingStaffSignedAt",
+    "adminReviewNotes",
+    "followUpPlan", "notes",
   ];
 
   const updates: Record<string, any> = {};
@@ -1045,6 +1046,322 @@ router.get("/students/:id/protective-measures", async (req: Request, res: Respon
   };
 
   res.json({ incidents, summary });
+});
+
+async function getFullIncidentData(incidentId: number) {
+  const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
+  if (!incident) return null;
+
+  const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, incident.studentId));
+  let school = null;
+  if (student?.schoolId) {
+    const [s] = await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId));
+    school = s || null;
+  }
+
+  const staffIds = new Set<number>();
+  if (incident.primaryStaffId) staffIds.add(incident.primaryStaffId);
+  if (incident.adminReviewedBy) staffIds.add(incident.adminReviewedBy);
+  if (incident.parentNotifiedBy) staffIds.add(incident.parentNotifiedBy);
+  if (incident.parentNotificationSentBy) staffIds.add(incident.parentNotificationSentBy);
+  if (Array.isArray(incident.additionalStaffIds)) (incident.additionalStaffIds as number[]).forEach(id => staffIds.add(id));
+  if (Array.isArray(incident.observerStaffIds)) (incident.observerStaffIds as number[]).forEach(id => staffIds.add(id));
+
+  let staffMap: Record<number, any> = {};
+  if (staffIds.size > 0) {
+    const allStaff = await db.select().from(staffTable).where(inArray(staffTable.id, [...staffIds]));
+    for (const s of allStaff) staffMap[s.id] = s;
+  }
+
+  let caseManager = null;
+  if (student?.caseManagerId) {
+    const [cm] = await db.select().from(staffTable).where(eq(staffTable.id, student.caseManagerId));
+    caseManager = cm || null;
+  }
+
+  return {
+    incident, student, school, staffMap, caseManager,
+    primaryStaff: incident.primaryStaffId ? staffMap[incident.primaryStaffId] || null : null,
+    adminReviewer: incident.adminReviewedBy ? staffMap[incident.adminReviewedBy] || null : null,
+    additionalStaff: Array.isArray(incident.additionalStaffIds)
+      ? (incident.additionalStaffIds as number[]).map(id => staffMap[id]).filter(Boolean) : [],
+    observerStaff: Array.isArray(incident.observerStaffIds)
+      ? (incident.observerStaffIds as number[]).map(id => staffMap[id]).filter(Boolean) : [],
+  };
+}
+
+router.get("/protective-measures/incidents/:id/report-pdf", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const data = await getFullIncidentData(id);
+  if (!data) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const { incident, student, school, primaryStaff, adminReviewer, additionalStaff, observerStaff, caseManager } = data;
+
+  const doc = new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 50, left: 60, right: 60 } });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename=restraint-report-${id}.pdf`);
+  doc.pipe(res);
+
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—";
+  const formatTime = (t: string | null) => {
+    if (!t) return "—";
+    const [h, m] = t.split(":");
+    const hr = parseInt(h);
+    return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? "PM" : "AM"}`;
+  };
+
+  const TYPE_LABELS: Record<string, string> = {
+    physical_restraint: "Physical Restraint",
+    seclusion: "Seclusion",
+    time_out: "Time-Out",
+    physical_escort: "Physical Escort",
+  };
+
+  const BODY_POSITIONS: Record<string, string> = {
+    prone: "Prone (face down)", supine: "Supine (face up)", seated: "Seated",
+    standing: "Standing", side_lying: "Side Lying", kneeling: "Kneeling",
+  };
+
+  doc.fontSize(18).font("Helvetica-Bold").text("Physical Restraint / Seclusion Incident Report", { align: "center" });
+  doc.moveDown(0.3);
+  doc.fontSize(10).font("Helvetica").fillColor("#666666").text("Massachusetts DESE Compliance — 603 CMR 46.00", { align: "center" });
+  if (school) doc.text(school.name, { align: "center" });
+  doc.moveDown(0.5);
+  doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor("#cccccc").stroke();
+  doc.moveDown(0.5);
+
+  const sectionTitle = (title: string) => {
+    doc.moveDown(0.3);
+    doc.fontSize(12).font("Helvetica-Bold").fillColor("#059669").text(title);
+    doc.moveDown(0.2);
+    doc.fontSize(10).font("Helvetica").fillColor("#111111");
+  };
+
+  const field = (label: string, value: string | null | undefined) => {
+    if (!value) return;
+    doc.font("Helvetica-Bold").text(`${label}: `, { continued: true }).font("Helvetica").text(value);
+  };
+
+  sectionTitle("Student Information");
+  field("Student Name", student ? `${student.firstName} ${student.lastName}` : `ID: ${incident.studentId}`);
+  field("Grade", student?.grade || undefined);
+  field("Date of Birth", student?.dateOfBirth ? formatDate(student.dateOfBirth) : undefined);
+  field("Disability Category", student?.disabilityCategory || undefined);
+  if (caseManager) field("Case Manager", `${caseManager.firstName} ${caseManager.lastName}`);
+  if (student?.parentGuardianName) field("Parent/Guardian", student.parentGuardianName);
+
+  sectionTitle("Incident Overview");
+  field("Date of Incident", formatDate(incident.incidentDate));
+  field("Time", formatTime(incident.incidentTime));
+  if (incident.endTime) field("End Time", formatTime(incident.endTime));
+  field("Duration", incident.durationMinutes ? `${incident.durationMinutes} minutes` : undefined);
+  field("Type", TYPE_LABELS[incident.incidentType] || incident.incidentType);
+  field("Location", incident.location || undefined);
+  if (incident.restraintType) field("Restraint Type", incident.restraintType);
+  if (incident.bodyPosition) field("Body Position During Restraint", BODY_POSITIONS[incident.bodyPosition] || incident.bodyPosition);
+  field("BIP in Place", incident.bipInPlace ? "Yes" : "No");
+  if (incident.physicalEscortOnly) field("Physical Escort Only", "Yes");
+
+  sectionTitle("Behavioral Context");
+  if (incident.antecedentCategory) field("Antecedent Category", incident.antecedentCategory.replace(/_/g, " "));
+  if (incident.precedingActivity) field("Preceding Activity", incident.precedingActivity);
+  if (incident.triggerDescription) field("Trigger / Antecedent", incident.triggerDescription);
+  field("Behavior Description", incident.behaviorDescription);
+  if (Array.isArray(incident.deescalationStrategies) && incident.deescalationStrategies.length > 0) {
+    field("De-escalation Strategies Used", (incident.deescalationStrategies as string[]).join(", "));
+  }
+  if (incident.deescalationAttempts) field("Additional De-escalation Details", incident.deescalationAttempts);
+  if (incident.alternativesAttempted) field("Alternatives Attempted", incident.alternativesAttempted);
+  if (incident.justification) field("Justification for Restraint/Seclusion", incident.justification);
+  if (Array.isArray(incident.proceduresUsed) && incident.proceduresUsed.length > 0) {
+    field("Procedures / Holds Used", (incident.proceduresUsed as string[]).join(", "));
+  }
+
+  sectionTitle("Staff Involved");
+  if (primaryStaff) field("Primary Staff (Administered Restraint)", `${primaryStaff.firstName} ${primaryStaff.lastName} — ${primaryStaff.title || primaryStaff.role}`);
+  if (additionalStaff.length > 0) field("Additional Staff", additionalStaff.map((s: any) => `${s.firstName} ${s.lastName}`).join(", "));
+  if (observerStaff.length > 0) field("Observers", observerStaff.map((s: any) => `${s.firstName} ${s.lastName}`).join(", "));
+
+  sectionTitle("Environment & Safety");
+  if (incident.studentMoved) field("Student Moved", incident.studentMovedTo ? `Yes — ${incident.studentMovedTo}` : "Yes");
+  if (incident.roomCleared) field("Room Cleared", "Yes");
+  if (incident.emergencyServicesCalled) field("Emergency Services Called", "Yes");
+  if (incident.calmingStrategiesUsed) field("Calming Strategies Used", incident.calmingStrategiesUsed);
+  if (incident.studentStateAfter) field("Student State After Incident", incident.studentStateAfter);
+  if (incident.studentReturnedToActivity) field("Student Returned To", incident.studentReturnedToActivity.replace(/_/g, " "));
+  if (incident.timeToCalm) field("Time to Calm", `${incident.timeToCalm} minutes`);
+
+  sectionTitle("Injuries");
+  field("Student Injury", incident.studentInjury ? "Yes" : "No");
+  if (incident.studentInjury && incident.studentInjuryDescription) field("Student Injury Description", incident.studentInjuryDescription);
+  field("Staff Injury", incident.staffInjury ? "Yes" : "No");
+  if (incident.staffInjury && incident.staffInjuryDescription) field("Staff Injury Description", incident.staffInjuryDescription);
+  if (incident.medicalAttentionRequired) field("Medical Attention Required", "Yes");
+
+  if (incident.debriefConducted) {
+    sectionTitle("Post-Incident Debrief");
+    field("Debrief Date", formatDate(incident.debriefDate));
+    if (incident.debriefNotes) field("Debrief Notes", incident.debriefNotes);
+  }
+
+  sectionTitle("Signatures & Review");
+  if (incident.reportingStaffSignature) field("Reporting Staff Signature", `${incident.reportingStaffSignature} — ${formatDate(incident.reportingStaffSignedAt)}`);
+  if (incident.adminSignature) field("Administrator Signature", `${incident.adminSignature} — ${formatDate(incident.adminSignedAt)}`);
+  if (adminReviewer) field("Reviewed By", `${adminReviewer.firstName} ${adminReviewer.lastName}`);
+  if (incident.adminReviewNotes) field("Admin Review Notes", incident.adminReviewNotes);
+
+  doc.moveDown(1);
+  doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor("#cccccc").stroke();
+  doc.moveDown(0.5);
+  doc.fontSize(8).fillColor("#999999").text(`Report generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} — Incident #${id}`, { align: "center" });
+
+  doc.end();
+});
+
+router.post("/protective-measures/incidents/:id/parent-notification-draft", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const { draft } = req.body;
+  if (!draft || typeof draft !== "string") { res.status(400).json({ error: "draft text required" }); return; }
+
+  const [updated] = await db.update(restraintIncidentsTable).set({
+    parentNotificationDraft: draft,
+  }).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  res.json(updated);
+});
+
+router.post("/protective-measures/incidents/:id/send-parent-notification", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  if (incident.status !== "reviewed") {
+    res.status(400).json({ error: "Incident must be admin-reviewed before sending parent notification" });
+    return;
+  }
+
+  if (incident.parentNotificationSentAt) {
+    res.status(400).json({ error: "Parent notification has already been sent" });
+    return;
+  }
+
+  const { senderId, draft, method } = req.body;
+  if (!senderId) { res.status(400).json({ error: "senderId required" }); return; }
+
+  const [sender] = await db.select().from(staffTable).where(eq(staffTable.id, Number(senderId)));
+  if (!sender) { res.status(404).json({ error: "Sender staff not found" }); return; }
+
+  const allowedRoles = ["case_manager", "bcba", "coordinator", "admin"];
+  if (!allowedRoles.includes(sender.role)) {
+    res.status(403).json({ error: "Only SPED teachers, case managers, BCBAs, coordinators, or admins may authorize parent notifications" });
+    return;
+  }
+
+  const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, incident.studentId));
+
+  const now = new Date().toISOString();
+  const [updated] = await db.update(restraintIncidentsTable).set({
+    parentNotificationDraft: draft || incident.parentNotificationDraft,
+    parentNotificationSentAt: now,
+    parentNotificationSentBy: Number(senderId),
+    parentNotificationMethod: method || "email",
+    parentNotificationPdfGenerated: true,
+    parentNotified: true,
+    parentNotifiedAt: now,
+    parentNotifiedBy: Number(senderId),
+    writtenReportSent: true,
+    writtenReportSentAt: now,
+    writtenReportSentMethod: method || "email",
+  }).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  res.json({
+    ...updated,
+    sender: { firstName: sender.firstName, lastName: sender.lastName },
+    parentEmail: student?.parentEmail || null,
+    parentGuardianName: student?.parentGuardianName || null,
+  });
+});
+
+router.get("/protective-measures/incidents/:id/generate-draft", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const data = await getFullIncidentData(id);
+  if (!data) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const { incident, student, school, primaryStaff, caseManager } = data;
+
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "[Date]";
+  const formatTime = (t: string | null) => {
+    if (!t) return "[Time]";
+    const [h, m] = t.split(":");
+    const hr = parseInt(h);
+    return `${hr > 12 ? hr - 12 : hr || 12}:${m} ${hr >= 12 ? "PM" : "AM"}`;
+  };
+
+  const TYPE_LABELS: Record<string, string> = {
+    physical_restraint: "physical restraint",
+    seclusion: "seclusion",
+    time_out: "time-out",
+    physical_escort: "physical escort",
+  };
+
+  const studentName = student ? `${student.firstName} ${student.lastName}` : "your child";
+  const parentName = student?.parentGuardianName || "Parent/Guardian";
+  const schoolName = school?.name || "our school";
+  const incidentType = TYPE_LABELS[incident.incidentType] || incident.incidentType;
+  const cmName = caseManager ? `${caseManager.firstName} ${caseManager.lastName}` : "[Case Manager Name]";
+  const cmTitle = caseManager?.title || "Case Manager";
+
+  let draft = `Dear ${parentName},\n\n`;
+  draft += `I am writing to inform you of an incident involving ${studentName} that occurred on ${formatDate(incident.incidentDate)} at approximately ${formatTime(incident.incidentTime)} at ${schoolName}.\n\n`;
+  draft += `During the course of the school day, ${studentName} was involved in a situation that required the use of ${incidentType}. `;
+  if (incident.durationMinutes) draft += `The ${incidentType} lasted approximately ${incident.durationMinutes} minutes. `;
+  if (incident.location) draft += `The incident took place in ${incident.location}. `;
+  draft += `\n\n`;
+
+  draft += `Prior to the ${incidentType}, staff attempted the following de-escalation strategies: `;
+  if (Array.isArray(incident.deescalationStrategies) && incident.deescalationStrategies.length > 0) {
+    draft += `${(incident.deescalationStrategies as string[]).join(", ")}. `;
+  } else if (incident.deescalationAttempts) {
+    draft += `${incident.deescalationAttempts}. `;
+  } else {
+    draft += `[describe de-escalation attempts]. `;
+  }
+  draft += `The ${incidentType} was used as a last resort to ensure the safety of ${studentName} and others.\n\n`;
+
+  if (incident.studentInjury) {
+    draft += `Please be aware that ${studentName} sustained a minor injury during the incident. ${incident.studentInjuryDescription || "[Describe injury]"}. ${incident.medicalAttentionRequired ? "Medical attention was provided." : "No medical attention was required."}\n\n`;
+  } else {
+    draft += `${studentName} was not injured during the incident.\n\n`;
+  }
+
+  draft += `In accordance with Massachusetts regulation 603 CMR 46.00, you have the right to:\n`;
+  draft += `  • Receive this written report within three (3) school working days of the incident\n`;
+  draft += `  • Review and comment on this report\n`;
+  draft += `  • Request a copy of the full restraint report\n`;
+  draft += `  • Request a meeting to discuss the incident\n\n`;
+
+  draft += `A complete restraint report is attached to this correspondence for your review. Please do not hesitate to contact me if you have any questions, concerns, or would like to schedule a meeting to discuss this incident and any supports we can put in place for ${studentName}.\n\n`;
+
+  draft += `Sincerely,\n\n${cmName}\n${cmTitle}\n${schoolName}`;
+
+  res.json({
+    draft,
+    parentEmail: student?.parentEmail || null,
+    parentGuardianName: student?.parentGuardianName || null,
+    caseManager: caseManager ? { id: caseManager.id, firstName: caseManager.firstName, lastName: caseManager.lastName, title: caseManager.title, role: caseManager.role } : null,
+  });
 });
 
 export default router;
