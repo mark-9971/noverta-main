@@ -9,13 +9,55 @@ import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
 
+function parseSchoolDistrictFilters(query: any): { schoolId?: number; districtId?: number } {
+  const filters: { schoolId?: number; districtId?: number } = {};
+  if (query.schoolId) filters.schoolId = Number(query.schoolId);
+  if (query.districtId) filters.districtId = Number(query.districtId);
+  return filters;
+}
+
+function buildStudentSubquery(filters: { schoolId?: number; districtId?: number }): ReturnType<typeof sql> | undefined {
+  if (filters.schoolId) return sql`${studentsTable.schoolId} = ${filters.schoolId}`;
+  if (filters.districtId) return sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`;
+  return undefined;
+}
+
+function buildSessionStudentFilter(filters: { schoolId?: number; districtId?: number }): ReturnType<typeof sql> | undefined {
+  if (filters.schoolId) return sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${filters.schoolId})`;
+  if (filters.districtId) return sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${filters.districtId}))`;
+  return undefined;
+}
+
+function buildAlertStudentFilter(filters: { schoolId?: number; districtId?: number }): ReturnType<typeof sql> | undefined {
+  if (filters.schoolId) return sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${filters.schoolId})`;
+  if (filters.districtId) return sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${filters.districtId}))`;
+  return undefined;
+}
+
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req.query);
   const today = new Date();
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay() + 1);
   weekStart.setHours(0, 0, 0, 0);
   const weekStartStr = weekStart.toISOString().substring(0, 10);
   const todayStr = today.toISOString().substring(0, 10);
+
+  const studentFilter = buildStudentSubquery(sdFilters);
+  const sessionFilter = buildSessionStudentFilter(sdFilters);
+  const alertFilter = buildAlertStudentFilter(sdFilters);
+
+  const studentConditions = [eq(studentsTable.status, "active")];
+  if (studentFilter) studentConditions.push(studentFilter as any);
+
+  const missedConditions: any[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr)];
+  if (sessionFilter) missedConditions.push(sessionFilter);
+
+  const makeupConditions: any[] = [eq(sessionLogsTable.status, "missed")];
+  if (sessionFilter) makeupConditions.push(sessionFilter);
+
+  const alertConditions: any[] = [eq(alertsTable.resolved, false)];
+  if (alertFilter) alertConditions.push(alertFilter);
 
   const [
     [activeStudentsResult],
@@ -25,18 +67,14 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     alertCounts,
     allBlocks,
   ] = await Promise.all([
-    db.select({ count: count() }).from(studentsTable).where(eq(studentsTable.status, "active")),
-    computeAllActiveMinuteProgress(),
-    db.select({ count: count() }).from(sessionLogsTable).where(and(
-      eq(sessionLogsTable.status, "missed"),
-      gte(sessionLogsTable.sessionDate, weekStartStr),
-      lte(sessionLogsTable.sessionDate, todayStr)
-    )),
-    db.select({ count: count() }).from(sessionLogsTable).where(eq(sessionLogsTable.status, "missed")),
+    db.select({ count: count() }).from(studentsTable).where(and(...studentConditions)),
+    computeAllActiveMinuteProgress(sdFilters),
+    db.select({ count: count() }).from(sessionLogsTable).where(and(...missedConditions)),
+    db.select({ count: count() }).from(sessionLogsTable).where(and(...makeupConditions)),
     db.select({
       total: count(),
       critical: sql<number>`count(*) filter (where ${alertsTable.severity} = 'critical')`,
-    }).from(alertsTable).where(eq(alertsTable.resolved, false)),
+    }).from(alertsTable).where(and(...alertConditions)),
     db.select({
       staffId: scheduleBlocksTable.staffId,
       dayOfWeek: scheduleBlocksTable.dayOfWeek,
@@ -94,7 +132,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
-  const allProgress = await computeAllActiveMinuteProgress();
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const allProgress = await computeAllActiveMinuteProgress(sdFilters);
   const counts = { on_track: 0, slightly_behind: 0, at_risk: 0, out_of_compliance: 0, completed: 0, total: 0 };
   for (const p of allProgress) {
     counts.total++;
@@ -193,13 +232,18 @@ router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/alerts-summary", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const alertFilter = buildAlertStudentFilter(sdFilters);
+  const conditions: any[] = [eq(alertsTable.resolved, false)];
+  if (alertFilter) conditions.push(alertFilter);
+
   const rows = await db
     .select({
       severity: alertsTable.severity,
       count: count(),
     })
     .from(alertsTable)
-    .where(eq(alertsTable.resolved, false))
+    .where(and(...conditions))
     .groupBy(alertsTable.severity);
 
   const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -213,7 +257,8 @@ router.get("/dashboard/alerts-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> => {
-  const allProgress = await computeAllActiveMinuteProgress();
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const allProgress = await computeAllActiveMinuteProgress(sdFilters);
   const serviceMap = new Map<string, { total: number; onTrack: number; atRisk: number; outOfCompliance: number; sumPct: number }>();
 
   for (const p of allProgress) {
@@ -238,6 +283,8 @@ router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> =
 });
 
 router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sessionFilter = buildSessionStudentFilter(sdFilters);
   const today = new Date();
   const earliestMonday = new Date(today);
   earliestMonday.setDate(today.getDate() - 7 * 7);
@@ -248,6 +295,12 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
   const earliestStr = earliestMonday.toISOString().substring(0, 10);
   const todayStr = today.toISOString().substring(0, 10);
 
+  const trendConditions: any[] = [
+    gte(sessionLogsTable.sessionDate, earliestStr),
+    lte(sessionLogsTable.sessionDate, todayStr),
+  ];
+  if (sessionFilter) trendConditions.push(sessionFilter);
+
   const rows = await db
     .select({
       sessionDate: sessionLogsTable.sessionDate,
@@ -255,10 +308,7 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
       cnt: count(),
     })
     .from(sessionLogsTable)
-    .where(and(
-      gte(sessionLogsTable.sessionDate, earliestStr),
-      lte(sessionLogsTable.sessionDate, todayStr),
-    ))
+    .where(and(...trendConditions))
     .groupBy(sessionLogsTable.sessionDate, sessionLogsTable.status);
 
   const weeks = [];

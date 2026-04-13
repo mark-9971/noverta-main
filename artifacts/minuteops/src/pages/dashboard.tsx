@@ -45,11 +45,12 @@ const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compl
 
 export default function Dashboard() {
   const { filterParams } = useSchoolContext();
-  const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary();
-  const { data: riskOverview } = useGetDashboardRiskOverview();
-  const { data: trend } = useGetMissedSessionsTrend();
-  const { data: complianceByService } = useGetComplianceByService();
-  const { data: alertsSummary } = useGetDashboardAlertsSummary();
+  const fp = filterParams as Record<string, any>;
+  const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary(fp);
+  const { data: riskOverview } = useGetDashboardRiskOverview(fp);
+  const { data: trend } = useGetMissedSessionsTrend(fp);
+  const { data: complianceByService } = useGetComplianceByService(fp);
+  const { data: alertsSummary } = useGetDashboardAlertsSummary(fp);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
   const [deadlines, setDeadlines] = useState<any[]>([]);
   const [academics, setAcademics] = useState<any>(null);

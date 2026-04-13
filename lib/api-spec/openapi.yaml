@@ -51,6 +51,15 @@ paths:
       operationId: getDashboardSummary
       tags: [dashboard]
       summary: Get home dashboard summary stats
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Dashboard summary
@@ -64,6 +73,15 @@ paths:
       operationId: getDashboardRiskOverview
       tags: [dashboard]
       summary: Get risk overview by status
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Risk overview
@@ -107,6 +125,15 @@ paths:
       operationId: getDashboardAlertsSummary
       tags: [dashboard]
       summary: Get count of open alerts by severity
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Alerts summary
@@ -120,6 +147,15 @@ paths:
       operationId: getComplianceByService
       tags: [dashboard]
       summary: Get compliance rates grouped by service type
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Compliance by service type
@@ -135,6 +171,15 @@ paths:
       operationId: getMissedSessionsTrend
       tags: [dashboard]
       summary: Get missed session counts over last 8 weeks
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Missed sessions trend
@@ -953,6 +998,14 @@ paths:
           schema:
             type: ["integer", "null"]
         - name: programId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
           in: query
           schema:
             type: ["integer", "null"]

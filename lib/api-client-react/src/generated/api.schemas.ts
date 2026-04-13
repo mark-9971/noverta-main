@@ -831,6 +831,61 @@ export interface DistrictOverview {
   alertsSummary: DistrictOverviewAlertsSummary;
 }
 
+export type GetDashboardSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetDashboardRiskOverviewParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetDashboardAlertsSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetComplianceByServiceParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetMissedSessionsTrendParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
 export type DeleteDistrict200 = {
   success: boolean;
 };
@@ -999,6 +1054,14 @@ export type ListMinuteProgressParams = {
    * @nullable
    */
   programId?: number | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
 
 export type ListScheduleBlocksParams = {

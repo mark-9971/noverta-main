@@ -17,6 +17,11 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get home dashboard summary stats
  */
+export const GetDashboardSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetDashboardSummaryResponse = zod.object({
   totalActiveStudents: zod.number(),
   onTrackStudents: zod.number(),
@@ -34,6 +39,11 @@ export const GetDashboardSummaryResponse = zod.object({
 /**
  * @summary Get risk overview by status
  */
+export const GetDashboardRiskOverviewQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetDashboardRiskOverviewResponse = zod.object({
   onTrack: zod.number(),
   slightlyBehind: zod.number(),
@@ -79,6 +89,11 @@ export const GetParaDashboardSummaryResponse = zod.array(
 /**
  * @summary Get count of open alerts by severity
  */
+export const GetDashboardAlertsSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetDashboardAlertsSummaryResponse = zod.object({
   critical: zod.number(),
   high: zod.number(),
@@ -90,6 +105,11 @@ export const GetDashboardAlertsSummaryResponse = zod.object({
 /**
  * @summary Get compliance rates grouped by service type
  */
+export const GetComplianceByServiceQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetComplianceByServiceResponseItem = zod.object({
   serviceTypeName: zod.string(),
   totalRequirements: zod.number(),
@@ -105,6 +125,11 @@ export const GetComplianceByServiceResponse = zod.array(
 /**
  * @summary Get missed session counts over last 8 weeks
  */
+export const GetMissedSessionsTrendQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetMissedSessionsTrendResponseItem = zod.object({
   weekLabel: zod.string(),
   missedCount: zod.number(),
@@ -1059,6 +1084,8 @@ export const ListMinuteProgressQueryParams = zod.object({
   riskStatus: zod.coerce.string().nullish(),
   serviceTypeId: zod.coerce.number().nullish(),
   programId: zod.coerce.number().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
 });
 
 export const ListMinuteProgressResponseItem = zod.object({

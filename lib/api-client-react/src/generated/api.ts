@@ -44,8 +44,13 @@ import type {
   ErrorResponse,
   GenerateScheduleBody,
   GeneratedSchedule,
+  GetComplianceByServiceParams,
+  GetDashboardAlertsSummaryParams,
+  GetDashboardRiskOverviewParams,
+  GetDashboardSummaryParams,
   GetDistrictOverviewParams,
   GetMissedSessionsReportParams,
+  GetMissedSessionsTrendParams,
   GetScheduleConflictsParams,
   GetStudentMinuteSummaryReportParams,
   GetStudentSessionsParams,
@@ -176,41 +181,63 @@ export function useHealthCheck<
 /**
  * @summary Get home dashboard summary stats
  */
-export const getGetDashboardSummaryUrl = () => {
-  return `/api/dashboard/summary`;
+export const getGetDashboardSummaryUrl = (
+  params?: GetDashboardSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/summary?${stringifiedParams}`
+    : `/api/dashboard/summary`;
 };
 
 export const getDashboardSummary = async (
+  params?: GetDashboardSummaryParams,
   options?: RequestInit,
 ): Promise<DashboardSummary> => {
-  return customFetch<DashboardSummary>(getGetDashboardSummaryUrl(), {
+  return customFetch<DashboardSummary>(getGetDashboardSummaryUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetDashboardSummaryQueryKey = () => {
-  return [`/api/dashboard/summary`] as const;
+export const getGetDashboardSummaryQueryKey = (
+  params?: GetDashboardSummaryParams,
+) => {
+  return [`/api/dashboard/summary`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetDashboardSummaryQueryOptions = <
   TData = Awaited<ReturnType<typeof getDashboardSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetDashboardSummaryQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDashboardSummaryQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getDashboardSummary>>
-  > = ({ signal }) => getDashboardSummary({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getDashboardSummary(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getDashboardSummary>>,
@@ -231,15 +258,18 @@ export type GetDashboardSummaryQueryError = ErrorType<unknown>;
 export function useGetDashboardSummary<
   TData = Awaited<ReturnType<typeof getDashboardSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetDashboardSummaryQueryOptions(options);
+>(
+  params?: GetDashboardSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDashboardSummaryQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -251,42 +281,63 @@ export function useGetDashboardSummary<
 /**
  * @summary Get risk overview by status
  */
-export const getGetDashboardRiskOverviewUrl = () => {
-  return `/api/dashboard/risk-overview`;
+export const getGetDashboardRiskOverviewUrl = (
+  params?: GetDashboardRiskOverviewParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/risk-overview?${stringifiedParams}`
+    : `/api/dashboard/risk-overview`;
 };
 
 export const getDashboardRiskOverview = async (
+  params?: GetDashboardRiskOverviewParams,
   options?: RequestInit,
 ): Promise<RiskOverview> => {
-  return customFetch<RiskOverview>(getGetDashboardRiskOverviewUrl(), {
+  return customFetch<RiskOverview>(getGetDashboardRiskOverviewUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetDashboardRiskOverviewQueryKey = () => {
-  return [`/api/dashboard/risk-overview`] as const;
+export const getGetDashboardRiskOverviewQueryKey = (
+  params?: GetDashboardRiskOverviewParams,
+) => {
+  return [`/api/dashboard/risk-overview`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetDashboardRiskOverviewQueryOptions = <
   TData = Awaited<ReturnType<typeof getDashboardRiskOverview>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardRiskOverview>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetDashboardRiskOverviewParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardRiskOverview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetDashboardRiskOverviewQueryKey();
+    queryOptions?.queryKey ?? getGetDashboardRiskOverviewQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getDashboardRiskOverview>>
-  > = ({ signal }) => getDashboardRiskOverview({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getDashboardRiskOverview(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getDashboardRiskOverview>>,
@@ -307,15 +358,18 @@ export type GetDashboardRiskOverviewQueryError = ErrorType<unknown>;
 export function useGetDashboardRiskOverview<
   TData = Awaited<ReturnType<typeof getDashboardRiskOverview>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardRiskOverview>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetDashboardRiskOverviewQueryOptions(options);
+>(
+  params?: GetDashboardRiskOverviewParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardRiskOverview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDashboardRiskOverviewQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -483,42 +537,66 @@ export function useGetParaDashboardSummary<
 /**
  * @summary Get count of open alerts by severity
  */
-export const getGetDashboardAlertsSummaryUrl = () => {
-  return `/api/dashboard/alerts-summary`;
+export const getGetDashboardAlertsSummaryUrl = (
+  params?: GetDashboardAlertsSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/alerts-summary?${stringifiedParams}`
+    : `/api/dashboard/alerts-summary`;
 };
 
 export const getDashboardAlertsSummary = async (
+  params?: GetDashboardAlertsSummaryParams,
   options?: RequestInit,
 ): Promise<AlertsSummary> => {
-  return customFetch<AlertsSummary>(getGetDashboardAlertsSummaryUrl(), {
+  return customFetch<AlertsSummary>(getGetDashboardAlertsSummaryUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetDashboardAlertsSummaryQueryKey = () => {
-  return [`/api/dashboard/alerts-summary`] as const;
+export const getGetDashboardAlertsSummaryQueryKey = (
+  params?: GetDashboardAlertsSummaryParams,
+) => {
+  return [
+    `/api/dashboard/alerts-summary`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetDashboardAlertsSummaryQueryOptions = <
   TData = Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetDashboardAlertsSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetDashboardAlertsSummaryQueryKey();
+    queryOptions?.queryKey ?? getGetDashboardAlertsSummaryQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getDashboardAlertsSummary>>
-  > = ({ signal }) => getDashboardAlertsSummary({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getDashboardAlertsSummary(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
@@ -539,15 +617,21 @@ export type GetDashboardAlertsSummaryQueryError = ErrorType<unknown>;
 export function useGetDashboardAlertsSummary<
   TData = Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetDashboardAlertsSummaryQueryOptions(options);
+>(
+  params?: GetDashboardAlertsSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardAlertsSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDashboardAlertsSummaryQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -559,42 +643,69 @@ export function useGetDashboardAlertsSummary<
 /**
  * @summary Get compliance rates grouped by service type
  */
-export const getGetComplianceByServiceUrl = () => {
-  return `/api/dashboard/compliance-by-service`;
+export const getGetComplianceByServiceUrl = (
+  params?: GetComplianceByServiceParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/compliance-by-service?${stringifiedParams}`
+    : `/api/dashboard/compliance-by-service`;
 };
 
 export const getComplianceByService = async (
+  params?: GetComplianceByServiceParams,
   options?: RequestInit,
 ): Promise<ComplianceByService[]> => {
-  return customFetch<ComplianceByService[]>(getGetComplianceByServiceUrl(), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<ComplianceByService[]>(
+    getGetComplianceByServiceUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetComplianceByServiceQueryKey = () => {
-  return [`/api/dashboard/compliance-by-service`] as const;
+export const getGetComplianceByServiceQueryKey = (
+  params?: GetComplianceByServiceParams,
+) => {
+  return [
+    `/api/dashboard/compliance-by-service`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetComplianceByServiceQueryOptions = <
   TData = Awaited<ReturnType<typeof getComplianceByService>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getComplianceByService>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetComplianceByServiceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplianceByService>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetComplianceByServiceQueryKey();
+    queryOptions?.queryKey ?? getGetComplianceByServiceQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getComplianceByService>>
-  > = ({ signal }) => getComplianceByService({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getComplianceByService(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getComplianceByService>>,
@@ -615,15 +726,18 @@ export type GetComplianceByServiceQueryError = ErrorType<unknown>;
 export function useGetComplianceByService<
   TData = Awaited<ReturnType<typeof getComplianceByService>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getComplianceByService>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetComplianceByServiceQueryOptions(options);
+>(
+  params?: GetComplianceByServiceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplianceByService>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComplianceByServiceQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -635,15 +749,30 @@ export function useGetComplianceByService<
 /**
  * @summary Get missed session counts over last 8 weeks
  */
-export const getGetMissedSessionsTrendUrl = () => {
-  return `/api/dashboard/missed-sessions-trend`;
+export const getGetMissedSessionsTrendUrl = (
+  params?: GetMissedSessionsTrendParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/missed-sessions-trend?${stringifiedParams}`
+    : `/api/dashboard/missed-sessions-trend`;
 };
 
 export const getMissedSessionsTrend = async (
+  params?: GetMissedSessionsTrendParams,
   options?: RequestInit,
 ): Promise<MissedSessionsTrendPoint[]> => {
   return customFetch<MissedSessionsTrendPoint[]>(
-    getGetMissedSessionsTrendUrl(),
+    getGetMissedSessionsTrendUrl(params),
     {
       ...options,
       method: "GET",
@@ -651,29 +780,38 @@ export const getMissedSessionsTrend = async (
   );
 };
 
-export const getGetMissedSessionsTrendQueryKey = () => {
-  return [`/api/dashboard/missed-sessions-trend`] as const;
+export const getGetMissedSessionsTrendQueryKey = (
+  params?: GetMissedSessionsTrendParams,
+) => {
+  return [
+    `/api/dashboard/missed-sessions-trend`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetMissedSessionsTrendQueryOptions = <
   TData = Awaited<ReturnType<typeof getMissedSessionsTrend>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getMissedSessionsTrend>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetMissedSessionsTrendParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMissedSessionsTrend>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetMissedSessionsTrendQueryKey();
+    queryOptions?.queryKey ?? getGetMissedSessionsTrendQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getMissedSessionsTrend>>
-  > = ({ signal }) => getMissedSessionsTrend({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getMissedSessionsTrend(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getMissedSessionsTrend>>,
@@ -694,15 +832,18 @@ export type GetMissedSessionsTrendQueryError = ErrorType<unknown>;
 export function useGetMissedSessionsTrend<
   TData = Awaited<ReturnType<typeof getMissedSessionsTrend>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getMissedSessionsTrend>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetMissedSessionsTrendQueryOptions(options);
+>(
+  params?: GetMissedSessionsTrendParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMissedSessionsTrend>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMissedSessionsTrendQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -27,4 +27,12 @@ export type ListMinuteProgressParams = {
    * @nullable
    */
   programId?: number | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };

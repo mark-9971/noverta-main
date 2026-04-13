@@ -205,12 +205,16 @@ export async function computeAllActiveMinuteProgress(filters?: {
   serviceTypeId?: number;
   programId?: number;
   riskStatus?: string;
+  schoolId?: number;
+  districtId?: number;
 }): Promise<MinuteProgressResult[]> {
   const conditions: ReturnType<typeof eq>[] = [eq(serviceRequirementsTable.active, true) as any];
   if (filters?.studentId) conditions.push(eq(serviceRequirementsTable.studentId, filters.studentId) as any);
   if (filters?.studentIds && filters.studentIds.length > 0) conditions.push(inArray(serviceRequirementsTable.studentId, filters.studentIds) as any);
   if (filters?.serviceTypeId) conditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId) as any);
   if (filters?.staffId) conditions.push(eq(serviceRequirementsTable.providerId, filters.staffId) as any);
+  if (filters?.schoolId) conditions.push(sql`${studentsTable.id} IN (SELECT id FROM students WHERE school_id = ${filters.schoolId})` as any);
+  if (filters?.districtId) conditions.push(sql`${studentsTable.id} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${filters.districtId}))` as any);
 
   const reqs = await db
     .select({
