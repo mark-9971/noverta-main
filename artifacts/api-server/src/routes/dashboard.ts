@@ -75,12 +75,17 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
       total: count(),
       critical: sql<number>`count(*) filter (where ${alertsTable.severity} = 'critical')`,
     }).from(alertsTable).where(and(...alertConditions)),
-    db.select({
-      staffId: scheduleBlocksTable.staffId,
-      dayOfWeek: scheduleBlocksTable.dayOfWeek,
-      startTime: scheduleBlocksTable.startTime,
-      endTime: scheduleBlocksTable.endTime,
-    }).from(scheduleBlocksTable).where(eq(scheduleBlocksTable.isRecurring, true)),
+    (() => {
+      const blockConditions: any[] = [eq(scheduleBlocksTable.isRecurring, true)];
+      if (sdFilters.schoolId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
+      if (sdFilters.districtId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+      return db.select({
+        staffId: scheduleBlocksTable.staffId,
+        dayOfWeek: scheduleBlocksTable.dayOfWeek,
+        startTime: scheduleBlocksTable.startTime,
+        endTime: scheduleBlocksTable.endTime,
+      }).from(scheduleBlocksTable).where(and(...blockConditions));
+    })(),
   ]);
 
   const studentRisk = new Map<number, string>();
@@ -169,7 +174,7 @@ router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
       staffId: alertsTable.staffId,
       count: count(),
     }).from(alertsTable)
-      .where(eq(alertsTable.resolved, false))
+      .where(and(...alertConditions))
       .groupBy(alertsTable.staffId),
   ]);
 
