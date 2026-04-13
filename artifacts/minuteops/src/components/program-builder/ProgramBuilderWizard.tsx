@@ -34,10 +34,10 @@ const DOMAINS = [
 
 const PROMPT_LABELS: Record<string, { label: string; short: string; icon: any; color: string }> = {
   full_physical: { label: "Full Physical", short: "FP", icon: Hand, color: "bg-red-100 text-red-700" },
-  partial_physical: { label: "Partial Physical", short: "PP", icon: Hand, color: "bg-orange-100 text-orange-700" },
+  partial_physical: { label: "Partial Physical", short: "PP", icon: Hand, color: "bg-amber-100 text-amber-700" },
   model: { label: "Model", short: "M", icon: Eye, color: "bg-amber-100 text-amber-700" },
-  gestural: { label: "Gestural", short: "G", icon: Hand, color: "bg-yellow-100 text-yellow-700" },
-  verbal: { label: "Verbal", short: "V", icon: Mic, color: "bg-blue-100 text-blue-700" },
+  gestural: { label: "Gestural", short: "G", icon: Hand, color: "bg-gray-50 text-gray-600" },
+  verbal: { label: "Verbal", short: "V", icon: Mic, color: "bg-gray-100 text-gray-700" },
   independent: { label: "Independent", short: "I", icon: Sparkles, color: "bg-emerald-100 text-emerald-700" },
 };
 

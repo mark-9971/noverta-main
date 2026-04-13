@@ -64,8 +64,8 @@ function KPICard({ title, value, icon: Icon, accent, subtitle, trend }: {
     emerald: "bg-emerald-50 text-emerald-600",
     amber: "bg-amber-50 text-amber-600",
     red: "bg-red-50 text-red-600",
-    sky: "bg-sky-50 text-sky-600",
-    violet: "bg-violet-50 text-violet-600",
+    sky: "bg-gray-50 text-gray-500",
+    violet: "bg-gray-50 text-gray-600",
   };
   return (
     <Card className="hover:shadow-md transition-all duration-200 border-gray-200/80">
@@ -249,7 +249,7 @@ function OverviewTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-sky-500" />
+              <Clock className="w-4 h-4 text-gray-500" />
               Service Delivery Heatmap
             </CardTitle>
             <p className="text-[11px] text-gray-400">Sessions by day and hour</p>
@@ -353,7 +353,7 @@ function BehaviorTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-500" />
+              <Layers className="w-4 h-4 text-emerald-500" />
               Measurement Types
             </CardTitle>
           </CardHeader>
@@ -548,7 +548,7 @@ function AcademicTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-500" />
+              <Layers className="w-4 h-4 text-emerald-500" />
               Mastery Funnel
             </CardTitle>
           </CardHeader>
@@ -632,7 +632,7 @@ function AcademicTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-teal-500" />
+              <Layers className="w-4 h-4 text-emerald-500" />
               Domain Breakdown
             </CardTitle>
             <p className="text-[11px] text-gray-400">Active programs by skill domain</p>
@@ -777,7 +777,7 @@ function MinutesTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-sky-500" />
+              <BarChart3 className="w-4 h-4 text-gray-500" />
               Day of Week Pattern
             </CardTitle>
             <p className="text-[11px] text-gray-400">Service delivery by day</p>
@@ -849,7 +849,7 @@ function MinutesTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Users className="w-4 h-4 text-violet-500" />
+              <Users className="w-4 h-4 text-emerald-500" />
               Staff Utilization
             </CardTitle>
             <p className="text-[11px] text-gray-400">Top providers by delivered minutes</p>
@@ -1048,7 +1048,7 @@ function StudentTab() {
           <Card className="border-gray-200/80">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-sky-500" />
+                <BarChart3 className="w-4 h-4 text-gray-500" />
                 Weekly Session Trend
               </CardTitle>
             </CardHeader>
@@ -1074,7 +1074,7 @@ function StudentTab() {
         <Card className="border-gray-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-rose-500" />
+              <Activity className="w-4 h-4 text-red-500" />
               Behavior Target Analysis
             </CardTitle>
             <p className="text-[11px] text-gray-400">{d.behaviorAnalysis.length} active target{d.behaviorAnalysis.length !== 1 ? "s" : ""} — weekly trends with variability and progress metrics</p>
@@ -1098,7 +1098,7 @@ function StudentTab() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-[13px] font-semibold text-gray-700">{bt.name}</p>
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${bt.targetDirection === "decrease" ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"}`}>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${bt.targetDirection === "decrease" ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-600"}`}>
                             {bt.targetDirection === "decrease" ? <TrendingDown className="w-3 h-3 inline mr-0.5" /> : <TrendingUp className="w-3 h-3 inline mr-0.5" />}
                             {bt.targetDirection}
                           </span>
@@ -1299,7 +1299,7 @@ function StudentTab() {
                                   return (
                                     <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
                                       <p className="font-semibold text-gray-700 mb-1">{label}</p>
-                                      <p>Avg Prompt: <span className="font-bold text-violet-600">{labels[nearest] || level}</span></p>
+                                      <p>Avg Prompt: <span className="font-bold text-emerald-600">{labels[nearest] || level}</span></p>
                                     </div>
                                   );
                                 }} />
@@ -1323,7 +1323,7 @@ function StudentTab() {
           <Card className="border-gray-200/80">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-sky-500" />
+                <Clock className="w-4 h-4 text-gray-500" />
                 Service Delivery by Day
               </CardTitle>
             </CardHeader>
@@ -1356,7 +1356,7 @@ function StudentTab() {
           <Card className="border-gray-200/80">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-violet-500" />
+                <Layers className="w-4 h-4 text-emerald-500" />
                 Service Breakdown
               </CardTitle>
             </CardHeader>

@@ -22,10 +22,10 @@ export default function AdminClasses() {
   if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const subjectColors: Record<string, string> = {
-    Math: "bg-blue-100 text-blue-700", ELA: "bg-purple-100 text-purple-700",
-    Science: "bg-green-100 text-green-700", "Social Studies": "bg-amber-100 text-amber-700",
-    Art: "bg-pink-100 text-pink-700", PE: "bg-red-100 text-red-700",
-    Music: "bg-emerald-100 text-emerald-800", "Computer Science": "bg-cyan-100 text-cyan-700",
+    Math: "bg-gray-100 text-gray-700", ELA: "bg-gray-50 text-gray-600",
+    Science: "bg-emerald-50 text-emerald-700", "Social Studies": "bg-amber-50 text-amber-700",
+    Art: "bg-gray-100 text-gray-600", PE: "bg-red-100 text-red-700",
+    Music: "bg-emerald-100 text-emerald-800", "Computer Science": "bg-gray-100 text-gray-700",
   };
 
   return (

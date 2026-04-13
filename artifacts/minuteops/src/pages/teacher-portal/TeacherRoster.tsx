@@ -84,7 +84,7 @@ export default function TeacherRoster() {
                   </td>
                   <td className="text-center py-3 px-4 text-gray-500">{s.grade}</td>
                   <td className="text-center py-3 px-4">
-                    {s.hasIep ? <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px]">IEP</Badge> : "—"}
+                    {s.hasIep ? <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-[10px]">IEP</Badge> : "—"}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-1 flex-wrap">

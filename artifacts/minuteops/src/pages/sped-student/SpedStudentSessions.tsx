@@ -7,23 +7,23 @@ import { Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 const SERVICE_COLORS: Record<string, string> = {
-  "Speech-Language Therapy": "bg-blue-100 text-blue-700",
-  "ABA/Behavior Intervention": "bg-purple-100 text-purple-700",
-  "Occupational Therapy": "bg-amber-100 text-amber-700",
-  "Physical Therapy": "bg-green-100 text-green-700",
-  "Para Support": "bg-pink-100 text-pink-700",
-  "Counseling Services": "bg-teal-100 text-teal-700",
+  "Speech-Language Therapy": "bg-gray-100 text-gray-700",
+  "ABA/Behavior Intervention": "bg-emerald-50 text-emerald-700",
+  "Occupational Therapy": "bg-amber-50 text-amber-700",
+  "Physical Therapy": "bg-emerald-100 text-emerald-700",
+  "Para Support": "bg-gray-50 text-gray-600",
+  "Counseling Services": "bg-gray-100 text-gray-700",
 };
 
 function getServiceColor(name: string) {
   for (const [key, val] of Object.entries(SERVICE_COLORS)) {
     if ((name || "").toLowerCase().includes(key.toLowerCase().split(" ")[0].toLowerCase())) return val;
   }
-  return "bg-violet-100 text-violet-700";
+  return "bg-gray-100 text-gray-600";
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === "completed") return <CheckCircle className="w-4 h-4 text-green-500" />;
+  if (status === "completed") return <CheckCircle className="w-4 h-4 text-emerald-500" />;
   if (status === "missed") return <XCircle className="w-4 h-4 text-red-400" />;
   return <AlertCircle className="w-4 h-4 text-amber-400" />;
 }
@@ -80,7 +80,7 @@ export default function SpedStudentSessions() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Clock className="w-6 h-6 text-violet-500" />
+          <Clock className="w-6 h-6 text-emerald-600" />
           My Sessions
         </h1>
         <p className="text-gray-500 mt-1">Recent service delivery sessions with your support team</p>
@@ -89,7 +89,7 @@ export default function SpedStudentSessions() {
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{completed}</p>
+            <p className="text-2xl font-bold text-emerald-600">{completed}</p>
             <p className="text-xs text-gray-400 mt-1">Completed</p>
           </CardContent>
         </Card>
@@ -101,7 +101,7 @@ export default function SpedStudentSessions() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-violet-600">{Math.round(totalMinutes / 60)}h</p>
+            <p className="text-2xl font-bold text-gray-700">{Math.round(totalMinutes / 60)}h</p>
             <p className="text-xs text-gray-400 mt-1">Total Time</p>
           </CardContent>
         </Card>
@@ -144,7 +144,7 @@ export default function SpedStudentSessions() {
                         <Badge
                           variant="outline"
                           className={`flex-shrink-0 text-[10px] capitalize ${
-                            sess.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
+                            sess.status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                             sess.status === "missed" ? "bg-red-50 text-red-600 border-red-200" :
                             "bg-amber-50 text-amber-600 border-amber-200"
                           }`}
@@ -163,7 +163,7 @@ export default function SpedStudentSessions() {
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={page === 0}
-              className="text-sm text-violet-600 font-medium disabled:text-gray-300 hover:text-violet-700"
+              className="text-sm text-emerald-600 font-medium disabled:text-gray-300 hover:text-emerald-700"
             >
               ← Previous
             </button>
@@ -171,7 +171,7 @@ export default function SpedStudentSessions() {
             <button
               onClick={() => setPage(p => p + 1)}
               disabled={(page + 1) * PAGE_SIZE >= sessions.length}
-              className="text-sm text-violet-600 font-medium disabled:text-gray-300 hover:text-violet-700"
+              className="text-sm text-emerald-600 font-medium disabled:text-gray-300 hover:text-emerald-700"
             >
               Next →
             </button>

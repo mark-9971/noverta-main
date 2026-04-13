@@ -122,7 +122,7 @@ export default function TeacherClassDetail() {
                       <td className="text-center py-3 px-4 text-gray-500">{s.grade}</td>
                       <td className="text-center py-3 px-4">
                         {s.hasIep ? (
-                          <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-[10px]">IEP</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-[10px]">IEP</Badge>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="text-center py-3 px-4">
@@ -246,7 +246,7 @@ function GradebookView({ classId }: { classId: number }) {
                 <td className="py-2 px-3 sticky left-0 bg-white">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-700">{s.lastName}, {s.firstName}</span>
-                    {s.hasIep && <span className="w-2 h-2 rounded-full bg-purple-400" title="Has IEP" />}
+                    {s.hasIep && <span className="w-2 h-2 rounded-full bg-emerald-400" title="Has IEP" />}
                   </div>
                 </td>
                 {assignments.map((a: any) => {
@@ -258,7 +258,7 @@ function GradebookView({ classId }: { classId: number }) {
                           {grade.pointsEarned}
                         </span>
                       ) : grade?.status === "submitted" ? (
-                        <span className="text-blue-400">●</span>
+                        <span className="text-emerald-400">●</span>
                       ) : grade?.status === "missing" ? (
                         <span className="text-red-400">M</span>
                       ) : (
@@ -286,16 +286,16 @@ function GradebookView({ classId }: { classId: number }) {
 function cellColor(earned: number, possible: number) {
   const pct = possible > 0 ? (earned / possible) * 100 : 0;
   if (pct >= 90) return "text-emerald-600";
-  if (pct >= 80) return "text-blue-600";
+  if (pct >= 80) return "text-gray-700";
   if (pct >= 70) return "text-amber-600";
-  if (pct >= 60) return "text-orange-600";
+  if (pct >= 60) return "text-amber-700";
   return "text-red-600";
 }
 
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
   return "text-red-600";
 }

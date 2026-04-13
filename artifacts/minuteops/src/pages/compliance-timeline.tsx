@@ -26,15 +26,15 @@ interface ComplianceEvent {
 
 const EVENT_TYPES: Record<string, { label: string; color: string; bg: string }> = {
   annual_review: { label: "Annual Review", color: "text-emerald-800", bg: "bg-emerald-50" },
-  reeval_3yr: { label: "3-Year Reevaluation", color: "text-purple-700", bg: "bg-purple-50" },
-  initial_eval: { label: "Initial Evaluation", color: "text-blue-700", bg: "bg-blue-50" },
+  reeval_3yr: { label: "3-Year Reevaluation", color: "text-gray-700", bg: "bg-gray-50" },
+  initial_eval: { label: "Initial Evaluation", color: "text-emerald-700", bg: "bg-emerald-50" },
   transition_age: { label: "Transition (Age 14+)", color: "text-amber-700", bg: "bg-amber-50" },
   progress_report: { label: "Progress Report", color: "text-emerald-700", bg: "bg-emerald-50" },
 };
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   overdue: { label: "Overdue", color: "text-red-700", bg: "bg-red-50", icon: AlertTriangle },
-  critical: { label: "Due This Week", color: "text-orange-700", bg: "bg-orange-50", icon: AlertTriangle },
+  critical: { label: "Due This Week", color: "text-amber-700", bg: "bg-amber-50", icon: AlertTriangle },
   due_soon: { label: "Due Soon", color: "text-amber-700", bg: "bg-amber-50", icon: Clock },
   upcoming: { label: "Upcoming", color: "text-gray-500", bg: "bg-gray-50", icon: Calendar },
   completed: { label: "Completed", color: "text-emerald-700", bg: "bg-emerald-50", icon: CheckCircle2 },
@@ -124,9 +124,9 @@ export default function ComplianceTimelinePage() {
             <p className="text-[11px] text-gray-400 mt-0.5">Overdue</p>
           </CardContent>
         </Card>
-        <Card className={critical.length > 0 ? "border-orange-200 bg-orange-50/30" : ""}>
+        <Card className={critical.length > 0 ? "border-amber-200 bg-amber-50/30" : ""}>
           <CardContent className="p-3.5 text-center">
-            <p className={`text-2xl font-bold ${critical.length > 0 ? "text-orange-600" : "text-gray-300"}`}>{critical.length}</p>
+            <p className={`text-2xl font-bold ${critical.length > 0 ? "text-amber-600" : "text-gray-300"}`}>{critical.length}</p>
             <p className="text-[11px] text-gray-400 mt-0.5">Due This Week</p>
           </CardContent>
         </Card>
@@ -177,7 +177,7 @@ export default function ComplianceTimelinePage() {
           const StatusIcon = statusStyle.icon;
 
           return (
-            <Card key={event.id} className={event.computedStatus === "overdue" ? "border-red-200" : event.computedStatus === "critical" ? "border-orange-200" : ""}>
+            <Card key={event.id} className={event.computedStatus === "overdue" ? "border-red-200" : event.computedStatus === "critical" ? "border-amber-200" : ""}>
               <CardContent className="p-3.5 md:p-4">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${statusStyle.bg}`}>

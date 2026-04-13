@@ -36,7 +36,7 @@ export default function StudentAssignments() {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <MiniStat icon={Clock} label="Upcoming" value={upcoming.length} color="text-blue-600 bg-blue-50" />
+        <MiniStat icon={Clock} label="Upcoming" value={upcoming.length} color="text-gray-600 bg-gray-100" />
         <MiniStat icon={CheckCircle} label="Completed" value={past.filter(a => a.status === "graded").length} color="text-emerald-600 bg-emerald-50" />
         <MiniStat icon={XCircle} label="Missing" value={missing.length} color="text-red-600 bg-red-50" />
       </div>
@@ -68,12 +68,12 @@ function AssignmentList({ assignments }: { assignments: any[] }) {
     <div className="space-y-2">
       {assignments.map(a => (
         <Link key={a.submissionId} href={`/portal/assignments/${a.assignmentId}`} className="block">
-          <div className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-blue-200 transition-all group">
+          <div className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-emerald-200 transition-all group">
             <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
               <FileText className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{a.title}</p>
+              <p className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">{a.title}</p>
               <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                 <span>{a.className}</span>
                 <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{a.dueDate}</span>
@@ -97,7 +97,7 @@ function AssignmentList({ assignments }: { assignments: any[] }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "submitted") return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Submitted</Badge>;
+  if (status === "submitted") return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 text-[10px]">Submitted</Badge>;
   if (status === "missing") return <Badge variant="destructive" className="text-[10px]">Missing</Badge>;
   return <Badge variant="outline" className="text-[10px]">To Do</Badge>;
 }
@@ -122,7 +122,7 @@ function MiniStat({ icon: Icon, label, value, color }: { icon: any; label: strin
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
   return "text-red-600";
 }

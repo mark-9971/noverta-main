@@ -14,8 +14,8 @@ import { useSchoolContext } from "@/lib/school-context";
 const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }> = {
   critical: { dot: "bg-red-500", bg: "bg-red-50/60 border-red-100", color: "text-red-700" },
   high: { dot: "bg-amber-400", bg: "bg-amber-50/60 border-amber-100", color: "text-amber-700" },
-  medium: { dot: "bg-yellow-400", bg: "bg-yellow-50/60 border-yellow-100", color: "text-yellow-700" },
-  low: { dot: "bg-blue-400", bg: "bg-blue-50/60 border-blue-100", color: "text-blue-600" },
+  medium: { dot: "bg-amber-300", bg: "bg-amber-50/40 border-amber-100", color: "text-amber-700" },
+  low: { dot: "bg-gray-300", bg: "bg-gray-50/60 border-gray-100", color: "text-gray-600" },
 };
 
 export default function Alerts() {

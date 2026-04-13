@@ -28,9 +28,9 @@ export default function StudentClasses() {
   if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
   const subjectColors: Record<string, string> = {
-    Math: "bg-blue-500", ELA: "bg-purple-500", Science: "bg-green-500",
-    "Social Studies": "bg-amber-500", Art: "bg-pink-500", PE: "bg-red-500",
-    Music: "bg-emerald-500", "Computer Science": "bg-cyan-500",
+    Math: "bg-emerald-600", ELA: "bg-gray-700", Science: "bg-emerald-500",
+    "Social Studies": "bg-gray-500", Art: "bg-gray-400", PE: "bg-gray-600",
+    Music: "bg-emerald-400", "Computer Science": "bg-gray-800",
   };
 
   return (
@@ -51,7 +51,7 @@ export default function StudentClasses() {
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">{c.className}</h3>
+                      <h3 className="font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">{c.className}</h3>
                       <Badge variant="outline" className="mt-1 text-[10px]">{c.courseCode}</Badge>
                     </div>
                     {classGrade?.letterGrade && (
@@ -89,8 +89,8 @@ export default function StudentClasses() {
 
 function gradeColor(grade: string): string {
   if (grade.startsWith("A")) return "text-emerald-600";
-  if (grade.startsWith("B")) return "text-blue-600";
+  if (grade.startsWith("B")) return "text-gray-700";
   if (grade.startsWith("C")) return "text-amber-600";
-  if (grade.startsWith("D")) return "text-orange-600";
+  if (grade.startsWith("D")) return "text-amber-700";
   return "text-red-600";
 }

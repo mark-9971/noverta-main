@@ -308,7 +308,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline mb-1">
                           <span className="text-[13px] font-medium text-gray-800 truncate">{cls.className}</span>
-                          <span className={`text-[12px] font-bold ml-2 ${pct >= 80 ? "text-emerald-600" : pct >= 70 ? "text-amber-600" : pct >= 60 ? "text-orange-600" : "text-red-600"}`}>
+                          <span className={`text-[12px] font-bold ml-2 ${pct >= 80 ? "text-emerald-600" : pct >= 70 ? "text-amber-600" : pct >= 60 ? "text-amber-700" : "text-red-600"}`}>
                             {cls.letterGrade} ({pct}%)
                           </span>
                         </div>

@@ -85,7 +85,7 @@ interface CompletenessData {
 
 const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any; bg: string }> = {
   mastered: { label: "Mastered", color: "text-emerald-700", icon: CheckCircle2, bg: "bg-emerald-50" },
-  sufficient_progress: { label: "Sufficient Progress", color: "text-blue-700", icon: TrendingUp, bg: "bg-blue-50" },
+  sufficient_progress: { label: "Sufficient Progress", color: "text-emerald-700", icon: TrendingUp, bg: "bg-emerald-50" },
   some_progress: { label: "Some Progress", color: "text-amber-700", icon: Clock, bg: "bg-amber-50" },
   insufficient_progress: { label: "Insufficient Progress", color: "text-red-700", icon: AlertTriangle, bg: "bg-red-50" },
   not_addressed: { label: "Not Addressed", color: "text-gray-500", icon: MinusIcon, bg: "bg-gray-50" },
@@ -93,7 +93,7 @@ const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any
 
 const MA_PROGRESS_CODES: Record<string, { label: string; fullLabel: string; color: string; bg: string }> = {
   M: { label: "M", fullLabel: "Mastered", color: "text-emerald-700", bg: "bg-emerald-50" },
-  SP: { label: "SP", fullLabel: "Sufficient Progress", color: "text-blue-700", bg: "bg-blue-50" },
+  SP: { label: "SP", fullLabel: "Sufficient Progress", color: "text-emerald-700", bg: "bg-emerald-50" },
   IP: { label: "IP", fullLabel: "Insufficient Progress", color: "text-amber-700", bg: "bg-amber-50" },
   NP: { label: "NP", fullLabel: "No Progress", color: "text-red-700", bg: "bg-red-50" },
   NA: { label: "NA", fullLabel: "Not Addressed", color: "text-gray-500", bg: "bg-gray-50" },
@@ -1572,7 +1572,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
         {meetings.map(m => {
           const typeLabel = MEETING_TYPES.find(t => t.value === m.meetingType)?.label ?? m.meetingType;
           const statusColors: Record<string, string> = {
-            scheduled: "bg-blue-50 text-blue-700",
+            scheduled: "bg-gray-50 text-gray-700",
             completed: "bg-emerald-50 text-emerald-700",
             cancelled: "bg-red-50 text-red-700",
             rescheduled: "bg-amber-50 text-amber-700",

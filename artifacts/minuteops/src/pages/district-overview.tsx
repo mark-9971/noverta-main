@@ -11,8 +11,8 @@ function StatCard({ title, value, icon: Icon, accent = "emerald", subtitle }: an
     emerald: "bg-emerald-50 text-emerald-700",
     red: "bg-red-50 text-red-600",
     amber: "bg-amber-50 text-amber-600",
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
+    gray: "bg-gray-100 text-gray-600",
+    muted: "bg-gray-50 text-gray-500",
   };
   return (
     <Card>
@@ -102,9 +102,9 @@ export default function DistrictOverview() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Schools" value={overviewData?.schools?.length ?? 0} icon={School} accent="blue" />
+            <StatCard title="Schools" value={overviewData?.schools?.length ?? 0} icon={School} accent="gray" />
             <StatCard title="Active Students" value={overviewData?.totalStudents ?? 0} icon={Users} accent="emerald" />
-            <StatCard title="Staff Members" value={overviewData?.totalStaff ?? 0} icon={UserCheck} accent="purple" />
+            <StatCard title="Staff Members" value={overviewData?.totalStaff ?? 0} icon={UserCheck} accent="muted" />
             <StatCard
               title="Open Alerts"
               value={overviewData?.alertsSummary?.total ?? 0}

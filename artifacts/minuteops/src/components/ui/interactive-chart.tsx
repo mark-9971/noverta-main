@@ -246,7 +246,7 @@ export function InteractiveChart({
           {onPhaseLinesChange && (
             <button
               onClick={() => setShowAddPhase(!showAddPhase)}
-              className={`p-1.5 rounded-md transition-colors ${showAddPhase ? "bg-violet-50 text-violet-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+              className={`p-1.5 rounded-md transition-colors ${showAddPhase ? "bg-emerald-50 text-emerald-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
               title="Add phase line"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -303,26 +303,26 @@ export function InteractiveChart({
       )}
 
       {showAddPhase && (
-        <div className="px-4 py-2 bg-violet-50/50 border-y border-violet-100 flex flex-wrap items-center gap-3">
-          <span className="text-xs font-medium text-violet-700">Add Phase Line:</span>
+        <div className="px-4 py-2 bg-emerald-50/50 border-y border-emerald-100 flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-emerald-700">Add Phase Line:</span>
           <input
             type="date"
             value={newPhaseDate}
             onChange={(e) => setNewPhaseDate(e.target.value)}
-            className="text-xs border border-violet-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-violet-300"
+            className="text-xs border border-emerald-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300"
           />
           <input
             type="text"
             value={newPhaseLabel}
             onChange={(e) => setNewPhaseLabel(e.target.value)}
             placeholder="Label (e.g., Med change, New BIP)"
-            className="text-xs border border-violet-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-violet-300 w-48"
+            className="text-xs border border-emerald-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-300 w-48"
             onKeyDown={(e) => e.key === "Enter" && addPhaseLine()}
           />
           <button
             onClick={addPhaseLine}
             disabled={!newPhaseDate || !newPhaseLabel}
-            className="text-xs px-2.5 py-1 bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="text-xs px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Add
           </button>

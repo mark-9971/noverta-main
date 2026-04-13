@@ -80,7 +80,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 const TYPE_COLORS: Record<string, string> = {
   physical_restraint: "bg-red-100 text-red-700",
-  seclusion: "bg-orange-100 text-orange-700",
+  seclusion: "bg-amber-100 text-amber-700",
   time_out: "bg-amber-100 text-amber-700",
 };
 const STATUS_LABELS: Record<string, string> = {
@@ -296,8 +296,8 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
           <SummaryCard
             label="Pending Signatures"
             value={summary.pendingSignatures || 0}
-            icon={<PenLine className="w-4 h-4 text-purple-400" />}
-            color={(summary.pendingSignatures || 0) > 0 ? "text-purple-600" : "text-gray-600"}
+            icon={<PenLine className="w-4 h-4 text-amber-400" />}
+            color={(summary.pendingSignatures || 0) > 0 ? "text-amber-600" : "text-gray-600"}
           />
           <SummaryCard
             label="Action Items Due"
@@ -309,8 +309,8 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
           <SummaryCard
             label="DESE Reports Due"
             value={summary.deseReportsPending}
-            icon={<Send className="w-4 h-4 text-purple-400" />}
-            color={summary.deseReportsPending > 0 ? "text-purple-600" : "text-gray-600"}
+            icon={<Send className="w-4 h-4 text-amber-400" />}
+            color={summary.deseReportsPending > 0 ? "text-amber-600" : "text-gray-600"}
           />
         </div>
       )}
@@ -366,8 +366,8 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
               <button key={inc.id} onClick={() => onDetail(inc.id)}
                 className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50/60 transition-colors text-left">
                 <div className="flex-shrink-0">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-orange-100" : "bg-amber-100"}`}>
-                    <Shield className={`w-5 h-5 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-orange-600" : "text-amber-600"}`} />
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-amber-100" : "bg-amber-50"}`}>
+                    <Shield className={`w-5 h-5 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-amber-700" : "text-amber-600"}`} />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -380,7 +380,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
                       {STATUS_LABELS[inc.status] || inc.status}
                     </span>
                     {inc.deseReportRequired && !inc.deseReportSentAt && (
-                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">DESE DUE</span>
+                      <span className="text-[10px] font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded">DESE DUE</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1 truncate">{inc.behaviorDescription}</p>
@@ -391,7 +391,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-2">
                   {inc.studentInjury && <span className="w-2 h-2 rounded-full bg-red-500" title="Student injury" />}
-                  {inc.staffInjury && <span className="w-2 h-2 rounded-full bg-orange-500" title="Staff injury" />}
+                  {inc.staffInjury && <span className="w-2 h-2 rounded-full bg-amber-500" title="Staff injury" />}
                   {!inc.parentVerbalNotification && (
                     <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
                       {hoursUntilDeadline(inc.incidentDate, inc.incidentTime) > 0
@@ -629,12 +629,12 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100/70 transition-colors">
+          <label className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100/70 transition-colors">
             <input type="checkbox" checked={form.bipInPlace} onChange={e => set("bipInPlace", e.target.checked)}
-              className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+              className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
             <div>
-              <span className="text-sm font-medium text-blue-800">Student has a Behavior Intervention Plan (BIP)</span>
-              <p className="text-xs text-blue-700">Check if the student's IEP includes a BIP</p>
+              <span className="text-sm font-medium text-emerald-800">Student has a Behavior Intervention Plan (BIP)</span>
+              <p className="text-xs text-emerald-700">Check if the student's IEP includes a BIP</p>
             </div>
           </label>
 
@@ -773,7 +773,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div className="flex flex-wrap gap-2">
               {(staff || []).filter(s => String(s.id) !== form.primaryStaffId && !form.additionalStaffIds.includes(String(s.id))).map((s: Staff) => (
                 <button key={s.id} type="button" onClick={() => toggleStaffMulti("observerStaffIds", String(s.id))}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.observerStaffIds.includes(String(s.id)) ? "bg-blue-100 border-blue-300 text-blue-700" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.observerStaffIds.includes(String(s.id)) ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
                   {s.firstName} {s.lastName}
                 </button>
               ))}
@@ -906,9 +906,9 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           </div>
 
           {(form.studentInjury || form.staffInjury) && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-purple-800 flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> DESE Injury Reporting Required</p>
-              <p className="text-xs text-purple-700 mt-1">Per 603 CMR 46.06(7), when a restraint results in injury, a copy of this report must be sent to DESE within 3 school working days, along with the record of restraints for the prior 30 days.</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-red-800 flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> DESE Injury Reporting Required</p>
+              <p className="text-xs text-red-700 mt-1">Per 603 CMR 46.06(7), when a restraint results in injury, a copy of this report must be sent to DESE within 3 school working days, along with the record of restraints for the prior 30 days.</p>
             </div>
           )}
 
@@ -937,12 +937,12 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
         <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
           <h2 className="text-base font-semibold text-gray-800">Post-Incident Debrief & Submission</h2>
 
-          <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100/70 transition-colors">
+          <label className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100/70 transition-colors">
             <input type="checkbox" checked={form.debriefConducted} onChange={e => set("debriefConducted", e.target.checked)}
-              className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+              className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
             <div>
-              <span className="text-sm font-medium text-blue-800">Post-incident debrief conducted</span>
-              <p className="text-xs text-blue-700">Staff debrief to review what happened and prevent future incidents</p>
+              <span className="text-sm font-medium text-emerald-800">Post-incident debrief conducted</span>
+              <p className="text-xs text-emerald-700">Staff debrief to review what happened and prevent future incidents</p>
             </div>
           </label>
           {form.debriefConducted && (
@@ -973,7 +973,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
               {form.restraintType && <div><span className="text-gray-500">Restraint:</span> <span className="font-medium text-gray-800">{RESTRAINT_TYPES[form.restraintType]}</span></div>}
               {form.bodyPosition && <div><span className="text-gray-500">Body Position:</span> <span className="font-medium text-gray-800">{BODY_POSITIONS[form.bodyPosition]}</span></div>}
               {form.antecedentCategory && <div><span className="text-gray-500">Antecedent:</span> <span className="font-medium text-gray-800">{ANTECEDENT_CATEGORIES[form.antecedentCategory]}</span></div>}
-              {form.bipInPlace && <div className="col-span-2"><span className="text-blue-600 font-medium">BIP in place</span></div>}
+              {form.bipInPlace && <div className="col-span-2"><span className="text-emerald-600 font-medium">BIP in place</span></div>}
             </div>
             {form.deescalationStrategies.length > 0 && (
               <div><span className="text-gray-500">De-escalation:</span> <p className="text-gray-700 mt-1">{form.deescalationStrategies.join(", ")}</p></div>
@@ -1200,7 +1200,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
 
             {(incident.studentMoved || incident.roomCleared || incident.emergencyServicesCalled || incident.physicalEscortOnly) && (
               <div className="flex gap-2 flex-wrap">
-                {incident.physicalEscortOnly && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">Physical Escort Only</span>}
+                {incident.physicalEscortOnly && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full font-medium">Physical Escort Only</span>}
                 {incident.studentMoved && <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Student Moved{incident.studentMovedTo ? `: ${incident.studentMovedTo}` : ""}</span>}
                 {incident.roomCleared && <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">Room Cleared</span>}
                 {incident.emergencyServicesCalled && <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">911 Called</span>}
@@ -1262,8 +1262,8 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                 </div>
               ))}
               {incident.observerStaff?.map((s: any) => (
-                <div key={s.id} className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
-                  <Eye className="w-4 h-4 text-blue-500" />
+                <div key={s.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                  <Eye className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-800">{s.firstName} {s.lastName}</p>
                     <p className="text-xs text-gray-500">{s.title || s.role} — Observer</p>
@@ -1308,8 +1308,8 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
           {(incident.parentComment || incident.studentComment || incident.parentCommentOpportunityGiven) && (
             <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-3">
               <h3 className="text-sm font-semibold text-gray-800">Parent/Student Comments — 603 CMR 46.06(3)</h3>
-              {incident.parentComment && <div className="bg-blue-50 rounded-lg p-3"><p className="text-xs font-medium text-blue-700">Parent Comment</p><p className="text-sm text-blue-800 mt-1">{incident.parentComment}</p></div>}
-              {incident.studentComment && <div className="bg-blue-50 rounded-lg p-3"><p className="text-xs font-medium text-blue-700">Student Comment</p><p className="text-sm text-blue-800 mt-1">{incident.studentComment}</p></div>}
+              {incident.parentComment && <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs font-medium text-gray-700">Parent Comment</p><p className="text-sm text-gray-800 mt-1">{incident.parentComment}</p></div>}
+              {incident.studentComment && <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs font-medium text-gray-700">Student Comment</p><p className="text-sm text-gray-800 mt-1">{incident.studentComment}</p></div>}
               {incident.parentCommentOpportunityGiven && !incident.parentComment && !incident.studentComment && (
                 <p className="text-xs text-gray-500">Comment opportunity was provided; no comments were submitted.</p>
               )}
@@ -1444,21 +1444,21 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             />
 
             {!incident.parentCommentOpportunityGiven && !showComment && (
-              <button onClick={() => setShowComment(true)} className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-xs font-medium hover:bg-blue-600 flex items-center justify-center gap-1.5">
+              <button onClick={() => setShowComment(true)} className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5">
                 <FileText className="w-3.5 h-3.5" /> Record Comments
               </button>
             )}
             {showComment && !incident.parentCommentOpportunityGiven && (
-              <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                 <textarea value={commentForm.parentComment} onChange={e => setCommentForm(f => ({ ...f, parentComment: e.target.value }))}
-                  placeholder="Parent comment (leave blank if none)..." rows={2} className="w-full px-2 py-1.5 border border-blue-200 rounded text-xs bg-white resize-none" />
+                  placeholder="Parent comment (leave blank if none)..." rows={2} className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-white resize-none" />
                 <textarea value={commentForm.studentComment} onChange={e => setCommentForm(f => ({ ...f, studentComment: e.target.value }))}
-                  placeholder="Student comment (leave blank if none)..." rows={2} className="w-full px-2 py-1.5 border border-blue-200 rounded text-xs bg-white resize-none" />
+                  placeholder="Student comment (leave blank if none)..." rows={2} className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-white resize-none" />
                 <div className="flex gap-2">
                   <button onClick={() => setShowComment(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                   <button onClick={() => commentMutation.mutate({ parentComment: commentForm.parentComment || undefined, studentComment: commentForm.studentComment || undefined })}
                     disabled={commentMutation.isPending}
-                    className="flex-1 px-2 py-1.5 text-xs bg-blue-600 text-white rounded disabled:opacity-50">
+                    className="flex-1 px-2 py-1.5 text-xs bg-emerald-600 text-white rounded disabled:opacity-50">
                     {commentMutation.isPending ? "..." : "Save"}
                   </button>
                 </div>
@@ -1519,7 +1519,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                 />
                 {!incident.deseReportSentAt && (
                   <button onClick={() => deseMutation.mutate()} disabled={deseMutation.isPending}
-                    className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 flex items-center justify-center gap-1.5 disabled:opacity-50">
+                    className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5 disabled:opacity-50">
                     <Send className="w-3.5 h-3.5" /> {deseMutation.isPending ? "..." : "Mark DESE Report Sent"}
                   </button>
                 )}

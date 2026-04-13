@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 
 const roles: { value: UserRole; label: string; icon: any; color: string; activeClass: string }[] = [
   { value: "admin", label: "Admin", icon: Shield, color: "bg-emerald-800", activeClass: "bg-emerald-800 text-white shadow-sm" },
-  { value: "sped_teacher", label: "SPED Teacher", icon: Brain, color: "bg-purple-600", activeClass: "bg-purple-600 text-white shadow-sm" },
+  { value: "sped_teacher", label: "SPED Teacher", icon: Brain, color: "bg-emerald-700", activeClass: "bg-emerald-700 text-white shadow-sm" },
   { value: "gen_ed_teacher", label: "Gen Ed Teacher", icon: BookOpen, color: "bg-emerald-600", activeClass: "bg-emerald-600 text-white shadow-sm" },
-  { value: "sped_student", label: "SPED Student", icon: User, color: "bg-violet-600", activeClass: "bg-violet-600 text-white shadow-sm" },
-  { value: "gen_ed_student", label: "Gen Ed Student", icon: GraduationCap, color: "bg-blue-600", activeClass: "bg-blue-600 text-white shadow-sm" },
+  { value: "sped_student", label: "SPED Student", icon: User, color: "bg-emerald-600", activeClass: "bg-emerald-600 text-white shadow-sm" },
+  { value: "gen_ed_student", label: "Gen Ed Student", icon: GraduationCap, color: "bg-gray-600", activeClass: "bg-gray-600 text-white shadow-sm" },
 ];
 
 export function RoleSwitcher() {

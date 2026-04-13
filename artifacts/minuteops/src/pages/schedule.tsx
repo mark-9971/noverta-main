@@ -14,13 +14,13 @@ const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "1
 
 const BLOCK_COLORS = [
   "bg-emerald-50 text-emerald-900 border-emerald-200/60",
-  "bg-blue-50 text-blue-800 border-blue-200/60",
-  "bg-emerald-50 text-emerald-800 border-emerald-200/60",
-  "bg-amber-50 text-amber-800 border-amber-200/60",
-  "bg-pink-50 text-pink-800 border-pink-200/60",
-  "bg-purple-50 text-purple-800 border-purple-200/60",
-  "bg-teal-50 text-teal-800 border-teal-200/60",
-  "bg-orange-50 text-orange-800 border-orange-200/60",
+  "bg-gray-50 text-gray-800 border-gray-200/60",
+  "bg-emerald-50/60 text-emerald-800 border-emerald-200/40",
+  "bg-gray-100 text-gray-700 border-gray-200/60",
+  "bg-emerald-50/40 text-emerald-700 border-emerald-200/40",
+  "bg-gray-50 text-gray-700 border-gray-200/50",
+  "bg-emerald-100/50 text-emerald-800 border-emerald-200/50",
+  "bg-gray-100/60 text-gray-700 border-gray-200/40",
 ];
 
 export default function Schedule() {

@@ -378,7 +378,7 @@ export default function StudentDetail() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-rose-500" />
+                <Activity className="w-4 h-4 text-red-500" />
                 Behavior Data
               </CardTitle>
               <span className="text-xs text-gray-400">{behaviorTargets.length} active target{behaviorTargets.length !== 1 ? "s" : ""}</span>
@@ -412,7 +412,7 @@ export default function StudentDetail() {
                           <div className="flex items-center gap-2">
                             <p className="text-[13px] font-semibold text-gray-700">{bt.name}</p>
                             <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                              bt.targetDirection === "decrease" ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"
+                              bt.targetDirection === "decrease" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
                             }`}>
                               {bt.targetDirection === "decrease" ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
                               {bt.targetDirection}
@@ -609,7 +609,7 @@ export default function StudentDetail() {
                               {detail.behaviorData?.length > 0 && (
                                 <div>
                                   <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                    <Activity className="w-3.5 h-3.5 text-rose-500" /> Behavior Data ({detail.behaviorData.length})
+                                    <Activity className="w-3.5 h-3.5 text-red-500" /> Behavior Data ({detail.behaviorData.length})
                                   </h5>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {detail.behaviorData.map((bd: any) => (
@@ -704,12 +704,12 @@ export default function StudentDetail() {
             <div className="space-y-2">
               {protectiveData.incidents.slice(0, 5).map((inc: any) => (
                 <div key={inc.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-orange-100" : "bg-amber-100"}`}>
-                    <Shield className={`w-4 h-4 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-orange-600" : "text-amber-600"}`} />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${inc.incidentType === "physical_restraint" ? "bg-red-50" : inc.incidentType === "seclusion" ? "bg-amber-50" : "bg-gray-100"}`}>
+                    <Shield className={`w-4 h-4 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-amber-600" : "text-gray-600"}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.incidentType === "physical_restraint" ? "bg-red-100 text-red-700" : inc.incidentType === "seclusion" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.incidentType === "physical_restraint" ? "bg-red-50 text-red-700" : inc.incidentType === "seclusion" ? "bg-amber-50 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
                         {inc.incidentType === "physical_restraint" ? "Restraint" : inc.incidentType === "seclusion" ? "Seclusion" : "Time-Out"}
                       </span>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.status === "pending_review" ? "bg-amber-100 text-amber-700" : inc.status === "reviewed" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>

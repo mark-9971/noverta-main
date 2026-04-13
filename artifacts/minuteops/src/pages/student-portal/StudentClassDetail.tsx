@@ -42,7 +42,7 @@ export default function StudentClassDetail() {
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between">
         <div>
-          <Link href="/portal/classes" className="text-xs text-blue-500 hover:underline">← Back to Classes</Link>
+          <Link href="/portal/classes" className="text-xs text-emerald-600 hover:underline">← Back to Classes</Link>
           <h1 className="text-2xl font-bold text-gray-800 mt-1">{cls.name}</h1>
           <p className="text-gray-500 text-sm">{cls.teacherFirstName} {cls.teacherLastName} · Period {cls.period} · Room {cls.room}</p>
         </div>
@@ -66,9 +66,9 @@ export default function StudentClassDetail() {
             <p className="text-center text-gray-400 py-8">No assignments yet</p>
           ) : assignments.map(a => (
             <Link key={a.submissionId} href={`/portal/assignments/${a.assignmentId}`} className="block">
-              <div className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-blue-200 hover:bg-blue-50/20 transition-all group">
+              <div className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-emerald-200 hover:bg-emerald-50/20 transition-all group">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 group-hover:text-blue-700">{a.title}</p>
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">{a.title}</p>
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Due {a.dueDate}</span>
                     <span>{a.pointsPossible} pts</span>
@@ -140,7 +140,7 @@ export default function StudentClassDetail() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "submitted") return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Submitted</Badge>;
+  if (status === "submitted") return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 text-[10px]">Submitted</Badge>;
   if (status === "missing") return <Badge variant="destructive" className="text-[10px]">Missing</Badge>;
   return <Badge variant="outline" className="text-[10px]">To Do</Badge>;
 }
@@ -148,16 +148,16 @@ function StatusBadge({ status }: { status: string }) {
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
-  if (g.startsWith("D")) return "text-orange-600";
+  if (g.startsWith("D")) return "text-amber-700";
   return "text-red-600";
 }
 
 function pctColor(pct: number) {
   if (pct >= 90) return "text-emerald-600";
-  if (pct >= 80) return "text-blue-600";
+  if (pct >= 80) return "text-gray-700";
   if (pct >= 70) return "text-amber-600";
-  if (pct >= 60) return "text-orange-600";
+  if (pct >= 60) return "text-amber-700";
   return "text-red-600";
 }

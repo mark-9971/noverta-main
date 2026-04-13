@@ -12,9 +12,9 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 const SEVERITY_OPTIONS = [
-  { value: "low", label: "Low", color: "bg-blue-100 text-blue-700" },
-  { value: "moderate", label: "Moderate", color: "bg-amber-100 text-amber-700" },
-  { value: "high", label: "High", color: "bg-orange-100 text-orange-700" },
+  { value: "low", label: "Low", color: "bg-gray-100 text-gray-700" },
+  { value: "moderate", label: "Moderate", color: "bg-amber-50 text-amber-700" },
+  { value: "high", label: "High", color: "bg-amber-100 text-amber-700" },
   { value: "critical", label: "Critical", color: "bg-red-100 text-red-700" },
 ];
 
@@ -205,7 +205,7 @@ function StudentCard({ student, expanded, onToggle, onLogObservation }: {
       >
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
-            isSped ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"
+            isSped ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
           }`}>
             {student.firstName[0]}{student.lastName[0]}
           </div>
@@ -213,7 +213,7 @@ function StudentCard({ student, expanded, onToggle, onLogObservation }: {
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-800">{student.firstName} {student.lastName}</span>
               {isSped && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium">IEP</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">IEP</span>
               )}
               <span className="text-[10px] text-gray-400">Grade {student.grade}</span>
             </div>
@@ -304,9 +304,9 @@ function StudentCard({ student, expanded, onToggle, onLogObservation }: {
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Behavior Targets (View Only)</h4>
               <div className="flex flex-wrap gap-1.5">
                 {student.behaviorTargets.map(bt => (
-                  <div key={bt.id} className="text-[10px] bg-violet-50 rounded-lg px-2.5 py-1.5 border border-violet-100">
-                    <span className="font-medium text-violet-700">{bt.name}</span>
-                    <span className="text-violet-500 ml-1">({bt.measurementType}, {bt.targetDirection})</span>
+                  <div key={bt.id} className="text-[10px] bg-emerald-50 rounded-lg px-2.5 py-1.5 border border-emerald-100">
+                    <span className="font-medium text-emerald-700">{bt.name}</span>
+                    <span className="text-emerald-500 ml-1">({bt.measurementType}, {bt.targetDirection})</span>
                   </div>
                 ))}
               </div>

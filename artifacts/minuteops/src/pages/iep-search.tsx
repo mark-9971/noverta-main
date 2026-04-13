@@ -128,14 +128,14 @@ export default function IepSearch() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-4 h-4 text-violet-600" />
+                  <Users className="w-4 h-4 text-emerald-600" />
                   <h3 className="text-sm font-semibold text-gray-600">Students ({results.students.length})</h3>
                 </div>
                 <div className="space-y-2">
                   {results.students.map((s: any) => (
                     <Link key={s.id} href={`/students/${s.id}`}>
                       <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group">
-                        <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-[11px] font-bold text-violet-600">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-[11px] font-bold text-emerald-600">
                           {(s.firstName?.[0] || "")}{(s.lastName?.[0] || "")}
                         </div>
                         <div className="flex-1 min-w-0">

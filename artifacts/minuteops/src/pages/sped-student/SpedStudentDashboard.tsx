@@ -9,12 +9,12 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 function subjectColor(name: string) {
   const n = name.toLowerCase();
-  if (n.includes("speech") || n.includes("language")) return "bg-blue-100 text-blue-700";
-  if (n.includes("aba") || n.includes("behavior")) return "bg-purple-100 text-purple-700";
-  if (n.includes("occupational") || n.includes("ot")) return "bg-amber-100 text-amber-700";
-  if (n.includes("physical") || n.includes("pt")) return "bg-green-100 text-green-700";
-  if (n.includes("para") || n.includes("support")) return "bg-pink-100 text-pink-700";
-  if (n.includes("counseling")) return "bg-teal-100 text-teal-700";
+  if (n.includes("speech") || n.includes("language")) return "bg-gray-100 text-gray-700";
+  if (n.includes("aba") || n.includes("behavior")) return "bg-emerald-50 text-emerald-700";
+  if (n.includes("occupational") || n.includes("ot")) return "bg-amber-50 text-amber-700";
+  if (n.includes("physical") || n.includes("pt")) return "bg-emerald-100 text-emerald-700";
+  if (n.includes("para") || n.includes("support")) return "bg-gray-50 text-gray-600";
+  if (n.includes("counseling")) return "bg-gray-100 text-gray-700";
   return "bg-gray-100 text-gray-600";
 }
 
@@ -76,9 +76,9 @@ export default function SpedStudentDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "My Services", value: services.length, icon: Brain, color: "bg-violet-50 text-violet-600" },
-          { label: "Sessions Today", value: completedToday, icon: CheckCircle, color: "bg-green-50 text-green-600" },
-          { label: "Recent Sessions", value: recentCompleted.length, icon: Clock, color: "bg-blue-50 text-blue-600" },
+          { label: "My Services", value: services.length, icon: Brain, color: "bg-emerald-50 text-emerald-600" },
+          { label: "Sessions Today", value: completedToday, icon: CheckCircle, color: "bg-emerald-100 text-emerald-700" },
+          { label: "Recent Sessions", value: recentCompleted.length, icon: Clock, color: "bg-gray-100 text-gray-600" },
           { label: "IEP Goals", value: services.length, icon: Star, color: "bg-amber-50 text-amber-600" },
         ].map(m => (
           <Card key={m.label}>
@@ -99,7 +99,7 @@ export default function SpedStudentDashboard() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-gray-600">My Support Services</CardTitle>
-            <Link href="/sped-portal/services" className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1">
+            <Link href="/sped-portal/services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
               View all <ChevronRight className="w-3 h-3" />
             </Link>
           </CardHeader>
@@ -124,19 +124,19 @@ export default function SpedStudentDashboard() {
         <Card>
           <CardHeader className="pb-2 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-gray-600">Recent Sessions</CardTitle>
-            <Link href="/sped-portal/sessions" className="text-xs text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1">
+            <Link href="/sped-portal/sessions" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
               View all <ChevronRight className="w-3 h-3" />
             </Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {sessions.slice(0, 4).map((sess: any) => (
               <div key={sess.id} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${sess.status === "completed" ? "bg-green-500" : "bg-amber-400"}`} />
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${sess.status === "completed" ? "bg-emerald-500" : "bg-amber-400"}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-gray-700 truncate">{sess.serviceTypeName}</p>
                   <p className="text-[11px] text-gray-400">{sess.sessionDate} · {sess.durationMinutes}min · {sess.staffFirst} {sess.staffLast}</p>
                 </div>
-                <Badge variant="outline" className={`text-[10px] ${sess.status === "completed" ? "text-green-600 border-green-200" : "text-amber-600 border-amber-200"}`}>
+                <Badge variant="outline" className={`text-[10px] ${sess.status === "completed" ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}`}>
                   {sess.status}
                 </Badge>
               </div>
@@ -148,15 +148,15 @@ export default function SpedStudentDashboard() {
         </Card>
       </div>
 
-      <Card className="border-violet-100 bg-violet-50/30">
+      <Card className="border-emerald-100 bg-emerald-50/30">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-violet-600" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-violet-800">Your IEP Support Team is here for you</p>
-              <p className="text-xs text-violet-600 mt-0.5">
+              <p className="text-sm font-semibold text-emerald-800">Your IEP Support Team is here for you</p>
+              <p className="text-xs text-emerald-600 mt-0.5">
                 You have {services.length} active support {services.length === 1 ? "service" : "services"} working to help you succeed.
               </p>
             </div>
@@ -186,8 +186,8 @@ function SelectSpedStudentPrompt() {
     <Card className="max-w-lg mx-auto mt-8">
       <CardHeader>
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
-            <Brain className="w-4 h-4 text-violet-600" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Brain className="w-4 h-4 text-emerald-600" />
           </div>
           <CardTitle>Select a Student</CardTitle>
         </div>
@@ -199,16 +199,16 @@ function SelectSpedStudentPrompt() {
           placeholder="Search students..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         <div className="max-h-72 overflow-y-auto space-y-1">
           {filtered.map(s => (
             <button
               key={s.id}
               onClick={() => setStudentId(s.id, `${s.firstName} ${s.lastName}`)}
-              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-violet-50 transition-colors flex items-center gap-3"
+              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-3"
             >
-              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 text-xs font-bold">
+              <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs font-bold">
                 {s.firstName[0]}{s.lastName[0]}
               </div>
               <div>

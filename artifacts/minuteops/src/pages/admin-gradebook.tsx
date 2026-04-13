@@ -76,7 +76,7 @@ export default function AdminGradebook() {
                     <td className="py-2 px-3 sticky left-0 bg-white">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-700">{s.lastName}, {s.firstName}</span>
-                        {s.hasIep && <span className="w-2 h-2 rounded-full bg-purple-400" title="Has IEP" />}
+                        {s.hasIep && <span className="w-2 h-2 rounded-full bg-emerald-400" title="Has IEP" />}
                       </div>
                     </td>
                     {gradebook.assignments.map((a: any) => {
@@ -88,7 +88,7 @@ export default function AdminGradebook() {
                               {grade.pointsEarned}
                             </span>
                           ) : grade?.status === "submitted" ? (
-                            <span className="text-blue-400">●</span>
+                            <span className="text-emerald-400">●</span>
                           ) : grade?.status === "missing" ? (
                             <span className="text-red-400">M</span>
                           ) : (
@@ -121,16 +121,16 @@ export default function AdminGradebook() {
 function cellColor(earned: number, possible: number) {
   const pct = possible > 0 ? (earned / possible) * 100 : 0;
   if (pct >= 90) return "text-emerald-600";
-  if (pct >= 80) return "text-blue-600";
+  if (pct >= 80) return "text-gray-700";
   if (pct >= 70) return "text-amber-600";
-  if (pct >= 60) return "text-orange-600";
+  if (pct >= 60) return "text-amber-700";
   return "text-red-600";
 }
 
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
   return "text-red-600";
 }

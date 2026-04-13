@@ -8,13 +8,13 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 function serviceColor(name: string) {
   const n = (name || "").toLowerCase();
-  if (n.includes("speech")) return { ring: "border-blue-200", badge: "bg-blue-100 text-blue-700", bar: "bg-blue-500", header: "text-blue-700" };
-  if (n.includes("aba") || n.includes("behavior")) return { ring: "border-purple-200", badge: "bg-purple-100 text-purple-700", bar: "bg-purple-500", header: "text-purple-700" };
-  if (n.includes("occupational")) return { ring: "border-amber-200", badge: "bg-amber-100 text-amber-700", bar: "bg-amber-500", header: "text-amber-700" };
-  if (n.includes("physical")) return { ring: "border-green-200", badge: "bg-green-100 text-green-700", bar: "bg-green-500", header: "text-green-700" };
-  if (n.includes("para")) return { ring: "border-pink-200", badge: "bg-pink-100 text-pink-700", bar: "bg-pink-500", header: "text-pink-700" };
-  if (n.includes("counseling")) return { ring: "border-teal-200", badge: "bg-teal-100 text-teal-700", bar: "bg-teal-500", header: "text-teal-700" };
-  return { ring: "border-violet-200", badge: "bg-violet-100 text-violet-700", bar: "bg-violet-500", header: "text-violet-700" };
+  if (n.includes("speech")) return { ring: "border-gray-200", badge: "bg-gray-100 text-gray-700", bar: "bg-gray-400", header: "text-gray-700" };
+  if (n.includes("aba") || n.includes("behavior")) return { ring: "border-emerald-200", badge: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500", header: "text-emerald-700" };
+  if (n.includes("occupational")) return { ring: "border-amber-200", badge: "bg-amber-50 text-amber-700", bar: "bg-amber-500", header: "text-amber-700" };
+  if (n.includes("physical")) return { ring: "border-emerald-200", badge: "bg-emerald-100 text-emerald-700", bar: "bg-emerald-400", header: "text-emerald-700" };
+  if (n.includes("para")) return { ring: "border-gray-200", badge: "bg-gray-50 text-gray-600", bar: "bg-gray-300", header: "text-gray-700" };
+  if (n.includes("counseling")) return { ring: "border-gray-200", badge: "bg-gray-100 text-gray-700", bar: "bg-gray-400", header: "text-gray-700" };
+  return { ring: "border-emerald-200", badge: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500", header: "text-emerald-700" };
 }
 
 export default function SpedStudentServices() {
@@ -69,7 +69,7 @@ export default function SpedStudentServices() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <ClipboardList className="w-6 h-6 text-violet-500" />
+          <ClipboardList className="w-6 h-6 text-emerald-600" />
           My Support Services
         </h1>
         <p className="text-gray-500 mt-1">
@@ -98,7 +98,7 @@ export default function SpedStudentServices() {
                     </div>
                     <div className="flex items-center gap-1">
                       {isOnTrack ? (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <CheckCircle className="w-4 h-4 text-emerald-500" />
                       ) : (
                         <AlertCircle className="w-4 h-4 text-amber-500" />
                       )}
@@ -144,7 +144,7 @@ export default function SpedStudentServices() {
 
       <Card className="bg-gray-50 border-gray-200">
         <CardContent className="p-4 flex items-start gap-3">
-          <TrendingUp className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
+          <TrendingUp className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-gray-700">How services are tracked</p>
             <p className="text-xs text-gray-500 mt-0.5">

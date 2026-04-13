@@ -48,9 +48,9 @@ export default function StudentDashboard() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={BookOpen} label="Classes" value={classes.length} color="blue" />
+        <StatCard icon={BookOpen} label="Classes" value={classes.length} color="gray" />
         <StatCard icon={Award} label="GPA" value={overall.gpa?.toFixed(1) || "—"} color="emerald" />
-        <StatCard icon={TrendingUp} label="Overall" value={overall.percentage ? `${overall.percentage}%` : "—"} color="violet" />
+        <StatCard icon={TrendingUp} label="Overall" value={overall.percentage ? `${overall.percentage}%` : "—"} color="muted" />
         <StatCard icon={Clock} label="Due Soon" value={upcoming.filter((a: any) => a.status !== "graded").length} color="amber" />
       </div>
 
@@ -107,7 +107,7 @@ export default function StudentDashboard() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-blue-500" />
+            <BookOpen className="w-4 h-4 text-gray-500" />
             My Classes
           </CardTitle>
         </CardHeader>
@@ -116,10 +116,10 @@ export default function StudentDashboard() {
             {classes.map((c: any) => {
               const classGrade = grades?.classes?.find((g: any) => g.classId === c.classId);
               return (
-                <Link key={c.classId} href={`/portal/classes/${c.classId}`} className="p-4 border rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
+                <Link key={c.classId} href={`/portal/classes/${c.classId}`} className="p-4 border rounded-xl hover:border-emerald-200 hover:bg-emerald-50/30 transition-all group">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-gray-700 group-hover:text-blue-700">{c.className}</p>
+                      <p className="text-sm font-semibold text-gray-700 group-hover:text-emerald-700">{c.className}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{c.teacherFirstName} {c.teacherLastName}</p>
                       <p className="text-xs text-gray-400">Period {c.period}</p>
                     </div>
@@ -141,9 +141,9 @@ export default function StudentDashboard() {
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   const colors: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-600",
+    gray: "bg-gray-100 text-gray-600",
     emerald: "bg-emerald-50 text-emerald-600",
-    violet: "bg-violet-50 text-violet-600",
+    muted: "bg-gray-50 text-gray-500",
     amber: "bg-amber-50 text-amber-600",
   };
   return (
@@ -165,7 +165,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "graded") return <Badge variant="default" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">Graded</Badge>;
-  if (status === "submitted") return <Badge variant="default" className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Submitted</Badge>;
+  if (status === "submitted") return <Badge variant="default" className="bg-gray-100 text-gray-700 hover:bg-gray-100 text-[10px]">Submitted</Badge>;
   if (status === "missing") return <Badge variant="destructive" className="text-[10px]">Missing</Badge>;
   return <Badge variant="outline" className="text-[10px]">To Do</Badge>;
 }
@@ -173,9 +173,9 @@ function StatusBadge({ status }: { status: string }) {
 function gradeColor(grade: string): string {
   if (!grade) return "text-gray-400";
   if (grade.startsWith("A")) return "text-emerald-600";
-  if (grade.startsWith("B")) return "text-blue-600";
+  if (grade.startsWith("B")) return "text-gray-700";
   if (grade.startsWith("C")) return "text-amber-600";
-  if (grade.startsWith("D")) return "text-orange-600";
+  if (grade.startsWith("D")) return "text-amber-700";
   return "text-red-600";
 }
 
@@ -204,16 +204,16 @@ function SelectStudentPrompt() {
           placeholder="Search students..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
         <div className="max-h-64 overflow-y-auto space-y-1">
           {filtered.map(s => (
             <button
               key={s.id}
               onClick={() => setStudentId(s.id, `${s.firstName} ${s.lastName}`)}
-              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-3"
+              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-3"
             >
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-bold">
                 {s.firstName[0]}{s.lastName[0]}
               </div>
               <div>

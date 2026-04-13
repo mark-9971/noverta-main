@@ -62,7 +62,7 @@ export default function StudentAssignmentDetail() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
       <div>
-        <Link href="/portal/assignments" className="text-xs text-blue-500 hover:underline">← Back to Assignments</Link>
+        <Link href="/portal/assignments" className="text-xs text-emerald-600 hover:underline">← Back to Assignments</Link>
         <h1 className="text-2xl font-bold text-gray-800 mt-2">{assignment.title}</h1>
         <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
           <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Due {assignment.dueDate}</span>
@@ -119,12 +119,12 @@ export default function StudentAssignmentDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             {isSubmitted ? (
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2 text-blue-700 text-sm font-medium">
+              <div className="p-4 bg-emerald-50 rounded-lg">
+                <div className="flex items-center gap-2 text-emerald-700 text-sm font-medium">
                   <CheckCircle className="w-4 h-4" />
                   Submitted
                 </div>
-                <p className="text-xs text-blue-500 mt-1">Your work has been submitted and is waiting to be graded.</p>
+                <p className="text-xs text-emerald-600 mt-1">Your work has been submitted and is waiting to be graded.</p>
               </div>
             ) : (
               <>
@@ -132,10 +132,10 @@ export default function StudentAssignmentDetail() {
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   placeholder="Type or paste your work here..."
-                  className="w-full min-h-[150px] px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full min-h-[150px] px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
                 />
                 <div className="flex justify-end">
-                  <Button onClick={handleSubmit} disabled={submitting} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={handleSubmit} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
                     {submitting ? "Submitting..." : "Submit Assignment"}
                   </Button>
                 </div>
@@ -151,7 +151,7 @@ export default function StudentAssignmentDetail() {
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
   return "text-red-600";
 }

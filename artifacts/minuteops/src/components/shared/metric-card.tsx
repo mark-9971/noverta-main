@@ -26,7 +26,7 @@ export function MetricCard({ title, value, icon, description, trend, className }
         {(description || trend) && (
           <div className="flex items-center mt-1 text-xs text-muted-foreground">
             {trend && (
-              <span className={cn("mr-1 font-medium", trend.isPositive ? "text-green-600" : "text-red-600")}>
+              <span className={cn("mr-1 font-medium", trend.isPositive ? "text-emerald-600" : "text-red-600")}>
                 {trend.isPositive ? "+" : ""}{trend.value}%
               </span>
             )}

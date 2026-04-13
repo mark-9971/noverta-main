@@ -37,9 +37,9 @@ export default function TeacherDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={BookOpen} label="Classes" value={classes.length} color="emerald" />
-        <StatCard icon={Users} label="Students" value={totalStudents} color="blue" />
+        <StatCard icon={Users} label="Students" value={totalStudents} color="gray" />
         <StatCard icon={Inbox} label="To Grade" value={pending} color="amber" />
-        <StatCard icon={Clock} label="Recent" value={recent.length} color="violet" />
+        <StatCard icon={Clock} label="Recent" value={recent.length} color="muted" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -87,14 +87,14 @@ export default function TeacherDashboard() {
               <p className="text-sm text-gray-400 py-4 text-center">All caught up!</p>
             ) : recent.map((s: any) => (
               <div key={s.submissionId} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-bold">
                   {s.studentFirstName[0]}{s.studentLastName[0]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-700">{s.studentFirstName} {s.studentLastName}</p>
                   <p className="text-xs text-gray-400 truncate">{s.assignmentTitle} · {s.className}</p>
                 </div>
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Review</Badge>
+                <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 text-[10px]">Review</Badge>
               </div>
             ))}
           </CardContent>
@@ -107,8 +107,8 @@ export default function TeacherDashboard() {
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   const colors: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600",
-    blue: "bg-blue-50 text-blue-600",
-    violet: "bg-violet-50 text-violet-600",
+    gray: "bg-gray-100 text-gray-600",
+    muted: "bg-gray-50 text-gray-500",
     amber: "bg-amber-50 text-amber-600",
   };
   return (

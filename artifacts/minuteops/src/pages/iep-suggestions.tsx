@@ -44,15 +44,15 @@ interface StudentSuggestions {
 type Category = "behaviors" | "dtt" | "taskAnalyses" | "academicPrograms" | "relatedServices";
 
 const CATEGORY_META: Record<Category, { label: string; icon: any; color: string; bgColor: string; description: string }> = {
-  behaviors: { label: "Behaviors to Track", icon: AlertTriangle, color: "text-rose-600", bgColor: "bg-rose-50", description: "Behaviors to monitor and track based on IEP behavioral goals" },
-  dtt: { label: "Discrete Trial Training (DTT)", icon: Target, color: "text-blue-600", bgColor: "bg-blue-50", description: "Structured teaching programs using SD-Response-Consequence format" },
+  behaviors: { label: "Behaviors to Track", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-50", description: "Behaviors to monitor and track based on IEP behavioral goals" },
+  dtt: { label: "Discrete Trial Training (DTT)", icon: Target, color: "text-gray-600", bgColor: "bg-gray-50", description: "Structured teaching programs using SD-Response-Consequence format" },
   taskAnalyses: { label: "Task Analyses (TA)", icon: ListChecks, color: "text-amber-600", bgColor: "bg-amber-50", description: "Multi-step functional skills broken into teachable components" },
   academicPrograms: { label: "Academic Programs", icon: BookOpen, color: "text-emerald-600", bgColor: "bg-emerald-50", description: "Academic skill targets for reading, math, and study skills" },
-  relatedServices: { label: "Related Service Programs", icon: Stethoscope, color: "text-purple-600", bgColor: "bg-purple-50", description: "Therapy and support programs aligned with mandated services" },
+  relatedServices: { label: "Related Service Programs", icon: Stethoscope, color: "text-emerald-600", bgColor: "bg-emerald-50", description: "Therapy and support programs aligned with mandated services" },
 };
 
 function RelevanceBadge({ score }: { score: number }) {
-  if (score >= 5) return <Badge className="bg-green-100 text-green-700 text-[10px]">High Match</Badge>;
+  if (score >= 5) return <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">High Match</Badge>;
   if (score >= 3) return <Badge className="bg-amber-100 text-amber-700 text-[10px]">Good Match</Badge>;
   return <Badge className="bg-gray-100 text-gray-600 text-[10px]">Possible</Badge>;
 }
@@ -178,8 +178,8 @@ export default function IepSuggestions() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "IEP Goal Areas", value: detail.iepGoalAreas.length, color: "bg-emerald-50 text-emerald-800" },
-            { label: "Active Services", value: detail.serviceTypes.length, color: "bg-blue-50 text-blue-700" },
-            { label: "Existing Behaviors", value: detail.existingBehaviorCount, color: "bg-rose-50 text-rose-700" },
+            { label: "Active Services", value: detail.serviceTypes.length, color: "bg-gray-50 text-gray-700" },
+            { label: "Existing Behaviors", value: detail.existingBehaviorCount, color: "bg-red-50 text-red-700" },
             { label: "Existing Programs", value: detail.existingProgramCount, color: "bg-emerald-50 text-emerald-700" },
           ].map(stat => (
             <div key={stat.label} className={`rounded-xl p-3 ${stat.color}`}>
@@ -208,7 +208,7 @@ export default function IepSuggestions() {
 
         {detail.totalSuggestions === 0 ? (
           <Card className="text-center py-12 text-gray-400">
-            <Check className="w-10 h-10 mx-auto mb-3 text-green-400" />
+            <Check className="w-10 h-10 mx-auto mb-3 text-emerald-400" />
             <p className="font-medium text-gray-600">All caught up!</p>
             <p className="text-sm mt-1">This student already has programs assigned for all IEP-matched areas</p>
           </Card>
@@ -280,7 +280,7 @@ export default function IepSuggestions() {
                                   <Badge variant="outline" className="text-[10px] bg-gray-50">{item.domain}</Badge>
                                 )}
                                 {item.linkedService && (
-                                  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600">{item.linkedService}</Badge>
+                                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-600">{item.linkedService}</Badge>
                                 )}
                               </div>
                               {item.description && (
@@ -363,7 +363,7 @@ export default function IepSuggestions() {
             {[
               { label: "SPED Students", value: students.length, icon: Users, color: "bg-emerald-50 text-emerald-800" },
               { label: "Total Suggestions", value: students.reduce((s, st) => s + st.totalSuggestions, 0), icon: Sparkles, color: "bg-amber-50 text-amber-700" },
-              { label: "Avg per Student", value: Math.round(students.reduce((s, st) => s + st.totalSuggestions, 0) / students.length), icon: Brain, color: "bg-blue-50 text-blue-700" },
+              { label: "Avg per Student", value: Math.round(students.reduce((s, st) => s + st.totalSuggestions, 0) / students.length), icon: Brain, color: "bg-gray-50 text-gray-700" },
               { label: "With 10+ Suggestions", value: students.filter(s => s.totalSuggestions >= 10).length, icon: Target, color: "bg-emerald-50 text-emerald-700" },
             ].map(stat => {
               const Icon = stat.icon;
@@ -414,9 +414,9 @@ export default function IepSuggestions() {
                     </div>
                     <div className="text-right hidden md:block">
                       <div className="flex gap-2 text-[11px]">
-                        {stu.suggestedBehaviors > 0 && <span className="text-rose-500">{stu.suggestedBehaviors} bhv</span>}
-                        {stu.suggestedPrograms > 0 && <span className="text-blue-500">{stu.suggestedPrograms} prog</span>}
-                        {stu.suggestedRelatedServices > 0 && <span className="text-purple-500">{stu.suggestedRelatedServices} svc</span>}
+                        {stu.suggestedBehaviors > 0 && <span className="text-red-500">{stu.suggestedBehaviors} bhv</span>}
+                        {stu.suggestedPrograms > 0 && <span className="text-gray-500">{stu.suggestedPrograms} prog</span>}
+                        {stu.suggestedRelatedServices > 0 && <span className="text-emerald-500">{stu.suggestedRelatedServices} svc</span>}
                       </div>
                       <p className="text-[10px] text-gray-400">
                         {stu.existingBehaviors} bhv + {stu.existingPrograms} prog assigned

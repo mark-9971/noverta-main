@@ -147,7 +147,7 @@ export default function Students() {
               <Card className="hover:shadow-sm transition-all cursor-pointer group">
                 <div className="flex items-center gap-4 p-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-bold flex-shrink-0 ${
-                    isSped ? "bg-violet-100 text-violet-600" : "bg-blue-100 text-blue-600"
+                    isSped ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
                   }`}>
                     {s.firstName?.[0]}{s.lastName?.[0]}
                   </div>
@@ -155,7 +155,7 @@ export default function Students() {
                     <div className="flex items-center gap-2">
                       <p className="text-[14px] font-semibold text-gray-800">{s.firstName} {s.lastName}</p>
                       <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${
-                        isSped ? "bg-violet-50 text-violet-600 border-violet-200" : "bg-blue-50 text-blue-600 border-blue-200"
+                        isSped ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-500 border-gray-200"
                       }`}>
                         {isSped ? "SPED" : "Gen Ed"}
                       </Badge>
@@ -178,7 +178,7 @@ export default function Students() {
                       </div>
                     </>
                   ) : (
-                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-600 border-blue-200 flex-shrink-0 hidden md:inline-flex">
+                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-gray-50 text-gray-500 border-gray-200 flex-shrink-0 hidden md:inline-flex">
                       General Education
                     </span>
                   )}

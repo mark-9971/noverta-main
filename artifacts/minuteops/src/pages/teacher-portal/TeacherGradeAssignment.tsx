@@ -168,7 +168,7 @@ export default function TeacherGradeAssignment() {
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "graded") return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px]">Graded</Badge>;
-  if (status === "submitted") return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Submitted</Badge>;
+  if (status === "submitted") return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 text-[10px]">Submitted</Badge>;
   if (status === "missing") return <Badge variant="destructive" className="text-[10px]">Missing</Badge>;
   return <Badge variant="outline" className="text-[10px]">Not Submitted</Badge>;
 }

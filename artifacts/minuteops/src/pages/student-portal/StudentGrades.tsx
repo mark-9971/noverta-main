@@ -32,8 +32,8 @@ export default function StudentGrades() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Award} label="GPA" value={overall.gpa?.toFixed(2) || "—"} color="emerald" />
-        <StatCard icon={TrendingUp} label="Overall %" value={overall.percentage ? `${overall.percentage}%` : "—"} color="blue" />
-        <StatCard icon={BarChart3} label="Grade" value={overall.letterGrade || "—"} color="violet" />
+        <StatCard icon={TrendingUp} label="Overall %" value={overall.percentage ? `${overall.percentage}%` : "—"} color="gray" />
+        <StatCard icon={BarChart3} label="Grade" value={overall.letterGrade || "—"} color="muted" />
         <StatCard icon={BookOpen} label="Graded" value={overall.totalGradedAssignments || 0} color="amber" />
       </div>
 
@@ -117,8 +117,8 @@ export default function StudentGrades() {
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   const colors: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600",
-    blue: "bg-blue-50 text-blue-600",
-    violet: "bg-violet-50 text-violet-600",
+    gray: "bg-gray-100 text-gray-600",
+    muted: "bg-gray-50 text-gray-500",
     amber: "bg-amber-50 text-amber-600",
   };
   return (
@@ -141,16 +141,16 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 function letterColor(g: string) {
   if (!g) return "text-gray-400";
   if (g.startsWith("A")) return "text-emerald-600";
-  if (g.startsWith("B")) return "text-blue-600";
+  if (g.startsWith("B")) return "text-gray-700";
   if (g.startsWith("C")) return "text-amber-600";
-  if (g.startsWith("D")) return "text-orange-600";
+  if (g.startsWith("D")) return "text-amber-700";
   return "text-red-600";
 }
 
 function pctBarColor(pct: number) {
   if (pct >= 90) return "bg-emerald-500";
-  if (pct >= 80) return "bg-blue-500";
+  if (pct >= 80) return "bg-gray-400";
   if (pct >= 70) return "bg-amber-500";
-  if (pct >= 60) return "bg-orange-500";
+  if (pct >= 60) return "bg-amber-600";
   return "bg-red-500";
 }

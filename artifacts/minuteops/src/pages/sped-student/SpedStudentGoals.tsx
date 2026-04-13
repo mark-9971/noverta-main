@@ -8,13 +8,13 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 function serviceColor(name: string) {
   const n = (name || "").toLowerCase();
-  if (n.includes("speech")) return { bg: "bg-blue-500", light: "bg-blue-50 text-blue-700 border-blue-100" };
-  if (n.includes("aba") || n.includes("behavior")) return { bg: "bg-purple-500", light: "bg-purple-50 text-purple-700 border-purple-100" };
+  if (n.includes("speech")) return { bg: "bg-gray-400", light: "bg-gray-50 text-gray-700 border-gray-200" };
+  if (n.includes("aba") || n.includes("behavior")) return { bg: "bg-emerald-500", light: "bg-emerald-50 text-emerald-700 border-emerald-100" };
   if (n.includes("occupational")) return { bg: "bg-amber-500", light: "bg-amber-50 text-amber-700 border-amber-100" };
-  if (n.includes("physical")) return { bg: "bg-green-500", light: "bg-green-50 text-green-700 border-green-100" };
-  if (n.includes("para")) return { bg: "bg-pink-500", light: "bg-pink-50 text-pink-700 border-pink-100" };
-  if (n.includes("counseling")) return { bg: "bg-teal-500", light: "bg-teal-50 text-teal-700 border-teal-100" };
-  return { bg: "bg-violet-500", light: "bg-violet-50 text-violet-700 border-violet-100" };
+  if (n.includes("physical")) return { bg: "bg-emerald-400", light: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+  if (n.includes("para")) return { bg: "bg-gray-300", light: "bg-gray-50 text-gray-600 border-gray-200" };
+  if (n.includes("counseling")) return { bg: "bg-gray-400", light: "bg-gray-50 text-gray-700 border-gray-200" };
+  return { bg: "bg-emerald-500", light: "bg-emerald-50 text-emerald-700 border-emerald-100" };
 }
 
 const goalTemplates: Record<string, string[]> = {
@@ -131,7 +131,7 @@ export default function SpedStudentGoals() {
                   {goals.map((goal, gi) => (
                     <div key={gi} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                       <div className="mt-0.5">
-                        <TrendingUp className="w-4 h-4 text-violet-400" />
+                        <TrendingUp className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div className="flex-1">
                         <p className="text-[13px] text-gray-700 leading-relaxed">{goal}</p>
@@ -155,12 +155,12 @@ export default function SpedStudentGoals() {
         </div>
       )}
 
-      <Card className="bg-violet-50 border-violet-100">
+      <Card className="bg-emerald-50 border-emerald-100">
         <CardContent className="p-4 flex items-start gap-3">
-          <Brain className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" />
+          <Brain className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-violet-800">Progress updates every quarter</p>
-            <p className="text-xs text-violet-600 mt-0.5">
+            <p className="text-sm font-medium text-emerald-800">Progress updates every quarter</p>
+            <p className="text-xs text-emerald-600 mt-0.5">
               Your IEP team reviews and updates your goals each quarter. Ask your case manager {student?.caseManagerName || ""} to see your progress reports.
             </p>
           </div>

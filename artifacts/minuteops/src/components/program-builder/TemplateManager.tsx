@@ -25,10 +25,10 @@ interface ProgramTemplate {
 
 const PROMPT_LABELS: Record<string, { label: string; color: string }> = {
   full_physical: { label: "Full Physical", color: "bg-red-100 text-red-700" },
-  partial_physical: { label: "Partial Physical", color: "bg-orange-100 text-orange-700" },
+  partial_physical: { label: "Partial Physical", color: "bg-amber-100 text-amber-700" },
   model: { label: "Model", color: "bg-amber-100 text-amber-700" },
-  gestural: { label: "Gestural", color: "bg-yellow-100 text-yellow-700" },
-  verbal: { label: "Verbal", color: "bg-blue-100 text-blue-700" },
+  gestural: { label: "Gestural", color: "bg-gray-50 text-gray-600" },
+  verbal: { label: "Verbal", color: "bg-gray-100 text-gray-700" },
   independent: { label: "Independent", color: "bg-emerald-100 text-emerald-700" },
 };
 
@@ -223,9 +223,9 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {t.isGlobal ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Global</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">Global</span>
                     ) : t.schoolId ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">School</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">School</span>
                     ) : (
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">Custom</span>
                     )}

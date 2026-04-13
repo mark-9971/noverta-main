@@ -43,14 +43,14 @@ export default function TeacherSubmissions() {
         <div className="space-y-2">
           {subs.map((s: any) => (
             <div key={s.submissionId} className="flex items-center gap-3 p-4 bg-white rounded-xl border hover:border-emerald-200 transition-all">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-bold">
                 {s.studentFirstName[0]}{s.studentLastName[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-700">{s.studentFirstName} {s.studentLastName}</p>
                 <p className="text-xs text-gray-400 truncate">{s.assignmentTitle} · {s.className}</p>
               </div>
-              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px]">Needs Review</Badge>
+              <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 text-[10px]">Needs Review</Badge>
             </div>
           ))}
         </div>
