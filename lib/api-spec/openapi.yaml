@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: MinuteOps API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: students
+    description: Student management
+  - name: staff
+    description: Staff management
+  - name: services
+    description: Service types and requirements
+  - name: sessions
+    description: Session logging
+  - name: schedules
+    description: Schedule management
+  - name: alerts
+    description: Compliance alerts
+  - name: dashboard
+    description: Dashboard summaries
+  - name: imports
+    description: Data import
+  - name: reports
+    description: Reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +42,1178 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Dashboard ───────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get home dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/risk-overview:
+    get:
+      operationId: getDashboardRiskOverview
+      tags: [dashboard]
+      summary: Get risk overview by status
+      responses:
+        "200":
+          description: Risk overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskOverview"
+
+  /dashboard/provider-summary:
+    get:
+      operationId: getProviderDashboardSummary
+      tags: [dashboard]
+      summary: Get provider dashboard summary
+      responses:
+        "200":
+          description: Provider dashboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderDashboardItem"
+
+  /dashboard/para-summary:
+    get:
+      operationId: getParaDashboardSummary
+      tags: [dashboard]
+      summary: Get paraeducator dashboard summary
+      responses:
+        "200":
+          description: Para dashboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ParaDashboardItem"
+
+  /dashboard/alerts-summary:
+    get:
+      operationId: getDashboardAlertsSummary
+      tags: [dashboard]
+      summary: Get count of open alerts by severity
+      responses:
+        "200":
+          description: Alerts summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsSummary"
+
+  /dashboard/compliance-by-service:
+    get:
+      operationId: getComplianceByService
+      tags: [dashboard]
+      summary: Get compliance rates grouped by service type
+      responses:
+        "200":
+          description: Compliance by service type
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceByService"
+
+  /dashboard/missed-sessions-trend:
+    get:
+      operationId: getMissedSessionsTrend
+      tags: [dashboard]
+      summary: Get missed session counts over last 8 weeks
+      responses:
+        "200":
+          description: Missed sessions trend
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MissedSessionsTrendPoint"
+
+  # ─── Schools & Programs ───────────────────────────────────────────
+  /schools:
+    get:
+      operationId: listSchools
+      tags: [students]
+      summary: List schools
+      responses:
+        "200":
+          description: List of schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/School"
+    post:
+      operationId: createSchool
+      tags: [students]
+      summary: Create school
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSchoolBody"
+      responses:
+        "201":
+          description: Created school
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/School"
+
+  /programs:
+    get:
+      operationId: listPrograms
+      tags: [students]
+      summary: List programs
+      responses:
+        "200":
+          description: List of programs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Program"
+    post:
+      operationId: createProgram
+      tags: [students]
+      summary: Create program
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgramBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Program"
+
+  # ─── Students ────────────────────────────────────────────────────
+  /students:
+    get:
+      operationId: listStudents
+      tags: [students]
+      summary: List students with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: programId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: caseManagerId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: riskStatus
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: grade
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentSummary"
+    post:
+      operationId: createStudent
+      tags: [students]
+      summary: Create student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStudentBody"
+      responses:
+        "201":
+          description: Created student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+
+  /students/{id}:
+    get:
+      operationId: getStudent
+      tags: [students]
+      summary: Get student detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateStudent
+      tags: [students]
+      summary: Update student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudentBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+
+  /students/{id}/minute-progress:
+    get:
+      operationId: getStudentMinuteProgress
+      tags: [students]
+      summary: Get minute progress for all service requirements of a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Minute progress list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MinuteProgress"
+
+  /students/{id}/sessions:
+    get:
+      operationId: getStudentSessions
+      tags: [students]
+      summary: Get recent sessions for a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Sessions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionLog"
+
+  /students/{id}/alerts:
+    get:
+      operationId: getStudentAlerts
+      tags: [students]
+      summary: Get active alerts for a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alerts list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  # ─── Staff ───────────────────────────────────────────────────────
+  /staff:
+    get:
+      operationId: listStaff
+      tags: [staff]
+      summary: List all staff
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Staff list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Staff"
+    post:
+      operationId: createStaff
+      tags: [staff]
+      summary: Create staff member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStaffBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Staff"
+
+  /staff/{id}:
+    get:
+      operationId: getStaff
+      tags: [staff]
+      summary: Get staff detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Staff detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffDetail"
+    patch:
+      operationId: updateStaff
+      tags: [staff]
+      summary: Update staff
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStaffBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Staff"
+
+  /staff/{id}/caseload:
+    get:
+      operationId: getStaffCaseload
+      tags: [staff]
+      summary: Get caseload and minute progress for a provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Caseload
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MinuteProgress"
+
+  # ─── Service Types ────────────────────────────────────────────────
+  /service-types:
+    get:
+      operationId: listServiceTypes
+      tags: [services]
+      summary: List service types
+      responses:
+        "200":
+          description: Service types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceType"
+    post:
+      operationId: createServiceType
+      tags: [services]
+      summary: Create service type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceTypeBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceType"
+
+  # ─── Service Requirements ─────────────────────────────────────────
+  /service-requirements:
+    get:
+      operationId: listServiceRequirements
+      tags: [services]
+      summary: List service requirements
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: serviceTypeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: providerId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: active
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Requirements list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceRequirement"
+    post:
+      operationId: createServiceRequirement
+      tags: [services]
+      summary: Create service requirement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequirementBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequirement"
+
+  /service-requirements/{id}:
+    get:
+      operationId: getServiceRequirement
+      tags: [services]
+      summary: Get service requirement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Service requirement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequirement"
+    patch:
+      operationId: updateServiceRequirement
+      tags: [services]
+      summary: Update service requirement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequirementBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequirement"
+    delete:
+      operationId: deleteServiceRequirement
+      tags: [services]
+      summary: Delete service requirement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Session Logs ────────────────────────────────────────────────
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List session logs
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: serviceRequirementId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: dateFrom
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: dateTo
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionLog"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Log a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionLog"
+
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionLog"
+    patch:
+      operationId: updateSession
+      tags: [sessions]
+      summary: Update session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSessionBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionLog"
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sessions/bulk:
+    post:
+      operationId: bulkCreateSessions
+      tags: [sessions]
+      summary: Bulk log sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateSessionsBody"
+      responses:
+        "201":
+          description: Created sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionLog"
+
+  # ─── Minute Progress ─────────────────────────────────────────────
+  /minute-progress:
+    get:
+      operationId: listMinuteProgress
+      tags: [services]
+      summary: List minute progress for all active service requirements
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: riskStatus
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: serviceTypeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: programId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Minute progress
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MinuteProgress"
+
+  # ─── Schedule Blocks ─────────────────────────────────────────────
+  /schedule-blocks:
+    get:
+      operationId: listScheduleBlocks
+      tags: [schedules]
+      summary: List schedule blocks
+      parameters:
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: weekOf
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: dayOfWeek
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Schedule blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleBlock"
+    post:
+      operationId: createScheduleBlock
+      tags: [schedules]
+      summary: Create schedule block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBlockBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBlock"
+
+  /schedule-blocks/{id}:
+    patch:
+      operationId: updateScheduleBlock
+      tags: [schedules]
+      summary: Update schedule block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBlockBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBlock"
+    delete:
+      operationId: deleteScheduleBlock
+      tags: [schedules]
+      summary: Delete schedule block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /schedule-blocks/conflicts:
+    get:
+      operationId: getScheduleConflicts
+      tags: [schedules]
+      summary: Detect schedule conflicts
+      parameters:
+        - name: weekOf
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Conflicts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleConflict"
+
+  /schedule-blocks/coverage-gaps:
+    get:
+      operationId: getCoverageGaps
+      tags: [schedules]
+      summary: Get uncovered support blocks
+      responses:
+        "200":
+          description: Coverage gaps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoverageGap"
+
+  # ─── Auto-scheduler ───────────────────────────────────────────────
+  /scheduler/generate:
+    post:
+      operationId: generateSchedule
+      tags: [schedules]
+      summary: Run auto-schedule generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateScheduleBody"
+      responses:
+        "200":
+          description: Proposed schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedSchedule"
+
+  /scheduler/accept:
+    post:
+      operationId: acceptGeneratedSchedule
+      tags: [schedules]
+      summary: Accept and apply generated schedule blocks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptScheduleBody"
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptScheduleResult"
+
+  # ─── Alerts ──────────────────────────────────────────────────────
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List compliance alerts
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: resolved
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: type
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/{id}/resolve:
+    patch:
+      operationId: resolveAlert
+      tags: [alerts]
+      summary: Resolve an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveAlertBody"
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/run-checks:
+    post:
+      operationId: runComplianceChecks
+      tags: [alerts]
+      summary: Trigger compliance rule engine to generate new alerts
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunChecksResult"
+
+  # ─── Staff Assignments ────────────────────────────────────────────
+  /staff-assignments:
+    get:
+      operationId: listStaffAssignments
+      tags: [schedules]
+      summary: List staff assignments
+      parameters:
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffAssignment"
+    post:
+      operationId: createStaffAssignment
+      tags: [schedules]
+      summary: Assign staff to student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStaffAssignmentBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAssignment"
+
+  /staff-assignments/{id}:
+    delete:
+      operationId: deleteStaffAssignment
+      tags: [schedules]
+      summary: Remove staff assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Missed Reasons ───────────────────────────────────────────────
+  /missed-reasons:
+    get:
+      operationId: listMissedReasons
+      tags: [sessions]
+      summary: List missed session reason codes
+      responses:
+        "200":
+          description: Reasons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MissedReason"
+
+  # ─── Reports ─────────────────────────────────────────────────────
+  /reports/student-minute-summary:
+    get:
+      operationId: getStudentMinuteSummaryReport
+      tags: [reports]
+      summary: Get student minute summary report
+      parameters:
+        - name: programId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: riskStatus
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Report data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentMinuteSummaryRow"
+
+  /reports/missed-sessions:
+    get:
+      operationId: getMissedSessionsReport
+      tags: [reports]
+      summary: Get missed sessions report
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: dateTo
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Missed sessions report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionLog"
+
+  /reports/compliance-risk:
+    get:
+      operationId: getComplianceRiskReport
+      tags: [reports]
+      summary: Get compliance risk report
+      responses:
+        "200":
+          description: Compliance risk
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MinuteProgress"
+
+  # ─── Imports ─────────────────────────────────────────────────────
+  /imports:
+    get:
+      operationId: listImports
+      tags: [imports]
+      summary: List import history
+      responses:
+        "200":
+          description: Imports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImportRecord"
+    post:
+      operationId: createImport
+      tags: [imports]
+      summary: Create a CSV import record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateImportBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportRecord"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +1221,1105 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    # ─── Schools & Programs ───────────────────────────────────────
+    School:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        district:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, name, createdAt]
+
+    CreateSchoolBody:
+      type: object
+      properties:
+        name:
+          type: string
+        district:
+          type: ["string", "null"]
+      required: [name]
+
+    Program:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        schoolId:
+          type: integer
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, name, schoolId, createdAt]
+
+    CreateProgramBody:
+      type: object
+      properties:
+        name:
+          type: string
+        schoolId:
+          type: integer
+        description:
+          type: ["string", "null"]
+      required: [name, schoolId]
+
+    # ─── Students ─────────────────────────────────────────────────
+    StudentSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        externalId:
+          type: ["string", "null"]
+        grade:
+          type: ["string", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: string
+        schoolId:
+          type: ["integer", "null"]
+        programId:
+          type: ["integer", "null"]
+        schoolName:
+          type: ["string", "null"]
+        programName:
+          type: ["string", "null"]
+        caseManagerId:
+          type: ["integer", "null"]
+        caseManagerName:
+          type: ["string", "null"]
+        riskStatus:
+          type: ["string", "null"]
+        activeRequirementsCount:
+          type: integer
+        onTrackCount:
+          type: integer
+        atRiskCount:
+          type: integer
+        behindCount:
+          type: integer
+      required: [id, firstName, lastName, status, activeRequirementsCount, onTrackCount, atRiskCount, behindCount]
+
+    Student:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        externalId:
+          type: ["string", "null"]
+        grade:
+          type: ["string", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: string
+        schoolId:
+          type: ["integer", "null"]
+        programId:
+          type: ["integer", "null"]
+        caseManagerId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, firstName, lastName, status, createdAt, updatedAt]
+
+    StudentDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        externalId:
+          type: ["string", "null"]
+        grade:
+          type: ["string", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: string
+        schoolId:
+          type: ["integer", "null"]
+        programId:
+          type: ["integer", "null"]
+        caseManagerId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        schoolName:
+          type: ["string", "null"]
+        programName:
+          type: ["string", "null"]
+        caseManagerName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        serviceRequirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceRequirement"
+        minuteProgress:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinuteProgress"
+        recentSessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionLog"
+        activeAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        assignedStaff:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffAssignment"
+      required: [id, firstName, lastName, status, createdAt, updatedAt, serviceRequirements, minuteProgress, recentSessions, activeAlerts, assignedStaff]
+
+    CreateStudentBody:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        externalId:
+          type: ["string", "null"]
+        grade:
+          type: ["string", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: string
+        schoolId:
+          type: ["integer", "null"]
+        programId:
+          type: ["integer", "null"]
+        caseManagerId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+      required: [firstName, lastName, status]
+
+    UpdateStudentBody:
+      type: object
+      properties:
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        externalId:
+          type: ["string", "null"]
+        grade:
+          type: ["string", "null"]
+        placementType:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        programId:
+          type: ["integer", "null"]
+        caseManagerId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+
+    # ─── Staff ────────────────────────────────────────────────────
+    Staff:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+        title:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        status:
+          type: string
+        qualifications:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, firstName, lastName, role, status, createdAt]
+
+    StaffDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+        title:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        status:
+          type: string
+        qualifications:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        assignedStudents:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffAssignment"
+        scheduleBlocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleBlock"
+      required: [id, firstName, lastName, role, status, createdAt, assignedStudents, scheduleBlocks]
+
+    CreateStaffBody:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+        title:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        status:
+          type: string
+        qualifications:
+          type: ["string", "null"]
+      required: [firstName, lastName, role, status]
+
+    UpdateStaffBody:
+      type: object
+      properties:
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        schoolId:
+          type: ["integer", "null"]
+        status:
+          type: ["string", "null"]
+        qualifications:
+          type: ["string", "null"]
+
+    # ─── Service Types ────────────────────────────────────────────
+    ServiceType:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        color:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        defaultIntervalType:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, name, category, createdAt]
+
+    CreateServiceTypeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        color:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        defaultIntervalType:
+          type: ["string", "null"]
+      required: [name, category]
+
+    # ─── Service Requirements ─────────────────────────────────────
+    ServiceRequirement:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        serviceTypeId:
+          type: integer
+        serviceTypeName:
+          type: ["string", "null"]
+        providerId:
+          type: ["integer", "null"]
+        providerName:
+          type: ["string", "null"]
+        deliveryType:
+          type: string
+        requiredMinutes:
+          type: integer
+        intervalType:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        active:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active, createdAt]
+
+    CreateServiceRequirementBody:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        serviceTypeId:
+          type: integer
+        providerId:
+          type: ["integer", "null"]
+        deliveryType:
+          type: string
+        requiredMinutes:
+          type: integer
+        intervalType:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        active:
+          type: boolean
+      required: [studentId, serviceTypeId, deliveryType, requiredMinutes, intervalType, startDate, active]
+
+    UpdateServiceRequirementBody:
+      type: object
+      properties:
+        providerId:
+          type: ["integer", "null"]
+        deliveryType:
+          type: ["string", "null"]
+        requiredMinutes:
+          type: ["integer", "null"]
+        intervalType:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        active:
+          type: ["boolean", "null"]
+
+    # ─── Session Logs ─────────────────────────────────────────────
+    SessionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        serviceRequirementId:
+          type: ["integer", "null"]
+        serviceTypeId:
+          type: ["integer", "null"]
+        serviceTypeName:
+          type: ["string", "null"]
+        staffId:
+          type: ["integer", "null"]
+        staffName:
+          type: ["string", "null"]
+        sessionDate:
+          type: string
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        durationMinutes:
+          type: integer
+        location:
+          type: ["string", "null"]
+        deliveryMode:
+          type: ["string", "null"]
+        status:
+          type: string
+        missedReasonId:
+          type: ["integer", "null"]
+        missedReasonLabel:
+          type: ["string", "null"]
+        isMakeup:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, studentId, sessionDate, durationMinutes, status, isMakeup, createdAt]
+
+    CreateSessionBody:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        serviceRequirementId:
+          type: ["integer", "null"]
+        serviceTypeId:
+          type: ["integer", "null"]
+        staffId:
+          type: ["integer", "null"]
+        sessionDate:
+          type: string
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        durationMinutes:
+          type: integer
+        location:
+          type: ["string", "null"]
+        deliveryMode:
+          type: ["string", "null"]
+        status:
+          type: string
+        missedReasonId:
+          type: ["integer", "null"]
+        isMakeup:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required: [studentId, sessionDate, durationMinutes, status, isMakeup]
+
+    UpdateSessionBody:
+      type: object
+      properties:
+        durationMinutes:
+          type: ["integer", "null"]
+        status:
+          type: ["string", "null"]
+        missedReasonId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+
+    BulkCreateSessionsBody:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateSessionBody"
+      required: [sessions]
+
+    # ─── Minute Progress ─────────────────────────────────────────
+    MinuteProgress:
+      type: object
+      properties:
+        serviceRequirementId:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        serviceTypeId:
+          type: integer
+        serviceTypeName:
+          type: string
+        providerId:
+          type: ["integer", "null"]
+        providerName:
+          type: ["string", "null"]
+        intervalType:
+          type: string
+        requiredMinutes:
+          type: integer
+        deliveredMinutes:
+          type: integer
+        remainingMinutes:
+          type: integer
+        percentComplete:
+          type: number
+        expectedMinutesByNow:
+          type: number
+        projectedMinutes:
+          type: number
+        riskStatus:
+          type: string
+        intervalStart:
+          type: string
+        intervalEnd:
+          type: string
+        missedSessionsCount:
+          type: integer
+        makeupSessionsCount:
+          type: integer
+      required: [serviceRequirementId, studentId, studentName, serviceTypeId, serviceTypeName, intervalType, requiredMinutes, deliveredMinutes, remainingMinutes, percentComplete, expectedMinutesByNow, projectedMinutes, riskStatus, intervalStart, intervalEnd, missedSessionsCount, makeupSessionsCount]
+
+    # ─── Schedule Blocks ─────────────────────────────────────────
+    ScheduleBlock:
+      type: object
+      properties:
+        id:
+          type: integer
+        staffId:
+          type: integer
+        staffName:
+          type: ["string", "null"]
+        studentId:
+          type: ["integer", "null"]
+        studentName:
+          type: ["string", "null"]
+        serviceTypeId:
+          type: ["integer", "null"]
+        serviceTypeName:
+          type: ["string", "null"]
+        dayOfWeek:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        location:
+          type: ["string", "null"]
+        blockLabel:
+          type: ["string", "null"]
+        blockType:
+          type: string
+        notes:
+          type: ["string", "null"]
+        isRecurring:
+          type: boolean
+        weekOf:
+          type: ["string", "null"]
+        isAutoGenerated:
+          type: boolean
+        createdAt:
+          type: string
+      required: [id, staffId, dayOfWeek, startTime, endTime, blockType, isRecurring, isAutoGenerated, createdAt]
+
+    CreateScheduleBlockBody:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        studentId:
+          type: ["integer", "null"]
+        serviceTypeId:
+          type: ["integer", "null"]
+        dayOfWeek:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        location:
+          type: ["string", "null"]
+        blockLabel:
+          type: ["string", "null"]
+        blockType:
+          type: string
+        notes:
+          type: ["string", "null"]
+        isRecurring:
+          type: boolean
+        weekOf:
+          type: ["string", "null"]
+      required: [staffId, dayOfWeek, startTime, endTime, blockType, isRecurring]
+
+    UpdateScheduleBlockBody:
+      type: object
+      properties:
+        studentId:
+          type: ["integer", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ScheduleConflict:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        dayOfWeek:
+          type: string
+        conflictingBlocks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              startTime:
+                type: string
+              endTime:
+                type: string
+              studentName:
+                type: ["string", "null"]
+            required: [id, startTime, endTime]
+        overlapMinutes:
+          type: integer
+      required: [staffId, staffName, dayOfWeek, conflictingBlocks, overlapMinutes]
+
+    CoverageGap:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        serviceRequirementId:
+          type: integer
+        serviceTypeName:
+          type: string
+        gapDescription:
+          type: string
+        severity:
+          type: string
+      required: [studentId, studentName, serviceRequirementId, serviceTypeName, gapDescription, severity]
+
+    # ─── Auto-scheduler ──────────────────────────────────────────
+    GenerateScheduleBody:
+      type: object
+      properties:
+        weekOf:
+          type: string
+        staffIds:
+          type: array
+          items:
+            type: integer
+        studentIds:
+          type: array
+          items:
+            type: integer
+        overwriteExisting:
+          type: boolean
+      required: [weekOf]
+
+    GeneratedSchedule:
+      type: object
+      properties:
+        weekOf:
+          type: string
+        proposedBlocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleBlock"
+        unresolvedDeficits:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoverageGap"
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleConflict"
+        projectedFulfillment:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinuteProgress"
+        summary:
+          type: string
+      required: [weekOf, proposedBlocks, unresolvedDeficits, conflicts, projectedFulfillment, summary]
+
+    AcceptScheduleBody:
+      type: object
+      properties:
+        weekOf:
+          type: string
+        blockIds:
+          type: array
+          items:
+            type: integer
+      required: [weekOf, blockIds]
+
+    AcceptScheduleResult:
+      type: object
+      properties:
+        acceptedCount:
+          type: integer
+        message:
+          type: string
+      required: [acceptedCount, message]
+
+    # ─── Alerts ──────────────────────────────────────────────────
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        severity:
+          type: string
+        studentId:
+          type: ["integer", "null"]
+        studentName:
+          type: ["string", "null"]
+        staffId:
+          type: ["integer", "null"]
+        staffName:
+          type: ["string", "null"]
+        serviceRequirementId:
+          type: ["integer", "null"]
+        message:
+          type: string
+        suggestedAction:
+          type: ["string", "null"]
+        resolved:
+          type: boolean
+        resolvedAt:
+          type: ["string", "null"]
+        resolvedNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, type, severity, message, resolved, createdAt]
+
+    ResolveAlertBody:
+      type: object
+      properties:
+        resolvedNote:
+          type: ["string", "null"]
+      required: []
+
+    RunChecksResult:
+      type: object
+      properties:
+        newAlerts:
+          type: integer
+        resolvedAlerts:
+          type: integer
+        message:
+          type: string
+      required: [newAlerts, resolvedAlerts, message]
+
+    # ─── Staff Assignments ────────────────────────────────────────
+    StaffAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        staffId:
+          type: integer
+        staffName:
+          type: ["string", "null"]
+        staffRole:
+          type: ["string", "null"]
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        assignmentType:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, staffId, studentId, assignmentType, createdAt]
+
+    CreateStaffAssignmentBody:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        studentId:
+          type: integer
+        assignmentType:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required: [staffId, studentId, assignmentType]
+
+    # ─── Missed Reasons ──────────────────────────────────────────
+    MissedReason:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        category:
+          type: string
+      required: [id, label, category]
+
+    # ─── Dashboard ───────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      properties:
+        totalActiveStudents:
+          type: integer
+        onTrackStudents:
+          type: integer
+        slightlyBehindStudents:
+          type: integer
+        atRiskStudents:
+          type: integer
+        outOfComplianceStudents:
+          type: integer
+        missedSessionsThisWeek:
+          type: integer
+        openMakeupObligations:
+          type: integer
+        uncoveredBlocksToday:
+          type: integer
+        scheduleConflictsToday:
+          type: integer
+        openAlerts:
+          type: integer
+        criticalAlerts:
+          type: integer
+      required: [totalActiveStudents, onTrackStudents, slightlyBehindStudents, atRiskStudents, outOfComplianceStudents, missedSessionsThisWeek, openMakeupObligations, uncoveredBlocksToday, scheduleConflictsToday, openAlerts, criticalAlerts]
+
+    RiskOverview:
+      type: object
+      properties:
+        onTrack:
+          type: integer
+        slightlyBehind:
+          type: integer
+        atRisk:
+          type: integer
+        outOfCompliance:
+          type: integer
+        completed:
+          type: integer
+        total:
+          type: integer
+      required: [onTrack, slightlyBehind, atRisk, outOfCompliance, completed, total]
+
+    ProviderDashboardItem:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        role:
+          type: string
+        assignedStudents:
+          type: integer
+        totalRequiredMinutes:
+          type: integer
+        totalDeliveredMinutes:
+          type: integer
+        studentsAtRisk:
+          type: integer
+        openAlerts:
+          type: integer
+        utilizationPercent:
+          type: number
+      required: [staffId, staffName, role, assignedStudents, totalRequiredMinutes, totalDeliveredMinutes, studentsAtRisk, openAlerts, utilizationPercent]
+
+    ParaDashboardItem:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        assignedBlocks:
+          type: integer
+        coverageGaps:
+          type: integer
+        conflictsToday:
+          type: integer
+        assignedStudents:
+          type: integer
+      required: [staffId, staffName, assignedBlocks, coverageGaps, conflictsToday, assignedStudents]
+
+    AlertsSummary:
+      type: object
+      properties:
+        critical:
+          type: integer
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+        total:
+          type: integer
+      required: [critical, high, medium, low, total]
+
+    ComplianceByService:
+      type: object
+      properties:
+        serviceTypeName:
+          type: string
+        totalRequirements:
+          type: integer
+        onTrack:
+          type: integer
+        atRisk:
+          type: integer
+        outOfCompliance:
+          type: integer
+        avgPercentComplete:
+          type: number
+      required: [serviceTypeName, totalRequirements, onTrack, atRisk, outOfCompliance, avgPercentComplete]
+
+    MissedSessionsTrendPoint:
+      type: object
+      properties:
+        weekLabel:
+          type: string
+        missedCount:
+          type: integer
+        completedCount:
+          type: integer
+      required: [weekLabel, missedCount, completedCount]
+
+    # ─── Reports ─────────────────────────────────────────────────
+    StudentMinuteSummaryRow:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        grade:
+          type: ["string", "null"]
+        programName:
+          type: ["string", "null"]
+        serviceTypeName:
+          type: string
+        requiredMinutes:
+          type: integer
+        deliveredMinutes:
+          type: integer
+        remainingMinutes:
+          type: integer
+        percentComplete:
+          type: number
+        riskStatus:
+          type: string
+      required: [studentId, studentName, serviceTypeName, requiredMinutes, deliveredMinutes, remainingMinutes, percentComplete, riskStatus]
+
+    # ─── Imports ─────────────────────────────────────────────────
+    ImportRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        importType:
+          type: string
+        fileName:
+          type: ["string", "null"]
+        status:
+          type: string
+        rowsProcessed:
+          type: ["integer", "null"]
+        rowsImported:
+          type: ["integer", "null"]
+        rowsErrored:
+          type: ["integer", "null"]
+        errorSummary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, importType, status, createdAt]
+
+    CreateImportBody:
+      type: object
+      properties:
+        importType:
+          type: string
+        fileName:
+          type: ["string", "null"]
+        csvData:
+          type: string
+        columnMapping:
+          type: ["string", "null"]
+      required: [importType, csvData]
