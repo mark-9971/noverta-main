@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
-  Menu, X, MoreHorizontal, Search, Shield
+  Menu, X, MoreHorizontal, Search, Shield, PieChart
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -33,6 +33,7 @@ const navSections: NavSection[] = [
   {
     label: "Tools",
     items: [
+      { href: "/analytics", label: "Analytics", icon: PieChart, primary: true },
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/staff", label: "Staff", icon: UserCheck },
       { href: "/search", label: "IEP Search", icon: Search },

@@ -2,7 +2,7 @@
 
 ## Overview
 
-MinuteOps is a production-quality platform designed for special education and ABA service delivery operations. It streamlines operations for BCBAs, special education coordinators, paraeducators, providers, and case managers. The platform's core purpose is to enhance compliance, efficiency, and communication in managing special education services. Key capabilities include IEP service requirement tracking, scheduling, delivered-minute tracking, compliance/risk dashboards, alerts, and comprehensive reporting. The project aims to become the leading operational tool for SPED and ABA providers, reducing administrative burden and improving student outcomes.
+MinuteOps is a platform designed to streamline special education (SPED) and ABA service delivery operations. Its primary purpose is to enhance compliance, efficiency, and communication for professionals like BCBAs, special education coordinators, and case managers. Key functionalities include IEP service tracking, scheduling, delivered-minute tracking, compliance dashboards, alerts, and comprehensive reporting. The project aims to become a leading operational tool in SPED and ABA, reducing administrative burden and improving student outcomes.
 
 ## User Preferences
 
@@ -10,124 +10,57 @@ I want iterative development and detailed explanations of your thought process. 
 
 ## System Architecture
 
-MinuteOps is built as a monorepo using `pnpm` workspaces, featuring a clear separation between frontend and backend.
+MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separation between frontend and backend.
 
 **Technology Stack:**
-- **Frontend:** React 19, Vite, Tailwind CSS, shadcn/ui, Recharts, wouter. The frontend (`artifacts/minuteops`) consumes the API and provides a rich user interface.
-- **Backend (API):** Express 5, Node.js 24. The API server (`artifacts/api-server`) handles all business logic and data persistence.
-- **Database:** PostgreSQL with Drizzle ORM. The database schema (`lib/db`) is designed to support detailed tracking of students, staff, services, IEPs, compliance, and ABA-specific data.
-- **Data Validation:** Zod is used for robust schema validation.
-- **API Generation:** Orval generates React Query hooks and Zod schemas from an OpenAPI 3.1 specification (`lib/api-spec`), ensuring type safety and consistency between frontend and backend.
+- **Frontend:** React 19, Vite, Tailwind CSS, shadcn/ui, Recharts, wouter.
+- **Backend (API):** Express 5, Node.js 24.
+- **Database:** PostgreSQL with Drizzle ORM.
+- **Data Validation:** Zod.
+- **API Generation:** Orval generates React Query hooks and Zod schemas from an OpenAPI 3.1 specification.
 
 **Core Architectural Decisions:**
 
-- **Modular Monorepo:** Separates concerns into distinct packages: `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), `lib/api-client-react` (generated API client), `lib/api-zod` (generated Zod schemas), and `lib/db` (database layer).
-- **RESTful API Design:** All backend interactions are exposed via a REST API, with clear endpoints for managing resources like students, staff, sessions, IEPs, and ABA data.
-- **Comprehensive Database Schema:** The PostgreSQL database includes tables for:
-    - **Students:** Core student demographic and IEP-related data.
-    - **Staff:** Provider and case manager details with roles.
-    - **Service Management:** `service_types`, `service_requirements`, `session_logs`, `schedule_blocks`, `staff_assignments`.
-    - **IEP Management:** `iep_documents` (including versioning and amendments), `iep_accommodations`, `goal_bank`, `team_meetings`, `parent_contacts`.
-    - **Compliance:** `compliance_events` for tracking deadlines and `alerts` for notifications.
-    - **ABA Specifics:** `behavior_targets`, `program_targets` (skill acquisition with steps, prompt hierarchies, mastery criteria), `program_templates`, `data_sessions`, `behavior_data`, `program_data`.
-- **UI/UX Design:**
-    - **Aesthetic:** Modern, clean design using Tailwind CSS and shadcn/ui with an indigo accent.
-    - **Key Components:** `ProgressRing` and `MiniProgressRing` for visual progress tracking, `AppLayout` for consistent navigation.
-    - **Color Scheme:** `slate-50/80` background, white cards, `indigo-600` primary, with status colors (emerald, amber, orange, red, indigo) for compliance indicators.
-    - **Typography:** Inter font, emphasizing readability with distinct sizes for body, labels, and headings.
-    - **Accessibility:** Filter pills use `aria-pressed`.
-    - **Icons:** Lucide React for consistent iconography.
+- **Modular Monorepo:** Organizes code into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for API clients, Zod schemas, and the database layer.
+- **RESTful API Design:** Backend interactions are exposed via a REST API.
+- **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, and ABA-specific data, including `service_types`, `session_logs`, `iep_documents`, `compliance_events`, `behavior_targets`, and `program_targets`.
+- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui with an indigo accent. Features include `ProgressRing` components, an `AppLayout` for consistent navigation, a specific color scheme for status indicators, Inter font for readability, and Lucide React for iconography.
 
 **Feature Specifications:**
 
-- **Dashboard:** Provides an overview of KPIs, compliance status, and recent alerts.
-- **Student Management:** CRUD operations for students, detailed student profiles with service progress, behavior, and academic program tracking.
-- **Service & Schedule Management:** Tracking service requirements, session logging (including bulk imports and quick logs), and recurring schedule block management with conflict detection.
-- **IEP Workflow:** Comprehensive MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with a goal bank), accommodations, meeting management, progress reports, and parent contact logs. Supports IEP amendments and completeness checks.
-- **Compliance Tracking:** IDEA compliance event tracking (annual reviews, reevaluations), automated deadline generation, and alerts system.
-- **ABA Program Management:** Detailed behavior reduction target tracking, skill acquisition program management (with prompt hierarchies, auto-progression, mastery criteria), and data collection interface for live and manual sessions. Includes trend charting for behavior and program data. **Comprehensive Program Builder** — multi-step wizard (Type → Config → Steps → Review) supporting DTT, Task Analysis, NET, and Fluency program types. Full step editor with SD instructions, target responses, materials, prompt strategies, error correction methods. Bulk step import (one per line). Drag-to-reorder steps. Edit existing programs via builder. **Tiered Template System** — `program_templates` table with `tier` (free/premium), `tags` (jsonb), `createdBy`, `usageCount`, scope (global/school/custom). Template Library with search, scope filters (All/Global/School/Custom), category filters (all/academic/behavior), tier filters (All/Free/Premium). Full template CRUD: create, edit (config + steps tabs), duplicate, delete, preview with step listing. **Save as Template** — any student program can be saved as a reusable template with scope and tier settings. **Premium Gate** — premium templates show crown badge, locked step previews (first 3 only), upgrade modal with pricing ($29/mo), feature list, and trial CTA. API endpoints: PUT/DELETE templates, POST duplicate, POST save-as-template, GET with search/tier/scope/schoolId filters. Clone-to-student increments template usage count.
-- **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant restraint/seclusion/time-out incident tracking. Schema covers all 603 CMR 46.06(4) written report fields: preceding activity, behavior prompt, de-escalation strategies, alternatives attempted, justification, calming strategies, student state after, observer staff, principal notification, 20+ minute continuation approval. 4-step incident form (Incident → Context & Staff → Injuries → Sign & Submit). Compliance checklist: verbal parent notification (24hr), written report to parent (3 school working days with method tracking), parent/student comment opportunity (46.06(3)), admin review with signature, DESE injury reporting (46.06(7)) with 30-day prior restraint log. Digital signatures for reporting staff and administrators. Mass DESE CSV export with 53 columns matching DESE Restraint Data Collection Tool fields. DESE annual report JSON with disability category/grade breakdowns, student counts, compliance rates. Weekly review flagging for students with 3+ incidents per 46.06(5). Integrated into student detail pages.
-- **Expandable Session Details:** Sessions page rows expand to show session info (duration, time, location, mode), full clinical notes, and linked IEP goals with goal area badges. Data page sessions tab similarly expands to show behavior data (frequency/duration/interval) and program data (trials, accuracy %, prompt levels). Goals linked via service-area fuzzy matching. Student detail page "Recent Data Sessions" expand to show full behavior data points (target name, value, measurement type, intervals, hour block) and program data points (target name, accuracy %, trials, prompt level, step number). "Recent Service Sessions" expand to show session info (duration, time, location, mode), clinical notes, missed reason, and linked IEP goals.
-- **Interactive Charts (InteractiveChart component):** Reusable chart component used for behavior data, academic programs, and minutes trend graphs on student detail page. Features: (1) Small sparkline mode (140x48px) clickable to expand into full chart; (2) Expanded view with full Recharts AreaChart, axes, tooltips; (3) Click on data points to highlight and pin details; (4) Staff filter dropdown for filtering by provider; (5) Date range filter (from/to); (6) Phase lines — vertical dashed lines with labels (e.g., medication changes, BIP changes) that can be added/removed. Behavior charts show baseline and goal reference lines. Academic charts show mastery criterion line. Minutes chart shows session-by-session delivery trend with staff attribution. Backend: trends APIs (`/behavior-data/trends`, `/program-data/trends`) include staffId/staffName. New `/students/:id/minutes-trend` endpoint returns per-session minutes with staff info.
-- **Reporting:** Generates reports for minute summaries, missed sessions, and at-risk students. All report tabs have CSV export with formula-injection protection.
-- **Session Edit/Delete:** Expanded session details include Edit (duration, status, location, notes, missed reason) and Delete with confirmation dialog warning about compliance impact.
-- **Date Range Filtering:** Sessions page supports server-side date range filtering (dateFrom/dateTo) passed to the API.
-- **Confirmation Dialogs:** Alert resolve uses AlertDialog with optional resolution note. Session delete uses AlertDialog with compliance warning.
-- **Toast Notifications:** sonner-based toast system for success/error feedback on all form submissions, edits, deletes, and exports.
-- **Error States:** All data-fetching pages show ErrorBanner with retry on network failures instead of infinite skeleton loading.
-- **Import Functionality:** Supports bulk CSV imports for students, service requirements, and session logs, with downloadable templates.
-- **Global Search:** Allows searching across IEP goals, accommodations, and students.
-- **Staff Caseload Management:** Provides staff-specific dashboards with assigned students and IEP status summaries.
-
-## Demo Data
-
-Database is seeded with realistic demo data:
-- 50 students across grades K-12 with varied disability categories
-- 18 staff (3 BCBAs, 2 SLPs, 2 OTs, 1 PT, 2 counselors, 6 paras, 2 case managers)
-- 187 IEP service requirements with staggered start/end dates
-- 12,238 session logs spanning Sep 2025-Apr 2026 with realistic durations by service type (ABA: 45-75min, OT/SLP: 20-45min, Para: 45-90min, BCBA: 15-45min), ~3% miss rate for compliant students, ~45% for 5 struggling students. Zero makeup sessions.
-- IEP documents with staggered start dates across the entire school year (Sep 2025 - Apr 2026), not all starting together
-- 42 behavior targets across 14 students with natural trend patterns (steady improvement, plateau-then-improve, regression-then-recovery)
-- 42 program targets across 14 students with varied learning curves and mastery tracking
-- 460 IEP goals linked to behavior/program targets and service areas
-- 1,254 data collection sessions with 2,521 behavior data points and 3,112 program data points
-- School holidays/breaks modeled (Thanksgiving, winter, February, April breaks)
-- 44 goal bank entries across 7 domains
-
-## Scalability & Performance
-
-The platform is optimized to handle 10K schools, 100K students, and millions of session logs/IEP goals:
-
-**Database Indexes** (30+ indexes across 11 tables):
-- `session_logs`: composite indexes on (student_id, session_date), (service_requirement_id, session_date), (staff_id, session_date), plus status and date indexes
-- `students`: (school_id, status), case_manager, status, (last_name, first_name)
-- `service_requirements`: (student_id, active), provider, active
-- `iep_goals`: (student_id, active), (student_id, service_area), iep_document_id
-- `alerts`: resolved, (student_id, resolved), (severity, resolved), (staff_id, resolved), type
-- `schedule_blocks`: (staff_id, day_of_week), (is_recurring, staff_id), student_id
-- `iep_documents`: student_id, (student_id, active), prepared_by
-- `behavior_targets`: (student_id, active)
-- `program_targets`: (student_id, active)
-- `team_meetings`: student_id, scheduled_date
-- `iep_accommodations`: student_id, iep_document_id
-- `staff_assignments`, `data_sessions`, `behavior_data`, `program_data`, `compliance_events`: all indexed on FK columns
-
-**Query Optimization**:
-- `computeAllActiveMinuteProgress()` uses 2 bulk queries (requirements + sessions via `inArray`) instead of N+1 pattern
-- Supports `studentIds[]` filter for scoped queries (e.g., paginated student list only computes progress for visible students)
-- Dashboard routes parallelized with `Promise.all` — summary endpoint runs 6 queries concurrently
-- Compliance engine uses bulk UPDATE (resolve all) and batched INSERT (500/chunk) instead of per-row loops
-- Provider/para summaries use grouped COUNT queries instead of per-provider N+1
-- Alerts summary uses single GROUP BY query instead of 5 sequential queries
-- Missed sessions trend uses single GROUP BY query instead of 16 sequential queries
-- IEP goals endpoint uses LEFT JOINs to program/behavior targets instead of N+1 map
-- Coverage gaps uses selectDistinct + Set lookup instead of per-requirement loop
-- Compliance recalculate uses batch reads (all docs + all events) then single bulk insert
-
-**Error Handling**:
-- Global Express error handler returns JSON 500 responses (no stack trace leaks in production)
-- Division-by-zero guards in minuteCalc.ts (totalDays, requiredMinutes)
-
-**Shared Frontend Constants**:
-- `src/lib/constants.ts`: RISK_CONFIG, RISK_PRIORITY_ORDER, ROLE_COLORS, ROLE_LABELS
-- `src/lib/formatters.ts`: formatDate, formatTime — used across all pages
-
-**Pagination**:
-- `GET /students` and `GET /staff` support `limit` (1-500, default 100) and `offset` (≥0) query params
-- Zod validation enforces bounds on pagination parameters
+- **Dashboard:** Overview of KPIs, compliance, and alerts.
+- **Student Management:** CRUD operations for student profiles, service progress, behavior, and academic program tracking.
+- **Service & Schedule Management:** Tracking service requirements, session logging (including bulk imports), and recurring schedule blocks with conflict detection.
+- **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports, and parent contact logs. Supports amendments and completeness checks.
+- **Compliance Tracking:** IDEA compliance event tracking, automated deadline generation, and alerts system.
+- **ABA Program Management:** Detailed behavior reduction and skill acquisition program management (with prompt hierarchies, auto-progression, mastery criteria), a comprehensive program builder (Type → Config → Steps → Review), and data collection interfaces. Includes a tiered template system for reusable program templates and a premium gate for advanced features.
+- **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant restraint/seclusion/time-out incident tracking, including a 4-step incident form, compliance checklist, digital signatures, and DESE CSV/JSON export capabilities.
+- **Expandable Session Details:** Session rows expand to show clinical notes, linked IEP goals, behavior data, and program data.
+- **Interactive Charts:** Reusable `InteractiveChart` component for behavior, academic, and minutes trend data, featuring sparkline view, expanded view with Recharts, staff filters, date range filters, and phase lines.
+- **Reporting:** Generates minute summaries, missed session reports, and at-risk student reports with CSV export.
+- **Session Edit/Delete:** Functionality to edit duration, status, location, notes, and missed reasons, with compliance warnings on deletion.
+- **Date Range Filtering:** Server-side date range filtering for sessions.
+- **Confirmation Dialogs:** Used for critical actions like alert resolution and session deletion.
+- **Toast Notifications:** `sonner`-based system for user feedback.
+- **Error States:** `ErrorBanner` for network failures on data-fetching pages.
+- **Analytics & Insights (analytics.tsx):** Comprehensive school-wide data visualization page with 4 tabs — Overview (KPI cards, risk distribution donut, radial compliance gauge, service delivery heatmap), Behavior (weekly trends combo chart, measurement type distribution, top improving/worsening targets ranked lists), Academic (accuracy trends area chart, mastery funnel visualization, prompt level distribution horizontal bars, domain breakdown, top performers/needs support lists), Minutes (weekly delivery stacked bars completed vs missed, day-of-week pattern, compliance by service type progress bars, staff utilization ranked list). Backend: 5 new aggregate API endpoints under `/analytics/` (overview, behavior-summary, program-summary, minutes-summary, delivery-heatmap) with complex SQL aggregations.
+- **Import Functionality:** Bulk CSV imports for students, service requirements, and session logs.
+- **Global Search:** Search across IEP goals, accommodations, and students.
+- **Staff Caseload Management:** Staff-specific dashboards with assigned students and IEP status summaries.
+- **Scalability & Performance:** Optimized for large datasets with extensive database indexing, query optimization techniques (e.g., bulk queries, parallelization, grouped counts), and pagination support.
 
 ## External Dependencies
 
-- **Node.js**: Runtime environment for the backend.
-- **PostgreSQL**: Primary database for data storage.
+- **Node.js**: Runtime environment.
+- **PostgreSQL**: Primary database.
 - **Vite**: Frontend build tool.
-- **Tailwind CSS**: Utility-first CSS framework.
-- **shadcn/ui**: Reusable UI components.
-- **Recharts**: Charting library for data visualization.
-- **wouter**: Frontend routing library.
-- **Express**: Web application framework for the API server.
-- **Drizzle ORM**: TypeScript ORM for PostgreSQL.
-- **Zod**: Schema declaration and validation library.
-- **Orval**: OpenAPI to client code generator.
-- **esbuild**: JavaScript bundler for the API server.
+- **Tailwind CSS**: CSS framework.
+- **shadcn/ui**: UI component library.
+- **Recharts**: Charting library.
+- **wouter**: Frontend router.
+- **Express**: Backend web framework.
+- **Drizzle ORM**: TypeScript ORM.
+- **Zod**: Schema validation.
+- **Orval**: OpenAPI client generator.
+- **esbuild**: JavaScript bundler.
 - **Lucide React**: Icon library.

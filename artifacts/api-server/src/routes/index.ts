@@ -16,6 +16,7 @@ import iepRouter from "./iep";
 import complianceTimelineRouter from "./complianceTimeline";
 import additionalFeaturesRouter from "./additionalFeatures";
 import protectiveMeasuresRouter from "./protectiveMeasures";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(iepRouter);
 router.use(complianceTimelineRouter);
 router.use(additionalFeaturesRouter);
 router.use(protectiveMeasuresRouter);
+router.use(analyticsRouter);
 
 export default router;
