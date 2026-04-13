@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, restraintIncidentsTable, studentsTable, staffTable } from "@workspace/db";
+import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -90,6 +90,27 @@ router.get("/protective-measures/incidents/:id", async (req: Request, res: Respo
     ? (incident.observerStaffIds as number[]).map(id => staffMap[id]).filter(Boolean)
     : [];
 
+  const signatures = await db
+    .select({
+      id: incidentSignaturesTable.id,
+      incidentId: incidentSignaturesTable.incidentId,
+      staffId: incidentSignaturesTable.staffId,
+      staffFirstName: staffTable.firstName,
+      staffLastName: staffTable.lastName,
+      staffTitle: staffTable.title,
+      staffRole: staffTable.role,
+      role: incidentSignaturesTable.role,
+      signatureName: incidentSignaturesTable.signatureName,
+      signedAt: incidentSignaturesTable.signedAt,
+      requestedAt: incidentSignaturesTable.requestedAt,
+      status: incidentSignaturesTable.status,
+      notes: incidentSignaturesTable.notes,
+    })
+    .from(incidentSignaturesTable)
+    .leftJoin(staffTable, eq(incidentSignaturesTable.staffId, staffTable.id))
+    .where(eq(incidentSignaturesTable.incidentId, id))
+    .orderBy(incidentSignaturesTable.requestedAt);
+
   res.json({
     ...incident,
     student,
@@ -98,6 +119,7 @@ router.get("/protective-measures/incidents/:id", async (req: Request, res: Respo
     parentNotifier,
     additionalStaff,
     observerStaff,
+    signatures,
   });
 });
 
@@ -147,6 +169,24 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
     staffInjuryDescription: body.staffInjuryDescription || null,
     medicalAttentionRequired: body.medicalAttentionRequired ?? false,
     medicalDetails: body.medicalDetails || null,
+    studentMoved: body.studentMoved ?? false,
+    studentMovedTo: body.studentMovedTo || null,
+    roomCleared: body.roomCleared ?? false,
+    bodyPosition: body.bodyPosition || null,
+    proceduresUsed: body.proceduresUsed || null,
+    deescalationStrategies: body.deescalationStrategies || null,
+    antecedentCategory: body.antecedentCategory || null,
+    emergencyServicesCalled: body.emergencyServicesCalled ?? false,
+    emergencyServicesCalledAt: body.emergencyServicesCalledAt || null,
+    debriefConducted: body.debriefConducted ?? false,
+    debriefDate: body.debriefDate || null,
+    debriefNotes: body.debriefNotes || null,
+    debriefParticipants: body.debriefParticipants || null,
+    bipInPlace: body.bipInPlace ?? false,
+    physicalEscortOnly: body.physicalEscortOnly ?? false,
+    studentReturnedToActivity: body.studentReturnedToActivity || null,
+    timeToCalm: body.timeToCalm ? Number(body.timeToCalm) : null,
+    terminologyFramework: body.terminologyFramework || "standard",
     parentVerbalNotification: body.parentVerbalNotification ?? false,
     parentVerbalNotificationAt: body.parentVerbalNotificationAt || null,
     parentNotified: body.parentNotified ?? false,
@@ -171,6 +211,43 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
     notes: body.notes || null,
   }).returning();
 
+  const now = new Date().toISOString();
+  const sigRequests: Array<{ incidentId: number; staffId: number; role: string; requestedAt: string; status: string; signatureName?: string; signedAt?: string }> = [];
+
+  if (body.primaryStaffId) {
+    const isSelfSigned = body.reportingStaffSignature && Number(body.primaryStaffId) === Number(body.primaryStaffId);
+    sigRequests.push({
+      incidentId: incident.id,
+      staffId: Number(body.primaryStaffId),
+      role: "reporting_staff",
+      requestedAt: now,
+      status: body.reportingStaffSignature ? "signed" : "pending",
+      signatureName: body.reportingStaffSignature || undefined,
+      signedAt: body.reportingStaffSignature ? now : undefined,
+    });
+  }
+
+  if (Array.isArray(body.additionalStaffIds)) {
+    for (const sid of body.additionalStaffIds) {
+      sigRequests.push({ incidentId: incident.id, staffId: Number(sid), role: "additional_staff", requestedAt: now, status: "pending" });
+    }
+  }
+
+  if (Array.isArray(body.observerStaffIds)) {
+    for (const sid of body.observerStaffIds) {
+      sigRequests.push({ incidentId: incident.id, staffId: Number(sid), role: "observer", requestedAt: now, status: "pending" });
+    }
+  }
+
+  const adminStaff = await db.select({ id: staffTable.id }).from(staffTable).where(eq(staffTable.role, "admin"));
+  for (const admin of adminStaff) {
+    sigRequests.push({ incidentId: incident.id, staffId: admin.id, role: "admin_reviewer", requestedAt: now, status: "pending" });
+  }
+
+  if (sigRequests.length > 0) {
+    await db.insert(incidentSignaturesTable).values(sigRequests);
+  }
+
   res.status(201).json(incident);
 });
 
@@ -190,6 +267,12 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
     "calmingStrategiesUsed", "studentStateAfter",
     "studentInjury", "studentInjuryDescription", "staffInjury", "staffInjuryDescription",
     "medicalAttentionRequired", "medicalDetails",
+    "studentMoved", "studentMovedTo", "roomCleared", "bodyPosition",
+    "proceduresUsed", "deescalationStrategies", "antecedentCategory",
+    "emergencyServicesCalled", "emergencyServicesCalledAt",
+    "debriefConducted", "debriefDate", "debriefNotes", "debriefParticipants",
+    "bipInPlace", "physicalEscortOnly", "studentReturnedToActivity", "timeToCalm",
+    "terminologyFramework",
     "parentVerbalNotification", "parentVerbalNotificationAt",
     "parentNotified", "parentNotifiedAt", "parentNotifiedBy", "parentNotificationMethod",
     "writtenReportSent", "writtenReportSentAt", "writtenReportSentMethod",
@@ -384,6 +467,11 @@ router.get("/protective-measures/summary", async (req: Request, res: Response) =
     ? Math.round(restraints.reduce((sum, r) => sum + (r.durationMinutes || 0), 0) / restraints.length)
     : 0;
 
+  const pendingSigs = await db
+    .select({ id: incidentSignaturesTable.id })
+    .from(incidentSignaturesTable)
+    .where(eq(incidentSignaturesTable.status, "pending"));
+
   res.json({
     period: { startDate: start, endDate: end },
     totalIncidents,
@@ -393,6 +481,7 @@ router.get("/protective-measures/summary", async (req: Request, res: Response) =
       time_out: timeouts.length,
     },
     pendingReview: pendingReview.length,
+    pendingSignatures: pendingSigs.length,
     parentNotificationsPending: parentNotificationsPending.length,
     writtenReportsPending: writtenReportsPending.length,
     injuries: withInjuries.length,
@@ -607,14 +696,26 @@ router.get("/protective-measures/dese-export", async (req: Request, res: Respons
     "Duration (Minutes)",
     "Incident Type",
     "Restraint Type",
+    "Body Position",
     "Location",
+    "Student Moved",
+    "Student Moved To",
+    "Room Cleared",
     "Preceding Activity",
+    "Antecedent Category",
     "Behavior That Prompted Restraint",
     "De-escalation Strategies Used",
+    "De-escalation Strategy Checklist",
     "Alternatives to Restraint Attempted",
     "Justification for Initiating Restraint",
+    "Procedures Used",
     "Calming Strategies Used",
     "Student State After Incident",
+    "Student Returned To Activity",
+    "Time to Calm (Minutes)",
+    "BIP in Place",
+    "Physical Escort Only",
+    "Emergency Services Called",
     "Primary Staff Name",
     "Primary Staff Title",
     "Additional Staff Names",
@@ -640,6 +741,9 @@ router.get("/protective-measures/dese-export", async (req: Request, res: Respons
     "DESE Report Required (Injury)",
     "DESE Report Sent Date",
     "30-Day Log Sent to DESE",
+    "Debrief Conducted",
+    "Debrief Date",
+    "Debrief Notes",
     "Admin Reviewed By",
     "Admin Review Date",
     "Reporting Staff Signature",
@@ -666,14 +770,26 @@ router.get("/protective-measures/dese-export", async (req: Request, res: Respons
       inc.durationMinutes ?? "",
       TYPE_MAP[inc.incidentType] || inc.incidentType,
       inc.restraintType ? (RESTRAINT_MAP[inc.restraintType] || inc.restraintType) : "",
+      inc.bodyPosition || "",
       inc.location || "",
+      inc.studentMoved ? "Yes" : "No",
+      inc.studentMovedTo || "",
+      inc.roomCleared ? "Yes" : "No",
       inc.precedingActivity || "",
+      inc.antecedentCategory || "",
       inc.behaviorDescription,
       inc.deescalationAttempts || "",
+      Array.isArray(inc.deescalationStrategies) ? (inc.deescalationStrategies as string[]).join("; ") : "",
       inc.alternativesAttempted || "",
       inc.justification || "",
+      Array.isArray(inc.proceduresUsed) ? (inc.proceduresUsed as string[]).join("; ") : "",
       inc.calmingStrategiesUsed || "",
       inc.studentStateAfter || "",
+      inc.studentReturnedToActivity || "",
+      inc.timeToCalm ?? "",
+      inc.bipInPlace ? "Yes" : "No",
+      inc.physicalEscortOnly ? "Yes" : "No",
+      inc.emergencyServicesCalled ? "Yes" : "No",
       staffName(inc.primaryStaffId),
       staffTitle(inc.primaryStaffId),
       staffNames(inc.additionalStaffIds as number[] | null),
@@ -699,6 +815,9 @@ router.get("/protective-measures/dese-export", async (req: Request, res: Respons
       inc.deseReportRequired ? "Yes" : "No",
       inc.deseReportSentAt || "",
       inc.thirtyDayLogSentToDese ? "Yes" : "No",
+      inc.debriefConducted ? "Yes" : "No",
+      inc.debriefDate || "",
+      inc.debriefNotes || "",
       staffName(inc.adminReviewedBy),
       inc.adminReviewedAt || "",
       inc.reportingStaffSignature || "",
@@ -770,6 +889,118 @@ router.get("/protective-measures/dese-30day-log/:incidentId", async (req: Reques
     totalIncidentsInPeriod: priorIncidents.length,
     incidents: priorIncidents,
   });
+});
+
+router.get("/protective-measures/incidents/:id/signatures", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const sigs = await db
+    .select({
+      id: incidentSignaturesTable.id,
+      incidentId: incidentSignaturesTable.incidentId,
+      staffId: incidentSignaturesTable.staffId,
+      staffFirstName: staffTable.firstName,
+      staffLastName: staffTable.lastName,
+      staffTitle: staffTable.title,
+      staffRole: staffTable.role,
+      role: incidentSignaturesTable.role,
+      signatureName: incidentSignaturesTable.signatureName,
+      signedAt: incidentSignaturesTable.signedAt,
+      requestedAt: incidentSignaturesTable.requestedAt,
+      status: incidentSignaturesTable.status,
+      notes: incidentSignaturesTable.notes,
+    })
+    .from(incidentSignaturesTable)
+    .leftJoin(staffTable, eq(incidentSignaturesTable.staffId, staffTable.id))
+    .where(eq(incidentSignaturesTable.incidentId, id))
+    .orderBy(incidentSignaturesTable.requestedAt);
+
+  res.json(sigs);
+});
+
+router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (req: Request, res: Response) => {
+  const incidentId = Number(req.params.id);
+  const sigId = Number(req.params.sigId);
+  if (isNaN(incidentId) || isNaN(sigId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { signatureName, notes } = req.body;
+  if (!signatureName) { res.status(400).json({ error: "signatureName required" }); return; }
+
+  const [existing] = await db.select().from(incidentSignaturesTable)
+    .where(and(eq(incidentSignaturesTable.id, sigId), eq(incidentSignaturesTable.incidentId, incidentId)));
+  if (!existing) { res.status(404).json({ error: "Signature request not found" }); return; }
+
+  const now = new Date().toISOString();
+  const [updated] = await db.update(incidentSignaturesTable).set({
+    signatureName,
+    signedAt: now,
+    status: "signed",
+    notes: notes || existing.notes,
+  }).where(eq(incidentSignaturesTable.id, sigId)).returning();
+
+  if (existing.role === "admin_reviewer") {
+    const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
+    if (incident && !incident.adminSignature) {
+      await db.update(restraintIncidentsTable).set({
+        adminSignature: signatureName,
+        adminSignedAt: now,
+        adminReviewedBy: existing.staffId,
+        adminReviewedAt: now.split("T")[0],
+        status: "reviewed",
+      }).where(eq(restraintIncidentsTable.id, incidentId));
+    }
+  }
+
+  res.json(updated);
+});
+
+router.post("/protective-measures/incidents/:id/signatures/request", async (req: Request, res: Response) => {
+  const incidentId = Number(req.params.id);
+  if (isNaN(incidentId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { staffId, role } = req.body;
+  if (!staffId || !role) { res.status(400).json({ error: "staffId and role required" }); return; }
+
+  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, incidentId));
+  if (!existing) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  const now = new Date().toISOString();
+  const [sig] = await db.insert(incidentSignaturesTable).values({
+    incidentId,
+    staffId: Number(staffId),
+    role,
+    requestedAt: now,
+    status: "pending",
+  }).returning();
+
+  res.status(201).json(sig);
+});
+
+router.get("/protective-measures/pending-signatures", async (req: Request, res: Response) => {
+  const { staffId } = req.query;
+  const conditions: any[] = [eq(incidentSignaturesTable.status, "pending")];
+  if (staffId) conditions.push(eq(incidentSignaturesTable.staffId, Number(staffId)));
+
+  const pending = await db
+    .select({
+      id: incidentSignaturesTable.id,
+      incidentId: incidentSignaturesTable.incidentId,
+      staffId: incidentSignaturesTable.staffId,
+      role: incidentSignaturesTable.role,
+      requestedAt: incidentSignaturesTable.requestedAt,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+      incidentDate: restraintIncidentsTable.incidentDate,
+      incidentType: restraintIncidentsTable.incidentType,
+    })
+    .from(incidentSignaturesTable)
+    .innerJoin(restraintIncidentsTable, eq(incidentSignaturesTable.incidentId, restraintIncidentsTable.id))
+    .leftJoin(studentsTable, eq(restraintIncidentsTable.studentId, studentsTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(incidentSignaturesTable.requestedAt));
+
+  res.json(pending);
 });
 
 router.get("/students/:id/protective-measures", async (req: Request, res: Response) => {

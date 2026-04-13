@@ -59,6 +59,25 @@ export const restraintIncidentsTable = pgTable("restraint_incidents", {
   deseReportSentAt: text("dese_report_sent_at"),
   thirtyDayLogSentToDese: boolean("thirty_day_log_sent_to_dese").notNull().default(false),
 
+  studentMoved: boolean("student_moved").notNull().default(false),
+  studentMovedTo: text("student_moved_to"),
+  roomCleared: boolean("room_cleared").notNull().default(false),
+  bodyPosition: text("body_position"),
+  proceduresUsed: jsonb("procedures_used").$type<string[]>(),
+  deescalationStrategies: jsonb("deescalation_strategies").$type<string[]>(),
+  antecedentCategory: text("antecedent_category"),
+  emergencyServicesCalled: boolean("emergency_services_called").notNull().default(false),
+  emergencyServicesCalledAt: text("emergency_services_called_at"),
+  debriefConducted: boolean("debrief_conducted").notNull().default(false),
+  debriefDate: text("debrief_date"),
+  debriefNotes: text("debrief_notes"),
+  debriefParticipants: jsonb("debrief_participants").$type<number[]>(),
+  bipInPlace: boolean("bip_in_place").notNull().default(false),
+  physicalEscortOnly: boolean("physical_escort_only").notNull().default(false),
+  studentReturnedToActivity: text("student_returned_to_activity"),
+  timeToCalm: integer("time_to_calm"),
+  terminologyFramework: text("terminology_framework").notNull().default("standard"),
+
   reportingStaffSignature: text("reporting_staff_signature"),
   reportingStaffSignedAt: text("reporting_staff_signed_at"),
   adminSignature: text("admin_signature"),
@@ -77,6 +96,23 @@ export const restraintIncidentsTable = pgTable("restraint_incidents", {
   index("ri_date_idx").on(table.incidentDate),
   index("ri_status_idx").on(table.status),
   index("ri_type_idx").on(table.incidentType),
+]);
+
+export const incidentSignaturesTable = pgTable("incident_signatures", {
+  id: serial("id").primaryKey(),
+  incidentId: integer("incident_id").references(() => restraintIncidentsTable.id, { onDelete: "cascade" }).notNull(),
+  staffId: integer("staff_id").references(() => staffTable.id).notNull(),
+  role: text("role").notNull(),
+  signatureName: text("signature_name"),
+  signedAt: text("signed_at"),
+  requestedAt: text("requested_at").notNull(),
+  status: text("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("is_incident_idx").on(table.incidentId),
+  index("is_staff_idx").on(table.staffId),
+  index("is_status_idx").on(table.status),
 ]);
 
 export const insertRestraintIncidentSchema = createInsertSchema(restraintIncidentsTable).omit({
