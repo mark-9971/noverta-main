@@ -257,13 +257,13 @@ export default function Sessions() {
             {goals.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-indigo-500" /> IEP Goals Addressed ({goals.length})
+                  <Target className="w-3.5 h-3.5 text-emerald-600" /> IEP Goals Addressed ({goals.length})
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {goals.map((g: any) => (
                     <div key={g.id} className="bg-white rounded-lg px-3 py-2 border border-slate-200">
                       <div className="flex items-start gap-2">
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 flex-shrink-0 mt-0.5">{g.goalArea}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 flex-shrink-0 mt-0.5">{g.goalArea}</span>
                         <p className="text-[12px] text-slate-700 leading-snug line-clamp-2">{g.annualGoal}</p>
                       </div>
                       {g.targetCriterion && (
@@ -296,7 +296,7 @@ export default function Sessions() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Session Log</h1>
           <p className="text-xs md:text-sm text-slate-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
         </div>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] flex-shrink-0" onClick={() => setShowAddModal(true)}>
+        <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] flex-shrink-0" onClick={() => setShowAddModal(true)}>
           <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
         </Button>
       </div>
@@ -521,7 +521,7 @@ export default function Sessions() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setEditingSession(null)}>Cancel</Button>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] gap-1" disabled={editSaving} onClick={handleEditSave}>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] gap-1" disabled={editSaving} onClick={handleEditSave}>
               <Save className="w-3.5 h-3.5" /> {editSaving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
@@ -633,7 +633,7 @@ export default function Sessions() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" disabled={!form.studentId || !form.sessionDate || !form.durationMinutes || submitting} onClick={handleSubmit}>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" disabled={!form.studentId || !form.sessionDate || !form.durationMinutes || submitting} onClick={handleSubmit}>
               {submitting ? "Saving..." : "Log Session"}
             </Button>
           </DialogFooter>

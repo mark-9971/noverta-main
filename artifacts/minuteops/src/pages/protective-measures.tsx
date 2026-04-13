@@ -160,7 +160,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-indigo-600" />
+            <Shield className="w-6 h-6 text-emerald-700" />
             Protective Measures
           </h1>
           <p className="text-sm text-slate-500 mt-1">Restraint & seclusion tracking · 603 CMR 46.00</p>
@@ -178,7 +178,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
               <Download className="w-3.5 h-3.5" /> DESE Export
             </button>
           </div>
-          <button onClick={onNew} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+          <button onClick={onNew} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800 transition-colors shadow-sm">
             <Plus className="w-4 h-4" /> Report Incident
           </button>
         </div>
@@ -234,18 +234,18 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input type="text" placeholder="Search by student name or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
         </div>
         <div className="flex gap-2">
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Types</option>
             <option value="physical_restraint">Physical Restraint</option>
             <option value="seclusion">Seclusion</option>
             <option value="time_out">Time-Out</option>
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Status</option>
             <option value="pending_review">Pending Review</option>
             <option value="reviewed">Reviewed</option>
@@ -426,8 +426,8 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
       <div className="flex gap-1.5 mb-4">
         {["Incident", "Context & Staff", "Injuries", "Signatures & Submit"].map((label, i) => (
           <div key={i} className="flex-1">
-            <div className={`h-1.5 rounded-full ${i < step ? "bg-indigo-500" : "bg-slate-200"}`} />
-            <p className={`text-[10px] mt-1 text-center ${i < step ? "text-indigo-600 font-medium" : "text-slate-400"}`}>{label}</p>
+            <div className={`h-1.5 rounded-full ${i < step ? "bg-emerald-500" : "bg-slate-200"}`} />
+            <p className={`text-[10px] mt-1 text-center ${i < step ? "text-emerald-700 font-medium" : "text-slate-400"}`}>{label}</p>
           </div>
         ))}
       </div>
@@ -441,7 +441,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Student *</label>
               <select value={form.studentId} onChange={e => set("studentId", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400">
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="">Select student...</option>
                 {(students || []).map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — Grade {s.grade}</option>)}
               </select>
@@ -449,7 +449,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Incident Type *</label>
               <select value={form.incidentType} onChange={e => set("incidentType", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400">
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="physical_restraint">Physical Restraint</option>
                 <option value="seclusion">Seclusion (Emergency Only)</option>
                 <option value="time_out">Time-Out (Exclusionary)</option>
@@ -458,28 +458,28 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Date *</label>
               <input type="date" value={form.incidentDate} onChange={e => set("incidentDate", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Time Restraint Began *</label>
               <input type="time" value={form.incidentTime} onChange={e => set("incidentTime", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Time Restraint Ended *</label>
               <input type="time" value={form.endTime} onChange={e => set("endTime", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Location</label>
               <input type="text" placeholder="e.g., Classroom 204, Hallway" value={form.location} onChange={e => set("location", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             {form.incidentType === "physical_restraint" && (
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Type of Restraint</label>
                 <select value={form.restraintType} onChange={e => set("restraintType", e.target.value)}
-                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400">
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                   <option value="">Select type...</option>
                   {Object.entries(RESTRAINT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
@@ -488,7 +488,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Principal/Designee Notified</label>
               <input type="text" placeholder="Name of principal or designee verbally informed" value={form.principalNotifiedName} onChange={e => set("principalNotifiedName", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
           </div>
 
@@ -509,7 +509,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <button onClick={() => {
               if (!form.studentId || !form.incidentTime || !form.incidentDate) { setError("Please select a student and fill in the date/time fields"); return; }
               setError(""); setStep(2);
-            }} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+            }} className="px-5 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">
               Next: Context & Staff
             </button>
           </div>
@@ -524,43 +524,43 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Activity Preceding Incident *</label>
             <textarea value={form.precedingActivity} onChange={e => set("precedingActivity", e.target.value)} rows={2}
               placeholder="Describe the activity the student and others were engaged in immediately before the restraint..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Behavior That Prompted Restraint *</label>
             <textarea value={form.behaviorDescription} onChange={e => set("behaviorDescription", e.target.value)} rows={3}
               placeholder="Describe the specific behavior that posed a threat of imminent, serious physical harm..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">De-escalation Strategies Used *</label>
             <textarea value={form.deescalationAttempts} onChange={e => set("deescalationAttempts", e.target.value)} rows={2}
               placeholder="List all specific de-escalation strategies attempted before physical intervention (e.g., verbal redirection, offering breaks, sensory tools)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Alternatives to Restraint Attempted *</label>
             <textarea value={form.alternativesAttempted} onChange={e => set("alternativesAttempted", e.target.value)} rows={2}
               placeholder="What alternatives to physical restraint were tried? (e.g., moved other students, offered choice, called crisis team)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Justification for Initiating Restraint *</label>
             <textarea value={form.justification} onChange={e => set("justification", e.target.value)} rows={2}
               placeholder="Explain why physical restraint was necessary — what imminent serious physical harm was the restraint preventing..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Calming Strategies Used During/After</label>
             <textarea value={form.calmingStrategiesUsed} onChange={e => set("calmingStrategiesUsed", e.target.value)} rows={2}
               placeholder="Describe strategies used to help the student calm (e.g., deep breathing prompts, reduced demands, quiet space)..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Student's Physical/Emotional State After</label>
             <textarea value={form.studentStateAfter} onChange={e => set("studentStateAfter", e.target.value)} rows={2}
               placeholder="Describe the student's condition after the restraint ended..."
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
           <hr className="border-slate-200" />
@@ -570,7 +570,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Primary Staff Who Administered *</label>
               <select value={form.primaryStaffId} onChange={e => set("primaryStaffId", e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400">
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400">
                 <option value="">Select staff...</option>
                 {(staff || []).map((s: Staff) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.title || s.role}</option>)}
               </select>
@@ -582,7 +582,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div className="flex flex-wrap gap-2">
               {(staff || []).filter(s => String(s.id) !== form.primaryStaffId).map((s: Staff) => (
                 <button key={s.id} type="button" onClick={() => toggleStaffMulti("additionalStaffIds", String(s.id))}
-                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.additionalStaffIds.includes(String(s.id)) ? "bg-indigo-100 border-indigo-300 text-indigo-700" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${form.additionalStaffIds.includes(String(s.id)) ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
                   {s.firstName} {s.lastName}
                 </button>
               ))}
@@ -605,7 +605,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Trigger / Antecedent Events</label>
             <textarea value={form.triggerDescription} onChange={e => set("triggerDescription", e.target.value)} rows={2}
               placeholder="What happened immediately before the incident?"
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
           <div className="flex justify-between">
@@ -613,7 +613,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <button onClick={() => {
               if (!form.behaviorDescription) { setError("Behavior description is required"); return; }
               setError(""); setStep(3);
-            }} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Next: Injuries & Safety</button>
+            }} className="px-5 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">Next: Injuries & Safety</button>
           </div>
         </div>
       )}
@@ -624,7 +624,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           <div className="space-y-4">
             <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
               <input type="checkbox" checked={form.studentInjury} onChange={e => set("studentInjury", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500" />
               <div>
                 <span className="text-sm font-medium text-slate-700">Student sustained injury</span>
                 <p className="text-xs text-slate-500">Any visible mark, bruise, or reported pain</p>
@@ -632,12 +632,12 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             </label>
             {form.studentInjury && (
               <textarea value={form.studentInjuryDescription} onChange={e => set("studentInjuryDescription", e.target.value)} rows={2}
-                placeholder="Describe student injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+                placeholder="Describe student injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             )}
 
             <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
               <input type="checkbox" checked={form.staffInjury} onChange={e => set("staffInjury", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500" />
               <div>
                 <span className="text-sm font-medium text-slate-700">Staff sustained injury</span>
                 <p className="text-xs text-slate-500">Any injury to staff member(s) during the incident</p>
@@ -645,7 +645,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             </label>
             {form.staffInjury && (
               <textarea value={form.staffInjuryDescription} onChange={e => set("staffInjuryDescription", e.target.value)} rows={2}
-                placeholder="Describe staff injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+                placeholder="Describe staff injury in detail (type, location, severity)..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             )}
 
             <label className="flex items-center gap-3 p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100/70 transition-colors">
@@ -673,19 +673,19 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Restraint Description</label>
               <textarea value={form.restraintDescription} onChange={e => set("restraintDescription", e.target.value)} rows={2}
-                placeholder="Describe the physical hold or intervention used..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+                placeholder="Describe the physical hold or intervention used..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
             </div>
           )}
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Additional Notes</label>
             <textarea value={form.notes} onChange={e => set("notes", e.target.value)} rows={2}
-              placeholder="Any other relevant details..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              placeholder="Any other relevant details..." className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none" />
           </div>
 
           <div className="flex justify-between">
             <button onClick={() => setStep(2)} className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">Back</button>
-            <button onClick={() => setStep(4)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Next: Sign & Submit</button>
+            <button onClick={() => setStep(4)} className="px-5 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800">Next: Sign & Submit</button>
           </div>
         </div>
       )}
@@ -728,7 +728,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
             <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2"><PenLine className="w-4 h-4" /> Reporting Staff Signature</h3>
             <p className="text-xs text-slate-500">By typing your name, you attest that this report is accurate and complete to the best of your knowledge.</p>
             <input type="text" placeholder="Type your full name to sign" value={form.reportingStaffSignature} onChange={e => set("reportingStaffSignature", e.target.value)}
-              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium italic" />
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium italic" />
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
@@ -751,7 +751,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
               if (!form.behaviorDescription) { setError("Go back to Step 2 and complete the behavior description"); return; }
               mutation.mutate();
             }} disabled={mutation.isPending}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+              className="px-6 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800 disabled:opacity-50 flex items-center gap-2">
               {mutation.isPending ? "Submitting..." : "Submit Incident Report"}
             </button>
           </div>
@@ -1110,26 +1110,26 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             />
 
             {!incident.adminReviewedBy && !showReview && (
-              <button onClick={() => setShowReview(true)} className="w-full px-3 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 flex items-center justify-center gap-1.5">
+              <button onClick={() => setShowReview(true)} className="w-full px-3 py-2 bg-emerald-700 text-white rounded-lg text-xs font-medium hover:bg-emerald-800 flex items-center justify-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5" /> Complete Admin Review
               </button>
             )}
             {showReview && !incident.adminReviewedBy && (
-              <div className="bg-indigo-50 rounded-lg p-3 space-y-2">
+              <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
                 <select value={reviewForm.adminStaffId} onChange={e => setReviewForm(f => ({ ...f, adminStaffId: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-indigo-200 rounded text-xs bg-white">
+                  className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white">
                   <option value="">Reviewer...</option>
                   {staff.filter(s => s.role === "admin" || s.role === "case_manager").map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
                 <textarea value={reviewForm.notes} onChange={e => setReviewForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Review notes..." rows={2} className="w-full px-2 py-1.5 border border-indigo-200 rounded text-xs bg-white resize-none" />
+                  placeholder="Review notes..." rows={2} className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white resize-none" />
                 <input type="text" placeholder="Admin signature (type full name)" value={reviewForm.signature} onChange={e => setReviewForm(f => ({ ...f, signature: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-indigo-200 rounded text-xs bg-white italic" />
+                  className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white italic" />
                 <div className="flex gap-2">
                   <button onClick={() => setShowReview(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
                   <button onClick={() => { if (reviewForm.adminStaffId) reviewMutation.mutate({ adminStaffId: Number(reviewForm.adminStaffId), notes: reviewForm.notes, signature: reviewForm.signature }); }}
                     disabled={!reviewForm.adminStaffId || reviewMutation.isPending}
-                    className="flex-1 px-2 py-1.5 text-xs bg-indigo-600 text-white rounded disabled:opacity-50">
+                    className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
                     {reviewMutation.isPending ? "..." : "Submit Review"}
                   </button>
                 </div>
@@ -1206,7 +1206,7 @@ function SignatureInput({ label, onSign, isPending }: { label: string; onSign: (
       <div className="flex gap-2">
         <button onClick={() => setShow(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-slate-200 rounded">Cancel</button>
         <button onClick={() => { if (name) onSign(name); }} disabled={!name || isPending}
-          className="flex-1 px-2 py-1.5 text-xs bg-indigo-600 text-white rounded disabled:opacity-50">
+          className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
           {isPending ? "..." : "Sign"}
         </button>
       </div>

@@ -25,7 +25,7 @@ export default function AdminClasses() {
     Math: "bg-blue-100 text-blue-700", ELA: "bg-purple-100 text-purple-700",
     Science: "bg-green-100 text-green-700", "Social Studies": "bg-amber-100 text-amber-700",
     Art: "bg-pink-100 text-pink-700", PE: "bg-red-100 text-red-700",
-    Music: "bg-indigo-100 text-indigo-700", "Computer Science": "bg-cyan-100 text-cyan-700",
+    Music: "bg-emerald-100 text-emerald-800", "Computer Science": "bg-cyan-100 text-cyan-700",
   };
 
   return (
@@ -43,7 +43,7 @@ export default function AdminClasses() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search classes, subjects, teachers..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>
 

@@ -13,7 +13,7 @@ const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 function MetricCard({ title, value, icon: Icon, accent = "indigo", subtitle, href }: any) {
   const accents: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600",
+    indigo: "bg-emerald-50 text-emerald-700",
     red: "bg-red-50 text-red-600",
     amber: "bg-amber-50 text-amber-600",
     emerald: "bg-emerald-50 text-emerald-600",
@@ -168,7 +168,7 @@ export default function Dashboard() {
                   <Tooltip
                     contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
                   />
-                  <Bar dataKey="completedCount" name="Completed" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Bar dataKey="completedCount" name="Completed" fill="#047857" radius={[4, 4, 0, 0]} barSize={20} />
                   <Bar dataKey="missedCount" name="Missed" fill="#fbbf24" radius={[4, 4, 0, 0]} barSize={20} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                 </BarChart>
@@ -218,7 +218,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-0 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-slate-600">Recent Alerts</CardTitle>
-            <Link href="/alerts" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View all</Link>
+            <Link href="/alerts" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">View all</Link>
           </CardHeader>
           <CardContent className="pt-4 space-y-2">
             {recent.length > 0 ? recent.map((a: any) => (
@@ -249,10 +249,10 @@ export default function Dashboard() {
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-indigo-500" />
+              <GraduationCap className="w-5 h-5 text-emerald-600" />
               Academic Overview
             </h2>
-            <Link href="/gradebook" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View Gradebook</Link>
+            <Link href="/gradebook" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">View Gradebook</Link>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <MetricCard title="Total Classes" value={academics.totalClasses} icon={BookOpen} accent="indigo" subtitle="this semester" href="/classes" />
@@ -269,7 +269,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={[
                     { grade: "A", count: academics.gradeDistribution.A, fill: "#10b981" },
-                    { grade: "B", count: academics.gradeDistribution.B, fill: "#6366f1" },
+                    { grade: "B", count: academics.gradeDistribution.B, fill: "#047857" },
                     { grade: "C", count: academics.gradeDistribution.C, fill: "#f59e0b" },
                     { grade: "D", count: academics.gradeDistribution.D, fill: "#f97316" },
                     { grade: "F", count: academics.gradeDistribution.F, fill: "#ef4444" },
@@ -281,7 +281,7 @@ export default function Dashboard() {
                     <Bar dataKey="count" name="Students" radius={[6, 6, 0, 0]} barSize={36}>
                       {[
                         { grade: "A", fill: "#10b981" },
-                        { grade: "B", fill: "#6366f1" },
+                        { grade: "B", fill: "#047857" },
                         { grade: "C", fill: "#f59e0b" },
                         { grade: "D", fill: "#f97316" },
                         { grade: "F", fill: "#ef4444" },
@@ -297,7 +297,7 @@ export default function Dashboard() {
             <Card>
               <CardHeader className="pb-0 flex-row items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-slate-600">Classes by Performance</CardTitle>
-                <Link href="/classes" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View all</Link>
+                <Link href="/classes" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">View all</Link>
               </CardHeader>
               <CardContent className="pt-4 space-y-2.5">
                 {academics.classes?.slice(0, 6).map((cls: any) => {
@@ -334,7 +334,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-0 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-slate-600">Upcoming IEP Deadlines</CardTitle>
-            <Link href="/compliance/timeline" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View timeline</Link>
+            <Link href="/compliance/timeline" className="text-xs text-emerald-700 hover:text-emerald-800 font-medium">View timeline</Link>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -38,7 +38,7 @@ function useAnalytics(endpoint: string) {
 }
 
 const COLORS = {
-  indigo: "#6366f1",
+  indigo: "#047857",
   emerald: "#10b981",
   amber: "#f59e0b",
   orange: "#f97316",
@@ -60,7 +60,7 @@ function KPICard({ title, value, icon: Icon, accent, subtitle, trend }: {
   title: string; value: string | number; icon: any; accent: string; subtitle?: string; trend?: { value: number; positive: boolean };
 }) {
   const accents: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600",
+    indigo: "bg-emerald-50 text-emerald-700",
     emerald: "bg-emerald-50 text-emerald-600",
     amber: "bg-amber-50 text-amber-600",
     red: "bg-red-50 text-red-600",
@@ -172,7 +172,7 @@ function OverviewTab() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <PieIcon className="w-4 h-4 text-indigo-500" />
+              <PieIcon className="w-4 h-4 text-emerald-600" />
               Student Risk Distribution
             </CardTitle>
           </CardHeader>
@@ -273,7 +273,7 @@ function OverviewTab() {
                       const intensity = cell ? Math.min(cell.sessions / maxSessions, 1) : 0;
                       return (
                         <div key={h} className="flex-1 aspect-square rounded-sm cursor-default group relative"
-                          style={{ backgroundColor: intensity === 0 ? "#f8fafc" : `rgba(99, 102, 241, ${0.15 + intensity * 0.75})` }}
+                          style={{ backgroundColor: intensity === 0 ? "#f8fafc" : `rgba(4, 120, 87, ${0.15 + intensity * 0.75})` }}
                           title={cell ? `${cell.sessions} sessions, ${cell.minutes} min` : "No sessions"}>
                         </div>
                       );
@@ -284,7 +284,7 @@ function OverviewTab() {
                   <span className="text-[9px] text-slate-400">Less</span>
                   {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v, i) => (
                     <div key={i} className="w-3 h-3 rounded-sm"
-                      style={{ backgroundColor: v === 0 ? "#f8fafc" : `rgba(99, 102, 241, ${0.15 + v * 0.75})` }} />
+                      style={{ backgroundColor: v === 0 ? "#f8fafc" : `rgba(4, 120, 87, ${0.15 + v * 0.75})` }} />
                   ))}
                   <span className="text-[9px] text-slate-400">More</span>
                 </div>
@@ -323,7 +323,7 @@ function BehaviorTab() {
         <Card className="lg:col-span-2 border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-indigo-500" />
+              <Activity className="w-4 h-4 text-emerald-600" />
               School-Wide Behavior Trends
             </CardTitle>
             <p className="text-[11px] text-slate-400">Weekly average across all behavior targets</p>
@@ -510,7 +510,7 @@ function AcademicTab() {
         <Card className="lg:col-span-2 border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-indigo-500" />
+              <Activity className="w-4 h-4 text-emerald-600" />
               Accuracy Trends Over Time
             </CardTitle>
             <p className="text-[11px] text-slate-400">Weekly average accuracy across all skill programs</p>
@@ -596,7 +596,7 @@ function AcademicTab() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-indigo-500" />
+              <Zap className="w-4 h-4 text-emerald-600" />
               Prompt Level Distribution
             </CardTitle>
             <p className="text-[11px] text-slate-400">Independence levels across all program data</p>
@@ -752,7 +752,7 @@ function MinutesTab() {
         <Card className="lg:col-span-2 border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-indigo-500" />
+              <Activity className="w-4 h-4 text-emerald-600" />
               Weekly Delivery Trend
             </CardTitle>
             <p className="text-[11px] text-slate-400">Completed vs missed sessions by week</p>
@@ -815,7 +815,7 @@ function MinutesTab() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Target className="w-4 h-4 text-indigo-500" />
+              <Target className="w-4 h-4 text-emerald-600" />
               Compliance by Service Type
             </CardTitle>
             <p className="text-[11px] text-slate-400">Delivered vs required minutes per service</p>
@@ -874,7 +874,7 @@ function MinutesTab() {
                       <span className="text-[12px] font-semibold text-slate-700">{(s.totalMinutes || 0).toLocaleString()} min</span>
                     </div>
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-indigo-400 transition-all"
+                      <div className="h-full rounded-full bg-emerald-500 transition-all"
                         style={{ width: `${((s.totalMinutes || 0) / maxMin) * 100}%` }} />
                     </div>
                     <div className="flex justify-between mt-1">
@@ -938,7 +938,7 @@ function StudentTab() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <User className="w-4 h-4 text-indigo-500" />
+              <User className="w-4 h-4 text-emerald-600" />
               Select a Student for Deep Analytics
             </CardTitle>
           </CardHeader>
@@ -946,7 +946,7 @@ function StudentTab() {
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input type="text" placeholder="Search students..." value={search} onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+                className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
             </div>
             {listLoading ? (
               <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
@@ -954,15 +954,15 @@ function StudentTab() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {filtered.map((s: any) => (
                   <button key={s.id} onClick={() => setSelectedId(s.id)}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all text-left group">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
+                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all text-left group">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0">
                       {s.firstName?.[0]}{s.lastName?.[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-slate-700 truncate">{s.firstName} {s.lastName}</p>
                       <p className="text-[11px] text-slate-400">Grade {s.grade} · {(s.disabilityCategory || "").replace(/_/g, " ")}</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-colors" />
                   </button>
                 ))}
                 {filtered.length === 0 && <p className="col-span-3 text-center text-sm text-slate-400 py-8">No students found</p>}
@@ -985,11 +985,11 @@ function StudentTab() {
     <div className="space-y-6">
       <div className="flex items-center gap-4 flex-wrap">
         <button onClick={() => { setSelectedId(null); setStudentData(null); }}
-          className="text-indigo-600 text-sm font-medium hover:text-indigo-700 flex items-center gap-1">
+          className="text-emerald-700 text-sm font-medium hover:text-emerald-800 flex items-center gap-1">
           <ChevronRight className="w-4 h-4 rotate-180" /> All Students
         </button>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 text-sm font-bold">
             {s.firstName?.[0]}{s.lastName?.[0]}
           </div>
           <div>
@@ -997,7 +997,7 @@ function StudentTab() {
             <p className="text-[11px] text-slate-400">Grade {s.grade} · {(s.disabilityCategory || "").replace(/_/g, " ")}</p>
           </div>
         </div>
-        <Link href={`/students/${s.id}`} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors">
+        <Link href={`/students/${s.id}`} className="text-xs text-emerald-700 hover:text-emerald-800 font-medium px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors">
           View Profile
         </Link>
       </div>
@@ -1018,7 +1018,7 @@ function StudentTab() {
           <Card className="border-slate-200/80">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-500" />
+                <Target className="w-4 h-4 text-emerald-600" />
                 Service Compliance
               </CardTitle>
             </CardHeader>
@@ -1117,7 +1117,7 @@ function StudentTab() {
                         </div>
                         <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
                           <p className="text-[10px] text-slate-400">Progress</p>
-                          <p className="text-sm font-bold text-indigo-600">{bt.progressToGoal}%</p>
+                          <p className="text-sm font-bold text-emerald-700">{bt.progressToGoal}%</p>
                         </div>
                         <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
                           <p className="text-[10px] text-slate-400">Variability</p>
@@ -1175,7 +1175,7 @@ function StudentTab() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-indigo-500" />
+              <GraduationCap className="w-4 h-4 text-emerald-600" />
               Skill Program Analysis
             </CardTitle>
             <p className="text-[11px] text-slate-400">{d.programAnalysis.length} active program{d.programAnalysis.length !== 1 ? "s" : ""} — accuracy trends, prompt fading, and mastery tracking</p>
@@ -1201,7 +1201,7 @@ function StudentTab() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-[13px] font-semibold text-slate-700">{pt.name}</p>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800">
                             {typeLabels[pt.programType] || pt.programType}
                           </span>
                           {pt.domain && (
@@ -1222,7 +1222,7 @@ function StudentTab() {
                       <div className="flex gap-3 flex-shrink-0">
                         <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
                           <p className="text-[10px] text-slate-400">Latest</p>
-                          <p className={`text-sm font-bold ${pt.latestAccuracy >= masteryCriterion ? "text-emerald-600" : "text-indigo-600"}`}>{pt.latestAccuracy}%</p>
+                          <p className={`text-sm font-bold ${pt.latestAccuracy >= masteryCriterion ? "text-emerald-600" : "text-emerald-700"}`}>{pt.latestAccuracy}%</p>
                         </div>
                         <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
                           <p className="text-[10px] text-slate-400">Change</p>
@@ -1259,7 +1259,7 @@ function StudentTab() {
                                   return (
                                     <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
                                       <p className="font-semibold text-slate-700 mb-1">{label}</p>
-                                      <p>Accuracy: <span className="font-bold text-indigo-600">{p.accuracy}%</span></p>
+                                      <p>Accuracy: <span className="font-bold text-emerald-700">{p.accuracy}%</span></p>
                                       <p className="text-slate-400">{p.correct}/{p.trials} trials correct</p>
                                     </div>
                                   );
@@ -1407,19 +1407,19 @@ export default function AnalyticsPage() {
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
-          <TabsTrigger value="overview" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+          <TabsTrigger value="overview" className="text-[13px] rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
             <BarChart3 className="w-4 h-4 mr-1.5" /> Overview
           </TabsTrigger>
-          <TabsTrigger value="behavior" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+          <TabsTrigger value="behavior" className="text-[13px] rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
             <Activity className="w-4 h-4 mr-1.5" /> Behavior
           </TabsTrigger>
-          <TabsTrigger value="academic" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+          <TabsTrigger value="academic" className="text-[13px] rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
             <GraduationCap className="w-4 h-4 mr-1.5" /> Academic
           </TabsTrigger>
-          <TabsTrigger value="minutes" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+          <TabsTrigger value="minutes" className="text-[13px] rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
             <Clock className="w-4 h-4 mr-1.5" /> Minutes
           </TabsTrigger>
-          <TabsTrigger value="student" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+          <TabsTrigger value="student" className="text-[13px] rounded-lg data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-800">
             <User className="w-4 h-4 mr-1.5" /> Student
           </TabsTrigger>
         </TabsList>

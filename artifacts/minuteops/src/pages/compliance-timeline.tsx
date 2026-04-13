@@ -25,7 +25,7 @@ interface ComplianceEvent {
 }
 
 const EVENT_TYPES: Record<string, { label: string; color: string; bg: string }> = {
-  annual_review: { label: "Annual Review", color: "text-indigo-700", bg: "bg-indigo-50" },
+  annual_review: { label: "Annual Review", color: "text-emerald-800", bg: "bg-emerald-50" },
   reeval_3yr: { label: "3-Year Reevaluation", color: "text-purple-700", bg: "bg-purple-50" },
   initial_eval: { label: "Initial Evaluation", color: "text-blue-700", bg: "bg-blue-50" },
   transition_age: { label: "Transition (Age 14+)", color: "text-amber-700", bg: "bg-amber-50" },
@@ -104,7 +104,7 @@ export default function ComplianceTimelinePage() {
   return (
     <div className="p-4 md:p-6 space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/compliance" className="text-indigo-600 hover:text-indigo-800">
+        <Link href="/compliance" className="text-emerald-700 hover:text-emerald-900">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
@@ -153,7 +153,7 @@ export default function ComplianceTimelinePage() {
         ].map(t => (
           <button key={t.key} onClick={() => setFilter(t.key === "overdue" || t.key === "due_soon" || t.key === "completed" ? t.key : "all")}
             className={`px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-              (filter === "all" && t.key === "all") || filter === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400 hover:text-slate-600"
+              (filter === "all" && t.key === "all") || filter === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-400 hover:text-slate-600"
             }`}>
             {t.label}
           </button>
@@ -185,7 +185,7 @@ export default function ComplianceTimelinePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/students/${event.student.id}/iep`} className="text-[13px] font-semibold text-slate-700 hover:text-indigo-600">
+                      <Link href={`/students/${event.student.id}/iep`} className="text-[13px] font-semibold text-slate-700 hover:text-emerald-700">
                         {event.student.firstName} {event.student.lastName}
                       </Link>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${eventStyle.bg} ${eventStyle.color}`}>

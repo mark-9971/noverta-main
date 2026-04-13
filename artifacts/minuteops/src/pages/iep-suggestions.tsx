@@ -160,7 +160,7 @@ export default function IepSuggestions() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-indigo-500" />
+              <Sparkles className="w-6 h-6 text-emerald-600" />
               IEP Suggestions: {stu.firstName} {stu.lastName}
             </h1>
             <p className="text-slate-500 mt-1">
@@ -168,7 +168,7 @@ export default function IepSuggestions() {
             </p>
           </div>
           {totalSelected > 0 && (
-            <Button onClick={applySelected} disabled={applying} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+            <Button onClick={applySelected} disabled={applying} className="gap-2 bg-emerald-700 hover:bg-emerald-800">
               {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               Apply {totalSelected} Selected
             </Button>
@@ -177,7 +177,7 @@ export default function IepSuggestions() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "IEP Goal Areas", value: detail.iepGoalAreas.length, color: "bg-indigo-50 text-indigo-700" },
+            { label: "IEP Goal Areas", value: detail.iepGoalAreas.length, color: "bg-emerald-50 text-emerald-800" },
             { label: "Active Services", value: detail.serviceTypes.length, color: "bg-blue-50 text-blue-700" },
             { label: "Existing Behaviors", value: detail.existingBehaviorCount, color: "bg-rose-50 text-rose-700" },
             { label: "Existing Programs", value: detail.existingProgramCount, color: "bg-emerald-50 text-emerald-700" },
@@ -201,7 +201,7 @@ export default function IepSuggestions() {
           <div className="flex flex-wrap gap-1.5">
             <span className="text-xs text-slate-400 mr-1 self-center">Services:</span>
             {detail.serviceTypes.map(s => (
-              <Badge key={s} variant="outline" className="text-[11px] bg-indigo-50 text-indigo-600">{s}</Badge>
+              <Badge key={s} variant="outline" className="text-[11px] bg-emerald-50 text-emerald-700">{s}</Badge>
             ))}
           </div>
         )}
@@ -253,7 +253,7 @@ export default function IepSuggestions() {
                           key={item.name}
                           className={`rounded-lg border p-3 transition-all cursor-pointer ${
                             isRelated ? "cursor-default" : ""
-                          } ${isSelected ? "border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200" : "border-slate-200 hover:border-slate-300"}`}
+                          } ${isSelected ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200" : "border-slate-200 hover:border-slate-300"}`}
                           onClick={() => {
                             if (isRelated) return;
                             isBehavior ? toggleBehavior(item.name) : toggleProgram(item.name);
@@ -262,7 +262,7 @@ export default function IepSuggestions() {
                           <div className="flex items-start gap-3">
                             {!isRelated && (
                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                                isSelected ? "bg-indigo-600 border-indigo-600" : "border-slate-300"
+                                isSelected ? "bg-emerald-700 border-emerald-700" : "border-slate-300"
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                               </div>
@@ -330,7 +330,7 @@ export default function IepSuggestions() {
     <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-indigo-500" />
+          <Sparkles className="w-6 h-6 text-emerald-600" />
           IEP Program Suggestions
         </h1>
         <p className="text-slate-500 mt-1">
@@ -361,7 +361,7 @@ export default function IepSuggestions() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "SPED Students", value: students.length, icon: Users, color: "bg-indigo-50 text-indigo-700" },
+              { label: "SPED Students", value: students.length, icon: Users, color: "bg-emerald-50 text-emerald-800" },
               { label: "Total Suggestions", value: students.reduce((s, st) => s + st.totalSuggestions, 0), icon: Sparkles, color: "bg-amber-50 text-amber-700" },
               { label: "Avg per Student", value: Math.round(students.reduce((s, st) => s + st.totalSuggestions, 0) / students.length), icon: Brain, color: "bg-blue-50 text-blue-700" },
               { label: "With 10+ Suggestions", value: students.filter(s => s.totalSuggestions >= 10).length, icon: Target, color: "bg-emerald-50 text-emerald-700" },
@@ -383,11 +383,11 @@ export default function IepSuggestions() {
             {filtered.map(stu => (
               <Card
                 key={stu.id}
-                className="hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer"
+                className="hover:border-emerald-200 hover:shadow-sm transition-all cursor-pointer"
                 onClick={() => loadDetail(stu.id)}
               >
                 <CardContent className="p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm flex-shrink-0">
                     {stu.firstName[0]}{stu.lastName[0]}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -434,7 +434,7 @@ export default function IepSuggestions() {
       {detailLoading && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-8 flex items-center gap-3 shadow-lg">
-            <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+            <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
             <p className="text-slate-600">Analyzing IEP data...</p>
           </div>
         </div>

@@ -104,7 +104,7 @@ export default function Students() {
             aria-pressed={typeFilter === t.key}
             onClick={() => setTypeFilter(typeFilter === t.key && t.key !== "all" ? "all" : t.key)}
             className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all flex items-center gap-1.5 ${
-              typeFilter === t.key ? "bg-indigo-600 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+              typeFilter === t.key ? "bg-emerald-700 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
             }`}
           >
             {t.icon && <t.icon className="w-3.5 h-3.5" />}

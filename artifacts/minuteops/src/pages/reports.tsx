@@ -99,7 +99,7 @@ export default function Reports() {
                     return (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-3">
-                          <Link href={`/students/${row.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-indigo-600">
+                          <Link href={`/students/${row.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-emerald-700">
                             {row.studentName}
                           </Link>
                         </td>
@@ -154,7 +154,7 @@ export default function Reports() {
                     <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3 text-[13px] text-slate-600 whitespace-nowrap">{formatDate(s.sessionDate)}</td>
                       <td className="px-5 py-3">
-                        <Link href={`/students/${s.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-indigo-600">
+                        <Link href={`/students/${s.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-emerald-700">
                           {s.studentName ?? `Student ${s.studentId}`}
                         </Link>
                       </td>
@@ -204,7 +204,7 @@ export default function Reports() {
                     return (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-3">
-                          <Link href={`/students/${r.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-indigo-600">
+                          <Link href={`/students/${r.studentId}`} className="text-[13px] font-medium text-slate-800 hover:text-emerald-700">
                             {r.studentName}
                           </Link>
                         </td>

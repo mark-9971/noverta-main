@@ -40,7 +40,7 @@ export default function AdminGradebook() {
             key={c.id}
             onClick={() => setSelected(c.id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              selected === c.id ? "bg-indigo-600 text-white" : "bg-white border hover:bg-slate-50 text-slate-600"
+              selected === c.id ? "bg-emerald-700 text-white" : "bg-white border hover:bg-slate-50 text-slate-600"
             }`}
           >
             {c.name}
@@ -52,7 +52,7 @@ export default function AdminGradebook() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Award className="w-4 h-4 text-indigo-500" />
+              <Award className="w-4 h-4 text-emerald-600" />
               {classes.find(c => c.id === selected)?.name} — Gradebook
             </CardTitle>
           </CardHeader>

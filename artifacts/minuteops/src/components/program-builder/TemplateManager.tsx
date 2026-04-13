@@ -151,7 +151,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-slate-600">Template Library</h3>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+        <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
           onClick={() => setShowCreateTemplate(true)}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Create Template
         </Button>
@@ -160,7 +160,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search templates..."
-          className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -243,14 +243,14 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
                 {(t.tags as string[])?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
                     {(t.tags as string[]).slice(0, 3).map(tag => (
-                      <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{tag}</span>
+                      <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">{tag}</span>
                     ))}
                   </div>
                 )}
 
                 <div className="flex gap-1.5">
                   <Button size="sm" className={`flex-1 h-8 text-[11px] ${
-                    t.tier === "premium" ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
+                    t.tier === "premium" ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-emerald-700 hover:bg-emerald-800"
                   } text-white`}
                     onClick={e => { e.stopPropagation(); cloneToStudent(t); }} disabled={cloning === t.id}>
                     {t.tier === "premium" ? <Lock className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
@@ -359,14 +359,14 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
             </div>
             <div className="bg-slate-50 rounded-lg p-2.5 text-center">
               <p className="text-[10px] text-slate-400">Uses</p>
-              <p className="text-sm font-bold text-indigo-600">{template.usageCount}</p>
+              <p className="text-sm font-bold text-emerald-700">{template.usageCount}</p>
             </div>
           </div>
 
           {(template.tags as string[])?.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {(template.tags as string[]).map(tag => (
-                <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">{tag}</span>
+                <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{tag}</span>
               ))}
             </div>
           )}
@@ -428,7 +428,7 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
             </Button>
           </div>
           <Button size="sm" className={`text-[12px] h-8 ${
-            isPremium ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
+            isPremium ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-emerald-700 hover:bg-emerald-800"
           } text-white`} onClick={onClone} disabled={cloning}>
             {isPremium ? <><Lock className="w-3 h-3 mr-1" /> Upgrade to Use</> : <><Copy className="w-3 h-3 mr-1" /> Apply to Student</>}
           </Button>
@@ -534,18 +534,18 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                   <label className="text-[12px] font-medium text-slate-500">Template Name *</label>
                   <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="e.g. Receptive Identification: Colors" autoFocus
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-[12px] font-medium text-slate-500">Description</label>
                   <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                     rows={2} placeholder="Describe the template purpose..."
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Category</label>
                   <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     <option value="academic">Academic</option>
                     <option value="behavior">Behavior</option>
                   </select>
@@ -553,7 +553,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Program Type</label>
                   <select value={form.programType} onChange={e => setForm(f => ({ ...f, programType: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     <option value="discrete_trial">Discrete Trial (DTT)</option>
                     <option value="task_analysis">Task Analysis</option>
                     <option value="natural_environment">Natural Environment Teaching</option>
@@ -563,7 +563,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Domain</label>
                   <select value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     <option value="">Select domain...</option>
                     {DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
@@ -571,7 +571,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Tier</label>
                   <select value={form.tier} onChange={e => setForm(f => ({ ...f, tier: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     <option value="free">Free</option>
                     <option value="premium">Premium</option>
                   </select>
@@ -598,24 +598,24 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
                 <textarea value={form.tutorInstructions} onChange={e => setForm(f => ({ ...f, tutorInstructions: e.target.value }))}
                   rows={3} placeholder="Detailed instructions for the tutor..."
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-[11px] font-medium text-slate-400">Mastery %</label>
                   <input type="number" value={form.defaultMasteryPercent} onChange={e => setForm(f => ({ ...f, defaultMasteryPercent: parseInt(e.target.value) || 80 }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[11px] font-medium text-slate-400">Mastery Sessions</label>
                   <input type="number" value={form.defaultMasterySessions} onChange={e => setForm(f => ({ ...f, defaultMasterySessions: parseInt(e.target.value) || 3 }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[11px] font-medium text-slate-400">Regression Threshold %</label>
                   <input type="number" value={form.defaultRegressionThreshold} onChange={e => setForm(f => ({ ...f, defaultRegressionThreshold: parseInt(e.target.value) || 50 }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
               </div>
 
@@ -623,7 +623,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">Tags</label>
                 <div className="flex flex-wrap gap-1 mb-2">
                   {form.tags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    <span key={tag} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                       {tag}
                       <button onClick={() => setForm(f => ({ ...f, tags: f.tags.filter(t => t !== tag) }))} className="hover:text-red-500">
                         <X className="w-2.5 h-2.5" />
@@ -634,7 +634,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                 <div className="flex gap-2">
                   <input value={newTag} onChange={e => setNewTag(e.target.value)} placeholder="Add tag..."
                     onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addTag())}
-                    className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                   <Button variant="outline" size="sm" className="text-[11px] h-7" onClick={addTag} disabled={!newTag.trim()}>Add</Button>
                 </div>
               </div>
@@ -645,7 +645,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] text-slate-500">{form.steps.length} steps defined</p>
-                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-7" onClick={addStep}>
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] h-7" onClick={addStep}>
                   <Plus className="w-3 h-3 mr-1" /> Add Step
                 </Button>
               </div>
@@ -690,7 +690,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                               arr[idx] = { ...arr[idx], sdInstruction: e.target.value };
                               setForm(f => ({ ...f, steps: arr }));
                             }} placeholder="e.g. Touch red"
-                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[10px] font-medium text-slate-400">Target Response</label>
@@ -699,7 +699,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                               arr[idx] = { ...arr[idx], targetResponse: e.target.value };
                               setForm(f => ({ ...f, steps: arr }));
                             }} placeholder="Expected response"
-                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[10px] font-medium text-slate-400">Materials</label>
@@ -708,7 +708,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                               arr[idx] = { ...arr[idx], materials: e.target.value };
                               setForm(f => ({ ...f, steps: arr }));
                             }} placeholder="Required materials"
-                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[10px] font-medium text-slate-400">Error Correction</label>
@@ -716,7 +716,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
                               const arr = [...form.steps];
                               arr[idx] = { ...arr[idx], errorCorrection: e.target.value };
                               setForm(f => ({ ...f, steps: arr }));
-                            }} className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200">
+                            }} className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200">
                               <option value="">Select...</option>
                               {ERROR_CORRECTIONS.map(ec => <option key={ec.value} value={ec.value}>{ec.label}</option>)}
                             </select>
@@ -733,7 +733,7 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
 
         <div className="sticky bottom-0 bg-white border-t border-slate-100 p-4 flex justify-end gap-2 flex-shrink-0">
           <Button variant="outline" size="sm" className="text-[12px]" onClick={onClose}>Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={save} disabled={saving || !form.name.trim()}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={save} disabled={saving || !form.name.trim()}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : (isNew ? "Create Template" : "Save Changes")}
           </Button>
         </div>

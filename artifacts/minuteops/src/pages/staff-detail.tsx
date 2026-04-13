@@ -48,7 +48,7 @@ export default function StaffDetail() {
   );
   if (loadError) return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
-      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4">
+      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-900 font-medium mb-4">
         <ArrowLeft className="w-4 h-4" /> All Staff
       </Link>
       <ErrorBanner message="Failed to load staff details. Please check your connection." onRetry={loadData} />
@@ -56,7 +56,7 @@ export default function StaffDetail() {
   );
   if (!staff) return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
-      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-4">
+      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-900 font-medium mb-4">
         <ArrowLeft className="w-4 h-4" /> All Staff
       </Link>
       <div className="p-8 text-center text-slate-400">Staff member not found</div>
@@ -70,12 +70,12 @@ export default function StaffDetail() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-5">
-      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+      <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-900 font-medium">
         <ArrowLeft className="w-4 h-4" /> All Staff
       </Link>
 
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-bold">
+        <div className="w-16 h-16 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold">
           {initials}
         </div>
         <div className="flex-1">
@@ -96,8 +96,8 @@ export default function StaffDetail() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <Users className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Users className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-800">{summary.total || 0}</p>

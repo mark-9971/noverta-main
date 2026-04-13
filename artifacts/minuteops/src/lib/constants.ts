@@ -3,13 +3,13 @@ export const RISK_CONFIG: Record<string, { label: string; color: string; ringCol
   slightly_behind: { label: "Slightly Behind", color: "text-amber-700", ringColor: "#f59e0b", bg: "bg-amber-50 border-amber-200" },
   at_risk: { label: "At Risk", color: "text-orange-700", ringColor: "#f97316", bg: "bg-orange-50 border-orange-200" },
   out_of_compliance: { label: "Out of Compliance", color: "text-red-700", ringColor: "#ef4444", bg: "bg-red-50 border-red-200" },
-  completed: { label: "Completed", color: "text-indigo-700", ringColor: "#6366f1", bg: "bg-indigo-50 border-indigo-200" },
+  completed: { label: "Completed", color: "text-emerald-800", ringColor: "#065f46", bg: "bg-emerald-50 border-emerald-200" },
 };
 
 export const RISK_PRIORITY_ORDER = ["out_of_compliance", "at_risk", "slightly_behind", "on_track", "completed"];
 
 export const ROLE_COLORS: Record<string, string> = {
-  bcba: "bg-indigo-100 text-indigo-700",
+  bcba: "bg-emerald-100 text-emerald-800",
   slp: "bg-sky-100 text-sky-700",
   ot: "bg-emerald-100 text-emerald-700",
   pt: "bg-teal-100 text-teal-700",

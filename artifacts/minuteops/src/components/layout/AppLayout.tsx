@@ -6,7 +6,7 @@ import {
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart,
   GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles,
-  Timer, Clipboard
+  Timer, Clipboard, Sprout
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -135,12 +135,12 @@ const genEdStudentNav: NavSection[] = [
 const roleConfig = {
   admin: {
     nav: adminNav,
-    color: "bg-indigo-600",
-    textColor: "text-indigo-600",
-    bgActive: "bg-indigo-50 text-indigo-700",
-    iconActive: "text-indigo-600",
-    label: "MinuteOps",
-    subtitle: "Admin / Compliance",
+    color: "bg-emerald-800",
+    textColor: "text-emerald-700",
+    bgActive: "bg-emerald-50 text-emerald-800",
+    iconActive: "text-emerald-700",
+    label: "Trellis",
+    subtitle: "Built to support.",
     homeHref: "/",
   },
   sped_teacher: {
@@ -149,7 +149,7 @@ const roleConfig = {
     textColor: "text-purple-600",
     bgActive: "bg-purple-50 text-purple-700",
     iconActive: "text-purple-600",
-    label: "MinuteOps",
+    label: "Trellis",
     subtitle: "SPED Teacher",
     homeHref: "/",
   },
@@ -159,7 +159,7 @@ const roleConfig = {
     textColor: "text-emerald-600",
     bgActive: "bg-emerald-50 text-emerald-700",
     iconActive: "text-emerald-600",
-    label: "MinuteOps",
+    label: "Trellis",
     subtitle: "Teacher Portal",
     homeHref: "/teacher",
   },
@@ -169,7 +169,7 @@ const roleConfig = {
     textColor: "text-violet-600",
     bgActive: "bg-violet-50 text-violet-700",
     iconActive: "text-violet-600",
-    label: "MinuteOps",
+    label: "Trellis",
     subtitle: "Student Portal",
     homeHref: "/sped-portal",
   },
@@ -179,7 +179,7 @@ const roleConfig = {
     textColor: "text-blue-600",
     bgActive: "bg-blue-50 text-blue-700",
     iconActive: "text-blue-600",
-    label: "MinuteOps",
+    label: "Trellis",
     subtitle: "Student Portal",
     homeHref: "/portal",
   },
@@ -226,7 +226,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
               <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-sm", config.color)}>
-                <ClipboardList className="w-4 h-4 text-white" />
+                <Sprout className="w-4 h-4 text-white" />
               </div>
               <div>
                 <p className="text-[15px] font-semibold text-slate-800 leading-none">{config.label}</p>
@@ -299,7 +299,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <div className="flex items-center gap-2">
             <div className={cn("w-6 h-6 rounded-md flex items-center justify-center", config.color)}>
-              <ClipboardList className="w-3 h-3 text-white" />
+              <Sprout className="w-3 h-3 text-white" />
             </div>
             <span className="text-sm font-semibold text-slate-800">{config.label}</span>
           </div>

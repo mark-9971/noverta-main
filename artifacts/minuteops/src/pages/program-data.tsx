@@ -60,7 +60,7 @@ interface TrendPoint {
   promptLevelUsed?: string; hourBlock?: string;
 }
 
-const COLORS = ["#6366f1", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+const COLORS = ["#047857", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
 const PROMPT_LABELS: Record<string, { label: string; short: string; icon: any; color: string }> = {
   full_physical: { label: "Full Physical", short: "FP", icon: Hand, color: "bg-red-100 text-red-700" },
@@ -172,7 +172,7 @@ export default function ProgramDataPage() {
         <select
           value={selectedStudent ?? ""}
           onChange={e => setSelectedStudent(parseInt(e.target.value))}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 w-full sm:w-auto"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 w-full sm:w-auto"
         >
           {students.map(s => (
             <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
@@ -194,7 +194,7 @@ export default function ProgramDataPage() {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-                  tab === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400 hover:text-slate-600"
+                  tab === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
                 <t.icon className="w-4 h-4" />
@@ -252,7 +252,7 @@ export default function ProgramDataPage() {
 
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-600">Active Behavior Targets</h3>
-                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
                   onClick={() => setShowAddBehavior(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1" /> Add
                 </Button>
@@ -292,7 +292,7 @@ export default function ProgramDataPage() {
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-slate-400">Current</p>
-                            <p className="text-[15px] md:text-[16px] font-bold text-indigo-600">{lastVal ?? "—"}</p>
+                            <p className="text-[15px] md:text-[16px] font-bold text-emerald-700">{lastVal ?? "—"}</p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center">
                             <p className="text-[10px] text-slate-400">Goal</p>
@@ -350,7 +350,7 @@ export default function ProgramDataPage() {
                   <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAddProgram(true)}>
                     <Plus className="w-3.5 h-3.5 mr-1" /> Quick Add
                   </Button>
-                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+                  <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
                     onClick={() => setShowProgramBuilder(true)}>
                     <Wand2 className="w-3.5 h-3.5 mr-1" /> Program Builder
                   </Button>
@@ -392,7 +392,7 @@ export default function ProgramDataPage() {
                         <div className="grid grid-cols-3 gap-2 mt-3" onClick={() => setEditingProgram(pt)}>
                           <div className="bg-slate-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-slate-400">Last</p>
-                            <p className="text-[15px] font-bold text-indigo-600">{lastPct != null ? `${lastPct}%` : "—"}</p>
+                            <p className="text-[15px] font-bold text-emerald-700">{lastPct != null ? `${lastPct}%` : "—"}</p>
                           </div>
                           <div className="bg-slate-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-slate-400">Avg 3</p>
@@ -420,7 +420,7 @@ export default function ProgramDataPage() {
                               fetch(`${API}/program-targets/${pt.id}/steps`).then(r => r.json()).then(s => {
                                 setBuilderEditProgram(pt); setBuilderEditSteps(s);
                               });
-                            }} className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium px-1.5 py-0.5 rounded hover:bg-indigo-50">
+                            }} className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium px-1.5 py-0.5 rounded hover:bg-emerald-50">
                               <Wand2 className="w-3 h-3 inline mr-0.5" /> Builder
                             </button>
                             <button onClick={() => setSaveAsTemplateProgram(pt)}
@@ -649,7 +649,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
 
   return (
     <div className="space-y-4">
-      <Card className={`border-2 ${running ? "border-indigo-300 bg-indigo-50/30" : saved ? "border-emerald-300 bg-emerald-50/30" : "border-slate-200"}`}>
+      <Card className={`border-2 ${running ? "border-emerald-300 bg-emerald-50/30" : saved ? "border-emerald-300 bg-emerald-50/30" : "border-slate-200"}`}>
         <CardContent className="p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -663,7 +663,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
           </div>
           <div className="flex gap-2">
             {!running && !saved && (
-              <Button className="flex-1 h-12 md:h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" onClick={startSession}>
+              <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={startSession}>
                 <Play className="w-4 h-4 mr-2" /> Start Session
               </Button>
             )}
@@ -683,7 +683,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
               </>
             )}
             {saved && (
-              <Button className="flex-1 h-12 md:h-10 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" onClick={() => {
+              <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={() => {
                 setSaved(false); setElapsed(0);
                 const bc: Record<number, number> = {};
                 behaviorTargets.forEach(bt => { bc[bt.id] = 0; });
@@ -724,10 +724,10 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                         <Minus className="w-5 h-5" />
                       </button>
                       <div className="w-14 md:w-12 text-center">
-                        <p className="text-2xl md:text-xl font-bold text-indigo-600">{behaviorCounts[bt.id] ?? 0}</p>
+                        <p className="text-2xl md:text-xl font-bold text-emerald-700">{behaviorCounts[bt.id] ?? 0}</p>
                       </div>
                       <button
-                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
+                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
                         onClick={() => setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }))}
                         disabled={!running}
                       >
@@ -745,7 +745,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
       {programTargets.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
-            <GraduationCap className="w-4 h-4 text-indigo-500" /> Discrete Trial Data
+            <GraduationCap className="w-4 h-4 text-emerald-600" /> Discrete Trial Data
           </h3>
           <div className="space-y-2">
             {programTargets.map(pt => {
@@ -890,7 +890,7 @@ function TemplateLibrary({ templates, studentId, onCloned, onTemplateCreated }: 
                   <p className="text-[11px] text-slate-400 mt-0.5">{t.domain || t.category} · {t.programType === "discrete_trial" ? "DTT" : "Task Analysis"}</p>
                 </div>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                  t.category === "academic" ? "bg-indigo-100 text-indigo-700" : "bg-red-100 text-red-700"
+                  t.category === "academic" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"
                 }`}>{t.category}</span>
               </div>
               {t.description && <p className="text-[11px] text-slate-500 mb-2 line-clamp-2">{t.description}</p>}
@@ -899,7 +899,7 @@ function TemplateLibrary({ templates, studentId, onCloned, onTemplateCreated }: 
                 <span>Mastery: {t.defaultMasteryPercent}%</span>
                 {t.isGlobal && <span className="px-1 py-0.5 bg-slate-100 rounded">Global</span>}
               </div>
-              <Button size="sm" className="w-full h-9 md:h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]"
+              <Button size="sm" className="w-full h-9 md:h-8 bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]"
                 onClick={() => cloneToStudent(t.id)} disabled={cloning === t.id}>
                 <Copy className="w-3.5 h-3.5 mr-1" /> {cloning === t.id ? "Cloning..." : "Clone to Student"}
               </Button>
@@ -989,13 +989,13 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Program Name</label>
                   <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
                   <textarea value={form.tutorInstructions ?? ""} onChange={e => setForm({ ...form, tutorInstructions: e.target.value })}
                     rows={3} placeholder="Detailed instructions for the tutor..."
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                 </div>
               </div>
 
@@ -1005,11 +1005,11 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
                   {hierarchy.map((level, idx) => {
                     const info = PROMPT_LABELS[level];
                     return (
-                      <div key={level} className={`flex items-center gap-2 p-2 rounded-lg border ${form.currentPromptLevel === level ? "border-indigo-300 bg-indigo-50" : "border-slate-100"}`}>
+                      <div key={level} className={`flex items-center gap-2 p-2 rounded-lg border ${form.currentPromptLevel === level ? "border-emerald-300 bg-emerald-50" : "border-slate-100"}`}>
                         <span className="text-[11px] text-slate-400 w-5">{idx + 1}</span>
                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${info?.color ?? "bg-slate-100"}`}>{info?.label ?? level}</span>
-                        {form.currentPromptLevel === level && <span className="text-[10px] text-indigo-600 font-medium ml-auto">Current Level</span>}
-                        <button className="text-[10px] text-indigo-600 ml-auto hover:text-indigo-800"
+                        {form.currentPromptLevel === level && <span className="text-[10px] text-emerald-700 font-medium ml-auto">Current Level</span>}
+                        <button className="text-[10px] text-emerald-700 ml-auto hover:text-emerald-900"
                           onClick={() => setForm({ ...form, currentPromptLevel: level })}>Set Current</button>
                       </div>
                     );
@@ -1021,22 +1021,22 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Mastery %</label>
                   <input type="number" value={form.masteryCriterionPercent ?? 80} onChange={e => setForm({ ...form, masteryCriterionPercent: parseInt(e.target.value) || 80 })}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Mastery Sessions</label>
                   <input type="number" value={form.masteryCriterionSessions ?? 3} onChange={e => setForm({ ...form, masteryCriterionSessions: parseInt(e.target.value) || 3 })}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Regression %</label>
                   <input type="number" value={form.regressionThreshold ?? 50} onChange={e => setForm({ ...form, regressionThreshold: parseInt(e.target.value) || 50 })}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Regression Sessions</label>
                   <input type="number" value={form.regressionSessions ?? 2} onChange={e => setForm({ ...form, regressionSessions: parseInt(e.target.value) || 2 })}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
               </div>
 
@@ -1052,14 +1052,14 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
               <div>
                 <label className="text-[12px] font-medium text-slate-500">Reinforcement Schedule</label>
                 <select value={form.reinforcementSchedule ?? "continuous"} onChange={e => setForm({ ...form, reinforcementSchedule: e.target.value })}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {REINFORCEMENT_SCHEDULES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => setEditMode(false)} className="text-[12px]">Cancel</Button>
-                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={saveSettings} disabled={saving}>
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={saveSettings} disabled={saving}>
                   <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Settings"}
                 </Button>
               </div>
@@ -1121,14 +1121,14 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
                 <div className="mt-3 border border-dashed border-slate-200 rounded-lg p-3 space-y-2">
                   <p className="text-[11px] font-medium text-slate-500">Add Step</p>
                   <input value={newStepName} onChange={e => setNewStepName(e.target.value)} placeholder="Step name (e.g., Touch red)"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   <div className="grid grid-cols-2 gap-2">
                     <input value={newStepSd} onChange={e => setNewStepSd(e.target.value)} placeholder="SD instruction"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                     <input value={newStepResponse} onChange={e => setNewStepResponse(e.target.value)} placeholder="Target response"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
-                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={addStep} disabled={!newStepName.trim()}>
+                  <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={addStep} disabled={!newStepName.trim()}>
                     <Plus className="w-3.5 h-3.5 mr-1" /> Add Step
                   </Button>
                 </div>
@@ -1184,18 +1184,18 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
           <div>
             <label className="text-[12px] font-medium text-slate-500">Behavior Name *</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Elopement, Aggression"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Description</label>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Operational definition"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[12px] font-medium text-slate-500">Measurement</label>
               <select value={measurementType} onChange={e => setMeasurementType(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                 <option value="frequency">Frequency (count)</option>
                 <option value="interval">Interval (%)</option>
                 <option value="percentage">Percentage</option>
@@ -1205,7 +1205,7 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
             <div>
               <label className="text-[12px] font-medium text-slate-500">Direction</label>
               <select value={targetDirection} onChange={e => setTargetDirection(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                 <option value="decrease">Decrease</option>
                 <option value="increase">Increase</option>
               </select>
@@ -1215,19 +1215,19 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
             <div>
               <label className="text-[12px] font-medium text-slate-500">Baseline Value</label>
               <input type="number" value={baselineValue} onChange={e => setBaselineValue(e.target.value)} placeholder="e.g. 12"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Goal Value</label>
               <input type="number" value={goalValue} onChange={e => setGoalValue(e.target.value)} placeholder="e.g. 2"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
           {measurementType === "interval" && (
             <div>
               <label className="text-[12px] font-medium text-slate-500">Interval Length (seconds)</label>
               <input type="number" value={intervalLen} onChange={e => setIntervalLen(e.target.value)} placeholder="e.g. 30"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           )}
           <label className="flex items-center gap-2 cursor-pointer">
@@ -1237,7 +1237,7 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
         </div>
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Target"}
           </Button>
         </div>
@@ -1312,7 +1312,7 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
           <div className="space-y-2 max-h-[50vh] overflow-y-auto">
             {templates.filter(t => t.category === "academic").map(t => (
               <button key={t.id} onClick={() => cloneTemplate(t.id)} disabled={saving}
-                className="w-full text-left p-3 rounded-lg border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                className="w-full text-left p-3 rounded-lg border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 transition-all">
                 <p className="text-[13px] font-semibold text-slate-700">{t.name}</p>
                 <p className="text-[11px] text-slate-400">{t.domain} · {(t.steps as any[])?.length ?? 0} steps · Mastery {t.defaultMasteryPercent}%</p>
               </button>
@@ -1323,18 +1323,18 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
             <div>
               <label className="text-[12px] font-medium text-slate-500">Program Name *</label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Receptive ID: Colors"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Description</label>
               <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What the student will demonstrate"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[12px] font-medium text-slate-500">Type</label>
                 <select value={programType} onChange={e => setProgramType(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   <option value="discrete_trial">Discrete Trial (DTT)</option>
                   <option value="task_analysis">Task Analysis</option>
                 </select>
@@ -1342,25 +1342,25 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
               <div>
                 <label className="text-[12px] font-medium text-slate-500">Domain</label>
                 <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="e.g. Language"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
               <textarea value={tutorInstructions} onChange={e => setTutorInstructions(e.target.value)}
                 rows={2} placeholder="Instructions for the tutor..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[12px] font-medium text-slate-500">Mastery %</label>
                 <input type="number" value={masteryPct} onChange={e => setMasteryPct(e.target.value)} placeholder="80"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
                 <label className="text-[12px] font-medium text-slate-500">Sessions Required</label>
                 <input type="number" value={masterySessions} onChange={e => setMasterySessions(e.target.value)} placeholder="3"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
           </div>
@@ -1369,7 +1369,7 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
         {mode === "manual" && (
           <div className="flex justify-end gap-2 mt-5">
             <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-9 md:h-8" disabled={!name.trim() || saving} onClick={save}>
               <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Program"}
             </Button>
           </div>
@@ -1445,17 +1445,17 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
             <div>
               <label className="text-[12px] font-medium text-slate-500">Date *</label>
               <input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Start</label>
               <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">End</label>
               <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
 
@@ -1475,7 +1475,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                       type="number" min="0" placeholder="Value"
                       value={behaviorValues[bt.id] ?? ""}
                       onChange={e => setBehaviorValues({ ...behaviorValues, [bt.id]: e.target.value })}
-                      className="w-20 border border-slate-200 rounded-lg px-2 py-2 md:py-1.5 text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      className="w-20 border border-slate-200 rounded-lg px-2 py-2 md:py-1.5 text-[13px] text-center focus:outline-none focus:ring-2 focus:ring-emerald-200"
                     />
                   </div>
                 ))}
@@ -1486,7 +1486,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
           {programTargets.length > 0 && (
             <div>
               <p className="text-[13px] font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                <GraduationCap className="w-4 h-4 text-indigo-500" /> Program Data
+                <GraduationCap className="w-4 h-4 text-emerald-600" /> Program Data
               </p>
               <div className="space-y-2">
                 {programTargets.map(pt => (
@@ -1501,7 +1501,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                         <input type="number" min="0" placeholder="0"
                           value={programValues[pt.id]?.correct ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], correct: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                       </div>
                       <span className="text-slate-400 text-[12px] mt-3">/</span>
                       <div className="flex-1">
@@ -1509,14 +1509,14 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
                         <input type="number" min="1" placeholder="10"
                           value={programValues[pt.id]?.total ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], total: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                       </div>
                       <div className="flex-1">
                         <label className="text-[10px] text-slate-400">Prompted</label>
                         <input type="number" min="0" placeholder="0"
                           value={programValues[pt.id]?.prompted ?? ""}
                           onChange={e => setProgramValues({ ...programValues, [pt.id]: { ...programValues[pt.id], prompted: e.target.value } })}
-                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                          className="w-full border border-slate-200 rounded px-2 py-2 md:py-1 text-[12px] text-center focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                       </div>
                     </div>
                   </div>
@@ -1528,13 +1528,13 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
           <div>
             <label className="text-[12px] font-medium text-slate-500">Session Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional notes..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={saving} onClick={save}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-9 md:h-8" disabled={saving} onClick={save}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Session"}
           </Button>
         </div>
@@ -1621,7 +1621,7 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {b.measurementType === "interval" ? (
-                          <span className="text-[14px] font-bold text-indigo-600">
+                          <span className="text-[14px] font-bold text-emerald-700">
                             {b.intervalsWith != null && b.intervalCount != null
                               ? `${Math.round((b.intervalsWith / b.intervalCount) * 100)}%`
                               : b.value}
@@ -1630,7 +1630,7 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
                             </span>
                           </span>
                         ) : (
-                          <span className="text-[14px] font-bold text-indigo-600">{b.value}</span>
+                          <span className="text-[14px] font-bold text-emerald-700">{b.value}</span>
                         )}
                         {b.notes && <span className="text-[10px] text-slate-400 max-w-[80px] truncate" title={b.notes}>{b.notes}</span>}
                       </div>
@@ -1692,7 +1692,7 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-600">Recent Data Sessions</h3>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8" onClick={onLogSession}>
+        <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8" onClick={onLogSession}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Log Session
         </Button>
       </div>
@@ -1751,7 +1751,7 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
                         </td>
                         <td className="px-4 py-2.5 text-slate-500">{ds.staffName || "—"}</td>
                         <td className="px-4 py-2.5">
-                          <span className="text-[11px] text-indigo-500 font-medium">Click to view</span>
+                          <span className="text-[11px] text-emerald-600 font-medium">Click to view</span>
                         </td>
                       </tr>
                       {expandedId === ds.id && (

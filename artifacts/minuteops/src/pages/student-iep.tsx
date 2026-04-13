@@ -174,7 +174,7 @@ export default function StudentIepPage() {
 
   if (!student) return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto">
-      <Link href="/students" className="text-indigo-600 text-sm flex items-center gap-1.5 mb-4 hover:text-indigo-700">
+      <Link href="/students" className="text-emerald-700 text-sm flex items-center gap-1.5 mb-4 hover:text-emerald-800">
         <ArrowLeft className="w-4 h-4" /> Back to Students
       </Link>
       <div className="text-center py-16">
@@ -187,13 +187,13 @@ export default function StudentIepPage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <Link href={`/students/${studentId}`} className="text-indigo-600 text-sm flex items-center gap-1.5 mb-4 hover:text-indigo-700">
+        <Link href={`/students/${studentId}`} className="text-emerald-700 text-sm flex items-center gap-1.5 mb-4 hover:text-emerald-800">
           <ArrowLeft className="w-4 h-4" /> Back to Student
         </Link>
         {student && (
           <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 md:w-12 md:h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 text-sm md:text-base font-bold flex-shrink-0">
+              <div className="w-11 h-11 md:w-12 md:h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700 text-sm md:text-base font-bold flex-shrink-0">
                 {student.firstName[0]}{student.lastName[0]}
               </div>
               <div>
@@ -208,7 +208,7 @@ export default function StudentIepPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-3.5 md:p-4 text-center">
-            <p className="text-2xl md:text-3xl font-bold text-indigo-600">{goals.length}</p>
+            <p className="text-2xl md:text-3xl font-bold text-emerald-700">{goals.length}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">IEP Goals</p>
           </CardContent>
         </Card>
@@ -243,7 +243,7 @@ export default function StudentIepPage() {
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-              tab === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400 hover:text-slate-600"
+              tab === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-400 hover:text-slate-600"
             }`}>
             <t.icon className="w-4 h-4" />
             {t.label}
@@ -295,7 +295,7 @@ export default function StudentIepPage() {
                 onClick={() => setShowGoalBank(true)}>
                 <BookOpen className="w-3.5 h-3.5 mr-1" /> Goal Bank
               </Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
                 onClick={() => setShowAddGoal(true)}>
                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Goal
               </Button>
@@ -333,7 +333,7 @@ export default function StudentIepPage() {
         <div className="space-y-4 md:space-y-6">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="text-sm font-semibold text-slate-600">Progress Reports</h3>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
               onClick={() => setShowGenerateReport(true)} disabled={goals.length === 0}>
               <FileCheck className="w-3.5 h-3.5 mr-1" /> Generate Report
             </Button>
@@ -450,14 +450,14 @@ function GoalCard({ goal, onUpdated }: { goal: IepGoal; onUpdated: () => void })
     <Card className={`transition-shadow ${expanded ? "shadow-sm" : ""}`}>
       <CardContent className="p-3.5 md:p-4">
         <div className="flex items-start gap-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-          <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
+          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0">
             {goal.goalNumber}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-slate-700">{goal.annualGoal}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{goal.goalArea}</span>
-              {goal.serviceArea && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">{goal.serviceArea}</span>}
+              {goal.serviceArea && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">{goal.serviceArea}</span>}
               {goal.linkedTarget && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                   goal.linkedTarget.type === "program" ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
@@ -581,7 +581,7 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
               {availablePrograms.map(pt => (
                 <button key={`p-${pt.id}`} onClick={() => selectLinkedTarget("program", pt.id)}
                   className={`w-full text-left px-2.5 py-2 rounded text-[12px] transition-all ${
-                    linkedType === "program" && linkedId === pt.id ? "bg-indigo-50 border border-indigo-200" : "hover:bg-slate-50"
+                    linkedType === "program" && linkedId === pt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"
                   }`}>
                   <span className="font-medium text-slate-700">{pt.name}</span>
                   <span className="text-slate-400 ml-1">· Program · {pt.domain || "General"}</span>
@@ -590,7 +590,7 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
               {availableBehaviors.map(bt => (
                 <button key={`b-${bt.id}`} onClick={() => selectLinkedTarget("behavior", bt.id)}
                   className={`w-full text-left px-2.5 py-2 rounded text-[12px] transition-all ${
-                    linkedType === "behavior" && linkedId === bt.id ? "bg-indigo-50 border border-indigo-200" : "hover:bg-slate-50"
+                    linkedType === "behavior" && linkedId === bt.id ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"
                   }`}>
                   <span className="font-medium text-slate-700">{bt.name}</span>
                   <span className="text-slate-400 ml-1">· Behavior · {bt.measurementType}</span>
@@ -605,46 +605,46 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
             <div>
               <label className="text-[12px] font-medium text-slate-500">Goal Area *</label>
               <input value={goalArea} onChange={e => setGoalArea(e.target.value)} placeholder="e.g. Skill Acquisition"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">Service Area</label>
               <input value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="e.g. ABA, Speech"
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Annual Goal *</label>
             <textarea value={annualGoal} onChange={e => setAnnualGoal(e.target.value)} rows={3}
               placeholder="The student will..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Baseline</label>
             <input value={baseline} onChange={e => setBaseline(e.target.value)} placeholder="Current performance level"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Target Criterion</label>
             <input value={targetCriterion} onChange={e => setTargetCriterion(e.target.value)} placeholder="80% across 3 sessions"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Measurement Method</label>
             <input value={measurementMethod} onChange={e => setMeasurementMethod(e.target.value)} placeholder="Discrete trial data collection"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Benchmarks / Short-Term Objectives</label>
             <textarea value={benchmarks} onChange={e => setBenchmarks(e.target.value)} rows={3}
               placeholder="1. By [date], student will...&#10;2. By [date], student will..."
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={!annualGoal.trim() || saving} onClick={save}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-9 md:h-8" disabled={!annualGoal.trim() || saving} onClick={save}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Goal"}
           </Button>
         </div>
@@ -705,7 +705,7 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="bg-indigo-50 rounded-lg p-3 mb-4 text-[12px] text-indigo-700">
+        <div className="bg-emerald-50 rounded-lg p-3 mb-4 text-[12px] text-emerald-800">
           <Sparkles className="w-4 h-4 inline mr-1.5" />
           The report will automatically pull data from all program and behavior data sessions within the selected date range and generate progress narratives for each IEP goal.
         </div>
@@ -714,25 +714,25 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
           <div>
             <label className="text-[12px] font-medium text-slate-500">Reporting Period Name</label>
             <input value={reportingPeriod} onChange={e => setReportingPeriod(e.target.value)}
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[12px] font-medium text-slate-500">Start Date</label>
               <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[12px] font-medium text-slate-500">End Date</label>
               <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)}
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="outline" size="sm" onClick={onClose} className="text-[12px] h-9 md:h-8">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-9 md:h-8" disabled={generating} onClick={generate}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-9 md:h-8" disabled={generating} onClick={generate}>
             {generating ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <FileCheck className="w-3.5 h-3.5 mr-1" />}
             {generating ? "Generating..." : "Generate Report"}
           </Button>
@@ -821,7 +821,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Overall Summary</h3>
               {report.status === "draft" && (
-                <button className="text-[11px] text-indigo-600 hover:text-indigo-800" onClick={() => setEditingSummary(!editingSummary)}>
+                <button className="text-[11px] text-emerald-700 hover:text-emerald-900" onClick={() => setEditingSummary(!editingSummary)}>
                   <Edit2 className="w-3 h-3 inline mr-0.5" /> Edit
                 </button>
               )}
@@ -829,8 +829,8 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             {editingSummary ? (
               <div className="space-y-2">
                 <textarea value={summaryText} onChange={e => setSummaryText(e.target.value)} rows={4}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
-                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
                   <Save className="w-3.5 h-3.5 mr-1" /> Save
                 </Button>
               </div>
@@ -852,7 +852,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                   <Card key={gp.iepGoalId}>
                     <CardContent className="p-3.5 md:p-4">
                       <div className="flex items-start gap-3 mb-3">
-                        <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 text-[11px] font-bold flex-shrink-0">
+                        <div className="w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 text-[11px] font-bold flex-shrink-0">
                           {gp.goalNumber}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -886,7 +886,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                           <p className="text-[10px] font-medium text-slate-500 mt-0.5">{gp.dataPoints} pts</p>
                         </div>
                         <div className="bg-slate-50 rounded-lg p-2 text-center">
-                          <p className="text-sm font-bold text-indigo-600">
+                          <p className="text-sm font-bold text-emerald-700">
                             {gp.percentCorrect != null ? `${gp.percentCorrect}%` : gp.behaviorValue != null ? gp.behaviorValue : "—"}
                           </p>
                           <p className="text-[10px] font-medium text-slate-500 mt-0.5">Current</p>
@@ -897,7 +897,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                         <div className="flex items-center justify-between mb-1">
                           <p className="text-[10px] text-slate-400 uppercase tracking-wider">Narrative</p>
                           {report.status === "draft" && (
-                            <button className="text-[10px] text-indigo-600 hover:text-indigo-800"
+                            <button className="text-[10px] text-emerald-700 hover:text-emerald-900"
                               onClick={() => { setEditingNarrative(gp.iepGoalId); setNarrativeText(gp.narrative); }}>
                               <Edit2 className="w-3 h-3 inline mr-0.5" /> Edit
                             </button>
@@ -906,9 +906,9 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                         {editingNarrative === gp.iepGoalId ? (
                           <div className="space-y-2">
                             <textarea value={narrativeText} onChange={e => setNarrativeText(e.target.value)} rows={3}
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                             <div className="flex gap-2">
-                              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-7" onClick={saveChanges} disabled={saving}>Save</Button>
+                              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] h-7" onClick={saveChanges} disabled={saving}>Save</Button>
                               <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={() => setEditingNarrative(null)}>Cancel</Button>
                             </div>
                           </div>
@@ -935,14 +935,14 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Recommendations</h3>
               {report.status === "draft" && !editingSummary && (
-                <button className="text-[11px] text-indigo-600 hover:text-indigo-800" onClick={() => setEditingSummary(true)}>
+                <button className="text-[11px] text-emerald-700 hover:text-emerald-900" onClick={() => setEditingSummary(true)}>
                   <Edit2 className="w-3 h-3 inline mr-0.5" /> Edit
                 </button>
               )}
             </div>
             {editingSummary ? (
               <textarea value={recommendationsText} onChange={e => setRecommendationsText(e.target.value)} rows={3}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             ) : (
               <p className="text-[13px] text-slate-600">{report.recommendations || "None"}</p>
             )}
@@ -953,7 +953,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             {report.status === "draft" ? (
               <textarea value={parentNotesText} onChange={e => setParentNotesText(e.target.value)} rows={2}
                 placeholder="Optional notes for parent/guardian..."
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             ) : (
               <p className="text-[13px] text-slate-600">{report.parentNotes || "None"}</p>
             )}
@@ -961,7 +961,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
 
           {report.status === "draft" && editingSummary && (
             <div className="flex justify-end">
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
                 <Save className="w-3.5 h-3.5 mr-1" /> Save All Changes
               </Button>
             </div>
@@ -1027,7 +1027,7 @@ function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId
         <p className="text-[12px] text-slate-500 mb-3">This will copy the current IEP as a draft amendment. The original remains active until the amendment is finalized.</p>
         <label className="text-[11px] font-medium text-slate-500">Reason for Amendment</label>
         <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="Describe why this IEP needs to be amended..."
-          className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+          className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
         <div className="flex justify-end gap-2 mt-4">
           <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => { setShowDialog(false); setReason(""); }}>Cancel</Button>
           <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-[12px] h-8" onClick={createAmendment} disabled={submitting || !reason.trim()}>
@@ -1105,7 +1105,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
         <div>
           <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{label}</label>
           <textarea value={val} onChange={e => updateField(fieldKey, e.target.value)} rows={rows}
-            className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+            className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
         </div>
       );
     }
@@ -1142,7 +1142,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
           {editing && (
             <>
               <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8" onClick={save} disabled={saving}>
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8" onClick={save} disabled={saving}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save"}
               </Button>
             </>
@@ -1159,7 +1159,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
             </div>
             <div className="space-y-1">
               {iepDocs.map(doc => (
-                <div key={doc.id} className={`flex items-center justify-between px-2 py-1.5 rounded text-[12px] ${doc.active ? "bg-indigo-50 border border-indigo-200" : "hover:bg-slate-50"}`}>
+                <div key={doc.id} className={`flex items-center justify-between px-2 py-1.5 rounded text-[12px] ${doc.active ? "bg-emerald-50 border border-emerald-200" : "hover:bg-slate-50"}`}>
                   <div className="flex items-center gap-2">
                     <FileText className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-slate-700">
@@ -1193,23 +1193,23 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4 space-y-3">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">IEP Dates & Status</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">IEP Dates & Status</h4>
               {editing ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[11px] font-medium text-slate-500">IEP Start Date</label>
                     <input type="date" value={form.iepStartDate || ""} onChange={e => updateField("iepStartDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium text-slate-500">IEP End Date</label>
                     <input type="date" value={form.iepEndDate || ""} onChange={e => updateField("iepEndDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium text-slate-500">Meeting Date</label>
                     <input type="date" value={form.meetingDate || ""} onChange={e => updateField("meetingDate", e.target.value)}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                 </div>
               ) : (
@@ -1227,7 +1227,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
           <Card>
             <CardContent className="p-4 space-y-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Student & Parent Concerns / Team Vision</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">Student & Parent Concerns / Team Vision</h4>
               <TextSection label="Student Concerns" fieldKey="studentConcerns" />
               <TextSection label="Parent Concerns" fieldKey="parentConcerns" />
               <TextSection label="Team Vision Statement" fieldKey="teamVision" />
@@ -1236,7 +1236,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
           <Card>
             <CardContent className="p-4 space-y-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Present Levels of Academic Achievement & Functional Performance (PLAAFP)</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">Present Levels of Academic Achievement & Functional Performance (PLAAFP)</h4>
               {PLAAFP_SECTIONS.map(s => (
                 <TextSection key={s.key} label={s.label} fieldKey={s.key} rows={4} />
               ))}
@@ -1246,7 +1246,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
           {(showTransition || editing) && (
             <Card>
               <CardContent className="p-4 space-y-4">
-                <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">
+                <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">
                   Transition Planning (Age 14+)
                   {studentAge !== null && <span className="text-slate-400 font-normal ml-2">Student age: {studentAge}</span>}
                 </h4>
@@ -1260,14 +1260,14 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
           <Card>
             <CardContent className="p-4 space-y-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Extended School Year (ESY)</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">Extended School Year (ESY)</h4>
               {editing ? (
                 <div className="space-y-3">
                   <div>
                     <label className="text-[11px] font-medium text-slate-500">ESY Eligible?</label>
                     <select value={form.esyEligible == null ? "" : form.esyEligible ? "yes" : "no"}
                       onChange={e => updateField("esyEligible", e.target.value === "" ? null : e.target.value === "yes")}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                       <option value="">Not determined</option>
                       <option value="yes">Yes</option>
                       <option value="no">No</option>
@@ -1290,7 +1290,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
           <Card>
             <CardContent className="p-4 space-y-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Assessment Participation</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">Assessment Participation</h4>
               <TextSection label="Assessment Participation" fieldKey="assessmentParticipation" />
               <TextSection label="Assessment Accommodations" fieldKey="assessmentAccommodations" />
               <TextSection label="Alternate Assessment Justification" fieldKey="alternateAssessmentJustification" />
@@ -1299,7 +1299,7 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
           <Card>
             <CardContent className="p-4 space-y-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Additional Services</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider">Additional Services</h4>
               <TextSection label="Schedule Modifications" fieldKey="scheduleModifications" />
               <TextSection label="Transportation Services" fieldKey="transportationServices" />
             </CardContent>
@@ -1368,37 +1368,37 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Category *</label>
                 <select value={category} onChange={e => setCategory(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {ACCOMMODATION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Setting</label>
                 <input value={setting} onChange={e => setSetting(e.target.value)} placeholder="Gen ed, special ed, all settings"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
               <label className="text-[11px] font-medium text-slate-500">Description *</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
                 placeholder="Extended time on tests, preferential seating..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Frequency</label>
                 <input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="Daily, as needed, during testing"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Provider</label>
                 <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="Special ed teacher, aide"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
                 disabled={!description.trim() || saving} onClick={addAccommodation}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save"}
               </Button>
@@ -1421,11 +1421,11 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
         return (
           <Card key={cat}>
             <CardContent className="p-4">
-              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider mb-3">{catLabel}</h4>
+              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider mb-3">{catLabel}</h4>
               <div className="space-y-2">
                 {items.map(a => (
                   <div key={a.id} className="flex items-start gap-2 group">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] text-slate-700">{a.description}</p>
                       <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5 flex-wrap">
@@ -1523,34 +1523,34 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Meeting Type *</label>
                 <select value={meetingType} onChange={e => setMeetingType(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Date *</label>
                 <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Time</label>
                 <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
               <label className="text-[11px] font-medium text-slate-500">Location</label>
               <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Conference room, Zoom link, etc."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
             </div>
             <div>
               <label className="text-[11px] font-medium text-slate-500">Notes</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Meeting agenda, items to discuss..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
                 disabled={!scheduledDate || saving} onClick={addMeeting}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Schedule"}
               </Button>
@@ -1581,8 +1581,8 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
             <Card key={m.id}>
               <CardContent className="p-3.5 md:p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <CalendarDays className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CalendarDays className="w-5 h-5 text-emerald-700" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1691,34 +1691,34 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search goals..."
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
             <option value="">All Domains</option>
             {domains.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {loading && <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto" /></div>}
+          {loading && <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-emerald-700 mx-auto" /></div>}
           {!loading && goals.length === 0 && (
             <p className="text-center text-sm text-slate-400 py-8">No matching goals found</p>
           )}
           {goals.map(g => (
-            <div key={g.id} className="border border-slate-200 rounded-lg p-3 hover:border-indigo-200 transition-colors">
+            <div key={g.id} className="border border-slate-200 rounded-lg p-3 hover:border-emerald-200 transition-colors">
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">{g.domain}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">{g.domain}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{g.goalArea}</span>
                     {g.gradeRange && <span className="text-[10px] text-slate-400">Grades {g.gradeRange}</span>}
                   </div>
                   <p className="text-[12px] text-slate-700 leading-relaxed">{g.goalText}</p>
                   {g.benchmarkText && (
                     <details className="mt-1">
-                      <summary className="text-[11px] text-indigo-600 cursor-pointer hover:text-indigo-800">View benchmarks</summary>
-                      <p className="text-[11px] text-slate-500 mt-1 whitespace-pre-line pl-2 border-l-2 border-indigo-100">{g.benchmarkText}</p>
+                      <summary className="text-[11px] text-emerald-700 cursor-pointer hover:text-emerald-900">View benchmarks</summary>
+                      <p className="text-[11px] text-slate-500 mt-1 whitespace-pre-line pl-2 border-l-2 border-emerald-100">{g.benchmarkText}</p>
                     </details>
                   )}
                 </div>
@@ -1832,7 +1832,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-600">Parent Communication Log</h3>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+        <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
           onClick={() => setShowAdd(!showAdd)}>
           <Plus className="w-3.5 h-3.5 mr-1" /> Log Contact
         </Button>
@@ -1845,14 +1845,14 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Contact Type</label>
                 <select value={form.contactType} onChange={e => setForm(p => ({ ...p, contactType: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   {Object.entries(CONTACT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Method</label>
                 <select value={form.contactMethod} onChange={e => setForm(p => ({ ...p, contactMethod: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                   <option value="phone">Phone Call</option>
                   <option value="email">Email</option>
                   <option value="in_person">In Person</option>
@@ -1863,7 +1863,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Date</label>
                 <input type="date" value={form.contactDate} onChange={e => setForm(p => ({ ...p, contactDate: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1871,37 +1871,37 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
                 <label className="text-[11px] font-medium text-slate-500">Parent/Guardian Name</label>
                 <input type="text" value={form.parentName} onChange={e => setForm(p => ({ ...p, parentName: e.target.value }))}
                   placeholder="e.g. Maria Alvarez"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Subject *</label>
                 <input type="text" value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))}
                   placeholder="Brief description of the contact"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div>
               <label className="text-[11px] font-medium text-slate-500">Notes</label>
               <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3}
                 placeholder="Details of the conversation or communication..."
-                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Outcome</label>
                 <input type="text" value={form.outcome} onChange={e => setForm(p => ({ ...p, outcome: e.target.value }))}
                   placeholder="Result of the contact"
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-slate-500">Follow-up Date</label>
                 <input type="date" value={form.followUpDate} onChange={e => setForm(p => ({ ...p, followUpDate: e.target.value }))}
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8" onClick={addContact} disabled={saving || !form.subject.trim()}>
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8" onClick={addContact} disabled={saving || !form.subject.trim()}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Contact"}
               </Button>
             </div>
@@ -1927,11 +1927,11 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
                   <div className="flex items-start gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                       c.contactType === "concern" ? "bg-red-50" :
-                      c.contactType === "consent_request" ? "bg-amber-50" : "bg-indigo-50"
+                      c.contactType === "consent_request" ? "bg-amber-50" : "bg-emerald-50"
                     }`}>
                       <MethodIcon className={`w-4 h-4 ${
                         c.contactType === "concern" ? "text-red-500" :
-                        c.contactType === "consent_request" ? "text-amber-500" : "text-indigo-500"
+                        c.contactType === "consent_request" ? "text-amber-500" : "text-emerald-600"
                       }`} />
                     </div>
                     <div className="flex-1 min-w-0">

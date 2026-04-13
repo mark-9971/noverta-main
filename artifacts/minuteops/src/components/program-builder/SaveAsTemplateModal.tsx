@@ -52,13 +52,13 @@ export default function SaveAsTemplateModal({ programId, programName, onClose, o
           <div>
             <label className="text-[12px] font-medium text-slate-500">Template Name *</label>
             <input value={name} onChange={e => setName(e.target.value)} autoFocus
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
           </div>
           <div>
             <label className="text-[12px] font-medium text-slate-500">Description</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               rows={2} placeholder="What is this template for?"
-              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
           </div>
 
           <div>
@@ -92,7 +92,7 @@ export default function SaveAsTemplateModal({ programId, programName, onClose, o
 
         <div className="flex justify-end gap-2 mt-5">
           <Button variant="outline" size="sm" onClick={onClose} className="text-[12px]">Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={save} disabled={saving || !name.trim()}>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={save} disabled={saving || !name.trim()}>
             <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save Template"}
           </Button>
         </div>

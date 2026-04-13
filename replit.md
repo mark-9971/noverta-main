@@ -1,8 +1,10 @@
-# MinuteOps — School Management & SPED Service Delivery Platform
+# Trellis — School Management & SPED Service Delivery Platform
 
 ## Overview
 
-MinuteOps is a comprehensive school management platform that combines general education (classes, assignments, gradebook) with special education (IEP/ABA) compliance. It features role-based views for administrators, teachers, and students — all using the same platform, with special ed services layered on top for IEP students. Fully compliant with Massachusetts 603 CMR 28.00/46.00.
+Trellis (formerly MinuteOps) is a comprehensive school management platform that combines general education (classes, assignments, gradebook) with special education (IEP/ABA) compliance. It features role-based views for administrators, teachers, and students — all using the same platform, with special ed services layered on top for IEP students. Fully compliant with Massachusetts 603 CMR 28.00/46.00.
+
+**Brand Identity:** Name "Trellis", tagline "Built to support.", deep green/emerald palette, Sprout icon (Lucide), organic but structured feel.
 
 ## User Preferences
 
@@ -10,7 +12,7 @@ I want iterative development and detailed explanations of your thought process. 
 
 ## System Architecture
 
-MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separation between frontend and backend.
+Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separation between frontend and backend.
 
 **Technology Stack:**
 - **Frontend:** React 19, Vite, Tailwind CSS, shadcn/ui, Recharts, wouter.
@@ -23,9 +25,9 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 
 - **Modular Monorepo:** Organizes code into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for API clients, Zod schemas, and the database layer.
 - **RESTful API Design:** Backend interactions are exposed via a REST API.
-- **Role-Based Architecture:** Five user roles with distinct navigation, theming, and routing — `admin` (indigo, `/`), `sped_teacher` (purple, `/`), `gen_ed_teacher` (emerald, `/teacher`), `sped_student` (violet, `/sped-portal`), `gen_ed_student` (blue, `/portal`). Role switching via vertical list in sidebar. SPED Teacher reuses admin routes. Each role has a demo picker; SPED/gen ed student IDs are stored in separate localStorage keys.
+- **Role-Based Architecture:** Five user roles with distinct navigation, theming, and routing — `admin` (emerald, `/`), `sped_teacher` (purple, `/`), `gen_ed_teacher` (emerald, `/teacher`), `sped_student` (violet, `/sped-portal`), `gen_ed_student` (blue, `/portal`). Role switching via vertical list in sidebar. SPED Teacher reuses admin routes. Each role has a demo picker; SPED/gen ed student IDs are stored in separate localStorage keys.
 - **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, ABA data, classes, assignments, submissions, grades, and announcements.
-- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (indigo=admin, purple=sped_teacher, emerald=gen_ed_teacher, violet=sped_student, blue=gen_ed_student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design.
+- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (emerald=admin, purple=sped_teacher, emerald=gen_ed_teacher, violet=sped_student, blue=gen_ed_student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design. Warm cream background (HSL 40 30% 97%), deep green primary (HSL 160 45% 35%).
 
 **Database Schema (Gen Ed):**
 - `classes` — courses with teacher, period, room, subject, grade level
@@ -83,8 +85,9 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 
 - `artifacts/minuteops/src/App.tsx` — Main router with role-based routing (AdminRouter, TeacherRouter, StudentRouter)
 - `artifacts/minuteops/src/lib/role-context.tsx` — Role state management (admin/teacher/student) with localStorage persistence
-- `artifacts/minuteops/src/components/layout/AppLayout.tsx` — Role-aware sidebar with navigation sections
-- `artifacts/minuteops/src/components/layout/RoleSwitcher.tsx` — Admin/Teacher/Student toggle buttons
+- `artifacts/minuteops/src/components/layout/AppLayout.tsx` — Role-aware sidebar with navigation sections, Trellis branding
+- `artifacts/minuteops/src/components/layout/RoleSwitcher.tsx` — Role toggle buttons (Admin=emerald, SPED Teacher=purple, etc.)
+- `artifacts/minuteops/src/index.css` — CSS variables for warm cream/deep green theme (light + dark mode)
 - `artifacts/minuteops/src/pages/student-portal/` — All student portal pages
 - `artifacts/minuteops/src/pages/teacher-portal/` — All teacher portal pages
 - `artifacts/api-server/src/routes/iepSuggestions.ts` — IEP suggestion engine (behaviors, DTTs, TAs, academic, related services)

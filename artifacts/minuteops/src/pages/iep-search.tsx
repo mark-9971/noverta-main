@@ -44,20 +44,20 @@ export default function IepSearch() {
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && doSearch()}
                 placeholder="Search goals, accommodations, student names, disability categories..."
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200"
               />
             </div>
             <select
               value={searchType}
               onChange={e => setSearchType(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200"
             >
               <option value="all">All</option>
               <option value="goals">Goals Only</option>
               <option value="accommodations">Accommodations Only</option>
               <option value="students">Students Only</option>
             </select>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px]" onClick={doSearch} disabled={searching || query.trim().length < 2}>
+            <Button className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]" onClick={doSearch} disabled={searching || query.trim().length < 2}>
               {searching ? "Searching..." : "Search"}
             </Button>
           </div>
@@ -72,7 +72,7 @@ export default function IepSearch() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 text-indigo-600" />
+                  <Target className="w-4 h-4 text-emerald-700" />
                   <h3 className="text-sm font-semibold text-slate-600">IEP Goals ({results.goals.length})</h3>
                 </div>
                 <div className="space-y-2">
@@ -83,7 +83,7 @@ export default function IepSearch() {
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[12px] font-medium text-slate-700">{g.studentName}</span>
                             <span className="text-[10px] text-slate-400">Grade {g.grade}</span>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-50 text-indigo-600">{g.goalArea}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-50 text-emerald-700">{g.goalArea}</span>
                           </div>
                           <p className="text-[12px] text-slate-500 line-clamp-2">{g.annualGoal}</p>
                         </div>

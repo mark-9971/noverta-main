@@ -30,7 +30,7 @@ export default function StudentClasses() {
   const subjectColors: Record<string, string> = {
     Math: "bg-blue-500", ELA: "bg-purple-500", Science: "bg-green-500",
     "Social Studies": "bg-amber-500", Art: "bg-pink-500", PE: "bg-red-500",
-    Music: "bg-indigo-500", "Computer Science": "bg-cyan-500",
+    Music: "bg-emerald-500", "Computer Science": "bg-cyan-500",
   };
 
   return (

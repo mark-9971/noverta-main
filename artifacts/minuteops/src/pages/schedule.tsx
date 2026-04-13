@@ -12,7 +12,7 @@ const DAY_LABELS: Record<string, string> = {
 const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
 
 const BLOCK_COLORS = [
-  "bg-indigo-50 text-indigo-800 border-indigo-200/60",
+  "bg-emerald-50 text-emerald-900 border-emerald-200/60",
   "bg-blue-50 text-blue-800 border-blue-200/60",
   "bg-emerald-50 text-emerald-800 border-emerald-200/60",
   "bg-amber-50 text-amber-800 border-amber-200/60",

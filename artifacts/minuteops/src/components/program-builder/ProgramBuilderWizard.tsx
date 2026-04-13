@@ -228,7 +228,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
             <div key={ws} className="flex items-center">
               <button onClick={() => { if (i <= step || isEditing) setStep(i); }}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all ${
-                  i === step ? "bg-indigo-100 text-indigo-700" :
+                  i === step ? "bg-emerald-100 text-emerald-800" :
                   i < step ? "bg-emerald-100 text-emerald-700 cursor-pointer" : "bg-slate-100 text-slate-400"
                 }`}>
                 {i < step ? <Check className="w-3 h-3" /> : <span className="w-3 text-center">{i + 1}</span>}
@@ -246,13 +246,13 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
               {PROGRAM_TYPES.map(pt => (
                 <button key={pt.value} onClick={() => { setForm(f => ({ ...f, programType: pt.value })); setStep(1); }}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    form.programType === pt.value ? "border-indigo-400 bg-indigo-50/50" : "border-slate-100 hover:border-indigo-200 hover:bg-slate-50"
+                    form.programType === pt.value ? "border-emerald-400 bg-emerald-50/50" : "border-slate-100 hover:border-emerald-200 hover:bg-slate-50"
                   }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      form.programType === pt.value ? "bg-indigo-100" : "bg-slate-100"
+                      form.programType === pt.value ? "bg-emerald-100" : "bg-slate-100"
                     }`}>
-                      <pt.icon className={`w-5 h-5 ${form.programType === pt.value ? "text-indigo-600" : "text-slate-500"}`} />
+                      <pt.icon className={`w-5 h-5 ${form.programType === pt.value ? "text-emerald-700" : "text-slate-500"}`} />
                     </div>
                     <div>
                       <p className="text-[13px] font-semibold text-slate-700">{pt.label}</p>
@@ -271,18 +271,18 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                   <label className="text-[12px] font-medium text-slate-500">Program Name *</label>
                   <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="e.g. Receptive ID: Colors" autoFocus
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-[12px] font-medium text-slate-500">Description</label>
                   <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                     rows={2} placeholder="What the student will demonstrate..."
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Domain</label>
                   <select value={form.domain} onChange={e => setForm(f => ({ ...f, domain: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     <option value="">Select domain...</option>
                     {DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
@@ -290,7 +290,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Program Type</label>
                   <select value={form.programType} onChange={e => setForm(f => ({ ...f, programType: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     {PROGRAM_TYPES.map(pt => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
                   </select>
                 </div>
@@ -300,7 +300,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                 <label className="text-[12px] font-medium text-slate-500">Tutor Instructions</label>
                 <textarea value={form.tutorInstructions} onChange={e => setForm(f => ({ ...f, tutorInstructions: e.target.value }))}
                   rows={3} placeholder="Step-by-step instructions for the tutor..."
-                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
               </div>
 
               <div className="border-t border-slate-100 pt-4">
@@ -309,22 +309,22 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                   <div>
                     <label className="text-[11px] font-medium text-slate-400">Mastery %</label>
                     <input type="number" value={form.masteryCriterionPercent} onChange={e => setForm(f => ({ ...f, masteryCriterionPercent: parseInt(e.target.value) || 80 }))}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium text-slate-400">Mastery Sessions</label>
                     <input type="number" value={form.masteryCriterionSessions} onChange={e => setForm(f => ({ ...f, masteryCriterionSessions: parseInt(e.target.value) || 3 }))}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium text-slate-400">Regression %</label>
                     <input type="number" value={form.regressionThreshold} onChange={e => setForm(f => ({ ...f, regressionThreshold: parseInt(e.target.value) || 50 }))}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium text-slate-400">Regression Sessions</label>
                     <input type="number" value={form.regressionSessions} onChange={e => setForm(f => ({ ...f, regressionSessions: parseInt(e.target.value) || 2 }))}
-                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                   </div>
                 </div>
               </div>
@@ -335,7 +335,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                   {form.promptHierarchy.map((level: string, idx: number) => {
                     const info = PROMPT_LABELS[level];
                     return (
-                      <div key={level} className={`flex items-center gap-2 p-2 rounded-lg border ${form.currentPromptLevel === level ? "border-indigo-300 bg-indigo-50" : "border-slate-100"}`}>
+                      <div key={level} className={`flex items-center gap-2 p-2 rounded-lg border ${form.currentPromptLevel === level ? "border-emerald-300 bg-emerald-50" : "border-slate-100"}`}>
                         <div className="flex flex-col gap-0.5">
                           <button onClick={() => moveStep(idx, "up")} disabled={idx === 0} className="text-slate-400 hover:text-slate-600 disabled:opacity-30">
                             <ArrowUp className="w-3 h-3" />
@@ -346,8 +346,8 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                         </div>
                         <span className="text-[11px] text-slate-400 w-4">{idx + 1}</span>
                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${info?.color ?? "bg-slate-100"}`}>{info?.label ?? level}</span>
-                        {form.currentPromptLevel === level && <span className="text-[10px] text-indigo-600 font-medium ml-auto">Starting Level</span>}
-                        <button className="text-[10px] text-indigo-600 ml-auto hover:text-indigo-800"
+                        {form.currentPromptLevel === level && <span className="text-[10px] text-emerald-700 font-medium ml-auto">Starting Level</span>}
+                        <button className="text-[10px] text-emerald-700 ml-auto hover:text-emerald-900"
                           onClick={() => setForm(f => ({ ...f, currentPromptLevel: level }))}>Set Start</button>
                       </div>
                     );
@@ -359,14 +359,14 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Reinforcement Schedule</label>
                   <select value={form.reinforcementSchedule} onChange={e => setForm(f => ({ ...f, reinforcementSchedule: e.target.value }))}
-                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
                     {REINFORCEMENT_SCHEDULES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-slate-500">Reinforcement Type</label>
                   <input value={form.reinforcementType} onChange={e => setForm(f => ({ ...f, reinforcementType: e.target.value }))}
-                    placeholder="e.g. Token board, praise" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                    placeholder="e.g. Token board, praise" className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
                 </div>
               </div>
 
@@ -387,20 +387,20 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                   <Button variant="outline" size="sm" className="text-[11px] h-7" onClick={() => setShowBulkImport(!showBulkImport)}>
                     {showBulkImport ? "Cancel" : "Bulk Import"}
                   </Button>
-                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-7" onClick={addStep}>
+                  <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] h-7" onClick={addStep}>
                     <Plus className="w-3 h-3 mr-1" /> Add Step
                   </Button>
                 </div>
               </div>
 
               {showBulkImport && (
-                <Card className="border-indigo-200 bg-indigo-50/30">
+                <Card className="border-emerald-200 bg-emerald-50/30">
                   <CardContent className="p-3 space-y-2">
                     <p className="text-[11px] text-slate-500">Enter one step per line:</p>
                     <textarea value={bulkInput} onChange={e => setBulkInput(e.target.value)}
                       rows={5} placeholder={"Touch red\nTouch blue\nTouch green\nTouch yellow"}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none bg-white" />
-                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-7" onClick={handleBulkImport}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none bg-white" />
+                    <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] h-7" onClick={handleBulkImport}
                       disabled={!bulkInput.trim()}>
                       Import {bulkInput.split("\n").filter(l => l.trim()).length} Steps
                     </Button>
@@ -440,28 +440,28 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                           <div>
                             <label className="text-[11px] font-medium text-slate-400">SD Instruction</label>
                             <input value={s.sdInstruction} onChange={e => updateStep(s.id, "sdInstruction", e.target.value)}
-                              placeholder="e.g. Touch [color]" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              placeholder="e.g. Touch [color]" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[11px] font-medium text-slate-400">Target Response</label>
                             <input value={s.targetResponse} onChange={e => updateStep(s.id, "targetResponse", e.target.value)}
-                              placeholder="e.g. Touches correct color" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              placeholder="e.g. Touches correct color" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[11px] font-medium text-slate-400">Materials</label>
                             <input value={s.materials} onChange={e => updateStep(s.id, "materials", e.target.value)}
-                              placeholder="e.g. Color cards, array of 3" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              placeholder="e.g. Color cards, array of 3" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                           <div>
                             <label className="text-[11px] font-medium text-slate-400">Prompt Strategy</label>
                             <input value={s.promptStrategy} onChange={e => updateStep(s.id, "promptStrategy", e.target.value)}
-                              placeholder="e.g. Most-to-least" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200" />
+                              placeholder="e.g. Most-to-least" className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200" />
                           </div>
                         </div>
                         <div>
                           <label className="text-[11px] font-medium text-slate-400">Error Correction</label>
                           <select value={s.errorCorrection} onChange={e => updateStep(s.id, "errorCorrection", e.target.value)}
-                            className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-200">
+                            className="w-full mt-0.5 border border-slate-200 rounded px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-emerald-200">
                             <option value="">Select error correction...</option>
                             {ERROR_CORRECTIONS.map(ec => <option key={ec.value} value={ec.value}>{ec.label}</option>)}
                           </select>
@@ -481,7 +481,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[15px] font-bold text-slate-800">{form.name || "Untitled Program"}</h3>
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
                       {PROGRAM_TYPES.find(pt => pt.value === form.programType)?.label ?? form.programType}
                     </span>
                   </div>
@@ -546,11 +546,11 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
             <ChevronLeft className="w-3.5 h-3.5 mr-1" /> {step > 0 ? "Back" : "Cancel"}
           </Button>
           {step < 3 ? (
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={() => setStep(step + 1)}>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={() => setStep(step + 1)}>
               Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           ) : (
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" onClick={save} disabled={saving || !form.name.trim()}>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={save} disabled={saving || !form.name.trim()}>
               <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : (isEditing ? "Update Program" : "Create Program")}
             </Button>
           )}

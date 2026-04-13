@@ -149,15 +149,15 @@ export default function ImportData() {
               key={type.key}
               onClick={() => { setSelectedType(type.key); resetForm(); }}
               className={`text-left p-5 rounded-xl border transition-all ${
-                active ? "border-indigo-300 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                active ? "border-emerald-300 bg-emerald-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
               <div className="flex items-center gap-3 mb-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${active ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
                   <type.icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className={`text-[14px] font-semibold ${active ? "text-indigo-700" : "text-slate-700"}`}>{type.label}</p>
+                  <p className={`text-[14px] font-semibold ${active ? "text-emerald-800" : "text-slate-700"}`}>{type.label}</p>
                   <p className="text-[12px] text-slate-400">{type.description}</p>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export default function ImportData() {
               <CardContent className="pt-4">
                 <div
                   className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                    dragActive ? "border-indigo-400 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300 bg-slate-50/30"
+                    dragActive ? "border-emerald-400 bg-emerald-50/50" : "border-slate-200 hover:border-slate-300 bg-slate-50/30"
                   }`}
                   onDragOver={e => { e.preventDefault(); setDragActive(true); }}
                   onDragLeave={() => setDragActive(false)}
@@ -194,7 +194,7 @@ export default function ImportData() {
                   />
                   {file ? (
                     <div className="flex items-center justify-center gap-3">
-                      <FileSpreadsheet className="w-8 h-8 text-indigo-500" />
+                      <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
                       <div className="text-left">
                         <p className="text-[14px] font-semibold text-slate-700">{file.name}</p>
                         <p className="text-[12px] text-slate-400">{(file.size / 1024).toFixed(1)} KB · {csvPreview?.rows.length ?? 0}+ data rows</p>
@@ -241,7 +241,7 @@ export default function ImportData() {
                 {file && !result && (
                   <div className="mt-4 flex justify-end">
                     <Button
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px]"
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]"
                       disabled={importing}
                       onClick={handleImport}
                     >
@@ -310,11 +310,11 @@ export default function ImportData() {
 
                 <button
                   onClick={() => downloadTemplate(IMPORT_TYPES.find(t => t.key === selectedType)?.templateKey ?? "students")}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 transition-all text-left"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
                 >
-                  <Download className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                  <Download className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   <div>
-                    <p className="text-[13px] font-medium text-slate-700">MinuteOps Template</p>
+                    <p className="text-[13px] font-medium text-slate-700">Trellis Template</p>
                     <p className="text-[11px] text-slate-400">Standard format with sample data</p>
                   </div>
                 </button>
@@ -323,7 +323,7 @@ export default function ImportData() {
                   <button
                     key={tmpl.key}
                     onClick={() => downloadTemplate(tmpl.key)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 transition-all text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left"
                   >
                     <Download className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     <div>
