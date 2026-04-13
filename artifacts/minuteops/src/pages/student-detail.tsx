@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2 } from "lucide-react";
+import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect, Fragment } from "react";
 import { RISK_CONFIG } from "@/lib/constants";
@@ -40,6 +41,12 @@ export default function StudentDetail() {
   const [expandedServiceDetail, setExpandedServiceDetail] = useState<any>(null);
   const [expandedServiceLoading, setExpandedServiceLoading] = useState(false);
 
+  const [behaviorPhaseLines, setBehaviorPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
+  const [programPhaseLines, setProgramPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
+  const [minutesExpanded, setMinutesExpanded] = useState(false);
+  const [minutesTrend, setMinutesTrend] = useState<any[]>([]);
+  const [minutesPhaseLines, setMinutesPhaseLines] = useState<{ id: string; date: string; label: string; color?: string }[]>([]);
+
   useEffect(() => {
     if (isNaN(studentId)) return;
     setDataLoading(true);
@@ -50,13 +57,15 @@ export default function StudentDetail() {
       fetch(`${API}/students/${studentId}/program-data/trends`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/students/${studentId}/data-sessions?limit=10`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/students/${studentId}/protective-measures`).then(r => r.ok ? r.json() : null),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm]) => {
+      fetch(`${API}/students/${studentId}/minutes-trend`).then(r => r.ok ? r.json() : []),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
       setProgramTrends(ptTrends);
       setDataSessions(ds);
       setProtectiveData(pm);
+      setMinutesTrend(mt);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);
@@ -93,14 +102,14 @@ export default function StudentDetail() {
   function getBehaviorTrendData(targetId: number) {
     return behaviorTrends
       .filter((t: any) => t.behaviorTargetId === targetId)
-      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.value) || 0 }))
+      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.value) || 0, staffId: t.staffId, staffName: t.staffName }))
       .sort((a: any, b: any) => a.date.localeCompare(b.date));
   }
 
   function getProgramTrendData(targetId: number) {
     return programTrends
       .filter((t: any) => t.programTargetId === targetId)
-      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.percentCorrect) || 0 }))
+      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.percentCorrect) || 0, staffId: t.staffId, staffName: t.staffName }))
       .sort((a: any, b: any) => a.date.localeCompare(b.date));
   }
 
@@ -264,11 +273,20 @@ export default function StudentDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-7">
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-600">Minutes by Service</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-slate-600">Minutes by Service</CardTitle>
+              <button
+                onClick={() => setMinutesExpanded(!minutesExpanded)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                title={minutesExpanded ? "Collapse" : "Expand chart"}
+              >
+                {minutesExpanded ? <ChevronUp className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="pt-4">
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 48)}>
+              <ResponsiveContainer width="100%" height={minutesExpanded ? Math.max(300, chartData.length * 64) : Math.max(200, chartData.length * 48)}>
                 <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -277,8 +295,8 @@ export default function StudentDetail() {
                     contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
                     formatter={(val: any, name: string) => [val + " min", name === "delivered" ? "Delivered" : "Required"]}
                   />
-                  <Bar dataKey="required" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={18} name="Required" />
-                  <Bar dataKey="delivered" radius={[0, 4, 4, 0]} barSize={18} name="Delivered">
+                  <Bar dataKey="required" fill="#e2e8f0" radius={[0, 4, 4, 0]} barSize={minutesExpanded ? 24 : 18} name="Required" />
+                  <Bar dataKey="delivered" radius={[0, 4, 4, 0]} barSize={minutesExpanded ? 24 : 18} name="Delivered">
                     {chartData.map((entry: any, idx: number) => (
                       <Cell key={idx} fill={RISK_CONFIG[entry.riskStatus]?.ringColor ?? "#6366f1"} />
                     ))}
@@ -287,6 +305,40 @@ export default function StudentDetail() {
               </ResponsiveContainer>
             ) : (
               <Skeleton className="w-full h-48" />
+            )}
+            {minutesExpanded && chartData.length > 0 && (
+              <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+                {chartData.map((entry: any, idx: number) => {
+                  const rCfg = RISK_CONFIG[entry.riskStatus] ?? RISK_CONFIG.on_track;
+                  return (
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-lg">
+                      <span className="font-medium text-slate-700">{entry.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-500">{entry.delivered} / {entry.required} min</span>
+                        <span className="font-bold text-slate-700">{entry.pct}%</span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${rCfg.bg} ${rCfg.color}`}>{rCfg.label}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {minutesExpanded && minutesTrend.length > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="text-xs font-semibold text-slate-500 mb-1">Minutes Delivered Over Time</p>
+                <InteractiveChart
+                  data={minutesTrend}
+                  color="#6366f1"
+                  gradientId="grad-minutes-trend"
+                  title="Session Minutes"
+                  yLabel="Minutes"
+                  valueFormatter={(v) => `${v} min`}
+                  phaseLines={minutesPhaseLines}
+                  onPhaseLinesChange={setMinutesPhaseLines}
+                  initialExpanded
+                  hideCollapse
+                />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -391,19 +443,18 @@ export default function StudentDetail() {
                           <p className="text-[10px] text-slate-400 mt-1">{clampedPct}% toward goal</p>
                         </div>
                         {trendData.length > 1 && (
-                          <div className="w-[140px] h-[48px] flex-shrink-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={trendData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-                                <defs>
-                                  <linearGradient id={`grad-beh-${bt.id}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
-                                    <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
-                                  </linearGradient>
-                                </defs>
-                                <Area type="monotone" dataKey="value" stroke={trendColor} strokeWidth={1.5} fill={`url(#grad-beh-${bt.id})`} dot={false} />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </div>
+                          <InteractiveChart
+                            data={trendData}
+                            color={trendColor}
+                            gradientId={`grad-beh-${bt.id}`}
+                            title={bt.name}
+                            yLabel={bt.measurementType}
+                            baselineLine={baseline}
+                            goalLine={goal}
+                            targetDirection={bt.targetDirection}
+                            phaseLines={behaviorPhaseLines[bt.id] || []}
+                            onPhaseLinesChange={(lines) => setBehaviorPhaseLines(prev => ({ ...prev, [bt.id]: lines }))}
+                          />
                         )}
                       </div>
                     </div>
@@ -488,19 +539,18 @@ export default function StudentDetail() {
                           </div>
                         </div>
                         {trendData.length > 1 && (
-                          <div className="w-[140px] h-[48px] flex-shrink-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={trendData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-                                <defs>
-                                  <linearGradient id={`grad-prog-${pt.id}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
-                                    <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
-                                  </linearGradient>
-                                </defs>
-                                <Area type="monotone" dataKey="value" stroke={trendColor} strokeWidth={1.5} fill={`url(#grad-prog-${pt.id})`} dot={false} />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </div>
+                          <InteractiveChart
+                            data={trendData}
+                            color={trendColor}
+                            gradientId={`grad-prog-${pt.id}`}
+                            title={pt.name}
+                            yLabel="Accuracy"
+                            masteryLine={masteryPct}
+                            targetDirection="increase"
+                            valueFormatter={(v) => `${Math.round(v)}%`}
+                            phaseLines={programPhaseLines[pt.id] || []}
+                            onPhaseLinesChange={(lines) => setProgramPhaseLines(prev => ({ ...prev, [pt.id]: lines }))}
+                          />
                         )}
                       </div>
                     </div>

@@ -1,0 +1,463 @@
+import { useState, useMemo, useCallback } from "react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ReferenceLine, Dot,
+} from "recharts";
+import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users } from "lucide-react";
+
+interface DataPoint {
+  date: string;
+  value: number;
+  staffId?: number | null;
+  staffName?: string | null;
+  [key: string]: any;
+}
+
+interface PhaseLine {
+  id: string;
+  date: string;
+  label: string;
+  color?: string;
+}
+
+interface InteractiveChartProps {
+  data: DataPoint[];
+  color: string;
+  gradientId: string;
+  title?: string;
+  yLabel?: string;
+  baselineLine?: number | null;
+  goalLine?: number | null;
+  masteryLine?: number | null;
+  targetDirection?: "increase" | "decrease";
+  phaseLines?: PhaseLine[];
+  onPhaseLinesChange?: (lines: PhaseLine[]) => void;
+  sparklineWidth?: number;
+  sparklineHeight?: number;
+  valueFormatter?: (v: number) => string;
+  initialExpanded?: boolean;
+  hideCollapse?: boolean;
+}
+
+function formatChartDate(d: string) {
+  if (!d) return "";
+  const date = new Date(d + "T00:00:00");
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatShortDate(d: string) {
+  if (!d) return "";
+  const date = new Date(d + "T00:00:00");
+  return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+}
+
+const PHASE_COLORS = ["#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
+
+export function InteractiveChart({
+  data,
+  color,
+  gradientId,
+  title,
+  yLabel,
+  baselineLine,
+  goalLine,
+  masteryLine,
+  targetDirection,
+  phaseLines: externalPhaseLines,
+  onPhaseLinesChange,
+  sparklineWidth = 140,
+  sparklineHeight = 48,
+  valueFormatter = (v) => String(v),
+  initialExpanded = false,
+  hideCollapse = false,
+}: InteractiveChartProps) {
+  const [expanded, setExpanded] = useState(initialExpanded);
+  const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
+  const [staffFilter, setStaffFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAddPhase, setShowAddPhase] = useState(false);
+  const [newPhaseDate, setNewPhaseDate] = useState("");
+  const [newPhaseLabel, setNewPhaseLabel] = useState("");
+
+  const phaseLines = externalPhaseLines ?? [];
+
+  const staffList = useMemo(() => {
+    const map = new Map<string, string>();
+    data.forEach((d) => {
+      if (d.staffId && d.staffName) map.set(String(d.staffId), d.staffName);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    let filtered = data;
+    if (staffFilter !== "all") {
+      filtered = filtered.filter((d) => String(d.staffId) === staffFilter);
+    }
+    if (dateFrom) {
+      filtered = filtered.filter((d) => d.date >= dateFrom);
+    }
+    if (dateTo) {
+      filtered = filtered.filter((d) => d.date <= dateTo);
+    }
+    return filtered;
+  }, [data, staffFilter, dateFrom, dateTo]);
+
+  const hasActiveFilters = staffFilter !== "all" || dateFrom || dateTo;
+
+  const clearFilters = useCallback(() => {
+    setStaffFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  }, []);
+
+  const addPhaseLine = useCallback(() => {
+    if (!newPhaseDate || !newPhaseLabel) return;
+    const newLine: PhaseLine = {
+      id: `phase-${Date.now()}`,
+      date: newPhaseDate,
+      label: newPhaseLabel,
+      color: PHASE_COLORS[phaseLines.length % PHASE_COLORS.length],
+    };
+    onPhaseLinesChange?.([...phaseLines, newLine]);
+    setNewPhaseDate("");
+    setNewPhaseLabel("");
+    setShowAddPhase(false);
+  }, [newPhaseDate, newPhaseLabel, phaseLines, onPhaseLinesChange]);
+
+  const removePhaseLine = useCallback(
+    (id: string) => {
+      onPhaseLinesChange?.(phaseLines.filter((p) => p.id !== id));
+    },
+    [phaseLines, onPhaseLinesChange]
+  );
+
+  const customDotRenderer = useCallback(
+    (props: any) => {
+      const { cx, cy, index } = props;
+      const isHighlighted = highlightedIdx === index;
+      return (
+        <Dot
+          cx={cx}
+          cy={cy}
+          r={isHighlighted ? 6 : 3}
+          fill={isHighlighted ? color : "#fff"}
+          stroke={color}
+          strokeWidth={isHighlighted ? 2.5 : 1.5}
+          style={{ cursor: "pointer", transition: "all 0.15s" }}
+          onClick={() => setHighlightedIdx(isHighlighted ? null : index)}
+        />
+      );
+    },
+    [highlightedIdx, color]
+  );
+
+  const customTooltipRenderer = useCallback(
+    ({ active, payload }: any) => {
+      if (!active || !payload?.length) return null;
+      const d = payload[0].payload;
+      return (
+        <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-lg text-xs">
+          <p className="font-medium text-slate-700">{formatChartDate(d.date)}</p>
+          <p className="text-slate-600 mt-0.5">
+            {yLabel || "Value"}: <span className="font-bold" style={{ color }}>{valueFormatter(d.value)}</span>
+          </p>
+          {d.staffName && (
+            <p className="text-slate-400 mt-0.5">Staff: {d.staffName}</p>
+          )}
+        </div>
+      );
+    },
+    [color, yLabel, valueFormatter]
+  );
+
+  const yDomain = useMemo(() => {
+    const values = filteredData.map((d) => d.value);
+    const refValues = [
+      ...(baselineLine != null ? [baselineLine] : []),
+      ...(goalLine != null ? [goalLine] : []),
+      ...(masteryLine != null ? [masteryLine] : []),
+    ];
+    const allVals = [...values, ...refValues];
+    if (allVals.length === 0) return [0, 10] as [number, number];
+    const min = Math.min(...allVals);
+    const max = Math.max(...allVals);
+    const pad = Math.max((max - min) * 0.15, 1);
+    return [Math.max(0, Math.floor(min - pad)), Math.ceil(max + pad)] as [number, number];
+  }, [filteredData, baselineLine, goalLine, masteryLine]);
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="group relative cursor-pointer flex-shrink-0"
+        style={{ width: sparklineWidth, height: sparklineHeight }}
+        title="Click to expand chart"
+        aria-label={`Expand ${title || "chart"}`}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={1.5}
+              fill={`url(#${gradientId})`}
+              dot={false}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/5 rounded transition-colors flex items-center justify-center">
+          <Maximize2 className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-xl bg-white shadow-sm mt-2 mb-1 overflow-hidden w-full">
+      <div className="flex items-center justify-between px-4 pt-3 pb-1">
+        <div className="flex items-center gap-2">
+          {title && <h4 className="text-xs font-semibold text-slate-600">{title}</h4>}
+          <span className="text-[10px] text-slate-400">{filteredData.length} data points</span>
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="text-[10px] text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5">
+              <X className="w-3 h-3" /> Clear filters
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-1.5 rounded-md transition-colors ${showFilters ? "bg-indigo-50 text-indigo-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"}`}
+            title="Filters"
+          >
+            <Filter className="w-3.5 h-3.5" />
+          </button>
+          {onPhaseLinesChange && (
+            <button
+              onClick={() => setShowAddPhase(!showAddPhase)}
+              className={`p-1.5 rounded-md transition-colors ${showAddPhase ? "bg-violet-50 text-violet-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"}`}
+              title="Add phase line"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {!hideCollapse && (
+            <button
+              onClick={() => { setExpanded(false); setHighlightedIdx(null); }}
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+              title="Collapse chart"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showFilters && (
+        <div className="px-4 py-2 bg-slate-50 border-y border-slate-100 flex flex-wrap items-center gap-3">
+          {staffList.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={staffFilter}
+                onChange={(e) => setStaffFilter(e.target.value)}
+                className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              >
+                <option value="all">All Staff</option>
+                {staffList.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              placeholder="From"
+            />
+            <span className="text-xs text-slate-400">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              placeholder="To"
+            />
+          </div>
+        </div>
+      )}
+
+      {showAddPhase && (
+        <div className="px-4 py-2 bg-violet-50/50 border-y border-violet-100 flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-violet-700">Add Phase Line:</span>
+          <input
+            type="date"
+            value={newPhaseDate}
+            onChange={(e) => setNewPhaseDate(e.target.value)}
+            className="text-xs border border-violet-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-violet-300"
+          />
+          <input
+            type="text"
+            value={newPhaseLabel}
+            onChange={(e) => setNewPhaseLabel(e.target.value)}
+            placeholder="Label (e.g., Med change, New BIP)"
+            className="text-xs border border-violet-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-violet-300 w-48"
+            onKeyDown={(e) => e.key === "Enter" && addPhaseLine()}
+          />
+          <button
+            onClick={addPhaseLine}
+            disabled={!newPhaseDate || !newPhaseLabel}
+            className="text-xs px-2.5 py-1 bg-violet-600 text-white rounded-md hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {phaseLines.length > 0 && (
+        <div className="px-4 py-1.5 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] text-slate-400 font-medium">Phase lines:</span>
+          {phaseLines.map((pl) => (
+            <span
+              key={pl.id}
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border"
+              style={{ borderColor: pl.color, color: pl.color, backgroundColor: `${pl.color}08` }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pl.color }} />
+              {pl.label} ({formatShortDate(pl.date)})
+              {onPhaseLinesChange && (
+                <button onClick={() => removePhaseLine(pl.id)} className="hover:opacity-70 ml-0.5">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="px-3 pb-3 pt-1">
+        {filteredData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={filteredData} margin={{ top: 10, right: 12, left: 0, bottom: 4 }}>
+              <defs>
+                <linearGradient id={`${gradientId}-exp`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.15} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis
+                dataKey="date"
+                tickFormatter={formatShortDate}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={yDomain}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+                width={35}
+                tickFormatter={(v: number) => valueFormatter(v)}
+              />
+              <Tooltip content={customTooltipRenderer} />
+
+              {baselineLine != null && (
+                <ReferenceLine
+                  y={baselineLine}
+                  stroke="#94a3b8"
+                  strokeDasharray="6 3"
+                  strokeWidth={1}
+                  label={{ value: `Baseline: ${valueFormatter(baselineLine)}`, position: "insideTopRight", fontSize: 10, fill: "#94a3b8" }}
+                />
+              )}
+              {goalLine != null && (
+                <ReferenceLine
+                  y={goalLine}
+                  stroke="#10b981"
+                  strokeDasharray="6 3"
+                  strokeWidth={1}
+                  label={{ value: `Goal: ${valueFormatter(goalLine)}`, position: "insideTopRight", fontSize: 10, fill: "#10b981" }}
+                />
+              )}
+              {masteryLine != null && (
+                <ReferenceLine
+                  y={masteryLine}
+                  stroke="#6366f1"
+                  strokeDasharray="6 3"
+                  strokeWidth={1}
+                  label={{ value: `Mastery: ${valueFormatter(masteryLine)}%`, position: "insideTopRight", fontSize: 10, fill: "#6366f1" }}
+                />
+              )}
+
+              {phaseLines.map((pl) => (
+                <ReferenceLine
+                  key={pl.id}
+                  x={pl.date}
+                  stroke={pl.color || "#8b5cf6"}
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  label={{ value: pl.label, position: "insideTopLeft", fontSize: 9, fill: pl.color || "#8b5cf6", angle: -90, offset: 10 }}
+                />
+              ))}
+
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={2}
+                fill={`url(#${gradientId}-exp)`}
+                dot={customDotRenderer}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[220px] flex items-center justify-center text-xs text-slate-400">
+            No data points match the current filters.
+          </div>
+        )}
+      </div>
+
+      {highlightedIdx !== null && filteredData[highlightedIdx] && (
+        <div className="px-4 pb-3">
+          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-slate-600">
+                {formatChartDate(filteredData[highlightedIdx].date)}
+              </span>
+              <span className="text-xs font-bold" style={{ color }}>
+                {valueFormatter(filteredData[highlightedIdx].value)}
+              </span>
+              {filteredData[highlightedIdx].staffName && (
+                <span className="text-[10px] text-slate-400">
+                  by {filteredData[highlightedIdx].staffName}
+                </span>
+              )}
+            </div>
+            <button onClick={() => setHighlightedIdx(null)} className="text-slate-400 hover:text-slate-600">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

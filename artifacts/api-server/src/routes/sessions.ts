@@ -10,7 +10,7 @@ import {
   DeleteSessionParams,
   BulkCreateSessionsBody,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -218,6 +218,49 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json({ ...session, createdAt: session.createdAt.toISOString() });
+});
+
+router.get("/students/:studentId/minutes-trend", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const { from, to } = req.query;
+
+    const conditions: any[] = [
+      eq(sessionLogsTable.studentId, studentId),
+      eq(sessionLogsTable.status, "completed"),
+    ];
+    if (from) conditions.push(gte(sessionLogsTable.sessionDate, from as string));
+    if (to) conditions.push(lte(sessionLogsTable.sessionDate, to as string));
+
+    const rows = await db.select({
+      sessionDate: sessionLogsTable.sessionDate,
+      durationMinutes: sessionLogsTable.durationMinutes,
+      serviceTypeName: serviceTypesTable.name,
+      serviceTypeId: sessionLogsTable.serviceTypeId,
+      staffId: sessionLogsTable.staffId,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
+    })
+      .from(sessionLogsTable)
+      .innerJoin(serviceTypesTable, eq(sessionLogsTable.serviceTypeId, serviceTypesTable.id))
+      .leftJoin(staffTable, eq(sessionLogsTable.staffId, staffTable.id))
+      .where(and(...conditions))
+      .orderBy(asc(sessionLogsTable.sessionDate));
+
+    const data = rows.map((r) => ({
+      date: r.sessionDate,
+      value: r.durationMinutes ?? 0,
+      serviceTypeName: r.serviceTypeName,
+      serviceTypeId: r.serviceTypeId,
+      staffId: r.staffId,
+      staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+    }));
+
+    res.json(data);
+  } catch (e: any) {
+    console.error("GET minutes-trend error:", e);
+    res.status(500).json({ error: "Failed to fetch minutes trend" });
+  }
 });
 
 router.delete("/sessions/:id", async (req, res): Promise<void> => {

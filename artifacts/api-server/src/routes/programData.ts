@@ -554,18 +554,27 @@ router.get("/students/:studentId/behavior-data/trends", async (req, res): Promis
     const bdConditions: any[] = [];
     if (behaviorTargetId) bdConditions.push(eq(behaviorDataTable.behaviorTargetId, parseInt(behaviorTargetId as string)));
 
-    const data = await db.select({
+    const rows = await db.select({
       sessionDate: dataSessionsTable.sessionDate,
       behaviorTargetId: behaviorDataTable.behaviorTargetId,
       targetName: behaviorTargetsTable.name,
       measurementType: behaviorTargetsTable.measurementType,
       value: behaviorDataTable.value,
       hourBlock: behaviorDataTable.hourBlock,
+      staffId: dataSessionsTable.staffId,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
     }).from(behaviorDataTable)
       .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
       .innerJoin(behaviorTargetsTable, eq(behaviorDataTable.behaviorTargetId, behaviorTargetsTable.id))
+      .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
       .where(and(...conditions, ...bdConditions))
       .orderBy(asc(dataSessionsTable.sessionDate));
+
+    const data = rows.map(r => ({
+      ...r,
+      staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+    }));
 
     res.json(data);
   } catch (e: any) {
@@ -586,7 +595,7 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
     const pdConditions: any[] = [];
     if (programTargetId) pdConditions.push(eq(programDataTable.programTargetId, parseInt(programTargetId as string)));
 
-    const data = await db.select({
+    const rows = await db.select({
       sessionDate: dataSessionsTable.sessionDate,
       programTargetId: programDataTable.programTargetId,
       targetName: programTargetsTable.name,
@@ -596,11 +605,20 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
       prompted: programDataTable.prompted,
       percentCorrect: programDataTable.percentCorrect,
       promptLevelUsed: programDataTable.promptLevelUsed,
+      staffId: dataSessionsTable.staffId,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
     }).from(programDataTable)
       .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
       .innerJoin(programTargetsTable, eq(programDataTable.programTargetId, programTargetsTable.id))
+      .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
       .where(and(...conditions, ...pdConditions))
       .orderBy(asc(dataSessionsTable.sessionDate));
+
+    const data = rows.map(r => ({
+      ...r,
+      staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+    }));
 
     res.json(data);
   } catch (e: any) {
