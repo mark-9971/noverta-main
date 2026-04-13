@@ -13,7 +13,9 @@ import {
   TrendingUp, TrendingDown, Users, Target, Brain, Clock, Activity,
   BarChart3, Zap, Award, AlertTriangle, CheckCircle, ArrowUpRight,
   ArrowDownRight, Minus, GraduationCap, Layers, Timer, PieChart as PieIcon,
+  User, ChevronRight, Search, Sparkles,
 } from "lucide-react";
+import { Link } from "wouter";
 
 const API = "/api";
 
@@ -890,12 +892,517 @@ function MinutesTab() {
   );
 }
 
+function StudentTab() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [studentData, setStudentData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API}/students`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setStudents(Array.isArray(d) ? d : d.students || []); setListLoading(false); })
+      .catch(() => setListLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setLoading(true);
+    fetch(`${API}/analytics/student/${selectedId}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => { setStudentData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [selectedId]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return students.slice(0, 20);
+    return students.filter((s: any) =>
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q)
+    ).slice(0, 20);
+  }, [students, search]);
+
+  const typeLabels: Record<string, string> = {
+    discrete_trial: "DTT", task_analysis: "Task Analysis", natural_environment: "NET", fluency: "Fluency",
+  };
+  const promptLabels: Record<string, string> = {
+    independent: "Independent", verbal: "Verbal", gestural: "Gestural", model: "Model",
+    partial_physical: "Partial Phys.", full_physical: "Full Phys.",
+  };
+
+  if (!selectedId) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-slate-200/80">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <User className="w-4 h-4 text-indigo-500" />
+              Select a Student for Deep Analytics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input type="text" placeholder="Search students..." value={search} onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            </div>
+            {listLoading ? (
+              <div className="space-y-2">{[1,2,3,4,5].map(i => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {filtered.map((s: any) => (
+                  <button key={s.id} onClick={() => setSelectedId(s.id)}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all text-left group">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
+                      {s.firstName?.[0]}{s.lastName?.[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-slate-700 truncate">{s.firstName} {s.lastName}</p>
+                      <p className="text-[11px] text-slate-400">Grade {s.grade} · {(s.disabilityCategory || "").replace(/_/g, " ")}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                  </button>
+                ))}
+                {filtered.length === 0 && <p className="col-span-3 text-center text-sm text-slate-400 py-8">No students found</p>}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading) return <SectionSkeleton />;
+  if (!studentData) return <ErrorBanner message="Failed to load student analytics" onRetry={() => setSelectedId(selectedId)} />;
+
+  const d = studentData;
+  const s = d.student;
+  const sm = d.summary;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 flex-wrap">
+        <button onClick={() => { setSelectedId(null); setStudentData(null); }}
+          className="text-indigo-600 text-sm font-medium hover:text-indigo-700 flex items-center gap-1">
+          <ChevronRight className="w-4 h-4 rotate-180" /> All Students
+        </button>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold">
+            {s.firstName?.[0]}{s.lastName?.[0]}
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">{s.firstName} {s.lastName}</h2>
+            <p className="text-[11px] text-slate-400">Grade {s.grade} · {(s.disabilityCategory || "").replace(/_/g, " ")}</p>
+          </div>
+        </div>
+        <Link href={`/students/${s.id}`} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 transition-colors">
+          View Profile
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard title="Session Completion" value={`${sm.completionRate}%`} icon={CheckCircle} accent="emerald"
+          subtitle={`${sm.completedSessions} of ${sm.totalSessions} sessions`} />
+        <KPICard title="Minutes Delivered" value={sm.totalMinutes.toLocaleString()} icon={Clock} accent="indigo"
+          subtitle="Total service minutes" />
+        <KPICard title="Behavior Targets" value={sm.activeBehaviorTargets} icon={Activity} accent="amber"
+          subtitle={`${sm.dataSessionCount} data sessions`} />
+        <KPICard title="Skill Programs" value={sm.activeProgramTargets} icon={GraduationCap} accent="violet"
+          subtitle="Active programs" />
+      </div>
+
+      {d.complianceByService.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="border-slate-200/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-500" />
+                Service Compliance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {d.complianceByService.map((svc: any, i: number) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[12px] font-medium text-slate-700">{svc.service}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400">{svc.delivered} / {svc.required} min</span>
+                        <span className={`text-[12px] font-bold ${svc.compliance >= 90 ? "text-emerald-600" : svc.compliance >= 75 ? "text-amber-600" : "text-red-600"}`}>
+                          {svc.compliance}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(svc.compliance, 100)}%`, backgroundColor: svc.compliance >= 90 ? COLORS.emerald : svc.compliance >= 75 ? COLORS.amber : COLORS.red }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-sky-500" />
+                Weekly Session Trend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={d.sessionWeekly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={formatWeek} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                    <Tooltip content={CustomTooltip} />
+                    <Bar dataKey="completed" name="Completed" fill={COLORS.emerald} stackId="a" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="missed" name="Missed" fill={COLORS.red} stackId="a" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {d.behaviorAnalysis.length > 0 && (
+        <Card className="border-slate-200/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-rose-500" />
+              Behavior Target Analysis
+            </CardTitle>
+            <p className="text-[11px] text-slate-400">{d.behaviorAnalysis.length} active target{d.behaviorAnalysis.length !== 1 ? "s" : ""} — weekly trends with variability and progress metrics</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {d.behaviorAnalysis.map((bt: any) => {
+                const weeklyData = (bt.weeklyTrends || []).map((w: any) => ({
+                  week: formatWeek(w.week),
+                  avg: Number(w.avgValue),
+                  min: Number(w.minValue),
+                  max: Number(w.maxValue),
+                  points: w.dataPoints,
+                }));
+                const goal = Number(bt.goalValue) || 0;
+                const baseline = Number(bt.baselineValue) || 0;
+
+                return (
+                  <div key={bt.id} className="border border-slate-100 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[13px] font-semibold text-slate-700">{bt.name}</p>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${bt.targetDirection === "decrease" ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"}`}>
+                            {bt.targetDirection === "decrease" ? <TrendingDown className="w-3 h-3 inline mr-0.5" /> : <TrendingUp className="w-3 h-3 inline mr-0.5" />}
+                            {bt.targetDirection}
+                          </span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${bt.isImproving ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                            {bt.isImproving ? "Improving" : "Needs attention"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {bt.measurementType} · Baseline: {bt.baselineValue} · Goal: {bt.goalValue} · Latest: {bt.latest} · {bt.totalDataPoints} data pts
+                        </p>
+                      </div>
+                      <div className="flex gap-3 flex-shrink-0">
+                        <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
+                          <p className="text-[10px] text-slate-400">Change</p>
+                          <p className={`text-sm font-bold ${bt.isImproving ? "text-emerald-600" : "text-amber-600"}`}>{bt.changeRate > 0 ? "+" : ""}{bt.changeRate}%</p>
+                        </div>
+                        <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
+                          <p className="text-[10px] text-slate-400">Progress</p>
+                          <p className="text-sm font-bold text-indigo-600">{bt.progressToGoal}%</p>
+                        </div>
+                        <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
+                          <p className="text-[10px] text-slate-400">Variability</p>
+                          <p className="text-sm font-bold text-slate-600">{bt.variability}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(bt.progressToGoal, 100)}%`, backgroundColor: bt.progressToGoal >= 80 ? COLORS.emerald : bt.progressToGoal >= 50 ? COLORS.amber : COLORS.red }} />
+                    </div>
+
+                    {weeklyData.length > 1 && (
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={weeklyData}>
+                            <defs>
+                              <linearGradient id={`bGrad${bt.id}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={bt.isImproving ? COLORS.emerald : COLORS.amber} stopOpacity={0.15} />
+                                <stop offset="95%" stopColor={bt.isImproving ? COLORS.emerald : COLORS.amber} stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="week" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                            <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                            <Tooltip content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null;
+                              const p = payload[0].payload;
+                              return (
+                                <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
+                                  <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                                  <p>Average: <span className="font-bold">{p.avg}</span></p>
+                                  <p>Range: {p.min} – {p.max}</p>
+                                  <p className="text-slate-400">{p.points} data points</p>
+                                </div>
+                              );
+                            }} />
+                            {goal > 0 && <Line type="monotone" dataKey={() => goal} name="Goal" stroke={COLORS.emerald} strokeDasharray="6 3" strokeWidth={1.5} dot={false} />}
+                            {baseline > 0 && <Line type="monotone" dataKey={() => baseline} name="Baseline" stroke={COLORS.red} strokeDasharray="6 3" strokeWidth={1.5} dot={false} />}
+                            <Area type="monotone" dataKey="avg" name="Avg" stroke={bt.isImproving ? COLORS.emerald : COLORS.amber} fill={`url(#bGrad${bt.id})`} strokeWidth={2.5} dot={{ r: 3, fill: "white", strokeWidth: 2 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {d.programAnalysis.length > 0 && (
+        <Card className="border-slate-200/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-indigo-500" />
+              Skill Program Analysis
+            </CardTitle>
+            <p className="text-[11px] text-slate-400">{d.programAnalysis.length} active program{d.programAnalysis.length !== 1 ? "s" : ""} — accuracy trends, prompt fading, and mastery tracking</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {d.programAnalysis.map((pt: any) => {
+                const weeklyData = (pt.weeklyTrends || []).map((w: any) => ({
+                  week: formatWeek(w.week),
+                  accuracy: Number(w.avgAccuracy),
+                  trials: Number(w.totalTrials),
+                  correct: Number(w.totalCorrect),
+                }));
+                const promptData = (pt.promptProgression || []).map((p: any) => ({
+                  week: formatWeek(p.week),
+                  level: Number(p.avgPromptIndex),
+                }));
+                const masteryCriterion = pt.masteryCriterionPercent || 80;
+
+                return (
+                  <div key={pt.id} className="border border-slate-100 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-[13px] font-semibold text-slate-700">{pt.name}</p>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                            {typeLabels[pt.programType] || pt.programType}
+                          </span>
+                          {pt.domain && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">
+                              {(pt.domain || "").replace(/_/g, " ")}
+                            </span>
+                          )}
+                          {pt.masteryMet && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
+                              <Award className="w-3 h-3" /> Mastered
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Step {pt.currentStep} · Mastery: {masteryCriterion}% · {pt.totalTrials.toLocaleString()} total trials · Overall accuracy: {pt.overallAccuracy}%
+                        </p>
+                      </div>
+                      <div className="flex gap-3 flex-shrink-0">
+                        <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
+                          <p className="text-[10px] text-slate-400">Latest</p>
+                          <p className={`text-sm font-bold ${pt.latestAccuracy >= masteryCriterion ? "text-emerald-600" : "text-indigo-600"}`}>{pt.latestAccuracy}%</p>
+                        </div>
+                        <div className="text-center px-3 py-1.5 bg-slate-50 rounded-lg">
+                          <p className="text-[10px] text-slate-400">Change</p>
+                          <p className={`text-sm font-bold ${pt.changeRate >= 0 ? "text-emerald-600" : "text-amber-600"}`}>{pt.changeRate > 0 ? "+" : ""}{pt.changeRate}%</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.min((pt.latestAccuracy / masteryCriterion) * 100, 100)}%`,
+                          backgroundColor: pt.latestAccuracy >= masteryCriterion ? COLORS.emerald : pt.latestAccuracy >= masteryCriterion * 0.8 ? COLORS.amber : COLORS.red }} />
+                    </div>
+
+                    <div className={`grid grid-cols-1 ${promptData.length > 1 ? "lg:grid-cols-2" : ""} gap-4`}>
+                      {weeklyData.length > 1 && (
+                        <div className={promptData.length <= 1 ? "col-span-full" : ""}>
+                          <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Accuracy Over Time</p>
+                          <div className="h-[180px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={weeklyData}>
+                                <defs>
+                                  <linearGradient id={`pGrad${pt.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={COLORS.indigo} stopOpacity={0.15} />
+                                    <stop offset="95%" stopColor={COLORS.indigo} stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                <XAxis dataKey="week" tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v: number) => `${v}%`} />
+                                <Tooltip content={({ active, payload, label }) => {
+                                  if (!active || !payload?.length) return null;
+                                  const p = payload[0].payload;
+                                  return (
+                                    <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
+                                      <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                                      <p>Accuracy: <span className="font-bold text-indigo-600">{p.accuracy}%</span></p>
+                                      <p className="text-slate-400">{p.correct}/{p.trials} trials correct</p>
+                                    </div>
+                                  );
+                                }} />
+                                <Line type="monotone" dataKey={() => masteryCriterion} name="Mastery" stroke={COLORS.emerald} strokeDasharray="6 3" strokeWidth={1.5} dot={false} />
+                                <Area type="monotone" dataKey="accuracy" name="Accuracy" stroke={COLORS.indigo} fill={`url(#pGrad${pt.id})`} strokeWidth={2.5} dot={{ r: 3, fill: "white", strokeWidth: 2 }} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+
+                      {promptData.length > 1 && (
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Prompt Fading Progress</p>
+                          <div className="h-[180px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={promptData}>
+                                <defs>
+                                  <linearGradient id={`prGrad${pt.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={COLORS.violet} stopOpacity={0.15} />
+                                    <stop offset="95%" stopColor={COLORS.violet} stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                <XAxis dataKey="week" tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                                <YAxis domain={[0, 6]} tick={{ fontSize: 10, fill: "#94a3b8" }} ticks={[1,2,3,4,5,6]}
+                                  tickFormatter={(v: number) => {
+                                    const labels: Record<number, string> = { 1: "Full P", 2: "Partial", 3: "Model", 4: "Gestural", 5: "Verbal", 6: "Indep." };
+                                    return labels[v] || "";
+                                  }} />
+                                <Tooltip content={({ active, payload, label }) => {
+                                  if (!active || !payload?.length) return null;
+                                  const level = Number(payload[0].value);
+                                  const labels: Record<number, string> = { 1: "Full Physical", 2: "Partial Physical", 3: "Model", 4: "Gestural", 5: "Verbal", 6: "Independent" };
+                                  const nearest = Math.round(level);
+                                  return (
+                                    <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
+                                      <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                                      <p>Avg Prompt: <span className="font-bold text-violet-600">{labels[nearest] || level}</span></p>
+                                    </div>
+                                  );
+                                }} />
+                                <Area type="monotone" dataKey="level" name="Prompt Level" stroke={COLORS.violet} fill={`url(#prGrad${pt.id})`} strokeWidth={2.5} dot={{ r: 3, fill: "white", strokeWidth: 2 }} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {d.dayPattern.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="border-slate-200/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-sky-500" />
+                Service Delivery by Day
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={d.dayPattern}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#64748b" }} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                    <Tooltip content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="bg-white rounded-lg shadow-lg border p-3 text-xs">
+                          <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                          <p>{Number(payload[0].value).toLocaleString()} minutes</p>
+                          <p className="text-slate-400">{payload[0].payload.sessions} sessions</p>
+                        </div>
+                      );
+                    }} />
+                    <Bar dataKey="minutes" name="Minutes" radius={[6, 6, 0, 0]} barSize={32}>
+                      {d.dayPattern.map((_: any, i: number) => <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200/80">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-violet-500" />
+                Service Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={d.serviceBreakdown.filter((sb: any) => sb.totalMinutes > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                      paddingAngle={3} dataKey="totalMinutes" nameKey="serviceTypeName" strokeWidth={0}>
+                      {d.serviceBreakdown.map((_: any, i: number) => <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />)}
+                    </Pie>
+                    <Tooltip content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const p = payload[0].payload;
+                      return (
+                        <div className="bg-white rounded-lg shadow-lg border p-2.5 text-xs">
+                          <span className="font-semibold">{p.serviceTypeName}: {p.totalMinutes.toLocaleString()} min</span>
+                          <p className="text-slate-400">{p.completedSessions} completed, {p.missedSessions} missed</p>
+                        </div>
+                      );
+                    }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center -mt-2">
+                {d.serviceBreakdown.filter((sb: any) => sb.totalMinutes > 0).map((sb: any, i: number) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length] }} />
+                    <span className="text-slate-600">{sb.serviceTypeName}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Analytics & Insights</h1>
-        <p className="text-sm text-slate-500 mt-1">School-wide data visualization and performance analysis</p>
+        <p className="text-sm text-slate-500 mt-1">School-wide and per-student data visualization and performance analysis</p>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
@@ -912,12 +1419,16 @@ export default function AnalyticsPage() {
           <TabsTrigger value="minutes" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
             <Clock className="w-4 h-4 mr-1.5" /> Minutes
           </TabsTrigger>
+          <TabsTrigger value="student" className="text-[13px] rounded-lg data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700">
+            <User className="w-4 h-4 mr-1.5" /> Student
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><OverviewTab /></TabsContent>
         <TabsContent value="behavior"><BehaviorTab /></TabsContent>
         <TabsContent value="academic"><AcademicTab /></TabsContent>
         <TabsContent value="minutes"><MinutesTab /></TabsContent>
+        <TabsContent value="student"><StudentTab /></TabsContent>
       </Tabs>
     </div>
   );
