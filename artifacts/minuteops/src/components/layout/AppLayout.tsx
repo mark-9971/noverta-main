@@ -11,6 +11,7 @@ import {
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
 import { useRole } from "@/lib/role-context";
+import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 
@@ -198,7 +199,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { role, user } = useRole();
-  const { data: alertsSummary } = useGetDashboardAlertsSummary();
+  const { typedFilter } = useSchoolContext();
+  const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = (alertsSummary as any)?.total ?? 0;
   const config = roleConfig[role];
 
