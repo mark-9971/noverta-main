@@ -5,11 +5,16 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SchoolComplianceSummary } from "./schoolComplianceSummary";
 
-export interface CreateSchoolBody {
+export interface DistrictSchoolOverview {
+  id: number;
   name: string;
   /** @nullable */
   district?: string | null;
   /** @nullable */
   districtId?: number | null;
+  studentCount: number;
+  staffCount: number;
+  compliance: SchoolComplianceSummary;
 }

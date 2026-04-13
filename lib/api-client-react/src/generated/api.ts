@@ -24,6 +24,7 @@ import type {
   BulkCreateSessionsBody,
   ComplianceByService,
   CoverageGap,
+  CreateDistrictBody,
   CreateImportBody,
   CreateProgramBody,
   CreateScheduleBlockBody,
@@ -35,9 +36,15 @@ import type {
   CreateStaffBody,
   CreateStudentBody,
   DashboardSummary,
+  DeleteDistrict200,
+  District,
+  DistrictDetail,
+  DistrictOverview,
+  DistrictSummary,
   ErrorResponse,
   GenerateScheduleBody,
   GeneratedSchedule,
+  GetDistrictOverviewParams,
   GetMissedSessionsReportParams,
   GetScheduleConflictsParams,
   GetStudentMinuteSummaryReportParams,
@@ -74,6 +81,7 @@ import type {
   StudentDetail,
   StudentMinuteSummaryRow,
   StudentSummary,
+  UpdateDistrictBody,
   UpdateScheduleBlockBody,
   UpdateServiceRequirementBody,
   UpdateSessionBody,
@@ -695,6 +703,525 @@ export function useGetMissedSessionsTrend<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMissedSessionsTrendQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List districts
+ */
+export const getListDistrictsUrl = () => {
+  return `/api/districts`;
+};
+
+export const listDistricts = async (
+  options?: RequestInit,
+): Promise<DistrictSummary[]> => {
+  return customFetch<DistrictSummary[]>(getListDistrictsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDistrictsQueryKey = () => {
+  return [`/api/districts`] as const;
+};
+
+export const getListDistrictsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDistricts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDistricts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDistrictsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDistricts>>> = ({
+    signal,
+  }) => listDistricts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDistricts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDistrictsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDistricts>>
+>;
+export type ListDistrictsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List districts
+ */
+
+export function useListDistricts<
+  TData = Awaited<ReturnType<typeof listDistricts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDistricts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDistrictsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create district
+ */
+export const getCreateDistrictUrl = () => {
+  return `/api/districts`;
+};
+
+export const createDistrict = async (
+  createDistrictBody: CreateDistrictBody,
+  options?: RequestInit,
+): Promise<District> => {
+  return customFetch<District>(getCreateDistrictUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDistrictBody),
+  });
+};
+
+export const getCreateDistrictMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDistrict>>,
+    TError,
+    { data: BodyType<CreateDistrictBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDistrict>>,
+  TError,
+  { data: BodyType<CreateDistrictBody> },
+  TContext
+> => {
+  const mutationKey = ["createDistrict"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDistrict>>,
+    { data: BodyType<CreateDistrictBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDistrict(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDistrictMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDistrict>>
+>;
+export type CreateDistrictMutationBody = BodyType<CreateDistrictBody>;
+export type CreateDistrictMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create district
+ */
+export const useCreateDistrict = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDistrict>>,
+    TError,
+    { data: BodyType<CreateDistrictBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDistrict>>,
+  TError,
+  { data: BodyType<CreateDistrictBody> },
+  TContext
+> => {
+  return useMutation(getCreateDistrictMutationOptions(options));
+};
+
+/**
+ * @summary Get district details with schools
+ */
+export const getGetDistrictUrl = (id: number) => {
+  return `/api/districts/${id}`;
+};
+
+export const getDistrict = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DistrictDetail> => {
+  return customFetch<DistrictDetail>(getGetDistrictUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDistrictQueryKey = (id: number) => {
+  return [`/api/districts/${id}`] as const;
+};
+
+export const getGetDistrictQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDistrict>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDistrict>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDistrictQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDistrict>>> = ({
+    signal,
+  }) => getDistrict(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDistrict>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDistrictQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDistrict>>
+>;
+export type GetDistrictQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get district details with schools
+ */
+
+export function useGetDistrict<
+  TData = Awaited<ReturnType<typeof getDistrict>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDistrict>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDistrictQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update district
+ */
+export const getUpdateDistrictUrl = (id: number) => {
+  return `/api/districts/${id}`;
+};
+
+export const updateDistrict = async (
+  id: number,
+  updateDistrictBody: UpdateDistrictBody,
+  options?: RequestInit,
+): Promise<District> => {
+  return customFetch<District>(getUpdateDistrictUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateDistrictBody),
+  });
+};
+
+export const getUpdateDistrictMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDistrict>>,
+    TError,
+    { id: number; data: BodyType<UpdateDistrictBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDistrict>>,
+  TError,
+  { id: number; data: BodyType<UpdateDistrictBody> },
+  TContext
+> => {
+  const mutationKey = ["updateDistrict"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDistrict>>,
+    { id: number; data: BodyType<UpdateDistrictBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDistrict(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDistrictMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDistrict>>
+>;
+export type UpdateDistrictMutationBody = BodyType<UpdateDistrictBody>;
+export type UpdateDistrictMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update district
+ */
+export const useUpdateDistrict = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDistrict>>,
+    TError,
+    { id: number; data: BodyType<UpdateDistrictBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDistrict>>,
+  TError,
+  { id: number; data: BodyType<UpdateDistrictBody> },
+  TContext
+> => {
+  return useMutation(getUpdateDistrictMutationOptions(options));
+};
+
+/**
+ * @summary Delete district
+ */
+export const getDeleteDistrictUrl = (id: number) => {
+  return `/api/districts/${id}`;
+};
+
+export const deleteDistrict = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteDistrict200> => {
+  return customFetch<DeleteDistrict200>(getDeleteDistrictUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDistrictMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDistrict>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDistrict>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteDistrict"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDistrict>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteDistrict(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDistrictMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDistrict>>
+>;
+
+export type DeleteDistrictMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete district
+ */
+export const useDeleteDistrict = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDistrict>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDistrict>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteDistrictMutationOptions(options));
+};
+
+/**
+ * @summary District rollup with per-school compliance data
+ */
+export const getGetDistrictOverviewUrl = (
+  params?: GetDistrictOverviewParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/district-overview?${stringifiedParams}`
+    : `/api/district-overview`;
+};
+
+export const getDistrictOverview = async (
+  params?: GetDistrictOverviewParams,
+  options?: RequestInit,
+): Promise<DistrictOverview> => {
+  return customFetch<DistrictOverview>(getGetDistrictOverviewUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDistrictOverviewQueryKey = (
+  params?: GetDistrictOverviewParams,
+) => {
+  return [`/api/district-overview`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetDistrictOverviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDistrictOverview>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetDistrictOverviewParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDistrictOverview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDistrictOverviewQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDistrictOverview>>
+  > = ({ signal }) =>
+    getDistrictOverview(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDistrictOverview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDistrictOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDistrictOverview>>
+>;
+export type GetDistrictOverviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary District rollup with per-school compliance data
+ */
+
+export function useGetDistrictOverview<
+  TData = Awaited<ReturnType<typeof getDistrictOverview>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetDistrictOverviewParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDistrictOverview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDistrictOverviewQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

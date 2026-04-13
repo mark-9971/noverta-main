@@ -5,13 +5,16 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { School } from "./school";
 
-export interface School {
+export interface DistrictDetail {
   id: number;
   name: string;
   /** @nullable */
-  district?: string | null;
+  state?: string | null;
   /** @nullable */
-  districtId?: number | null;
+  region?: string | null;
   createdAt: string;
+  updatedAt?: string;
+  schools: School[];
 }

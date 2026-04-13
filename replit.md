@@ -26,7 +26,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - **Modular Monorepo:** Organizes code into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for API clients, Zod schemas, and the database layer.
 - **RESTful API Design:** Backend interactions are exposed via a REST API.
 - **Role-Based Architecture:** Five user roles with distinct navigation, theming, and routing — `admin` (emerald, `/`), `sped_teacher` (purple, `/`), `gen_ed_teacher` (emerald, `/teacher`), `sped_student` (violet, `/sped-portal`), `gen_ed_student` (blue, `/portal`). Role switching via vertical list in sidebar. SPED Teacher reuses admin routes. Each role has a demo picker; SPED/gen ed student IDs are stored in separate localStorage keys.
-- **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, ABA data, classes, assignments, submissions, grades, and announcements.
+- **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of districts, schools, students, staff, services, IEPs, compliance, ABA data, classes, assignments, submissions, grades, and announcements. Districts table (`districts`) with schools linked via `schools.districtId` FK.
 - **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (emerald=admin, purple=sped_teacher, emerald=gen_ed_teacher, violet=sped_student, blue=gen_ed_student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design. Warm cream background (HSL 40 30% 97%), deep green primary (HSL 160 45% 35%).
 
 **Database Schema (Gen Ed):**
@@ -40,7 +40,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - `progress_note_contributions` — teacher progress report contributions (reportId, staffId, goalId, narrative)
 
 **Role-Based Views:**
-- **Admin:** Full access to compliance, special ed, gen ed, analytics. Sidebar organized by workflow priority: top-level (Dashboard, Students, Alerts), Service Delivery (Sessions, Schedule, Service Minutes), Clinical & IEP (Programs & Behaviors, IEP Suggestions, Restraint & Seclusion, IEP Search), Academics (Classes, Gradebook), Reports & Admin (Analytics, Reports, Staff Directory, Data Import). Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/analytics`, etc.
+- **Admin:** Full access to compliance, special ed, gen ed, analytics. Sidebar organized by workflow priority: top-level (Dashboard, Students, Alerts), Service Delivery (Sessions, Schedule, Service Minutes), Clinical & IEP (Programs & Behaviors, IEP Suggestions, Restraint & Seclusion, IEP Search), Academics (Classes, Gradebook), Reports & Admin (District Overview, Analytics, Reports, Staff Directory, Data Import). Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/district`, `/analytics`, etc.
 - **Teacher:** Class management, gradebook, assignments, student roster, grading interface, IEP classroom view. Routes: `/teacher`, `/teacher/classes`, `/teacher/gradebook`, `/teacher/assignments`, `/teacher/classroom`, etc.
 - **Student:** Dashboard with GPA/assignments, class list, assignment submission, grade transcript. Routes: `/portal`, `/portal/classes`, `/portal/assignments`, `/portal/grades`
 
@@ -95,6 +95,9 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - `artifacts/api-server/src/routes/iepSuggestions.ts` — IEP suggestion engine (behaviors, DTTs, TAs, academic, related services)
 - `artifacts/minuteops/src/pages/iep-suggestions.tsx` — IEP suggestions frontend (overview + detail with apply)
 - `artifacts/minuteops/src/pages/teacher-portal/TeacherClassroom.tsx` — Teacher IEP classroom view (accommodations, schedules, observations)
+- `artifacts/api-server/src/routes/districts.ts` — Districts CRUD + district overview rollup API
+- `artifacts/minuteops/src/pages/district-overview.tsx` — District Overview page with school comparison
+- `lib/db/src/schema/districts.ts` — Districts table schema
 - `artifacts/api-server/src/routes/classroom.ts` — Classroom API (staff classroom, teacher observations, progress notes)
 - `artifacts/api-server/src/routes/classes.ts` — Classes, enrollment, categories, announcements endpoints
 - `artifacts/api-server/src/routes/assignments.ts` — Assignments, submissions, grades, gradebook, dashboards

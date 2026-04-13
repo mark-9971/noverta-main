@@ -26,6 +26,8 @@ tags:
     description: Dashboard summaries
   - name: imports
     description: Data import
+  - name: districts
+    description: District management
   - name: reports
     description: Reports
 
@@ -142,6 +144,127 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/MissedSessionsTrendPoint"
+
+  # ─── Districts ────────────────────────────────────────────────────
+  /districts:
+    get:
+      operationId: listDistricts
+      tags: [districts]
+      summary: List districts
+      responses:
+        "200":
+          description: List of districts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DistrictSummary"
+    post:
+      operationId: createDistrict
+      tags: [districts]
+      summary: Create district
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDistrictBody"
+      responses:
+        "201":
+          description: Created district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/District"
+
+  /districts/{id}:
+    get:
+      operationId: getDistrict
+      tags: [districts]
+      summary: Get district details with schools
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: District with schools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistrictDetail"
+    patch:
+      operationId: updateDistrict
+      tags: [districts]
+      summary: Update district
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDistrictBody"
+      responses:
+        "200":
+          description: Updated district
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/District"
+    delete:
+      operationId: deleteDistrict
+      tags: [districts]
+      summary: Delete district
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        "409":
+          description: Cannot delete - schools linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /district-overview:
+    get:
+      operationId: getDistrictOverview
+      tags: [districts]
+      summary: District rollup with per-school compliance data
+      parameters:
+        - name: districtId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: District overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistrictOverview"
 
   # ─── Schools & Programs ───────────────────────────────────────────
   /schools:
@@ -1240,6 +1363,8 @@ components:
           type: string
         district:
           type: ["string", "null"]
+        districtId:
+          type: ["integer", "null"]
         createdAt:
           type: string
       required: [id, name, createdAt]
@@ -1251,6 +1376,8 @@ components:
           type: string
         district:
           type: ["string", "null"]
+        districtId:
+          type: ["integer", "null"]
       required: [name]
 
     Program:
@@ -2323,3 +2450,135 @@ components:
         columnMapping:
           type: ["string", "null"]
       required: [importType, csvData]
+
+    # ─── Districts ──────────────────────────────────────────────────
+    District:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, name, createdAt]
+
+    DistrictSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        schoolCount:
+          type: integer
+        createdAt:
+          type: string
+      required: [id, name, schoolCount, createdAt]
+
+    DistrictDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        schools:
+          type: array
+          items:
+            $ref: "#/components/schemas/School"
+      required: [id, name, createdAt, schools]
+
+    CreateDistrictBody:
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+      required: [name]
+
+    UpdateDistrictBody:
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+
+    SchoolComplianceSummary:
+      type: object
+      properties:
+        onTrack:
+          type: integer
+        atRisk:
+          type: integer
+        outOfCompliance:
+          type: integer
+        total:
+          type: integer
+      required: [onTrack, atRisk, outOfCompliance, total]
+
+    DistrictSchoolOverview:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        district:
+          type: ["string", "null"]
+        districtId:
+          type: ["integer", "null"]
+        studentCount:
+          type: integer
+        staffCount:
+          type: integer
+        compliance:
+          $ref: "#/components/schemas/SchoolComplianceSummary"
+      required: [id, name, studentCount, staffCount, compliance]
+
+    DistrictOverview:
+      type: object
+      properties:
+        schools:
+          type: array
+          items:
+            $ref: "#/components/schemas/DistrictSchoolOverview"
+        totalStudents:
+          type: integer
+        totalStaff:
+          type: integer
+        complianceSummary:
+          $ref: "#/components/schemas/SchoolComplianceSummary"
+        alertsSummary:
+          type: object
+          properties:
+            total:
+              type: integer
+            critical:
+              type: integer
+          required: [total, critical]
+      required: [schools, totalStudents, totalStaff, complianceSummary, alertsSummary]

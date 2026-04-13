@@ -21,11 +21,13 @@ import classesRouter from "./classes";
 import assignmentsRouter from "./assignments";
 import iepSuggestionsRouter from "./iepSuggestions";
 import classroomRouter from "./classroom";
+import districtsRouter from "./districts";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(schoolsRouter);
+router.use(districtsRouter);
 router.use(studentsRouter);
 router.use(staffRouter);
 router.use(servicesRouter);

@@ -47,6 +47,7 @@ import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
 import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
 import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
 import IepSuggestions from "@/pages/iep-suggestions";
+import DistrictOverview from "@/pages/district-overview";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ function AdminRouter() {
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/classes" component={AdminClasses} />
       <Route path="/gradebook" component={AdminGradebook} />
+      <Route path="/district" component={DistrictOverview} />
       <Route component={NotFound} />
     </Switch>
   );

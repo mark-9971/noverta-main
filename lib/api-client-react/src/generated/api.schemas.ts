@@ -18,6 +18,8 @@ export interface School {
   name: string;
   /** @nullable */
   district?: string | null;
+  /** @nullable */
+  districtId?: number | null;
   createdAt: string;
 }
 
@@ -25,6 +27,8 @@ export interface CreateSchoolBody {
   name: string;
   /** @nullable */
   district?: string | null;
+  /** @nullable */
+  districtId?: number | null;
 }
 
 export interface Program {
@@ -738,6 +742,96 @@ export interface CreateImportBody {
   /** @nullable */
   columnMapping?: string | null;
 }
+
+export interface District {
+  id: number;
+  name: string;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface DistrictSummary {
+  id: number;
+  name: string;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+  schoolCount: number;
+  createdAt: string;
+}
+
+export interface DistrictDetail {
+  id: number;
+  name: string;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  schools: School[];
+}
+
+export interface CreateDistrictBody {
+  name: string;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+}
+
+export interface UpdateDistrictBody {
+  name?: string;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+}
+
+export interface SchoolComplianceSummary {
+  onTrack: number;
+  atRisk: number;
+  outOfCompliance: number;
+  total: number;
+}
+
+export interface DistrictSchoolOverview {
+  id: number;
+  name: string;
+  /** @nullable */
+  district?: string | null;
+  /** @nullable */
+  districtId?: number | null;
+  studentCount: number;
+  staffCount: number;
+  compliance: SchoolComplianceSummary;
+}
+
+export type DistrictOverviewAlertsSummary = {
+  total: number;
+  critical: number;
+};
+
+export interface DistrictOverview {
+  schools: DistrictSchoolOverview[];
+  totalStudents: number;
+  totalStaff: number;
+  complianceSummary: SchoolComplianceSummary;
+  alertsSummary: DistrictOverviewAlertsSummary;
+}
+
+export type DeleteDistrict200 = {
+  success: boolean;
+};
+
+export type GetDistrictOverviewParams = {
+  districtId?: number;
+};
 
 export type ListStudentsParams = {
   /**

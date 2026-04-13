@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
-  Menu, X, MoreHorizontal, Search, Shield, PieChart,
+  Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles,
   Timer, Clipboard, Sprout
 } from "lucide-react";
@@ -51,6 +51,7 @@ const adminNav: NavSection[] = [
   {
     label: "Reports & Admin",
     items: [
+      { href: "/district", label: "District Overview", icon: Building2 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/staff", label: "Staff Directory", icon: UserCheck },

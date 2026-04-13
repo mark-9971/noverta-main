@@ -115,12 +115,131 @@ export const GetMissedSessionsTrendResponse = zod.array(
 );
 
 /**
+ * @summary List districts
+ */
+export const ListDistrictsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  state: zod.string().nullish(),
+  region: zod.string().nullish(),
+  schoolCount: zod.number(),
+  createdAt: zod.string(),
+});
+export const ListDistrictsResponse = zod.array(ListDistrictsResponseItem);
+
+/**
+ * @summary Create district
+ */
+export const CreateDistrictBody = zod.object({
+  name: zod.string(),
+  state: zod.string().nullish(),
+  region: zod.string().nullish(),
+});
+
+/**
+ * @summary Get district details with schools
+ */
+export const GetDistrictParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDistrictResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  state: zod.string().nullish(),
+  region: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  schools: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      district: zod.string().nullish(),
+      districtId: zod.number().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update district
+ */
+export const UpdateDistrictParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDistrictBody = zod.object({
+  name: zod.string().optional(),
+  state: zod.string().nullish(),
+  region: zod.string().nullish(),
+});
+
+export const UpdateDistrictResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  state: zod.string().nullish(),
+  region: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete district
+ */
+export const DeleteDistrictParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteDistrictResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary District rollup with per-school compliance data
+ */
+export const GetDistrictOverviewQueryParams = zod.object({
+  districtId: zod.coerce.number().optional(),
+});
+
+export const GetDistrictOverviewResponse = zod.object({
+  schools: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      district: zod.string().nullish(),
+      districtId: zod.number().nullish(),
+      studentCount: zod.number(),
+      staffCount: zod.number(),
+      compliance: zod.object({
+        onTrack: zod.number(),
+        atRisk: zod.number(),
+        outOfCompliance: zod.number(),
+        total: zod.number(),
+      }),
+    }),
+  ),
+  totalStudents: zod.number(),
+  totalStaff: zod.number(),
+  complianceSummary: zod.object({
+    onTrack: zod.number(),
+    atRisk: zod.number(),
+    outOfCompliance: zod.number(),
+    total: zod.number(),
+  }),
+  alertsSummary: zod.object({
+    total: zod.number(),
+    critical: zod.number(),
+  }),
+});
+
+/**
  * @summary List schools
  */
 export const ListSchoolsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   district: zod.string().nullish(),
+  districtId: zod.number().nullish(),
   createdAt: zod.string(),
 });
 export const ListSchoolsResponse = zod.array(ListSchoolsResponseItem);
@@ -131,6 +250,7 @@ export const ListSchoolsResponse = zod.array(ListSchoolsResponseItem);
 export const CreateSchoolBody = zod.object({
   name: zod.string(),
   district: zod.string().nullish(),
+  districtId: zod.number().nullish(),
 });
 
 /**
@@ -165,8 +285,6 @@ export const ListStudentsQueryParams = zod.object({
   riskStatus: zod.coerce.string().nullish(),
   grade: zod.coerce.string().nullish(),
   search: zod.coerce.string().nullish(),
-  limit: zod.coerce.number().min(1).max(500).nullish(),
-  offset: zod.coerce.number().min(0).nullish(),
 });
 
 export const ListStudentsResponseItem = zod.object({
@@ -472,8 +590,6 @@ export const GetStudentAlertsResponse = zod.array(GetStudentAlertsResponseItem);
 export const ListStaffQueryParams = zod.object({
   role: zod.coerce.string().nullish(),
   status: zod.coerce.string().nullish(),
-  limit: zod.coerce.number().min(1).max(500).nullish(),
-  offset: zod.coerce.number().min(0).nullish(),
 });
 
 export const ListStaffResponseItem = zod.object({

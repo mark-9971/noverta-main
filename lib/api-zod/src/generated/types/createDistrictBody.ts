@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateSchoolBody {
+export interface CreateDistrictBody {
   name: string;
   /** @nullable */
-  district?: string | null;
+  state?: string | null;
   /** @nullable */
-  districtId?: number | null;
+  region?: string | null;
 }
