@@ -13,6 +13,7 @@ import AlertsPage from "@/pages/alerts";
 import Compliance from "@/pages/compliance";
 import Reports from "@/pages/reports";
 import StudentDetail from "@/pages/student-detail";
+import ImportData from "@/pages/import-data";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/alerts" component={AlertsPage} />
         <Route path="/compliance" component={Compliance} />
         <Route path="/reports" component={Reports} />
+        <Route path="/import" component={ImportData} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

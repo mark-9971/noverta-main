@@ -53,7 +53,11 @@ All routes prefixed with `/api/`:
 - `/alerts` — List/resolve compliance alerts
 - `/minute-progress` — Computed minute delivery progress per student/service
 - `/reports/*` — Student minute summary, missed sessions, compliance risk reports
-- `/imports/*` — Bulk CSV import endpoints
+- `/imports` — GET import history
+- `/imports/templates/:type` — GET downloadable CSV templates (students, service_requirements, sessions, aspen_students, esped_services)
+- `/imports/students` — POST bulk student import from CSV
+- `/imports/service-requirements` — POST bulk IEP service requirement import from CSV
+- `/imports/sessions` — POST bulk session log import from CSV
 
 ### Frontend Pages
 - `/` — Dashboard with KPI cards, compliance ring gauge, session delivery bar chart, compliance by service progress bars, recent alerts
@@ -65,6 +69,7 @@ All routes prefixed with `/api/`:
 - `/alerts` — Compliance alerts with severity filter pills, resolve actions, refresh/show-resolved toggles
 - `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars
 - `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
+- `/import` — Bulk CSV import page with drag-and-drop upload, data preview, template downloads (MinuteOps standard, Aspen X2, eSPED), import history, support for students/IEP requirements/session logs
 
 ### UI Components
 - `ProgressRing` — Circular SVG progress indicator (configurable size, stroke, color, label)
