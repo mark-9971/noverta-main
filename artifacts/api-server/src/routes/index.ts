@@ -15,6 +15,7 @@ import programDataRouter from "./programData";
 import iepRouter from "./iep";
 import complianceTimelineRouter from "./complianceTimeline";
 import additionalFeaturesRouter from "./additionalFeatures";
+import protectiveMeasuresRouter from "./protectiveMeasures";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(programDataRouter);
 router.use(iepRouter);
 router.use(complianceTimelineRouter);
 router.use(additionalFeaturesRouter);
+router.use(protectiveMeasuresRouter);
 
 export default router;

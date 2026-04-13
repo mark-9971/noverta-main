@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect } from "react";
 
@@ -37,6 +37,7 @@ export default function StudentDetail() {
   const [programTrends, setProgramTrends] = useState<any[]>([]);
   const [dataSessions, setDataSessions] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
 
   useEffect(() => {
     if (isNaN(studentId)) return;
@@ -47,12 +48,14 @@ export default function StudentDetail() {
       fetch(`${API}/students/${studentId}/behavior-data/trends`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/students/${studentId}/program-data/trends`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/students/${studentId}/data-sessions?limit=10`).then(r => r.ok ? r.json() : []),
-    ]).then(([bt, pt, btTrends, ptTrends, ds]) => {
+      fetch(`${API}/students/${studentId}/protective-measures`).then(r => r.ok ? r.json() : null),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
       setProgramTrends(ptTrends);
       setDataSessions(ds);
+      setProtectiveData(pm);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);
@@ -522,6 +525,61 @@ export default function StudentDetail() {
             ) : (
               <div className="py-8 text-center text-sm text-slate-400">No data sessions recorded yet.</div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {protectiveData && protectiveData.incidents.length > 0 && (
+        <Card>
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-red-500" />
+                Protective Measures
+              </CardTitle>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">
+                  {protectiveData.summary.totalIncidents} incident{protectiveData.summary.totalIncidents !== 1 ? "s" : ""}
+                  {protectiveData.summary.thisMonth > 0 && (
+                    <span className="text-red-600 font-semibold ml-1">({protectiveData.summary.thisMonth} this month)</span>
+                  )}
+                </span>
+                <Link href="/protective-measures" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View All</Link>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {protectiveData.summary.pendingReview > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <p className="text-xs text-amber-800 font-medium">{protectiveData.summary.pendingReview} incident{protectiveData.summary.pendingReview !== 1 ? "s" : ""} pending admin review</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              {protectiveData.incidents.slice(0, 5).map((inc: any) => (
+                <div key={inc.id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/50 hover:bg-slate-100/50 transition-colors">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${inc.incidentType === "physical_restraint" ? "bg-red-100" : inc.incidentType === "seclusion" ? "bg-orange-100" : "bg-amber-100"}`}>
+                    <Shield className={`w-4 h-4 ${inc.incidentType === "physical_restraint" ? "text-red-600" : inc.incidentType === "seclusion" ? "text-orange-600" : "text-amber-600"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.incidentType === "physical_restraint" ? "bg-red-100 text-red-700" : inc.incidentType === "seclusion" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
+                        {inc.incidentType === "physical_restraint" ? "Restraint" : inc.incidentType === "seclusion" ? "Seclusion" : "Time-Out"}
+                      </span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${inc.status === "pending_review" ? "bg-amber-100 text-amber-700" : inc.status === "reviewed" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                        {inc.status === "pending_review" ? "Pending" : inc.status === "reviewed" ? "Reviewed" : "Closed"}
+                      </span>
+                      {(inc.studentInjury || inc.staffInjury) && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Injury reported" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{inc.behaviorDescription}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-medium text-slate-700">{formatDate(inc.incidentDate)}</p>
+                    <p className="text-[10px] text-slate-400">{inc.durationMinutes ? `${inc.durationMinutes} min` : ""}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

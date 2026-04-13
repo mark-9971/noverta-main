@@ -19,6 +19,7 @@ import StudentIepPage from "@/pages/student-iep";
 import ComplianceTimelinePage from "@/pages/compliance-timeline";
 import StaffDetailPage from "@/pages/staff-detail";
 import IepSearchPage from "@/pages/iep-search";
+import ProtectiveMeasuresPage from "@/pages/protective-measures";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/reports" component={Reports} />
         <Route path="/import" component={ImportData} />
         <Route path="/program-data" component={ProgramDataPage} />
+        <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

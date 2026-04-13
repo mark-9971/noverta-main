@@ -46,6 +46,7 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, featuring a clear sepa
 - **IEP Workflow:** Comprehensive MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with a goal bank), accommodations, meeting management, progress reports, and parent contact logs. Supports IEP amendments and completeness checks.
 - **Compliance Tracking:** IDEA compliance event tracking (annual reviews, reevaluations), automated deadline generation, and alerts system.
 - **ABA Program Management:** Detailed behavior reduction target tracking, skill acquisition program management (with prompt hierarchies, auto-progression, mastery criteria), and data collection interface for live and manual sessions. Includes trend charting for behavior and program data.
+- **Protective Measures (603 CMR 46.00):** Physical restraint, seclusion, and time-out incident tracking. Multi-step incident reporting form, injury documentation, 24-hour parent notification workflow, written report tracking (5 school day deadline), administrator review workflow, DESE annual report generation. Integrated into student detail pages with incident counts and status. Flags students with 3+ incidents for BIP review.
 - **Reporting:** Generates reports for minute summaries, missed sessions, and at-risk students.
 - **Import Functionality:** Supports bulk CSV imports for students, service requirements, and session logs, with downloadable templates.
 - **Global Search:** Allows searching across IEP goals, accommodations, and students.
