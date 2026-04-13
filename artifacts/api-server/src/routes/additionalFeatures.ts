@@ -313,7 +313,7 @@ router.post("/sessions/quick", async (req, res): Promise<void> => {
       serviceRequirementId,
       staffId: staffId || null,
       sessionDate: date,
-      duration: parseInt(duration),
+      durationMinutes: parseInt(duration),
       status: status || "completed",
       notes: notes || null,
     }).returning();

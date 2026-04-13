@@ -127,7 +127,7 @@ export default function StudentIepPage() {
   const loadData = useCallback(async () => {
     try {
       const [s, g, r, pt, bt, docs, accs, mtgs] = await Promise.all([
-        fetch(`${API}/students/${studentId}`).then(r => r.json()),
+        fetch(`${API}/students/${studentId}`).then(r => r.ok ? r.json() : null),
         fetch(`${API}/students/${studentId}/iep-goals`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/progress-reports`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/program-targets`).then(r => r.json()),
@@ -170,6 +170,18 @@ export default function StudentIepPage() {
   }, {});
 
   if (loading) return <div className="p-4 md:p-8"><Skeleton className="w-full h-96" /></div>;
+
+  if (!student) return (
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto">
+      <Link href="/students" className="text-indigo-600 text-sm flex items-center gap-1.5 mb-4 hover:text-indigo-700">
+        <ArrowLeft className="w-4 h-4" /> Back to Students
+      </Link>
+      <div className="text-center py-16">
+        <p className="text-lg font-semibold text-slate-700">Student not found</p>
+        <p className="text-sm text-slate-400 mt-1">The student you're looking for doesn't exist or has been removed.</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
