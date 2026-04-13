@@ -140,7 +140,11 @@ router.post("/students", async (req, res): Promise<void> => {
   res.status(201).json({ ...student, createdAt: student.createdAt.toISOString(), updatedAt: student.updatedAt.toISOString() });
 });
 
-router.get("/sped-students", async (_req, res): Promise<void> => {
+router.get("/sped-students", async (req, res): Promise<void> => {
+  const conditions: any[] = [eq(studentsTable.status, "active")];
+  if (req.query.schoolId) conditions.push(eq(studentsTable.schoolId, Number(req.query.schoolId)));
+  if (req.query.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(req.query.districtId)})`);
+
   const students = await db.selectDistinct({
     id: studentsTable.id,
     firstName: studentsTable.firstName,
@@ -153,7 +157,7 @@ router.get("/sped-students", async (_req, res): Promise<void> => {
     .innerJoin(serviceRequirementsTable, eq(serviceRequirementsTable.studentId, studentsTable.id))
     .leftJoin(programsTable, eq(studentsTable.programId, programsTable.id))
     .leftJoin(staffTable, eq(studentsTable.caseManagerId, staffTable.id))
-    .where(eq(studentsTable.status, "active"))
+    .where(and(...conditions))
     .orderBy(studentsTable.lastName, studentsTable.firstName);
 
   res.json(students);

@@ -19,28 +19,22 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [allStudents, setAllStudents] = useState<any[]>([]);
-  const [loadingAll, setLoadingAll] = useState(true);
   const [spedIds, setSpedIds] = useState<Set<number>>(new Set());
 
   const { filterParams } = useSchoolContext();
-  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams } as any);
-  const { data: progress } = useListMinuteProgress({} as any);
+  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500 } as any);
+  const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/students?limit=500`).then(r => r.json()),
-      fetch(`${API}/sped-students`).then(r => r.json()),
-    ]).then(([all, sped]) => {
-      setAllStudents(Array.isArray(all) ? all : []);
+    const params = new URLSearchParams(filterParams);
+    fetch(`${API}/sped-students?${params}`).then(r => r.json()).then(sped => {
       setSpedIds(new Set((Array.isArray(sped) ? sped : []).map((s: any) => s.id)));
-      setLoadingAll(false);
-    }).catch(() => setLoadingAll(false));
-  }, []);
+    }).catch(() => {});
+  }, [filterParams]);
 
-  const studentList = allStudents.length > 0 ? allStudents : ((students as any[]) ?? []);
+  const studentList = (students as any[]) ?? [];
   const progressList = (progress as any[]) ?? [];
-  const loading = loadingAll && isLoading;
+  const loading = isLoading;
 
   const priorityOrder = RISK_PRIORITY_ORDER;
   const studentRisk: Record<number, string> = {};

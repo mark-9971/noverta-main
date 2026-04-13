@@ -28,7 +28,7 @@ export default function Schedule() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { filterParams } = useSchoolContext();
-  const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({} as any);
+  const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({ ...filterParams } as any);
   const { data: staff } = useListStaff({ ...filterParams } as any);
 
   const blockList = (blocks as any[]) ?? [];
