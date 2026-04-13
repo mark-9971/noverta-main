@@ -45,6 +45,7 @@ import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
 import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
 import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
 import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
+import IepSuggestions from "@/pages/iep-suggestions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ function AdminRouter() {
       <Route path="/reports" component={Reports} />
       <Route path="/import" component={ImportData} />
       <Route path="/program-data" component={ProgramDataPage} />
+      <Route path="/iep-suggestions" component={IepSuggestions} />
       <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/classes" component={AdminClasses} />

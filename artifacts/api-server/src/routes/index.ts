@@ -19,6 +19,7 @@ import protectiveMeasuresRouter from "./protectiveMeasures";
 import analyticsRouter from "./analytics";
 import classesRouter from "./classes";
 import assignmentsRouter from "./assignments";
+import iepSuggestionsRouter from "./iepSuggestions";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(protectiveMeasuresRouter);
 router.use(analyticsRouter);
 router.use(classesRouter);
 router.use(assignmentsRouter);
+router.use(iepSuggestionsRouter);
 
 export default router;

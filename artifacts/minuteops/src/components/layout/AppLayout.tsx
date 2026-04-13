@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart,
-  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock
+  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -28,6 +28,7 @@ const adminNav: NavSection[] = [
     label: "Compliance",
     items: [
       { href: "/program-data", label: "Program Data", icon: Activity, primary: true },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
@@ -65,6 +66,7 @@ const spedTeacherNav: NavSection[] = [
     label: "Clinical",
     items: [
       { href: "/program-data", label: "Program Data", icon: Activity },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/compliance", label: "Minutes & Risk", icon: ClipboardList },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, alertBadge: true },
     ],

@@ -70,6 +70,7 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 - **Service & Schedule Management:** Tracking service requirements, session logging (including bulk imports), and recurring schedule blocks with conflict detection.
 - **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports, and parent contact logs.
 - **Compliance Tracking:** IDEA compliance event tracking, automated deadline generation, and alerts system.
+- **IEP Program Suggestions:** Auto-generated suggestions for behaviors to track, DTTs, task analyses, academic programs, and related service programs based on each student's IEP goals and service requirements. Overview page shows all 50 SPED students with suggestion counts; detail view shows categorized suggestions with relevance scoring, reasons, and one-click apply (idempotent, no duplicate creation).
 - **ABA Program Management:** Detailed behavior reduction and skill acquisition program management, program builder, template system.
 - **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant restraint/seclusion/time-out incident tracking.
 - **Analytics & Insights:** 5-tab analytics page with overview, behavior, academic, minutes, and student deep dive.
@@ -86,6 +87,8 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 - `artifacts/minuteops/src/components/layout/RoleSwitcher.tsx` — Admin/Teacher/Student toggle buttons
 - `artifacts/minuteops/src/pages/student-portal/` — All student portal pages
 - `artifacts/minuteops/src/pages/teacher-portal/` — All teacher portal pages
+- `artifacts/api-server/src/routes/iepSuggestions.ts` — IEP suggestion engine (behaviors, DTTs, TAs, academic, related services)
+- `artifacts/minuteops/src/pages/iep-suggestions.tsx` — IEP suggestions frontend (overview + detail with apply)
 - `artifacts/api-server/src/routes/classes.ts` — Classes, enrollment, categories, announcements endpoints
 - `artifacts/api-server/src/routes/assignments.ts` — Assignments, submissions, grades, gradebook, dashboards
 - `lib/db/src/schema/classes.ts` — Classes table
