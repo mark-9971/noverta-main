@@ -1,8 +1,8 @@
-# MinuteOps — SPED Service Delivery Operations Platform
+# MinuteOps — School Management & SPED Service Delivery Platform
 
 ## Overview
 
-MinuteOps is a platform designed to streamline special education (SPED) and ABA service delivery operations. Its primary purpose is to enhance compliance, efficiency, and communication for professionals like BCBAs, special education coordinators, and case managers. Key functionalities include IEP service tracking, scheduling, delivered-minute tracking, compliance dashboards, alerts, and comprehensive reporting. The project aims to become a leading operational tool in SPED and ABA, reducing administrative burden and improving student outcomes.
+MinuteOps is a comprehensive school management platform that combines general education (classes, assignments, gradebook) with special education (IEP/ABA) compliance. It features role-based views for administrators, teachers, and students — all using the same platform, with special ed services layered on top for IEP students. Fully compliant with Massachusetts 603 CMR 28.00/46.00.
 
 ## User Preferences
 
@@ -23,31 +23,75 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 
 - **Modular Monorepo:** Organizes code into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for API clients, Zod schemas, and the database layer.
 - **RESTful API Design:** Backend interactions are exposed via a REST API.
-- **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, and ABA-specific data, including `service_types`, `session_logs`, `iep_documents`, `compliance_events`, `behavior_targets`, and `program_targets`.
-- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui with an indigo accent. Features include `ProgressRing` components, an `AppLayout` for consistent navigation, a specific color scheme for status indicators, Inter font for readability, and Lucide React for iconography.
+- **Role-Based Architecture:** Three user roles (admin, teacher, student) with distinct navigation and views. Role switching via sidebar toggle for demo purposes.
+- **Comprehensive Database Schema:** PostgreSQL database supports detailed tracking of students, staff, services, IEPs, compliance, ABA data, classes, assignments, submissions, grades, and announcements.
+- **UI/UX Design:** A modern, clean aesthetic using Tailwind CSS and shadcn/ui. Role-based color theming (indigo=admin, emerald=teacher, blue=student). Features include `ProgressRing` components, role-aware `AppLayout`, and responsive design with mobile bottom nav.
+
+**Database Schema (Gen Ed):**
+- `classes` — courses with teacher, period, room, subject, grade level
+- `class_enrollments` — student-class enrollment with status
+- `grade_categories` — weighted grading categories per class (Homework, Quizzes, Tests, Projects, Participation)
+- `assignments` — assignments with type, points, due date, category
+- `submissions` — student submissions with grade, feedback, status
+- `announcements` — class or school-wide announcements
+
+**Role-Based Views:**
+- **Admin:** Full access to compliance, special ed, gen ed, analytics. Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/analytics`, etc.
+- **Teacher:** Class management, gradebook, assignments, student roster, grading interface. Routes: `/teacher`, `/teacher/classes`, `/teacher/gradebook`, `/teacher/assignments`, etc.
+- **Student:** Dashboard with GPA/assignments, class list, assignment submission, grade transcript. Routes: `/portal`, `/portal/classes`, `/portal/assignments`, `/portal/grades`
+
+**API Endpoints (Gen Ed):**
+- `GET/POST /classes` — class CRUD
+- `GET /classes/:id/roster` — class student list
+- `POST /classes/:id/enroll` — enroll student
+- `GET /classes/:id/assignments` — list assignments
+- `POST /classes/:id/assignments` — create assignment (auto-creates submissions)
+- `GET /assignments/:id/submissions` — list all submissions for grading
+- `PUT /submissions/:id/grade` — grade a submission
+- `GET /students/:id/grades-summary` — transcript with per-class grades and GPA
+- `GET /classes/:id/gradebook` — full gradebook matrix (students × assignments)
+- `GET /teacher/:id/dashboard` — teacher overview with pending grading
+- `GET /student/:id/dashboard` — student overview with upcoming/recent
+
+**Seed Data:**
+- 8 teachers across Math, ELA, Science, Social Studies, Art, PE, Music, Computer Science
+- 16 classes with grade-level enrollment
+- 52 students enrolled in 4 core + 1-3 elective classes
+- ~600 assignments per semester with realistic grading patterns
+- ~2,800 submissions with grade distributions (A-F range, 5% missing rate)
 
 **Feature Specifications:**
 
-- **Dashboard:** Overview of KPIs, compliance, and alerts.
+- **Dashboard (Admin):** Overview of KPIs, compliance, and alerts.
+- **Student Portal:** Blackboard-style experience — upcoming assignments, recent grades, GPA, class detail with assignments/grades/announcements tabs, assignment submission, grade transcript.
+- **Teacher Portal:** Class management, spreadsheet-style gradebook, assignment creation, grade entry with feedback, pending submissions queue, student roster with IEP indicators.
+- **Admin Academics:** School-wide class overview, gradebook viewer across all classes.
 - **Student Management:** CRUD operations for student profiles, service progress, behavior, and academic program tracking.
 - **Service & Schedule Management:** Tracking service requirements, session logging (including bulk imports), and recurring schedule blocks with conflict detection.
-- **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports, and parent contact logs. Supports amendments and completeness checks.
+- **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports, and parent contact logs.
 - **Compliance Tracking:** IDEA compliance event tracking, automated deadline generation, and alerts system.
-- **ABA Program Management:** Detailed behavior reduction and skill acquisition program management (with prompt hierarchies, auto-progression, mastery criteria), a comprehensive program builder (Type → Config → Steps → Review), and data collection interfaces. Includes a tiered template system for reusable program templates and a premium gate for advanced features.
-- **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant restraint/seclusion/time-out incident tracking, including a 4-step incident form, compliance checklist, digital signatures, and DESE CSV/JSON export capabilities.
-- **Expandable Session Details:** Session rows expand to show clinical notes, linked IEP goals, behavior data, and program data.
-- **Interactive Charts:** Reusable `InteractiveChart` component for behavior, academic, and minutes trend data, featuring sparkline view, expanded view with Recharts, staff filters, date range filters, and phase lines.
-- **Reporting:** Generates minute summaries, missed session reports, and at-risk student reports with CSV export.
-- **Session Edit/Delete:** Functionality to edit duration, status, location, notes, and missed reasons, with compliance warnings on deletion.
-- **Date Range Filtering:** Server-side date range filtering for sessions.
-- **Confirmation Dialogs:** Used for critical actions like alert resolution and session deletion.
+- **ABA Program Management:** Detailed behavior reduction and skill acquisition program management, program builder, template system.
+- **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant restraint/seclusion/time-out incident tracking.
+- **Analytics & Insights:** 5-tab analytics page with overview, behavior, academic, minutes, and student deep dive.
+- **Reporting:** Minute summaries, missed session reports, at-risk student reports with CSV export.
 - **Toast Notifications:** `sonner`-based system for user feedback.
-- **Error States:** `ErrorBanner` for network failures on data-fetching pages.
-- **Analytics & Insights (analytics.tsx):** Comprehensive school-wide and per-student data visualization page with 5 tabs — Overview (KPI cards, risk distribution donut, radial compliance gauge, service delivery heatmap), Behavior (weekly trends combo chart, measurement type distribution, top improving/worsening targets ranked lists), Academic (accuracy trends area chart, mastery funnel visualization, prompt level distribution horizontal bars, domain breakdown, top performers/needs support lists), Minutes (weekly delivery stacked bars completed vs missed, day-of-week pattern, compliance by service type progress bars, staff utilization ranked list), **Student Deep Dive** (searchable student picker → per-student analytics: KPI cards, service compliance bars, weekly session trend, behavior target analysis with weekly avg/min/max trend charts + change rate/progress %/variability metrics, skill program analysis with accuracy trend charts + prompt fading progression charts, day-of-week delivery pattern, service breakdown donut). Backend: 6 aggregate API endpoints under `/analytics/` (overview, behavior-summary, program-summary, minutes-summary, delivery-heatmap, student/:id) with complex SQL aggregations.
 - **Import Functionality:** Bulk CSV imports for students, service requirements, and session logs.
 - **Global Search:** Search across IEP goals, accommodations, and students.
-- **Staff Caseload Management:** Staff-specific dashboards with assigned students and IEP status summaries.
-- **Scalability & Performance:** Optimized for large datasets with extensive database indexing, query optimization techniques (e.g., bulk queries, parallelization, grouped counts), and pagination support.
+
+## Key Files
+
+- `artifacts/minuteops/src/App.tsx` — Main router with role-based routing (AdminRouter, TeacherRouter, StudentRouter)
+- `artifacts/minuteops/src/lib/role-context.tsx` — Role state management (admin/teacher/student) with localStorage persistence
+- `artifacts/minuteops/src/components/layout/AppLayout.tsx` — Role-aware sidebar with navigation sections
+- `artifacts/minuteops/src/components/layout/RoleSwitcher.tsx` — Admin/Teacher/Student toggle buttons
+- `artifacts/minuteops/src/pages/student-portal/` — All student portal pages
+- `artifacts/minuteops/src/pages/teacher-portal/` — All teacher portal pages
+- `artifacts/api-server/src/routes/classes.ts` — Classes, enrollment, categories, announcements endpoints
+- `artifacts/api-server/src/routes/assignments.ts` — Assignments, submissions, grades, gradebook, dashboards
+- `lib/db/src/schema/classes.ts` — Classes table
+- `lib/db/src/schema/assignments.ts` — Assignments table
+- `lib/db/src/schema/submissions.ts` — Submissions table
+- `lib/db/src/seed-realistic-data.ts` — Realistic seed data generator (both SPED + gen ed)
 
 ## External Dependencies
 
@@ -64,3 +108,14 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, with a distinct separa
 - **Orval**: OpenAPI client generator.
 - **esbuild**: JavaScript bundler.
 - **Lucide React**: Icon library.
+
+## Development Notes
+
+- **DB Push:** `pnpm --filter @workspace/db run push`
+- **API Server:** Port 8080; frontend port 22248
+- **Seed Data:** `npx tsx /tmp/run-seed.ts` (with absolute import paths)
+- **Express 5 / path-to-regexp v8:** Cannot use `/api/*` — use bare catchall
+- **Sonner Toast:** `import { toast } from "sonner"`. Toaster in AppLayout
+- **API URL Pattern:** `const API = (import.meta as any).env.VITE_API_URL || "/api"`
+- **Staff Roles:** admin, bcba, slp, ot, pt, counselor, case_manager, para, teacher
+- **Student Tiers (SPED):** minimal, moderate, intensive, high_needs

@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
-  Menu, X, MoreHorizontal, Search, Shield, PieChart
+  Menu, X, MoreHorizontal, Search, Shield, PieChart,
+  GraduationCap, FileText, Award, Inbox, Bookmark
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
+import { useRole } from "@/lib/role-context";
+import { RoleSwitcher } from "./RoleSwitcher";
 
 type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
 
-const navSections: NavSection[] = [
+const adminNav: NavSection[] = [
   {
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
@@ -31,6 +34,13 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    label: "Academics",
+    items: [
+      { href: "/classes", label: "Classes", icon: BookOpen },
+      { href: "/gradebook", label: "Gradebook", icon: Award },
+    ],
+  },
+  {
     label: "Tools",
     items: [
       { href: "/analytics", label: "Analytics", icon: PieChart, primary: true },
@@ -42,21 +52,60 @@ const navSections: NavSection[] = [
   },
 ];
 
-const navItems = navSections.flatMap(s => s.items);
+const teacherNav: NavSection[] = [
+  {
+    items: [
+      { href: "/teacher", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/teacher/classes", label: "My Classes", icon: BookOpen, primary: true },
+      { href: "/teacher/gradebook", label: "Gradebook", icon: Award, primary: true },
+      { href: "/teacher/assignments", label: "Assignments", icon: FileText, primary: true },
+    ],
+  },
+  {
+    label: "Students",
+    items: [
+      { href: "/teacher/roster", label: "Student Roster", icon: Users },
+      { href: "/teacher/submissions", label: "Submissions", icon: Inbox },
+    ],
+  },
+];
 
-const primaryItems = navItems.filter(i => i.primary);
-const secondaryItems = navItems.filter(i => !i.primary);
+const studentNav: NavSection[] = [
+  {
+    items: [
+      { href: "/portal", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/portal/classes", label: "My Classes", icon: BookOpen, primary: true },
+      { href: "/portal/assignments", label: "Assignments", icon: FileText, primary: true },
+      { href: "/portal/grades", label: "My Grades", icon: Award, primary: true },
+    ],
+  },
+];
+
+const roleConfig = {
+  admin: { nav: adminNav, color: "bg-indigo-600", textColor: "text-indigo-600", bgActive: "bg-indigo-50 text-indigo-700", iconActive: "text-indigo-600", label: "MinuteOps", subtitle: "School Management" },
+  teacher: { nav: teacherNav, color: "bg-emerald-600", textColor: "text-emerald-600", bgActive: "bg-emerald-50 text-emerald-700", iconActive: "text-emerald-600", label: "MinuteOps", subtitle: "Teacher Portal" },
+  student: { nav: studentNav, color: "bg-blue-600", textColor: "text-blue-600", bgActive: "bg-blue-50 text-blue-700", iconActive: "text-blue-600", label: "MinuteOps", subtitle: "Student Portal" },
+};
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const { role, user } = useRole();
   const { data: alertsSummary } = useGetDashboardAlertsSummary();
   const openAlerts = (alertsSummary as any)?.total ?? 0;
+  const config = roleConfig[role];
+
+  const navSections = config.nav;
+  const navItems = navSections.flatMap(s => s.items);
+  const primaryItems = navItems.filter(i => i.primary);
+  const secondaryItems = navItems.filter(i => !i.primary);
 
   const isSecondaryActive = secondaryItems.some(i =>
     i.href === "/" ? location === "/" : location.startsWith(i.href)
   );
+
+  const initials = user.name.split(" ").map(n => n[0]).join("").slice(0, 2);
 
   return (
     <div className="flex h-screen bg-slate-50/80 overflow-hidden">
@@ -73,22 +122,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         "fixed inset-y-0 left-0 w-[260px] transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:w-[220px]",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="px-5 py-5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-              <ClipboardList className="w-4 h-4 text-white" />
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-sm", config.color)}>
+                <ClipboardList className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-[15px] font-semibold text-slate-800 leading-none">{config.label}</p>
+                <p className="text-[11px] text-slate-400 leading-none mt-1">{config.subtitle}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[15px] font-semibold text-slate-800 leading-none">MinuteOps</p>
-              <p className="text-[11px] text-slate-400 leading-none mt-1">Service Tracking</p>
-            </div>
+            <button
+              className="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            className="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <RoleSwitcher />
         </div>
 
         <nav className="flex-1 px-3 py-3 overflow-y-auto">
@@ -99,15 +151,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
               <div className="space-y-0.5">
                 {section.items.map((item) => {
-                  const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+                  const isActive = item.href === "/" || item.href === "/teacher" || item.href === "/portal"
+                    ? location === item.href
+                    : location.startsWith(item.href);
                   return (
                     <Link key={item.href} href={item.href} className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150",
                       isActive
-                        ? "bg-indigo-50 text-indigo-700"
+                        ? config.bgActive
                         : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                     )} onClick={() => setSidebarOpen(false)}>
-                      <item.icon className={cn("w-[18px] h-[18px]", isActive ? "text-indigo-600" : "text-slate-400")} />
+                      <item.icon className={cn("w-[18px] h-[18px]", isActive ? config.iconActive : "text-slate-400")} />
                       <span className="flex-1">{item.label}</span>
                       {item.alertBadge && openAlerts > 0 && (
                         <span className="bg-red-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none">
@@ -124,10 +178,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <div className="px-4 py-4 border-t border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 text-xs font-bold">TJ</div>
+            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold", config.color)}>
+              {initials}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-slate-700 truncate">Theresa Jackson</p>
-              <p className="text-[11px] text-slate-400 truncate">Case Manager</p>
+              <p className="text-[13px] font-medium text-slate-700 truncate">{user.name}</p>
+              <p className="text-[11px] text-slate-400 truncate">{user.subtitle}</p>
             </div>
           </div>
         </div>
@@ -142,10 +198,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-indigo-600 rounded-md flex items-center justify-center">
+            <div className={cn("w-6 h-6 rounded-md flex items-center justify-center", config.color)}>
               <ClipboardList className="w-3 h-3 text-white" />
             </div>
-            <span className="text-sm font-semibold text-slate-800">MinuteOps</span>
+            <span className="text-sm font-semibold text-slate-800">{config.label}</span>
           </div>
         </header>
 
@@ -155,14 +211,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-stretch z-30 safe-area-bottom">
           {primaryItems.map((item) => {
-            const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+            const isActive = item.href === "/" || item.href === "/teacher" || item.href === "/portal"
+              ? location === item.href
+              : location.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
                   "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors",
-                  isActive ? "text-indigo-600" : "text-slate-400"
+                  isActive ? config.textColor : "text-slate-400"
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -170,50 +228,44 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-          <div className="flex-1 relative">
-            <button
-              className={cn(
-                "w-full flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors",
-                isSecondaryActive ? "text-indigo-600" : "text-slate-400"
+          {secondaryItems.length > 0 && (
+            <div className="flex-1 relative">
+              <button
+                className={cn(
+                  "w-full flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors",
+                  isSecondaryActive ? config.textColor : "text-slate-400"
+                )}
+                onClick={() => setMoreOpen(!moreOpen)}
+              >
+                <MoreHorizontal className="w-5 h-5" />
+                <span className="text-[10px] font-medium">More</span>
+              </button>
+              {moreOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                  <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-slate-200 py-2 w-52 z-50">
+                    {secondaryItems.map((item) => {
+                      const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
+                            isActive ? `${config.textColor} bg-slate-50` : "text-slate-600 hover:bg-slate-50"
+                          )}
+                          onClick={() => setMoreOpen(false)}
+                        >
+                          <item.icon className="w-4.5 h-4.5" />
+                          <span className="flex-1">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </>
               )}
-              onClick={() => setMoreOpen(!moreOpen)}
-            >
-              {openAlerts > 0 && (
-                <span className="absolute top-1 right-1/4 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-              <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[10px] font-medium">More</span>
-            </button>
-            {moreOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
-                <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-slate-200 py-2 w-52 z-50">
-                  {secondaryItems.map((item) => {
-                    const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors",
-                          isActive ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-50"
-                        )}
-                        onClick={() => setMoreOpen(false)}
-                      >
-                        <item.icon className="w-4.5 h-4.5" />
-                        <span className="flex-1">{item.label}</span>
-                        {item.alertBadge && openAlerts > 0 && (
-                          <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                            {openAlerts > 99 ? "99+" : openAlerts}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </nav>
       </div>
     </div>

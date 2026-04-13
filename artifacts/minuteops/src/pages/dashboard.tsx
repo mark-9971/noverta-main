@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays, BookOpen, GraduationCap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
+
+const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 function MetricCard({ title, value, icon: Icon, accent = "indigo", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -48,6 +50,14 @@ export default function Dashboard() {
   const { data: alertsSummary } = useGetDashboardAlertsSummary();
   const { data: recentAlerts } = useListAlerts({ resolved: "false" } as any);
   const [deadlines, setDeadlines] = useState<any[]>([]);
+  const [academics, setAcademics] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(`${API}/academics/overview`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setAcademics(d))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/dashboard/compliance-deadlines")
@@ -234,6 +244,91 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {academics && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-indigo-500" />
+              Academic Overview
+            </h2>
+            <Link href="/gradebook" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View Gradebook</Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <MetricCard title="Total Classes" value={academics.totalClasses} icon={BookOpen} accent="indigo" subtitle="this semester" href="/classes" />
+            <MetricCard title="Enrolled Students" value={academics.totalStudents} icon={Users} accent="emerald" subtitle="across all classes" />
+            <MetricCard title="School Average" value={academics.schoolAverage ? `${academics.schoolAverage}%` : "–"} icon={TrendingUp} accent="indigo" />
+            <MetricCard title="Failing Students" value={academics.failingStudents} icon={AlertTriangle} accent={academics.failingStudents > 0 ? "red" : "emerald"} subtitle="below 60%" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-600">Grade Distribution</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={[
+                    { grade: "A", count: academics.gradeDistribution.A, fill: "#10b981" },
+                    { grade: "B", count: academics.gradeDistribution.B, fill: "#6366f1" },
+                    { grade: "C", count: academics.gradeDistribution.C, fill: "#f59e0b" },
+                    { grade: "D", count: academics.gradeDistribution.D, fill: "#f97316" },
+                    { grade: "F", count: academics.gradeDistribution.F, fill: "#ef4444" },
+                  ]} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="grade" tick={{ fontSize: 12, fill: "#64748b", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                    <Bar dataKey="count" name="Students" radius={[6, 6, 0, 0]} barSize={36}>
+                      {[
+                        { grade: "A", fill: "#10b981" },
+                        { grade: "B", fill: "#6366f1" },
+                        { grade: "C", fill: "#f59e0b" },
+                        { grade: "D", fill: "#f97316" },
+                        { grade: "F", fill: "#ef4444" },
+                      ].map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-0 flex-row items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-slate-600">Classes by Performance</CardTitle>
+                <Link href="/classes" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View all</Link>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-2.5">
+                {academics.classes?.slice(0, 6).map((cls: any) => {
+                  const pct = cls.averageGrade || 0;
+                  return (
+                    <div key={cls.classId} className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <span className="text-[13px] font-medium text-slate-700 truncate">{cls.className}</span>
+                          <span className={`text-[12px] font-bold ml-2 ${pct >= 80 ? "text-emerald-600" : pct >= 70 ? "text-amber-600" : pct >= 60 ? "text-orange-600" : "text-red-600"}`}>
+                            {cls.letterGrade} ({pct}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, backgroundColor: pct >= 80 ? "#10b981" : pct >= 70 ? "#f59e0b" : pct >= 60 ? "#f97316" : "#ef4444" }}
+                          />
+                        </div>
+                        {cls.failingCount > 0 && (
+                          <span className="text-[10px] text-red-500 font-medium">{cls.failingCount} failing</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {deadlines.length > 0 && (
         <Card>

@@ -17,6 +17,8 @@ import complianceTimelineRouter from "./complianceTimeline";
 import additionalFeaturesRouter from "./additionalFeatures";
 import protectiveMeasuresRouter from "./protectiveMeasures";
 import analyticsRouter from "./analytics";
+import classesRouter from "./classes";
+import assignmentsRouter from "./assignments";
 
 const router: IRouter = Router();
 
@@ -38,5 +40,7 @@ router.use(complianceTimelineRouter);
 router.use(additionalFeaturesRouter);
 router.use(protectiveMeasuresRouter);
 router.use(analyticsRouter);
+router.use(classesRouter);
+router.use(assignmentsRouter);
 
 export default router;

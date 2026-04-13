@@ -3,9 +3,11 @@ import {
   studentsTable, iepDocumentsTable, serviceRequirementsTable,
   sessionLogsTable, behaviorTargetsTable, programTargetsTable,
   dataSessionsTable, behaviorDataTable, programDataTable,
-  iepGoalsTable, staffTable
+  iepGoalsTable, staffTable,
+  classesTable, classEnrollmentsTable, gradeCategoriesTable,
+  assignmentsTable, submissionsTable, announcementsTable
 } from "./index";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -939,4 +941,373 @@ export async function seedRealisticData() {
   }
 
   console.log("=== Realistic data seeding complete ===");
+
+  await seedGenEdData();
+}
+
+const TEACHER_DATA = [
+  { firstName: "Jennifer", lastName: "Martinez", email: "jmartinez@minuteops.edu", title: "Math Teacher" },
+  { firstName: "Robert", lastName: "Chen", email: "rchen@minuteops.edu", title: "ELA Teacher" },
+  { firstName: "Patricia", lastName: "Williams", email: "pwilliams@minuteops.edu", title: "Science Teacher" },
+  { firstName: "Michael", lastName: "Johnson", email: "mjohnson@minuteops.edu", title: "Social Studies Teacher" },
+  { firstName: "Sarah", lastName: "Thompson", email: "sthompson@minuteops.edu", title: "Art Teacher" },
+  { firstName: "David", lastName: "Brown", email: "dbrown@minuteops.edu", title: "PE Teacher" },
+  { firstName: "Amanda", lastName: "Davis", email: "adavis@minuteops.edu", title: "Music Teacher" },
+  { firstName: "Kevin", lastName: "Wilson", email: "kwilson@minuteops.edu", title: "Computer Science Teacher" },
+];
+
+const COURSE_TEMPLATES = [
+  { name: "Algebra I", subject: "Math", courseCode: "MATH-101", grades: ["8","9"] },
+  { name: "Geometry", subject: "Math", courseCode: "MATH-201", grades: ["9","10"] },
+  { name: "Pre-Calculus", subject: "Math", courseCode: "MATH-301", grades: ["10","11"] },
+  { name: "English 8", subject: "ELA", courseCode: "ELA-100", grades: ["8"] },
+  { name: "English 9", subject: "ELA", courseCode: "ELA-101", grades: ["9"] },
+  { name: "English 10", subject: "ELA", courseCode: "ELA-201", grades: ["10"] },
+  { name: "American Literature", subject: "ELA", courseCode: "ELA-301", grades: ["11"] },
+  { name: "Earth Science", subject: "Science", courseCode: "SCI-100", grades: ["8"] },
+  { name: "Biology", subject: "Science", courseCode: "SCI-101", grades: ["9"] },
+  { name: "Chemistry", subject: "Science", courseCode: "SCI-201", grades: ["10"] },
+  { name: "US History", subject: "Social Studies", courseCode: "SS-101", grades: ["8","9"] },
+  { name: "World History", subject: "Social Studies", courseCode: "SS-201", grades: ["10","11"] },
+  { name: "Studio Art", subject: "Art", courseCode: "ART-101", grades: ["8","9","10","11"] },
+  { name: "Physical Education", subject: "PE", courseCode: "PE-101", grades: ["8","9","10","11"] },
+  { name: "Intro to Music", subject: "Music", courseCode: "MUS-101", grades: ["8","9","10","11"] },
+  { name: "Computer Fundamentals", subject: "Computer Science", courseCode: "CS-101", grades: ["9","10","11"] },
+];
+
+const GRADE_CATS = [
+  { name: "Homework", weight: "20" },
+  { name: "Quizzes", weight: "20" },
+  { name: "Tests", weight: "30" },
+  { name: "Projects", weight: "20" },
+  { name: "Participation", weight: "10" },
+];
+
+const ASSIGNMENT_TEMPLATES: Record<string, Array<{ title: string; type: string; points: number }>> = {
+  Math: [
+    { title: "Chapter {n} Problem Set", type: "homework", points: 20 },
+    { title: "Chapter {n} Quiz", type: "quiz", points: 50 },
+    { title: "Unit {u} Test", type: "test", points: 100 },
+    { title: "Math Project: {topic}", type: "project", points: 100 },
+    { title: "Warm-Up {n}", type: "homework", points: 10 },
+    { title: "Practice Worksheet {n}", type: "homework", points: 15 },
+  ],
+  ELA: [
+    { title: "Reading Response {n}", type: "homework", points: 20 },
+    { title: "Vocabulary Quiz {n}", type: "quiz", points: 30 },
+    { title: "Essay: {topic}", type: "project", points: 100 },
+    { title: "Unit {u} Comprehension Test", type: "test", points: 100 },
+    { title: "Journal Entry {n}", type: "homework", points: 15 },
+    { title: "Grammar Worksheet {n}", type: "homework", points: 10 },
+  ],
+  Science: [
+    { title: "Lab Report: {topic}", type: "project", points: 50 },
+    { title: "Chapter {n} Review", type: "homework", points: 20 },
+    { title: "Unit {u} Exam", type: "test", points: 100 },
+    { title: "Lab Quiz {n}", type: "quiz", points: 40 },
+    { title: "Research Summary {n}", type: "homework", points: 25 },
+  ],
+  "Social Studies": [
+    { title: "Chapter {n} Notes", type: "homework", points: 15 },
+    { title: "Map Quiz {n}", type: "quiz", points: 30 },
+    { title: "Unit {u} Test", type: "test", points: 100 },
+    { title: "Document Analysis {n}", type: "homework", points: 25 },
+    { title: "Research Project: {topic}", type: "project", points: 100 },
+  ],
+  Art: [
+    { title: "Sketchbook {n}", type: "homework", points: 20 },
+    { title: "Project: {topic}", type: "project", points: 100 },
+    { title: "Art Critique {n}", type: "homework", points: 25 },
+  ],
+  PE: [
+    { title: "Fitness Log {n}", type: "homework", points: 10 },
+    { title: "Skills Assessment {n}", type: "quiz", points: 50 },
+    { title: "Participation Week {n}", type: "homework", points: 20 },
+  ],
+  Music: [
+    { title: "Practice Log {n}", type: "homework", points: 15 },
+    { title: "Performance Assessment {n}", type: "quiz", points: 50 },
+    { title: "Music Theory Quiz {n}", type: "quiz", points: 30 },
+  ],
+  "Computer Science": [
+    { title: "Coding Exercise {n}", type: "homework", points: 20 },
+    { title: "Project: {topic}", type: "project", points: 100 },
+    { title: "Concepts Quiz {n}", type: "quiz", points: 40 },
+  ],
+};
+
+const MATH_TOPICS = ["Linear Equations","Quadratic Functions","Statistics","Probability","Geometry Proofs","Polynomials"];
+const ELA_TOPICS = ["The Great Gatsby","Persuasive Writing","Poetry Analysis","Short Story","Narrative Essay","Research Paper"];
+const SCI_TOPICS = ["Cell Division","Chemical Reactions","Ecosystems","Plate Tectonics","Photosynthesis","Genetics"];
+const SS_TOPICS = ["Civil Rights","Constitution","Immigration","Industrial Revolution","World War II","Cold War"];
+const ART_TOPICS = ["Self-Portrait","Landscape","Abstract Composition","Still Life","Sculpture","Printmaking"];
+const CS_TOPICS = ["Calculator App","Web Portfolio","Data Visualization","Game Design","Database Project"];
+
+function getTopics(subject: string): string[] {
+  if (subject === "Math") return MATH_TOPICS;
+  if (subject === "ELA") return ELA_TOPICS;
+  if (subject === "Science") return SCI_TOPICS;
+  if (subject === "Social Studies") return SS_TOPICS;
+  if (subject === "Art") return ART_TOPICS;
+  if (subject === "Computer Science") return CS_TOPICS;
+  return ["Topic A","Topic B","Topic C"];
+}
+
+async function seedGenEdData() {
+  console.log("\n=== Seeding Gen Ed Data ===");
+
+  await db.delete(submissionsTable);
+  await db.delete(assignmentsTable);
+  await db.delete(gradeCategoriesTable);
+  await db.delete(announcementsTable);
+  await db.delete(classEnrollmentsTable);
+  await db.delete(classesTable);
+
+  const school = await db.select().from(sql`schools LIMIT 1`);
+  const schoolId = school.length > 0 ? (school[0] as any).id : null;
+
+  const teacherIds: number[] = [];
+  for (const t of TEACHER_DATA) {
+    const [staff] = await db.insert(staffTable).values({
+      firstName: t.firstName, lastName: t.lastName, email: t.email,
+      role: "teacher", title: t.title, schoolId, status: "active",
+    }).returning();
+    teacherIds.push(staff.id);
+  }
+  console.log(`  Created ${teacherIds.length} teachers`);
+
+  const subjectToTeacher: Record<string, number> = {
+    "Math": teacherIds[0],
+    "ELA": teacherIds[1],
+    "Science": teacherIds[2],
+    "Social Studies": teacherIds[3],
+    "Art": teacherIds[4],
+    "PE": teacherIds[5],
+    "Music": teacherIds[6],
+    "Computer Science": teacherIds[7],
+  };
+
+  const createdClasses: Array<{ id: number; subject: string; grades: string[] }> = [];
+  let period = 1;
+  for (const ct of COURSE_TEMPLATES) {
+    const teacherId = subjectToTeacher[ct.subject];
+    const rooms = ["101","102","103","104","201","202","203","204","301","302","GYM","AUD","LAB","ART-1","MUS-1","CS-1"];
+    const [cls] = await db.insert(classesTable).values({
+      name: ct.name, subject: ct.subject, courseCode: ct.courseCode,
+      gradeLevel: ct.grades[0], period: ((period - 1) % 8) + 1,
+      room: pick(rooms), semester: "2025-2026",
+      teacherId, schoolId, active: true,
+      description: `${ct.name} for grade ${ct.grades.join("/")} students`,
+    }).returning();
+    createdClasses.push({ id: cls.id, subject: ct.subject, grades: ct.grades });
+    period++;
+  }
+  console.log(`  Created ${createdClasses.length} classes`);
+
+  const students = await db.select().from(studentsTable).where(eq(studentsTable.status, "active"));
+  console.log(`  Found ${students.length} active students`);
+
+  let enrollmentCount = 0;
+  for (const student of students) {
+    const studentGrade = student.grade || "9";
+    const eligibleClasses = createdClasses.filter(c => c.grades.includes(studentGrade));
+
+    const coreSubjects = ["Math", "ELA", "Science", "Social Studies"];
+    const electiveSubjects = ["Art", "PE", "Music", "Computer Science"];
+
+    for (const subj of coreSubjects) {
+      const cls = eligibleClasses.find(c => c.subject === subj);
+      if (cls) {
+        await db.insert(classEnrollmentsTable).values({
+          classId: cls.id, studentId: student.id, status: "active",
+          enrolledDate: "2025-09-03",
+        }).onConflictDoNothing();
+        enrollmentCount++;
+      }
+    }
+
+    const numElectives = rand(1, 3);
+    const shuffled = electiveSubjects.sort(() => Math.random() - 0.5);
+    for (let i = 0; i < numElectives && i < shuffled.length; i++) {
+      const cls = eligibleClasses.find(c => c.subject === shuffled[i]);
+      if (cls) {
+        await db.insert(classEnrollmentsTable).values({
+          classId: cls.id, studentId: student.id, status: "active",
+          enrolledDate: "2025-09-03",
+        }).onConflictDoNothing();
+        enrollmentCount++;
+      }
+    }
+  }
+  console.log(`  Created ${enrollmentCount} enrollments`);
+
+  for (const cls of createdClasses) {
+    for (let i = 0; i < GRADE_CATS.length; i++) {
+      await db.insert(gradeCategoriesTable).values({
+        classId: cls.id, name: GRADE_CATS[i].name,
+        weight: GRADE_CATS[i].weight, sortOrder: i,
+      });
+    }
+  }
+  console.log(`  Created grade categories for all classes`);
+
+  const categories = await db.select().from(gradeCategoriesTable);
+  const catByClass: Record<number, Record<string, number>> = {};
+  for (const cat of categories) {
+    if (!catByClass[cat.classId]) catByClass[cat.classId] = {};
+    catByClass[cat.classId][cat.name] = cat.id;
+  }
+
+  const catMap: Record<string, string> = {
+    homework: "Homework", quiz: "Quizzes", test: "Tests", project: "Projects",
+  };
+
+  const today = new Date();
+  const semesterStart = new Date("2025-09-03");
+  let assignmentCount = 0;
+  let submissionCount = 0;
+
+  for (const cls of createdClasses) {
+    const templates = ASSIGNMENT_TEMPLATES[cls.subject] || ASSIGNMENT_TEMPLATES["Math"];
+    const topics = getTopics(cls.subject);
+    const classCategories = catByClass[cls.id] || {};
+
+    const enrolled = await db.select({ studentId: classEnrollmentsTable.studentId })
+      .from(classEnrollmentsTable)
+      .where(and(eq(classEnrollmentsTable.classId, cls.id), eq(classEnrollmentsTable.status, "active")));
+
+    let assignNum = 1;
+    let unitNum = 1;
+    let topicIdx = 0;
+
+    const totalWeeks = Math.floor((today.getTime() - semesterStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const weekCount = Math.min(totalWeeks, 30);
+
+    for (let week = 0; week < weekCount; week++) {
+      const weekStart = new Date(semesterStart.getTime() + week * 7 * 24 * 60 * 60 * 1000);
+      const dueDate = new Date(weekStart.getTime() + rand(3, 5) * 24 * 60 * 60 * 1000);
+      const dueDateStr = dueDate.toISOString().split("T")[0];
+      const assignedDateStr = weekStart.toISOString().split("T")[0];
+
+      const numAssignments = week % 4 === 3 ? 2 : 1;
+
+      for (let a = 0; a < numAssignments; a++) {
+        const template = templates[(week * numAssignments + a) % templates.length];
+        const topic = topics[topicIdx % topics.length];
+
+        let title = template.title
+          .replace("{n}", String(assignNum))
+          .replace("{u}", String(unitNum))
+          .replace("{topic}", topic);
+
+        const catName = catMap[template.type] || "Homework";
+        const categoryId = classCategories[catName] || null;
+
+        const [assignment] = await db.insert(assignmentsTable).values({
+          classId: cls.id, title,
+          description: `Complete ${title} - covers material from week ${week + 1}`,
+          instructions: `Please complete all questions and show your work. Submit by ${dueDateStr}.`,
+          assignmentType: template.type,
+          dueDate: dueDateStr,
+          assignedDate: assignedDateStr,
+          pointsPossible: String(template.points),
+          categoryId, published: true, allowLateSubmission: true,
+        }).returning();
+        assignmentCount++;
+
+        const isPast = dueDate < today;
+        const subBatch: any[] = [];
+
+        for (const { studentId } of enrolled) {
+          const studentSeed = (studentId * 7 + assignment.id * 13) % 100;
+          let status: string;
+          let pointsEarned: string | null = null;
+          let letterGrade: string | null = null;
+          let submittedAt: Date | null = null;
+
+          if (!isPast) {
+            if (studentSeed < 20) {
+              status = "submitted";
+              submittedAt = new Date(dueDate.getTime() - rand(1, 3) * 24 * 60 * 60 * 1000);
+            } else {
+              status = "not_submitted";
+            }
+          } else {
+            if (studentSeed < 5) {
+              status = "missing";
+            } else if (studentSeed < 15) {
+              status = "submitted";
+              submittedAt = new Date(dueDate.getTime() - rand(0, 2) * 24 * 60 * 60 * 1000);
+            } else {
+              status = "graded";
+              submittedAt = new Date(dueDate.getTime() - rand(0, 3) * 24 * 60 * 60 * 1000);
+
+              const basePerformance = 50 + ((studentId * 3 + 17) % 40);
+              const variance = rand(-12, 12);
+              const difficulty = template.type === "test" ? -5 : template.type === "project" ? 3 : 0;
+              let pct = Math.max(30, Math.min(100, basePerformance + variance + difficulty));
+
+              pointsEarned = String(Math.round((pct / 100) * template.points * 10) / 10);
+              letterGrade = pctToLetterGrade(pct);
+            }
+          }
+
+          subBatch.push({
+            assignmentId: assignment.id, studentId, status,
+            submittedAt, pointsEarned, letterGrade,
+            content: status !== "not_submitted" && status !== "missing" ? "Student work submitted." : null,
+            gradedAt: status === "graded" ? new Date(dueDate.getTime() + rand(1, 5) * 24 * 60 * 60 * 1000) : null,
+          });
+          submissionCount++;
+        }
+
+        if (subBatch.length > 0) {
+          for (let i = 0; i < subBatch.length; i += 200) {
+            await db.insert(submissionsTable).values(subBatch.slice(i, i + 200));
+          }
+        }
+
+        assignNum++;
+        if (week % 4 === 3) { unitNum++; topicIdx++; }
+      }
+    }
+
+    const teacherId = subjectToTeacher[cls.subject];
+    const annTitles = [
+      "Welcome to " + cls.subject + "!",
+      "Upcoming test next week",
+      "Project guidelines posted",
+      "No homework this weekend",
+      "Parent-teacher conferences schedule",
+    ];
+    for (let i = 0; i < rand(2, 4); i++) {
+      const annDate = new Date(semesterStart.getTime() + rand(0, weekCount * 7) * 24 * 60 * 60 * 1000);
+      await db.insert(announcementsTable).values({
+        classId: cls.id, authorId: teacherId,
+        title: annTitles[i % annTitles.length],
+        content: `This is an announcement for ${cls.subject}. Please check the details and reach out if you have questions.`,
+        scope: "class",
+      });
+    }
+  }
+
+  console.log(`  Created ${assignmentCount} assignments`);
+  console.log(`  Created ${submissionCount} submissions`);
+  console.log("=== Gen Ed seeding complete ===");
+}
+
+function pctToLetterGrade(pct: number): string {
+  if (pct >= 97) return "A+";
+  if (pct >= 93) return "A";
+  if (pct >= 90) return "A-";
+  if (pct >= 87) return "B+";
+  if (pct >= 83) return "B";
+  if (pct >= 80) return "B-";
+  if (pct >= 77) return "C+";
+  if (pct >= 73) return "C";
+  if (pct >= 70) return "C-";
+  if (pct >= 67) return "D+";
+  if (pct >= 63) return "D";
+  if (pct >= 60) return "D-";
+  return "F";
 }
