@@ -321,8 +321,9 @@ export default function StudentIepPage() {
           studentName={student ? `${student.firstName} ${student.lastName}` : ""}
           onClose={() => setViewingReport(null)}
           onUpdated={(updated) => {
-            setReports(prev => prev.map(r => r.id === updated.id ? { ...r, ...updated } : r));
-            setViewingReport({ ...viewingReport, ...updated });
+            const rid = viewingReport.id;
+            setReports(prev => prev.map(r => r.id === rid ? { ...r, ...updated } : r));
+            setViewingReport(prev => prev ? { ...prev, ...updated } : prev);
           }}
         />
       )}

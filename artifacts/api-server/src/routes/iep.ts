@@ -322,20 +322,23 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
           const [target] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, goal.programTargetId!));
           const masteryPct = target?.masteryCriterionPercent ?? 80;
 
-          currentPerformance = `${avgPct}% accuracy (last 3 sessions) at ${formatPromptLevel(lastPrompt)} prompt level`;
+          const plPhrase = promptLevelPhrase(lastPrompt);
+          currentPerformance = lastPrompt
+            ? `${avgPct}% accuracy (last 3 sessions) at ${formatPromptLevel(lastPrompt)} prompt level`
+            : `${avgPct}% accuracy (last 3 sessions)`;
 
           if (avgPct >= masteryPct) {
             progressRating = "mastered";
-            narrative = `${student.firstName} has met mastery criteria of ${masteryPct}% with an average of ${avgPct}% across the last ${lastPoints.length} sessions at the ${formatPromptLevel(lastPrompt)} prompt level. This goal has been mastered.`;
+            narrative = `${student.firstName} has met mastery criteria of ${masteryPct}% with an average of ${avgPct}% across the last ${lastPoints.length} sessions${plPhrase}. This goal has been mastered.`;
           } else if (avgPct >= masteryPct * 0.75) {
             progressRating = "sufficient_progress";
-            narrative = `${student.firstName} is making sufficient progress toward this goal with ${avgPct}% accuracy at the ${formatPromptLevel(lastPrompt)} prompt level. The student is on track to meet this goal within the IEP period.`;
+            narrative = `${student.firstName} is making sufficient progress toward this goal with ${avgPct}% accuracy${plPhrase}. The student is on track to meet this goal within the IEP period.`;
           } else if (avgPct >= masteryPct * 0.5) {
             progressRating = "some_progress";
-            narrative = `${student.firstName} is making some progress with ${avgPct}% accuracy at the ${formatPromptLevel(lastPrompt)} prompt level. Additional support or program modifications may be needed to meet this goal.`;
+            narrative = `${student.firstName} is making some progress with ${avgPct}% accuracy${plPhrase}. Additional support or program modifications may be needed to meet this goal.`;
           } else {
             progressRating = "insufficient_progress";
-            narrative = `${student.firstName} is making insufficient progress with ${avgPct}% accuracy at the ${formatPromptLevel(lastPrompt)} prompt level. Program modifications and/or additional supports are recommended.`;
+            narrative = `${student.firstName} is making insufficient progress with ${avgPct}% accuracy${plPhrase}. Program modifications and/or additional supports are recommended.`;
           }
 
           if (progData.length >= 4) {
@@ -499,7 +502,8 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
   }
 });
 
-function formatPromptLevel(level: string | null): string {
+function formatPromptLevel(level: string | null): string | null {
+  if (!level) return null;
   const labels: Record<string, string> = {
     full_physical: "full physical",
     partial_physical: "partial physical",
@@ -508,7 +512,12 @@ function formatPromptLevel(level: string | null): string {
     verbal: "verbal",
     independent: "independent",
   };
-  return level ? (labels[level] ?? level) : "unknown";
+  return labels[level] ?? level;
+}
+
+function promptLevelPhrase(level: string | null): string {
+  const formatted = formatPromptLevel(level);
+  return formatted ? ` at the ${formatted} prompt level` : "";
 }
 
 export default router;
