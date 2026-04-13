@@ -3,7 +3,7 @@ import {
   studentsTable, iepDocumentsTable, serviceRequirementsTable,
   sessionLogsTable, behaviorTargetsTable, programTargetsTable,
   dataSessionsTable, behaviorDataTable, programDataTable,
-  iepGoalsTable
+  iepGoalsTable, staffTable
 } from "./index";
 import { eq, sql } from "drizzle-orm";
 
@@ -50,15 +50,51 @@ function isSchoolDay(dateStr: string) {
   return true;
 }
 
-const SERVICE_DURATIONS: Record<number, { typical: number; min: number; max: number }> = {
-  1: { typical: 60, min: 45, max: 75 },
-  2: { typical: 30, min: 25, max: 45 },
+const SESSION_DURATIONS: Record<number, { typical: number; min: number; max: number }> = {
+  1: { typical: 60, min: 45, max: 90 },
+  2: { typical: 30, min: 20, max: 45 },
   3: { typical: 30, min: 20, max: 45 },
-  4: { typical: 30, min: 25, max: 45 },
-  5: { typical: 60, min: 45, max: 90 },
-  6: { typical: 30, min: 25, max: 45 },
-  7: { typical: 30, min: 20, max: 30 },
-  8: { typical: 30, min: 15, max: 45 },
+  4: { typical: 45, min: 30, max: 60 },
+  5: { typical: 120, min: 60, max: 180 },
+  6: { typical: 45, min: 30, max: 60 },
+  7: { typical: 30, min: 20, max: 45 },
+  8: { typical: 30, min: 20, max: 60 },
+};
+
+const TIER_MONTHLY: Record<string, Record<number, { base: number; variance: number }>> = {
+  minimal: {
+    2: { base: 120, variance: 30 },
+    3: { base: 120, variance: 30 },
+    4: { base: 120, variance: 30 },
+    7: { base: 90, variance: 30 },
+  },
+  moderate: {
+    1: { base: 900, variance: 300 },
+    2: { base: 150, variance: 30 },
+    3: { base: 180, variance: 60 },
+    4: { base: 150, variance: 30 },
+    5: { base: 1200, variance: 300 },
+    7: { base: 120, variance: 30 },
+    8: { base: 60, variance: 30 },
+  },
+  intensive: {
+    1: { base: 1500, variance: 300 },
+    2: { base: 180, variance: 60 },
+    3: { base: 180, variance: 60 },
+    4: { base: 180, variance: 60 },
+    5: { base: 1800, variance: 300 },
+    7: { base: 120, variance: 30 },
+    8: { base: 120, variance: 30 },
+  },
+  high_needs: {
+    1: { base: 2100, variance: 300 },
+    2: { base: 240, variance: 60 },
+    3: { base: 240, variance: 60 },
+    4: { base: 240, variance: 60 },
+    5: { base: 2400, variance: 300 },
+    7: { base: 150, variance: 30 },
+    8: { base: 150, variance: 30 },
+  },
 };
 
 const BEHAVIOR_TEMPLATES: Array<{ name: string; measurementType: string; targetDirection: string; baselineValue: string; goalValue: string }> = [
@@ -262,6 +298,9 @@ const GOAL_AREAS_BY_SERVICE: Record<number, string> = {
 
 const PROMPT_LEVELS = ["full_physical", "partial_physical", "model", "gestural", "verbal", "independent"];
 
+const MAX_WEEKLY_MINUTES = 2400;
+const WEEKS_PER_MONTH = 4.3;
+
 function generateSessionNotes(serviceTypeId: number, goalText: string, progressRatio: number, behavTargets: string[], progTargets: string[]): string {
   const templates = SESSION_NOTES_BY_SERVICE[serviceTypeId] || SESSION_NOTES_BY_SERVICE[5];
   let note = pick(templates);
@@ -292,8 +331,29 @@ function generateSessionNotes(serviceTypeId: number, goalText: string, progressR
   return note;
 }
 
+function getStudentTier(studentId: number, serviceTypeIds: number[]): string {
+  const struggleIds = new Set([3, 12, 27, 38, 45]);
+  if (struggleIds.has(studentId)) return "high_needs";
+  const hasABA = serviceTypeIds.includes(1);
+  const numServices = serviceTypeIds.length;
+  if (hasABA && numServices >= 5) return "intensive";
+  if (hasABA || numServices >= 4) return "moderate";
+  return "minimal";
+}
+
+function getRealisticMonthlyMinutes(tier: string, serviceTypeId: number, studentId: number): number {
+  const config = TIER_MONTHLY[tier]?.[serviceTypeId];
+  if (!config) {
+    const fallback: Record<number, number> = { 1: 600, 2: 120, 3: 120, 4: 120, 5: 600, 6: 120, 7: 90, 8: 60 };
+    return fallback[serviceTypeId] || 120;
+  }
+  const seed = (studentId * 7 + serviceTypeId * 13) % 100;
+  const varianceFactor = (seed / 100) * 2 - 1;
+  return Math.round(config.base + config.variance * varianceFactor);
+}
+
 export async function seedRealisticData() {
-  console.log("=== Seeding realistic data ===");
+  console.log("=== Seeding realistic data (40 hr/week constraint) ===");
 
   const students = await db.select({ id: studentsTable.id }).from(studentsTable).orderBy(studentsTable.id);
 
@@ -310,14 +370,132 @@ export async function seedRealisticData() {
   }
   console.log(`  Staggered ${students.length} students' IEP and service dates`);
 
-  console.log("Step 2: Create behavior & program targets for ALL students with relevant services...");
+  console.log("Step 2: Set realistic service requirement minutes (40 hr/week cap)...");
   const allSRs = await db.select().from(serviceRequirementsTable).where(eq(serviceRequirementsTable.active, true));
 
   const studentServices: Record<number, number[]> = {};
+  const studentSRs: Record<number, typeof allSRs> = {};
   for (const sr of allSRs) {
     (studentServices[sr.studentId] ??= []).push(sr.serviceTypeId);
+    (studentSRs[sr.studentId] ??= []).push(sr);
   }
 
+  const deactivatedParas = new Set<number>();
+  for (const sid of Object.keys(studentServices).map(Number)) {
+    const services = studentServices[sid];
+    const tier = getStudentTier(sid, services);
+    if (services.includes(5) && tier === "minimal") {
+      const paraSR = studentSRs[sid].find(sr => sr.serviceTypeId === 5);
+      if (paraSR) {
+        deactivatedParas.add(paraSR.id);
+        studentServices[sid] = services.filter(s => s !== 5);
+        studentSRs[sid] = studentSRs[sid].filter(sr => sr.serviceTypeId !== 5);
+      }
+    }
+  }
+
+  if (deactivatedParas.size > 0) {
+    for (const srId of deactivatedParas) {
+      await db.update(serviceRequirementsTable)
+        .set({ active: false })
+        .where(eq(serviceRequirementsTable.id, srId));
+    }
+    console.log(`  Deactivated ${deactivatedParas.size} unnecessary para SRs for students with minimal needs`);
+  }
+
+  const updatedSRs: typeof allSRs = [];
+  for (const sid of Object.keys(studentSRs).map(Number)) {
+    const srs = studentSRs[sid];
+    const tier = getStudentTier(sid, srs.map(s => s.serviceTypeId));
+
+    let totalWeeklyMin = 0;
+    const srMinutes: Array<{ sr: typeof allSRs[0]; monthlyMin: number; weeklyMin: number }> = [];
+
+    for (const sr of srs) {
+      const monthly = getRealisticMonthlyMinutes(tier, sr.serviceTypeId, sid);
+      const weekly = monthly / WEEKS_PER_MONTH;
+      srMinutes.push({ sr, monthlyMin: monthly, weeklyMin: weekly });
+      totalWeeklyMin += weekly;
+    }
+
+    if (totalWeeklyMin > MAX_WEEKLY_MINUTES) {
+      const scale = MAX_WEEKLY_MINUTES / totalWeeklyMin;
+      for (const item of srMinutes) {
+        item.monthlyMin = Math.round(item.monthlyMin * scale);
+        item.weeklyMin = item.monthlyMin / WEEKS_PER_MONTH;
+      }
+      totalWeeklyMin = MAX_WEEKLY_MINUTES;
+    }
+
+    for (const { sr, monthlyMin } of srMinutes) {
+      const updates: any = {
+        requiredMinutes: monthlyMin,
+        intervalType: "monthly",
+      };
+      sr.requiredMinutes = monthlyMin;
+      if (sr.intervalType === "weekly") sr.intervalType = "monthly";
+      await db.update(serviceRequirementsTable)
+        .set(updates)
+        .where(eq(serviceRequirementsTable.id, sr.id));
+      updatedSRs.push(sr);
+    }
+
+    if (sid <= 5 || sid % 10 === 0) {
+      console.log(`  Student ${sid} (${tier}): ${Math.round(totalWeeklyMin)} min/week across ${srs.length} services`);
+    }
+  }
+
+  console.log("Step 2b: Rebalance staff caseloads for 40 hr/week cap...");
+  const ROLE_SERVICE_MAP: Record<string, number[]> = {
+    bcba: [1, 8],
+    slp: [3],
+    ot: [2],
+    pt: [7],
+    counselor: [4],
+    para: [5],
+  };
+
+  const staffList = await db.select({ id: staffTable.id, role: staffTable.role }).from(staffTable);
+  const staffByRole: Record<string, number[]> = {};
+  for (const s of staffList) {
+    (staffByRole[s.role] ??= []).push(s.id);
+  }
+
+  for (const [role, serviceTypeIds] of Object.entries(ROLE_SERVICE_MAP)) {
+    const roleStaff = staffByRole[role];
+    if (!roleStaff || roleStaff.length === 0) continue;
+
+    const srsForRole = updatedSRs.filter(sr => serviceTypeIds.includes(sr.serviceTypeId) && !deactivatedParas.has(sr.id));
+    if (srsForRole.length === 0) continue;
+
+    srsForRole.sort((a, b) => b.requiredMinutes - a.requiredMinutes);
+
+    const staffLoad: Record<number, number> = {};
+    for (const sid of roleStaff) staffLoad[sid] = 0;
+
+    for (const sr of srsForRole) {
+      let minStaff = roleStaff[0];
+      let minLoad = staffLoad[roleStaff[0]];
+      for (const sid of roleStaff) {
+        if (staffLoad[sid] < minLoad) {
+          minLoad = staffLoad[sid];
+          minStaff = sid;
+        }
+      }
+      staffLoad[minStaff] += sr.requiredMinutes / WEEKS_PER_MONTH;
+      if (sr.providerId !== minStaff) {
+        sr.providerId = minStaff;
+        await db.update(serviceRequirementsTable)
+          .set({ providerId: minStaff })
+          .where(eq(serviceRequirementsTable.id, sr.id));
+      }
+    }
+
+    const loads = Object.entries(staffLoad).map(([id, load]) => `${id}:${Math.round(load)}min/wk`);
+    console.log(`  ${role} (${roleStaff.length} staff): ${loads.join(", ")}`);
+  }
+
+  console.log("Step 3: Create behavior & program targets for ALL students with relevant services...");
   await db.delete(behaviorDataTable);
   await db.delete(programDataTable);
   await db.delete(dataSessionsTable);
@@ -366,7 +544,7 @@ export async function seedRealisticData() {
   }
   console.log(`  Created targets for ${Object.keys(behaviorTargetsByStudent).length} students`);
 
-  console.log("Step 3: Create IEP goals linked to targets and services...");
+  console.log("Step 4: Create IEP goals linked to targets and services...");
   await db.delete(iepGoalsTable);
 
   for (const sid of Object.keys(studentServices).map(Number)) {
@@ -435,7 +613,7 @@ export async function seedRealisticData() {
   }
   console.log(`  Created IEP goals`);
 
-  console.log("Step 4: Regenerate session logs with clinical notes tied to goals...");
+  console.log("Step 5: Generate session logs matching requirements (40 hr/week cap)...");
   await db.delete(sessionLogsTable);
 
   const goalsByStudentService: Record<string, string[]> = {};
@@ -464,46 +642,63 @@ export async function seedRealisticData() {
     cur.setDate(cur.getDate() + 1);
   }
 
-  const REALISTIC_MONTHLY: Record<number, number> = {
-    1: 240,
-    2: 90,
-    3: 90,
-    4: 120,
-    5: 300,
-    6: 90,
-    7: 90,
-    8: 120,
-  };
+  const weeklyStudentMinutes: Record<string, number> = {};
+  const weeklyStaffMinutes: Record<string, number> = {};
+
+  function getWeekKey(date: string) {
+    const d = new Date(date + "T00:00:00");
+    const dayOfYear = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86400000);
+    return `${d.getFullYear()}-W${Math.floor(dayOfYear / 7)}`;
+  }
+
+  function canSchedule(studentId: number, staffId: number, date: string, duration: number): boolean {
+    const weekKey = getWeekKey(date);
+    const studentWeek = `${studentId}-${weekKey}`;
+    const staffWeek = `${staffId}-${weekKey}`;
+    const currentStudent = weeklyStudentMinutes[studentWeek] || 0;
+    const currentStaff = weeklyStaffMinutes[staffWeek] || 0;
+    return (currentStudent + duration <= MAX_WEEKLY_MINUTES) && (currentStaff + duration <= MAX_WEEKLY_MINUTES);
+  }
+
+  function recordMinutes(studentId: number, staffId: number, date: string, duration: number) {
+    const weekKey = getWeekKey(date);
+    const studentWeek = `${studentId}-${weekKey}`;
+    const staffWeek = `${staffId}-${weekKey}`;
+    weeklyStudentMinutes[studentWeek] = (weeklyStudentMinutes[studentWeek] || 0) + duration;
+    weeklyStaffMinutes[staffWeek] = (weeklyStaffMinutes[staffWeek] || 0) + duration;
+  }
 
   const struggleStudentIds = new Set([3, 12, 27, 38, 45]);
+  const sessionBatch: any[] = [];
 
-  for (const sr of allSRs) {
-    let newRequired = REALISTIC_MONTHLY[sr.serviceTypeId] || 60;
-    if (struggleStudentIds.has(sr.studentId)) {
-      newRequired = Math.round(newRequired * 1.8);
-    }
-    const updates: any = { requiredMinutes: newRequired };
-    if (sr.intervalType === "weekly") {
-      updates.intervalType = "monthly";
-      sr.intervalType = "monthly";
-    }
-    sr.requiredMinutes = newRequired;
-    await db.update(serviceRequirementsTable)
-      .set(updates)
-      .where(eq(serviceRequirementsTable.id, sr.id));
-  }
-  console.log("  Adjusted service requirement minutes and intervals to realistic values");
+  const sortedSRs = [...updatedSRs].sort((a, b) => {
+    const aIntensive = [1, 5].includes(a.serviceTypeId) ? 0 : 1;
+    const bIntensive = [1, 5].includes(b.serviceTypeId) ? 0 : 1;
+    return aIntensive - bIntensive;
+  });
 
-  const MIN_SESS_PER_WEEK: Record<number, number> = {
-    1: 3, 2: 2, 3: 2, 4: 2, 5: 3, 6: 2, 7: 2, 8: 2,
+  const START_HOURS: Record<number, number[]> = {
+    1: [8, 9, 10, 13, 14],
+    2: [9, 10, 11, 13, 14],
+    3: [8, 9, 10, 11, 13],
+    4: [9, 10, 13, 14],
+    5: [8, 9, 10, 11, 13, 14],
+    6: [10, 11, 13, 14],
+    7: [9, 10, 11, 13],
+    8: [8, 9, 13, 14, 15],
   };
 
-  const sessionBatch: any[] = [];
-  for (const sr of allSRs) {
-    const svc = SERVICE_DURATIONS[sr.serviceTypeId] || { typical: 30, min: 20, max: 45 };
-    const minSess = MIN_SESS_PER_WEEK[sr.serviceTypeId] || 1;
-    let sessPerWeek = Math.max(minSess, Math.round((sr.requiredMinutes / 4.3) / svc.typical));
+  for (const sr of sortedSRs) {
+    if (deactivatedParas.has(sr.id)) continue;
+
+    const svc = SESSION_DURATIONS[sr.serviceTypeId] || { typical: 30, min: 20, max: 45 };
+    const weeklyTarget = sr.requiredMinutes / WEEKS_PER_MONTH;
+    let sessPerWeek = Math.max(1, Math.round(weeklyTarget / svc.typical));
     sessPerWeek = Math.min(sessPerWeek, 5);
+
+    if (sr.serviceTypeId === 5 && weeklyTarget > 300) {
+      sessPerWeek = 5;
+    }
 
     const preferred: number[] = [];
     const daySlots = [1, 2, 3, 4, 5];
@@ -511,7 +706,16 @@ export async function seedRealisticData() {
       const idx = (sr.serviceTypeId * 3 + sr.studentId * 2 + i * 2) % 5;
       const day = daySlots[idx];
       if (!preferred.includes(day)) preferred.push(day);
-      else { const alt = daySlots.find(d => !preferred.includes(d)); if (alt) preferred.push(alt); }
+      else {
+        const alt = daySlots.find(d => !preferred.includes(d));
+        if (alt) preferred.push(alt);
+      }
+    }
+
+    while (preferred.length < sessPerWeek && preferred.length < 5) {
+      const remaining = daySlots.filter(d => !preferred.includes(d));
+      if (remaining.length > 0) preferred.push(remaining[0]);
+      else break;
     }
 
     const staffId = sr.providerId || ((sr.serviceTypeId + sr.studentId) % 18) + 1;
@@ -520,31 +724,36 @@ export async function seedRealisticData() {
     const svcGoals = goalsByStudentService[`${sr.studentId}-${sr.serviceTypeId}`] || [];
 
     const isStruggling = struggleStudentIds.has(sr.studentId);
+    const missRate = isStruggling ? 0.30 : 0.05;
+
+    const targetDurationPerSession = Math.round(weeklyTarget / sessPerWeek);
+    const sessionDuration = Math.max(svc.min, Math.min(svc.max, Math.round(targetDurationPerSession / 5) * 5));
 
     let sessionIndex = 0;
     for (const date of schoolDays) {
       const dow = new Date(date + "T00:00:00").getDay();
       if (!preferred.includes(dow)) continue;
 
-      let missRate: number;
-      if (isStruggling) {
-        missRate = 0.45;
-      } else {
-        missRate = 0.03;
-      }
       const isMissed = Math.random() < missRate;
 
       let duration = 0;
       let notes: string | null = null;
+
       if (!isMissed) {
-        duration = svc.typical + Math.round((Math.random() * 2 - 1) * (svc.max - svc.min) * 0.3);
-        duration = Math.max(svc.min, Math.min(svc.max, duration));
+        const jitter = Math.round((Math.random() * 2 - 1) * (svc.max - svc.min) * 0.15);
+        duration = Math.max(svc.min, Math.min(svc.max, sessionDuration + jitter));
         duration = Math.round(duration / 5) * 5;
+
+        if (!canSchedule(sr.studentId, staffId, date, duration)) {
+          continue;
+        }
 
         const totalSessions = Math.floor(schoolDays.length * (sessPerWeek / 5));
         const progressRatio = Math.min(1, sessionIndex / Math.max(1, totalSessions));
         const goalText = svcGoals.length > 0 ? pick(svcGoals) : "current IEP objectives";
         notes = generateSessionNotes(sr.serviceTypeId, goalText, progressRatio, behNames, progNames);
+
+        recordMinutes(sr.studentId, staffId, date, duration);
       } else {
         const missedReasons = [
           "Student absent from school.",
@@ -557,11 +766,12 @@ export async function seedRealisticData() {
         notes = pick(missedReasons);
       }
 
-      const hour = 8 + (sr.serviceTypeId + sr.studentId) % 7;
+      const hours = START_HOURS[sr.serviceTypeId] || [9, 10, 13];
+      const hour = hours[(sr.studentId + sessionIndex) % hours.length];
       const startTime = `${String(hour).padStart(2, "0")}:00`;
-      const endHour = hour + Math.floor(duration / 60);
       const endMin = duration % 60;
-      const endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
+      const endHour = hour + Math.floor(duration / 60);
+      const endTime = `${String(Math.min(endHour, 17)).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
 
       sessionBatch.push({
         studentId: sr.studentId,
@@ -573,7 +783,7 @@ export async function seedRealisticData() {
         endTime,
         durationMinutes: duration,
         location: pick(["Resource Room", "Classroom", "Therapy Room", "Gym", "Office", "Sensory Room", "Speech Room", "Counseling Office"]),
-        deliveryMode: Math.random() < 0.93 ? "in_person" : "remote",
+        deliveryMode: Math.random() < 0.95 ? "in_person" : "remote",
         status: isMissed ? "missed" : "completed",
         isMakeup: false,
         notes,
@@ -585,9 +795,32 @@ export async function seedRealisticData() {
   for (let i = 0; i < sessionBatch.length; i += 500) {
     await db.insert(sessionLogsTable).values(sessionBatch.slice(i, i + 500));
   }
-  console.log(`  Inserted ${sessionBatch.length} session logs with notes`);
+  console.log(`  Inserted ${sessionBatch.length} session logs`);
 
-  console.log("Step 5: Generate data sessions with behavior & program data for ALL students...");
+  const completedByStudent: Record<number, number> = {};
+  const completedByStaff: Record<number, number> = {};
+  for (const s of sessionBatch) {
+    if (s.status === "completed") {
+      completedByStudent[s.studentId] = (completedByStudent[s.studentId] || 0) + s.durationMinutes;
+      completedByStaff[s.staffId] = (completedByStaff[s.staffId] || 0) + s.durationMinutes;
+    }
+  }
+
+  const numWeeks = schoolDays.length / 5;
+  const studentWeeklyAvgs = Object.entries(completedByStudent).map(([id, total]) => ({ id: Number(id), avg: Math.round(total / numWeeks) }));
+  studentWeeklyAvgs.sort((a, b) => b.avg - a.avg);
+  console.log(`  Student weekly avg minutes: min=${studentWeeklyAvgs[studentWeeklyAvgs.length - 1]?.avg}, max=${studentWeeklyAvgs[0]?.avg}, median=${studentWeeklyAvgs[Math.floor(studentWeeklyAvgs.length / 2)]?.avg}`);
+
+  const staffWeeklyAvgs = Object.entries(completedByStaff).map(([id, total]) => ({ id: Number(id), avg: Math.round(total / numWeeks) }));
+  staffWeeklyAvgs.sort((a, b) => b.avg - a.avg);
+  console.log(`  Staff weekly avg minutes: min=${staffWeeklyAvgs[staffWeeklyAvgs.length - 1]?.avg}, max=${staffWeeklyAvgs[0]?.avg}`);
+
+  const overStudents = studentWeeklyAvgs.filter(s => s.avg > MAX_WEEKLY_MINUTES);
+  const overStaff = staffWeeklyAvgs.filter(s => s.avg > MAX_WEEKLY_MINUTES);
+  if (overStudents.length) console.log(`  WARNING: ${overStudents.length} students over 40hr cap`);
+  if (overStaff.length) console.log(`  WARNING: ${overStaff.length} staff over 40hr cap`);
+
+  console.log("Step 6: Generate data sessions with behavior & program data...");
 
   for (const sid of Object.keys(behaviorTargetsByStudent).map(Number)) {
     const bTargets = behaviorTargetsByStudent[sid] || [];
