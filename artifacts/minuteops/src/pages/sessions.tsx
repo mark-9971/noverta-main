@@ -7,9 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -33,6 +34,8 @@ const INITIAL_FORM = {
 export default function Sessions() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 30;
@@ -41,8 +44,17 @@ export default function Sessions() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedData, setExpandedData] = useState<any>(null);
   const [expandLoading, setExpandLoading] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ durationMinutes: "", status: "", notes: "", location: "", missedReasonId: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const { data: sessions, isLoading, isError, refetch } = useListSessions({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) } as any);
+  const sessionParams: any = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
+  if (dateFrom) sessionParams.dateFrom = dateFrom;
+  if (dateTo) sessionParams.dateTo = dateTo;
+  if (statusFilter !== "all" && statusFilter !== "makeup") sessionParams.status = statusFilter;
+  const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
   const { data: students } = useListStudents({} as any);
   const { data: serviceReqs } = useListServiceRequirements(
     form.studentId ? { studentId: Number(form.studentId) } as any : ({} as any)
@@ -64,7 +76,9 @@ export default function Sessions() {
       s.staffName?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" ||
       (statusFilter === "makeup" ? s.isMakeup : s.status === statusFilter);
-    return matchSearch && matchStatus;
+    const matchDateFrom = !dateFrom || s.sessionDate >= dateFrom;
+    const matchDateTo = !dateTo || s.sessionDate <= dateTo;
+    return matchSearch && matchStatus && matchDateFrom && matchDateTo;
   });
 
   const missedCount = sessionList.filter(s => s.status === "missed").length;
@@ -109,6 +123,64 @@ export default function Sessions() {
       toast.error("Failed to save session. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function startEdit(session: any) {
+    setEditingSession(session);
+    setEditForm({
+      durationMinutes: String(session.durationMinutes ?? ""),
+      status: session.status ?? "completed",
+      notes: session.notes ?? "",
+      location: session.location ?? "",
+      missedReasonId: session.missedReasonId ? String(session.missedReasonId) : "",
+    });
+  }
+
+  async function handleEditSave() {
+    if (!editingSession) return;
+    const dur = Number(editForm.durationMinutes);
+    if (!dur || dur <= 0 || dur > 480) { toast.error("Duration must be 1–480 minutes"); return; }
+    if (editForm.status === "missed" && !editForm.missedReasonId) { toast.error("Please select a missed reason"); return; }
+    setEditSaving(true);
+    try {
+      const body: any = {
+        durationMinutes: dur,
+        status: editForm.status,
+        notes: editForm.notes || null,
+        location: editForm.location || null,
+        missedReasonId: editForm.status === "missed" && editForm.missedReasonId ? Number(editForm.missedReasonId) : null,
+      };
+      const res = await fetch(`${API}/api/sessions/${editingSession.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Session updated");
+      setEditingSession(null);
+      refetch();
+    } catch {
+      toast.error("Failed to update session");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (deleteConfirmId == null) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`${API}/api/sessions/${deleteConfirmId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Session deleted");
+      setDeleteConfirmId(null);
+      if (expandedId === deleteConfirmId) { setExpandedId(null); setExpandedData(null); }
+      refetch();
+    } catch {
+      toast.error("Failed to delete session");
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -202,6 +274,15 @@ export default function Sessions() {
                 </div>
               </div>
             )}
+
+            <div className="flex gap-2 pt-2 border-t border-slate-200">
+              <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1" onClick={() => startEdit(session)}>
+                <Pencil className="w-3 h-3" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteConfirmId(session.id)}>
+                <Trash2 className="w-3 h-3" /> Delete
+              </Button>
+            </div>
           </>
         )}
       </div>
@@ -238,9 +319,19 @@ export default function Sessions() {
         ))}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search sessions..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input className="pl-10 h-9 text-[13px] bg-white" placeholder="Search sessions..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Input type="date" className="h-9 text-[12px] bg-white w-[140px]" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <span className="text-[11px] text-slate-400">to</span>
+          <Input type="date" className="h-9 text-[12px] bg-white w-[140px]" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-[11px] text-slate-400 hover:text-slate-600 px-1.5">Clear</button>
+          )}
+        </div>
       </div>
 
       <div className="md:hidden space-y-2">
@@ -366,6 +457,76 @@ export default function Sessions() {
           </div>
         </div>
       </Card>
+
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Session</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this session log. This action cannot be undone and will affect compliance minute calculations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete} disabled={deleteLoading}>
+              {deleteLoading ? "Deleting..." : "Delete Session"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={editingSession !== null} onOpenChange={(open) => { if (!open) setEditingSession(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Edit Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] text-slate-500">Duration (min)</Label>
+                <Input type="number" className="h-9 text-[13px]" value={editForm.durationMinutes} onChange={e => setEditForm(p => ({ ...p, durationMinutes: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] text-slate-500">Status</Label>
+                <Select value={editForm.status} onValueChange={v => setEditForm(p => ({ ...p, status: v }))}>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="missed">Missed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {editForm.status === "missed" && (
+              <div className="space-y-1.5">
+                <Label className="text-[12px] text-slate-500">Missed Reason *</Label>
+                <Select value={editForm.missedReasonId} onValueChange={v => setEditForm(p => ({ ...p, missedReasonId: v }))}>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select reason" /></SelectTrigger>
+                  <SelectContent>
+                    {missedReasonsList.map((r: any) => (
+                      <SelectItem key={r.id} value={String(r.id)}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-[12px] text-slate-500">Location</Label>
+              <Input className="h-9 text-[13px]" value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Room 204" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] text-slate-500">Notes</Label>
+              <Textarea className="text-[13px] resize-none" rows={3} value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setEditingSession(null)}>Cancel</Button>
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] gap-1" disabled={editSaving} onClick={handleEditSave}>
+              <Save className="w-3.5 h-3.5" /> {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

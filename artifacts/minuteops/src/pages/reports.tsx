@@ -1,20 +1,60 @@
 import { useGetStudentMinuteSummaryReport, useGetMissedSessionsReport, useGetComplianceRiskReport } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Link } from "wouter";
+import { Download } from "lucide-react";
 import { RISK_CONFIG } from "@/lib/constants";
 import { formatDate } from "@/lib/formatters";
+import { toast } from "sonner";
+
+function sanitizeCell(v: string): string {
+  const s = String(v ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) return "'" + s;
+  return s;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const escape = (v: string) => `"${sanitizeCell(v).replace(/"/g, '""')}"`;
+  const csv = [headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  toast.success(`Exported ${rows.length} rows to ${filename}`);
+}
 
 export default function Reports() {
-  const { data: minuteSummary, isLoading: loadingMinutes } = useGetStudentMinuteSummaryReport({} as any);
-  const { data: missedSessions, isLoading: loadingMissed } = useGetMissedSessionsReport({} as any);
-  const { data: complianceRisk, isLoading: loadingRisk } = useGetComplianceRiskReport();
+  const { data: minuteSummary, isLoading: loadingMinutes, isError: errMinutes, refetch: refetchMinutes } = useGetStudentMinuteSummaryReport({} as any);
+  const { data: missedSessions, isLoading: loadingMissed, isError: errMissed, refetch: refetchMissed } = useGetMissedSessionsReport({} as any);
+  const { data: complianceRisk, isLoading: loadingRisk, isError: errRisk, refetch: refetchRisk } = useGetComplianceRiskReport();
 
   const minuteList = (minuteSummary as any[]) ?? [];
   const missedList = (missedSessions as any[]) ?? [];
   const riskList = (complianceRisk as any[]) ?? [];
+
+  function exportMinutes() {
+    downloadCsv("minute_summary.csv",
+      ["Student", "Service", "Delivered (min)", "Required (min)", "% Complete", "Status"],
+      minuteList.map((r: any) => [r.studentName, r.serviceTypeName, r.deliveredMinutes, r.requiredMinutes, Math.round(r.percentComplete ?? 0), r.riskStatus])
+    );
+  }
+  function exportMissed() {
+    downloadCsv("missed_sessions.csv",
+      ["Student", "Service", "Date", "Reason", "Staff"],
+      missedList.map((r: any) => [r.studentName, r.serviceTypeName, r.sessionDate, r.missedReason ?? "—", r.staffName ?? "—"])
+    );
+  }
+  function exportRisk() {
+    downloadCsv("at_risk_students.csv",
+      ["Student", "Service", "Risk Status", "Delivered", "Required", "% Complete"],
+      riskList.map((r: any) => [r.studentName, r.serviceTypeName, r.riskStatus, r.deliveredMinutes, r.requiredMinutes, Math.round(r.percentComplete ?? 0)])
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
@@ -32,6 +72,12 @@ export default function Reports() {
 
         <TabsContent value="minutes" className="mt-4">
           <Card>
+            {errMinutes ? <ErrorBanner message="Failed to load minute summary." onRetry={() => refetchMinutes()} /> : <>
+            <div className="flex items-center justify-end px-5 pt-3">
+              <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportMinutes} disabled={minuteList.length === 0}>
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -77,11 +123,18 @@ export default function Reports() {
                 </tbody>
               </table>
             </div>
+            </>}
           </Card>
         </TabsContent>
 
         <TabsContent value="missed" className="mt-4">
           <Card>
+            {errMissed ? <ErrorBanner message="Failed to load missed sessions." onRetry={() => refetchMissed()} /> : <>
+            <div className="flex items-center justify-end px-5 pt-3">
+              <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportMissed} disabled={missedList.length === 0}>
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -118,11 +171,18 @@ export default function Reports() {
                 </tbody>
               </table>
             </div>
+            </>}
           </Card>
         </TabsContent>
 
         <TabsContent value="risk" className="mt-4">
           <Card>
+            {errRisk ? <ErrorBanner message="Failed to load compliance risk data." onRetry={() => refetchRisk()} /> : <>
+            <div className="flex items-center justify-end px-5 pt-3">
+              <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportRisk} disabled={riskList.length === 0}>
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -170,6 +230,7 @@ export default function Reports() {
                 </tbody>
               </table>
             </div>
+            </>}
           </Card>
         </TabsContent>
       </Tabs>

@@ -4,6 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { CheckCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +20,9 @@ const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }
 export default function Alerts() {
   const [showResolved, setShowResolved] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [resolveConfirm, setResolveConfirm] = useState<any>(null);
+  const [resolveNote, setResolveNote] = useState("");
+  const [resolving, setResolving] = useState(false);
 
   const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false" } as any);
   const { mutateAsync: resolveAlert } = useResolveAlert();
@@ -29,13 +35,19 @@ export default function Alerts() {
     return acc;
   }, {} as Record<string, number>);
 
-  async function handleResolve(id: number) {
+  async function handleResolveConfirmed() {
+    if (!resolveConfirm) return;
+    setResolving(true);
     try {
-      await resolveAlert({ id, resolveAlertBody: { resolvedNote: "Resolved from dashboard" } } as any);
+      await resolveAlert({ id: resolveConfirm.id, resolveAlertBody: { resolvedNote: resolveNote || "Resolved from dashboard" } } as any);
       toast.success("Alert resolved");
+      setResolveConfirm(null);
+      setResolveNote("");
       refetch();
     } catch {
       toast.error("Failed to resolve alert");
+    } finally {
+      setResolving(false);
     }
   }
 
@@ -117,7 +129,7 @@ export default function Alerts() {
                   </p>
                 </div>
                 {!a.resolved && (
-                  <Button size="sm" variant="outline" className="flex-shrink-0 text-[11px] h-7 bg-white/80 hover:bg-white" onClick={() => handleResolve(a.id)}>
+                  <Button size="sm" variant="outline" className="flex-shrink-0 text-[11px] h-7 bg-white/80 hover:bg-white" onClick={() => { setResolveConfirm(a); setResolveNote(""); }}>
                     Resolve
                   </Button>
                 )}
@@ -129,6 +141,31 @@ export default function Alerts() {
           );
         })}
       </div>
+
+      <AlertDialog open={resolveConfirm !== null} onOpenChange={(open) => { if (!open) setResolveConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resolve Alert</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resolveConfirm && <>
+                <span className="font-medium text-slate-700">{resolveConfirm.severity?.toUpperCase()}</span>
+                {" — "}
+                {resolveConfirm.message}
+              </>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-[12px] text-slate-500">Resolution note (optional)</Label>
+            <Textarea className="text-[13px] resize-none" rows={2} value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="What was done to resolve this..." />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resolving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResolveConfirmed} disabled={resolving}>
+              {resolving ? "Resolving..." : "Confirm Resolve"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
