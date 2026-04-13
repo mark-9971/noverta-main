@@ -150,7 +150,7 @@ const roleConfig = {
     bgActive: "bg-purple-50 text-purple-700",
     iconActive: "text-purple-600",
     label: "Trellis",
-    subtitle: "SPED Teacher",
+    subtitle: "Built to support.",
     homeHref: "/",
   },
   gen_ed_teacher: {
@@ -160,7 +160,7 @@ const roleConfig = {
     bgActive: "bg-emerald-50 text-emerald-700",
     iconActive: "text-emerald-600",
     label: "Trellis",
-    subtitle: "Teacher Portal",
+    subtitle: "Built to support.",
     homeHref: "/teacher",
   },
   sped_student: {
@@ -170,7 +170,7 @@ const roleConfig = {
     bgActive: "bg-violet-50 text-violet-700",
     iconActive: "text-violet-600",
     label: "Trellis",
-    subtitle: "Student Portal",
+    subtitle: "Built to support.",
     homeHref: "/sped-portal",
   },
   gen_ed_student: {
@@ -180,7 +180,7 @@ const roleConfig = {
     bgActive: "bg-blue-50 text-blue-700",
     iconActive: "text-blue-600",
     label: "Trellis",
-    subtitle: "Student Portal",
+    subtitle: "Built to support.",
     homeHref: "/portal",
   },
 };
