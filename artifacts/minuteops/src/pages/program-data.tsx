@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1675,8 +1675,8 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {dataSessions.map(ds => (
-                    <>
-                      <tr key={ds.id}
+                    <Fragment key={ds.id}>
+                      <tr
                         className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${expandedId === ds.id ? "bg-slate-50/50" : ""}`}
                         onClick={() => toggleExpand(ds.id)}>
                         <td className="px-2 py-2.5 text-center">
@@ -1694,13 +1694,13 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
                         </td>
                       </tr>
                       {expandedId === ds.id && (
-                        <tr key={`${ds.id}-detail`}>
+                        <tr>
                           <td colSpan={5} className="p-0">
                             <ExpandedSessionDetail detail={expandedData} />
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

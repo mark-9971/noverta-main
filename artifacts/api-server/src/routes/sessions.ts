@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sessionLogsTable, serviceTypesTable, staffTable, studentsTable, missedReasonsTable } from "@workspace/db";
+import { sessionLogsTable, serviceTypesTable, staffTable, studentsTable, missedReasonsTable, iepGoalsTable } from "@workspace/db";
 import {
   ListSessionsQueryParams,
   CreateSessionBody,
@@ -145,23 +145,52 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
       staffLast: staffTable.lastName,
       studentFirst: studentsTable.firstName,
       studentLast: studentsTable.lastName,
+      missedReasonLabel: missedReasonsTable.label,
     })
     .from(sessionLogsTable)
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, sessionLogsTable.studentId))
+    .leftJoin(missedReasonsTable, eq(missedReasonsTable.id, sessionLogsTable.missedReasonId))
     .where(eq(sessionLogsTable.id, params.data.id));
 
   if (!session) {
     res.status(404).json({ error: "Session not found" });
     return;
   }
+
+  const allGoals = await db.select({
+    id: iepGoalsTable.id,
+    goalArea: iepGoalsTable.goalArea,
+    annualGoal: iepGoalsTable.annualGoal,
+    targetCriterion: iepGoalsTable.targetCriterion,
+    measurementMethod: iepGoalsTable.measurementMethod,
+    serviceArea: iepGoalsTable.serviceArea,
+    status: iepGoalsTable.status,
+  }).from(iepGoalsTable)
+    .where(and(
+      eq(iepGoalsTable.studentId, session.studentId),
+      eq(iepGoalsTable.active, true),
+    ));
+
+  const svcName = (session.serviceTypeName || "").toLowerCase();
+  const goals = allGoals.filter(g => {
+    const sa = (g.serviceArea || "").toLowerCase();
+    return sa === svcName || svcName.includes(sa.split("/")[0]) || sa.includes(svcName.split(" ")[0]) ||
+      (svcName.includes("aba") && sa.includes("aba")) ||
+      (svcName.includes("para") && sa.includes("academic")) ||
+      (svcName.includes("adapted") && sa.includes("motor")) ||
+      (svcName.includes("bcba") && sa.includes("behavior")) ||
+      (svcName.includes("counseling") && sa.includes("social"));
+  });
+
   res.json({
     ...session,
     studentName: session.studentFirst ? `${session.studentFirst} ${session.studentLast}` : null,
     serviceTypeName: session.serviceTypeName,
     staffName: session.staffFirst ? `${session.staffFirst} ${session.staffLast}` : null,
     createdAt: session.createdAt.toISOString(),
+    linkedGoals: goals,
   });
 });
 

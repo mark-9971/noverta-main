@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -143,55 +143,61 @@ export default function Sessions() {
 
   function SessionExpandedDetail({ session, detail }: { session: any; detail: any }) {
     const d = detail || session;
+    const goals: any[] = d.linkedGoals || [];
     return (
-      <div className="px-5 py-4 bg-slate-50/80 border-t border-slate-100">
+      <div className="px-5 py-4 bg-slate-50/80 border-t border-slate-100 space-y-4">
         {expandLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-400"><Clock className="w-4 h-4 animate-spin" /> Loading details...</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Session Info</h4>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Student" value={d.studentName || `${d.studentFirst} ${d.studentLast}` || "—"} />
-                <DetailRow icon={<FileText className="w-3.5 h-3.5" />} label="Service" value={d.serviceTypeName || "—"} />
-                <DetailRow icon={<User className="w-3.5 h-3.5" />} label="Provider" value={d.staffName || `${d.staffFirst || ""} ${d.staffLast || ""}`.trim() || "—"} />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Time & Location</h4>
-              <div className="space-y-2">
-                <DetailRow icon={<Clock className="w-3.5 h-3.5" />} label="Duration" value={`${d.durationMinutes} minutes`} />
-                {(d.startTime || d.endTime) && (
-                  <DetailRow icon={<Clock className="w-3.5 h-3.5" />} label="Time" value={`${formatTime(d.startTime) || "—"} — ${formatTime(d.endTime) || "—"}`} />
-                )}
-                {d.location && <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="Location" value={d.location} />}
-                {d.deliveryMode && <DetailRow icon={<Monitor className="w-3.5 h-3.5" />} label="Mode" value={d.deliveryMode === "in_person" ? "In Person" : d.deliveryMode === "remote" ? "Remote/Telehealth" : d.deliveryMode} />}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status & Notes</h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                    d.status === "completed" ? "bg-emerald-50 text-emerald-700" :
-                    d.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
-                  }`}>
-                    {d.status === "completed" ? <CheckCircle className="w-3 h-3" /> : d.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
-                    {d.isMakeup ? "Makeup" : d.status}
-                  </span>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Session Info</h4>
+                <div className="space-y-1.5">
+                  <DetailRow icon={<Clock className="w-3.5 h-3.5" />} label="Duration" value={`${d.durationMinutes} min`} />
+                  {(d.startTime || d.endTime) && (
+                    <DetailRow icon={<Clock className="w-3.5 h-3.5" />} label="Time" value={`${formatTime(d.startTime) || "—"} — ${formatTime(d.endTime) || "—"}`} />
+                  )}
+                  {d.location && <DetailRow icon={<MapPin className="w-3.5 h-3.5" />} label="Location" value={d.location} />}
+                  {d.deliveryMode && <DetailRow icon={<Monitor className="w-3.5 h-3.5" />} label="Mode" value={d.deliveryMode === "in_person" ? "In Person" : d.deliveryMode === "remote" ? "Remote/Telehealth" : d.deliveryMode} />}
                 </div>
-                {d.missedReasonLabel && <DetailRow icon={<XCircle className="w-3.5 h-3.5" />} label="Missed Reason" value={d.missedReasonLabel} />}
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Session Documentation</h4>
                 {d.notes ? (
-                  <div>
-                    <p className="text-[11px] text-slate-400 mb-1">Notes</p>
-                    <p className="text-[13px] text-slate-700 bg-white rounded-lg p-2.5 border border-slate-200">{d.notes}</p>
-                  </div>
+                  <p className="text-[13px] text-slate-700 bg-white rounded-lg p-3 border border-slate-200 leading-relaxed">{d.notes}</p>
                 ) : (
-                  <p className="text-[11px] text-slate-400 italic">No notes recorded</p>
+                  <p className="text-[11px] text-slate-400 italic">No session notes recorded.</p>
+                )}
+                {d.missedReasonLabel && (
+                  <div className="flex items-center gap-1.5 text-[12px] text-red-600">
+                    <XCircle className="w-3.5 h-3.5" /> Missed: {d.missedReasonLabel}
+                  </div>
                 )}
               </div>
             </div>
-          </div>
+
+            {goals.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-indigo-500" /> IEP Goals Addressed ({goals.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {goals.map((g: any) => (
+                    <div key={g.id} className="bg-white rounded-lg px-3 py-2 border border-slate-200">
+                      <div className="flex items-start gap-2">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 flex-shrink-0 mt-0.5">{g.goalArea}</span>
+                        <p className="text-[12px] text-slate-700 leading-snug line-clamp-2">{g.annualGoal}</p>
+                      </div>
+                      {g.targetCriterion && (
+                        <p className="text-[10px] text-slate-400 mt-1 ml-0.5">Target: {g.targetCriterion}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -300,8 +306,8 @@ export default function Sessions() {
                   <tr key={i}>{[...Array(7)].map((_, j) => <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
                 ))
               ) : filtered.map(session => (
-                <>
-                  <tr key={session.id} className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${expandedId === session.id ? "bg-slate-50/50" : ""}`}
+                <Fragment key={session.id}>
+                  <tr className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${expandedId === session.id ? "bg-slate-50/50" : ""}`}
                     onClick={() => toggleExpand(session)}>
                     <td className="px-2 py-3 text-center">
                       {expandedId === session.id ? <ChevronUp className="w-4 h-4 text-slate-400 mx-auto" /> : <ChevronDown className="w-4 h-4 text-slate-300 mx-auto" />}
@@ -325,13 +331,13 @@ export default function Sessions() {
                     </td>
                   </tr>
                   {expandedId === session.id && (
-                    <tr key={`${session.id}-detail`}>
+                    <tr>
                       <td colSpan={7} className="p-0">
                         <SessionExpandedDetail session={session} detail={expandedData} />
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
               {!isLoading && filtered.length === 0 && (
                 <tr>

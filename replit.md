@@ -47,6 +47,7 @@ MinuteOps is built as a monorepo using `pnpm` workspaces, featuring a clear sepa
 - **Compliance Tracking:** IDEA compliance event tracking (annual reviews, reevaluations), automated deadline generation, and alerts system.
 - **ABA Program Management:** Detailed behavior reduction target tracking, skill acquisition program management (with prompt hierarchies, auto-progression, mastery criteria), and data collection interface for live and manual sessions. Includes trend charting for behavior and program data.
 - **Protective Measures (603 CMR 46.00):** Physical restraint, seclusion, and time-out incident tracking. Multi-step incident reporting form, injury documentation, 24-hour parent notification workflow, written report tracking (5 school day deadline), administrator review workflow, DESE annual report generation. Integrated into student detail pages with incident counts and status. Flags students with 3+ incidents for BIP review.
+- **Expandable Session Details:** Sessions page rows expand to show session info (duration, time, location, mode), full clinical notes, and linked IEP goals with goal area badges. Data page sessions tab similarly expands to show behavior data (frequency/duration/interval) and program data (trials, accuracy %, prompt levels). Goals linked via service-area fuzzy matching.
 - **Reporting:** Generates reports for minute summaries, missed sessions, and at-risk students.
 - **Import Functionality:** Supports bulk CSV imports for students, service requirements, and session logs, with downloadable templates.
 - **Global Search:** Allows searching across IEP goals, accommodations, and students.
@@ -62,7 +63,8 @@ Database is seeded with realistic demo data:
 - IEP documents with staggered start dates across the entire school year (Sep 2025 - Apr 2026), not all starting together
 - 42 behavior targets across 14 students with natural trend patterns (steady improvement, plateau-then-improve, regression-then-recovery)
 - 42 program targets across 14 students with varied learning curves and mastery tracking
-- 370+ data collection sessions with behavior and program data
+- 460 IEP goals linked to behavior/program targets and service areas
+- 1,254 data collection sessions with 2,521 behavior data points and 3,112 program data points
 - School holidays/breaks modeled (Thanksgiving, winter, February, April breaks)
 - 44 goal bank entries across 7 domains
 
