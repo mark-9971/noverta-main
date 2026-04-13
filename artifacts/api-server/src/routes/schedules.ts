@@ -222,28 +222,26 @@ router.get("/schedule-blocks/coverage-gaps", async (req, res): Promise<void> => 
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
     .where(eq(serviceRequirementsTable.active, true));
 
-  const gaps = [];
-  for (const req of reqs) {
-    const blocks = await db
-      .select({ id: scheduleBlocksTable.id })
-      .from(scheduleBlocksTable)
-      .where(and(
-        eq(scheduleBlocksTable.studentId, req.studentId),
-        eq(scheduleBlocksTable.serviceTypeId, req.serviceTypeId),
-        eq(scheduleBlocksTable.isRecurring, true)
-      ));
+  const coveredPairs = await db
+    .selectDistinct({
+      studentId: scheduleBlocksTable.studentId,
+      serviceTypeId: scheduleBlocksTable.serviceTypeId,
+    })
+    .from(scheduleBlocksTable)
+    .where(eq(scheduleBlocksTable.isRecurring, true));
 
-    if (blocks.length === 0) {
-      gaps.push({
-        studentId: req.studentId,
-        studentName: req.studentFirst ? `${req.studentFirst} ${req.studentLast}` : `Student ${req.studentId}`,
-        serviceRequirementId: req.id,
-        serviceTypeName: req.serviceTypeName ?? "Unknown",
-        gapDescription: `No scheduled blocks found for ${req.serviceTypeName ?? "this service"} (${req.requiredMinutes} min/${req.intervalType} required)`,
-        severity: req.requiredMinutes > 60 ? "high" : "medium",
-      });
-    }
-  }
+  const coveredSet = new Set(coveredPairs.map(p => `${p.studentId}-${p.serviceTypeId}`));
+
+  const gaps = reqs
+    .filter(req => !coveredSet.has(`${req.studentId}-${req.serviceTypeId}`))
+    .map(req => ({
+      studentId: req.studentId,
+      studentName: req.studentFirst ? `${req.studentFirst} ${req.studentLast}` : `Student ${req.studentId}`,
+      serviceRequirementId: req.id,
+      serviceTypeName: req.serviceTypeName ?? "Unknown",
+      gapDescription: `No scheduled blocks found for ${req.serviceTypeName ?? "this service"} (${req.requiredMinutes} min/${req.intervalType} required)`,
+      severity: req.requiredMinutes > 60 ? "high" : "medium",
+    }));
 
   res.json(gaps);
 });

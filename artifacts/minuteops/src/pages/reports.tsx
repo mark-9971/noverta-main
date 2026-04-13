@@ -4,20 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-
-const RISK_CONFIG: Record<string, { label: string; color: string; ringColor: string; bg: string }> = {
-  on_track: { label: "On Track", color: "text-emerald-700", ringColor: "#10b981", bg: "bg-emerald-50 border-emerald-200" },
-  slightly_behind: { label: "Slightly Behind", color: "text-amber-700", ringColor: "#f59e0b", bg: "bg-amber-50 border-amber-200" },
-  at_risk: { label: "At Risk", color: "text-orange-700", ringColor: "#f97316", bg: "bg-orange-50 border-orange-200" },
-  out_of_compliance: { label: "Out of Compliance", color: "text-red-700", ringColor: "#ef4444", bg: "bg-red-50 border-red-200" },
-  completed: { label: "Completed", color: "text-indigo-700", ringColor: "#6366f1", bg: "bg-indigo-50 border-indigo-200" },
-};
-
-function formatDate(d: string) {
-  if (!d) return "—";
-  const date = new Date(d + "T00:00:00");
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+import { RISK_CONFIG } from "@/lib/constants";
+import { formatDate } from "@/lib/formatters";
 
 export default function Reports() {
   const { data: minuteSummary, isLoading: loadingMinutes } = useGetStudentMinuteSummaryReport({} as any);

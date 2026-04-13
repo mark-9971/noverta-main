@@ -15,23 +15,30 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
   try {
     const studentId = parseInt(req.params.studentId);
     const activeOnly = req.query.active !== "false";
-    const conditions = [eq(iepGoalsTable.studentId, studentId)];
+    const conditions: any[] = [eq(iepGoalsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(iepGoalsTable.active, true));
-    const goals = await db.select().from(iepGoalsTable)
+
+    const rows = await db
+      .select({
+        goal: iepGoalsTable,
+        pt: programTargetsTable,
+        bt: behaviorTargetsTable,
+      })
+      .from(iepGoalsTable)
+      .leftJoin(programTargetsTable, eq(iepGoalsTable.programTargetId, programTargetsTable.id))
+      .leftJoin(behaviorTargetsTable, eq(iepGoalsTable.behaviorTargetId, behaviorTargetsTable.id))
       .where(and(...conditions))
       .orderBy(asc(iepGoalsTable.goalArea), asc(iepGoalsTable.goalNumber));
 
-    const enriched = await Promise.all(goals.map(async (goal) => {
+    const enriched = rows.map(({ goal, pt, bt }) => {
       let linkedTarget = null;
-      if (goal.programTargetId) {
-        const [pt] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, goal.programTargetId));
-        linkedTarget = pt ? { type: "program", name: pt.name, currentPromptLevel: pt.currentPromptLevel, masteryCriterionPercent: pt.masteryCriterionPercent } : null;
-      } else if (goal.behaviorTargetId) {
-        const [bt] = await db.select().from(behaviorTargetsTable).where(eq(behaviorTargetsTable.id, goal.behaviorTargetId));
-        linkedTarget = bt ? { type: "behavior", name: bt.name, baselineValue: bt.baselineValue, goalValue: bt.goalValue, measurementType: bt.measurementType } : null;
+      if (pt) {
+        linkedTarget = { type: "program", name: pt.name, currentPromptLevel: pt.currentPromptLevel, masteryCriterionPercent: pt.masteryCriterionPercent };
+      } else if (bt) {
+        linkedTarget = { type: "behavior", name: bt.name, baselineValue: bt.baselineValue, goalValue: bt.goalValue, measurementType: bt.measurementType };
       }
       return { ...goal, linkedTarget, createdAt: goal.createdAt.toISOString(), updatedAt: goal.updatedAt.toISOString() };
-    }));
+    });
 
     res.json(enriched);
   } catch (e: any) {

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -46,7 +46,11 @@ export const iepDocumentsTable = pgTable("iep_documents", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("iep_docs_student_idx").on(table.studentId),
+  index("iep_docs_student_active_idx").on(table.studentId, table.active),
+  index("iep_docs_prepared_by_idx").on(table.preparedBy),
+]);
 
 export const insertIepDocumentSchema = createInsertSchema(iepDocumentsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertIepDocument = z.infer<typeof insertIepDocumentSchema>;

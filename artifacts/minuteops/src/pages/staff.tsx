@@ -5,17 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-
-const ROLE_LABELS: Record<string, string> = {
-  bcba: "BCBA", slp: "SLP", ot: "OT", pt: "PT",
-  counselor: "Counselor", case_manager: "Case Manager", para: "Para",
-};
-const ROLE_COLORS: Record<string, string> = {
-  bcba: "bg-indigo-50 text-indigo-700", slp: "bg-blue-50 text-blue-700",
-  ot: "bg-emerald-50 text-emerald-700", pt: "bg-amber-50 text-amber-700",
-  counselor: "bg-pink-50 text-pink-700", case_manager: "bg-slate-100 text-slate-600",
-  para: "bg-purple-50 text-purple-700",
-};
+import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 
 export default function Staff() {
   const { data: staff, isLoading } = useListStaff({} as any);

@@ -160,7 +160,7 @@ function buildProgressFromSessions(
   const deliveredMinutes = completedSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
 
   const now = new Date();
-  const totalDays = (intervalEnd.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24);
+  const totalDays = Math.max(1, (intervalEnd.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
   const elapsedDays = Math.max(0, (now.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
   const progressFraction = Math.min(1, elapsedDays / totalDays);
 
@@ -171,7 +171,7 @@ function buildProgressFromSessions(
   const projectedMinutes = deliveredMinutes + (currentPacePerDay * remainingDays);
 
   const remainingMinutes = Math.max(0, req.requiredMinutes - deliveredMinutes);
-  const percentComplete = Math.min(100, (deliveredMinutes / req.requiredMinutes) * 100);
+  const percentComplete = req.requiredMinutes > 0 ? Math.min(100, (deliveredMinutes / req.requiredMinutes) * 100) : 100;
 
   const riskStatus = computeRiskStatus(req.requiredMinutes, deliveredMinutes, expectedByNow, projectedMinutes);
 

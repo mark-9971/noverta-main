@@ -125,45 +125,56 @@ router.post("/compliance-events/recalculate", async (req, res): Promise<void> =>
       lastName: studentsTable.lastName,
     }).from(studentsTable).where(eq(studentsTable.status, "active"));
 
-    let created = 0;
+    const allDocs = await db.select().from(iepDocumentsTable)
+      .where(eq(iepDocumentsTable.active, true))
+      .orderBy(desc(iepDocumentsTable.iepEndDate));
+
+    const docByStudent = new Map<number, typeof allDocs[0]>();
+    for (const doc of allDocs) {
+      if (!docByStudent.has(doc.studentId)) docByStudent.set(doc.studentId, doc);
+    }
+
+    const allEvents = await db.select().from(complianceEventsTable);
+    const eventsByStudent = new Map<number, Set<string>>();
+    for (const ev of allEvents) {
+      if (!eventsByStudent.has(ev.studentId)) eventsByStudent.set(ev.studentId, new Set());
+      eventsByStudent.get(ev.studentId)!.add(ev.eventType);
+    }
+
+    const newEvents: any[] = [];
     for (const student of students) {
-      const docs = await db.select().from(iepDocumentsTable)
-        .where(and(eq(iepDocumentsTable.studentId, student.id), eq(iepDocumentsTable.active, true)))
-        .orderBy(desc(iepDocumentsTable.iepEndDate))
-        .limit(1);
+      const doc = docByStudent.get(student.id);
+      if (!doc) continue;
+      const existingTypes = eventsByStudent.get(student.id) ?? new Set();
 
-      if (docs.length > 0) {
-        const doc = docs[0];
-        const existingEvents = await db.select().from(complianceEventsTable)
-          .where(eq(complianceEventsTable.studentId, student.id));
-        const existingTypes = new Set(existingEvents.map(e => e.eventType));
+      if (!existingTypes.has("annual_review")) {
+        newEvents.push({
+          studentId: student.id,
+          eventType: "annual_review",
+          title: `Annual IEP Review — ${student.firstName} ${student.lastName}`,
+          dueDate: doc.iepEndDate,
+          status: "upcoming",
+        });
+      }
 
-        if (!existingTypes.has("annual_review")) {
-          await db.insert(complianceEventsTable).values({
-            studentId: student.id,
-            eventType: "annual_review",
-            title: `Annual IEP Review — ${student.firstName} ${student.lastName}`,
-            dueDate: doc.iepEndDate,
-            status: "upcoming",
-          });
-          created++;
-        }
-
-        if (!existingTypes.has("reeval_3yr")) {
-          const reevalDate = new Date(doc.iepStartDate);
-          reevalDate.setFullYear(reevalDate.getFullYear() + 3);
-          await db.insert(complianceEventsTable).values({
-            studentId: student.id,
-            eventType: "reeval_3yr",
-            title: `3-Year Reevaluation — ${student.firstName} ${student.lastName}`,
-            dueDate: reevalDate.toISOString().split("T")[0],
-            status: "upcoming",
-          });
-          created++;
-        }
+      if (!existingTypes.has("reeval_3yr")) {
+        const reevalDate = new Date(doc.iepStartDate);
+        reevalDate.setFullYear(reevalDate.getFullYear() + 3);
+        newEvents.push({
+          studentId: student.id,
+          eventType: "reeval_3yr",
+          title: `3-Year Reevaluation — ${student.firstName} ${student.lastName}`,
+          dueDate: reevalDate.toISOString().split("T")[0],
+          status: "upcoming",
+        });
       }
     }
-    res.json({ message: `Recalculated compliance events`, created, studentsProcessed: students.length });
+
+    if (newEvents.length > 0) {
+      await db.insert(complianceEventsTable).values(newEvents);
+    }
+
+    res.json({ message: `Recalculated compliance events`, created: newEvents.length, studentsProcessed: students.length });
   } catch (e: any) {
     console.error("POST recalculate error:", e);
     res.status(500).json({ error: "Failed to recalculate compliance events" });

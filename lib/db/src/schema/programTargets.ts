@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -26,7 +26,9 @@ export const programTargetsTable = pgTable("program_targets", {
   tutorInstructions: text("tutor_instructions"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("pt_student_active_idx").on(table.studentId, table.active),
+]);
 
 export const insertProgramTargetSchema = createInsertSchema(programTargetsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertProgramTarget = z.infer<typeof insertProgramTargetSchema>;

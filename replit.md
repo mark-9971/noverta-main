@@ -79,6 +79,11 @@ The platform is optimized to handle 10K schools, 100K students, and millions of 
 - `iep_goals`: (student_id, active), (student_id, service_area), iep_document_id
 - `alerts`: resolved, (student_id, resolved), (severity, resolved), (staff_id, resolved), type
 - `schedule_blocks`: (staff_id, day_of_week), (is_recurring, staff_id), student_id
+- `iep_documents`: student_id, (student_id, active), prepared_by
+- `behavior_targets`: (student_id, active)
+- `program_targets`: (student_id, active)
+- `team_meetings`: student_id, scheduled_date
+- `iep_accommodations`: student_id, iep_document_id
 - `staff_assignments`, `data_sessions`, `behavior_data`, `program_data`, `compliance_events`: all indexed on FK columns
 
 **Query Optimization**:
@@ -89,6 +94,17 @@ The platform is optimized to handle 10K schools, 100K students, and millions of 
 - Provider/para summaries use grouped COUNT queries instead of per-provider N+1
 - Alerts summary uses single GROUP BY query instead of 5 sequential queries
 - Missed sessions trend uses single GROUP BY query instead of 16 sequential queries
+- IEP goals endpoint uses LEFT JOINs to program/behavior targets instead of N+1 map
+- Coverage gaps uses selectDistinct + Set lookup instead of per-requirement loop
+- Compliance recalculate uses batch reads (all docs + all events) then single bulk insert
+
+**Error Handling**:
+- Global Express error handler returns JSON 500 responses (no stack trace leaks in production)
+- Division-by-zero guards in minuteCalc.ts (totalDays, requiredMinutes)
+
+**Shared Frontend Constants**:
+- `src/lib/constants.ts`: RISK_CONFIG, RISK_PRIORITY_ORDER, ROLE_COLORS, ROLE_LABELS
+- `src/lib/formatters.ts`: formatDate, formatTime — used across all pages
 
 **Pagination**:
 - `GET /students` and `GET /staff` support `limit` (1-500, default 100) and `offset` (≥0) query params

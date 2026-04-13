@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -18,7 +18,10 @@ export const teamMeetingsTable = pgTable("team_meetings", {
   outcome: text("outcome"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("tm_student_idx").on(table.studentId),
+  index("tm_scheduled_date_idx").on(table.scheduledDate),
+]);
 
 export const insertTeamMeetingSchema = createInsertSchema(teamMeetingsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTeamMeeting = z.infer<typeof insertTeamMeetingSchema>;

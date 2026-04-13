@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -30,5 +30,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use("/api", router);
+
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err, method: req.method, url: req.url }, "Unhandled error");
+  const status = (err as any).status || (err as any).statusCode || 500;
+  const message = process.env.NODE_ENV === "production" ? "Internal server error" : err.message;
+  res.status(status).json({ error: message });
+});
 
 export default app;

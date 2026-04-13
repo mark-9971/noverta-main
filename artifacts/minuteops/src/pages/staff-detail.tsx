@@ -10,18 +10,9 @@ import {
   Mail, Phone, Building, Shield, ChevronRight
 } from "lucide-react";
 
-const API = "/api";
+import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 
-const ROLE_LABELS: Record<string, string> = {
-  bcba: "BCBA", slp: "SLP", ot: "OT", pt: "PT",
-  counselor: "Counselor", case_manager: "Case Manager", para: "Paraeducator",
-};
-const ROLE_COLORS: Record<string, string> = {
-  bcba: "bg-indigo-100 text-indigo-700", slp: "bg-blue-100 text-blue-700",
-  ot: "bg-teal-100 text-teal-700", pt: "bg-cyan-100 text-cyan-700",
-  counselor: "bg-purple-100 text-purple-700", case_manager: "bg-slate-100 text-slate-700",
-  para: "bg-violet-100 text-violet-700",
-};
+const API = "/api";
 
 export default function StaffDetail() {
   const { id } = useParams<{ id: string }>();
