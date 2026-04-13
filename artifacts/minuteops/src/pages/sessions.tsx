@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListSessions, useListStudents, useCreateSession, useListServiceRequirements } from "@workspace/api-client-react";
+import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRigh
 const INITIAL_FORM = {
   studentId: "",
   serviceRequirementId: "",
+  staffId: "",
   sessionDate: new Date().toISOString().split("T")[0],
   startTime: "09:00",
   endTime: "10:00",
@@ -21,6 +22,7 @@ const INITIAL_FORM = {
   deliveryMode: "in_person",
   location: "",
   isMakeup: false,
+  missedReasonId: "",
   notes: "",
 };
 
@@ -38,10 +40,14 @@ export default function Sessions() {
   const { data: serviceReqs } = useListServiceRequirements(
     form.studentId ? { studentId: Number(form.studentId) } as any : ({} as any)
   );
+  const { data: staffData } = useListStaff({} as any);
+  const { data: missedReasonsData } = useListMissedReasons();
   const { mutateAsync: createSession } = useCreateSession();
 
   const sessionList = (sessions as any[]) ?? [];
   const studentList = (students as any[]) ?? [];
+  const staffAllList = (staffData as any[]) ?? [];
+  const missedReasonsList = (missedReasonsData as any[]) ?? [];
   const reqList = (serviceReqs as any[]) ?? [];
 
   const filtered = sessionList.filter(s => {
@@ -73,6 +79,8 @@ export default function Sessions() {
           studentId: Number(form.studentId),
           serviceRequirementId: form.serviceRequirementId ? Number(form.serviceRequirementId) : null,
           serviceTypeId: selectedReq?.serviceTypeId ?? null,
+          staffId: form.staffId ? Number(form.staffId) : null,
+          missedReasonId: form.missedReasonId ? Number(form.missedReasonId) : null,
           sessionDate: form.sessionDate,
           startTime: form.startTime || null,
           endTime: form.endTime || null,
@@ -225,6 +233,17 @@ export default function Sessions() {
                 </Select>
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] text-slate-500">Provider</Label>
+              <Select value={form.staffId} onValueChange={v => updateForm("staffId", v)}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select provider" /></SelectTrigger>
+                <SelectContent>
+                  {staffAllList.map((s: any) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.firstName} {s.lastName} — {s.role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-slate-500">Date *</Label>
@@ -265,6 +284,19 @@ export default function Sessions() {
                 </Select>
               </div>
             </div>
+            {form.status === "missed" && (
+              <div className="space-y-1.5">
+                <Label className="text-[12px] text-slate-500">Missed Reason</Label>
+                <Select value={form.missedReasonId} onValueChange={v => updateForm("missedReasonId", v)}>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select reason" /></SelectTrigger>
+                  <SelectContent>
+                    {missedReasonsList.map((r: any) => (
+                      <SelectItem key={r.id} value={String(r.id)}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
               <input type="checkbox" checked={form.isMakeup} onChange={e => updateForm("isMakeup", e.target.checked)} className="rounded border-slate-300" />
               This is a makeup session

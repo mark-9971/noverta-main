@@ -185,11 +185,11 @@ export default function StudentDetail() {
             <CardTitle className="text-sm font-semibold text-slate-600">Service Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
-            {progressList.length > 0 ? progressList.map((p: any) => {
+            {progressList.length > 0 ? progressList.map((p: any, idx: number) => {
               const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
               const rCfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
               return (
-                <div key={p.serviceTypeName} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/50">
+                <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/50">
                   <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={rCfg.ringColor} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-slate-700 truncate">{p.serviceTypeName}</p>
