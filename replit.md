@@ -28,10 +28,12 @@ MinuteOps is a production-quality school special education and ABA service deliv
 - `lib/db` — Drizzle ORM schema + migrations
 
 ### Database Schema
-- `students` — Student records with IEP dates, grade, disability category
+- `students` — Student records with IEP dates, grade, disability category, dateOfBirth, primaryLanguage
 - `staff` — Providers/paras/case managers with roles and credentials
 - `service_types` — ABA, SLP, OT, PT, Counseling, Para Support, BCBA Consultation
-- `service_requirements` — IEP-mandated service minutes per student (weekly/monthly)
+- `service_requirements` — IEP-mandated service minutes per student (weekly/monthly), gridType (A/B/C per MA), setting, groupSize
+- `iep_documents` — MA DESE IEP form data: student/parent concerns, team vision, PLAAFP (academic/behavioral/communication/additional), transition planning (14+), ESY eligibility, assessment participation, schedule modifications, transportation
+- `iep_accommodations` — IEP accommodations by category (instruction/assessment/testing/environmental/behavioral), description, setting, frequency, provider
 - `session_logs` — Delivered session records with status (completed/missed/makeup)
 - `schedule_blocks` — Recurring weekly schedule blocks
 - `staff_assignments` — Staff-to-student assignments
@@ -59,6 +61,10 @@ All routes prefixed with `/api/`:
 - `/staff-assignments` — Staff-student assignment management
 - `/alerts` — List/resolve compliance alerts
 - `/minute-progress` — Computed minute delivery progress per student/service
+- `/students/:id/iep-documents` — GET/POST MA IEP documents
+- `/iep-documents/:id` — GET/PATCH/DELETE IEP document
+- `/students/:id/accommodations` — GET/POST IEP accommodations
+- `/accommodations/:id` — PATCH/DELETE accommodation
 - `/reports/*` — Student minute summary, missed sessions, compliance risk reports
 - `/imports` — GET import history
 - `/imports/templates/:type` — GET downloadable CSV templates (students, service_requirements, sessions, aspen_students, esped_services)
@@ -88,6 +94,11 @@ All routes prefixed with `/api/`:
 - `/alerts` — Compliance alerts with severity filter pills, resolve actions, refresh/show-resolved toggles
 - `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars
 - `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
+- `/students/:id/iep` — MA 603 CMR 28.00 compliant IEP page with 4 tabs:
+  - **IEP Document**: Create/edit MA DESE form with all required sections (Student/Parent Concerns, Team Vision, PLAAFP A-D, Transition 14+, ESY, Assessment Participation, Schedule Modifications)
+  - **Goals**: Annual IEP goals with benchmarks/short-term objectives, auto-create from data targets, linked program/behavior targets
+  - **Accommodations**: Manage accommodations by category (instructional, assessment, testing, environmental, behavioral)
+  - **Progress Reports**: Generate/view with MA standard progress codes (M/SP/IP/NP/NA/R), goal-by-goal narrative
 - `/import` — Bulk CSV import page with drag-and-drop upload, data preview, template downloads (MinuteOps standard, Aspen X2, eSPED), import history, support for students/IEP requirements/session logs
 - `/program-data` — ABA program data page with 5 tabs:
   - **Data Collection**: Live session timer, frequency counter for behaviors (+/- buttons), one-tap discrete trial recording (Correct/Prompted/Incorrect), prompt level selector (FP/PP/M/G/V/I), undo with trial history, session save

@@ -15,7 +15,10 @@ export const serviceRequirementsTable = pgTable("service_requirements", {
   intervalType: text("interval_type").notNull().default("monthly"), // daily | weekly | monthly | quarterly
   startDate: text("start_date").notNull(), // ISO date string
   endDate: text("end_date"), // ISO date string
-  priority: text("priority").default("medium"), // low | medium | high | critical
+  gridType: text("grid_type").default("B"),
+  setting: text("setting"),
+  groupSize: text("group_size"),
+  priority: text("priority").default("medium"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

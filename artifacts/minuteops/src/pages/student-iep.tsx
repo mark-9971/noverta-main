@@ -12,7 +12,16 @@ import {
 
 const API = "/api";
 
-interface Student { id: number; firstName: string; lastName: string; grade: string; }
+async function apiFetch(url: string, opts?: RequestInit) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+  return res;
+}
+
+interface Student { id: number; firstName: string; lastName: string; grade: string; dateOfBirth?: string | null; }
 interface ProgramTarget { id: number; name: string; domain: string; programType: string; currentPromptLevel: string; masteryCriterionPercent: number; }
 interface BehaviorTarget { id: number; name: string; measurementType: string; baselineValue: string | null; goalValue: string | null; targetDirection: string; }
 interface IepGoal {
@@ -21,15 +30,16 @@ interface IepGoal {
   measurementMethod: string | null; scheduleOfReporting: string;
   programTargetId: number | null; behaviorTargetId: number | null;
   serviceArea: string | null; status: string; startDate: string | null;
-  endDate: string | null; notes: string | null; active: boolean;
+  endDate: string | null; notes: string | null; active: boolean; benchmarks: string | null;
   linkedTarget?: { type: string; name: string; currentPromptLevel?: string; masteryCriterionPercent?: number; baselineValue?: string; goalValue?: string; measurementType?: string } | null;
 }
 interface GoalProgressEntry {
   iepGoalId: number; goalArea: string; goalNumber: number; annualGoal: string;
   baseline: string | null; targetCriterion: string | null;
-  currentPerformance: string; progressRating: string; dataPoints: number;
+  currentPerformance: string; progressRating: string; progressCode: string; dataPoints: number;
   trendDirection: string; promptLevel?: string | null; percentCorrect?: number | null;
   behaviorValue?: number | null; behaviorGoal?: number | null; narrative: string;
+  benchmarks?: string | null;
 }
 interface ProgressReport {
   id: number; studentId: number; reportingPeriod: string; periodStart: string;
@@ -38,6 +48,24 @@ interface ProgressReport {
   parentNotes: string | null; goalProgress: GoalProgressEntry[];
   preparedByName?: string | null; createdAt: string;
 }
+interface IepDocument {
+  id: number; studentId: number; iepStartDate: string; iepEndDate: string;
+  meetingDate: string | null; status: string;
+  studentConcerns: string | null; parentConcerns: string | null; teamVision: string | null;
+  plaafpAcademic: string | null; plaafpBehavioral: string | null;
+  plaafpCommunication: string | null; plaafpAdditional: string | null;
+  transitionAssessment: string | null; transitionPostsecGoals: string | null;
+  transitionServices: string | null; transitionAgencies: string | null;
+  esyEligible: boolean | null; esyServices: string | null; esyJustification: string | null;
+  assessmentParticipation: string | null; assessmentAccommodations: string | null;
+  alternateAssessmentJustification: string | null;
+  scheduleModifications: string | null; transportationServices: string | null;
+  active: boolean;
+}
+interface Accommodation {
+  id: number; studentId: number; category: string; description: string;
+  setting: string | null; frequency: string | null; provider: string | null; active: boolean;
+}
 
 const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any; bg: string }> = {
   mastered: { label: "Mastered", color: "text-emerald-700", icon: CheckCircle2, bg: "bg-emerald-50" },
@@ -45,6 +73,15 @@ const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any
   some_progress: { label: "Some Progress", color: "text-amber-700", icon: Clock, bg: "bg-amber-50" },
   insufficient_progress: { label: "Insufficient Progress", color: "text-red-700", icon: AlertTriangle, bg: "bg-red-50" },
   not_addressed: { label: "Not Addressed", color: "text-slate-500", icon: MinusIcon, bg: "bg-slate-50" },
+};
+
+const MA_PROGRESS_CODES: Record<string, { label: string; fullLabel: string; color: string; bg: string }> = {
+  M: { label: "M", fullLabel: "Mastered", color: "text-emerald-700", bg: "bg-emerald-50" },
+  SP: { label: "SP", fullLabel: "Sufficient Progress", color: "text-blue-700", bg: "bg-blue-50" },
+  IP: { label: "IP", fullLabel: "Insufficient Progress", color: "text-amber-700", bg: "bg-amber-50" },
+  NP: { label: "NP", fullLabel: "No Progress", color: "text-red-700", bg: "bg-red-50" },
+  NA: { label: "NA", fullLabel: "Not Addressed", color: "text-slate-500", bg: "bg-slate-50" },
+  R: { label: "R", fullLabel: "Regression", color: "text-red-800", bg: "bg-red-100" },
 };
 
 const TREND_ICONS: Record<string, { icon: any; color: string; label: string }> = {
@@ -61,8 +98,10 @@ export default function StudentIepPage() {
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [programTargets, setProgramTargets] = useState<ProgramTarget[]>([]);
   const [behaviorTargets, setBehaviorTargets] = useState<BehaviorTarget[]>([]);
+  const [iepDocs, setIepDocs] = useState<IepDocument[]>([]);
+  const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"goals" | "reports">("goals");
+  const [tab, setTab] = useState<"document" | "goals" | "accommodations" | "reports">("document");
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showGenerateReport, setShowGenerateReport] = useState(false);
   const [viewingReport, setViewingReport] = useState<ProgressReport | null>(null);
@@ -70,18 +109,22 @@ export default function StudentIepPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [s, g, r, pt, bt] = await Promise.all([
+      const [s, g, r, pt, bt, docs, accs] = await Promise.all([
         fetch(`${API}/students/${studentId}`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/iep-goals`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/progress-reports`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/program-targets`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/behavior-targets`).then(r => r.json()),
+        fetch(`${API}/students/${studentId}/iep-documents`).then(r => r.json()),
+        fetch(`${API}/students/${studentId}/accommodations`).then(r => r.json()),
       ]);
       setStudent(s);
-      setGoals(g);
-      setReports(r);
-      setProgramTargets(pt);
-      setBehaviorTargets(bt);
+      setGoals(Array.isArray(g) ? g : []);
+      setReports(Array.isArray(r) ? r : []);
+      setProgramTargets(Array.isArray(pt) ? pt : []);
+      setBehaviorTargets(Array.isArray(bt) ? bt : []);
+      setIepDocs(Array.isArray(docs) ? docs : []);
+      setAccommodations(Array.isArray(accs) ? accs : []);
     } catch (e) {
       console.error("Failed to load IEP data:", e);
     }
@@ -123,7 +166,7 @@ export default function StudentIepPage() {
               </div>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800">{student.firstName} {student.lastName}</h1>
-                <p className="text-xs md:text-sm text-slate-400">IEP Goals & Progress Reports · Grade {student.grade}</p>
+                <p className="text-xs md:text-sm text-slate-400">IEP — 603 CMR 28.00 · Grade {student.grade}</p>
               </div>
             </div>
           </div>
@@ -157,13 +200,15 @@ export default function StudentIepPage() {
         </Card>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-slate-200 -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex items-center gap-1 border-b border-slate-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
         {([
-          { key: "goals" as const, label: "IEP Goals", icon: Target },
+          { key: "document" as const, label: "IEP Document", icon: FileCheck },
+          { key: "goals" as const, label: "Goals", icon: Target },
+          { key: "accommodations" as const, label: "Accommodations", icon: BookOpen },
           { key: "reports" as const, label: "Progress Reports", icon: FileText },
         ]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium border-b-2 transition-all ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
               tab === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400 hover:text-slate-600"
             }`}>
             <t.icon className="w-4 h-4" />
@@ -171,6 +216,14 @@ export default function StudentIepPage() {
           </button>
         ))}
       </div>
+
+      {tab === "document" && (
+        <IepDocumentSection studentId={studentId} student={student} iepDocs={iepDocs} onSaved={loadData} />
+      )}
+
+      {tab === "accommodations" && (
+        <AccommodationsSection studentId={studentId} accommodations={accommodations} onSaved={loadData} />
+      )}
 
       {tab === "goals" && (
         <div className="space-y-4 md:space-y-6">
@@ -369,6 +422,9 @@ function GoalCard({ goal, onUpdated }: { goal: IepGoal; onUpdated: () => void })
             {goal.measurementMethod && (
               <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Measurement Method</p><p className="text-[12px] text-slate-600">{goal.measurementMethod}</p></div>
             )}
+            {goal.benchmarks && (
+              <div><p className="text-[10px] text-slate-400 uppercase tracking-wider">Benchmarks / Short-Term Objectives</p><p className="text-[12px] text-slate-600 whitespace-pre-line">{goal.benchmarks}</p></div>
+            )}
             <div className="flex items-center gap-3 text-[11px] text-slate-400">
               <span>Reporting: {goal.scheduleOfReporting}</span>
               {goal.startDate && <span>Start: {formatDate(goal.startDate)}</span>}
@@ -391,6 +447,7 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
   const [targetCriterion, setTargetCriterion] = useState("");
   const [measurementMethod, setMeasurementMethod] = useState("");
   const [serviceArea, setServiceArea] = useState("");
+  const [benchmarks, setBenchmarks] = useState("");
   const [linkedType, setLinkedType] = useState<"none" | "program" | "behavior">("none");
   const [linkedId, setLinkedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -438,6 +495,7 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
         goalArea, goalNumber, annualGoal: annualGoal.trim(),
         baseline: baseline || null, targetCriterion: targetCriterion || null,
         measurementMethod: measurementMethod || null, serviceArea: serviceArea || null,
+        benchmarks: benchmarks || null,
         programTargetId: linkedType === "program" ? linkedId : null,
         behaviorTargetId: linkedType === "behavior" ? linkedId : null,
       }),
@@ -513,6 +571,12 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
             <label className="text-[12px] font-medium text-slate-500">Measurement Method</label>
             <input value={measurementMethod} onChange={e => setMeasurementMethod(e.target.value)} placeholder="Discrete trial data collection"
               className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-slate-500">Benchmarks / Short-Term Objectives</label>
+            <textarea value={benchmarks} onChange={e => setBenchmarks(e.target.value)} rows={3}
+              placeholder="1. By [date], student will...&#10;2. By [date], student will..."
+              className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
           </div>
         </div>
 
@@ -735,7 +799,18 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
+                        {gp.progressCode && MA_PROGRESS_CODES[gp.progressCode] ? (
+                          <div className={`${MA_PROGRESS_CODES[gp.progressCode].bg} rounded-lg p-2 text-center`}>
+                            <p className={`text-lg font-bold ${MA_PROGRESS_CODES[gp.progressCode].color}`}>{gp.progressCode}</p>
+                            <p className={`text-[9px] font-medium mt-0.5 ${MA_PROGRESS_CODES[gp.progressCode].color}`}>{MA_PROGRESS_CODES[gp.progressCode].fullLabel}</p>
+                          </div>
+                        ) : (
+                          <div className={`${rating.bg} rounded-lg p-2 text-center`}>
+                            <RatingIcon className={`w-4 h-4 mx-auto ${rating.color}`} />
+                            <p className={`text-[10px] font-semibold mt-0.5 ${rating.color}`}>{rating.label}</p>
+                          </div>
+                        )}
                         <div className={`${rating.bg} rounded-lg p-2 text-center`}>
                           <RatingIcon className={`w-4 h-4 mx-auto ${rating.color}`} />
                           <p className={`text-[10px] font-semibold mt-0.5 ${rating.color}`}>{rating.label}</p>
@@ -831,6 +906,392 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const PLAAFP_SECTIONS = [
+  { key: "plaafpAcademic", label: "A. Academic Performance" },
+  { key: "plaafpBehavioral", label: "B. Behavioral / Social-Emotional" },
+  { key: "plaafpCommunication", label: "C. Communication" },
+  { key: "plaafpAdditional", label: "D. Additional (Health, Physical, Daily Living)" },
+] as const;
+
+const ACCOMMODATION_CATEGORIES = [
+  { value: "instruction", label: "Instructional" },
+  { value: "assessment", label: "Assessment" },
+  { value: "testing", label: "State Testing" },
+  { value: "environmental", label: "Environmental" },
+  { value: "behavioral", label: "Behavioral" },
+  { value: "other", label: "Other" },
+];
+
+function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
+  studentId: number; student: Student | null; iepDocs: IepDocument[]; onSaved: () => void;
+}) {
+  const activeDoc = iepDocs.find(d => d.active) || iepDocs[0] || null;
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Partial<IepDocument>>({});
+
+  const studentAge = student?.dateOfBirth
+    ? Math.floor((Date.now() - new Date(student.dateOfBirth).getTime()) / (365.25 * 86400000))
+    : null;
+  const showTransition = studentAge !== null && studentAge >= 14;
+
+  function startEdit() {
+    if (activeDoc) {
+      setForm({ ...activeDoc });
+    } else {
+      const now = new Date();
+      const nextYear = new Date(now);
+      nextYear.setFullYear(nextYear.getFullYear() + 1);
+      setForm({
+        iepStartDate: now.toISOString().split("T")[0],
+        iepEndDate: nextYear.toISOString().split("T")[0],
+        meetingDate: now.toISOString().split("T")[0],
+        status: "draft",
+      });
+    }
+    setEditing(true);
+  }
+
+  function updateField(key: string, val: any) {
+    setForm(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      if (activeDoc) {
+        await apiFetch(`${API}/iep-documents/${activeDoc.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+      } else {
+        await apiFetch(`${API}/students/${studentId}/iep-documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...form, studentId }),
+        });
+      }
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      console.error("Failed to save IEP document:", e);
+    }
+    setSaving(false);
+  }
+
+  function TextSection({ label, fieldKey, rows = 3 }: { label: string; fieldKey: string; rows?: number }) {
+    const val = (form as any)[fieldKey] ?? "";
+    const displayVal = activeDoc ? (activeDoc as any)[fieldKey] ?? "" : "";
+    if (editing) {
+      return (
+        <div>
+          <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{label}</label>
+          <textarea value={val} onChange={e => updateField(fieldKey, e.target.value)} rows={rows}
+            className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+        </div>
+      );
+    }
+    if (!displayVal) return null;
+    return (
+      <div>
+        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
+        <p className="text-[13px] text-slate-600 whitespace-pre-line">{displayVal}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-600">IEP Document (MA DESE Form)</h3>
+        <div className="flex gap-2">
+          {!editing && (
+            <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={startEdit}>
+              <Edit2 className="w-3.5 h-3.5 mr-1" /> {activeDoc ? "Edit" : "Create IEP Document"}
+            </Button>
+          )}
+          {editing && (
+            <>
+              <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8" onClick={save} disabled={saving}>
+                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {!activeDoc && !editing && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <FileCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">No IEP document yet</p>
+            <p className="text-xs text-slate-400 mt-1">Create one to track all MA-required IEP sections</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {(activeDoc || editing) && (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">IEP Dates & Status</h4>
+              {editing ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">IEP Start Date</label>
+                    <input type="date" value={form.iepStartDate || ""} onChange={e => updateField("iepStartDate", e.target.value)}
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">IEP End Date</label>
+                    <input type="date" value={form.iepEndDate || ""} onChange={e => updateField("iepEndDate", e.target.value)}
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">Meeting Date</label>
+                    <input type="date" value={form.meetingDate || ""} onChange={e => updateField("meetingDate", e.target.value)}
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 text-[13px] text-slate-600">
+                  <span>Start: {formatDate(activeDoc!.iepStartDate)}</span>
+                  <span>End: {formatDate(activeDoc!.iepEndDate)}</span>
+                  {activeDoc!.meetingDate && <span>Meeting: {formatDate(activeDoc!.meetingDate)}</span>}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${activeDoc!.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    {activeDoc!.status}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Student & Parent Concerns / Team Vision</h4>
+              <TextSection label="Student Concerns" fieldKey="studentConcerns" />
+              <TextSection label="Parent Concerns" fieldKey="parentConcerns" />
+              <TextSection label="Team Vision Statement" fieldKey="teamVision" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Present Levels of Academic Achievement & Functional Performance (PLAAFP)</h4>
+              {PLAAFP_SECTIONS.map(s => (
+                <TextSection key={s.key} label={s.label} fieldKey={s.key} rows={4} />
+              ))}
+            </CardContent>
+          </Card>
+
+          {(showTransition || editing) && (
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">
+                  Transition Planning (Age 14+)
+                  {studentAge !== null && <span className="text-slate-400 font-normal ml-2">Student age: {studentAge}</span>}
+                </h4>
+                <TextSection label="Transition Assessment" fieldKey="transitionAssessment" />
+                <TextSection label="Postsecondary Goals" fieldKey="transitionPostsecGoals" />
+                <TextSection label="Transition Services" fieldKey="transitionServices" />
+                <TextSection label="Agency Linkages" fieldKey="transitionAgencies" />
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Extended School Year (ESY)</h4>
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-500">ESY Eligible?</label>
+                    <select value={form.esyEligible == null ? "" : form.esyEligible ? "yes" : "no"}
+                      onChange={e => updateField("esyEligible", e.target.value === "" ? null : e.target.value === "yes")}
+                      className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                      <option value="">Not determined</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                  <TextSection label="ESY Services" fieldKey="esyServices" />
+                  <TextSection label="ESY Justification" fieldKey="esyJustification" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-[13px] text-slate-600">
+                    Eligible: {activeDoc!.esyEligible == null ? "Not determined" : activeDoc!.esyEligible ? "Yes" : "No"}
+                  </p>
+                  <TextSection label="ESY Services" fieldKey="esyServices" />
+                  <TextSection label="ESY Justification" fieldKey="esyJustification" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Assessment Participation</h4>
+              <TextSection label="Assessment Participation" fieldKey="assessmentParticipation" />
+              <TextSection label="Assessment Accommodations" fieldKey="assessmentAccommodations" />
+              <TextSection label="Alternate Assessment Justification" fieldKey="alternateAssessmentJustification" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider">Additional Services</h4>
+              <TextSection label="Schedule Modifications" fieldKey="scheduleModifications" />
+              <TextSection label="Transportation Services" fieldKey="transportationServices" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccommodationsSection({ studentId, accommodations, onSaved }: {
+  studentId: number; accommodations: Accommodation[]; onSaved: () => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [category, setCategory] = useState("instruction");
+  const [description, setDescription] = useState("");
+  const [setting, setSetting] = useState("");
+  const [frequency, setFrequency] = useState("");
+  const [provider, setProvider] = useState("");
+
+  async function addAccommodation() {
+    if (!description.trim()) return;
+    setSaving(true);
+    try {
+      await apiFetch(`${API}/students/${studentId}/accommodations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category, description: description.trim(),
+          setting: setting || null, frequency: frequency || null, provider: provider || null,
+        }),
+      });
+      setDescription(""); setSetting(""); setFrequency(""); setProvider("");
+      setShowAdd(false);
+      onSaved();
+    } catch (e) {
+      console.error("Failed to add accommodation:", e);
+    }
+    setSaving(false);
+  }
+
+  async function removeAccommodation(id: number) {
+    await apiFetch(`${API}/accommodations/${id}`, { method: "DELETE" });
+    onSaved();
+  }
+
+  const grouped = accommodations.reduce<Record<string, Accommodation[]>>((acc, a) => {
+    (acc[a.category] = acc[a.category] || []).push(a);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-600">Accommodations & Modifications</h3>
+        <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Add
+        </Button>
+      </div>
+
+      {showAdd && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Category *</label>
+                <select value={category} onChange={e => setCategory(e.target.value)}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  {ACCOMMODATION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Setting</label>
+                <input value={setting} onChange={e => setSetting(e.target.value)} placeholder="Gen ed, special ed, all settings"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-500">Description *</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+                placeholder="Extended time on tests, preferential seating..."
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Frequency</label>
+                <input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="Daily, as needed, during testing"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Provider</label>
+                <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="Special ed teacher, aide"
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+                disabled={!description.trim() || saving} onClick={addAccommodation}>
+                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {accommodations.length === 0 && !showAdd && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">No accommodations added yet</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {Object.entries(grouped).map(([cat, items]) => {
+        const catLabel = ACCOMMODATION_CATEGORIES.find(c => c.value === cat)?.label ?? cat;
+        return (
+          <Card key={cat}>
+            <CardContent className="p-4">
+              <h4 className="text-[12px] font-semibold text-indigo-600 uppercase tracking-wider mb-3">{catLabel}</h4>
+              <div className="space-y-2">
+                {items.map(a => (
+                  <div key={a.id} className="flex items-start gap-2 group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-slate-700">{a.description}</p>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5 flex-wrap">
+                        {a.setting && <span>Setting: {a.setting}</span>}
+                        {a.frequency && <span>Frequency: {a.frequency}</span>}
+                        {a.provider && <span>Provider: {a.provider}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => removeAccommodation(a.id)}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

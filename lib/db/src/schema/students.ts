@@ -16,8 +16,11 @@ export const studentsTable = pgTable("students", {
   schoolId: integer("school_id").references(() => schoolsTable.id),
   programId: integer("program_id").references(() => programsTable.id),
   caseManagerId: integer("case_manager_id").references(() => staffTable.id),
+  dateOfBirth: text("date_of_birth"),
+  disabilityCategory: text("disability_category"),
+  primaryLanguage: text("primary_language"),
   notes: text("notes"),
-  tags: text("tags"), // comma-separated tags
+  tags: text("tags"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

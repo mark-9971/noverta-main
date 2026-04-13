@@ -19,3 +19,5 @@ export * from "./programSteps";
 export * from "./programTemplates";
 export * from "./iepGoals";
 export * from "./progressReports";
+export * from "./iepDocuments";
+export * from "./iepAccommodations";

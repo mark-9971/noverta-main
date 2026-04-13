@@ -19,6 +19,8 @@ export const iepGoalsTable = pgTable("iep_goals", {
   status: text("status").notNull().default("active"),
   startDate: text("start_date"),
   endDate: text("end_date"),
+  benchmarks: text("benchmarks"),
+  iepDocumentId: integer("iep_document_id"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

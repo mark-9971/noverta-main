@@ -4,7 +4,8 @@ import {
   iepGoalsTable, progressReportsTable, studentsTable, staffTable,
   programTargetsTable, behaviorTargetsTable, programDataTable,
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
-  serviceTypesTable, sessionLogsTable, programStepsTable
+  serviceTypesTable, sessionLogsTable, programStepsTable,
+  iepDocumentsTable, iepAccommodationsTable
 } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, count } from "drizzle-orm";
 
@@ -44,7 +45,8 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
     const studentId = parseInt(req.params.studentId);
     const { goalArea, goalNumber, annualGoal, baseline, targetCriterion,
             measurementMethod, scheduleOfReporting, programTargetId,
-            behaviorTargetId, serviceArea, startDate, endDate, notes } = req.body;
+            behaviorTargetId, serviceArea, startDate, endDate, notes,
+            benchmarks, iepDocumentId } = req.body;
     if (!goalArea || !annualGoal) { res.status(400).json({ error: "goalArea and annualGoal are required" }); return; }
 
     const [goal] = await db.insert(iepGoalsTable).values({
@@ -56,6 +58,8 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
       behaviorTargetId: behaviorTargetId || null,
       serviceArea: serviceArea || null,
       startDate: startDate || null, endDate: endDate || null,
+      benchmarks: benchmarks || null,
+      iepDocumentId: iepDocumentId || null,
       notes: notes || null,
     }).returning();
     res.status(201).json({ ...goal, createdAt: goal.createdAt.toISOString(), updatedAt: goal.updatedAt.toISOString() });
@@ -71,7 +75,8 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
     const updates: any = {};
     for (const key of ["goalArea","goalNumber","annualGoal","baseline","targetCriterion",
                         "measurementMethod","scheduleOfReporting","programTargetId",
-                        "behaviorTargetId","serviceArea","status","startDate","endDate","notes","active"]) {
+                        "behaviorTargetId","serviceArea","status","startDate","endDate",
+                        "benchmarks","iepDocumentId","notes","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [updated] = await db.update(iepGoalsTable).set(updates).where(eq(iepGoalsTable.id, id)).returning();
@@ -425,6 +430,8 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         narrative = `This goal was not addressed during the reporting period or has no linked data target.`;
       }
 
+      const progressCode = toMaProgressCode(progressRating, trendDirection, dataPoints);
+
       return {
         iepGoalId: goal.id,
         goalArea: goal.goalArea,
@@ -434,6 +441,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         targetCriterion: goal.targetCriterion,
         currentPerformance,
         progressRating,
+        progressCode,
         dataPoints,
         trendDirection,
         promptLevel,
@@ -441,6 +449,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         behaviorValue,
         behaviorGoal,
         narrative,
+        benchmarks: goal.benchmarks || null,
       };
     }));
 
@@ -501,6 +510,148 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
     res.status(500).json({ error: "Failed to generate progress report" });
   }
 });
+
+// === IEP DOCUMENTS (MA Form) ===
+
+router.get("/students/:studentId/iep-documents", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const docs = await db.select().from(iepDocumentsTable)
+      .where(eq(iepDocumentsTable.studentId, studentId))
+      .orderBy(desc(iepDocumentsTable.iepStartDate));
+    res.json(docs.map(d => ({ ...d, createdAt: d.createdAt.toISOString(), updatedAt: d.updatedAt.toISOString() })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch IEP documents" });
+  }
+});
+
+router.get("/iep-documents/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [doc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
+    if (!doc) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch IEP document" });
+  }
+});
+
+router.post("/students/:studentId/iep-documents", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const { iepStartDate, iepEndDate, meetingDate, studentConcerns, parentConcerns, teamVision,
+            plaafpAcademic, plaafpBehavioral, plaafpCommunication, plaafpAdditional,
+            transitionAssessment, transitionPostsecGoals, transitionServices, transitionAgencies,
+            esyEligible, esyServices, esyJustification,
+            assessmentParticipation, assessmentAccommodations, alternateAssessmentJustification,
+            scheduleModifications, transportationServices, preparedBy } = req.body;
+    if (!iepStartDate || !iepEndDate) { res.status(400).json({ error: "iepStartDate and iepEndDate are required" }); return; }
+    const [doc] = await db.insert(iepDocumentsTable).values({
+      studentId, iepStartDate, iepEndDate, meetingDate,
+      studentConcerns, parentConcerns, teamVision,
+      plaafpAcademic, plaafpBehavioral, plaafpCommunication, plaafpAdditional,
+      transitionAssessment, transitionPostsecGoals, transitionServices, transitionAgencies,
+      esyEligible: esyEligible ?? null, esyServices, esyJustification,
+      assessmentParticipation, assessmentAccommodations, alternateAssessmentJustification,
+      scheduleModifications, transportationServices, preparedBy: preparedBy || null,
+    }).returning();
+    res.status(201).json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST iep-document error:", e);
+    res.status(500).json({ error: "Failed to create IEP document" });
+  }
+});
+
+router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const key of ["iepStartDate","iepEndDate","meetingDate","status","studentConcerns","parentConcerns","teamVision",
+                        "plaafpAcademic","plaafpBehavioral","plaafpCommunication","plaafpAdditional",
+                        "transitionAssessment","transitionPostsecGoals","transitionServices","transitionAgencies",
+                        "esyEligible","esyServices","esyJustification",
+                        "assessmentParticipation","assessmentAccommodations","alternateAssessmentJustification",
+                        "scheduleModifications","transportationServices","preparedBy","active"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    const [updated] = await db.update(iepDocumentsTable).set(updates).where(eq(iepDocumentsTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to update IEP document" });
+  }
+});
+
+router.delete("/iep-documents/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(iepDocumentsTable).where(eq(iepDocumentsTable.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete IEP document" });
+  }
+});
+
+// === ACCOMMODATIONS ===
+
+router.get("/students/:studentId/accommodations", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const accs = await db.select().from(iepAccommodationsTable)
+      .where(and(eq(iepAccommodationsTable.studentId, studentId), eq(iepAccommodationsTable.active, true)))
+      .orderBy(asc(iepAccommodationsTable.category));
+    res.json(accs.map(a => ({ ...a, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString() })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch accommodations" });
+  }
+});
+
+router.post("/students/:studentId/accommodations", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const { category, description, setting, frequency, provider, iepDocumentId } = req.body;
+    if (!description) { res.status(400).json({ error: "description is required" }); return; }
+    const [acc] = await db.insert(iepAccommodationsTable).values({
+      studentId, category: category || "instruction", description, setting, frequency, provider,
+      iepDocumentId: iepDocumentId || null,
+    }).returning();
+    res.status(201).json({ ...acc, createdAt: acc.createdAt.toISOString(), updatedAt: acc.updatedAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to create accommodation" });
+  }
+});
+
+router.patch("/accommodations/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const key of ["category","description","setting","frequency","provider","active"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    const [updated] = await db.update(iepAccommodationsTable).set(updates).where(eq(iepAccommodationsTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to update accommodation" });
+  }
+});
+
+router.delete("/accommodations/:id", async (req, res): Promise<void> => {
+  try {
+    await db.delete(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete accommodation" });
+  }
+});
+
+function toMaProgressCode(rating: string, trend: string, dataPoints: number): string {
+  if (rating === "mastered") return "M";
+  if (rating === "not_addressed" || dataPoints === 0) return "NA";
+  if (trend === "declining" && (rating === "insufficient_progress" || rating === "some_progress")) return "R";
+  if (rating === "sufficient_progress") return "SP";
+  if (rating === "some_progress" || rating === "insufficient_progress") return "IP";
+  return "NP";
+}
 
 function formatPromptLevel(level: string | null): string | null {
   if (!level) return null;

@@ -30,6 +30,7 @@ export interface GoalProgressEntry {
   targetCriterion: string | null;
   currentPerformance: string;
   progressRating: string;
+  progressCode: string;
   dataPoints: number;
   trendDirection: string;
   promptLevel?: string | null;
@@ -37,6 +38,7 @@ export interface GoalProgressEntry {
   behaviorValue?: number | null;
   behaviorGoal?: number | null;
   narrative: string;
+  benchmarks?: string | null;
 }
 
 export const insertProgressReportSchema = createInsertSchema(progressReportsTable).omit({ id: true, createdAt: true, updatedAt: true });
