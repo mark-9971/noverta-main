@@ -43,6 +43,8 @@ export * from "./getDashboardSummaryParams";
 export * from "./getDistrictOverviewParams";
 export * from "./getMissedSessionsReportParams";
 export * from "./getMissedSessionsTrendParams";
+export * from "./getParaDashboardSummaryParams";
+export * from "./getProviderDashboardSummaryParams";
 export * from "./getScheduleConflictsParams";
 export * from "./getStudentMinuteSummaryReportParams";
 export * from "./getStudentSessionsParams";

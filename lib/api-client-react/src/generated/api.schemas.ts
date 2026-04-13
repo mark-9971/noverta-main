@@ -853,6 +853,28 @@ export type GetDashboardRiskOverviewParams = {
   districtId?: number | null;
 };
 
+export type GetProviderDashboardSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetParaDashboardSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
 export type GetDashboardAlertsSummaryParams = {
   /**
    * @nullable
@@ -1081,6 +1103,14 @@ export type ListScheduleBlocksParams = {
    * @nullable
    */
   dayOfWeek?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
 
 export type GetScheduleConflictsParams = {

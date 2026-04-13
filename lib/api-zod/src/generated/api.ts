@@ -56,6 +56,11 @@ export const GetDashboardRiskOverviewResponse = zod.object({
 /**
  * @summary Get provider dashboard summary
  */
+export const GetProviderDashboardSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetProviderDashboardSummaryResponseItem = zod.object({
   staffId: zod.number(),
   staffName: zod.string(),
@@ -74,6 +79,11 @@ export const GetProviderDashboardSummaryResponse = zod.array(
 /**
  * @summary Get paraeducator dashboard summary
  */
+export const GetParaDashboardSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
 export const GetParaDashboardSummaryResponseItem = zod.object({
   staffId: zod.number(),
   staffName: zod.string(),
@@ -1121,6 +1131,8 @@ export const ListScheduleBlocksQueryParams = zod.object({
   studentId: zod.coerce.number().nullish(),
   weekOf: zod.coerce.string().nullish(),
   dayOfWeek: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
 });
 
 export const ListScheduleBlocksResponseItem = zod.object({

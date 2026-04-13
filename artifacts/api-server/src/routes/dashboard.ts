@@ -154,9 +154,17 @@ router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const staffConditions: any[] = [eq(staffTable.status, "active")];
+  if (sdFilters.schoolId) staffConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
+  if (sdFilters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+  const alertFilter = buildAlertStudentFilter(sdFilters);
+  const alertConditions: any[] = [eq(alertsTable.resolved, false)];
+  if (alertFilter) alertConditions.push(alertFilter);
+
   const [providers, allProgress, alertsByStaff] = await Promise.all([
-    db.select().from(staffTable).where(eq(staffTable.status, "active")),
-    computeAllActiveMinuteProgress(),
+    db.select().from(staffTable).where(and(...staffConditions)),
+    computeAllActiveMinuteProgress(sdFilters),
     db.select({
       staffId: alertsTable.staffId,
       count: count(),
@@ -198,8 +206,13 @@ router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const paraConditions: any[] = [eq(staffTable.status, "active"), eq(staffTable.role, "para")];
+  if (sdFilters.schoolId) paraConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
+  if (sdFilters.districtId) paraConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+
   const [paras, blockCounts, assignmentCounts] = await Promise.all([
-    db.select().from(staffTable).where(and(eq(staffTable.status, "active"), eq(staffTable.role, "para"))),
+    db.select().from(staffTable).where(and(...paraConditions)),
     db.select({
       staffId: scheduleBlocksTable.staffId,
       count: count(),

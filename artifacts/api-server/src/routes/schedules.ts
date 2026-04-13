@@ -54,8 +54,8 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
     if (params.data.dayOfWeek) conditions.push(eq(scheduleBlocksTable.dayOfWeek, params.data.dayOfWeek));
     if (params.data.weekOf) conditions.push(eq(scheduleBlocksTable.weekOf, params.data.weekOf));
   }
-  if (req.query.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(req.query.schoolId)})`);
-  if (req.query.districtId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(req.query.districtId)}))`);
+  if (params.success && params.data.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
+  if (params.success && params.data.districtId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
 
   const blocks = await db
     .select({

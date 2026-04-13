@@ -95,6 +95,15 @@ paths:
       operationId: getProviderDashboardSummary
       tags: [dashboard]
       summary: Get provider dashboard summary
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Provider dashboard
@@ -110,6 +119,15 @@ paths:
       operationId: getParaDashboardSummary
       tags: [dashboard]
       summary: Get paraeducator dashboard summary
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Para dashboard
@@ -1042,6 +1060,14 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Schedule blocks

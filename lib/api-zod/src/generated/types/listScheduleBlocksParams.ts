@@ -23,4 +23,12 @@ export type ListScheduleBlocksParams = {
    * @nullable
    */
   dayOfWeek?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
 };
