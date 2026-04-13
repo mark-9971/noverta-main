@@ -1,22 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useListStudents, useListMinuteProgress } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
+
+const API = (import.meta as any).env.VITE_API_URL || "/api";
+
+type TypeFilter = "all" | "sped" | "gen_ed";
 
 export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [loadingAll, setLoadingAll] = useState(true);
+  const [spedIds, setSpedIds] = useState<Set<number>>(new Set());
+
   const { data: students, isLoading, isError, refetch } = useListStudents({} as any);
   const { data: progress } = useListMinuteProgress({} as any);
 
-  const studentList = (students as any[]) ?? [];
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/students?limit=500`).then(r => r.json()),
+      fetch(`${API}/sped-students`).then(r => r.json()),
+    ]).then(([all, sped]) => {
+      setAllStudents(Array.isArray(all) ? all : []);
+      setSpedIds(new Set((Array.isArray(sped) ? sped : []).map((s: any) => s.id)));
+      setLoadingAll(false);
+    }).catch(() => setLoadingAll(false));
+  }, []);
+
+  const studentList = allStudents.length > 0 ? allStudents : ((students as any[]) ?? []);
   const progressList = (progress as any[]) ?? [];
+  const loading = loadingAll && isLoading;
 
   const priorityOrder = RISK_PRIORITY_ORDER;
   const studentRisk: Record<number, string> = {};
@@ -34,34 +56,62 @@ export default function Students() {
     studentMinutes[p.studentId].required += p.requiredMinutes;
   }
 
-  const riskCounts = Object.values(studentRisk).reduce((acc: Record<string, number>, r) => {
-    acc[r] = (acc[r] ?? 0) + 1;
-    return acc;
-  }, {});
+  const spedCount = studentList.filter(s => spedIds.has(s.id)).length;
+  const genEdCount = studentList.length - spedCount;
 
-  const filtered = studentList.filter(s => {
-    const matchSearch = search.trim() === "" ||
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
-    const riskStatus = studentRisk[s.id] ?? "on_track";
-    const matchRisk = riskFilter === "all" || riskStatus === riskFilter;
-    return matchSearch && matchRisk;
-  });
+  const filtered = useMemo(() => {
+    return studentList.filter(s => {
+      const matchSearch = search.trim() === "" ||
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
+      const isSped = spedIds.has(s.id);
+      const matchType = typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
+      const riskStatus = studentRisk[s.id] ?? "on_track";
+      const matchRisk = riskFilter === "all" || riskStatus === riskFilter;
+      return matchSearch && matchType && matchRisk;
+    });
+  }, [studentList, search, typeFilter, riskFilter, spedIds, studentRisk]);
+
+  const riskCounts = useMemo(() => {
+    const typeFiltered = studentList.filter(s => {
+      const isSped = spedIds.has(s.id);
+      return typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
+    });
+    const counts: Record<string, number> = {};
+    for (const s of typeFiltered) {
+      const r = studentRisk[s.id] ?? "on_track";
+      counts[r] = (counts[r] ?? 0) + 1;
+    }
+    return counts;
+  }, [studentList, typeFilter, spedIds, studentRisk]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Students</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">{studentList.length} students on active IEPs</p>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">
+          {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
+        </p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <button
-          aria-pressed={riskFilter === "all"}
-          onClick={() => setRiskFilter("all")}
-          className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-            riskFilter === "all" ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
-          }`}
-        >All ({studentList.length})</button>
+        {([
+          { key: "all" as TypeFilter, label: "All Students", count: studentList.length, icon: null },
+          { key: "sped" as TypeFilter, label: "SPED", count: spedCount, icon: GraduationCap },
+          { key: "gen_ed" as TypeFilter, label: "Gen Ed", count: genEdCount, icon: BookOpen },
+        ]).map(t => (
+          <button
+            key={t.key}
+            aria-pressed={typeFilter === t.key}
+            onClick={() => setTypeFilter(typeFilter === t.key && t.key !== "all" ? "all" : t.key)}
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all flex items-center gap-1.5 ${
+              typeFilter === t.key ? "bg-indigo-600 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            {t.icon && <t.icon className="w-3.5 h-3.5" />}
+            {t.label} ({t.count})
+          </button>
+        ))}
+        <div className="w-px bg-slate-200 mx-1 self-stretch" />
         {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
           const cfg = RISK_CONFIG[r];
           return (
@@ -83,13 +133,14 @@ export default function Students() {
       </div>
 
       <div className="space-y-2">
-        {isError ? (
+        {isError && allStudents.length === 0 ? (
           <ErrorBanner message="Failed to load student list." onRetry={() => refetch()} />
-        ) : isLoading ? (
+        ) : loading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-slate-400"><p className="font-medium">No students found</p></div>
         ) : filtered.map(s => {
+          const isSped = spedIds.has(s.id);
           const risk = studentRisk[s.id] ?? "on_track";
           const cfg = RISK_CONFIG[risk] ?? RISK_CONFIG.on_track;
           const mins = studentMinutes[s.id] ?? { delivered: 0, required: 0 };
@@ -99,23 +150,42 @@ export default function Students() {
             <Link key={s.id} href={`/students/${s.id}`}>
               <Card className="hover:shadow-sm transition-all cursor-pointer group">
                 <div className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[13px] font-bold flex-shrink-0 ${
+                    isSped ? "bg-violet-100 text-violet-600" : "bg-blue-100 text-blue-600"
+                  }`}>
                     {s.firstName?.[0]}{s.lastName?.[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-slate-800">{s.firstName} {s.lastName}</p>
-                    <p className="text-[12px] text-slate-400">Grade {s.grade} · CM #{s.caseManagerId}</p>
-                  </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0 hidden md:inline-flex`}>
-                    {cfg.label}
-                  </span>
-                  <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                    <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={cfg.ringColor} />
-                    <div className="text-right w-14 md:w-20">
-                      <p className="text-[13px] font-bold text-slate-700">{pct}%</p>
-                      <p className="text-[10px] text-slate-400 hidden sm:block">{mins.delivered}/{mins.required}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-semibold text-slate-800">{s.firstName} {s.lastName}</p>
+                      <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${
+                        isSped ? "bg-violet-50 text-violet-600 border-violet-200" : "bg-blue-50 text-blue-600 border-blue-200"
+                      }`}>
+                        {isSped ? "SPED" : "Gen Ed"}
+                      </Badge>
                     </div>
+                    <p className="text-[12px] text-slate-400">
+                      Grade {s.grade}{s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
+                    </p>
                   </div>
+                  {isSped ? (
+                    <>
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0 hidden md:inline-flex`}>
+                        {cfg.label}
+                      </span>
+                      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                        <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={cfg.ringColor} />
+                        <div className="text-right w-14 md:w-20">
+                          <p className="text-[13px] font-bold text-slate-700">{pct}%</p>
+                          <p className="text-[10px] text-slate-400 hidden sm:block">{mins.delivered}/{mins.required}</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-600 border-blue-200 flex-shrink-0 hidden md:inline-flex">
+                      General Education
+                    </span>
+                  )}
                   <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
                 </div>
               </Card>

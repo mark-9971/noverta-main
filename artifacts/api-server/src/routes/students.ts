@@ -53,6 +53,11 @@ router.get("/students", async (req, res): Promise<void> => {
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)) as any);
     if (params.data.caseManagerId) conditions.push(eq(studentsTable.caseManagerId, Number(params.data.caseManagerId)) as any);
     if (params.data.grade) conditions.push(eq(studentsTable.grade, params.data.grade) as any);
+    if ((params.data as any).type === "sped") {
+      conditions.push(sql`EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})` as any);
+    } else if ((params.data as any).type === "gen_ed") {
+      conditions.push(sql`NOT EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})` as any);
+    }
     if (params.data.search) {
       const searchTerm = `%${params.data.search}%`;
       conditions.push(
