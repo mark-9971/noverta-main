@@ -139,7 +139,10 @@ export default function DistrictOverview() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {overviewData?.schools?.map((school: any) => {
+                {(contextSchoolId
+                  ? overviewData?.schools?.filter((s: any) => s.id === contextSchoolId)
+                  : overviewData?.schools
+                )?.map((school: any) => {
                   const compliancePct = school.compliance.total > 0
                     ? Math.round((school.compliance.onTrack / school.compliance.total) * 100)
                     : 0;
