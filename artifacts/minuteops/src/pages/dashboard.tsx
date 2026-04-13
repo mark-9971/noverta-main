@@ -1,43 +1,33 @@
 import { useGetDashboardSummary, useGetDashboardRiskOverview, useGetMissedSessionsTrend, useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Users, Calendar, CheckCircle, TrendingDown, Clock, Bell, Activity } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
+import { Progress } from "@/components/ui/progress";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
 
-const RISK_COLORS = {
-  on_track: "#10b981",
-  slightly_behind: "#f59e0b",
-  at_risk: "#f97316",
-  out_of_compliance: "#ef4444",
-  completed: "#6366f1",
-};
-
-const RISK_LABELS = {
-  on_track: "On Track",
-  slightly_behind: "Slightly Behind",
-  at_risk: "At Risk",
-  out_of_compliance: "Out of Compliance",
-  completed: "Completed",
-};
-
-function StatCard({ title, value, subtitle, icon: Icon, color = "text-slate-700", href }: any) {
+function MetricCard({ title, value, icon: Icon, accent = "indigo", subtitle, href }: any) {
+  const accents: Record<string, string> = {
+    indigo: "bg-indigo-50 text-indigo-600",
+    red: "bg-red-50 text-red-600",
+    amber: "bg-amber-50 text-amber-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+  };
   const content = (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{title}</p>
-            <p className={`text-2xl font-bold mt-0.5 ${color}`}>{value ?? <Skeleton className="w-10 h-7 mt-1" />}</p>
-            {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+    <Card className="hover:shadow-sm transition-shadow cursor-pointer group">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-4">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${accents[accent]}`}>
+            <Icon className="w-5 h-5" />
           </div>
-          {Icon && (
-            <div className={`p-2 rounded-lg bg-slate-100`}>
-              <Icon className={`w-4 h-4 ${color}`} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] text-slate-500 font-medium">{title}</p>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-bold text-slate-800">{value ?? <Skeleton className="w-8 h-7" />}</span>
+              {subtitle && <span className="text-[11px] text-slate-400">{subtitle}</span>}
             </div>
-          )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -45,8 +35,11 @@ function StatCard({ title, value, subtitle, icon: Icon, color = "text-slate-700"
   return href ? <Link href={href}>{content}</Link> : content;
 }
 
+const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
+const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
+
 export default function Dashboard() {
-  const { data: summary, isLoading } = useGetDashboardSummary();
+  const { data: summary } = useGetDashboardSummary();
   const { data: riskOverview } = useGetDashboardRiskOverview();
   const { data: trend } = useGetMissedSessionsTrend();
   const { data: complianceByService } = useGetComplianceByService();
@@ -58,153 +51,161 @@ export default function Dashboard() {
   const alerts = alertsSummary as any;
   const recent = (recentAlerts as any[])?.slice(0, 5) ?? [];
 
+  const totalStudents = s?.totalActiveStudents ?? 0;
+  const onTrack = s?.onTrackStudents ?? 0;
+  const onTrackPct = totalStudents > 0 ? Math.round((onTrack / totalStudents) * 100) : 0;
+
   const riskPieData = ro ? [
-    { name: "On Track", value: ro.onTrack, color: "#10b981" },
-    { name: "Slightly Behind", value: ro.slightlyBehind, color: "#f59e0b" },
-    { name: "At Risk", value: ro.atRisk, color: "#f97316" },
-    { name: "Out of Compliance", value: ro.outOfCompliance, color: "#ef4444" },
+    { name: "On Track", value: ro.onTrack },
+    { name: "Slightly Behind", value: ro.slightlyBehind },
+    { name: "At Risk", value: ro.atRisk },
+    { name: "Out of Compliance", value: ro.outOfCompliance },
   ].filter(d => d.value > 0) : [];
 
-  const trendData = (trend as any[])?.slice(-8) ?? [];
+  const colorMap: Record<string, string> = { "On Track": "#10b981", "Slightly Behind": "#f59e0b", "At Risk": "#f97316", "Out of Compliance": "#ef4444" };
+
+  const trendData = (trend as any[])?.slice(-8).map((t: any) => ({
+    ...t,
+    weekLabel: t.weekLabel?.replace("Week of ", ""),
+  })) ?? [];
+
   const serviceData = (complianceByService as any[]) ?? [];
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-8 max-w-[1400px] mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Operations Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Jefferson Unified School District · Lincoln High School</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Activity className="w-3.5 h-3.5 text-green-500" />
-          Live data · IEP Year 2025–2026
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dashboard</h1>
+          <p className="text-sm text-slate-400 mt-1">Jefferson Unified · Lincoln High School · IEP Year 2025–2026</p>
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard title="Active Students" value={s?.totalActiveStudents} subtitle="on active IEPs" icon={Users} href="/students" />
-        <StatCard title="Open Alerts" value={alerts?.total} subtitle={`${alerts?.critical ?? 0} critical`} icon={Bell} color="text-red-600" href="/alerts" />
-        <StatCard title="Makeup Obligations" value={s?.openMakeupObligations} subtitle="missed sessions needing makeup" icon={Clock} color="text-orange-600" href="/sessions" />
-        <StatCard title="Out of Compliance" value={s?.outOfComplianceStudents} subtitle="students need attention" icon={AlertTriangle} color="text-red-600" href="/compliance" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard title="Active Students" value={s?.totalActiveStudents} icon={Users} accent="indigo" subtitle="on IEPs" href="/students" />
+        <MetricCard title="Open Alerts" value={alerts?.total} icon={Bell} accent="red" subtitle={`${alerts?.critical ?? 0} critical`} href="/alerts" />
+        <MetricCard title="Makeup Needed" value={s?.openMakeupObligations} icon={Clock} accent="amber" subtitle="sessions" href="/sessions" />
+        <MetricCard title="Out of Compliance" value={s?.outOfComplianceStudents} icon={AlertTriangle} accent="red" subtitle="students" href="/compliance" />
       </div>
 
-      {/* Risk Overview Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Pie Chart */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Student Risk Status</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <Card className="lg:col-span-4">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-600">Overall Compliance</CardTitle>
           </CardHeader>
-          <CardContent>
-            {riskPieData.length > 0 ? (
+          <CardContent className="flex flex-col items-center py-6">
+            {ro ? (
               <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">
-                      {riskPieData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any, n: any) => [v, n]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-1 mt-2">
+                <ProgressRing
+                  value={onTrackPct}
+                  size={140}
+                  strokeWidth={12}
+                  label={`${onTrackPct}%`}
+                  sublabel="On Track"
+                  color={onTrackPct >= 70 ? "#10b981" : onTrackPct >= 40 ? "#f59e0b" : "#ef4444"}
+                />
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 mt-6 w-full max-w-[240px]">
                   {riskPieData.map(d => (
-                    <div key={d.name} className="flex items-center gap-1.5 text-xs text-slate-600">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                      <span>{d.name}: <strong>{d.value}</strong></span>
+                    <div key={d.name} className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: colorMap[d.name] }} />
+                      <div>
+                        <span className="text-xs text-slate-500">{d.name}</span>
+                        <span className="text-xs font-bold text-slate-700 ml-1">{d.value}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="h-[180px] flex items-center justify-center">
-                <Skeleton className="w-full h-full" />
-              </div>
+              <Skeleton className="w-[140px] h-[140px] rounded-full" />
             )}
           </CardContent>
         </Card>
 
-        {/* Missed Sessions Trend */}
-        <Card className="col-span-1 md:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Missed Sessions Trend (8 Weeks)</CardTitle>
+        <Card className="lg:col-span-8">
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-600">Session Delivery · Last 8 Weeks</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             {trendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={trendData} margin={{ top: 0, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="weekLabel" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="completedCount" name="Completed" fill="#10b981" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="missedCount" name="Missed" fill="#ef4444" radius={[2, 2, 0, 0]} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10 }} />
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={trendData} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="weekLabel" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}
+                  />
+                  <Bar dataKey="completedCount" name="Completed" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Bar dataKey="missedCount" name="Missed" fill="#fbbf24" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[180px] flex items-center justify-center">
-                <Skeleton className="w-full h-full" />
-              </div>
+              <Skeleton className="w-full h-[220px]" />
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Compliance by Service + Recent Alerts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Compliance by Service */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-slate-700">Compliance by Service Type</CardTitle>
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-600">Compliance by Service</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {serviceData.slice(0, 6).map((svc: any) => (
-              <div key={svc.serviceTypeName} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-600 font-medium truncate">{svc.serviceTypeName}</span>
-                  <span className="text-slate-400 ml-2 flex-shrink-0">
-                    {svc.onTrack}/{svc.totalRequirements} on track · <span style={{ color: svc.atRisk > 0 ? "#ef4444" : "#10b981" }}>{svc.atRisk + svc.outOfCompliance} at risk</span>
-                  </span>
+          <CardContent className="pt-5 space-y-4">
+            {serviceData.length > 0 ? serviceData.slice(0, 7).map((svc: any) => {
+              const pct = svc.totalRequirements > 0 ? Math.round((svc.onTrack / svc.totalRequirements) * 100) : 0;
+              const atRiskCount = svc.atRisk + svc.outOfCompliance;
+              return (
+                <div key={svc.serviceTypeName} className="space-y-1.5">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[13px] font-medium text-slate-700">{svc.serviceTypeName}</span>
+                    <div className="flex items-center gap-3 text-[11px]">
+                      <span className="text-slate-400">{svc.onTrack}/{svc.totalRequirements} on track</span>
+                      {atRiskCount > 0 && <span className="text-red-500 font-medium">{atRiskCount} at risk</span>}
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: pct >= 80 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444",
+                      }}
+                    />
+                  </div>
                 </div>
-                <Progress
-                  value={svc.totalRequirements > 0 ? (svc.onTrack / svc.totalRequirements) * 100 : 0}
-                  className="h-1.5"
-                />
-              </div>
-            ))}
-            {serviceData.length === 0 && <Skeleton className="w-full h-32" />}
+              );
+            }) : (
+              <Skeleton className="w-full h-40" />
+            )}
           </CardContent>
         </Card>
 
-        {/* Recent Alerts */}
         <Card>
-          <CardHeader className="pb-2 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-slate-700">Recent Alerts</CardTitle>
-            <Link href="/alerts" className="text-xs text-indigo-600 hover:underline">View all</Link>
+          <CardHeader className="pb-0 flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-slate-600">Recent Alerts</CardTitle>
+            <Link href="/alerts" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View all</Link>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="pt-4 space-y-2">
             {recent.length > 0 ? recent.map((a: any) => (
-              <div key={a.id} className="flex items-start gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">
-                <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+              <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
                   a.severity === "critical" ? "bg-red-500" :
-                  a.severity === "high" ? "bg-orange-500" :
-                  a.severity === "medium" ? "bg-yellow-500" : "bg-blue-400"
+                  a.severity === "high" ? "bg-amber-400" : "bg-slate-300"
                 }`} />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-slate-700 truncate">{a.studentName ?? "System"}</p>
-                  <p className="text-xs text-slate-500 truncate">{a.message}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-slate-700 truncate">{a.studentName ?? "System Alert"}</p>
+                  <p className="text-[12px] text-slate-400 mt-0.5 line-clamp-1">{a.message}</p>
                 </div>
-                <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${
-                  a.severity === "critical" ? "border-red-300 text-red-600" :
-                  a.severity === "high" ? "border-orange-300 text-orange-600" : "border-slate-200 text-slate-500"
-                }`}>{a.severity}</Badge>
+                <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  a.severity === "critical" ? "bg-red-50 text-red-600" :
+                  a.severity === "high" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"
+                }`}>{a.severity}</span>
               </div>
             )) : (
               <div className="space-y-2">
-                {[...Array(4)].map((_, i) => <Skeleton key={i} className="w-full h-12" />)}
+                {[...Array(4)].map((_, i) => <Skeleton key={i} className="w-full h-14" />)}
               </div>
             )}
           </CardContent>

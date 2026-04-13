@@ -8,14 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, BookOpen } from "lucide-react";
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  completed: { label: "Completed", color: "text-green-700 bg-green-50 border-green-200", icon: CheckCircle },
-  missed: { label: "Missed", color: "text-red-700 bg-red-50 border-red-200", icon: XCircle },
-  makeup: { label: "Makeup", color: "text-indigo-700 bg-indigo-50 border-indigo-200", icon: RotateCcw },
-  pending: { label: "Pending", color: "text-slate-600 bg-slate-50 border-slate-200", icon: BookOpen },
-};
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 
 const INITIAL_FORM = {
   studentId: "",
@@ -63,6 +56,7 @@ export default function Sessions() {
 
   const missedCount = sessionList.filter(s => s.status === "missed").length;
   const completedCount = sessionList.filter(s => s.status === "completed").length;
+  const makeupCount = sessionList.filter(s => s.isMakeup).length;
 
   function updateForm(field: string, value: any) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -100,108 +94,103 @@ export default function Sessions() {
     }
   }
 
+  function formatDate(d: string) {
+    if (!d) return "—";
+    const date = new Date(d + "T00:00:00");
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Session Log</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{sessionList.length} sessions loaded · {missedCount} missed</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Session Log</h1>
+          <p className="text-sm text-slate-400 mt-1">{sessionList.length} sessions loaded · Page {page + 1}</p>
         </div>
-        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setShowAddModal(true)}>
+        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
           <Plus className="w-3.5 h-3.5 mr-1.5" /> Log Session
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="flex gap-2 flex-wrap">
         {[
-          { key: "completed", label: "Completed", count: completedCount, color: "text-green-600" },
-          { key: "missed", label: "Missed", count: missedCount, color: "text-red-600" },
-          { key: "makeup", label: "Makeup", count: sessionList.filter(s => s.isMakeup).length, color: "text-indigo-600" },
+          { key: "all", label: "All", count: sessionList.length },
+          { key: "completed", label: "Completed", count: completedCount },
+          { key: "missed", label: "Missed", count: missedCount },
+          { key: "makeup", label: "Makeup", count: makeupCount },
         ].map(item => (
           <button
             key={item.key}
-            onClick={() => setStatusFilter(statusFilter === item.key ? "all" : item.key)}
-            className={`p-3 rounded-lg border text-left bg-white hover:border-slate-300 transition-all ${
-              statusFilter === item.key ? "border-slate-400 shadow-sm" : "border-slate-200"
+            aria-pressed={statusFilter === item.key}
+            onClick={() => setStatusFilter(item.key)}
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+              statusFilter === item.key ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
             }`}
-          >
-            <p className="text-xs text-slate-500 font-medium">{item.label}</p>
-            <p className={`text-xl font-bold ${item.color}`}>{item.count}</p>
-          </button>
+          >{item.label} ({item.count})</button>
         ))}
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input className="pl-9 h-9 text-sm" placeholder="Search sessions..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 h-9 text-sm">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="missed">Missed</SelectItem>
-            <SelectItem value="makeup">Makeup</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student, service, or provider..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Student</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Service</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Provider</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Duration</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+              <tr className="border-b border-slate-100">
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Date</th>
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Student</th>
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Service</th>
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Provider</th>
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Duration</th>
+                <th className="text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 [...Array(10)].map((_, i) => (
-                  <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
-                    ))}
-                  </tr>
+                  <tr key={i}>{[...Array(6)].map((_, j) => <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
                 ))
-              ) : filtered.map(session => {
-                const statusCfg = STATUS_CONFIG[session.status] ?? STATUS_CONFIG.pending;
-                return (
-                  <tr key={session.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap text-xs">{session.sessionDate}</td>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{session.studentName ?? `Student ${session.studentId}`}</td>
-                    <td className="px-4 py-2.5 text-slate-600 text-xs max-w-[160px] truncate">{session.serviceTypeName ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-slate-500 text-xs">{session.staffName ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-slate-600 text-xs">{session.durationMinutes ?? "—"} min</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${statusCfg.color}`}>
-                        <statusCfg.icon className="w-3 h-3" />
-                        {session.isMakeup ? "Makeup" : statusCfg.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              ) : filtered.map(session => (
+                <tr key={session.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-5 py-3 text-[13px] text-slate-600 whitespace-nowrap">{formatDate(session.sessionDate)}</td>
+                  <td className="px-5 py-3">
+                    <p className="text-[13px] font-medium text-slate-800">{session.studentName ?? `Student ${session.studentId}`}</p>
+                  </td>
+                  <td className="px-5 py-3 text-[13px] text-slate-500 max-w-[160px] truncate">{session.serviceTypeName ?? "—"}</td>
+                  <td className="px-5 py-3 text-[13px] text-slate-500">{session.staffName ?? "—"}</td>
+                  <td className="px-5 py-3 text-[13px] text-slate-600">{session.durationMinutes} min</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                      session.status === "completed" ? "bg-emerald-50 text-emerald-700" :
+                      session.status === "missed" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {session.status === "completed" ? <CheckCircle className="w-3 h-3" /> :
+                       session.status === "missed" ? <XCircle className="w-3 h-3" /> : null}
+                      {session.isMakeup ? <><RotateCcw className="w-3 h-3" /> Makeup</> : session.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
               {!isLoading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">No sessions found</td>
+                  <td colSpan={6} className="px-5 py-16 text-center text-slate-400 text-sm">No sessions found</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t">
-          <p className="text-xs text-slate-400">Showing {filtered.length} of {sessionList.length} sessions</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Previous</Button>
-            <Button variant="outline" size="sm" disabled={sessionList.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>Next</Button>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100">
+          <p className="text-[12px] text-slate-400">Showing {filtered.length} sessions</p>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="w-3.5 h-3.5 mr-0.5" /> Prev
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={sessionList.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>
+              Next <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+            </Button>
           </div>
         </div>
       </Card>
@@ -209,16 +198,14 @@ export default function Sessions() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Log Session</DialogTitle>
+            <DialogTitle className="text-lg">Log Session</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Student *</Label>
+                <Label className="text-[12px] text-slate-500">Student *</Label>
                 <Select value={form.studentId} onValueChange={v => { updateForm("studentId", v); updateForm("serviceRequirementId", ""); }}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select student" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select student" /></SelectTrigger>
                   <SelectContent>
                     {studentList.map((s: any) => (
                       <SelectItem key={s.id} value={String(s.id)}>{s.firstName} {s.lastName}</SelectItem>
@@ -227,11 +214,9 @@ export default function Sessions() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Service Requirement</Label>
+                <Label className="text-[12px] text-slate-500">Service</Label>
                 <Select value={form.serviceRequirementId} onValueChange={v => updateForm("serviceRequirementId", v)} disabled={!form.studentId}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder={form.studentId ? "Select service" : "Select student first"} />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder={form.studentId ? "Select service" : "Select student first"} /></SelectTrigger>
                   <SelectContent>
                     {reqList.map((r: any) => (
                       <SelectItem key={r.id} value={String(r.id)}>{r.serviceTypeName} — {r.minutesPerWeek} min/wk</SelectItem>
@@ -240,33 +225,29 @@ export default function Sessions() {
                 </Select>
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Date *</Label>
-                <Input type="date" className="h-9 text-sm" value={form.sessionDate} onChange={e => updateForm("sessionDate", e.target.value)} />
+                <Label className="text-[12px] text-slate-500">Date *</Label>
+                <Input type="date" className="h-9 text-[13px]" value={form.sessionDate} onChange={e => updateForm("sessionDate", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Start Time</Label>
-                <Input type="time" className="h-9 text-sm" value={form.startTime} onChange={e => updateForm("startTime", e.target.value)} />
+                <Label className="text-[12px] text-slate-500">Start Time</Label>
+                <Input type="time" className="h-9 text-[13px]" value={form.startTime} onChange={e => updateForm("startTime", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">End Time</Label>
-                <Input type="time" className="h-9 text-sm" value={form.endTime} onChange={e => updateForm("endTime", e.target.value)} />
+                <Label className="text-[12px] text-slate-500">End Time</Label>
+                <Input type="time" className="h-9 text-[13px]" value={form.endTime} onChange={e => updateForm("endTime", e.target.value)} />
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Duration (min) *</Label>
-                <Input type="number" className="h-9 text-sm" value={form.durationMinutes} onChange={e => updateForm("durationMinutes", e.target.value)} />
+                <Label className="text-[12px] text-slate-500">Duration (min) *</Label>
+                <Input type="number" className="h-9 text-[13px]" value={form.durationMinutes} onChange={e => updateForm("durationMinutes", e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Status *</Label>
+                <Label className="text-[12px] text-slate-500">Status *</Label>
                 <Select value={form.status} onValueChange={v => updateForm("status", v)}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="missed">Missed</SelectItem>
@@ -274,11 +255,9 @@ export default function Sessions() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Delivery Mode</Label>
+                <Label className="text-[12px] text-slate-500">Mode</Label>
                 <Select value={form.deliveryMode} onValueChange={v => updateForm("deliveryMode", v)}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-[13px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="in_person">In Person</SelectItem>
                     <SelectItem value="remote">Remote</SelectItem>
@@ -286,27 +265,18 @@ export default function Sessions() {
                 </Select>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={form.isMakeup} onChange={e => updateForm("isMakeup", e.target.checked)} className="rounded border-slate-300" />
-                This is a makeup session
-              </label>
-            </div>
-
+            <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+              <input type="checkbox" checked={form.isMakeup} onChange={e => updateForm("isMakeup", e.target.checked)} className="rounded border-slate-300" />
+              This is a makeup session
+            </label>
             <div className="space-y-1.5">
-              <Label className="text-xs">Notes</Label>
-              <Textarea className="text-sm resize-none" rows={2} value={form.notes} onChange={e => updateForm("notes", e.target.value)} placeholder="Optional session notes..." />
+              <Label className="text-[12px] text-slate-500">Notes</Label>
+              <Textarea className="text-[13px] resize-none" rows={2} value={form.notes} onChange={e => updateForm("notes", e.target.value)} placeholder="Optional session notes..." />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              disabled={!form.studentId || !form.sessionDate || !form.durationMinutes || submitting}
-              onClick={handleSubmit}
-            >
+            <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowAddModal(false)}>Cancel</Button>
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px]" disabled={!form.studentId || !form.sessionDate || !form.durationMinutes || submitting} onClick={handleSubmit}>
               {submitting ? "Saving..." : "Log Session"}
             </Button>
           </DialogFooter>

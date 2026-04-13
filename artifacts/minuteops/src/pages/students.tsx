@@ -1,29 +1,19 @@
 import { useState } from "react";
 import { useListStudents, useListMinuteProgress } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { Search, ChevronRight, Users, AlertTriangle } from "lucide-react";
+import { MiniProgressRing } from "@/components/ui/progress-ring";
+import { Search, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 
-const RISK_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  on_track: { label: "On Track", color: "text-green-700", bg: "bg-green-50 border-green-200" },
-  slightly_behind: { label: "Slightly Behind", color: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200" },
-  at_risk: { label: "At Risk", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
-  out_of_compliance: { label: "Out of Compliance", color: "text-red-700", bg: "bg-red-50 border-red-200" },
-  completed: { label: "Completed", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
+const RISK_CONFIG: Record<string, { label: string; color: string; ringColor: string; bg: string }> = {
+  on_track: { label: "On Track", color: "text-emerald-700", ringColor: "#10b981", bg: "bg-emerald-50 border-emerald-200" },
+  slightly_behind: { label: "Slightly Behind", color: "text-amber-700", ringColor: "#f59e0b", bg: "bg-amber-50 border-amber-200" },
+  at_risk: { label: "At Risk", color: "text-orange-700", ringColor: "#f97316", bg: "bg-orange-50 border-orange-200" },
+  out_of_compliance: { label: "Out of Compliance", color: "text-red-700", ringColor: "#ef4444", bg: "bg-red-50 border-red-200" },
+  completed: { label: "Completed", color: "text-indigo-700", ringColor: "#6366f1", bg: "bg-indigo-50 border-indigo-200" },
 };
-
-function RiskBadge({ status }: { status: string }) {
-  const cfg = RISK_CONFIG[status] ?? { label: status, color: "text-slate-600", bg: "bg-slate-50 border-slate-200" };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.bg} ${cfg.color}`}>
-      {cfg.label}
-    </span>
-  );
-}
 
 export default function Students() {
   const [search, setSearch] = useState("");
@@ -34,9 +24,8 @@ export default function Students() {
   const studentList = (students as any[]) ?? [];
   const progressList = (progress as any[]) ?? [];
 
-  // Build per-student worst risk status
-  const studentRisk: Record<number, string> = {};
   const priorityOrder = ["out_of_compliance", "at_risk", "slightly_behind", "on_track", "completed"];
+  const studentRisk: Record<number, string> = {};
   for (const p of progressList) {
     const current = studentRisk[p.studentId];
     if (!current || priorityOrder.indexOf(p.riskStatus) < priorityOrder.indexOf(current)) {
@@ -44,7 +33,6 @@ export default function Students() {
     }
   }
 
-  // Compute delivered/required per student (across all services)
   const studentMinutes: Record<number, { delivered: number; required: number }> = {};
   for (const p of progressList) {
     if (!studentMinutes[p.studentId]) studentMinutes[p.studentId] = { delivered: 0, required: 0 };
@@ -52,125 +40,93 @@ export default function Students() {
     studentMinutes[p.studentId].required += p.requiredMinutes;
   }
 
+  const riskCounts = Object.values(studentRisk).reduce((acc: Record<string, number>, r) => {
+    acc[r] = (acc[r] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const filtered = studentList.filter(s => {
     const matchSearch = search.trim() === "" ||
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      (s.grade ?? "").toLowerCase().includes(search.toLowerCase());
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
     const riskStatus = studentRisk[s.id] ?? "on_track";
     const matchRisk = riskFilter === "all" || riskStatus === riskFilter;
     return matchSearch && matchRisk;
   });
 
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Students</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{studentList.length} students on active IEPs</p>
-        </div>
+    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Students</h1>
+        <p className="text-sm text-slate-400 mt-1">{studentList.length} students on active IEPs</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input className="pl-9 h-9 text-sm" placeholder="Search students..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div className="flex gap-1.5">
-          {["all", "out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => (
+      <div className="flex gap-2 flex-wrap">
+        <button
+          aria-pressed={riskFilter === "all"}
+          onClick={() => setRiskFilter("all")}
+          className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+            riskFilter === "all" ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+          }`}
+        >All ({studentList.length})</button>
+        {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
+          const cfg = RISK_CONFIG[r];
+          return (
             <button
               key={r}
-              onClick={() => setRiskFilter(r)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                riskFilter === r ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+              aria-pressed={riskFilter === r}
+              onClick={() => setRiskFilter(riskFilter === r ? "all" : r)}
+              className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+                riskFilter === r ? "bg-slate-800 text-white" : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
               }`}
-            >
-              {r === "all" ? "All" : RISK_CONFIG[r]?.label}
-            </button>
-          ))}
-        </div>
+            >{cfg.label} ({riskCounts[r] ?? 0})</button>
+          );
+        })}
       </div>
 
-      {/* Student Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Student</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Risk Status</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Minute Progress</th>
-                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Case Manager</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                [...Array(8)].map((_, i) => (
-                  <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-4 py-3">
-                        <Skeleton className="h-4 w-full" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.map(student => {
-                const riskStatus = studentRisk[student.id] ?? "on_track";
-                const mins = studentMinutes[student.id];
-                const pct = mins?.required > 0 ? Math.round((mins.delivered / mins.required) * 100) : 0;
-                return (
-                  <tr key={student.id} className="hover:bg-slate-50 cursor-pointer group">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
-                          {student.firstName?.[0]}{student.lastName?.[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-800">{student.firstName} {student.lastName}</p>
-                          <p className="text-xs text-slate-400">{student.primaryDisability}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{student.grade ?? "—"}</td>
-                    <td className="px-4 py-3"><RiskBadge status={riskStatus} /></td>
-                    <td className="px-4 py-3 min-w-[160px]">
-                      {mins ? (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-slate-500">
-                            <span>{mins.delivered} / {mins.required} min</span>
-                            <span>{pct}%</span>
-                          </div>
-                          <Progress
-                            value={Math.min(100, pct)}
-                            className="h-1.5"
-                          />
-                        </div>
-                      ) : <span className="text-slate-400 text-xs">No requirements</span>}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">{student.caseManagerId ? `CM #${student.caseManagerId}` : "—"}</td>
-                    <td className="px-4 py-3">
-                      <Link href={`/students/${student.id}`}>
-                        <a className="flex items-center text-indigo-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:underline">
-                          View <ChevronRight className="w-3 h-3 ml-0.5" />
-                        </a>
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!isLoading && filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">
-                    No students found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student name..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      <div className="space-y-2">
+        {isLoading ? (
+          [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-slate-400"><p className="font-medium">No students found</p></div>
+        ) : filtered.map(s => {
+          const risk = studentRisk[s.id] ?? "on_track";
+          const cfg = RISK_CONFIG[risk] ?? RISK_CONFIG.on_track;
+          const mins = studentMinutes[s.id] ?? { delivered: 0, required: 0 };
+          const pct = mins.required > 0 ? Math.round((mins.delivered / mins.required) * 100) : 0;
+
+          return (
+            <Link key={s.id} href={`/students/${s.id}`}>
+              <Card className="hover:shadow-sm transition-all cursor-pointer group">
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 text-[13px] font-bold flex-shrink-0">
+                    {s.firstName?.[0]}{s.lastName?.[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-slate-800">{s.firstName} {s.lastName}</p>
+                    <p className="text-[12px] text-slate-400">Grade {s.grade} · CM #{s.caseManagerId}</p>
+                  </div>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.color} flex-shrink-0 hidden sm:inline-flex`}>
+                    {cfg.label}
+                  </span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={cfg.ringColor} />
+                    <div className="text-right w-20">
+                      <p className="text-[13px] font-bold text-slate-700">{pct}%</p>
+                      <p className="text-[10px] text-slate-400">{mins.delivered}/{mins.required}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                </div>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

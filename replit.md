@@ -42,6 +42,9 @@ MinuteOps is a production-quality school special education and ABA service deliv
 All routes prefixed with `/api/`:
 - `/dashboard/*` — Summary, risk overview, provider/para summaries, alerts summary, compliance by service
 - `/students` — CRUD + search/filter
+- `/students/:id` — Individual student detail
+- `/students/:id/minute-progress` — Per-student service delivery progress
+- `/students/:id/sessions` — Per-student session history
 - `/staff` — CRUD + search/filter
 - `/services` — Service types + service requirements CRUD
 - `/sessions` — Session logs CRUD + bulk create + missed reasons
@@ -53,14 +56,29 @@ All routes prefixed with `/api/`:
 - `/imports/*` — Bulk CSV import endpoints
 
 ### Frontend Pages
-- `/` — Operations Dashboard (KPI cards, risk pie chart, missed sessions trend, compliance by service, recent alerts)
-- `/students` — Student list with risk badges, minute progress, search/filter
-- `/sessions` — Session log table with pagination, status filters, Log Session modal
-- `/schedule` — Weekly grid/list view of recurring schedule blocks
-- `/staff` — Staff directory with tabs (Clinicians, Paraeducators, Case Managers)
-- `/alerts` — Compliance alerts with severity filtering, resolve actions
-- `/compliance` — Risk summary, compliance bar chart, filterable requirements table
-- `/reports` — Reports with tabs (Minute Summary, Missed Sessions, At-Risk Students)
+- `/` — Dashboard with KPI cards, compliance ring gauge, session delivery bar chart, compliance by service progress bars, recent alerts
+- `/students` — Student list with risk filter pills, search, progress rings per student, clickable cards linking to detail
+- `/students/:id` — Student detail with per-service bar chart, service breakdown with mini progress rings, recent sessions table
+- `/sessions` — Session log with pagination, status filter pills, search, Log Session modal (create)
+- `/schedule` — Weekly grid/list toggle view of recurring schedule blocks, staff filter dropdown
+- `/staff` — Staff directory with tabs (Clinicians, Paraeducators, Case Managers), utilization progress rings
+- `/alerts` — Compliance alerts with severity filter pills, resolve actions, refresh/show-resolved toggles
+- `/compliance` — Overall compliance ring gauge, stacked bar chart by service type, filterable requirements table with inline progress bars
+- `/reports` — Tabs for Minute Summary, Missed Sessions, At-Risk Students with mini progress rings and status badges
+
+### UI Components
+- `ProgressRing` — Circular SVG progress indicator (configurable size, stroke, color, label)
+- `MiniProgressRing` — Compact circular progress indicator for inline use
+- `AppLayout` — Sidebar navigation with indigo accent, alert badge count, user profile
+
+### Design System
+- Background: `slate-50/80`
+- Cards: white with subtle border
+- Primary: indigo-600
+- Status colors: emerald (on track), amber (slightly behind), orange (at risk), red (out of compliance), indigo (completed)
+- Typography: Inter font, 13px body, 11px labels, 2xl headings
+- Filter pills: rounded-full with `aria-pressed` for accessibility
+- Icons: Lucide React
 
 ## Key Commands
 

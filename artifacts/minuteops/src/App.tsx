@@ -12,6 +12,7 @@ import StaffPage from "@/pages/staff";
 import AlertsPage from "@/pages/alerts";
 import Compliance from "@/pages/compliance";
 import Reports from "@/pages/reports";
+import StudentDetail from "@/pages/student-detail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,7 @@ function Router() {
     <AppLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/students/:id" component={StudentDetail} />
         <Route path="/students" component={Students} />
         <Route path="/sessions" component={Sessions} />
         <Route path="/schedule" component={Schedule} />
