@@ -20,6 +20,7 @@ import analyticsRouter from "./analytics";
 import classesRouter from "./classes";
 import assignmentsRouter from "./assignments";
 import iepSuggestionsRouter from "./iepSuggestions";
+import classroomRouter from "./classroom";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(analyticsRouter);
 router.use(classesRouter);
 router.use(assignmentsRouter);
 router.use(iepSuggestionsRouter);
+router.use(classroomRouter);
 
 export default router;

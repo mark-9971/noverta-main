@@ -40,6 +40,7 @@ import TeacherAssignments from "@/pages/teacher-portal/TeacherAssignments";
 import TeacherGradeAssignment from "@/pages/teacher-portal/TeacherGradeAssignment";
 import TeacherSubmissions from "@/pages/teacher-portal/TeacherSubmissions";
 import TeacherRoster from "@/pages/teacher-portal/TeacherRoster";
+import TeacherClassroom from "@/pages/teacher-portal/TeacherClassroom";
 
 import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
 import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
@@ -95,6 +96,7 @@ function GenEdTeacherRouter() {
       <Route path="/teacher/assignments" component={TeacherAssignments} />
       <Route path="/teacher/submissions" component={TeacherSubmissions} />
       <Route path="/teacher/roster" component={TeacherRoster} />
+      <Route path="/teacher/classroom" component={TeacherClassroom} />
       <Route>{() => <Redirect to="/teacher" />}</Route>
     </Switch>
   );

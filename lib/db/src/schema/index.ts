@@ -32,3 +32,5 @@ export * from "./gradeCategories";
 export * from "./assignments";
 export * from "./submissions";
 export * from "./announcements";
+export * from "./teacherObservations";
+export * from "./progressNoteContributions";

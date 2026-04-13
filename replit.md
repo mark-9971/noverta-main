@@ -36,10 +36,12 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - `assignments` — assignments with type, points, due date, category
 - `submissions` — student submissions with grade, feedback, status
 - `announcements` — class or school-wide announcements
+- `teacher_observations` — teacher behavior observations (studentId, staffId, date, description, severity)
+- `progress_note_contributions` — teacher progress report contributions (reportId, staffId, goalId, narrative)
 
 **Role-Based Views:**
 - **Admin:** Full access to compliance, special ed, gen ed, analytics. Sidebar organized by workflow priority: top-level (Dashboard, Students, Alerts), Service Delivery (Sessions, Schedule, Service Minutes), Clinical & IEP (Programs & Behaviors, IEP Suggestions, Restraint & Seclusion, IEP Search), Academics (Classes, Gradebook), Reports & Admin (Analytics, Reports, Staff Directory, Data Import). Routes: `/`, `/students`, `/sessions`, `/classes`, `/gradebook`, `/analytics`, etc.
-- **Teacher:** Class management, gradebook, assignments, student roster, grading interface. Routes: `/teacher`, `/teacher/classes`, `/teacher/gradebook`, `/teacher/assignments`, etc.
+- **Teacher:** Class management, gradebook, assignments, student roster, grading interface, IEP classroom view. Routes: `/teacher`, `/teacher/classes`, `/teacher/gradebook`, `/teacher/assignments`, `/teacher/classroom`, etc.
 - **Student:** Dashboard with GPA/assignments, class list, assignment submission, grade transcript. Routes: `/portal`, `/portal/classes`, `/portal/assignments`, `/portal/grades`
 
 **API Endpoints (Gen Ed):**
@@ -92,6 +94,8 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - `artifacts/minuteops/src/pages/teacher-portal/` — All teacher portal pages
 - `artifacts/api-server/src/routes/iepSuggestions.ts` — IEP suggestion engine (behaviors, DTTs, TAs, academic, related services)
 - `artifacts/minuteops/src/pages/iep-suggestions.tsx` — IEP suggestions frontend (overview + detail with apply)
+- `artifacts/minuteops/src/pages/teacher-portal/TeacherClassroom.tsx` — Teacher IEP classroom view (accommodations, schedules, observations)
+- `artifacts/api-server/src/routes/classroom.ts` — Classroom API (staff classroom, teacher observations, progress notes)
 - `artifacts/api-server/src/routes/classes.ts` — Classes, enrollment, categories, announcements endpoints
 - `artifacts/api-server/src/routes/assignments.ts` — Assignments, submissions, grades, gradebook, dashboards
 - `lib/db/src/schema/classes.ts` — Classes table

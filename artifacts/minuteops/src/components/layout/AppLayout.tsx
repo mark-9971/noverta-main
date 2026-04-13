@@ -102,6 +102,12 @@ const genEdTeacherNav: NavSection[] = [
     ],
   },
   {
+    label: "IEP Support",
+    items: [
+      { href: "/teacher/classroom", label: "My Classroom", icon: ClipboardList },
+    ],
+  },
+  {
     label: "Students",
     items: [
       { href: "/teacher/roster", label: "Student Roster", icon: Users },
