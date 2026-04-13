@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
+import { useState, useEffect } from "react";
 
 function MetricCard({ title, value, icon: Icon, accent = "indigo", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -45,6 +46,21 @@ export default function Dashboard() {
   const { data: complianceByService } = useGetComplianceByService();
   const { data: alertsSummary } = useGetDashboardAlertsSummary();
   const { data: recentAlerts } = useListAlerts({ resolved: "false" } as any);
+  const [deadlines, setDeadlines] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/dashboard/compliance-deadlines")
+      .then(r => r.ok ? r.json() : { events: [] })
+      .then(d => {
+        const items = Array.isArray(d) ? d : (d.events ?? []);
+        setDeadlines(items.slice(0, 6).map((e: any) => ({
+          studentName: e.student ? `${e.student.firstName} ${e.student.lastName}` : "Student",
+          eventType: e.eventType,
+          daysUntilDue: e.daysRemaining,
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
   const s = summary as any;
   const ro = riskOverview as any;
@@ -211,6 +227,38 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {deadlines.length > 0 && (
+        <Card>
+          <CardHeader className="pb-0 flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-slate-600">Upcoming IEP Deadlines</CardTitle>
+            <Link href="/compliance/timeline" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">View timeline</Link>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {deadlines.map((d: any, i: number) => {
+                const days = d.daysUntilDue ?? d.daysRemaining ?? 0;
+                const isOverdue = days < 0;
+                const isUrgent = days >= 0 && days <= 14;
+                return (
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isOverdue ? "bg-red-50 border-red-200" : isUrgent ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
+                    <CalendarDays className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isOverdue ? "text-red-500" : isUrgent ? "text-amber-500" : "text-slate-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-slate-700 truncate">{d.studentName || "Student"}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {(d.eventType || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </p>
+                      <p className={`text-[11px] font-semibold mt-0.5 ${isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-500"}`}>
+                        {isOverdue ? `${Math.abs(days)} days overdue` : `${days} days remaining`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

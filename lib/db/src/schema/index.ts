@@ -21,3 +21,6 @@ export * from "./iepGoals";
 export * from "./progressReports";
 export * from "./iepDocuments";
 export * from "./iepAccommodations";
+export * from "./complianceEvents";
+export * from "./goalBank";
+export * from "./teamMeetings";

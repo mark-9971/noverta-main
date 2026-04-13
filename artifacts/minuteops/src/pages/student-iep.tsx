@@ -7,7 +7,8 @@ import { Link } from "wouter";
 import {
   ArrowLeft, Plus, FileText, Target, TrendingUp, TrendingDown, Minus as MinusIcon,
   Save, X, ChevronRight, AlertTriangle, CheckCircle2, Clock, Sparkles,
-  Download, Edit2, BookOpen, BarChart3, Loader2, FileCheck
+  Download, Edit2, BookOpen, BarChart3, Loader2, FileCheck, Search,
+  CalendarDays, Users, Copy, History
 } from "lucide-react";
 
 const API = "/api";
@@ -66,6 +67,20 @@ interface Accommodation {
   id: number; studentId: number; category: string; description: string;
   setting: string | null; frequency: string | null; provider: string | null; active: boolean;
 }
+interface TeamMeeting {
+  id: number; studentId: number; meetingType: string; scheduledDate: string;
+  scheduledTime: string | null; location: string | null; status: string;
+  notes: string | null; attendees: { name: string; role: string; present?: boolean }[] | null;
+  consentStatus: string | null; noticeSentDate: string | null; outcome: string | null;
+}
+interface GoalBankEntry {
+  id: number; domain: string; goalArea: string; goalText: string;
+  benchmarkText: string | null; gradeRange: string | null; tags: string | null;
+}
+interface CompletenessData {
+  percentage: number; completedCount: number; totalCount: number;
+  isComplete: boolean; missingSections: { section: string; label: string }[];
+}
 
 const PROGRESS_RATINGS: Record<string, { label: string; color: string; icon: any; bg: string }> = {
   mastered: { label: "Mastered", color: "text-emerald-700", icon: CheckCircle2, bg: "bg-emerald-50" },
@@ -100,16 +115,18 @@ export default function StudentIepPage() {
   const [behaviorTargets, setBehaviorTargets] = useState<BehaviorTarget[]>([]);
   const [iepDocs, setIepDocs] = useState<IepDocument[]>([]);
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
+  const [teamMeetings, setTeamMeetings] = useState<TeamMeeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"document" | "goals" | "accommodations" | "reports">("document");
+  const [tab, setTab] = useState<"document" | "goals" | "accommodations" | "reports" | "meetings">("document");
   const [showAddGoal, setShowAddGoal] = useState(false);
+  const [showGoalBank, setShowGoalBank] = useState(false);
   const [showGenerateReport, setShowGenerateReport] = useState(false);
   const [viewingReport, setViewingReport] = useState<ProgressReport | null>(null);
   const [autoCreating, setAutoCreating] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [s, g, r, pt, bt, docs, accs] = await Promise.all([
+      const [s, g, r, pt, bt, docs, accs, mtgs] = await Promise.all([
         fetch(`${API}/students/${studentId}`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/iep-goals`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/progress-reports`).then(r => r.json()),
@@ -117,6 +134,7 @@ export default function StudentIepPage() {
         fetch(`${API}/students/${studentId}/behavior-targets`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/iep-documents`).then(r => r.json()),
         fetch(`${API}/students/${studentId}/accommodations`).then(r => r.json()),
+        fetch(`${API}/students/${studentId}/team-meetings`).then(r => r.json()),
       ]);
       setStudent(s);
       setGoals(Array.isArray(g) ? g : []);
@@ -125,6 +143,7 @@ export default function StudentIepPage() {
       setBehaviorTargets(Array.isArray(bt) ? bt : []);
       setIepDocs(Array.isArray(docs) ? docs : []);
       setAccommodations(Array.isArray(accs) ? accs : []);
+      setTeamMeetings(Array.isArray(mtgs) ? mtgs : []);
     } catch (e) {
       console.error("Failed to load IEP data:", e);
     }
@@ -205,6 +224,7 @@ export default function StudentIepPage() {
           { key: "document" as const, label: "IEP Document", icon: FileCheck },
           { key: "goals" as const, label: "Goals", icon: Target },
           { key: "accommodations" as const, label: "Accommodations", icon: BookOpen },
+          { key: "meetings" as const, label: "Meetings", icon: Users },
           { key: "reports" as const, label: "Progress Reports", icon: FileText },
         ]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -218,11 +238,20 @@ export default function StudentIepPage() {
       </div>
 
       {tab === "document" && (
-        <IepDocumentSection studentId={studentId} student={student} iepDocs={iepDocs} onSaved={loadData} />
+        <div className="space-y-4">
+          {iepDocs.length > 0 && iepDocs[0] && (
+            <IepCompletenessIndicator studentId={studentId} docId={iepDocs.find(d => d.active)?.id || iepDocs[0].id} />
+          )}
+          <IepDocumentSection studentId={studentId} student={student} iepDocs={iepDocs} onSaved={loadData} />
+        </div>
       )}
 
       {tab === "accommodations" && (
         <AccommodationsSection studentId={studentId} accommodations={accommodations} onSaved={loadData} />
+      )}
+
+      {tab === "meetings" && (
+        <TeamMeetingsSection studentId={studentId} meetings={teamMeetings} onSaved={loadData} />
       )}
 
       {tab === "goals" && (
@@ -244,6 +273,10 @@ export default function StudentIepPage() {
                   {autoCreating ? "Adding..." : "Add Missing Goals"}
                 </Button>
               )}
+              <Button size="sm" variant="outline" className="text-[12px] h-8"
+                onClick={() => setShowGoalBank(true)}>
+                <BookOpen className="w-3.5 h-3.5 mr-1" /> Goal Bank
+              </Button>
               <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
                 onClick={() => setShowAddGoal(true)}>
                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Goal
@@ -359,6 +392,14 @@ export default function StudentIepPage() {
           existingGoals={goals}
           onClose={() => setShowAddGoal(false)}
           onSaved={() => { setShowAddGoal(false); loadData(); }}
+        />
+      )}
+      {showGoalBank && (
+        <GoalBankModal
+          studentId={studentId}
+          existingGoals={goals}
+          onClose={() => setShowGoalBank(false)}
+          onGoalAdded={() => { loadData(); }}
         />
       )}
       {showGenerateReport && (
@@ -926,6 +967,57 @@ const ACCOMMODATION_CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
+function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId: number; onAmended: () => void }) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function createAmendment() {
+    if (!reason.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiFetch(`${API}/students/${studentId}/iep-documents/${docId}/amend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amendmentReason: reason.trim() }),
+      });
+      setShowDialog(false);
+      setReason("");
+      onAmended();
+    } catch (e) {
+      console.error("Failed to create amendment:", e);
+    }
+    setSubmitting(false);
+  }
+
+  if (!showDialog) {
+    return (
+      <Button size="sm" variant="outline" className="text-[12px] h-8 text-amber-600 border-amber-200 hover:bg-amber-50"
+        onClick={() => setShowDialog(true)}>
+        <Copy className="w-3.5 h-3.5 mr-1" /> Amend
+      </Button>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Create IEP Amendment</h3>
+        <p className="text-[12px] text-slate-500 mb-3">This will copy the current IEP as a draft amendment. The original remains active until the amendment is finalized.</p>
+        <label className="text-[11px] font-medium text-slate-500">Reason for Amendment</label>
+        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="Describe why this IEP needs to be amended..."
+          className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => { setShowDialog(false); setReason(""); }}>Cancel</Button>
+          <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-[12px] h-8" onClick={createAmendment} disabled={submitting || !reason.trim()}>
+            <Copy className="w-3.5 h-3.5 mr-1" /> {submitting ? "Creating..." : "Create Amendment Draft"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
   studentId: number; student: Student | null; iepDocs: IepDocument[]; onSaved: () => void;
 }) {
@@ -1008,8 +1100,19 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-600">IEP Document (MA DESE Form)</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-600">IEP Document (MA DESE Form)</h3>
+          {activeDoc?.iepType && (
+            <span className="text-[10px] text-slate-400 mt-0.5">
+              Type: {activeDoc.iepType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+              {activeDoc.version ? ` (v${activeDoc.version})` : ""}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
+          {!editing && activeDoc && (
+            <AmendButton studentId={studentId} docId={activeDoc.id} onAmended={onSaved} />
+          )}
           {!editing && (
             <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={startEdit}>
               <Edit2 className="w-3.5 h-3.5 mr-1" /> {activeDoc ? "Edit" : "Create IEP Document"}
@@ -1025,6 +1128,35 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
           )}
         </div>
       </div>
+
+      {iepDocs.length > 1 && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <History className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">IEP History & Amendments</span>
+            </div>
+            <div className="space-y-1">
+              {iepDocs.map(doc => (
+                <div key={doc.id} className={`flex items-center justify-between px-2 py-1.5 rounded text-[12px] ${doc.active ? "bg-indigo-50 border border-indigo-200" : "hover:bg-slate-50"}`}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-700">
+                      {doc.iepType ? doc.iepType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "IEP"}
+                      {doc.version ? ` v${doc.version}` : ""}
+                    </span>
+                    {doc.active && <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-medium">Active</span>}
+                    {doc.status === "draft" && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-medium">Draft</span>}
+                  </div>
+                  <span className="text-slate-400 text-[11px]">
+                    {doc.iepStartDate ? formatDate(doc.iepStartDate) : ""} - {doc.iepEndDate ? formatDate(doc.iepEndDate) : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!activeDoc && !editing && (
         <Card>
@@ -1293,6 +1425,337 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
         );
       })}
     </div>
+  );
+}
+
+const MEETING_TYPES = [
+  { value: "annual", label: "Annual Review" },
+  { value: "initial", label: "Initial IEP" },
+  { value: "amendment", label: "Amendment" },
+  { value: "reeval", label: "Reevaluation" },
+  { value: "transition", label: "Transition Planning" },
+  { value: "manifestation", label: "Manifestation Determination" },
+  { value: "other", label: "Other" },
+];
+
+function TeamMeetingsSection({ studentId, meetings, onSaved }: {
+  studentId: number; meetings: TeamMeeting[]; onSaved: () => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [meetingType, setMeetingType] = useState("annual");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
+
+  async function addMeeting() {
+    if (!scheduledDate) return;
+    setSaving(true);
+    try {
+      await apiFetch(`${API}/students/${studentId}/team-meetings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meetingType, scheduledDate,
+          scheduledTime: scheduledTime || null,
+          location: location || null,
+          notes: notes || null,
+        }),
+      });
+      setScheduledDate(""); setScheduledTime(""); setLocation(""); setNotes("");
+      setShowAdd(false);
+      onSaved();
+    } catch (e) {
+      console.error("Failed to add meeting:", e);
+    }
+    setSaving(false);
+  }
+
+  async function updateStatus(id: number, status: string) {
+    await apiFetch(`${API}/team-meetings/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    onSaved();
+  }
+
+  async function deleteMeeting(id: number) {
+    await apiFetch(`${API}/team-meetings/${id}`, { method: "DELETE" });
+    onSaved();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-600">Team Meetings</h3>
+        <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Schedule Meeting
+        </Button>
+      </div>
+
+      {showAdd && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Meeting Type *</label>
+                <select value={meetingType} onChange={e => setMeetingType(e.target.value)}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                  {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Date *</label>
+                <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-500">Time</label>
+                <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)}
+                  className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-500">Location</label>
+              <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Conference room, Zoom link, etc."
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-500">Notes</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Meeting agenda, items to discuss..."
+                className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] h-8"
+                disabled={!scheduledDate || saving} onClick={addMeeting}>
+                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Schedule"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {meetings.length === 0 && !showAdd && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">No team meetings scheduled</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-2">
+        {meetings.map(m => {
+          const typeLabel = MEETING_TYPES.find(t => t.value === m.meetingType)?.label ?? m.meetingType;
+          const statusColors: Record<string, string> = {
+            scheduled: "bg-blue-50 text-blue-700",
+            completed: "bg-emerald-50 text-emerald-700",
+            cancelled: "bg-red-50 text-red-700",
+            rescheduled: "bg-amber-50 text-amber-700",
+          };
+          return (
+            <Card key={m.id}>
+              <CardContent className="p-3.5 md:p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CalendarDays className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[13px] font-semibold text-slate-700">{typeLabel}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${statusColors[m.status] || "bg-slate-50 text-slate-500"}`}>
+                        {m.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[12px] text-slate-500 mt-0.5 flex-wrap">
+                      <span>{formatDate(m.scheduledDate)}</span>
+                      {m.scheduledTime && <span>{m.scheduledTime}</span>}
+                      {m.location && <span>{m.location}</span>}
+                    </div>
+                    {m.notes && <p className="text-[12px] text-slate-400 mt-1">{m.notes}</p>}
+                    {m.attendees && m.attendees.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <Users className="w-3 h-3 text-slate-400" />
+                        <span className="text-[11px] text-slate-400">
+                          {m.attendees.map(a => a.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    {m.status === "scheduled" && (
+                      <Button size="sm" variant="outline" className="text-[11px] h-7 px-2" onClick={() => updateStatus(m.id, "completed")}>
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Done
+                      </Button>
+                    )}
+                    <button onClick={() => deleteMeeting(m.id)}
+                      className="text-red-400 hover:text-red-600 p-1">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
+  studentId: number;
+  existingGoals: IepGoal[];
+  onClose: () => void;
+  onGoalAdded: () => void;
+}) {
+  const [goals, setGoals] = useState<GoalBankEntry[]>([]);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [domainFilter, setDomainFilter] = useState("");
+  const [adding, setAdding] = useState<number | null>(null);
+
+  const loadGoals = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (domainFilter) params.set("domain", domainFilter);
+    const res = await fetch(`${API}/goal-bank?${params}`);
+    const data = await res.json();
+    setGoals(data.goals || []);
+    setDomains(data.domains || []);
+    setLoading(false);
+  }, [search, domainFilter]);
+
+  useEffect(() => { loadGoals(); }, [loadGoals]);
+
+  async function addGoalToStudent(entry: GoalBankEntry) {
+    setAdding(entry.id);
+    try {
+      const goalNumber = existingGoals.filter(g => g.goalArea === entry.goalArea).length + 1;
+      await apiFetch(`${API}/students/${studentId}/iep-goals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goalArea: entry.goalArea,
+          goalNumber,
+          annualGoal: entry.goalText,
+          benchmarks: entry.benchmarkText || null,
+          serviceArea: entry.domain,
+        }),
+      });
+      onGoalAdded();
+    } catch (e) {
+      console.error("Failed to add goal:", e);
+    }
+    setAdding(null);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-10 md:pt-20 px-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Goal Bank</h3>
+            <p className="text-[11px] text-slate-400">Pre-written IEP goals — click to add to student</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search goals..."
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          </div>
+          <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+            <option value="">All Domains</option>
+            {domains.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {loading && <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto" /></div>}
+          {!loading && goals.length === 0 && (
+            <p className="text-center text-sm text-slate-400 py-8">No matching goals found</p>
+          )}
+          {goals.map(g => (
+            <div key={g.id} className="border border-slate-200 rounded-lg p-3 hover:border-indigo-200 transition-colors">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">{g.domain}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{g.goalArea}</span>
+                    {g.gradeRange && <span className="text-[10px] text-slate-400">Grades {g.gradeRange}</span>}
+                  </div>
+                  <p className="text-[12px] text-slate-700 leading-relaxed">{g.goalText}</p>
+                  {g.benchmarkText && (
+                    <details className="mt-1">
+                      <summary className="text-[11px] text-indigo-600 cursor-pointer hover:text-indigo-800">View benchmarks</summary>
+                      <p className="text-[11px] text-slate-500 mt-1 whitespace-pre-line pl-2 border-l-2 border-indigo-100">{g.benchmarkText}</p>
+                    </details>
+                  )}
+                </div>
+                <Button size="sm" variant="outline" className="text-[11px] h-7 px-2 flex-shrink-0"
+                  disabled={adding === g.id} onClick={() => addGoalToStudent(g)}>
+                  {adding === g.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3 mr-0.5" />}
+                  Add
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IepCompletenessIndicator({ studentId, docId }: { studentId: number; docId: number }) {
+  const [data, setData] = useState<CompletenessData | null>(null);
+
+  useEffect(() => {
+    fetch(`${API}/students/${studentId}/iep-documents/${docId}/completeness`)
+      .then(r => r.json())
+      .then(d => setData(d))
+      .catch(() => {});
+  }, [studentId, docId]);
+
+  if (!data) return null;
+
+  const barColor = data.percentage === 100 ? "bg-emerald-500" : data.percentage >= 70 ? "bg-amber-500" : "bg-red-500";
+  const textColor = data.percentage === 100 ? "text-emerald-700" : data.percentage >= 70 ? "text-amber-700" : "text-red-700";
+
+  return (
+    <Card className={data.isComplete ? "border-emerald-200" : "border-amber-200"}>
+      <CardContent className="p-3.5">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${data.isComplete ? "bg-emerald-50" : "bg-amber-50"}`}>
+            {data.isComplete ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertTriangle className="w-5 h-5 text-amber-600" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <p className="text-[13px] font-semibold text-slate-700">
+                {data.isComplete ? "IEP Document Complete" : "IEP Document Incomplete"}
+              </p>
+              <p className={`text-[13px] font-bold ${textColor}`}>{data.percentage}%</p>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1.5">
+              <div className={`${barColor} h-1.5 rounded-full transition-all`} style={{ width: `${data.percentage}%` }} />
+            </div>
+            {data.missingSections.length > 0 && (
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                Missing: {data.missingSections.map(m => m.label).join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

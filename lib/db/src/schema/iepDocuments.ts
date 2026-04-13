@@ -37,6 +37,11 @@ export const iepDocumentsTable = pgTable("iep_documents", {
   scheduleModifications: text("schedule_modifications"),
   transportationServices: text("transportation_services"),
 
+  iepType: text("iep_type").notNull().default("initial"),
+  version: integer("version").notNull().default(1),
+  amendmentOf: integer("amendment_of"),
+  amendmentReason: text("amendment_reason"),
+
   preparedBy: integer("prepared_by").references(() => staffTable.id),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

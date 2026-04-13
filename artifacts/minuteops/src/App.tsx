@@ -16,6 +16,7 @@ import StudentDetail from "@/pages/student-detail";
 import ImportData from "@/pages/import-data";
 import ProgramDataPage from "@/pages/program-data";
 import StudentIepPage from "@/pages/student-iep";
+import ComplianceTimelinePage from "@/pages/compliance-timeline";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/schedule" component={Schedule} />
         <Route path="/staff" component={StaffPage} />
         <Route path="/alerts" component={AlertsPage} />
+        <Route path="/compliance/timeline" component={ComplianceTimelinePage} />
         <Route path="/compliance" component={Compliance} />
         <Route path="/reports" component={Reports} />
         <Route path="/import" component={ImportData} />

@@ -50,8 +50,16 @@ export default function Compliance() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Compliance & Risk</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">IEP minute delivery compliance for current school year</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Compliance & Risk</h1>
+            <p className="text-xs md:text-sm text-slate-400 mt-1">IEP minute delivery compliance for current school year</p>
+          </div>
+          <Link href="/compliance/timeline" className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            IEP Compliance Timeline
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
