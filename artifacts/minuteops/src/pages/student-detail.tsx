@@ -4,8 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, Clock, TrendingUp, FileText, Target } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
+import { useState, useEffect } from "react";
+
+const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 const RISK_CONFIG: Record<string, { label: string; color: string; ringColor: string; bg: string }> = {
   on_track: { label: "On Track", color: "text-emerald-700", ringColor: "#10b981", bg: "bg-emerald-50" },
@@ -15,6 +18,11 @@ const RISK_CONFIG: Record<string, { label: string; color: string; ringColor: str
   completed: { label: "Completed", color: "text-indigo-700", ringColor: "#6366f1", bg: "bg-indigo-50" },
 };
 
+const DIRECTION_COLORS = {
+  decrease: { good: "#10b981", bad: "#ef4444", bg: "bg-emerald-50", text: "text-emerald-700" },
+  increase: { good: "#6366f1", bad: "#f97316", bg: "bg-indigo-50", text: "text-indigo-700" },
+};
+
 export default function StudentDetail() {
   const params = useParams<{ id: string }>();
   const studentId = Number(params.id);
@@ -22,7 +30,32 @@ export default function StudentDetail() {
   const { data: student, isLoading: loadingStudent } = useGetStudent(studentId);
   const { data: progress } = useGetStudentMinuteProgress(studentId);
   const { data: sessions } = useGetStudentSessions(studentId, { limit: 20 } as any);
-  const { data: serviceReqs } = useListServiceRequirements({ studentId } as any);
+
+  const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
+  const [programTargets, setProgramTargets] = useState<any[]>([]);
+  const [behaviorTrends, setBehaviorTrends] = useState<any[]>([]);
+  const [programTrends, setProgramTrends] = useState<any[]>([]);
+  const [dataSessions, setDataSessions] = useState<any[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (isNaN(studentId)) return;
+    setDataLoading(true);
+    Promise.all([
+      fetch(`${API}/students/${studentId}/behavior-targets`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/students/${studentId}/program-targets`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/students/${studentId}/behavior-data/trends`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/students/${studentId}/program-data/trends`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/students/${studentId}/data-sessions?limit=10`).then(r => r.ok ? r.json() : []),
+    ]).then(([bt, pt, btTrends, ptTrends, ds]) => {
+      setBehaviorTargets(bt);
+      setProgramTargets(pt);
+      setBehaviorTrends(btTrends);
+      setProgramTrends(ptTrends);
+      setDataSessions(ds);
+      setDataLoading(false);
+    }).catch(() => setDataLoading(false));
+  }, [studentId]);
 
   const s = student as any;
   const progressList = (progress as any[]) ?? [];
@@ -53,6 +86,32 @@ export default function StudentDetail() {
   const completedSessions = sessionList.filter((se: any) => se.status === "completed").length;
   const missedSessions = sessionList.filter((se: any) => se.status === "missed").length;
 
+  function getBehaviorTrendData(targetId: number) {
+    return behaviorTrends
+      .filter((t: any) => t.behaviorTargetId === targetId)
+      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.value) || 0 }))
+      .sort((a: any, b: any) => a.date.localeCompare(b.date));
+  }
+
+  function getProgramTrendData(targetId: number) {
+    return programTrends
+      .filter((t: any) => t.programTargetId === targetId)
+      .map((t: any) => ({ date: t.sessionDate, value: parseFloat(t.percentCorrect) || 0 }))
+      .sort((a: any, b: any) => a.date.localeCompare(b.date));
+  }
+
+  function getTrendDirection(data: { value: number }[]) {
+    if (data.length < 4) return "flat";
+    const mid = Math.floor(data.length / 2);
+    const earlier = data.slice(0, mid);
+    const recent = data.slice(mid);
+    const earlierAvg = earlier.reduce((s, d) => s + d.value, 0) / earlier.length;
+    const recentAvg = recent.reduce((s, d) => s + d.value, 0) / recent.length;
+    const diff = recentAvg - earlierAvg;
+    if (Math.abs(diff) < 0.5) return "flat";
+    return diff > 0 ? "up" : "down";
+  }
+
   if (!loadingStudent && !s) {
     return (
       <div className="p-8">
@@ -65,9 +124,15 @@ export default function StudentDetail() {
   }
 
   function formatDate(d: string) {
-    if (!d) return "—";
+    if (!d) return "\u2014";
     const date = new Date(d + "T00:00:00");
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function formatShortDate(d: string) {
+    if (!d) return "";
+    const date = new Date(d + "T00:00:00");
+    return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
   }
 
   return (
@@ -213,9 +278,257 @@ export default function StudentDetail() {
         </Card>
       </div>
 
+      {(behaviorTargets.length > 0 || dataLoading) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-rose-500" />
+                Behavior Data
+              </CardTitle>
+              <span className="text-xs text-slate-400">{behaviorTargets.length} active target{behaviorTargets.length !== 1 ? "s" : ""}</span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2">
+            {dataLoading ? (
+              <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="w-full h-24" />)}</div>
+            ) : (
+              <div className="space-y-4">
+                {behaviorTargets.map((bt: any) => {
+                  const trendData = getBehaviorTrendData(bt.id);
+                  const latest = trendData[trendData.length - 1]?.value;
+                  const baseline = parseFloat(bt.baselineValue) || 0;
+                  const goal = parseFloat(bt.goalValue) || 0;
+                  const direction = getTrendDirection(trendData);
+                  const dirColors = DIRECTION_COLORS[bt.targetDirection as keyof typeof DIRECTION_COLORS] || DIRECTION_COLORS.decrease;
+                  const isGoodTrend = (bt.targetDirection === "decrease" && direction === "down") ||
+                                       (bt.targetDirection === "increase" && direction === "up");
+                  const trendColor = direction === "flat" ? "#94a3b8" : isGoodTrend ? dirColors.good : dirColors.bad;
+
+                  const progressPct = bt.targetDirection === "decrease"
+                    ? baseline > goal ? Math.round(((baseline - (latest ?? baseline)) / (baseline - goal)) * 100) : 0
+                    : goal > baseline ? Math.round((((latest ?? baseline) - baseline) / (goal - baseline)) * 100) : 0;
+                  const clampedPct = Math.max(0, Math.min(100, progressPct));
+
+                  return (
+                    <div key={bt.id} className="border border-slate-100 rounded-xl p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[13px] font-semibold text-slate-700">{bt.name}</p>
+                            <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                              bt.targetDirection === "decrease" ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"
+                            }`}>
+                              {bt.targetDirection === "decrease" ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                              {bt.targetDirection}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {bt.measurementType} · Baseline: {bt.baselineValue} · Goal: {bt.goalValue}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <div className="flex items-center gap-1">
+                            {direction === "up" ? <ArrowUpRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
+                             direction === "down" ? <ArrowDownRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
+                             <Minus className="w-3.5 h-3.5 text-slate-400" />}
+                            <span className="text-lg font-bold text-slate-800">{latest != null ? latest : "\u2014"}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">latest</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${clampedPct}%`, backgroundColor: clampedPct >= 80 ? "#10b981" : clampedPct >= 50 ? "#f59e0b" : "#ef4444" }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">{clampedPct}% toward goal</p>
+                        </div>
+                        {trendData.length > 1 && (
+                          <div className="w-[140px] h-[48px] flex-shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={trendData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                                <defs>
+                                  <linearGradient id={`grad-beh-${bt.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
+                                    <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <Area type="monotone" dataKey="value" stroke={trendColor} strokeWidth={1.5} fill={`url(#grad-beh-${bt.id})`} dot={false} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(programTargets.length > 0 || dataLoading) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-indigo-500" />
+                Academic Programs
+              </CardTitle>
+              <span className="text-xs text-slate-400">{programTargets.length} active program{programTargets.length !== 1 ? "s" : ""}</span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2">
+            {dataLoading ? (
+              <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="w-full h-24" />)}</div>
+            ) : (
+              <div className="space-y-4">
+                {programTargets.map((pt: any) => {
+                  const trendData = getProgramTrendData(pt.id);
+                  const latest = trendData[trendData.length - 1]?.value;
+                  const direction = getTrendDirection(trendData);
+                  const masteryPct = pt.masteryCriterionPercent || 80;
+                  const isGoodTrend = direction === "up";
+                  const trendColor = direction === "flat" ? "#94a3b8" : isGoodTrend ? "#6366f1" : "#f97316";
+                  const atMastery = latest != null && latest >= masteryPct;
+
+                  return (
+                    <div key={pt.id} className="border border-slate-100 rounded-xl p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-[13px] font-semibold text-slate-700">{pt.name}</p>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
+                              {pt.domain || pt.programType?.replace(/_/g, " ")}
+                            </span>
+                            {pt.currentPromptLevel && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                                {pt.currentPromptLevel}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {pt.targetCriterion || `${masteryPct}% mastery`}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <div className="flex items-center gap-1">
+                            {direction === "up" ? <ArrowUpRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
+                             direction === "down" ? <ArrowDownRight className="w-3.5 h-3.5" style={{ color: trendColor }} /> :
+                             <Minus className="w-3.5 h-3.5 text-slate-400" />}
+                            <span className="text-lg font-bold text-slate-800">{latest != null ? `${Math.round(latest)}%` : "\u2014"}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">latest accuracy</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${Math.min(100, latest ?? 0)}%`, backgroundColor: atMastery ? "#10b981" : (latest ?? 0) >= 60 ? "#6366f1" : "#f97316" }}
+                            />
+                            <div
+                              className="absolute top-0 h-full w-0.5 bg-slate-400/60"
+                              style={{ left: `${masteryPct}%` }}
+                              title={`Mastery: ${masteryPct}%`}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[10px] text-slate-400">{atMastery ? "At mastery criterion" : `${masteryPct}% mastery criterion`}</p>
+                            {atMastery && <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5"><CheckCircle className="w-3 h-3" /> Mastered</span>}
+                          </div>
+                        </div>
+                        {trendData.length > 1 && (
+                          <div className="w-[140px] h-[48px] flex-shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={trendData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                                <defs>
+                                  <linearGradient id={`grad-prog-${pt.id}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={trendColor} stopOpacity={0.2} />
+                                    <stop offset="100%" stopColor={trendColor} stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                <Area type="monotone" dataKey="value" stroke={trendColor} strokeWidth={1.5} fill={`url(#grad-prog-${pt.id})`} dot={false} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(dataSessions.length > 0 || dataLoading) && (
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-600">Recent Data Sessions</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {dataLoading ? (
+              <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="w-full h-12" />)}</div>
+            ) : dataSessions.length > 0 ? (
+              <>
+                <div className="md:hidden space-y-2">
+                  {dataSessions.map((ds: any) => (
+                    <div key={ds.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium text-slate-700">{formatDate(ds.sessionDate)}</p>
+                        <p className="text-[11px] text-slate-400">
+                          {ds.staffName || "Staff"} · {ds.startTime && ds.endTime ? `${ds.startTime}\u2013${ds.endTime}` : "No time recorded"}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0 ml-2">
+                        <Activity className="w-3 h-3" /> Data
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Date</th>
+                        <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Collected By</th>
+                        <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Time</th>
+                        <th className="text-left py-2.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {dataSessions.map((ds: any) => (
+                        <tr key={ds.id} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 text-[13px] text-slate-600">{formatDate(ds.sessionDate)}</td>
+                          <td className="py-2.5 text-[13px] text-slate-500">{ds.staffName || "\u2014"}</td>
+                          <td className="py-2.5 text-[13px] text-slate-500">
+                            {ds.startTime && ds.endTime ? `${ds.startTime}\u2013${ds.endTime}` : "\u2014"}
+                          </td>
+                          <td className="py-2.5 text-[13px] text-slate-400 truncate max-w-[200px]">{ds.notes || "\u2014"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="py-8 text-center text-sm text-slate-400">No data sessions recorded yet.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-0">
-          <CardTitle className="text-sm font-semibold text-slate-600">Recent Sessions</CardTitle>
+          <CardTitle className="text-sm font-semibold text-slate-600">Recent Service Sessions</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           {recentSessions.length > 0 ? (
@@ -224,8 +537,8 @@ export default function StudentDetail() {
                 {recentSessions.map((se: any) => (
                   <div key={se.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-slate-700 truncate">{se.serviceTypeName ?? "—"}</p>
-                      <p className="text-[11px] text-slate-400">{formatDate(se.sessionDate)} · {se.durationMinutes ?? "—"} min · {se.staffName ?? "—"}</p>
+                      <p className="text-[13px] font-medium text-slate-700 truncate">{se.serviceTypeName ?? "\u2014"}</p>
+                      <p className="text-[11px] text-slate-400">{formatDate(se.sessionDate)} · {se.durationMinutes ?? "\u2014"} min · {se.staffName ?? "\u2014"}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2 ${
                       se.status === "completed" ? "bg-emerald-50 text-emerald-700" :
@@ -251,9 +564,9 @@ export default function StudentDetail() {
                     {recentSessions.map((se: any) => (
                       <tr key={se.id} className="hover:bg-slate-50/50">
                         <td className="py-2.5 text-[13px] text-slate-600">{formatDate(se.sessionDate)}</td>
-                        <td className="py-2.5 text-[13px] text-slate-600">{se.serviceTypeName ?? "—"}</td>
-                        <td className="py-2.5 text-[13px] text-slate-500">{se.staffName ?? "—"}</td>
-                        <td className="py-2.5 text-[13px] text-slate-600">{se.durationMinutes ?? "—"} min</td>
+                        <td className="py-2.5 text-[13px] text-slate-600">{se.serviceTypeName ?? "\u2014"}</td>
+                        <td className="py-2.5 text-[13px] text-slate-500">{se.staffName ?? "\u2014"}</td>
+                        <td className="py-2.5 text-[13px] text-slate-600">{se.durationMinutes ?? "\u2014"} min</td>
                         <td className="py-2.5">
                           <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                             se.status === "completed" ? "bg-emerald-50 text-emerald-700" :

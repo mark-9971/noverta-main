@@ -106,7 +106,7 @@ All routes prefixed with `/api/`:
 ### Frontend Pages
 - `/` — Dashboard with KPI cards, compliance ring gauge, session delivery bar chart, compliance by service progress bars, recent alerts
 - `/students` — Student list with risk filter pills, search, progress rings per student, clickable cards linking to detail
-- `/students/:id` — Student detail with per-service bar chart, service breakdown with mini progress rings, recent sessions table
+- `/students/:id` — Student detail with per-service bar chart, service breakdown with mini progress rings, behavior data section (targets with sparkline trend charts, progress bars, direction indicators), academic programs section (mastery tracking with criterion indicators, trend sparklines), recent data sessions table, recent service sessions table
 - `/sessions` — Session log with pagination, status filter pills, search, Log Session modal (create)
 - `/schedule` — Weekly grid/list toggle view of recurring schedule blocks, staff filter dropdown
 - `/staff` — Staff directory with tabs (Clinicians, Paraeducators, Case Managers), utilization progress rings
@@ -163,9 +163,9 @@ Database is seeded with realistic demo data:
 - 2855 session logs
 - 330 recurring schedule blocks
 - 106 compliance alerts (68 critical, 38 high)
-- 24 behavior targets across 8 students (elopement, aggression, non-compliance, SIB, vocal stereotypy)
-- 22 program targets across 8 students (receptive ID, tacting, hand washing, intraverbal, matching)
-- 184 data collection sessions with behavior and program data spanning 6 weeks
+- 37 behavior targets across all students (elopement, aggression, non-compliance, SIB, vocal stereotypy, tantrums, task refusal, on-task behavior, manding, etc.)
+- 37 program targets across all students (receptive ID, tacting, hand washing, intraverbal, matching, PECS, social greetings, sight words, etc.)
+- 279 data collection sessions with behavior and program data spanning 6 weeks
 - 44 goal bank entries across 7 domains (Communication, Academic, Behavioral, Motor, Social-Emotional, ABA, Transition)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
