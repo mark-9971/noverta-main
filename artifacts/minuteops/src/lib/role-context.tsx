@@ -48,48 +48,48 @@ function lsGetStr(key: string): string {
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
   const [role, setRoleState] = useState<UserRole>(() => {
-    const saved = localStorage.getItem("minuteops_role");
+    const saved = localStorage.getItem("trellis_role");
     return (saved as UserRole) || "admin";
   });
 
-  const [genEdTeacherId, setGenEdTeacherIdState] = useState(() => lsGet("minuteops_gen_ed_teacher_id"));
-  const [genEdTeacherName, setGenEdTeacherName] = useState(() => lsGetStr("minuteops_gen_ed_teacher_name"));
+  const [genEdTeacherId, setGenEdTeacherIdState] = useState(() => lsGet("trellis_gen_ed_teacher_id"));
+  const [genEdTeacherName, setGenEdTeacherName] = useState(() => lsGetStr("trellis_gen_ed_teacher_name"));
 
-  const [spedStudentId, setSpedStudentIdState] = useState(() => lsGet("minuteops_sped_student_id"));
-  const [spedStudentName, setSpedStudentName] = useState(() => lsGetStr("minuteops_sped_student_name"));
+  const [spedStudentId, setSpedStudentIdState] = useState(() => lsGet("trellis_sped_student_id"));
+  const [spedStudentName, setSpedStudentName] = useState(() => lsGetStr("trellis_sped_student_name"));
 
-  const [genEdStudentId, setGenEdStudentIdState] = useState(() => lsGet("minuteops_gen_ed_student_id"));
-  const [genEdStudentName, setGenEdStudentName] = useState(() => lsGetStr("minuteops_gen_ed_student_name"));
+  const [genEdStudentId, setGenEdStudentIdState] = useState(() => lsGet("trellis_gen_ed_student_id"));
+  const [genEdStudentName, setGenEdStudentName] = useState(() => lsGetStr("trellis_gen_ed_student_name"));
 
   const setRole = (r: UserRole) => {
     setRoleState(r);
-    localStorage.setItem("minuteops_role", r);
+    localStorage.setItem("trellis_role", r);
     setLocation(ROLE_HOME[r]);
   };
 
   const setTeacherId = (id: number, name?: string) => {
     setGenEdTeacherIdState(id);
-    localStorage.setItem("minuteops_gen_ed_teacher_id", String(id));
+    localStorage.setItem("trellis_gen_ed_teacher_id", String(id));
     if (name) {
       setGenEdTeacherName(name);
-      localStorage.setItem("minuteops_gen_ed_teacher_name", name);
+      localStorage.setItem("trellis_gen_ed_teacher_name", name);
     }
   };
 
   const setStudentId = (id: number, name?: string) => {
     if (role === "sped_student") {
       setSpedStudentIdState(id);
-      localStorage.setItem("minuteops_sped_student_id", String(id));
+      localStorage.setItem("trellis_sped_student_id", String(id));
       if (name) {
         setSpedStudentName(name);
-        localStorage.setItem("minuteops_sped_student_name", name);
+        localStorage.setItem("trellis_sped_student_name", name);
       }
     } else {
       setGenEdStudentIdState(id);
-      localStorage.setItem("minuteops_gen_ed_student_id", String(id));
+      localStorage.setItem("trellis_gen_ed_student_id", String(id));
       if (name) {
         setGenEdStudentName(name);
-        localStorage.setItem("minuteops_gen_ed_student_name", name);
+        localStorage.setItem("trellis_gen_ed_student_name", name);
       }
     }
   };

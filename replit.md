@@ -2,7 +2,7 @@
 
 ## Overview
 
-Trellis (formerly MinuteOps) is a comprehensive school management platform that combines general education (classes, assignments, gradebook) with special education (IEP/ABA) compliance. It features role-based views for administrators, teachers, and students — all using the same platform, with special ed services layered on top for IEP students. Fully compliant with Massachusetts 603 CMR 28.00/46.00.
+Trellis is a comprehensive school management platform that combines general education (classes, assignments, gradebook) with special education (IEP/ABA) compliance. It features role-based views for administrators, teachers, and students — all using the same platform, with special ed services layered on top for IEP students. Fully compliant with Massachusetts 603 CMR 28.00/46.00.
 
 **Brand Identity:** Name "Trellis", tagline "Built to support.", deep green/emerald palette, Sprout icon (Lucide), organic but structured feel.
 

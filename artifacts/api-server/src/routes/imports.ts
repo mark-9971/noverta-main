@@ -48,7 +48,7 @@ router.get("/imports/templates/:type", async (req, res): Promise<void> => {
 
   const csv = [tmpl.headers.join(","), tmpl.sampleRow.join(",")].join("\n");
   res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename=minuteops_${type}_template.csv`);
+  res.setHeader("Content-Disposition", `attachment; filename=trellis_${type}_template.csv`);
   res.send(csv);
 });
 
