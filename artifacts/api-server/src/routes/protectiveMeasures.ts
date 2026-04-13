@@ -162,6 +162,7 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
     "studentInjuryDescription", "staffInjury", "staffInjuryDescription",
     "medicalAttentionRequired", "medicalDetails", "parentNotified", "parentNotifiedAt",
     "parentNotifiedBy", "parentNotificationMethod", "writtenReportSent", "writtenReportSentAt",
+    "adminReviewedBy", "adminReviewedAt", "adminReviewNotes",
     "status", "followUpPlan", "notes",
   ];
 
