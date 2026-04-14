@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { registerTokenProvider } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
+import { ThemeProvider } from "@/lib/theme-context";
 import { SchoolProvider } from "@/lib/school-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
@@ -168,9 +169,11 @@ function App() {
               <Route>
                 <ProtectedRoutes>
                   <RoleProvider>
-                    <SchoolProvider>
-                      <AppRouter />
-                    </SchoolProvider>
+                    <ThemeProvider>
+                      <SchoolProvider>
+                        <AppRouter />
+                      </SchoolProvider>
+                    </ThemeProvider>
                   </RoleProvider>
                 </ProtectedRoutes>
               </Route>

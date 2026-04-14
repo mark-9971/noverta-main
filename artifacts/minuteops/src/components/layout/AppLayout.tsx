@@ -17,6 +17,8 @@ import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
+import { ThemePicker } from "./ThemePicker";
+import { useTheme } from "@/lib/theme-context";
 
 type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
@@ -215,6 +217,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { role, user, isDevMode } = useRole();
   const { signOut } = useClerk();
   const { typedFilter } = useSchoolContext();
+  const { theme } = useTheme();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = (alertsSummary as any)?.total ?? 0;
   const config = roleConfig[role] ?? roleConfig["sped_teacher"];
@@ -251,7 +254,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50/60 overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       <Toaster position="top-right" richColors closeButton duration={4000} />
       <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
       {sidebarOpen && (
@@ -262,21 +265,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       <aside className={cn(
-        "bg-white border-r border-gray-200/70 flex flex-col flex-shrink-0 z-50",
+        "bg-sidebar border-r border-sidebar-border flex flex-col flex-shrink-0 z-50",
         "fixed inset-y-0 left-0 w-[220px] transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo & role switcher */}
-        <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+        <div className={cn(
+          "px-4 pt-5 pb-3",
+          theme === "open-air" ? "border-b border-transparent" : "border-b border-sidebar-border"
+        )}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
-              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", config.color)}>
-                <Sprout className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-[15px] font-bold text-gray-900 leading-none tracking-tight">{config.label}</p>
-                <p className="text-[11px] text-gray-400 leading-none mt-1 tracking-wide">{config.subtitle}</p>
-              </div>
+              {theme === "open-air" ? (
+                <div>
+                  <p className="text-[15px] font-extrabold text-gray-900 leading-none tracking-tight">{config.label}</p>
+                  <p className="text-[11px] text-gray-300 leading-none mt-1.5 tracking-wide">{config.subtitle}</p>
+                </div>
+              ) : (
+                <>
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", config.color)}>
+                    <Sprout className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[15px] font-bold text-gray-900 leading-none tracking-tight">{config.label}</p>
+                    <p className="text-[11px] text-gray-400 leading-none mt-1 tracking-wide">{config.subtitle}</p>
+                  </div>
+                </>
+              )}
             </div>
             <button
               className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
@@ -297,7 +312,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="px-2.5 pt-2.5 pb-1">
           <button
             onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200/70 text-gray-400 hover:text-gray-600 transition-colors text-[12px] group"
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-[12px] group",
+              theme === "open-air"
+                ? "bg-transparent hover:bg-gray-50 text-gray-300 hover:text-gray-500"
+                : "bg-gray-50 hover:bg-gray-100 border border-gray-200/70 text-gray-400 hover:text-gray-600"
+            )}
           >
             <Search className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="flex-1 text-left">Search…</span>
@@ -324,16 +344,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100",
-                        active
-                          ? config.bgActive
-                          : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100",
+                        theme === "open-air"
+                          ? active
+                            ? "text-gray-900 font-semibold"
+                            : "text-gray-400 hover:text-gray-700"
+                          : active
+                            ? config.bgActive
+                            : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                       )}
                       onClick={() => setSidebarOpen(false)}
                     >
+                      {theme === "open-air" && active && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
+                      )}
                       <item.icon className={cn(
                         "w-[17px] h-[17px] flex-shrink-0",
-                        active ? config.iconActive : "text-gray-400"
+                        theme === "open-air"
+                          ? active ? "text-gray-900" : "text-gray-300"
+                          : active ? config.iconActive : "text-gray-400"
                       )} />
                       <span className="flex-1 truncate">{item.label}</span>
                       {item.alertBadge && openAlerts > 0 && (
@@ -350,15 +379,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User identity */}
-        <div className="px-3 py-3 border-t border-gray-100">
+        <div className={cn(
+          "px-3 py-3",
+          theme === "open-air" ? "border-t border-transparent" : "border-t border-sidebar-border"
+        )}>
           <div className="flex items-center gap-2">
-            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0", config.color)}>
+            <div className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+              theme === "open-air"
+                ? "bg-emerald-50 text-emerald-600"
+                : cn("text-white", config.color)
+            )}>
               {initials}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-gray-800 truncate leading-tight">{user.name}</p>
-              <p className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">{user.subtitle}</p>
+              <p className={cn(
+                "text-[11px] truncate leading-tight mt-0.5",
+                theme === "open-air" ? "text-gray-300" : "text-gray-400"
+              )}>{user.subtitle}</p>
             </div>
+            <ThemePicker />
             <button
               onClick={() => signOut({ redirectUrl: "/sign-in" })}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
@@ -373,7 +414,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile top bar */}
-        <header className="lg:hidden bg-white border-b border-gray-200/70 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <header className="lg:hidden bg-sidebar border-b border-sidebar-border px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <button
             className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"
             onClick={() => setSidebarOpen(true)}
@@ -393,7 +434,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
 
         {/* Mobile bottom tab bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-stretch z-30 safe-area-bottom">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border flex items-stretch z-30 safe-area-bottom">
           {primaryItems.map((item) => {
             const active = isActive(item);
             return (

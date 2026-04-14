@@ -194,6 +194,95 @@
   --chart-5: 142 76% 36%;
 }
 
+/* ── THEME: Open Air (default) ── borderless, minimal */
+:root.theme-open-air {
+  --card-border: 0 0% 100%;
+  --border: 0 0% 96%;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow: none;
+  --sidebar-border: 0 0% 96%;
+}
+
+/* ── THEME: Classic ── traditional borders and cards */
+:root.theme-classic {
+  /* defaults from :root are already classic-style */
+}
+
+/* ── THEME: High Contrast ── stronger text, thicker borders */
+:root.theme-high-contrast {
+  --foreground: 0 0% 3%;
+  --muted-foreground: 0 0% 25%;
+  --border: 0 0% 70%;
+  --card-border: 0 0% 70%;
+  --sidebar-border: 0 0% 70%;
+  --background: 0 0% 100%;
+  --card: 0 0% 100%;
+}
+
+/* ── THEME: Large Text ── 16px base */
+:root.theme-large-text {
+  font-size: 16px;
+}
+
+/* ── THEME: Extra Large Text ── 18px base */
+:root.theme-extra-large-text {
+  font-size: 18px;
+}
+
+/* ── THEME: Warm ── cream tones */
+:root.theme-warm {
+  --background: 40 33% 97%;
+  --card: 40 33% 99%;
+  --card-border: 35 20% 90%;
+  --border: 35 20% 90%;
+  --sidebar: 40 33% 99%;
+  --sidebar-border: 35 20% 90%;
+  --muted: 38 25% 94%;
+}
+
+/* ── THEME: Cool ── blue-tinted neutrals */
+:root.theme-cool {
+  --background: 214 32% 97%;
+  --card: 214 32% 99%;
+  --card-border: 214 18% 90%;
+  --border: 214 18% 90%;
+  --sidebar: 214 32% 99%;
+  --sidebar-border: 214 18% 90%;
+  --muted: 214 20% 94%;
+}
+
+/* ── THEME: Deuteranopia-Safe ── no red/green reliance */
+:root.theme-deuteranopia {
+  --primary: 210 80% 45%;
+  --ring: 210 80% 45%;
+  --sidebar-primary: 210 80% 45%;
+  --sidebar-ring: 210 80% 45%;
+  --chart-1: 210 80% 45%;
+  --chart-5: 210 60% 35%;
+  --destructive: 30 90% 50%;
+}
+
+/* ── THEME: Protanopia-Safe ── no red reliance */
+:root.theme-protanopia {
+  --primary: 200 75% 42%;
+  --ring: 200 75% 42%;
+  --sidebar-primary: 200 75% 42%;
+  --sidebar-ring: 200 75% 42%;
+  --chart-1: 200 75% 42%;
+  --chart-5: 200 55% 32%;
+  --destructive: 45 90% 48%;
+}
+
+/* ── THEME: Reduced Motion ── disable transitions */
+:root.theme-reduced-motion *,
+:root.theme-reduced-motion *::before,
+:root.theme-reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
 @layer base {
   * {
     @apply border-border;

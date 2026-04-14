@@ -77,13 +77,18 @@ export default function RecentlyDeletedPage() {
     const key = `${table}-${id}`;
     setRestoring(key);
     try {
-      await authFetch("/api/recently-deleted/restore", {
+      const res = await authFetch("/api/recently-deleted/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table, id }),
       });
-      toast.success("Record restored");
-      loadData();
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error || "Failed to restore");
+      } else {
+        toast.success("Record restored");
+        loadData();
+      }
     } catch {
       toast.error("Failed to restore");
     }
