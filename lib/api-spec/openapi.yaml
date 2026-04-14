@@ -2569,6 +2569,153 @@ paths:
         "404":
           description: BIP not found
 
+  # ─── Phase Changes ─────────────────────────────────────────────
+  /behavior-targets/{targetId}/phase-changes:
+    get:
+      operationId: getPhaseChanges
+      tags: [bip]
+      summary: Get phase changes for a behavior target
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of phase changes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PhaseChange"
+    post:
+      operationId: createPhaseChange
+      tags: [bip]
+      summary: Create a phase change for a behavior target
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePhaseChangeBody"
+      responses:
+        "201":
+          description: Created phase change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhaseChange"
+
+  /phase-changes/{id}:
+    patch:
+      operationId: updatePhaseChange
+      tags: [bip]
+      summary: Update a phase change
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePhaseChangeBody"
+      responses:
+        "200":
+          description: Updated phase change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhaseChange"
+    delete:
+      operationId: deletePhaseChange
+      tags: [bip]
+      summary: Delete a phase change
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /students/{studentId}/phase-changes:
+    get:
+      operationId: getStudentPhaseChanges
+      tags: [bip]
+      summary: Get all phase changes for a student grouped by behavior target
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Phase changes grouped by target ID
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/PhaseChange"
+
+  # ─── IOA ────────────────────────────────────────────────────────
+  /students/{studentId}/ioa-summary:
+    get:
+      operationId: getIoaSummary
+      tags: [bip]
+      summary: Get IOA summary for a student's behavior targets
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: to
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: behaviorTargetId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: IOA summary grouped by behavior target
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/IoaTargetSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -5271,3 +5418,75 @@ components:
           type: string
         effectiveDate:
           type: string
+
+    PhaseChange:
+      type: object
+      properties:
+        id:
+          type: integer
+        behaviorTargetId:
+          type: integer
+        changeDate:
+          type: string
+        label:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, behaviorTargetId, changeDate, label, createdAt]
+
+    CreatePhaseChangeBody:
+      type: object
+      properties:
+        changeDate:
+          type: string
+        label:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required: [changeDate, label]
+
+    UpdatePhaseChangeBody:
+      type: object
+      properties:
+        changeDate:
+          type: string
+        label:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    IoaSession:
+      type: object
+      properties:
+        ioaSessionId:
+          type: integer
+        sessionDate:
+          type: string
+        observer1Value:
+          type: number
+        observer2Value:
+          type: number
+        agreementPercent:
+          type: number
+        measurementType:
+          type: string
+        ioaMethod:
+          type: string
+      required: [ioaSessionId, sessionDate, observer1Value, observer2Value, agreementPercent, measurementType, ioaMethod]
+
+    IoaTargetSummary:
+      type: object
+      properties:
+        targetName:
+          type: string
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/IoaSession"
+        averageAgreement:
+          type: number
+        meetsThreshold:
+          type: boolean
+      required: [targetName, sessions, averageAgreement, meetsThreshold]

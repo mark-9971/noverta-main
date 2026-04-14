@@ -3265,3 +3265,120 @@ export const CreateBipVersionBody = zod.object({
   reviewDate: zod.string().optional(),
   effectiveDate: zod.string().optional(),
 });
+
+/**
+ * @summary Get phase changes for a behavior target
+ */
+export const GetPhaseChangesParams = zod.object({
+  targetId: zod.coerce.number(),
+});
+
+export const GetPhaseChangesResponseItem = zod.object({
+  id: zod.number(),
+  behaviorTargetId: zod.number(),
+  changeDate: zod.string(),
+  label: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const GetPhaseChangesResponse = zod.array(GetPhaseChangesResponseItem);
+
+/**
+ * @summary Create a phase change for a behavior target
+ */
+export const CreatePhaseChangeParams = zod.object({
+  targetId: zod.coerce.number(),
+});
+
+export const CreatePhaseChangeBody = zod.object({
+  changeDate: zod.string(),
+  label: zod.string(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a phase change
+ */
+export const UpdatePhaseChangeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePhaseChangeBody = zod.object({
+  changeDate: zod.string().optional(),
+  label: zod.string().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdatePhaseChangeResponse = zod.object({
+  id: zod.number(),
+  behaviorTargetId: zod.number(),
+  changeDate: zod.string(),
+  label: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete a phase change
+ */
+export const DeletePhaseChangeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeletePhaseChangeResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get all phase changes for a student grouped by behavior target
+ */
+export const GetStudentPhaseChangesParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentPhaseChangesResponse = zod.record(
+  zod.string(),
+  zod.array(
+    zod.object({
+      id: zod.number(),
+      behaviorTargetId: zod.number(),
+      changeDate: zod.string(),
+      label: zod.string(),
+      notes: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+);
+
+/**
+ * @summary Get IOA summary for a student's behavior targets
+ */
+export const GetIoaSummaryParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetIoaSummaryQueryParams = zod.object({
+  from: zod.coerce.string().nullish(),
+  to: zod.coerce.string().nullish(),
+  behaviorTargetId: zod.coerce.number().nullish(),
+});
+
+export const GetIoaSummaryResponse = zod.record(
+  zod.string(),
+  zod.object({
+    targetName: zod.string(),
+    sessions: zod.array(
+      zod.object({
+        ioaSessionId: zod.number(),
+        sessionDate: zod.string(),
+        observer1Value: zod.number(),
+        observer2Value: zod.number(),
+        agreementPercent: zod.number(),
+        measurementType: zod.string(),
+        ioaMethod: zod.string(),
+      }),
+    ),
+    averageAgreement: zod.number(),
+    meetsThreshold: zod.boolean(),
+  }),
+);

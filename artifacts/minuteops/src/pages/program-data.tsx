@@ -529,6 +529,9 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
   const [trialHistory, setTrialHistory] = useState<Record<number, Array<{ correct: boolean; prompted: boolean }>>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isIoaSession, setIsIoaSession] = useState(false);
+  const [ioaObserverNumber, setIoaObserverNumber] = useState<1 | 2>(1);
+  const [ioaSessionId, setIoaSessionId] = useState<string>("");
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
 
@@ -569,12 +572,15 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
     const endTime = now.toTimeString().slice(0, 5);
     const sessionDate = now.toISOString().split("T")[0];
 
+    const ioaSessId = isIoaSession ? (ioaSessionId ? parseInt(ioaSessionId) : Date.now()) : null;
     const behaviorData = behaviorTargets
-      .filter(bt => behaviorCounts[bt.id] > 0)
+      .filter(bt => isIoaSession || behaviorCounts[bt.id] > 0)
       .map(bt => ({
         behaviorTargetId: bt.id,
-        value: behaviorCounts[bt.id],
+        value: behaviorCounts[bt.id] ?? 0,
         hourBlock: `${now.getHours()}:00`,
+        ioaSessionId: ioaSessId,
+        observerNumber: isIoaSession ? ioaObserverNumber : null,
       }));
 
     const programData = programTargets
@@ -685,6 +691,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
             {saved && (
               <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={() => {
                 setSaved(false); setElapsed(0);
+                setIsIoaSession(false); setIoaSessionId("");
                 const bc: Record<number, number> = {};
                 behaviorTargets.forEach(bt => { bc[bt.id] = 0; });
                 setBehaviorCounts(bc);
@@ -698,6 +705,60 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-3 md:p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isIoaSession}
+                  onChange={e => setIsIoaSession(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  disabled={running || saved}
+                />
+                <span className="text-[12px] font-medium text-gray-700">IOA Session</span>
+              </label>
+              {isIoaSession && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-semibold">
+                  Inter-Observer Agreement
+                </span>
+              )}
+            </div>
+          </div>
+          {isIoaSession && (
+            <div className="mt-2 flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-500">Observer:</span>
+                <select
+                  value={ioaObserverNumber}
+                  onChange={e => setIoaObserverNumber(parseInt(e.target.value) as 1 | 2)}
+                  className="text-[11px] border border-gray-200 rounded px-2 py-1 bg-white"
+                  disabled={running || saved}
+                >
+                  <option value={1}>Observer 1 (Primary)</option>
+                  <option value={2}>Observer 2 (Reliability)</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-500">IOA Session ID:</span>
+                <input
+                  type="text"
+                  value={ioaSessionId}
+                  onChange={e => setIoaSessionId(e.target.value)}
+                  placeholder="Auto-generated if blank"
+                  className="text-[11px] border border-gray-200 rounded px-2 py-1 w-36"
+                  disabled={running || saved}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 w-full">
+                Both observers must use the same IOA Session ID. Observer 1 records first, then share the ID with Observer 2.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

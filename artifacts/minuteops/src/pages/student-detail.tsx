@@ -12,6 +12,7 @@ import { useState, useEffect, Fragment } from "react";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import { useRole } from "@/lib/role-context";
+import { AbaGraph, IoaSummary } from "@/components/aba-graph";
 
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
@@ -59,6 +60,11 @@ export default function StudentDetail() {
   const [shareLoading, setShareLoading] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareDays, setShareDays] = useState(30);
+  const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
+
+  function loadPhaseChanges() {
+    fetch(`${API}/students/${studentId}/phase-changes`).then(r => r.ok ? r.json() : {}).then(setPhaseChangesByTarget).catch(() => {});
+  }
 
   useEffect(() => {
     if (isNaN(studentId)) return;
@@ -72,7 +78,8 @@ export default function StudentDetail() {
       fetch(`${API}/students/${studentId}/protective-measures`).then(r => r.ok ? r.json() : null),
       fetch(`${API}/students/${studentId}/minutes-trend`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/compensatory-obligations/summary/by-student/${studentId}`).then(r => r.ok ? r.json() : null),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs]) => {
+      fetch(`${API}/students/${studentId}/phase-changes`).then(r => r.ok ? r.json() : {}),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
@@ -81,6 +88,7 @@ export default function StudentDetail() {
       setProtectiveData(pm);
       setMinutesTrend(mt);
       setCompSummary(cs);
+      setPhaseChangesByTarget(pcs);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);
@@ -609,6 +617,36 @@ export default function StudentDetail() {
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {behaviorTargets.length > 0 && !dataLoading && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-600" />
+                ABA Clinical Graphs
+              </CardTitle>
+              <span className="text-[10px] text-gray-400">Per-target with phase lines, trend, and aim</span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2 space-y-3">
+            {behaviorTargets.map((bt: any) => (
+              <AbaGraph
+                key={bt.id}
+                target={bt}
+                data={behaviorTrends}
+                phaseChanges={phaseChangesByTarget[bt.id] || []}
+                onPhaseChangesUpdate={loadPhaseChanges}
+                readOnly={bipReadOnly}
+              />
+            ))}
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-gray-500 mb-2">Inter-Observer Agreement (IOA)</h4>
+              <IoaSummary studentId={studentId} />
+            </div>
           </CardContent>
         </Card>
       )}

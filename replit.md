@@ -39,6 +39,7 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **Resource Management:** Caseload balancing, provider utilization, and budget tracking for staff and services.
 -   **Compensatory Services:** Tracks owed compensatory minutes, calculates shortfalls, and manages compensation sessions.
 -   **Parent Communication:** Manages parent contacts, follow-ups, and compliance notifications. Includes a "Share Progress" feature for secure progress report sharing.
+-   **ABA Clinical Graphing & IOA Tracking:** Per-target line graphs with phase change lines (vertical dashed), least-squares trend lines, aim lines (baseline→goal), and PNG/SVG export. Inter-observer agreement (IOA) tracking with paired observations, automatic agreement calculation (point-by-point for frequency/interval, exact for duration), and per-target IOA summaries with 80% threshold indicators.
 -   **Clinical Supervision Tracking:** Tracks BCBA supervision of RBTs and paraprofessionals, including session logging and compliance dashboards.
 -   **Dashboards:** Role-specific dashboards (Admin, SPED Teacher, SPED Student) provide an overview of KPIs and activities.
 -   **Student & Teacher Portals:** Blackboard-style student portal for assignments and grades; teacher portal for class management and gradebooks.

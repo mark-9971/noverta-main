@@ -38,6 +38,7 @@ import type {
   CreateDistrictBody,
   CreateImportBody,
   CreateParentContactBody,
+  CreatePhaseChangeBody,
   CreateProgramBody,
   CreateProgressShareLinkBody,
   CreateScheduleBlockBody,
@@ -53,6 +54,7 @@ import type {
   DeleteBip200,
   DeleteDistrict200,
   DeleteParentContact200,
+  DeletePhaseChange200,
   DeleteSupervisionSession200,
   District,
   DistrictDetail,
@@ -75,6 +77,8 @@ import type {
   GetExecutiveDashboardParams,
   GetExecutiveSummaryReportParams,
   GetIepCalendarParams,
+  GetIoaSummary200,
+  GetIoaSummaryParams,
   GetMissedSessionsReportParams,
   GetMissedSessionsTrendParams,
   GetNotificationNeededParams,
@@ -89,6 +93,7 @@ import type {
   GetStaffCoverageParams,
   GetStudentBipsParams,
   GetStudentMinuteSummaryReportParams,
+  GetStudentPhaseChanges200,
   GetStudentProgressSummaryParams,
   GetStudentSessionsParams,
   GetSupervisionComplianceSummaryParams,
@@ -115,6 +120,7 @@ import type {
   NotificationNeeded,
   ParaDashboardItem,
   ParentContact,
+  PhaseChange,
   Program,
   ProgressSummary,
   ProviderDashboardItem,
@@ -149,6 +155,7 @@ import type {
   UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
   UpdateParentContactBody,
+  UpdatePhaseChangeBody,
   UpdateScheduleBlockBody,
   UpdateServiceRequirementBody,
   UpdateSessionBody,
@@ -10084,3 +10091,556 @@ export const useCreateBipVersion = <
 > => {
   return useMutation(getCreateBipVersionMutationOptions(options));
 };
+
+/**
+ * @summary Get phase changes for a behavior target
+ */
+export const getGetPhaseChangesUrl = (targetId: number) => {
+  return `/api/behavior-targets/${targetId}/phase-changes`;
+};
+
+export const getPhaseChanges = async (
+  targetId: number,
+  options?: RequestInit,
+): Promise<PhaseChange[]> => {
+  return customFetch<PhaseChange[]>(getGetPhaseChangesUrl(targetId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPhaseChangesQueryKey = (targetId: number) => {
+  return [`/api/behavior-targets/${targetId}/phase-changes`] as const;
+};
+
+export const getGetPhaseChangesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPhaseChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  targetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPhaseChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPhaseChangesQueryKey(targetId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhaseChanges>>> = ({
+    signal,
+  }) => getPhaseChanges(targetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!targetId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPhaseChanges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPhaseChangesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPhaseChanges>>
+>;
+export type GetPhaseChangesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get phase changes for a behavior target
+ */
+
+export function useGetPhaseChanges<
+  TData = Awaited<ReturnType<typeof getPhaseChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  targetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPhaseChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPhaseChangesQueryOptions(targetId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a phase change for a behavior target
+ */
+export const getCreatePhaseChangeUrl = (targetId: number) => {
+  return `/api/behavior-targets/${targetId}/phase-changes`;
+};
+
+export const createPhaseChange = async (
+  targetId: number,
+  createPhaseChangeBody: CreatePhaseChangeBody,
+  options?: RequestInit,
+): Promise<PhaseChange> => {
+  return customFetch<PhaseChange>(getCreatePhaseChangeUrl(targetId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPhaseChangeBody),
+  });
+};
+
+export const getCreatePhaseChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPhaseChange>>,
+    TError,
+    { targetId: number; data: BodyType<CreatePhaseChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPhaseChange>>,
+  TError,
+  { targetId: number; data: BodyType<CreatePhaseChangeBody> },
+  TContext
+> => {
+  const mutationKey = ["createPhaseChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPhaseChange>>,
+    { targetId: number; data: BodyType<CreatePhaseChangeBody> }
+  > = (props) => {
+    const { targetId, data } = props ?? {};
+
+    return createPhaseChange(targetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePhaseChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPhaseChange>>
+>;
+export type CreatePhaseChangeMutationBody = BodyType<CreatePhaseChangeBody>;
+export type CreatePhaseChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a phase change for a behavior target
+ */
+export const useCreatePhaseChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPhaseChange>>,
+    TError,
+    { targetId: number; data: BodyType<CreatePhaseChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPhaseChange>>,
+  TError,
+  { targetId: number; data: BodyType<CreatePhaseChangeBody> },
+  TContext
+> => {
+  return useMutation(getCreatePhaseChangeMutationOptions(options));
+};
+
+/**
+ * @summary Update a phase change
+ */
+export const getUpdatePhaseChangeUrl = (id: number) => {
+  return `/api/phase-changes/${id}`;
+};
+
+export const updatePhaseChange = async (
+  id: number,
+  updatePhaseChangeBody: UpdatePhaseChangeBody,
+  options?: RequestInit,
+): Promise<PhaseChange> => {
+  return customFetch<PhaseChange>(getUpdatePhaseChangeUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePhaseChangeBody),
+  });
+};
+
+export const getUpdatePhaseChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePhaseChange>>,
+    TError,
+    { id: number; data: BodyType<UpdatePhaseChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePhaseChange>>,
+  TError,
+  { id: number; data: BodyType<UpdatePhaseChangeBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePhaseChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePhaseChange>>,
+    { id: number; data: BodyType<UpdatePhaseChangeBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePhaseChange(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePhaseChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePhaseChange>>
+>;
+export type UpdatePhaseChangeMutationBody = BodyType<UpdatePhaseChangeBody>;
+export type UpdatePhaseChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a phase change
+ */
+export const useUpdatePhaseChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePhaseChange>>,
+    TError,
+    { id: number; data: BodyType<UpdatePhaseChangeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePhaseChange>>,
+  TError,
+  { id: number; data: BodyType<UpdatePhaseChangeBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePhaseChangeMutationOptions(options));
+};
+
+/**
+ * @summary Delete a phase change
+ */
+export const getDeletePhaseChangeUrl = (id: number) => {
+  return `/api/phase-changes/${id}`;
+};
+
+export const deletePhaseChange = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeletePhaseChange200> => {
+  return customFetch<DeletePhaseChange200>(getDeletePhaseChangeUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeletePhaseChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePhaseChange>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePhaseChange>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deletePhaseChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePhaseChange>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deletePhaseChange(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePhaseChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePhaseChange>>
+>;
+
+export type DeletePhaseChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a phase change
+ */
+export const useDeletePhaseChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePhaseChange>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePhaseChange>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeletePhaseChangeMutationOptions(options));
+};
+
+/**
+ * @summary Get all phase changes for a student grouped by behavior target
+ */
+export const getGetStudentPhaseChangesUrl = (studentId: number) => {
+  return `/api/students/${studentId}/phase-changes`;
+};
+
+export const getStudentPhaseChanges = async (
+  studentId: number,
+  options?: RequestInit,
+): Promise<GetStudentPhaseChanges200> => {
+  return customFetch<GetStudentPhaseChanges200>(
+    getGetStudentPhaseChangesUrl(studentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStudentPhaseChangesQueryKey = (studentId: number) => {
+  return [`/api/students/${studentId}/phase-changes`] as const;
+};
+
+export const getGetStudentPhaseChangesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentPhaseChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentPhaseChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudentPhaseChangesQueryKey(studentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentPhaseChanges>>
+  > = ({ signal }) =>
+    getStudentPhaseChanges(studentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentPhaseChanges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentPhaseChangesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentPhaseChanges>>
+>;
+export type GetStudentPhaseChangesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all phase changes for a student grouped by behavior target
+ */
+
+export function useGetStudentPhaseChanges<
+  TData = Awaited<ReturnType<typeof getStudentPhaseChanges>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentPhaseChanges>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentPhaseChangesQueryOptions(
+    studentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get IOA summary for a student's behavior targets
+ */
+export const getGetIoaSummaryUrl = (
+  studentId: number,
+  params?: GetIoaSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/students/${studentId}/ioa-summary?${stringifiedParams}`
+    : `/api/students/${studentId}/ioa-summary`;
+};
+
+export const getIoaSummary = async (
+  studentId: number,
+  params?: GetIoaSummaryParams,
+  options?: RequestInit,
+): Promise<GetIoaSummary200> => {
+  return customFetch<GetIoaSummary200>(getGetIoaSummaryUrl(studentId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIoaSummaryQueryKey = (
+  studentId: number,
+  params?: GetIoaSummaryParams,
+) => {
+  return [
+    `/api/students/${studentId}/ioa-summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetIoaSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIoaSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetIoaSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIoaSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetIoaSummaryQueryKey(studentId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIoaSummary>>> = ({
+    signal,
+  }) => getIoaSummary(studentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIoaSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetIoaSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIoaSummary>>
+>;
+export type GetIoaSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get IOA summary for a student's behavior targets
+ */
+
+export function useGetIoaSummary<
+  TData = Awaited<ReturnType<typeof getIoaSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetIoaSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIoaSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIoaSummaryQueryOptions(studentId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

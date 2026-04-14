@@ -13,10 +13,13 @@ export const behaviorDataTable = pgTable("behavior_data", {
   intervalsWith: integer("intervals_with"),
   hourBlock: text("hour_block"),
   notes: text("notes"),
+  ioaSessionId: integer("ioa_session_id"),
+  observerNumber: integer("observer_number"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("bd_session_idx").on(table.dataSessionId),
   index("bd_target_idx").on(table.behaviorTargetId),
+  index("bd_ioa_session_idx").on(table.ioaSessionId),
 ]);
 
 export const insertBehaviorDataSchema = createInsertSchema(behaviorDataTable).omit({ id: true, createdAt: true });

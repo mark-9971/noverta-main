@@ -3,9 +3,9 @@ import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   behaviorDataTable, programDataTable, studentsTable, staffTable,
-  programStepsTable, programTemplatesTable
+  programStepsTable, programTemplatesTable, phaseChangesTable
 } from "@workspace/db";
-import { eq, desc, and, sql, gte, lte, asc } from "drizzle-orm";
+import { eq, desc, and, sql, gte, lte, asc, isNotNull } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -534,6 +534,8 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
               intervalsWith: bd.intervalsWith || null,
               hourBlock: bd.hourBlock || null,
               notes: bd.notes || null,
+              ioaSessionId: bd.ioaSessionId || null,
+              observerNumber: bd.observerNumber || null,
             });
           }
         }
@@ -724,6 +726,203 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
   } catch (e: any) {
     console.error("GET program trends error:", e);
     res.status(500).json({ error: "Failed to fetch program trends" });
+  }
+});
+
+router.get("/behavior-targets/:targetId/phase-changes", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId);
+    const rows = await db.select().from(phaseChangesTable)
+      .where(eq(phaseChangesTable.behaviorTargetId, targetId))
+      .orderBy(asc(phaseChangesTable.changeDate));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch phase changes" });
+  }
+});
+
+router.post("/behavior-targets/:targetId/phase-changes", async (req, res): Promise<void> => {
+  try {
+    const behaviorTargetId = parseInt(req.params.targetId);
+    const { changeDate, label, notes } = req.body;
+    if (!changeDate || !label) { res.status(400).json({ error: "changeDate and label are required" }); return; }
+    const [pc] = await db.insert(phaseChangesTable).values({
+      behaviorTargetId, changeDate, label, notes: notes || null,
+    }).returning();
+    res.status(201).json({ ...pc, createdAt: pc.createdAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to create phase change" });
+  }
+});
+
+router.patch("/phase-changes/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const key of ["changeDate", "label", "notes"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    const [updated] = await db.update(phaseChangesTable).set(updates).where(eq(phaseChangesTable.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to update phase change" });
+  }
+});
+
+router.delete("/phase-changes/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.delete(phaseChangesTable).where(eq(phaseChangesTable.id, id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete phase change" });
+  }
+});
+
+router.get("/students/:studentId/phase-changes", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const targets = await db.select({ id: behaviorTargetsTable.id })
+      .from(behaviorTargetsTable)
+      .where(eq(behaviorTargetsTable.studentId, studentId));
+    const targetIds = targets.map(t => t.id);
+    if (targetIds.length === 0) { res.json({}); return; }
+
+    const rows = await db.select().from(phaseChangesTable)
+      .where(sql`${phaseChangesTable.behaviorTargetId} IN (${sql.join(targetIds.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(asc(phaseChangesTable.changeDate));
+
+    const byTarget: Record<number, any[]> = {};
+    for (const r of rows) {
+      if (!byTarget[r.behaviorTargetId]) byTarget[r.behaviorTargetId] = [];
+      byTarget[r.behaviorTargetId].push({ ...r, createdAt: r.createdAt.toISOString() });
+    }
+    res.json(byTarget);
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch phase changes" });
+  }
+});
+
+router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const { from, to, behaviorTargetId } = req.query;
+
+    const conditions = [
+      eq(dataSessionsTable.studentId, studentId),
+      isNotNull(behaviorDataTable.ioaSessionId),
+    ];
+    if (from) conditions.push(gte(dataSessionsTable.sessionDate, from as string));
+    if (to) conditions.push(lte(dataSessionsTable.sessionDate, to as string));
+    if (behaviorTargetId) conditions.push(eq(behaviorDataTable.behaviorTargetId, parseInt(behaviorTargetId as string)));
+
+    const rows = await db.select({
+      behaviorTargetId: behaviorDataTable.behaviorTargetId,
+      targetName: behaviorTargetsTable.name,
+      measurementType: behaviorTargetsTable.measurementType,
+      ioaSessionId: behaviorDataTable.ioaSessionId,
+      observerNumber: behaviorDataTable.observerNumber,
+      value: behaviorDataTable.value,
+      intervalCount: behaviorDataTable.intervalCount,
+      intervalsWith: behaviorDataTable.intervalsWith,
+      sessionDate: dataSessionsTable.sessionDate,
+    }).from(behaviorDataTable)
+      .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
+      .innerJoin(behaviorTargetsTable, eq(behaviorDataTable.behaviorTargetId, behaviorTargetsTable.id))
+      .where(and(...conditions))
+      .orderBy(asc(dataSessionsTable.sessionDate));
+
+    const grouped: Record<string, any[]> = {};
+    for (const r of rows) {
+      const key = `${r.behaviorTargetId}-${r.ioaSessionId}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(r);
+    }
+
+    const ioaResults: Array<{
+      behaviorTargetId: number;
+      targetName: string;
+      ioaSessionId: number;
+      sessionDate: string;
+      observer1Value: number;
+      observer2Value: number;
+      agreementPercent: number;
+      measurementType: string;
+      ioaMethod: string;
+    }> = [];
+
+    for (const [, observations] of Object.entries(grouped)) {
+      if (observations.length < 2) continue;
+      const obs1 = observations.find((o: any) => o.observerNumber === 1);
+      const obs2 = observations.find((o: any) => o.observerNumber === 2);
+      if (!obs1 || !obs2) continue;
+
+      let agreement = 0;
+      const v1 = parseFloat(obs1.value);
+      const v2 = parseFloat(obs2.value);
+      const mt = obs1.measurementType;
+      let ioaMethod = "total_count";
+
+      if (mt === "frequency") {
+        const smaller = Math.min(v1, v2);
+        const larger = Math.max(v1, v2);
+        agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
+        ioaMethod = "total_count";
+      } else if (mt === "interval") {
+        if (obs1.intervalCount && obs2.intervalCount) {
+          const agreements = Math.min(obs1.intervalsWith ?? 0, obs2.intervalsWith ?? 0);
+          const totalIntervals = Math.max(obs1.intervalCount, obs2.intervalCount);
+          agreement = totalIntervals > 0 ? Math.round((agreements / totalIntervals) * 100) : 0;
+          ioaMethod = "interval_by_interval";
+        } else {
+          const smaller = Math.min(v1, v2);
+          const larger = Math.max(v1, v2);
+          agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
+          ioaMethod = "total_count";
+        }
+      } else if (mt === "duration") {
+        const smaller = Math.min(v1, v2);
+        const larger = Math.max(v1, v2);
+        agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
+        ioaMethod = "total_duration";
+      } else {
+        agreement = v1 === v2 ? 100 : Math.round((1 - Math.abs(v1 - v2) / Math.max(v1, v2, 1)) * 100);
+        ioaMethod = "exact_agreement";
+      }
+
+      ioaResults.push({
+        behaviorTargetId: obs1.behaviorTargetId,
+        targetName: obs1.targetName,
+        ioaSessionId: obs1.ioaSessionId!,
+        sessionDate: obs1.sessionDate,
+        observer1Value: v1,
+        observer2Value: v2,
+        agreementPercent: Math.max(0, Math.min(100, agreement)),
+        measurementType: mt,
+        ioaMethod,
+      });
+    }
+
+    const byTarget: Record<number, { targetName: string; sessions: typeof ioaResults; averageAgreement: number; meetsThreshold: boolean }> = {};
+    for (const r of ioaResults) {
+      if (!byTarget[r.behaviorTargetId]) {
+        byTarget[r.behaviorTargetId] = { targetName: r.targetName, sessions: [], averageAgreement: 0, meetsThreshold: false };
+      }
+      byTarget[r.behaviorTargetId].sessions.push(r);
+    }
+    for (const [, data] of Object.entries(byTarget)) {
+      const avg = data.sessions.length > 0
+        ? Math.round(data.sessions.reduce((s, d) => s + d.agreementPercent, 0) / data.sessions.length)
+        : 0;
+      data.averageAgreement = avg;
+      data.meetsThreshold = avg >= 80;
+    }
+
+    res.json(byTarget);
+  } catch (e: any) {
+    console.error("GET IOA summary error:", e);
+    res.status(500).json({ error: "Failed to fetch IOA summary" });
   }
 });
 

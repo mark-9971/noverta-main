@@ -1848,6 +1848,47 @@ export interface UpdateBipBody {
   effectiveDate?: string;
 }
 
+export interface PhaseChange {
+  id: number;
+  behaviorTargetId: number;
+  changeDate: string;
+  label: string;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface CreatePhaseChangeBody {
+  changeDate: string;
+  label: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface UpdatePhaseChangeBody {
+  changeDate?: string;
+  label?: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface IoaSession {
+  ioaSessionId: number;
+  sessionDate: string;
+  observer1Value: number;
+  observer2Value: number;
+  agreementPercent: number;
+  measurementType: string;
+  ioaMethod: string;
+}
+
+export interface IoaTargetSummary {
+  targetName: string;
+  sessions: IoaSession[];
+  averageAgreement: number;
+  meetsThreshold: boolean;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2532,3 +2573,26 @@ export type DeleteBip200 = {
   success?: boolean;
   id?: number;
 };
+
+export type DeletePhaseChange200 = {
+  ok?: boolean;
+};
+
+export type GetStudentPhaseChanges200 = { [key: string]: PhaseChange[] };
+
+export type GetIoaSummaryParams = {
+  /**
+   * @nullable
+   */
+  from?: string | null;
+  /**
+   * @nullable
+   */
+  to?: string | null;
+  /**
+   * @nullable
+   */
+  behaviorTargetId?: number | null;
+};
+
+export type GetIoaSummary200 = { [key: string]: IoaTargetSummary };
