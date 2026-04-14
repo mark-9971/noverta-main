@@ -1715,6 +1715,8 @@ export const GetComplianceTrendReportResponse = zod.object({
  * @summary Get executive compliance summary
  */
 export const GetExecutiveSummaryReportQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
   preparedBy: zod.coerce.string().nullish(),

@@ -1500,6 +1500,14 @@ export type GetExecutiveSummaryReportParams = {
   /**
    * @nullable
    */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
   schoolId?: number | null;
   /**
    * @nullable

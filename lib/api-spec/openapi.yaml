@@ -1550,6 +1550,14 @@ paths:
       tags: [reports]
       summary: Get executive compliance summary
       parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
         - name: schoolId
           in: query
           schema:

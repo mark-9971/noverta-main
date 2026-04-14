@@ -79,7 +79,11 @@ export default function Reports() {
 function ExecutiveSummaryTab() {
   const { filterParams } = useSchoolContext();
   const { user } = useRole();
-  const params: GetExecutiveSummaryReportParams = { preparedBy: user.name };
+  const now = new Date();
+  const [startDate, setStartDate] = useState(() => new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => now.toISOString().split("T")[0]);
+
+  const params: GetExecutiveSummaryReportParams = { preparedBy: user.name, startDate, endDate };
   if (filterParams.schoolId) params.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
   const { data, isLoading: loading, isError } = useGetExecutiveSummaryReport(params);
@@ -98,8 +102,20 @@ function ExecutiveSummaryTab() {
 
   return (
     <div className="space-y-6 print:space-y-4" id="executive-summary">
-      <div className="flex items-center justify-between print:hidden">
-        <p className="text-xs text-gray-400">Generated {new Date(data.generatedAt).toLocaleString()}{data.preparedBy ? ` by ${data.preparedBy}` : ""}</p>
+      <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
+        <div className="flex items-center gap-3">
+          <div>
+            <label className="text-[11px] text-gray-400 block mb-0.5">Date From</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700" />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-400 block mb-0.5">Date To</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700" />
+          </div>
+          <p className="text-xs text-gray-400 self-end pb-1">Generated {new Date(data.generatedAt).toLocaleString()}{data.preparedBy ? ` by ${data.preparedBy}` : ""}</p>
+        </div>
         <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={handlePrint}>
           <Printer className="w-3.5 h-3.5" /> Print / PDF
         </Button>
@@ -500,6 +516,22 @@ function AuditPackageTab() {
     downloadCsv(`audit_sessions_detail_${startDate}_${endDate}.csv`, headers, rows, meta);
   }
 
+  function exportParentContactsCsv() {
+    if (!data?.students) return;
+    const headers = ["Student", "Grade", "School", "Contact Date", "Method", "Notes"];
+    const rows: string[][] = [];
+    for (const s of data.students) {
+      for (const c of s.parentContacts) {
+        rows.push([s.studentName, s.grade ?? "", s.school ?? "", c.date, c.method ?? "", c.notes ?? ""]);
+      }
+      if (s.parentContacts.length === 0) {
+        rows.push([s.studentName, s.grade ?? "", s.school ?? "", "", "No contacts recorded", ""]);
+      }
+    }
+    const meta = { generatedAt: data.generatedAt, preparedBy: data.preparedBy };
+    downloadCsv(`audit_parent_contacts_${startDate}_${endDate}.csv`, headers, rows, meta);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -528,6 +560,9 @@ function AuditPackageTab() {
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportDetailedCsv}>
               <Download className="w-3.5 h-3.5" /> Detailed CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportParentContactsCsv}>
+              <Download className="w-3.5 h-3.5" /> Parent Contacts CSV
             </Button>
           </div>
         )}

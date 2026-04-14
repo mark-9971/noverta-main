@@ -343,10 +343,12 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 
 router.get("/reports/executive-summary", async (req, res): Promise<void> => {
   try {
-    const { schoolId, districtId } = req.query;
-    const filters: any = {};
+    const { schoolId, districtId, startDate, endDate } = req.query;
+    const filters: Record<string, number | string> = {};
     if (schoolId) filters.schoolId = Number(schoolId);
     if (districtId) filters.districtId = Number(districtId);
+    if (startDate) filters.startDate = startDate as string;
+    if (endDate) filters.endDate = endDate as string;
 
     const allProgress = await computeAllActiveMinuteProgress(filters);
 
