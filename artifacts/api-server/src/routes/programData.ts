@@ -536,6 +536,7 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
               notes: bd.notes || null,
               ioaSessionId: bd.ioaSessionId || null,
               observerNumber: bd.observerNumber || null,
+              observerName: bd.observerName || null,
             });
           }
         }
@@ -823,6 +824,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       measurementType: behaviorTargetsTable.measurementType,
       ioaSessionId: behaviorDataTable.ioaSessionId,
       observerNumber: behaviorDataTable.observerNumber,
+      observerName: behaviorDataTable.observerName,
       value: behaviorDataTable.value,
       intervalCount: behaviorDataTable.intervalCount,
       intervalsWith: behaviorDataTable.intervalsWith,
@@ -847,6 +849,8 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       sessionDate: string;
       observer1Value: number;
       observer2Value: number;
+      observer1Name: string;
+      observer2Name: string;
       agreementPercent: number;
       measurementType: string;
       ioaMethod: string;
@@ -868,26 +872,28 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
         const smaller = Math.min(v1, v2);
         const larger = Math.max(v1, v2);
         agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
-        ioaMethod = "total_count";
+        ioaMethod = "point_by_point_frequency";
       } else if (mt === "interval") {
-        if (obs1.intervalCount && obs2.intervalCount) {
-          const agreements = Math.min(obs1.intervalsWith ?? 0, obs2.intervalsWith ?? 0);
+        if (obs1.intervalCount && obs2.intervalCount && obs1.intervalsWith != null && obs2.intervalsWith != null) {
           const totalIntervals = Math.max(obs1.intervalCount, obs2.intervalCount);
-          agreement = totalIntervals > 0 ? Math.round((agreements / totalIntervals) * 100) : 0;
+          const obs1Without = obs1.intervalCount - (obs1.intervalsWith ?? 0);
+          const obs2Without = obs2.intervalCount - (obs2.intervalsWith ?? 0);
+          const agreedPresent = Math.min(obs1.intervalsWith, obs2.intervalsWith);
+          const agreedAbsent = Math.min(obs1Without, obs2Without);
+          const totalAgreements = agreedPresent + agreedAbsent;
+          agreement = totalIntervals > 0 ? Math.round((totalAgreements / totalIntervals) * 100) : 0;
           ioaMethod = "interval_by_interval";
         } else {
           const smaller = Math.min(v1, v2);
           const larger = Math.max(v1, v2);
           agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
-          ioaMethod = "total_count";
+          ioaMethod = "point_by_point_frequency";
         }
       } else if (mt === "duration") {
-        const smaller = Math.min(v1, v2);
-        const larger = Math.max(v1, v2);
-        agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
-        ioaMethod = "total_duration";
+        agreement = v1 === v2 ? 100 : 0;
+        ioaMethod = "exact_agreement";
       } else {
-        agreement = v1 === v2 ? 100 : Math.round((1 - Math.abs(v1 - v2) / Math.max(v1, v2, 1)) * 100);
+        agreement = v1 === v2 ? 100 : 0;
         ioaMethod = "exact_agreement";
       }
 
@@ -898,6 +904,8 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
         sessionDate: obs1.sessionDate,
         observer1Value: v1,
         observer2Value: v2,
+        observer1Name: obs1.observerName || "Observer 1",
+        observer2Name: obs2.observerName || "Observer 2",
         agreementPercent: Math.max(0, Math.min(100, agreement)),
         measurementType: mt,
         ioaMethod,

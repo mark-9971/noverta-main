@@ -3373,6 +3373,8 @@ export const GetIoaSummaryResponse = zod.record(
         sessionDate: zod.string(),
         observer1Value: zod.number(),
         observer2Value: zod.number(),
+        observer1Name: zod.string(),
+        observer2Name: zod.string(),
         agreementPercent: zod.number(),
         measurementType: zod.string(),
         ioaMethod: zod.string(),

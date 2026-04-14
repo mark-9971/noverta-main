@@ -1877,6 +1877,8 @@ export interface IoaSession {
   sessionDate: string;
   observer1Value: number;
   observer2Value: number;
+  observer1Name: string;
+  observer2Name: string;
   agreementPercent: number;
   measurementType: string;
   ioaMethod: string;

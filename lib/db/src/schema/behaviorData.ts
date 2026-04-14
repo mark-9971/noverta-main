@@ -15,6 +15,7 @@ export const behaviorDataTable = pgTable("behavior_data", {
   notes: text("notes"),
   ioaSessionId: integer("ioa_session_id"),
   observerNumber: integer("observer_number"),
+  observerName: text("observer_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("bd_session_idx").on(table.dataSessionId),

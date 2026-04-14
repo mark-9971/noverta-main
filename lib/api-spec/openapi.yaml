@@ -5468,13 +5468,17 @@ components:
           type: number
         observer2Value:
           type: number
+        observer1Name:
+          type: string
+        observer2Name:
+          type: string
         agreementPercent:
           type: number
         measurementType:
           type: string
         ioaMethod:
           type: string
-      required: [ioaSessionId, sessionDate, observer1Value, observer2Value, agreementPercent, measurementType, ioaMethod]
+      required: [ioaSessionId, sessionDate, observer1Value, observer2Value, observer1Name, observer2Name, agreementPercent, measurementType, ioaMethod]
 
     IoaTargetSummary:
       type: object

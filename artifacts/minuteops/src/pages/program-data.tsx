@@ -532,6 +532,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
   const [isIoaSession, setIsIoaSession] = useState(false);
   const [ioaObserverNumber, setIoaObserverNumber] = useState<1 | 2>(1);
   const [ioaSessionId, setIoaSessionId] = useState<string>("");
+  const [ioaObserverName, setIoaObserverName] = useState("");
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
 
@@ -581,6 +582,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         hourBlock: `${now.getHours()}:00`,
         ioaSessionId: ioaSessId,
         observerNumber: isIoaSession ? ioaObserverNumber : null,
+        observerName: isIoaSession ? (ioaObserverName || null) : null,
       }));
 
     const programData = programTargets
@@ -742,6 +744,17 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                   <option value={1}>Observer 1 (Primary)</option>
                   <option value={2}>Observer 2 (Reliability)</option>
                 </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-500">Your Name:</span>
+                <input
+                  type="text"
+                  value={ioaObserverName}
+                  onChange={e => setIoaObserverName(e.target.value)}
+                  placeholder="e.g. J. Smith (BCBA)"
+                  className="text-[11px] border border-gray-200 rounded px-2 py-1 w-40"
+                  disabled={running || saved}
+                />
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-500">IOA Session ID:</span>

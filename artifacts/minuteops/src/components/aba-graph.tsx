@@ -76,11 +76,18 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
   const [newPhaseDate, setNewPhaseDate] = useState("");
   const [newPhaseLabel, setNewPhaseLabel] = useState("");
   const [expanded, setExpanded] = useState(true);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const chartRef = useRef<HTMLDivElement>(null);
 
   const chartData = useMemo(() => {
     const sorted = [...data]
-      .filter(d => d.behaviorTargetId === target.id)
+      .filter(d => {
+        if (d.behaviorTargetId !== target.id) return false;
+        if (dateFrom && d.sessionDate < dateFrom) return false;
+        if (dateTo && d.sessionDate > dateTo) return false;
+        return true;
+      })
       .sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
 
     return sorted.map((d, i) => ({
@@ -88,7 +95,7 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
       value: parseFloat(d.value),
       index: i,
     }));
-  }, [data, target.id]);
+  }, [data, target.id, dateFrom, dateTo]);
 
   const trendLine = useMemo(() => {
     if (!showTrend || chartData.length < 3) return null;
@@ -259,6 +266,33 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
 
       {expanded && (
         <CardContent className="pt-3">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[10px] text-gray-500">Date Range:</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5"
+              placeholder="From"
+            />
+            <span className="text-[10px] text-gray-400">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(""); setDateTo(""); }}
+                className="text-[10px] text-gray-400 hover:text-gray-600 px-1"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            <span className="text-[9px] text-gray-400 ml-auto">{chartData.length} pts</span>
+          </div>
           {chartData.length > 0 ? (
             <div ref={chartRef}>
               <ResponsiveContainer width="100%" height={280}>
@@ -461,6 +495,9 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
       observer2Value: number;
       agreementPercent: number;
       measurementType: string;
+      ioaMethod?: string;
+      observer1Name?: string;
+      observer2Name?: string;
     }>;
     averageAgreement: number;
     meetsThreshold: boolean;
@@ -525,14 +562,14 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
                     {new Date(s.sessionDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-gray-500">Obs 1: {s.observer1Value}</span>
-                    <span className="text-gray-500">Obs 2: {s.observer2Value}</span>
+                    <span className="text-gray-500">{s.observer1Name || "Obs 1"}: {s.observer1Value}</span>
+                    <span className="text-gray-500">{s.observer2Name || "Obs 2"}: {s.observer2Value}</span>
                     <span className={`font-semibold ${s.agreementPercent >= 80 ? "text-emerald-600" : "text-red-500"}`}>
                       {s.agreementPercent}%
                     </span>
                     {s.ioaMethod && (
                       <span className="text-[9px] text-gray-400">
-                        {s.ioaMethod === "total_count" ? "Total Count" : s.ioaMethod === "interval_by_interval" ? "Interval" : s.ioaMethod === "total_duration" ? "Duration" : "Exact"}
+                        {s.ioaMethod === "point_by_point_frequency" ? "Point-by-Point" : s.ioaMethod === "interval_by_interval" ? "Interval-by-Interval" : s.ioaMethod === "exact_agreement" ? "Exact" : s.ioaMethod || "—"}
                       </span>
                     )}
                   </div>
