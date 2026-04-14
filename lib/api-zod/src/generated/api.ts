@@ -176,6 +176,11 @@ export const GetExecutiveDashboardResponse = zod.object({
   ),
   openAlerts: zod.number(),
   criticalAlerts: zod.number(),
+  deadlineCounts: zod.object({
+    within30: zod.number(),
+    within60: zod.number(),
+    within90: zod.number(),
+  }),
 });
 
 /**
@@ -186,16 +191,23 @@ export const GetStaffCoverageQueryParams = zod.object({
   districtId: zod.coerce.number().nullish(),
 });
 
-export const GetStaffCoverageResponseItem = zod.object({
-  serviceTypeId: zod.number(),
-  serviceTypeName: zod.string(),
-  mandatedWeeklyMinutes: zod.number(),
-  scheduledWeeklyMinutes: zod.number(),
-  coveragePercent: zod.number(),
-  requirementCount: zod.number(),
-  gap: zod.number(),
+export const GetStaffCoverageResponse = zod.object({
+  byService: zod.array(
+    zod.object({
+      serviceTypeId: zod.number(),
+      serviceTypeName: zod.string(),
+      mandatedWeeklyMinutes: zod.number(),
+      scheduledWeeklyMinutes: zod.number(),
+      coveragePercent: zod.number(),
+      requirementCount: zod.number(),
+      gap: zod.number(),
+    }),
+  ),
+  totalMandatedWeeklyMinutes: zod.number(),
+  totalScheduledWeeklyMinutes: zod.number(),
+  totalCoveragePercent: zod.number(),
+  totalGap: zod.number(),
 });
-export const GetStaffCoverageResponse = zod.array(GetStaffCoverageResponseItem);
 
 /**
  * @summary Get IEP calendar events with date filtering
@@ -211,7 +223,7 @@ export const GetIepCalendarQueryParams = zod.object({
 export const GetIepCalendarResponse = zod.object({
   events: zod.array(
     zod.object({
-      id: zod.number(),
+      id: zod.union([zod.number(), zod.string()]),
       studentId: zod.number(),
       studentName: zod.string(),
       grade: zod.string().nullish(),

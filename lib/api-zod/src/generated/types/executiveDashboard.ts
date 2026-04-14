@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AtRiskStudent } from "./atRiskStudent";
+import type { DeadlineCounts } from "./deadlineCounts";
 import type { ExecutiveRiskCounts } from "./executiveRiskCounts";
 
 export interface ExecutiveDashboard {
@@ -15,4 +16,5 @@ export interface ExecutiveDashboard {
   topAtRiskStudents: AtRiskStudent[];
   openAlerts: number;
   criticalAlerts: number;
+  deadlineCounts: DeadlineCounts;
 }

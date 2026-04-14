@@ -7,7 +7,7 @@
  */
 
 export interface IepCalendarEvent {
-  id: number;
+  id: number | string;
   studentId: number;
   studentName: string;
   /** @nullable */

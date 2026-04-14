@@ -250,9 +250,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StaffCoverageItem"
+                $ref: "#/components/schemas/StaffCoverageResponse"
 
   /dashboard/iep-calendar:
     get:
@@ -2838,7 +2836,20 @@ components:
           type: integer
         criticalAlerts:
           type: integer
-      required: [complianceScore, totalStudents, riskCounts, topAtRiskStudents, openAlerts, criticalAlerts]
+        deadlineCounts:
+          $ref: "#/components/schemas/DeadlineCounts"
+      required: [complianceScore, totalStudents, riskCounts, topAtRiskStudents, openAlerts, criticalAlerts, deadlineCounts]
+
+    DeadlineCounts:
+      type: object
+      properties:
+        within30:
+          type: integer
+        within60:
+          type: integer
+        within90:
+          type: integer
+      required: [within30, within60, within90]
 
     StaffCoverageItem:
       type: object
@@ -2859,11 +2870,30 @@ components:
           type: integer
       required: [serviceTypeId, serviceTypeName, mandatedWeeklyMinutes, scheduledWeeklyMinutes, coveragePercent, requirementCount, gap]
 
+    StaffCoverageResponse:
+      type: object
+      properties:
+        byService:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffCoverageItem"
+        totalMandatedWeeklyMinutes:
+          type: integer
+        totalScheduledWeeklyMinutes:
+          type: integer
+        totalCoveragePercent:
+          type: integer
+        totalGap:
+          type: integer
+      required: [byService, totalMandatedWeeklyMinutes, totalScheduledWeeklyMinutes, totalCoveragePercent, totalGap]
+
     IepCalendarEvent:
       type: object
       properties:
         id:
-          type: integer
+          oneOf:
+            - type: integer
+            - type: string
         studentId:
           type: integer
         studentName:

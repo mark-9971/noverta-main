@@ -88,7 +88,7 @@ import type {
   SessionLog,
   Staff,
   StaffAssignment,
-  StaffCoverageItem,
+  StaffCoverageResponse,
   StaffDetail,
   Student,
   StudentDetail,
@@ -1038,8 +1038,8 @@ export const getGetStaffCoverageUrl = (params?: GetStaffCoverageParams) => {
 export const getStaffCoverage = async (
   params?: GetStaffCoverageParams,
   options?: RequestInit,
-): Promise<StaffCoverageItem[]> => {
-  return customFetch<StaffCoverageItem[]>(getGetStaffCoverageUrl(params), {
+): Promise<StaffCoverageResponse> => {
+  return customFetch<StaffCoverageResponse>(getGetStaffCoverageUrl(params), {
     ...options,
     method: "GET",
   });

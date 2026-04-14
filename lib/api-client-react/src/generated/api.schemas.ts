@@ -845,6 +845,12 @@ export interface AtRiskStudent {
   percentComplete: number;
 }
 
+export interface DeadlineCounts {
+  within30: number;
+  within60: number;
+  within90: number;
+}
+
 export interface ExecutiveDashboard {
   complianceScore: number;
   totalStudents: number;
@@ -852,6 +858,7 @@ export interface ExecutiveDashboard {
   topAtRiskStudents: AtRiskStudent[];
   openAlerts: number;
   criticalAlerts: number;
+  deadlineCounts: DeadlineCounts;
 }
 
 export interface StaffCoverageItem {
@@ -864,8 +871,16 @@ export interface StaffCoverageItem {
   gap: number;
 }
 
+export interface StaffCoverageResponse {
+  byService: StaffCoverageItem[];
+  totalMandatedWeeklyMinutes: number;
+  totalScheduledWeeklyMinutes: number;
+  totalCoveragePercent: number;
+  totalGap: number;
+}
+
 export interface IepCalendarEvent {
-  id: number;
+  id: number | string;
   studentId: number;
   studentName: string;
   /** @nullable */
