@@ -29,7 +29,6 @@ export default function StaffDetail() {
     if (!staffId) return;
     setLoading(true);
     setLoadError(false);
-    const roleHeaders: HeadersInit = { "x-demo-role": role };
     Promise.all([
       apiGet(`/api/staff/${staffId}`).catch(() => null),
       apiGet(`/api/staff/${staffId}/caseload-summary`).catch(() => ({ students: [], summary: {} })),

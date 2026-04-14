@@ -109,8 +109,6 @@ export default function Supervision() {
     if (filterType) params.set("supervisionType", filterType);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
 
-    const roleHeaders: HeadersInit = { "x-demo-role": role };
-
     Promise.all([
       apiGet(`/api/supervision-sessions?${params}`).catch(() => []),
       isAdminOrTeacher ? apiGet(`/api/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).catch(() => []) : Promise.resolve([]),
