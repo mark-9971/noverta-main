@@ -8,6 +8,9 @@ import {
 import {
   GetStudentMinuteSummaryReportQueryParams,
   GetMissedSessionsReportQueryParams,
+  GetComplianceTrendReportQueryParams,
+  GetExecutiveSummaryReportQueryParams,
+  GetAuditPackageReportQueryParams,
 } from "@workspace/api-zod";
 import { eq, and, gte, lte, desc, sql, count, asc } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -127,6 +130,11 @@ router.get("/reports/compliance-risk", async (req, res): Promise<void> => {
 
 router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
   try {
+    const parsed = GetComplianceTrendReportQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
+      return;
+    }
     const { startDate, endDate, granularity, schoolId, districtId } = req.query;
     const gran = (granularity as string) || "weekly";
     const now = new Date();
@@ -343,6 +351,11 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 
 router.get("/reports/executive-summary", async (req, res): Promise<void> => {
   try {
+    const parsed = GetExecutiveSummaryReportQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
+      return;
+    }
     const { schoolId, districtId, startDate, endDate } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
@@ -522,6 +535,11 @@ router.get("/reports/executive-summary", async (req, res): Promise<void> => {
 
 router.get("/reports/audit-package", async (req, res): Promise<void> => {
   try {
+    const parsed = GetAuditPackageReportQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
+      return;
+    }
     const { startDate, endDate, schoolId, districtId, studentId } = req.query;
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
