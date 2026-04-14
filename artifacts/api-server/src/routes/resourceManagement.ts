@@ -212,12 +212,20 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
     providerId: serviceRequirementsTable.providerId,
     requiredMinutes: serviceRequirementsTable.requiredMinutes,
     studentId: serviceRequirementsTable.studentId,
+    serviceTypeId: serviceRequirementsTable.serviceTypeId,
   }).from(serviceRequirementsTable).where(eq(serviceRequirementsTable.active, true));
+
+  const serviceTypes = await db.select({ id: serviceTypesTable.id, name: serviceTypesTable.name }).from(serviceTypesTable);
+  const stMap = new Map(serviceTypes.map(st => [st.id, st.name]));
+
+  const activeStudents = await db.select({ id: studentsTable.id, schoolId: studentsTable.schoolId })
+    .from(studentsTable).where(eq(studentsTable.status, "active"));
+  const studentSchoolMap = new Map(activeStudents.map(s => [s.id, s.schoolId]));
 
   const schoolRows = await db.select({ id: schoolsTable.id, name: schoolsTable.name }).from(schoolsTable);
   const schoolMap = new Map(schoolRows.map(s => [s.id, s.name]));
 
-  const suggestions: Array<{
+  interface Suggestion {
     role: string;
     fromSchool: string;
     toSchool: string;
@@ -226,48 +234,60 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
     reason: string;
     providerName: string;
     staffId: number;
-  }> = [];
+  }
 
-  for (const role of providerRoles) {
-    const roleProviders = providers.filter(p => p.role === role);
-    const bySchool = new Map<number, typeof roleProviders>();
-    for (const p of roleProviders) {
-      if (p.schoolId) {
-        if (!bySchool.has(p.schoolId)) bySchool.set(p.schoolId, []);
-        bySchool.get(p.schoolId)!.push(p);
+  const suggestions: Suggestion[] = [];
+
+  const serviceTypeIds = [...new Set(activeSRs.map(sr => sr.serviceTypeId))];
+
+  for (const stId of serviceTypeIds) {
+    const stName = stMap.get(stId) || "Unknown";
+    const stSRs = activeSRs.filter(sr => sr.serviceTypeId === stId);
+
+    const demandBySchool = new Map<number, number>();
+    for (const sr of stSRs) {
+      const sSchool = studentSchoolMap.get(sr.studentId);
+      if (sSchool) {
+        demandBySchool.set(sSchool, (demandBySchool.get(sSchool) || 0) + Math.round(sr.requiredMinutes / 4.3));
       }
     }
 
-    const schoolUtils = [...bySchool.entries()].map(([schoolId, schoolProviders]) => {
-      const totalRequired = schoolProviders.reduce((sum, p) => {
-        const pSRs = activeSRs.filter(sr => sr.providerId === p.id);
-        return sum + pSRs.reduce((s, sr) => s + sr.requiredMinutes, 0);
-      }, 0);
-      const weeklyRequired = Math.round(totalRequired / 4.3);
-      const capacity = schoolProviders.length * 40 * 60;
-      const utilPct = capacity > 0 ? Math.round((weeklyRequired / capacity) * 100) : 0;
-      return { schoolId, utilPct, providers: schoolProviders, weeklyRequired, capacity };
+    const providersBySchool = new Map<number, typeof providers>();
+    const assignedProviderIds = new Set(stSRs.filter(sr => sr.providerId).map(sr => sr.providerId!));
+    for (const p of providers) {
+      if (assignedProviderIds.has(p.id) && p.schoolId) {
+        if (!providersBySchool.has(p.schoolId)) providersBySchool.set(p.schoolId, []);
+        providersBySchool.get(p.schoolId)!.push(p);
+      }
+    }
+
+    const schoolStats = [...new Set([...demandBySchool.keys(), ...providersBySchool.keys()])].map(schoolId => {
+      const demand = demandBySchool.get(schoolId) || 0;
+      const schoolProvs = providersBySchool.get(schoolId) || [];
+      const capacity = schoolProvs.length * 40 * 60;
+      const utilPct = capacity > 0 ? Math.round((demand / capacity) * 100) : (demand > 0 ? 999 : 0);
+      return { schoolId, demand, capacity, utilPct, providers: schoolProvs };
     });
 
-    const overSchools = schoolUtils.filter(s => s.utilPct > 90);
-    const underSchools = schoolUtils.filter(s => s.utilPct < 50);
+    const overSchools = schoolStats.filter(s => s.utilPct > 90);
+    const underSchools = schoolStats.filter(s => s.utilPct < 50 && s.providers.length > 0);
 
     for (const over of overSchools) {
       for (const under of underSchools) {
         const leastLoaded = under.providers.reduce((best, p) => {
-          const load = activeSRs.filter(sr => sr.providerId === p.id).reduce((s, sr) => s + sr.requiredMinutes, 0);
-          const bestLoad = activeSRs.filter(sr => sr.providerId === best.id).reduce((s, sr) => s + sr.requiredMinutes, 0);
+          const load = stSRs.filter(sr => sr.providerId === p.id).reduce((s, sr) => s + sr.requiredMinutes, 0);
+          const bestLoad = stSRs.filter(sr => sr.providerId === best.id).reduce((s, sr) => s + sr.requiredMinutes, 0);
           return load < bestLoad ? p : best;
         }, under.providers[0]);
 
         if (leastLoaded) {
           suggestions.push({
-            role,
+            role: leastLoaded.role,
             fromSchool: schoolMap.get(under.schoolId) || "Unknown",
             toSchool: schoolMap.get(over.schoolId) || "Unknown",
             fromSchoolId: under.schoolId,
             toSchoolId: over.schoolId,
-            reason: `${schoolMap.get(over.schoolId)} has ${over.utilPct}% utilization for ${role} while ${schoolMap.get(under.schoolId)} is at ${under.utilPct}%`,
+            reason: `${stName}: ${schoolMap.get(over.schoolId)} at ${over.utilPct}% utilization vs ${schoolMap.get(under.schoolId)} at ${under.utilPct}%`,
             providerName: `${leastLoaded.firstName} ${leastLoaded.lastName}`,
             staffId: leastLoaded.id,
           });
@@ -282,9 +302,9 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
 router.get("/resource-management/budget", async (req, res): Promise<void> => {
   const filters = parseSchoolDistrictFilters(req.query);
 
-  const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
-  if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
-  if (filters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
+  const filteredStaffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
+  if (filters.schoolId) filteredStaffConditions.push(eq(staffTable.schoolId, filters.schoolId));
+  if (filters.districtId) filteredStaffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
 
   const allStaff = await db.select({
     id: staffTable.id,
@@ -294,7 +314,13 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
     schoolId: staffTable.schoolId,
     hourlyRate: staffTable.hourlyRate,
     annualSalary: staffTable.annualSalary,
-  }).from(staffTable).where(and(...staffConditions));
+  }).from(staffTable).where(and(...filteredStaffConditions));
+
+  const allStaffForRates = await db.select({
+    id: staffTable.id,
+    hourlyRate: staffTable.hourlyRate,
+    annualSalary: staffTable.annualSalary,
+  }).from(staffTable).where(eq(staffTable.status, "active"));
 
   const activeSRs = await db.select({
     studentId: serviceRequirementsTable.studentId,
@@ -337,7 +363,7 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
   }).from(studentsTable).where(eq(studentsTable.status, "active"));
   const studentMap = new Map(students.map(s => [s.id, s]));
 
-  const staffRateMap = new Map(allStaff.map(s => {
+  const staffRateMap = new Map(allStaffForRates.map(s => {
     const hourly = s.hourlyRate ? parseFloat(s.hourlyRate) : 0;
     const fromSalary = s.annualSalary ? parseFloat(s.annualSalary) / 2080 : 0;
     return [s.id, hourly > 0 ? hourly : fromSalary];

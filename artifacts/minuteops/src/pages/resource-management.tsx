@@ -347,22 +347,29 @@ function UtilizationTab({ data, onRateUpdate }: { data: ProviderUtil[]; onRateUp
   }
 
   async function saveRate(staffId: number) {
-    const rate = parseFloat(editRate);
-    if (isNaN(rate) || rate <= 0) {
-      toast.error("Enter a valid hourly rate");
+    const rate = editRate ? parseFloat(editRate) : NaN;
+    const salary = editSalary ? parseFloat(editSalary) : NaN;
+    const hasRate = !isNaN(rate) && rate > 0;
+    const hasSalary = !isNaN(salary) && salary > 0;
+
+    if (!hasRate && !hasSalary) {
+      toast.error("Enter an hourly rate or annual salary");
       return;
     }
-    const salary = editSalary ? parseFloat(editSalary) : Math.round(rate * 2080);
+
+    const finalRate = hasRate ? rate : (hasSalary ? Math.round((salary / 2080) * 100) / 100 : 0);
+    const finalSalary = hasSalary ? salary : (hasRate ? Math.round(rate * 2080) : 0);
+
     setSaving(true);
     try {
       const res = await fetch(`${API}/staff/${staffId}/rates`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hourlyRate: rate, annualSalary: salary }),
+        body: JSON.stringify({ hourlyRate: finalRate, annualSalary: finalSalary }),
       });
       if (!res.ok) throw new Error("Failed to save");
       toast.success("Rate updated");
-      onRateUpdate(staffId, rate, salary);
+      onRateUpdate(staffId, finalRate, finalSalary);
       setEditingId(null);
     } catch {
       toast.error("Failed to update rate");
@@ -450,23 +457,38 @@ function UtilizationTab({ data, onRateUpdate }: { data: ProviderUtil[]; onRateUp
                   <td className="px-4 py-3 text-gray-600">{p.schoolName}</td>
                   <td className="px-4 py-3 text-center text-gray-700">
                     {editingId === p.staffId ? (
-                      <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
-                        <span className="text-gray-400 text-xs">$</span>
-                        <input
-                          type="number"
-                          value={editRate}
-                          onChange={e => setEditRate(e.target.value)}
-                          className="w-16 text-xs border border-gray-300 rounded px-1.5 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-600"
-                          placeholder="Rate"
-                          autoFocus
-                          onKeyDown={e => { if (e.key === "Enter") saveRate(p.staffId); if (e.key === "Escape") setEditingId(null); }}
-                        />
-                        <button onClick={() => saveRate(p.staffId)} disabled={saving} className="text-emerald-600 hover:text-emerald-700 p-0.5">
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 p-0.5">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex flex-col items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">$/hr</span>
+                          <input
+                            type="number"
+                            value={editRate}
+                            onChange={e => setEditRate(e.target.value)}
+                            className="w-16 text-xs border border-gray-300 rounded px-1.5 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                            placeholder="Rate"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === "Enter") saveRate(p.staffId); if (e.key === "Escape") setEditingId(null); }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">$/yr</span>
+                          <input
+                            type="number"
+                            value={editSalary}
+                            onChange={e => setEditSalary(e.target.value)}
+                            className="w-20 text-xs border border-gray-300 rounded px-1.5 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                            placeholder="Salary"
+                            onKeyDown={e => { if (e.key === "Enter") saveRate(p.staffId); if (e.key === "Escape") setEditingId(null); }}
+                          />
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => saveRate(p.staffId)} disabled={saving} className="text-emerald-600 hover:text-emerald-700 p-0.5">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 p-0.5">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <span className="group inline-flex items-center gap-1">
