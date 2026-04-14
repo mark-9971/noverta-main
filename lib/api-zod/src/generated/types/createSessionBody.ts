@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SessionGoalEntry } from "./sessionGoalEntry";
 
 export interface CreateSessionBody {
   studentId: number;
@@ -33,4 +34,5 @@ export interface CreateSessionBody {
   compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
+  goalData?: SessionGoalEntry[];
 }

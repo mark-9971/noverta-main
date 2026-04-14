@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 
@@ -32,6 +32,33 @@ const INITIAL_FORM = {
   notes: "",
 };
 
+type GoalFormEntry = {
+  iepGoalId: number;
+  selected: boolean;
+  notes: string;
+  behaviorTargetId?: number | null;
+  behaviorData?: {
+    value: string;
+    intervalCount: string;
+    intervalsWith: string;
+    hourBlock: string;
+    notes: string;
+  };
+  programTargetId?: number | null;
+  programData?: {
+    trialsCorrect: string;
+    trialsTotal: string;
+    prompted: string;
+    stepNumber: string;
+    independenceLevel: string;
+    promptLevelUsed: string;
+    notes: string;
+  };
+  goalArea: string;
+  annualGoal: string;
+  linkedTarget?: any;
+};
+
 export default function Sessions() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -50,6 +77,10 @@ export default function Sessions() {
   const [editSaving, setEditSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [goalEntries, setGoalEntries] = useState<GoalFormEntry[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(false);
+  const [editGoalEntries, setEditGoalEntries] = useState<GoalFormEntry[]>([]);
+  const [editGoalsLoading, setEditGoalsLoading] = useState(false);
 
   const { filterParams } = useSchoolContext();
   const sessionParams: any = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE), ...filterParams };
@@ -87,8 +118,61 @@ export default function Sessions() {
   const completedCount = sessionList.filter(s => s.status === "completed").length;
   const makeupCount = sessionList.filter(s => s.isMakeup).length;
 
+  useEffect(() => {
+    if (!form.studentId) {
+      setGoalEntries([]);
+      return;
+    }
+    setGoalsLoading(true);
+    fetch(`${API}/api/students/${form.studentId}/iep-goals?active=true`)
+      .then(r => r.json())
+      .then((goals: any[]) => {
+        setGoalEntries(goals.map(g => ({
+          iepGoalId: g.id,
+          selected: false,
+          notes: "",
+          behaviorTargetId: g.behaviorTargetId || null,
+          behaviorData: g.linkedTarget?.type === "behavior" ? {
+            value: "", intervalCount: "", intervalsWith: "", hourBlock: "", notes: "",
+          } : undefined,
+          programTargetId: g.programTargetId || null,
+          programData: g.linkedTarget?.type === "program" ? {
+            trialsCorrect: "", trialsTotal: "10", prompted: "0", stepNumber: "",
+            independenceLevel: "", promptLevelUsed: g.linkedTarget?.currentPromptLevel || "", notes: "",
+          } : undefined,
+          goalArea: g.goalArea,
+          annualGoal: g.annualGoal,
+          linkedTarget: g.linkedTarget,
+        })));
+      })
+      .catch(() => setGoalEntries([]))
+      .finally(() => setGoalsLoading(false));
+  }, [form.studentId]);
+
   function updateForm(field: string, value: any) {
     setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  function toggleGoal(idx: number) {
+    setGoalEntries(prev => prev.map((g, i) => i === idx ? { ...g, selected: !g.selected } : g));
+  }
+
+  function updateGoalEntry(idx: number, field: string, value: any) {
+    setGoalEntries(prev => prev.map((g, i) => i === idx ? { ...g, [field]: value } : g));
+  }
+
+  function updateBehaviorField(idx: number, field: string, value: string) {
+    setGoalEntries(prev => prev.map((g, i) => {
+      if (i !== idx || !g.behaviorData) return g;
+      return { ...g, behaviorData: { ...g.behaviorData, [field]: value } };
+    }));
+  }
+
+  function updateProgramField(idx: number, field: string, value: string) {
+    setGoalEntries(prev => prev.map((g, i) => {
+      if (i !== idx || !g.programData) return g;
+      return { ...g, programData: { ...g.programData, [field]: value } };
+    }));
   }
 
   async function handleSubmit() {
@@ -99,6 +183,34 @@ export default function Sessions() {
     setSubmitting(true);
     try {
       const selectedReq = reqList.find((r: any) => String(r.id) === form.serviceRequirementId);
+      const selectedGoals = goalEntries.filter(g => g.selected);
+      const goalData = selectedGoals.map(g => {
+        const entry: any = { iepGoalId: g.iepGoalId, notes: g.notes || null };
+        if (g.behaviorData && g.behaviorTargetId) {
+          entry.behaviorTargetId = g.behaviorTargetId;
+          entry.behaviorData = {
+            value: Number(g.behaviorData.value) || 0,
+            intervalCount: g.behaviorData.intervalCount ? Number(g.behaviorData.intervalCount) : null,
+            intervalsWith: g.behaviorData.intervalsWith ? Number(g.behaviorData.intervalsWith) : null,
+            hourBlock: g.behaviorData.hourBlock || null,
+            notes: g.behaviorData.notes || null,
+          };
+        }
+        if (g.programData && g.programTargetId) {
+          entry.programTargetId = g.programTargetId;
+          entry.programData = {
+            trialsCorrect: Number(g.programData.trialsCorrect) || 0,
+            trialsTotal: Number(g.programData.trialsTotal) || 0,
+            prompted: g.programData.prompted ? Number(g.programData.prompted) : null,
+            stepNumber: g.programData.stepNumber ? Number(g.programData.stepNumber) : null,
+            independenceLevel: g.programData.independenceLevel || null,
+            promptLevelUsed: g.programData.promptLevelUsed || null,
+            notes: g.programData.notes || null,
+          };
+        }
+        return entry;
+      });
+
       await createSession({
         data: {
           studentId: Number(form.studentId),
@@ -115,10 +227,13 @@ export default function Sessions() {
           location: form.location || null,
           isMakeup: form.isMakeup,
           notes: form.notes || null,
+          goalData: goalData.length > 0 ? goalData : undefined,
         },
       } as any);
+
       setShowAddModal(false);
       setForm(INITIAL_FORM);
+      setGoalEntries([]);
       toast.success("Session logged successfully");
       refetch();
     } catch (e) {
@@ -137,6 +252,40 @@ export default function Sessions() {
       location: session.location ?? "",
       missedReasonId: session.missedReasonId ? String(session.missedReasonId) : "",
     });
+    setEditGoalEntries([]);
+    if (session.studentId) {
+      setEditGoalsLoading(true);
+      Promise.all([
+        fetch(`${API}/api/students/${session.studentId}/iep-goals?active=true`).then(r => r.json()),
+        fetch(`${API}/api/sessions/${session.id}`).then(r => r.json()),
+      ]).then(([goals, detail]: [any[], any]) => {
+        const linked = detail.linkedGoals || [];
+        const linkedMap = new Map<number, any>();
+        for (const lg of linked) linkedMap.set(lg.id, lg);
+        setEditGoalEntries(goals.map((g: any) => {
+          const existing = linkedMap.get(g.id);
+          const bData = existing?.behaviorData;
+          const pData = existing?.programData;
+          return {
+            iepGoalId: g.id,
+            selected: !!existing,
+            notes: existing?.notes || "",
+            behaviorTargetId: g.behaviorTargetId || null,
+            behaviorData: g.linkedTarget?.type === "behavior" ? {
+              value: bData?.value ?? "", intervalCount: bData?.intervalCount ?? "", intervalsWith: bData?.intervalsWith ?? "", hourBlock: bData?.hourBlock ?? "", notes: bData?.notes ?? "",
+            } : undefined,
+            programTargetId: g.programTargetId || null,
+            programData: g.linkedTarget?.type === "program" ? {
+              trialsCorrect: pData?.trialsCorrect ?? "", trialsTotal: pData?.trialsTotal ?? "10", prompted: pData?.prompted ?? "0", stepNumber: pData?.stepNumber ?? "",
+              independenceLevel: pData?.independenceLevel ?? "", promptLevelUsed: pData?.promptLevelUsed || g.linkedTarget?.currentPromptLevel || "", notes: pData?.notes ?? "",
+            } : undefined,
+            goalArea: g.goalArea,
+            annualGoal: g.annualGoal,
+            linkedTarget: g.linkedTarget,
+          };
+        }));
+      }).catch(() => setEditGoalEntries([])).finally(() => setEditGoalsLoading(false));
+    }
   }
 
   async function handleEditSave() {
@@ -153,6 +302,21 @@ export default function Sessions() {
         location: editForm.location || null,
         missedReasonId: editForm.status === "missed" && editForm.missedReasonId ? Number(editForm.missedReasonId) : null,
       };
+      if (editGoalEntries.length > 0) {
+        const selected = editGoalEntries.filter(g => g.selected);
+        body.goalData = selected.map(g => {
+          const entry: any = { iepGoalId: g.iepGoalId, notes: g.notes || null };
+          if (g.behaviorData && g.behaviorTargetId) {
+            entry.behaviorTargetId = g.behaviorTargetId;
+            entry.behaviorData = { value: Number(g.behaviorData.value) || 0, intervalCount: g.behaviorData.intervalCount ? Number(g.behaviorData.intervalCount) : null, intervalsWith: g.behaviorData.intervalsWith ? Number(g.behaviorData.intervalsWith) : null, hourBlock: g.behaviorData.hourBlock || null, notes: g.behaviorData.notes || null };
+          }
+          if (g.programData && g.programTargetId) {
+            entry.programTargetId = g.programTargetId;
+            entry.programData = { trialsCorrect: Number(g.programData.trialsCorrect) || 0, trialsTotal: Number(g.programData.trialsTotal) || 0, prompted: g.programData.prompted ? Number(g.programData.prompted) : null, stepNumber: g.programData.stepNumber ? Number(g.programData.stepNumber) : null, independenceLevel: g.programData.independenceLevel || null, promptLevelUsed: g.programData.promptLevelUsed || null, notes: g.programData.notes || null };
+          }
+          return entry;
+        });
+      }
       const res = await fetch(`${API}/api/sessions/${editingSession.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -227,7 +391,7 @@ export default function Sessions() {
     const allProgram = clinicalData.flatMap((c: any) => c.programData || []);
     const allBehavior = clinicalData.flatMap((c: any) => c.behaviorData || []);
     const hasClinical = allProgram.length > 0 || allBehavior.length > 0;
-
+    const hasRecordedData = goals.some((g: any) => g.behaviorData || g.programData);
     return (
       <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-100 space-y-4">
         {expandLoading ? (
@@ -265,16 +429,78 @@ export default function Sessions() {
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Target className="w-3.5 h-3.5 text-emerald-600" /> IEP Goals Addressed ({goals.length})
+                  {hasRecordedData && <span className="text-[10px] font-normal text-emerald-600 ml-1">with data</span>}
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {goals.map((g: any) => (
                     <div key={g.id} className="bg-white rounded-lg px-3 py-2 border border-gray-200">
                       <div className="flex items-start gap-2">
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 flex-shrink-0 mt-0.5">{g.goalArea}</span>
-                        <p className="text-[12px] text-gray-700 leading-snug line-clamp-2">{g.annualGoal}</p>
+                        <p className="text-[12px] text-gray-700 leading-snug line-clamp-2 flex-1">{g.annualGoal}</p>
                       </div>
                       {g.targetCriterion && (
                         <p className="text-[10px] text-gray-400 mt-1 ml-0.5">Target: {g.targetCriterion}</p>
+                      )}
+
+                      {g.behaviorData && (
+                        <div className="mt-2 bg-amber-50 rounded-md px-2.5 py-2 border border-amber-100">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Activity className="w-3 h-3 text-amber-600" />
+                            <span className="text-[10px] font-semibold text-amber-700 uppercase">Behavior Data</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-[11px]">
+                            <div>
+                              <span className="text-amber-500">Value:</span>{" "}
+                              <span className="text-slate-700 font-medium">{g.behaviorData.value}</span>
+                              {g.behaviorData.measurementType && (
+                                <span className="text-amber-400 ml-0.5">({g.behaviorData.measurementType})</span>
+                              )}
+                            </div>
+                            {g.behaviorData.targetName && (
+                              <div><span className="text-amber-500">Target:</span> <span className="text-slate-700">{g.behaviorData.targetName}</span></div>
+                            )}
+                            {g.behaviorData.goalValue && (
+                              <div><span className="text-amber-500">Goal:</span> <span className="text-slate-700">{g.behaviorData.goalValue} ({g.behaviorData.targetDirection})</span></div>
+                            )}
+                            {g.behaviorData.notes && (
+                              <div className="col-span-full"><span className="text-amber-500">Notes:</span> <span className="text-slate-600">{g.behaviorData.notes}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {g.programData && (
+                        <div className="mt-2 bg-blue-50 rounded-md px-2.5 py-2 border border-blue-100">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <BarChart3 className="w-3 h-3 text-blue-600" />
+                            <span className="text-[10px] font-semibold text-blue-700 uppercase">Program Data</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-[11px]">
+                            <div>
+                              <span className="text-blue-500">Trials:</span>{" "}
+                              <span className="text-slate-700 font-medium">{g.programData.trialsCorrect}/{g.programData.trialsTotal}</span>
+                              {g.programData.percentCorrect && (
+                                <span className="text-blue-400 ml-0.5">({g.programData.percentCorrect}%)</span>
+                              )}
+                            </div>
+                            {g.programData.promptLevelUsed && (
+                              <div><span className="text-blue-500">Prompt:</span> <span className="text-slate-700">{formatPromptLevel(g.programData.promptLevelUsed)}</span></div>
+                            )}
+                            {g.programData.targetName && (
+                              <div><span className="text-blue-500">Program:</span> <span className="text-slate-700">{g.programData.targetName}</span></div>
+                            )}
+                            {g.programData.masteryCriterionPercent && (
+                              <div><span className="text-blue-500">Mastery:</span> <span className="text-slate-700">{g.programData.masteryCriterionPercent}%</span></div>
+                            )}
+                            {g.programData.notes && (
+                              <div className="col-span-full"><span className="text-blue-500">Notes:</span> <span className="text-slate-600">{g.programData.notes}</span></div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {g.notes && (
+                        <p className="text-[10px] text-slate-500 mt-1.5 ml-0.5 italic">Goal notes: {g.notes}</p>
                       )}
                     </div>
                   ))}
@@ -437,6 +663,11 @@ export default function Sessions() {
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{session.serviceTypeName ?? "—"} · {session.staffName ?? "—"}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {(session.goalCount > 0) && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
+                      <Target className="w-2.5 h-2.5 inline mr-0.5" />{session.goalCount}
+                    </span>
+                  )}
                   <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
                     session.status === "completed" ? "bg-emerald-50 text-emerald-700" :
                     session.status === "missed" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
@@ -484,13 +715,14 @@ export default function Sessions() {
                 <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Service</th>
                 <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Provider</th>
                 <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Duration</th>
+                <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Goals</th>
                 <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {isLoading ? (
                 [...Array(10)].map((_, i) => (
-                  <tr key={i}>{[...Array(7)].map((_, j) => <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
+                  <tr key={i}>{[...Array(8)].map((_, j) => <td key={j} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
                 ))
               ) : filtered.map(session => (
                 <Fragment key={session.id}>
@@ -507,6 +739,15 @@ export default function Sessions() {
                     <td className="px-4 py-3 text-[13px] text-gray-500">{session.staffName ?? "—"}</td>
                     <td className="px-4 py-3 text-[13px] text-gray-600">{session.durationMinutes} min</td>
                     <td className="px-4 py-3">
+                      {session.goalCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">
+                          <Target className="w-3 h-3" /> {session.goalCount}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                         session.status === "completed" ? "bg-emerald-50 text-emerald-700" :
                         session.status === "missed" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
@@ -519,7 +760,7 @@ export default function Sessions() {
                   </tr>
                   {expandedId === session.id && (
                     <tr>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <SessionExpandedDetail session={session} detail={expandedData} />
                       </td>
                     </tr>
@@ -528,7 +769,7 @@ export default function Sessions() {
               ))}
               {!isLoading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center text-gray-400 text-sm">No sessions found</td>
+                  <td colSpan={8} className="px-5 py-16 text-center text-gray-400 text-sm">No sessions found</td>
                 </tr>
               )}
             </tbody>
@@ -565,7 +806,7 @@ export default function Sessions() {
       </AlertDialog>
 
       <Dialog open={editingSession !== null} onOpenChange={(open) => { if (!open) setEditingSession(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">Edit Session</DialogTitle>
           </DialogHeader>
@@ -607,6 +848,40 @@ export default function Sessions() {
               <Label className="text-[12px] text-gray-500">Notes</Label>
               <Textarea className="text-[13px] resize-none" rows={3} value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} />
             </div>
+            {editGoalsLoading ? (
+              <div className="text-[12px] text-slate-400 py-2">Loading IEP goals...</div>
+            ) : editGoalEntries.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-[12px] text-slate-500 flex items-center gap-1"><Target className="w-3.5 h-3.5" /> IEP Goals Addressed</Label>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {editGoalEntries.map((g, idx) => (
+                    <div key={g.iepGoalId} className={`border rounded-lg p-2 ${g.selected ? "border-indigo-300 bg-indigo-50/30" : "border-slate-200"}`}>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" checked={g.selected} onChange={() => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, selected: !ge.selected } : ge))} className="mt-1" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-medium text-slate-700 truncate">{g.goalArea}</div>
+                          <div className="text-[11px] text-slate-500 truncate">{g.annualGoal}</div>
+                          {g.linkedTarget && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${g.linkedTarget.type === "behavior" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>{g.linkedTarget.type}: {g.linkedTarget.name}</span>}
+                        </div>
+                      </label>
+                      {g.selected && g.behaviorData && (
+                        <div className="mt-2 pl-6 grid grid-cols-2 gap-2">
+                          <div><Label className="text-[10px] text-amber-600">Value *</Label><Input type="number" className="h-7 text-[12px]" value={g.behaviorData.value} onChange={e => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, behaviorData: { ...ge.behaviorData!, value: e.target.value } } : ge))} /></div>
+                          <div><Label className="text-[10px] text-amber-600">Intervals</Label><Input type="number" className="h-7 text-[12px]" value={g.behaviorData.intervalCount} onChange={e => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, behaviorData: { ...ge.behaviorData!, intervalCount: e.target.value } } : ge))} /></div>
+                        </div>
+                      )}
+                      {g.selected && g.programData && (
+                        <div className="mt-2 pl-6 grid grid-cols-3 gap-2">
+                          <div><Label className="text-[10px] text-blue-600">Correct</Label><Input type="number" className="h-7 text-[12px]" value={g.programData.trialsCorrect} onChange={e => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, programData: { ...ge.programData!, trialsCorrect: e.target.value } } : ge))} /></div>
+                          <div><Label className="text-[10px] text-blue-600">Total</Label><Input type="number" className="h-7 text-[12px]" value={g.programData.trialsTotal} onChange={e => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, programData: { ...ge.programData!, trialsTotal: e.target.value } } : ge))} /></div>
+                          <div><Label className="text-[10px] text-blue-600">Prompt</Label><Input className="h-7 text-[12px]" value={g.programData.promptLevelUsed} onChange={e => setEditGoalEntries(prev => prev.map((ge, i) => i === idx ? { ...ge, programData: { ...ge.programData!, promptLevelUsed: e.target.value } } : ge))} /></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setEditingSession(null)}>Cancel</Button>
@@ -618,7 +893,7 @@ export default function Sessions() {
       </Dialog>
 
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">Log Session</DialogTitle>
           </DialogHeader>
@@ -719,6 +994,209 @@ export default function Sessions() {
               <Label className="text-[12px] text-gray-500">Notes</Label>
               <Textarea className="text-[13px] resize-none" rows={2} value={form.notes} onChange={e => updateForm("notes", e.target.value)} placeholder="Optional session notes..." />
             </div>
+
+            {form.studentId && (
+              <div className="space-y-3 border-t border-slate-200 pt-4">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-500" />
+                  <h3 className="text-sm font-semibold text-slate-700">IEP Goals Addressed</h3>
+                  {goalEntries.filter(g => g.selected).length > 0 && (
+                    <span className="text-[11px] text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-medium">
+                      {goalEntries.filter(g => g.selected).length} selected
+                    </span>
+                  )}
+                </div>
+                {goalsLoading ? (
+                  <div className="flex items-center gap-2 text-[12px] text-slate-400">
+                    <Clock className="w-3.5 h-3.5 animate-spin" /> Loading goals...
+                  </div>
+                ) : goalEntries.length === 0 ? (
+                  <p className="text-[12px] text-slate-400 italic">No active IEP goals found for this student.</p>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {goalEntries.map((ge, idx) => (
+                      <div key={ge.iepGoalId} className={`rounded-lg border transition-all ${ge.selected ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 bg-white"}`}>
+                        <label className="flex items-start gap-2.5 p-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={ge.selected}
+                            onChange={() => toggleGoal(idx)}
+                            className="mt-0.5 rounded border-slate-300"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">{ge.goalArea}</span>
+                              {ge.linkedTarget && (
+                                <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                                  ge.linkedTarget.type === "behavior" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                                }`}>{ge.linkedTarget.type === "behavior" ? "Behavior" : "Program"}</span>
+                              )}
+                            </div>
+                            <p className="text-[12px] text-slate-700 leading-snug mt-1 line-clamp-2">{ge.annualGoal}</p>
+                          </div>
+                        </label>
+
+                        {ge.selected && (
+                          <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-2">
+                            {ge.behaviorData && (
+                              <div className="bg-amber-50 rounded-md p-2.5 border border-amber-100 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Activity className="w-3 h-3 text-amber-600" />
+                                  <span className="text-[10px] font-semibold text-amber-700 uppercase">Behavior Data</span>
+                                  {ge.linkedTarget && (
+                                    <span className="text-[10px] text-amber-500">({ge.linkedTarget.measurementType})</span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-amber-600">Value *</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="0"
+                                      value={ge.behaviorData.value}
+                                      onChange={e => updateBehaviorField(idx, "value", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-amber-600">Intervals (count)</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="—"
+                                      value={ge.behaviorData.intervalCount}
+                                      onChange={e => updateBehaviorField(idx, "intervalCount", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-amber-600">Intervals w/ behavior</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="—"
+                                      value={ge.behaviorData.intervalsWith}
+                                      onChange={e => updateBehaviorField(idx, "intervalsWith", e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-amber-600">Notes</Label>
+                                  <Input
+                                    className="h-7 text-[12px]"
+                                    placeholder="Optional notes..."
+                                    value={ge.behaviorData.notes}
+                                    onChange={e => updateBehaviorField(idx, "notes", e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {ge.programData && (
+                              <div className="bg-blue-50 rounded-md p-2.5 border border-blue-100 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <BarChart3 className="w-3 h-3 text-blue-600" />
+                                  <span className="text-[10px] font-semibold text-blue-700 uppercase">Program Data</span>
+                                  {ge.linkedTarget && (
+                                    <span className="text-[10px] text-blue-500">({ge.linkedTarget.name})</span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-blue-600">Trials Correct</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="0"
+                                      value={ge.programData.trialsCorrect}
+                                      onChange={e => updateProgramField(idx, "trialsCorrect", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-blue-600">Trials Total</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="10"
+                                      value={ge.programData.trialsTotal}
+                                      onChange={e => updateProgramField(idx, "trialsTotal", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-blue-600">Prompt Level</Label>
+                                    <Select
+                                      value={ge.programData.promptLevelUsed}
+                                      onValueChange={v => updateProgramField(idx, "promptLevelUsed", v)}
+                                    >
+                                      <SelectTrigger className="h-7 text-[12px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="full_physical">Full Physical</SelectItem>
+                                        <SelectItem value="partial_physical">Partial Physical</SelectItem>
+                                        <SelectItem value="model">Model</SelectItem>
+                                        <SelectItem value="gestural">Gestural</SelectItem>
+                                        <SelectItem value="verbal">Verbal</SelectItem>
+                                        <SelectItem value="independent">Independent</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-blue-600">Independence Level</Label>
+                                    <Select
+                                      value={ge.programData.independenceLevel}
+                                      onValueChange={v => updateProgramField(idx, "independenceLevel", v)}
+                                    >
+                                      <SelectTrigger className="h-7 text-[12px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="independent">Independent</SelectItem>
+                                        <SelectItem value="emerging">Emerging</SelectItem>
+                                        <SelectItem value="prompted">Prompted</SelectItem>
+                                        <SelectItem value="dependent">Dependent</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-blue-600">Prompted Count</Label>
+                                    <Input
+                                      type="number"
+                                      className="h-7 text-[12px]"
+                                      placeholder="0"
+                                      value={ge.programData.prompted}
+                                      onChange={e => updateProgramField(idx, "prompted", e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-blue-600">Notes</Label>
+                                  <Input
+                                    className="h-7 text-[12px]"
+                                    placeholder="Optional notes..."
+                                    value={ge.programData.notes}
+                                    onChange={e => updateProgramField(idx, "notes", e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {!ge.behaviorData && !ge.programData && (
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-slate-500">Goal Notes</Label>
+                                <Input
+                                  className="h-7 text-[12px]"
+                                  placeholder="Notes for this goal..."
+                                  value={ge.notes}
+                                  onChange={e => updateGoalEntry(idx, "notes", e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowAddModal(false)}>Cancel</Button>
@@ -740,4 +1218,8 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
       <span className="text-[13px] text-gray-700">{value}</span>
     </div>
   );
+}
+
+function formatPromptLevel(level: string) {
+  return level.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }

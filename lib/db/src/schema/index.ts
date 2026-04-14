@@ -41,3 +41,4 @@ export * from "./functionalAnalyses";
 export * from "./behaviorInterventionPlans";
 export * from "./compensatoryObligations";
 export * from "./shareLinks";
+export * from "./sessionGoalData";

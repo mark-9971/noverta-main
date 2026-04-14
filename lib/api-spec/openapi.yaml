@@ -2727,7 +2727,131 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+        goalCount:
+          type: integer
+        linkedGoals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionLinkedGoal"
       required: [id, studentId, sessionDate, durationMinutes, status, isMakeup, createdAt]
+
+    SessionLinkedGoal:
+      type: object
+      properties:
+        id:
+          type: integer
+        goalArea:
+          type: string
+        goalNumber:
+          type: ["integer", "null"]
+        annualGoal:
+          type: string
+        targetCriterion:
+          type: ["string", "null"]
+        measurementMethod:
+          type: ["string", "null"]
+        serviceArea:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        behaviorData:
+          $ref: "#/components/schemas/SessionBehaviorDataPoint"
+        programData:
+          $ref: "#/components/schemas/SessionProgramDataPoint"
+      required: [id, goalArea, annualGoal]
+
+    SessionBehaviorDataPoint:
+      type: ["object", "null"]
+      properties:
+        value:
+          type: string
+        intervalCount:
+          type: ["integer", "null"]
+        intervalsWith:
+          type: ["integer", "null"]
+        hourBlock:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        targetName:
+          type: ["string", "null"]
+        measurementType:
+          type: ["string", "null"]
+        targetDirection:
+          type: ["string", "null"]
+        goalValue:
+          type: ["string", "null"]
+
+    SessionProgramDataPoint:
+      type: ["object", "null"]
+      properties:
+        trialsCorrect:
+          type: integer
+        trialsTotal:
+          type: integer
+        prompted:
+          type: ["integer", "null"]
+        stepNumber:
+          type: ["integer", "null"]
+        independenceLevel:
+          type: ["string", "null"]
+        percentCorrect:
+          type: ["string", "null"]
+        promptLevelUsed:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        targetName:
+          type: ["string", "null"]
+        programType:
+          type: ["string", "null"]
+        masteryCriterionPercent:
+          type: ["integer", "null"]
+
+    SessionGoalEntry:
+      type: object
+      properties:
+        iepGoalId:
+          type: integer
+        notes:
+          type: ["string", "null"]
+        behaviorTargetId:
+          type: ["integer", "null"]
+        behaviorData:
+          type: ["object", "null"]
+          properties:
+            value:
+              type: number
+            intervalCount:
+              type: ["integer", "null"]
+            intervalsWith:
+              type: ["integer", "null"]
+            hourBlock:
+              type: ["string", "null"]
+            notes:
+              type: ["string", "null"]
+        programTargetId:
+          type: ["integer", "null"]
+        programData:
+          type: ["object", "null"]
+          properties:
+            trialsCorrect:
+              type: integer
+            trialsTotal:
+              type: integer
+            prompted:
+              type: ["integer", "null"]
+            stepNumber:
+              type: ["integer", "null"]
+            independenceLevel:
+              type: ["string", "null"]
+            promptLevelUsed:
+              type: ["string", "null"]
+            notes:
+              type: ["string", "null"]
+      required: [iepGoalId]
 
     CreateSessionBody:
       type: object
@@ -2764,6 +2888,10 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        goalData:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionGoalEntry"
       required: [studentId, sessionDate, durationMinutes, status, isMakeup]
 
     UpdateSessionBody:
@@ -2783,6 +2911,10 @@ components:
           type: ["boolean", "null"]
         compensatoryObligationId:
           type: ["integer", "null"]
+        goalData:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionGoalEntry"
 
     BulkCreateSessionsBody:
       type: object

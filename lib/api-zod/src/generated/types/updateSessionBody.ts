@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SessionGoalEntry } from "./sessionGoalEntry";
 
 export interface UpdateSessionBody {
   /** @nullable */
@@ -21,4 +22,5 @@ export interface UpdateSessionBody {
   isCompensatory?: boolean | null;
   /** @nullable */
   compensatoryObligationId?: number | null;
+  goalData?: SessionGoalEntry[];
 }

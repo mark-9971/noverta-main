@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SessionLinkedGoal } from "./sessionLinkedGoal";
 
 export interface SessionLog {
   id: number;
@@ -43,4 +44,6 @@ export interface SessionLog {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  goalCount?: number;
+  linkedGoals?: SessionLinkedGoal[];
 }

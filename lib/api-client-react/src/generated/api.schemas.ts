@@ -151,6 +151,75 @@ export interface MinuteProgress {
   makeupSessionsCount: number;
 }
 
+/**
+ * @nullable
+ */
+export type SessionBehaviorDataPoint = {
+  value?: string;
+  /** @nullable */
+  intervalCount?: number | null;
+  /** @nullable */
+  intervalsWith?: number | null;
+  /** @nullable */
+  hourBlock?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  targetName?: string | null;
+  /** @nullable */
+  measurementType?: string | null;
+  /** @nullable */
+  targetDirection?: string | null;
+  /** @nullable */
+  goalValue?: string | null;
+} | null;
+
+/**
+ * @nullable
+ */
+export type SessionProgramDataPoint = {
+  trialsCorrect?: number;
+  trialsTotal?: number;
+  /** @nullable */
+  prompted?: number | null;
+  /** @nullable */
+  stepNumber?: number | null;
+  /** @nullable */
+  independenceLevel?: string | null;
+  /** @nullable */
+  percentCorrect?: string | null;
+  /** @nullable */
+  promptLevelUsed?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  targetName?: string | null;
+  /** @nullable */
+  programType?: string | null;
+  /** @nullable */
+  masteryCriterionPercent?: number | null;
+} | null;
+
+export interface SessionLinkedGoal {
+  id: number;
+  goalArea: string;
+  /** @nullable */
+  goalNumber?: number | null;
+  annualGoal: string;
+  /** @nullable */
+  targetCriterion?: string | null;
+  /** @nullable */
+  measurementMethod?: string | null;
+  /** @nullable */
+  serviceArea?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  behaviorData?: SessionBehaviorDataPoint | null;
+  programData?: SessionProgramDataPoint | null;
+}
+
 export interface SessionLog {
   id: number;
   studentId: number;
@@ -188,6 +257,8 @@ export interface SessionLog {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  goalCount?: number;
+  linkedGoals?: SessionLinkedGoal[];
 }
 
 export interface Alert {
@@ -489,6 +560,53 @@ export interface UpdateServiceRequirementBody {
   active?: boolean | null;
 }
 
+/**
+ * @nullable
+ */
+export type SessionGoalEntryBehaviorData = {
+  value?: number;
+  /** @nullable */
+  intervalCount?: number | null;
+  /** @nullable */
+  intervalsWith?: number | null;
+  /** @nullable */
+  hourBlock?: string | null;
+  /** @nullable */
+  notes?: string | null;
+} | null;
+
+/**
+ * @nullable
+ */
+export type SessionGoalEntryProgramData = {
+  trialsCorrect?: number;
+  trialsTotal?: number;
+  /** @nullable */
+  prompted?: number | null;
+  /** @nullable */
+  stepNumber?: number | null;
+  /** @nullable */
+  independenceLevel?: string | null;
+  /** @nullable */
+  promptLevelUsed?: string | null;
+  /** @nullable */
+  notes?: string | null;
+} | null;
+
+export interface SessionGoalEntry {
+  iepGoalId: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  behaviorTargetId?: number | null;
+  /** @nullable */
+  behaviorData?: SessionGoalEntryBehaviorData;
+  /** @nullable */
+  programTargetId?: number | null;
+  /** @nullable */
+  programData?: SessionGoalEntryProgramData;
+}
+
 export interface CreateSessionBody {
   studentId: number;
   /** @nullable */
@@ -516,6 +634,7 @@ export interface CreateSessionBody {
   compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
+  goalData?: SessionGoalEntry[];
 }
 
 export interface UpdateSessionBody {
@@ -533,6 +652,7 @@ export interface UpdateSessionBody {
   isCompensatory?: boolean | null;
   /** @nullable */
   compensatoryObligationId?: number | null;
+  goalData?: SessionGoalEntry[];
 }
 
 export interface BulkCreateSessionsBody {

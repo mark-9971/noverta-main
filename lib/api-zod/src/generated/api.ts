@@ -556,6 +556,50 @@ export const GetStudentResponse = zod.object({
       compensatoryObligationId: zod.number().nullish(),
       notes: zod.string().nullish(),
       createdAt: zod.string(),
+      goalCount: zod.number().optional(),
+      linkedGoals: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            goalArea: zod.string(),
+            goalNumber: zod.number().nullish(),
+            annualGoal: zod.string(),
+            targetCriterion: zod.string().nullish(),
+            measurementMethod: zod.string().nullish(),
+            serviceArea: zod.string().nullish(),
+            status: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            behaviorData: zod
+              .object({
+                value: zod.string().optional(),
+                intervalCount: zod.number().nullish(),
+                intervalsWith: zod.number().nullish(),
+                hourBlock: zod.string().nullish(),
+                notes: zod.string().nullish(),
+                targetName: zod.string().nullish(),
+                measurementType: zod.string().nullish(),
+                targetDirection: zod.string().nullish(),
+                goalValue: zod.string().nullish(),
+              })
+              .nullish(),
+            programData: zod
+              .object({
+                trialsCorrect: zod.number().optional(),
+                trialsTotal: zod.number().optional(),
+                prompted: zod.number().nullish(),
+                stepNumber: zod.number().nullish(),
+                independenceLevel: zod.string().nullish(),
+                percentCorrect: zod.string().nullish(),
+                promptLevelUsed: zod.string().nullish(),
+                notes: zod.string().nullish(),
+                targetName: zod.string().nullish(),
+                programType: zod.string().nullish(),
+                masteryCriterionPercent: zod.number().nullish(),
+              })
+              .nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   activeAlerts: zod.array(
@@ -697,6 +741,50 @@ export const GetStudentSessionsResponseItem = zod.object({
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
+  goalCount: zod.number().optional(),
+  linkedGoals: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        goalArea: zod.string(),
+        goalNumber: zod.number().nullish(),
+        annualGoal: zod.string(),
+        targetCriterion: zod.string().nullish(),
+        measurementMethod: zod.string().nullish(),
+        serviceArea: zod.string().nullish(),
+        status: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.string().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            measurementType: zod.string().nullish(),
+            targetDirection: zod.string().nullish(),
+            goalValue: zod.string().nullish(),
+          })
+          .nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            percentCorrect: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            programType: zod.string().nullish(),
+            masteryCriterionPercent: zod.number().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 export const GetStudentSessionsResponse = zod.array(
   GetStudentSessionsResponseItem,
@@ -1072,6 +1160,50 @@ export const ListSessionsResponseItem = zod.object({
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
+  goalCount: zod.number().optional(),
+  linkedGoals: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        goalArea: zod.string(),
+        goalNumber: zod.number().nullish(),
+        annualGoal: zod.string(),
+        targetCriterion: zod.string().nullish(),
+        measurementMethod: zod.string().nullish(),
+        serviceArea: zod.string().nullish(),
+        status: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.string().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            measurementType: zod.string().nullish(),
+            targetDirection: zod.string().nullish(),
+            goalValue: zod.string().nullish(),
+          })
+          .nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            percentCorrect: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            programType: zod.string().nullish(),
+            masteryCriterionPercent: zod.number().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 export const ListSessionsResponse = zod.array(ListSessionsResponseItem);
 
@@ -1095,6 +1227,36 @@ export const CreateSessionBody = zod.object({
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
+  goalData: zod
+    .array(
+      zod.object({
+        iepGoalId: zod.number(),
+        notes: zod.string().nullish(),
+        behaviorTargetId: zod.number().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.number().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+          })
+          .nullish(),
+        programTargetId: zod.number().nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -1127,6 +1289,50 @@ export const GetSessionResponse = zod.object({
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
+  goalCount: zod.number().optional(),
+  linkedGoals: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        goalArea: zod.string(),
+        goalNumber: zod.number().nullish(),
+        annualGoal: zod.string(),
+        targetCriterion: zod.string().nullish(),
+        measurementMethod: zod.string().nullish(),
+        serviceArea: zod.string().nullish(),
+        status: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.string().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            measurementType: zod.string().nullish(),
+            targetDirection: zod.string().nullish(),
+            goalValue: zod.string().nullish(),
+          })
+          .nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            percentCorrect: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            programType: zod.string().nullish(),
+            masteryCriterionPercent: zod.number().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -1144,6 +1350,36 @@ export const UpdateSessionBody = zod.object({
   location: zod.string().nullish(),
   isCompensatory: zod.boolean().nullish(),
   compensatoryObligationId: zod.number().nullish(),
+  goalData: zod
+    .array(
+      zod.object({
+        iepGoalId: zod.number(),
+        notes: zod.string().nullish(),
+        behaviorTargetId: zod.number().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.number().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+          })
+          .nullish(),
+        programTargetId: zod.number().nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 
 export const UpdateSessionResponse = zod.object({
@@ -1169,6 +1405,50 @@ export const UpdateSessionResponse = zod.object({
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
+  goalCount: zod.number().optional(),
+  linkedGoals: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        goalArea: zod.string(),
+        goalNumber: zod.number().nullish(),
+        annualGoal: zod.string(),
+        targetCriterion: zod.string().nullish(),
+        measurementMethod: zod.string().nullish(),
+        serviceArea: zod.string().nullish(),
+        status: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.string().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            measurementType: zod.string().nullish(),
+            targetDirection: zod.string().nullish(),
+            goalValue: zod.string().nullish(),
+          })
+          .nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            percentCorrect: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            programType: zod.string().nullish(),
+            masteryCriterionPercent: zod.number().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -1200,6 +1480,36 @@ export const BulkCreateSessionsBody = zod.object({
       isCompensatory: zod.boolean().optional(),
       compensatoryObligationId: zod.number().nullish(),
       notes: zod.string().nullish(),
+      goalData: zod
+        .array(
+          zod.object({
+            iepGoalId: zod.number(),
+            notes: zod.string().nullish(),
+            behaviorTargetId: zod.number().nullish(),
+            behaviorData: zod
+              .object({
+                value: zod.number().optional(),
+                intervalCount: zod.number().nullish(),
+                intervalsWith: zod.number().nullish(),
+                hourBlock: zod.string().nullish(),
+                notes: zod.string().nullish(),
+              })
+              .nullish(),
+            programTargetId: zod.number().nullish(),
+            programData: zod
+              .object({
+                trialsCorrect: zod.number().optional(),
+                trialsTotal: zod.number().optional(),
+                prompted: zod.number().nullish(),
+                stepNumber: zod.number().nullish(),
+                independenceLevel: zod.string().nullish(),
+                promptLevelUsed: zod.string().nullish(),
+                notes: zod.string().nullish(),
+              })
+              .nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
 });
@@ -1655,6 +1965,50 @@ export const GetMissedSessionsReportResponseItem = zod.object({
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
+  goalCount: zod.number().optional(),
+  linkedGoals: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        goalArea: zod.string(),
+        goalNumber: zod.number().nullish(),
+        annualGoal: zod.string(),
+        targetCriterion: zod.string().nullish(),
+        measurementMethod: zod.string().nullish(),
+        serviceArea: zod.string().nullish(),
+        status: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        behaviorData: zod
+          .object({
+            value: zod.string().optional(),
+            intervalCount: zod.number().nullish(),
+            intervalsWith: zod.number().nullish(),
+            hourBlock: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            measurementType: zod.string().nullish(),
+            targetDirection: zod.string().nullish(),
+            goalValue: zod.string().nullish(),
+          })
+          .nullish(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number().optional(),
+            trialsTotal: zod.number().optional(),
+            prompted: zod.number().nullish(),
+            stepNumber: zod.number().nullish(),
+            independenceLevel: zod.string().nullish(),
+            percentCorrect: zod.string().nullish(),
+            promptLevelUsed: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            targetName: zod.string().nullish(),
+            programType: zod.string().nullish(),
+            masteryCriterionPercent: zod.number().nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .optional(),
 });
 export const GetMissedSessionsReportResponse = zod.array(
   GetMissedSessionsReportResponseItem,

@@ -6,6 +6,7 @@ import {
   dataSessionsTable, programDataTable, behaviorDataTable,
   programTargetsTable, behaviorTargetsTable,
   compensatoryObligationsTable,
+  sessionGoalDataTable,
 } from "@workspace/db";
 import {
   ListSessionsQueryParams,
@@ -16,8 +17,30 @@ import {
   DeleteSessionParams,
   BulkCreateSessionsBody,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+
+type GoalEntry = {
+  iepGoalId: number;
+  notes?: string | null;
+  behaviorTargetId?: number | null;
+  behaviorData?: { value: number; intervalCount?: number | null; intervalsWith?: number | null; hourBlock?: string | null; notes?: string | null } | null;
+  programTargetId?: number | null;
+  programData?: { trialsCorrect?: number; trialsTotal?: number; prompted?: number | null; stepNumber?: number | null; independenceLevel?: string | null; promptLevelUsed?: string | null; notes?: string | null } | null;
+};
+
+function validateGoalData(arr: any[]): { valid: true; data: GoalEntry[] } | { valid: false; error: string } {
+  for (let i = 0; i < arr.length; i++) {
+    const entry = arr[i];
+    if (typeof entry.iepGoalId !== "number" || !Number.isInteger(entry.iepGoalId)) {
+      return { valid: false, error: `goalData[${i}].iepGoalId must be an integer` };
+    }
+    if (entry.behaviorData && typeof entry.behaviorData.value !== "number") {
+      return { valid: false, error: `goalData[${i}].behaviorData.value must be a number` };
+    }
+  }
+  return { valid: true, data: arr as GoalEntry[] };
+}
 
 const router: IRouter = Router();
 
@@ -97,6 +120,22 @@ router.get("/sessions", async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
+  const sessionIds = sessions.map(s => s.id);
+  let goalCountMap: Record<number, number> = {};
+  if (sessionIds.length > 0) {
+    const goalCounts = await db
+      .select({
+        sessionLogId: sessionGoalDataTable.sessionLogId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(sessionGoalDataTable)
+      .where(inArray(sessionGoalDataTable.sessionLogId, sessionIds))
+      .groupBy(sessionGoalDataTable.sessionLogId);
+    for (const gc of goalCounts) {
+      goalCountMap[gc.sessionLogId] = gc.count;
+    }
+  }
+
   res.json(sessions.map(s => ({
     ...s,
     studentName: s.studentFirst ? `${s.studentFirst} ${s.studentLast}` : null,
@@ -104,6 +143,7 @@ router.get("/sessions", async (req, res): Promise<void> => {
     staffName: s.staffFirst ? `${s.staffFirst} ${s.staffLast}` : null,
     missedReasonLabel: s.missedReasonLabel,
     createdAt: s.createdAt.toISOString(),
+    goalCount: goalCountMap[s.id] ?? 0,
   })));
 });
 
@@ -118,10 +158,84 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
 });
 
 router.post("/sessions", async (req, res): Promise<void> => {
-  const parsed = CreateSessionBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
+  try {
+    const { goalData: rawGoalData, ...sessionFields } = req.body;
+    const parsed = CreateSessionBody.safeParse(sessionFields);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    let goalData: GoalEntry[] = [];
+    if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {
+      const goalParsed = validateGoalData(rawGoalData);
+      if (!goalParsed.valid) {
+        res.status(400).json({ error: "Invalid goalData: " + goalParsed.error });
+        return;
+      }
+      goalData = goalParsed.data;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const [session] = await tx.insert(sessionLogsTable).values(parsed.data).returning();
+
+      if (goalData.length > 0) {
+        const [dataSession] = await tx.insert(dataSessionsTable).values({
+          studentId: session.studentId,
+          staffId: session.staffId,
+          sessionLogId: session.id,
+          sessionDate: session.sessionDate,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          notes: session.notes,
+        }).returning();
+
+        for (const entry of goalData) {
+          await tx.insert(sessionGoalDataTable).values({
+            sessionLogId: session.id,
+            iepGoalId: entry.iepGoalId,
+            notes: entry.notes || null,
+          });
+
+          if (entry.behaviorData && entry.behaviorTargetId) {
+            await tx.insert(behaviorDataTable).values({
+              dataSessionId: dataSession.id,
+              behaviorTargetId: entry.behaviorTargetId,
+              value: String(entry.behaviorData.value),
+              intervalCount: entry.behaviorData.intervalCount ?? null,
+              intervalsWith: entry.behaviorData.intervalsWith ?? null,
+              hourBlock: entry.behaviorData.hourBlock ?? null,
+              notes: entry.behaviorData.notes ?? null,
+            });
+          }
+
+          if (entry.programData && entry.programTargetId) {
+            const trialsCorrect = entry.programData.trialsCorrect ?? 0;
+            const trialsTotal = entry.programData.trialsTotal ?? 0;
+            const pctCorrect = trialsTotal > 0 ? Math.round((trialsCorrect / trialsTotal) * 100) : 0;
+            await tx.insert(programDataTable).values({
+              dataSessionId: dataSession.id,
+              programTargetId: entry.programTargetId,
+              trialsCorrect,
+              trialsTotal,
+              prompted: entry.programData.prompted ?? 0,
+              stepNumber: entry.programData.stepNumber ?? null,
+              independenceLevel: entry.programData.independenceLevel ?? null,
+              percentCorrect: String(pctCorrect),
+              promptLevelUsed: entry.programData.promptLevelUsed ?? null,
+              notes: entry.programData.notes ?? null,
+            });
+          }
+        }
+      }
+
+      return session;
+    });
+
+    res.status(201).json({ ...result, createdAt: result.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST /sessions error:", e);
+    res.status(500).json({ error: "Failed to create session" });
   }
 
   if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
@@ -222,29 +336,117 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const allGoals = await db.select({
-    id: iepGoalsTable.id,
-    goalArea: iepGoalsTable.goalArea,
-    annualGoal: iepGoalsTable.annualGoal,
-    targetCriterion: iepGoalsTable.targetCriterion,
-    measurementMethod: iepGoalsTable.measurementMethod,
-    serviceArea: iepGoalsTable.serviceArea,
-    status: iepGoalsTable.status,
-  }).from(iepGoalsTable)
-    .where(and(
-      eq(iepGoalsTable.studentId, session.studentId),
-      eq(iepGoalsTable.active, true),
-    ));
+  const goalEntries = await db
+    .select({
+      id: sessionGoalDataTable.id,
+      iepGoalId: sessionGoalDataTable.iepGoalId,
+      notes: sessionGoalDataTable.notes,
+      goalArea: iepGoalsTable.goalArea,
+      goalNumber: iepGoalsTable.goalNumber,
+      annualGoal: iepGoalsTable.annualGoal,
+      targetCriterion: iepGoalsTable.targetCriterion,
+      measurementMethod: iepGoalsTable.measurementMethod,
+      serviceArea: iepGoalsTable.serviceArea,
+      goalStatus: iepGoalsTable.status,
+      programTargetId: iepGoalsTable.programTargetId,
+      behaviorTargetId: iepGoalsTable.behaviorTargetId,
+    })
+    .from(sessionGoalDataTable)
+    .innerJoin(iepGoalsTable, eq(sessionGoalDataTable.iepGoalId, iepGoalsTable.id))
+    .where(eq(sessionGoalDataTable.sessionLogId, session.id));
 
-  const svcName = (session.serviceTypeName || "").toLowerCase();
-  const goals = allGoals.filter(g => {
-    const sa = (g.serviceArea || "").toLowerCase();
-    return sa === svcName || svcName.includes(sa.split("/")[0]) || sa.includes(svcName.split(" ")[0]) ||
-      (svcName.includes("aba") && sa.includes("aba")) ||
-      (svcName.includes("para") && sa.includes("academic")) ||
-      (svcName.includes("adapted") && sa.includes("motor")) ||
-      (svcName.includes("bcba") && sa.includes("behavior")) ||
-      (svcName.includes("counseling") && sa.includes("social"));
+  const linkedDataSessions = await db
+    .select({ id: dataSessionsTable.id })
+    .from(dataSessionsTable)
+    .where(eq(dataSessionsTable.sessionLogId, session.id));
+
+  const dsIds = linkedDataSessions.map(ds => ds.id);
+
+  let behaviorDataRows: any[] = [];
+  let programDataRows: any[] = [];
+  if (dsIds.length > 0) {
+    behaviorDataRows = await db
+      .select({
+        id: behaviorDataTable.id,
+        behaviorTargetId: behaviorDataTable.behaviorTargetId,
+        value: behaviorDataTable.value,
+        intervalCount: behaviorDataTable.intervalCount,
+        intervalsWith: behaviorDataTable.intervalsWith,
+        hourBlock: behaviorDataTable.hourBlock,
+        notes: behaviorDataTable.notes,
+        targetName: behaviorTargetsTable.name,
+        measurementType: behaviorTargetsTable.measurementType,
+        targetDirection: behaviorTargetsTable.targetDirection,
+        goalValue: behaviorTargetsTable.goalValue,
+      })
+      .from(behaviorDataTable)
+      .innerJoin(behaviorTargetsTable, eq(behaviorDataTable.behaviorTargetId, behaviorTargetsTable.id))
+      .where(inArray(behaviorDataTable.dataSessionId, dsIds));
+
+    programDataRows = await db
+      .select({
+        id: programDataTable.id,
+        programTargetId: programDataTable.programTargetId,
+        trialsCorrect: programDataTable.trialsCorrect,
+        trialsTotal: programDataTable.trialsTotal,
+        prompted: programDataTable.prompted,
+        stepNumber: programDataTable.stepNumber,
+        independenceLevel: programDataTable.independenceLevel,
+        percentCorrect: programDataTable.percentCorrect,
+        promptLevelUsed: programDataTable.promptLevelUsed,
+        notes: programDataTable.notes,
+        targetName: programTargetsTable.name,
+        programType: programTargetsTable.programType,
+        masteryCriterionPercent: programTargetsTable.masteryCriterionPercent,
+      })
+      .from(programDataTable)
+      .innerJoin(programTargetsTable, eq(programDataTable.programTargetId, programTargetsTable.id))
+      .where(inArray(programDataTable.dataSessionId, dsIds));
+  }
+
+  const linkedGoals = goalEntries.map(ge => {
+    const bd = ge.behaviorTargetId
+      ? behaviorDataRows.find(b => b.behaviorTargetId === ge.behaviorTargetId)
+      : null;
+    const pd = ge.programTargetId
+      ? programDataRows.find(p => p.programTargetId === ge.programTargetId)
+      : null;
+
+    return {
+      id: ge.iepGoalId,
+      goalArea: ge.goalArea,
+      goalNumber: ge.goalNumber,
+      annualGoal: ge.annualGoal,
+      targetCriterion: ge.targetCriterion,
+      measurementMethod: ge.measurementMethod,
+      serviceArea: ge.serviceArea,
+      status: ge.goalStatus,
+      notes: ge.notes,
+      behaviorData: bd ? {
+        value: bd.value,
+        intervalCount: bd.intervalCount,
+        intervalsWith: bd.intervalsWith,
+        hourBlock: bd.hourBlock,
+        notes: bd.notes,
+        targetName: bd.targetName,
+        measurementType: bd.measurementType,
+        targetDirection: bd.targetDirection,
+        goalValue: bd.goalValue,
+      } : null,
+      programData: pd ? {
+        trialsCorrect: pd.trialsCorrect,
+        trialsTotal: pd.trialsTotal,
+        prompted: pd.prompted,
+        stepNumber: pd.stepNumber,
+        independenceLevel: pd.independenceLevel,
+        percentCorrect: pd.percentCorrect,
+        promptLevelUsed: pd.promptLevelUsed,
+        notes: pd.notes,
+        targetName: pd.targetName,
+        programType: pd.programType,
+        masteryCriterionPercent: pd.masteryCriterionPercent,
+      } : null,
+    };
   });
 
   // Fetch clinical data sessions recorded for this student on the same date
@@ -302,13 +504,43 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     });
   }
 
+  let availableGoals: any[] = [];
+  if (goalEntries.length === 0) {
+    const allGoals = await db.select({
+      id: iepGoalsTable.id,
+      goalArea: iepGoalsTable.goalArea,
+      annualGoal: iepGoalsTable.annualGoal,
+      targetCriterion: iepGoalsTable.targetCriterion,
+      measurementMethod: iepGoalsTable.measurementMethod,
+      serviceArea: iepGoalsTable.serviceArea,
+      status: iepGoalsTable.status,
+    }).from(iepGoalsTable)
+      .where(and(
+        eq(iepGoalsTable.studentId, session.studentId),
+        eq(iepGoalsTable.active, true),
+      ));
+
+    const svcName = (session.serviceTypeName || "").toLowerCase();
+    availableGoals = allGoals.filter(g => {
+      const sa = (g.serviceArea || "").toLowerCase();
+      return sa === svcName || svcName.includes(sa.split("/")[0]) || sa.includes(svcName.split(" ")[0]) ||
+        (svcName.includes("aba") && sa.includes("aba")) ||
+        (svcName.includes("para") && sa.includes("academic")) ||
+        (svcName.includes("adapted") && sa.includes("motor")) ||
+        (svcName.includes("bcba") && sa.includes("behavior")) ||
+        (svcName.includes("counseling") && sa.includes("social"));
+    });
+  }
+
   res.json({
     ...session,
     studentName: session.studentFirst ? `${session.studentFirst} ${session.studentLast}` : null,
     serviceTypeName: session.serviceTypeName,
     staffName: session.staffFirst ? `${session.staffFirst} ${session.staffLast}` : null,
     createdAt: session.createdAt.toISOString(),
-    linkedGoals: goals,
+    linkedGoals: linkedGoals,
+    availableGoals: availableGoals,
+    goalCount: linkedGoals.length,
     clinicalData,
   });
 });
@@ -319,11 +551,23 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  const parsed = UpdateSessionBody.safeParse(req.body);
+  const { goalData: rawGoalData, ...bodyFields } = req.body;
+  const parsed = UpdateSessionBody.safeParse(bodyFields);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  let validatedGoalData: GoalEntry[] | null = null;
+  if (rawGoalData && Array.isArray(rawGoalData)) {
+    const goalParsed = validateGoalData(rawGoalData);
+    if (!goalParsed.valid) {
+      res.status(400).json({ error: "Invalid goalData: " + goalParsed.error });
+      return;
+    }
+    validatedGoalData = goalParsed.data;
+  }
+
   const updateData: Partial<typeof sessionLogsTable.$inferInsert> = {};
   if (parsed.data.durationMinutes != null) updateData.durationMinutes = parsed.data.durationMinutes;
   if (parsed.data.status != null) updateData.status = parsed.data.status;
@@ -340,6 +584,10 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     durationMinutes: sessionLogsTable.durationMinutes,
     status: sessionLogsTable.status,
     studentId: sessionLogsTable.studentId,
+    staffId: sessionLogsTable.staffId,
+    sessionDate: sessionLogsTable.sessionDate,
+    startTime: sessionLogsTable.startTime,
+    endTime: sessionLogsTable.endTime,
   }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
 
   if (!oldSession) {
@@ -368,52 +616,125 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
 
   const compChanged = oldIsComp !== newIsComp || oldObligId !== newObligId || oldDuration !== newDuration || oldWasCompleted !== newIsCompleted;
 
-  if (compChanged && (oldIsComp || newIsComp)) {
+  try {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const txDb = drizzle(client);
 
-      if (oldIsComp && oldObligId && oldWasCompleted) {
-        const [oldObligation] = await txDb.select().from(compensatoryObligationsTable)
-          .where(eq(compensatoryObligationsTable.id, oldObligId));
-        if (oldObligation) {
-          const newDelivered = Math.max(0, oldObligation.minutesDelivered - oldDuration);
-          const revertedStatus = newDelivered >= oldObligation.minutesOwed ? "completed" : (newDelivered > 0 ? "in_progress" : "pending");
-          await txDb.update(compensatoryObligationsTable)
-            .set({ minutesDelivered: newDelivered, status: revertedStatus })
+      if (compChanged && (oldIsComp || newIsComp)) {
+        if (oldIsComp && oldObligId && oldWasCompleted) {
+          const [oldObligation] = await txDb.select().from(compensatoryObligationsTable)
             .where(eq(compensatoryObligationsTable.id, oldObligId));
+          if (oldObligation) {
+            const newDelivered = Math.max(0, oldObligation.minutesDelivered - oldDuration);
+            const revertedStatus = newDelivered >= oldObligation.minutesOwed ? "completed" : (newDelivered > 0 ? "in_progress" : "pending");
+            await txDb.update(compensatoryObligationsTable)
+              .set({ minutesDelivered: newDelivered, status: revertedStatus })
+              .where(eq(compensatoryObligationsTable.id, oldObligId));
+          }
         }
-      }
 
-      if (newIsComp && newObligId) {
-        const [newObligation] = await txDb.select().from(compensatoryObligationsTable)
-          .where(eq(compensatoryObligationsTable.id, newObligId));
-        if (!newObligation) {
-          await client.query("ROLLBACK");
-          res.status(400).json({ error: "Compensatory obligation not found" });
-          return;
-        }
-        if (newObligation.studentId !== oldSession.studentId) {
-          await client.query("ROLLBACK");
-          res.status(400).json({ error: "Obligation student does not match session student" });
-          return;
-        }
-        if (newObligation.status === "completed" || newObligation.status === "waived") {
-          await client.query("ROLLBACK");
-          res.status(400).json({ error: `Cannot link sessions to a ${newObligation.status} obligation` });
-          return;
-        }
-        if (newIsCompleted) {
-          const addedDelivered = newObligation.minutesDelivered + newDuration;
-          const addedStatus = addedDelivered >= newObligation.minutesOwed ? "completed" : "in_progress";
-          await txDb.update(compensatoryObligationsTable)
-            .set({ minutesDelivered: addedDelivered, status: addedStatus })
+        if (newIsComp && newObligId) {
+          const [newObligation] = await txDb.select().from(compensatoryObligationsTable)
             .where(eq(compensatoryObligationsTable.id, newObligId));
+          if (!newObligation) {
+            await client.query("ROLLBACK");
+            client.release();
+            res.status(400).json({ error: "Compensatory obligation not found" });
+            return;
+          }
+          if (newObligation.studentId !== oldSession.studentId) {
+            await client.query("ROLLBACK");
+            client.release();
+            res.status(400).json({ error: "Obligation student does not match session student" });
+            return;
+          }
+          if (newObligation.status === "completed" || newObligation.status === "waived") {
+            await client.query("ROLLBACK");
+            client.release();
+            res.status(400).json({ error: `Cannot link sessions to a ${newObligation.status} obligation` });
+            return;
+          }
+          if (newIsCompleted) {
+            const addedDelivered = newObligation.minutesDelivered + newDuration;
+            const addedStatus = addedDelivered >= newObligation.minutesOwed ? "completed" : "in_progress";
+            await txDb.update(compensatoryObligationsTable)
+              .set({ minutesDelivered: addedDelivered, status: addedStatus })
+              .where(eq(compensatoryObligationsTable.id, newObligId));
+          }
         }
       }
 
       const [session] = await txDb.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
+      if (!session) {
+        await client.query("ROLLBACK");
+        client.release();
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+
+      if (validatedGoalData !== null) {
+        await txDb.delete(sessionGoalDataTable).where(eq(sessionGoalDataTable.sessionLogId, session.id));
+
+        const existingDS = await txDb.select().from(dataSessionsTable).where(eq(dataSessionsTable.sessionLogId, session.id));
+        for (const ds of existingDS) {
+          await txDb.delete(behaviorDataTable).where(eq(behaviorDataTable.dataSessionId, ds.id));
+          await txDb.delete(programDataTable).where(eq(programDataTable.dataSessionId, ds.id));
+          await txDb.delete(dataSessionsTable).where(eq(dataSessionsTable.id, ds.id));
+        }
+
+        if (validatedGoalData.length > 0) {
+          const [dataSession] = await txDb.insert(dataSessionsTable).values({
+            studentId: session.studentId,
+            staffId: session.staffId,
+            sessionLogId: session.id,
+            sessionDate: session.sessionDate,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            notes: session.notes,
+          }).returning();
+
+          for (const entry of validatedGoalData) {
+            await txDb.insert(sessionGoalDataTable).values({
+              sessionLogId: session.id,
+              iepGoalId: entry.iepGoalId,
+              notes: entry.notes || null,
+            });
+
+            if (entry.behaviorData && entry.behaviorTargetId) {
+              await txDb.insert(behaviorDataTable).values({
+                dataSessionId: dataSession.id,
+                behaviorTargetId: entry.behaviorTargetId,
+                value: String(entry.behaviorData.value),
+                intervalCount: entry.behaviorData.intervalCount ?? null,
+                intervalsWith: entry.behaviorData.intervalsWith ?? null,
+                hourBlock: entry.behaviorData.hourBlock ?? null,
+                notes: entry.behaviorData.notes ?? null,
+              });
+            }
+
+            if (entry.programData && entry.programTargetId) {
+              const trialsCorrect = entry.programData.trialsCorrect ?? 0;
+              const trialsTotal = entry.programData.trialsTotal ?? 0;
+              const pctCorrect = trialsTotal > 0 ? Math.round((trialsCorrect / trialsTotal) * 100) : 0;
+              await txDb.insert(programDataTable).values({
+                dataSessionId: dataSession.id,
+                programTargetId: entry.programTargetId,
+                trialsCorrect,
+                trialsTotal,
+                prompted: entry.programData.prompted ?? 0,
+                stepNumber: entry.programData.stepNumber ?? null,
+                independenceLevel: entry.programData.independenceLevel ?? null,
+                percentCorrect: String(pctCorrect),
+                promptLevelUsed: entry.programData.promptLevelUsed ?? null,
+                notes: entry.programData.notes ?? null,
+              });
+            }
+          }
+        }
+      }
+
       await client.query("COMMIT");
       res.json({ ...session, createdAt: session.createdAt.toISOString() });
     } catch (err) {
@@ -422,9 +743,9 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     } finally {
       client.release();
     }
-  } else {
-    const [session] = await db.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
-    res.json({ ...session, createdAt: session.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("PATCH /sessions/:id error:", e);
+    res.status(500).json({ error: "Failed to update session" });
   }
 });
 

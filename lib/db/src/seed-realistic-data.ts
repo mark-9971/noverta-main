@@ -497,7 +497,6 @@ export async function seedRealisticData() {
     const loads = Object.entries(staffLoad).map(([id, load]) => `${id}:${Math.round(load)}min/wk`);
     console.log(`  ${role} (${roleStaff.length} staff): ${loads.join(", ")}`);
   }
-
   console.log("Step 3: Create behavior & program targets for ALL students with relevant services...");
   await db.delete(behaviorDataTable);
   await db.delete(programDataTable);
