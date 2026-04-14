@@ -74,7 +74,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function Supervision() {
   const { selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
-  const isAdmin = role === "admin";
+  const isAdminOrTeacher = role === "admin" || role === "sped_teacher";
   const [activeTab, setActiveTab] = useState<"log" | "compliance" | "trend">("log");
   const [sessions, setSessions] = useState<SupervisionSession[]>([]);
   const [compliance, setCompliance] = useState<ComplianceSummary[]>([]);
@@ -227,11 +227,11 @@ export default function Supervision() {
             Clinical Supervision
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {isAdmin ? "Track BCBA supervision of RBTs and paraprofessionals" : "View your supervision history"}
+            {isAdminOrTeacher ? "Track BCBA supervision of RBTs and paraprofessionals" : "View your supervision history"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {isAdminOrTeacher && (
             <>
               <Button variant="outline" size="sm" onClick={exportCSV} className="text-gray-600">
                 <Download className="w-4 h-4 mr-1" /> Export CSV
@@ -246,8 +246,8 @@ export default function Supervision() {
 
       <div className="flex gap-1 border-b border-gray-200">
         {[
-          { key: "log" as const, label: isAdmin ? "Session Log" : "My Supervision", count: sessions.length },
-          ...(isAdmin ? [
+          { key: "log" as const, label: isAdminOrTeacher ? "Session Log" : "My Supervision", count: sessions.length },
+          ...(isAdminOrTeacher ? [
             { key: "compliance" as const, label: "Compliance Dashboard", count: compliance.length },
             { key: "trend" as const, label: "Trend", count: null as number | null },
           ] : []),
@@ -456,7 +456,7 @@ export default function Supervision() {
                     <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Type</th>
                     <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Duration</th>
                     <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Status</th>
-                    {isAdmin && <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Actions</th>}
+                    {isAdminOrTeacher && <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -482,7 +482,7 @@ export default function Supervision() {
                             "bg-red-100 text-red-600"
                           }`}>{s.status}</span>
                         </td>
-                        {isAdmin && (
+                        {isAdminOrTeacher && (
                           <td className="px-4 py-2.5 text-right">
                             <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
                               <button

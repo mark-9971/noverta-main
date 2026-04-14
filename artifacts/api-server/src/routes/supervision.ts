@@ -141,6 +141,66 @@ router.post("/supervision-sessions", async (req, res): Promise<void> => {
   }
 });
 
+router.get("/supervision-sessions/export/csv", async (req, res): Promise<void> => {
+  try {
+    const { supervisorId, superviseeId, startDate, endDate, schoolId } = req.query as Record<string, string>;
+
+    const conditions: any[] = [];
+    if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
+    if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
+    if (startDate) conditions.push(gte(supervisionSessionsTable.sessionDate, startDate));
+    if (endDate) conditions.push(lte(supervisionSessionsTable.sessionDate, endDate));
+
+    const csvQuery = db
+      .select({
+        sessionDate: supervisionSessionsTable.sessionDate,
+        durationMinutes: supervisionSessionsTable.durationMinutes,
+        supervisionType: supervisionSessionsTable.supervisionType,
+        topics: supervisionSessionsTable.topics,
+        feedbackNotes: supervisionSessionsTable.feedbackNotes,
+        status: supervisionSessionsTable.status,
+        supervisorFirst: sql<string>`sup_r.first_name`,
+        supervisorLast: sql<string>`sup_r.last_name`,
+        superviseeFirst: sql<string>`sup_e.first_name`,
+        superviseeLast: sql<string>`sup_e.last_name`,
+      })
+      .from(supervisionSessionsTable)
+      .leftJoin(sql`staff AS sup_r`, sql`sup_r.id = ${supervisionSessionsTable.supervisorId}`)
+      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
+
+    if (schoolId) {
+      conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
+    }
+
+    const sessions = await (csvQuery as any)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(supervisionSessionsTable.sessionDate));
+
+    const header = "Date,Duration (min),Type,Supervisor,Supervisee,Topics,Feedback,Status";
+    const rows = sessions.map((s: any) => {
+      const esc = (v: string | null) => v ? `"${v.replace(/"/g, '""')}"` : "";
+      return [
+        s.sessionDate,
+        s.durationMinutes,
+        s.supervisionType,
+        s.supervisorFirst ? `${s.supervisorFirst} ${s.supervisorLast}` : "",
+        s.superviseeFirst ? `${s.superviseeFirst} ${s.superviseeLast}` : "",
+        esc(s.topics),
+        esc(s.feedbackNotes),
+        s.status,
+      ].join(",");
+    });
+
+    const csv = [header, ...rows].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="supervision_sessions_${new Date().toISOString().substring(0, 10)}.csv"`);
+    res.send(csv);
+  } catch (e: any) {
+    console.error("GET /supervision-sessions/export/csv error:", e);
+    res.status(500).json({ error: "Failed to export CSV" });
+  }
+});
+
 router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
@@ -465,66 +525,6 @@ router.get("/supervision/trend", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("GET /supervision/trend error:", e);
     res.status(500).json({ error: "Failed to compute supervision trend" });
-  }
-});
-
-router.get("/supervision-sessions/export/csv", async (req, res): Promise<void> => {
-  try {
-    const { supervisorId, superviseeId, startDate, endDate, schoolId } = req.query as Record<string, string>;
-
-    const conditions: any[] = [];
-    if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
-    if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
-    if (startDate) conditions.push(gte(supervisionSessionsTable.sessionDate, startDate));
-    if (endDate) conditions.push(lte(supervisionSessionsTable.sessionDate, endDate));
-
-    const query = db
-      .select({
-        sessionDate: supervisionSessionsTable.sessionDate,
-        durationMinutes: supervisionSessionsTable.durationMinutes,
-        supervisionType: supervisionSessionsTable.supervisionType,
-        topics: supervisionSessionsTable.topics,
-        feedbackNotes: supervisionSessionsTable.feedbackNotes,
-        status: supervisionSessionsTable.status,
-        supervisorFirst: sql<string>`sup_r.first_name`,
-        supervisorLast: sql<string>`sup_r.last_name`,
-        superviseeFirst: sql<string>`sup_e.first_name`,
-        superviseeLast: sql<string>`sup_e.last_name`,
-      })
-      .from(supervisionSessionsTable)
-      .leftJoin(sql`staff AS sup_r`, sql`sup_r.id = ${supervisionSessionsTable.supervisorId}`)
-      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
-
-    if (schoolId) {
-      conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
-    }
-
-    const sessions = await (query as any)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(supervisionSessionsTable.sessionDate));
-
-    const header = "Date,Duration (min),Type,Supervisor,Supervisee,Topics,Feedback,Status";
-    const rows = sessions.map(s => {
-      const esc = (v: string | null) => v ? `"${v.replace(/"/g, '""')}"` : "";
-      return [
-        s.sessionDate,
-        s.durationMinutes,
-        s.supervisionType,
-        s.supervisorFirst ? `${s.supervisorFirst} ${s.supervisorLast}` : "",
-        s.superviseeFirst ? `${s.superviseeFirst} ${s.superviseeLast}` : "",
-        esc(s.topics),
-        esc(s.feedbackNotes),
-        s.status,
-      ].join(",");
-    });
-
-    const csv = [header, ...rows].join("\n");
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename="supervision_sessions_${new Date().toISOString().substring(0, 10)}.csv"`);
-    res.send(csv);
-  } catch (e: any) {
-    console.error("GET /supervision-sessions/export/csv error:", e);
-    res.status(500).json({ error: "Failed to export CSV" });
   }
 });
 
