@@ -12,12 +12,14 @@ import {
 } from "lucide-react";
 
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
+import { useRole } from "@/lib/role-context";
 
 const API = "/api";
 
 export default function StaffDetail() {
   const { id } = useParams<{ id: string }>();
   const staffId = parseInt(id || "0");
+  const { role } = useRole();
   const [staff, setStaff] = useState<any>(null);
   const [caseload, setCaseload] = useState<any>(null);
   const [supervisionSummary, setSupervisionSummary] = useState<any>(null);
@@ -28,11 +30,12 @@ export default function StaffDetail() {
     if (!staffId) return;
     setLoading(true);
     setLoadError(false);
+    const roleHeaders: HeadersInit = { "x-demo-role": role };
     Promise.all([
       fetch(`${API}/staff/${staffId}`).then(r => r.ok ? r.json() : null),
       fetch(`${API}/staff/${staffId}/caseload-summary`).then(r => r.ok ? r.json() : { students: [], summary: {} }),
       fetch(`${API}/staff/${staffId}/caseload`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/supervision/staff/${staffId}/summary`).then(r => r.ok ? r.json() : null),
+      fetch(`${API}/supervision/staff/${staffId}/summary`, { headers: roleHeaders }).then(r => r.ok ? r.json() : null),
     ]).then(([s, cs, cl, sup]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });

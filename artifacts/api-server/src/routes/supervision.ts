@@ -11,7 +11,7 @@ const router: IRouter = Router();
 
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];
-const PRIVILEGED_ROLES = ["admin", "sped_teacher"];
+const PRIVILEGED_ROLES = ["admin", "sped_teacher", "bcba"];
 
 function getDemoAuth(req: Request) {
   const role = req.headers["x-demo-role"] as string | undefined;
@@ -214,6 +214,7 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const auth = getDemoAuth(req);
 
     const [session] = await db
       .select()
@@ -221,6 +222,10 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
       .where(eq(supervisionSessionsTable.id, id));
 
     if (!session) { res.status(404).json({ error: "Supervision session not found" }); return; }
+    if (!auth.isPrivileged && (!auth.staffId || session.superviseeId !== auth.staffId)) {
+      res.status(403).json({ error: "You can only view your own supervision sessions" });
+      return;
+    }
     res.json(sessionToJson(session));
   } catch (e: any) {
     console.error("GET /supervision-sessions/:id error:", e);
@@ -387,6 +392,11 @@ router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void
   try {
     const staffId = parseInt(req.params.staffId);
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
+    const auth = getDemoAuth(req);
+    if (!auth.isPrivileged && (!auth.staffId || staffId !== auth.staffId)) {
+      res.status(403).json({ error: "You can only view your own supervision summary" });
+      return;
+    }
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now);
