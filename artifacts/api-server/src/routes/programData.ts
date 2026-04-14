@@ -624,6 +624,14 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
       return session;
     });
 
+    logAudit(req, {
+      action: "create",
+      targetTable: "data_sessions",
+      targetId: result.id,
+      studentId: studentId,
+      summary: `Created data session #${result.id} for student #${studentId} on ${sessionDate}`,
+      newValues: { sessionDate, staffId, behaviorDataCount: behaviorData?.length ?? 0, programDataCount: progData?.length ?? 0 } as Record<string, unknown>,
+    });
     res.status(201).json({
       ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString(),
       progressUpdates,
@@ -688,6 +696,13 @@ router.get("/data-sessions/:id", async (req, res): Promise<void> => {
       .leftJoin(programTargetsTable, eq(programDataTable.programTargetId, programTargetsTable.id))
       .where(eq(programDataTable.dataSessionId, id));
 
+    logAudit(req, {
+      action: "read",
+      targetTable: "data_sessions",
+      targetId: id,
+      studentId: session.studentId,
+      summary: `Viewed data session #${id} for student #${session.studentId} (${behaviors.length} behavior, ${programs.length} program entries)`,
+    });
     res.json({
       ...session,
       staffName: session.staffFirstName && session.staffLastName ? `${session.staffFirstName} ${session.staffLastName}` : null,
@@ -736,6 +751,12 @@ router.get("/students/:studentId/behavior-data/trends", async (req, res): Promis
       staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
     }));
 
+    logAudit(req, {
+      action: "read",
+      targetTable: "behavior_data",
+      studentId: studentId,
+      summary: `Viewed behavior data trends for student #${studentId} (${data.length} data points)`,
+    });
     res.json(data);
   } catch (e: any) {
     console.error("GET behavior trends error:", e);
@@ -780,6 +801,12 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
       staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
     }));
 
+    logAudit(req, {
+      action: "read",
+      targetTable: "program_data",
+      studentId: studentId,
+      summary: `Viewed program data trends for student #${studentId} (${data.length} data points)`,
+    });
     res.json(data);
   } catch (e: any) {
     console.error("GET program trends error:", e);
@@ -807,6 +834,13 @@ router.post("/behavior-targets/:targetId/phase-changes", async (req, res): Promi
     const [pc] = await db.insert(phaseChangesTable).values({
       behaviorTargetId, changeDate, label, notes: notes || null,
     }).returning();
+    logAudit(req, {
+      action: "create",
+      targetTable: "phase_changes",
+      targetId: pc.id,
+      summary: `Created phase change #${pc.id} for behavior target #${behaviorTargetId}`,
+      newValues: { changeDate, label, notes } as Record<string, unknown>,
+    });
     res.status(201).json({ ...pc, createdAt: pc.createdAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to create phase change" });
@@ -816,12 +850,21 @@ router.post("/behavior-targets/:targetId/phase-changes", async (req, res): Promi
 router.patch("/phase-changes/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const updates: any = {};
+    const [existing] = await db.select().from(phaseChangesTable).where(eq(phaseChangesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    const updates: Record<string, unknown> = {};
     for (const key of ["changeDate", "label", "notes"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [updated] = await db.update(phaseChangesTable).set(updates).where(eq(phaseChangesTable.id, id)).returning();
-    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "phase_changes",
+      targetId: id,
+      summary: `Updated phase change #${id}`,
+      oldValues: { changeDate: existing.changeDate, label: existing.label, notes: existing.notes } as Record<string, unknown>,
+      newValues: updates,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update phase change" });
@@ -831,7 +874,17 @@ router.patch("/phase-changes/:id", async (req, res): Promise<void> => {
 router.delete("/phase-changes/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const [existing] = await db.select().from(phaseChangesTable).where(eq(phaseChangesTable.id, id));
     await db.delete(phaseChangesTable).where(eq(phaseChangesTable.id, id));
+    if (existing) {
+      logAudit(req, {
+        action: "delete",
+        targetTable: "phase_changes",
+        targetId: id,
+        summary: `Deleted phase change #${id}`,
+        oldValues: { changeDate: existing.changeDate, label: existing.label, notes: existing.notes } as Record<string, unknown>,
+      });
+    }
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to delete phase change" });

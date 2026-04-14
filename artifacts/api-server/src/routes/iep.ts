@@ -264,6 +264,16 @@ router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Prom
       created.push(goal);
     }
 
+    for (const goal of created) {
+      logAudit(req, {
+        action: "create",
+        targetTable: "iep_goals",
+        targetId: goal.id,
+        studentId: studentId,
+        summary: `Auto-created IEP goal #${goal.id} (${goal.goalArea}) for student #${studentId}`,
+        newValues: { goalArea: goal.goalArea, goalNumber: goal.goalNumber, annualGoal: goal.annualGoal } as Record<string, unknown>,
+      });
+    }
     res.status(201).json({ created: created.length, goals: created.map(g => ({ ...g, createdAt: g.createdAt.toISOString(), updatedAt: g.updatedAt.toISOString() })) });
   } catch (e: any) {
     console.error("Auto-create IEP goals error:", e);
