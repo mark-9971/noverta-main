@@ -34,6 +34,7 @@ import BehaviorAssessmentPage from "@/pages/behavior-assessment";
 import IepBuilderPage from "@/pages/iep-builder";
 import ExecutiveDashboard from "@/pages/executive-dashboard";
 import IepCalendarPage from "@/pages/iep-calendar";
+import ResourceManagement from "@/pages/resource-management";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,7 @@ function AdminRouter() {
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/behavior-assessment" component={BehaviorAssessmentPage} />
       <Route path="/district" component={DistrictOverview} />
+      <Route path="/resource-management" component={ResourceManagement} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -34,6 +34,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 
 **Feature Specifications:**
 
+-   **Resource Management:** Caseload balancing page (`/resource-management`) with three tabs: Caseload Balance (per-school provider FTEs, student counts, avg caseload, utilization bars), Provider Utilization (sortable provider table with expandable service breakdowns), and Budget & Cost (cost by school/service/student with CSV export). Staff schema includes `hourly_rate` and `annual_salary` fields. API endpoints: `/api/resource-management/caseload`, `/api/resource-management/provider-utilization`, `/api/resource-management/budget`, `/api/resource-management/rebalancing`, `PATCH /api/staff/:id/rates`.
 -   **Dashboards:** Role-specific dashboards (Admin, SPED Teacher, SPED Student) provide an overview of KPIs, caseloads, goals, and upcoming activities.
 -   **Student Management:** CRUD operations for student profiles, service progress, behavior, and academic program tracking.
 -   **Service & Schedule Management:** Tracking service requirements, logging sessions (including bulk imports), and recurring schedule blocks with conflict detection.

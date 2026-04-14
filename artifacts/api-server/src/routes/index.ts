@@ -24,6 +24,7 @@ import classroomRouter from "./classroom";
 import districtsRouter from "./districts";
 import fbaRouter from "./fba";
 import iepBuilderRouter from "./iepBuilder";
+import resourceManagementRouter from "./resourceManagement";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(iepSuggestionsRouter);
 router.use(classroomRouter);
 router.use(fbaRouter);
 router.use(iepBuilderRouter);
+router.use(resourceManagementRouter);
 
 export default router;
