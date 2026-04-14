@@ -537,6 +537,8 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
               ioaSessionId: bd.ioaSessionId || null,
               observerNumber: bd.observerNumber || null,
               observerName: bd.observerName || null,
+              intervalScores: bd.intervalScores || null,
+              eventTimestamps: bd.eventTimestamps || null,
             });
           }
         }
@@ -828,6 +830,8 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       value: behaviorDataTable.value,
       intervalCount: behaviorDataTable.intervalCount,
       intervalsWith: behaviorDataTable.intervalsWith,
+      intervalScores: behaviorDataTable.intervalScores,
+      eventTimestamps: behaviorDataTable.eventTimestamps,
       sessionDate: dataSessionsTable.sessionDate,
     }).from(behaviorDataTable)
       .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
@@ -869,12 +873,44 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       let ioaMethod = "total_count";
 
       if (mt === "frequency") {
-        const smaller = Math.min(v1, v2);
-        const larger = Math.max(v1, v2);
-        agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
-        ioaMethod = "point_by_point_frequency";
+        const ts1 = obs1.eventTimestamps as number[] | null;
+        const ts2 = obs2.eventTimestamps as number[] | null;
+        if (ts1 && ts2 && ts1.length > 0 && ts2.length > 0) {
+          const windowMs = 2000;
+          const matched2 = new Set<number>();
+          let agreements = 0;
+          for (const t1 of ts1) {
+            for (let j = 0; j < ts2.length; j++) {
+              if (!matched2.has(j) && Math.abs(t1 - ts2[j]) <= windowMs) {
+                agreements++;
+                matched2.add(j);
+                break;
+              }
+            }
+          }
+          const totalEvents = Math.max(ts1.length, ts2.length);
+          agreement = totalEvents > 0 ? Math.round((agreements / totalEvents) * 100) : 100;
+          ioaMethod = "point_by_point";
+        } else {
+          const smaller = Math.min(v1, v2);
+          const larger = Math.max(v1, v2);
+          agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
+          ioaMethod = "total_count";
+        }
       } else if (mt === "interval") {
-        if (obs1.intervalCount && obs2.intervalCount && obs1.intervalsWith != null && obs2.intervalsWith != null) {
+        const scores1 = obs1.intervalScores as boolean[] | null;
+        const scores2 = obs2.intervalScores as boolean[] | null;
+        if (scores1 && scores2 && scores1.length > 0 && scores2.length > 0) {
+          const len = Math.max(scores1.length, scores2.length);
+          let agreements = 0;
+          for (let i = 0; i < len; i++) {
+            const s1 = i < scores1.length ? scores1[i] : false;
+            const s2 = i < scores2.length ? scores2[i] : false;
+            if (s1 === s2) agreements++;
+          }
+          agreement = Math.round((agreements / len) * 100);
+          ioaMethod = "interval_by_interval";
+        } else if (obs1.intervalCount && obs2.intervalCount && obs1.intervalsWith != null && obs2.intervalsWith != null) {
           const totalIntervals = Math.max(obs1.intervalCount, obs2.intervalCount);
           const obs1Without = obs1.intervalCount - (obs1.intervalsWith ?? 0);
           const obs2Without = obs2.intervalCount - (obs2.intervalsWith ?? 0);
@@ -887,7 +923,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
           const smaller = Math.min(v1, v2);
           const larger = Math.max(v1, v2);
           agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
-          ioaMethod = "point_by_point_frequency";
+          ioaMethod = "total_count";
         }
       } else if (mt === "duration") {
         agreement = v1 === v2 ? 100 : 0;

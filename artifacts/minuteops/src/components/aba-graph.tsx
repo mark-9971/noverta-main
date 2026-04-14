@@ -569,7 +569,7 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
                     </span>
                     {s.ioaMethod && (
                       <span className="text-[9px] text-gray-400">
-                        {s.ioaMethod === "point_by_point_frequency" ? "Point-by-Point" : s.ioaMethod === "interval_by_interval" ? "Interval-by-Interval" : s.ioaMethod === "exact_agreement" ? "Exact" : s.ioaMethod || "—"}
+                        {s.ioaMethod === "point_by_point" ? "Point-by-Point" : s.ioaMethod === "total_count" ? "Total Count" : s.ioaMethod === "interval_by_interval" ? "Interval-by-Interval" : s.ioaMethod === "exact_agreement" ? "Exact" : s.ioaMethod || "—"}
                       </span>
                     )}
                   </div>

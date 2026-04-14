@@ -533,6 +533,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
   const [ioaObserverNumber, setIoaObserverNumber] = useState<1 | 2>(1);
   const [ioaSessionId, setIoaSessionId] = useState<string>("");
   const [ioaObserverName, setIoaObserverName] = useState("");
+  const [eventTimestamps, setEventTimestamps] = useState<Record<number, number[]>>({});
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
 
@@ -583,6 +584,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         ioaSessionId: ioaSessId,
         observerNumber: isIoaSession ? ioaObserverNumber : null,
         observerName: isIoaSession ? (ioaObserverName || null) : null,
+        eventTimestamps: isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null,
       }));
 
     const programData = programTargets
@@ -792,7 +794,16 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                     <div className="flex items-center gap-0 border-l border-gray-100">
                       <button
                         className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-gray-400 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                        onClick={() => setBehaviorCounts(prev => ({ ...prev, [bt.id]: Math.max(0, (prev[bt.id] ?? 0) - 1) }))}
+                        onClick={() => {
+                          setBehaviorCounts(prev => ({ ...prev, [bt.id]: Math.max(0, (prev[bt.id] ?? 0) - 1) }));
+                          if (isIoaSession) {
+                            setEventTimestamps(prev => {
+                              const arr = [...(prev[bt.id] || [])];
+                              arr.pop();
+                              return { ...prev, [bt.id]: arr };
+                            });
+                          }
+                        }}
                         disabled={!running}
                       >
                         <Minus className="w-5 h-5" />
@@ -802,7 +813,15 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                       </div>
                       <button
                         className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
-                        onClick={() => setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }))}
+                        onClick={() => {
+                          setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }));
+                          if (isIoaSession) {
+                            setEventTimestamps(prev => ({
+                              ...prev,
+                              [bt.id]: [...(prev[bt.id] || []), Date.now()]
+                            }));
+                          }
+                        }}
                         disabled={!running}
                       >
                         <Plus className="w-5 h-5" />

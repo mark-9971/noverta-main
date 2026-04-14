@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { dataSessionsTable } from "./dataSessions";
@@ -11,6 +11,8 @@ export const behaviorDataTable = pgTable("behavior_data", {
   value: numeric("value").notNull(),
   intervalCount: integer("interval_count"),
   intervalsWith: integer("intervals_with"),
+  intervalScores: jsonb("interval_scores").$type<boolean[]>(),
+  eventTimestamps: jsonb("event_timestamps").$type<number[]>(),
   hourBlock: text("hour_block"),
   notes: text("notes"),
   ioaSessionId: integer("ioa_session_id"),
