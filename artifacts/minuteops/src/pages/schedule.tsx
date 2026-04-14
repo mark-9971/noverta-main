@@ -243,13 +243,14 @@ export default function Schedule() {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
 
-  function openAddBlock(dayOfWeek?: string, hour?: string) {
+  function openAddBlock(col?: string, hour?: string) {
     setEditingBlock(null);
+    const isStandard = scheduleType === "standard";
     setBlockForm({
       staffId: staffFilter !== "all" ? staffFilter : "",
       studentId: "",
       serviceTypeId: "",
-      dayOfWeek: dayOfWeek || "monday",
+      dayOfWeek: isStandard && col ? col : "monday",
       startTime: hour || "09:00",
       endTime: hour ? `${String(Number(hour.split(":")[0]) + 1).padStart(2, "0")}:00` : "10:00",
       location: "",
