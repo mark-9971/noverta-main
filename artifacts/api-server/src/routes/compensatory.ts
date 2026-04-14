@@ -337,6 +337,7 @@ router.post("/compensatory-obligations/calculate-shortfalls", async (req, res): 
       inArray(sessionLogsTable.serviceRequirementId, reqIds),
       gte(sessionLogsTable.sessionDate, periodStart as string),
       lte(sessionLogsTable.sessionDate, periodEnd as string),
+      eq(sessionLogsTable.isCompensatory, false),
     ));
 
   const deliveredByReq = new Map<number, number>();
@@ -412,7 +413,7 @@ router.post("/compensatory-obligations/generate-from-shortfalls", async (req, re
     created.push({ ...row, minutesRemaining: row.minutesOwed, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   }
 
-  res.status(201).json({ created, skippedDuplicates: skipped.length });
+  res.status(201).json(created);
 });
 
 export default router;

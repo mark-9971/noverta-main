@@ -124,7 +124,8 @@ export async function computeMinuteProgress(serviceRequirementId: number): Promi
         eq(sessionLogsTable.studentId, req.studentId),
         eq(sessionLogsTable.serviceRequirementId, serviceRequirementId),
         gte(sessionLogsTable.sessionDate, intervalStartStr),
-        lte(sessionLogsTable.sessionDate, intervalEndStr)
+        lte(sessionLogsTable.sessionDate, intervalEndStr),
+        eq(sessionLogsTable.isCompensatory, false)
       )
     );
 
@@ -274,6 +275,7 @@ export async function computeAllActiveMinuteProgress(filters?: {
       durationMinutes: sessionLogsTable.durationMinutes,
       status: sessionLogsTable.status,
       isMakeup: sessionLogsTable.isMakeup,
+      isCompensatory: sessionLogsTable.isCompensatory,
       sessionDate: sessionLogsTable.sessionDate,
     })
     .from(sessionLogsTable)
@@ -281,7 +283,8 @@ export async function computeAllActiveMinuteProgress(filters?: {
       and(
         inArray(sessionLogsTable.serviceRequirementId, reqIds),
         gte(sessionLogsTable.sessionDate, sessionStartStr),
-        lte(sessionLogsTable.sessionDate, sessionEndStr)
+        lte(sessionLogsTable.sessionDate, sessionEndStr),
+        eq(sessionLogsTable.isCompensatory, false)
       )
     );
 

@@ -3,6 +3,7 @@ import {
   alertsTable,
   scheduleBlocksTable,
   compensatoryObligationsTable,
+  sessionLogsTable,
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
