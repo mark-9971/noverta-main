@@ -41,7 +41,11 @@ interface GoalProgressEntry {
   currentPerformance: string; progressRating: string; progressCode: string; dataPoints: number;
   trendDirection: string; promptLevel?: string | null; percentCorrect?: number | null;
   behaviorValue?: number | null; behaviorGoal?: number | null; narrative: string;
-  benchmarks?: string | null;
+  benchmarks?: string | null; measurementMethod?: string | null; serviceArea?: string | null;
+}
+interface ServiceDeliveryBreakdown {
+  serviceType: string; requiredMinutes: number; deliveredMinutes: number;
+  missedSessions: number; completedSessions: number; compliancePercent: number;
 }
 interface ProgressReport {
   id: number; studentId: number; reportingPeriod: string; periodStart: string;
@@ -49,6 +53,11 @@ interface ProgressReport {
   serviceDeliverySummary: string | null; recommendations: string | null;
   parentNotes: string | null; goalProgress: GoalProgressEntry[];
   preparedByName?: string | null; createdAt: string;
+  studentDob?: string | null; studentGrade?: string | null;
+  schoolName?: string | null; districtName?: string | null;
+  iepStartDate?: string | null; iepEndDate?: string | null;
+  serviceBreakdown?: ServiceDeliveryBreakdown[];
+  parentNotificationDate?: string | null; nextReportDate?: string | null;
 }
 interface IepDocument {
   id: number; studentId: number; iepStartDate: string; iepEndDate: string;
@@ -755,6 +764,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
   const [saving, setSaving] = useState(false);
 
   const goalProgress = (report.goalProgress ?? []) as GoalProgressEntry[];
+  const serviceBreakdown = (report.serviceBreakdown ?? []) as ServiceDeliveryBreakdown[];
 
   async function saveChanges() {
     setSaving(true);
@@ -798,6 +808,84 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
     setSaving(false);
   }
 
+  function printReport() {
+    const printWin = window.open("", "_blank");
+    if (!printWin) return;
+    const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const goalRows = goalProgress.map(gp => `
+      <tr>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(String(gp.goalNumber))}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.goalArea)}${gp.serviceArea ? ` (${esc(gp.serviceArea)})` : ""}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.annualGoal)}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.baseline) || "N/A"}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center;font-weight:bold">${esc(gp.progressCode)}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.currentPerformance)}</td>
+        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.narrative)}</td>
+      </tr>
+    `).join("");
+    const svcRows = serviceBreakdown.map(s => `
+      <tr>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px">${esc(s.serviceType)}</td>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.requiredMinutes}</td>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.deliveredMinutes}</td>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.completedSessions}</td>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.missedSessions}</td>
+        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center;font-weight:bold">${s.compliancePercent}%</td>
+      </tr>
+    `).join("");
+    printWin.document.write(`<!DOCTYPE html><html><head><title>IEP Progress Report - ${esc(studentName)}</title>
+      <style>body{font-family:Arial,sans-serif;margin:40px;color:#111}h1{font-size:18px;margin:0}h2{font-size:14px;margin:20px 0 8px;border-bottom:2px solid #059669;padding-bottom:4px}
+      table{width:100%;border-collapse:collapse;margin:8px 0}th{background:#f3f4f6;padding:6px 8px;border:1px solid #d1d5db;font-size:11px;text-align:left}
+      .header{text-align:center;border-bottom:3px solid #059669;padding-bottom:12px;margin-bottom:16px}
+      .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;margin:12px 0}
+      .code-key{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;font-size:11px;margin:8px 0;padding:8px;background:#f9fafb;border-radius:4px}
+      .footer{margin-top:30px;padding-top:16px;border-top:2px solid #e5e7eb;font-size:11px;color:#6b7280}
+      .sig-line{margin-top:40px;display:flex;gap:40px}.sig-line div{flex:1;border-top:1px solid #9ca3af;padding-top:4px;font-size:11px}
+      @media print{body{margin:20px}}</style></head><body>
+      <div class="header">
+        <h1>MASSACHUSETTS IEP PROGRESS REPORT</h1>
+        <p style="font-size:12px;color:#6b7280;margin:4px 0">Pursuant to 603 CMR 28.07(8)</p>
+      </div>
+      <div class="meta">
+        <div><strong>Student:</strong> ${esc(studentName)}</div>
+        <div><strong>DOB:</strong> ${report.studentDob ? esc(formatDate(report.studentDob)) : "N/A"}</div>
+        <div><strong>Grade:</strong> ${esc(report.studentGrade) || "N/A"}</div>
+        <div><strong>School:</strong> ${esc(report.schoolName) || "N/A"}</div>
+        <div><strong>District:</strong> ${esc(report.districtName) || "N/A"}</div>
+        <div><strong>Reporting Period:</strong> ${esc(formatDate(report.periodStart))} — ${esc(formatDate(report.periodEnd))}</div>
+        ${report.iepStartDate ? `<div><strong>IEP Dates:</strong> ${esc(formatDate(report.iepStartDate))} — ${esc(formatDate(report.iepEndDate || ""))}</div>` : ""}
+        <div><strong>Report Status:</strong> ${report.status === "final" ? "FINAL" : "DRAFT"}</div>
+      </div>
+      <h2>Progress Code Key</h2>
+      <div class="code-key">
+        <div><strong>M</strong> = Mastered</div><div><strong>SP</strong> = Sufficient Progress</div><div><strong>IP</strong> = Insufficient Progress</div>
+        <div><strong>NP</strong> = No Progress</div><div><strong>R</strong> = Regression</div><div><strong>NA</strong> = Not Addressed</div>
+      </div>
+      <h2>Goal-by-Goal Progress</h2>
+      <table><thead><tr><th>#</th><th>Area</th><th>Annual Goal</th><th>Baseline</th><th>Code</th><th>Current Performance</th><th>Narrative</th></tr></thead>
+      <tbody>${goalRows}</tbody></table>
+      ${serviceBreakdown.length > 0 ? `<h2>Service Delivery Summary</h2>
+      <table><thead><tr><th>Service</th><th>Required Min</th><th>Delivered Min</th><th>Sessions</th><th>Missed</th><th>Compliance</th></tr></thead>
+      <tbody>${svcRows}</tbody></table>` : ""}
+      <h2>Recommendations</h2>
+      <p style="font-size:13px">${esc(report.recommendations) || "None"}</p>
+      ${report.parentNotes ? `<h2>Parent/Guardian Notes</h2><p style="font-size:13px">${esc(report.parentNotes)}</p>` : ""}
+      <div class="footer">
+        <p><strong>Parent/Guardian Notification:</strong> This progress report is provided pursuant to 603 CMR 28.07(8), which requires that parents/guardians
+        be informed of their child's progress toward IEP goals at least as often as parents of non-disabled children are informed of their child's progress.
+        Parents/guardians have the right to request an IEP Team meeting at any time to discuss their child's progress.</p>
+        ${report.nextReportDate ? `<p><strong>Next Report Due:</strong> ${esc(formatDate(report.nextReportDate))}</p>` : ""}
+        ${report.preparedByName ? `<p><strong>Prepared By:</strong> ${esc(report.preparedByName)}</p>` : ""}
+      </div>
+      <div class="sig-line">
+        <div>Educator Signature / Date</div>
+        <div>Parent/Guardian Signature / Date</div>
+      </div>
+      </body></html>`);
+    printWin.document.close();
+    setTimeout(() => printWin.print(), 500);
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-y-auto p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-3xl shadow-xl my-auto max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -807,6 +895,9 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             <p className="text-xs text-gray-400">{studentName} · {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={printReport}>
+              <Download className="w-3.5 h-3.5 mr-1" /> Print / PDF
+            </Button>
             {report.status === "draft" && (
               <Button size="sm" variant="outline" className="text-[12px] h-8 text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={finalizeReport} disabled={saving}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Finalize
@@ -817,6 +908,54 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
         </div>
 
         <div className="p-4 md:p-5 space-y-5">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-2">603 CMR 28.07(8) — IEP Progress Report</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-[12px] text-gray-700">
+              <div><span className="text-gray-400">Student:</span> {studentName}</div>
+              <div><span className="text-gray-400">DOB:</span> {report.studentDob ? formatDate(report.studentDob) : "N/A"}</div>
+              <div><span className="text-gray-400">Grade:</span> {report.studentGrade || "N/A"}</div>
+              <div><span className="text-gray-400">School:</span> {report.schoolName || "N/A"}</div>
+              <div><span className="text-gray-400">District:</span> {report.districtName || "N/A"}</div>
+              <div><span className="text-gray-400">Period:</span> {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}</div>
+              {report.iepStartDate && <div><span className="text-gray-400">IEP:</span> {formatDate(report.iepStartDate)} — {formatDate(report.iepEndDate || "")}</div>}
+              {report.nextReportDate && <div><span className="text-gray-400">Next Report:</span> {formatDate(report.nextReportDate)}</div>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+            {Object.entries(MA_PROGRESS_CODES).map(([code, cfg]) => {
+              const cnt = goalProgress.filter(g => g.progressCode === code).length;
+              return (
+                <div key={code} className={`${cfg.bg} rounded-lg p-2 text-center`}>
+                  <p className={`text-lg font-bold ${cfg.color}`}>{cnt}</p>
+                  <p className={`text-[9px] font-medium ${cfg.color}`}>{code} — {cfg.fullLabel}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {serviceBreakdown.length > 0 && (
+            <div>
+              <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Service Delivery Compliance</h3>
+              <div className="space-y-1.5">
+                {serviceBreakdown.map((s, i) => (
+                  <div key={i} className="bg-gray-50 rounded-lg p-2.5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[13px] font-medium text-gray-700">{s.serviceType}</p>
+                      <p className="text-[11px] text-gray-400">{s.completedSessions} sessions · {s.deliveredMinutes} of {s.requiredMinutes} min</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {s.missedSessions > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600">{s.missedSessions} missed</span>}
+                      <span className={`text-[12px] font-bold ${s.compliancePercent >= 90 ? "text-emerald-700" : s.compliancePercent >= 75 ? "text-amber-600" : "text-red-600"}`}>
+                        {s.compliancePercent}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider">Overall Summary</h3>
@@ -828,21 +967,21 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             </div>
             {editingSummary ? (
               <div className="space-y-2">
-                <textarea value={summaryText} onChange={e => setSummaryText(e.target.value)} rows={4}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+                <textarea value={summaryText} onChange={e => setSummaryText(e.target.value)} rows={6}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none font-mono" />
                 <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={saveChanges} disabled={saving}>
                   <Save className="w-3.5 h-3.5 mr-1" /> Save
                 </Button>
               </div>
             ) : (
-              <p className="text-[13px] text-gray-600 whitespace-pre-line">{report.overallSummary}</p>
+              <p className="text-[12px] text-gray-600 whitespace-pre-line bg-gray-50 rounded-lg p-3">{report.overallSummary}</p>
             )}
           </div>
 
           <div>
             <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Goal-by-Goal Progress</h3>
             <div className="space-y-3">
-              {goalProgress.map((gp, idx) => {
+              {goalProgress.map((gp) => {
                 const rating = PROGRESS_RATINGS[gp.progressRating] ?? PROGRESS_RATINGS.not_addressed;
                 const trend = TREND_ICONS[gp.trendDirection] ?? TREND_ICONS.stable;
                 const RatingIcon = rating.icon;
@@ -856,23 +995,23 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                           {gp.goalNumber}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">{gp.goalArea}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider">{gp.goalArea}</span>
+                            {gp.serviceArea && gp.serviceArea !== gp.goalArea && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600">{gp.serviceArea}</span>
+                            )}
+                          </div>
                           <p className="text-[13px] font-medium text-gray-700 mt-0.5">{gp.annualGoal}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-                        {gp.progressCode && MA_PROGRESS_CODES[gp.progressCode] ? (
-                          <div className={`${MA_PROGRESS_CODES[gp.progressCode].bg} rounded-lg p-2 text-center`}>
-                            <p className={`text-lg font-bold ${MA_PROGRESS_CODES[gp.progressCode].color}`}>{gp.progressCode}</p>
-                            <p className={`text-[9px] font-medium mt-0.5 ${MA_PROGRESS_CODES[gp.progressCode].color}`}>{MA_PROGRESS_CODES[gp.progressCode].fullLabel}</p>
-                          </div>
-                        ) : (
-                          <div className={`${rating.bg} rounded-lg p-2 text-center`}>
-                            <RatingIcon className={`w-4 h-4 mx-auto ${rating.color}`} />
-                            <p className={`text-[10px] font-semibold mt-0.5 ${rating.color}`}>{rating.label}</p>
-                          </div>
-                        )}
+                        <div className={`${MA_PROGRESS_CODES[gp.progressCode]?.bg || rating.bg} rounded-lg p-2 text-center`}>
+                          <p className={`text-lg font-bold ${MA_PROGRESS_CODES[gp.progressCode]?.color || rating.color}`}>{gp.progressCode}</p>
+                          <p className={`text-[9px] font-medium mt-0.5 ${MA_PROGRESS_CODES[gp.progressCode]?.color || rating.color}`}>
+                            {MA_PROGRESS_CODES[gp.progressCode]?.fullLabel || rating.label}
+                          </p>
+                        </div>
                         <div className={`${rating.bg} rounded-lg p-2 text-center`}>
                           <RatingIcon className={`w-4 h-4 mx-auto ${rating.color}`} />
                           <p className={`text-[10px] font-semibold mt-0.5 ${rating.color}`}>{rating.label}</p>
@@ -917,11 +1056,12 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
                         )}
                       </div>
 
-                      {(gp.baseline || gp.targetCriterion || gp.promptLevel) && (
+                      {(gp.baseline || gp.targetCriterion || gp.promptLevel || gp.measurementMethod) && (
                         <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400 flex-wrap">
                           {gp.baseline && <span>Baseline: {gp.baseline}</span>}
                           {gp.targetCriterion && <span>Target: {gp.targetCriterion}</span>}
                           {gp.promptLevel && <span>Prompt: {gp.promptLevel}</span>}
+                          {gp.measurementMethod && <span>Method: {gp.measurementMethod}</span>}
                         </div>
                       )}
                     </CardContent>
@@ -957,6 +1097,14 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
             ) : (
               <p className="text-[13px] text-gray-600">{report.parentNotes || "None"}</p>
             )}
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              <strong>Parent/Guardian Notification (603 CMR 28.07(8)):</strong> This progress report is provided pursuant to Massachusetts regulations
+              requiring that parents/guardians be informed of their child's progress toward IEP goals at least as often as parents of non-disabled children
+              are informed of their child's progress. You have the right to request an IEP Team meeting at any time to discuss your child's progress.
+            </p>
           </div>
 
           {report.status === "draft" && editingSummary && (

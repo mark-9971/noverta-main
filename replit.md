@@ -79,7 +79,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 - **Admin Academics:** School-wide class overview, gradebook viewer across all classes.
 - **Student Management:** CRUD operations for student profiles, service progress, behavior, and academic program tracking.
 - **Service & Schedule Management:** Tracking service requirements, session logging (including bulk imports), and recurring schedule blocks with conflict detection.
-- **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports, and parent contact logs.
+- **IEP Workflow:** MA 603 CMR 28.00 compliant IEP pages, including document creation/editing, goal management (with goal bank), accommodations, meeting management, progress reports (DESE-compliant with 603 CMR 28.07(8) progress codes M/SP/IP/NP/R/NA, service delivery breakdown, school/district info, IEP dates, print/PDF support, parent notification statement), and parent contact logs. Auto-target creation: new IEP goals auto-create linked program or behavior data targets unless `autoCreateTarget: false` is passed.
 - **Compliance Tracking:** IDEA compliance event tracking, automated deadline generation, and alerts system.
 - **IEP Program Suggestions:** Auto-generated suggestions for behaviors to track, DTTs, task analyses, academic programs, and related service programs based on each student's IEP goals and service requirements. Overview page shows all 50 SPED students with suggestion counts; detail view shows categorized suggestions with relevance scoring, reasons, and one-click apply (idempotent, no duplicate creation).
 - **ABA Program Management:** Detailed behavior reduction and skill acquisition program management, program builder, template system.
@@ -133,7 +133,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 
 - **DB Push:** `pnpm --filter @workspace/db run push`
 - **API Server:** Port 8080; frontend port 22248
-- **Seed Data:** `npx tsx /tmp/run-seed.ts` (with absolute import paths)
+- **Seed Data:** `pnpm --filter @workspace/db exec tsx src/seed-realistic-data.ts`
 - **Express 5 / path-to-regexp v8:** Cannot use `/api/*` — use bare catchall
 - **Sonner Toast:** `import { toast } from "sonner"`. Toaster in AppLayout
 - **API URL Pattern:** `const API = (import.meta as any).env.VITE_API_URL || "/api"`

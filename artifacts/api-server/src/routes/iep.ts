@@ -5,9 +5,10 @@ import {
   programTargetsTable, behaviorTargetsTable, programDataTable,
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, sessionLogsTable, programStepsTable,
-  iepDocumentsTable, iepAccommodationsTable
+  iepDocumentsTable, iepAccommodationsTable, schoolsTable, districtsTable
 } from "@workspace/db";
-import { eq, desc, and, sql, gte, lte, asc, count } from "drizzle-orm";
+import type { ServiceDeliveryBreakdown } from "@workspace/db";
+import { eq, desc, and, sql, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -53,23 +54,74 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
     const { goalArea, goalNumber, annualGoal, baseline, targetCriterion,
             measurementMethod, scheduleOfReporting, programTargetId,
             behaviorTargetId, serviceArea, startDate, endDate, notes,
-            benchmarks, iepDocumentId } = req.body;
+            benchmarks, iepDocumentId, autoCreateTarget } = req.body;
     if (!goalArea || !annualGoal) { res.status(400).json({ error: "goalArea and annualGoal are required" }); return; }
+
+    let finalProgramTargetId = programTargetId || null;
+    let finalBehaviorTargetId = behaviorTargetId || null;
+
+    const shouldAutoCreate = autoCreateTarget !== false && !finalProgramTargetId && !finalBehaviorTargetId;
+
+    if (shouldAutoCreate) {
+      const isBehaviorGoal = goalArea.toLowerCase().includes("behavior") &&
+        (annualGoal.toLowerCase().includes("reduce") || annualGoal.toLowerCase().includes("decrease") ||
+         annualGoal.toLowerCase().includes("increase") || annualGoal.toLowerCase().includes("frequency") ||
+         annualGoal.toLowerCase().includes("duration"));
+
+      if (isBehaviorGoal) {
+        const isDecrease = annualGoal.toLowerCase().includes("reduce") || annualGoal.toLowerCase().includes("decrease");
+        const [bt] = await db.insert(behaviorTargetsTable).values({
+          studentId,
+          name: goalArea === "Behavior" ? annualGoal.split(":")[0].split(".")[0].trim().substring(0, 80) : goalArea,
+          measurementType: annualGoal.toLowerCase().includes("duration") ? "duration" :
+                           annualGoal.toLowerCase().includes("percentage") || annualGoal.toLowerCase().includes("%") ? "percentage" : "frequency",
+          targetDirection: isDecrease ? "decrease" : "increase",
+          baselineValue: baseline ? baseline.replace(/[^0-9.]/g, "").split(".")[0] || null : null,
+          goalValue: targetCriterion ? targetCriterion.replace(/[^0-9.]/g, "").split(".")[0] || null : null,
+        }).returning();
+        finalBehaviorTargetId = bt.id;
+      } else {
+        const domain = goalArea || serviceArea || "General";
+        const isTaskAnalysis = annualGoal.toLowerCase().includes("independently") ||
+          annualGoal.toLowerCase().includes("steps") || annualGoal.toLowerCase().includes("routine") ||
+          annualGoal.toLowerCase().includes("self-care");
+        const criterionMatch = (targetCriterion || "").match(/(\d+)%/);
+        const masteryPct = criterionMatch ? parseInt(criterionMatch[1]) : 80;
+
+        const [pt] = await db.insert(programTargetsTable).values({
+          studentId,
+          name: annualGoal.split(":")[0].split(",")[0].split(".")[0].trim().substring(0, 80),
+          description: annualGoal,
+          programType: isTaskAnalysis ? "task_analysis" : "discrete_trial",
+          domain,
+          targetCriterion: targetCriterion || "80% across 3 sessions",
+          masteryCriterionPercent: masteryPct,
+          masteryCriterionSessions: 3,
+          currentPromptLevel: "verbal",
+        }).returning();
+        finalProgramTargetId = pt.id;
+      }
+    }
 
     const [goal] = await db.insert(iepGoalsTable).values({
       studentId, goalArea, goalNumber: goalNumber || 1, annualGoal,
       baseline: baseline || null, targetCriterion: targetCriterion || null,
       measurementMethod: measurementMethod || null,
       scheduleOfReporting: scheduleOfReporting || "quarterly",
-      programTargetId: programTargetId || null,
-      behaviorTargetId: behaviorTargetId || null,
+      programTargetId: finalProgramTargetId,
+      behaviorTargetId: finalBehaviorTargetId,
       serviceArea: serviceArea || null,
       startDate: startDate || null, endDate: endDate || null,
       benchmarks: benchmarks || null,
       iepDocumentId: iepDocumentId || null,
       notes: notes || null,
     }).returning();
-    res.status(201).json({ ...goal, createdAt: goal.createdAt.toISOString(), updatedAt: goal.updatedAt.toISOString() });
+    res.status(201).json({
+      ...goal,
+      createdAt: goal.createdAt.toISOString(),
+      updatedAt: goal.updatedAt.toISOString(),
+      autoCreatedTarget: shouldAutoCreate ? (finalBehaviorTargetId ? "behavior" : "program") : null,
+    });
   } catch (e: any) {
     console.error("POST iep-goal error:", e);
     res.status(500).json({ error: "Failed to create IEP goal" });
@@ -196,7 +248,19 @@ router.get("/students/:studentId/progress-reports", async (req, res): Promise<vo
       status: progressReportsTable.status,
       preparedBy: progressReportsTable.preparedBy,
       overallSummary: progressReportsTable.overallSummary,
+      serviceDeliverySummary: progressReportsTable.serviceDeliverySummary,
+      recommendations: progressReportsTable.recommendations,
+      parentNotes: progressReportsTable.parentNotes,
       goalProgress: progressReportsTable.goalProgress,
+      studentDob: progressReportsTable.studentDob,
+      studentGrade: progressReportsTable.studentGrade,
+      schoolName: progressReportsTable.schoolName,
+      districtName: progressReportsTable.districtName,
+      iepStartDate: progressReportsTable.iepStartDate,
+      iepEndDate: progressReportsTable.iepEndDate,
+      serviceBreakdown: progressReportsTable.serviceBreakdown,
+      parentNotificationDate: progressReportsTable.parentNotificationDate,
+      nextReportDate: progressReportsTable.nextReportDate,
       createdAt: progressReportsTable.createdAt,
       updatedAt: progressReportsTable.updatedAt,
       staffFirstName: staffTable.firstName,
@@ -232,13 +296,21 @@ router.get("/progress-reports/:id", async (req, res): Promise<void> => {
       recommendations: progressReportsTable.recommendations,
       parentNotes: progressReportsTable.parentNotes,
       goalProgress: progressReportsTable.goalProgress,
+      studentDob: progressReportsTable.studentDob,
+      studentGrade: progressReportsTable.studentGrade,
+      schoolName: progressReportsTable.schoolName,
+      districtName: progressReportsTable.districtName,
+      iepStartDate: progressReportsTable.iepStartDate,
+      iepEndDate: progressReportsTable.iepEndDate,
+      serviceBreakdown: progressReportsTable.serviceBreakdown,
+      parentNotificationDate: progressReportsTable.parentNotificationDate,
+      nextReportDate: progressReportsTable.nextReportDate,
       createdAt: progressReportsTable.createdAt,
       updatedAt: progressReportsTable.updatedAt,
       staffFirstName: staffTable.firstName,
       staffLastName: staffTable.lastName,
       studentFirstName: studentsTable.firstName,
       studentLastName: studentsTable.lastName,
-      studentGrade: studentsTable.grade,
     }).from(progressReportsTable)
       .leftJoin(staffTable, eq(progressReportsTable.preparedBy, staffTable.id))
       .leftJoin(studentsTable, eq(progressReportsTable.studentId, studentsTable.id))
@@ -282,6 +354,26 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
 
     const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
     if (!student) { res.status(404).json({ error: "Student not found" }); return; }
+
+    let schoolName: string | null = null;
+    let districtName: string | null = null;
+    if (student.schoolId) {
+      const [school] = await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId));
+      if (school) {
+        schoolName = school.name;
+        if (school.districtId) {
+          const [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, school.districtId));
+          if (district) districtName = district.name;
+        }
+        if (!districtName) districtName = school.district || null;
+      }
+    }
+
+    const activeIepDoc = await db.select().from(iepDocumentsTable)
+      .where(and(eq(iepDocumentsTable.studentId, studentId), eq(iepDocumentsTable.active, true)))
+      .orderBy(desc(iepDocumentsTable.iepStartDate))
+      .limit(1);
+    const iepDoc = activeIepDoc[0] || null;
 
     const goals = await db.select().from(iepGoalsTable)
       .where(and(eq(iepGoalsTable.studentId, studentId), eq(iepGoalsTable.active, true)))
@@ -457,6 +549,8 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         behaviorGoal,
         narrative,
         benchmarks: goal.benchmarks || null,
+        measurementMethod: goal.measurementMethod || null,
+        serviceArea: goal.serviceArea || null,
       };
     }));
 
@@ -476,19 +570,98 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         lte(sessionLogsTable.sessionDate, periodEnd),
       ));
 
+    const serviceBreakdown: ServiceDeliveryBreakdown[] = [];
+    const svcReqs = await db.select({
+      id: serviceRequirementsTable.id,
+      serviceTypeName: serviceTypesTable.name,
+      requiredMinutes: serviceRequirementsTable.requiredMinutes,
+      intervalType: serviceRequirementsTable.intervalType,
+    }).from(serviceRequirementsTable)
+      .leftJoin(serviceTypesTable, eq(serviceRequirementsTable.serviceTypeId, serviceTypesTable.id))
+      .where(and(eq(serviceRequirementsTable.studentId, studentId), eq(serviceRequirementsTable.active, true)));
+
+    for (const sr of svcReqs) {
+      const completed = await db.select({
+        cnt: count(),
+        totalMin: sum(sessionLogsTable.durationMinutes),
+      }).from(sessionLogsTable)
+        .where(and(
+          eq(sessionLogsTable.studentId, studentId),
+          eq(sessionLogsTable.serviceRequirementId, sr.id),
+          eq(sessionLogsTable.status, "completed"),
+          gte(sessionLogsTable.sessionDate, periodStart),
+          lte(sessionLogsTable.sessionDate, periodEnd),
+        ));
+      const missed = await db.select({ cnt: count() }).from(sessionLogsTable)
+        .where(and(
+          eq(sessionLogsTable.studentId, studentId),
+          eq(sessionLogsTable.serviceRequirementId, sr.id),
+          eq(sessionLogsTable.status, "missed"),
+          gte(sessionLogsTable.sessionDate, periodStart),
+          lte(sessionLogsTable.sessionDate, periodEnd),
+        ));
+
+      const deliveredMin = parseInt(String(completed[0]?.totalMin ?? "0"));
+      const periodStartDate = new Date(periodStart);
+      const periodEndDate = new Date(periodEnd);
+      const weeks = Math.max(1, Math.round((periodEndDate.getTime() - periodStartDate.getTime()) / (7 * 86400000)));
+      const months = Math.max(1, Math.round(weeks / 4.33));
+      const requiredForPeriod = sr.intervalType === "weekly" ? (sr.requiredMinutes ?? 0) * weeks :
+                                sr.intervalType === "monthly" ? (sr.requiredMinutes ?? 0) * months :
+                                (sr.requiredMinutes ?? 0);
+      const compPct = requiredForPeriod > 0 ? Math.round(deliveredMin / requiredForPeriod * 100) : 100;
+
+      serviceBreakdown.push({
+        serviceType: sr.serviceTypeName || "Unknown",
+        requiredMinutes: requiredForPeriod,
+        deliveredMinutes: deliveredMin,
+        missedSessions: Number(missed[0]?.cnt ?? 0),
+        completedSessions: Number(completed[0]?.cnt ?? 0),
+        compliancePercent: Math.min(compPct, 100),
+      });
+    }
+
     const masteredCount = goalProgressEntries.filter(g => g.progressRating === "mastered").length;
     const sufficientCount = goalProgressEntries.filter(g => g.progressRating === "sufficient_progress").length;
     const someCount = goalProgressEntries.filter(g => g.progressRating === "some_progress").length;
     const insufficientCount = goalProgressEntries.filter(g => g.progressRating === "insufficient_progress").length;
+    const notAddressedCount = goalProgressEntries.filter(g => g.progressRating === "not_addressed").length;
 
-    const overallSummary = `Progress Report for ${student.firstName} ${student.lastName} — ${reportingPeriod}\n\n` +
-      `During this reporting period (${periodStart} to ${periodEnd}), ${student.firstName} received ${(completedSessionLogs[0]?.cnt ?? 0)} completed service sessions ` +
-      `with ${(missedSessionLogs[0]?.cnt ?? 0)} missed sessions. ${sessionCount} ABA data collection sessions were conducted.\n\n` +
-      `Goal Progress Summary: ${masteredCount} mastered, ${sufficientCount} sufficient progress, ${someCount} some progress, ${insufficientCount} insufficient progress ` +
-      `out of ${goalProgressEntries.length} total goals.`;
+    const svcSummaryLines = serviceBreakdown.map(s =>
+      `${s.serviceType}: ${s.deliveredMinutes} of ${s.requiredMinutes} minutes delivered (${s.compliancePercent}% compliance), ${s.completedSessions} sessions completed, ${s.missedSessions} missed`
+    );
 
-    const serviceDeliverySummary = `${(completedSessionLogs[0]?.cnt ?? 0)} service sessions completed, ${(missedSessionLogs[0]?.cnt ?? 0)} missed. ` +
-      `${sessionCount} ABA/program data collection sessions conducted during this period.`;
+    const overallSummary =
+      `MASSACHUSETTS IEP PROGRESS REPORT\nPursuant to 603 CMR 28.07(8)\n\n` +
+      `Student: ${student.firstName} ${student.lastName}\n` +
+      `DOB: ${student.dateOfBirth || "N/A"} | Grade: ${student.grade || "N/A"}\n` +
+      `School: ${schoolName || "N/A"} | District: ${districtName || "N/A"}\n` +
+      (iepDoc ? `IEP Period: ${iepDoc.iepStartDate} to ${iepDoc.iepEndDate}\n` : "") +
+      `Reporting Period: ${periodStart} to ${periodEnd} (${reportingPeriod})\n\n` +
+      `During this reporting period, ${student.firstName} received ${(completedSessionLogs[0]?.cnt ?? 0)} completed service sessions ` +
+      `with ${(missedSessionLogs[0]?.cnt ?? 0)} missed sessions. ${sessionCount} data collection sessions were conducted.\n\n` +
+      `Goal Progress Summary:\n` +
+      `  M (Mastered): ${masteredCount} | SP (Sufficient Progress): ${sufficientCount}\n` +
+      `  IP (Insufficient Progress): ${someCount + insufficientCount} | NA (Not Addressed): ${notAddressedCount}\n` +
+      `  Total Goals: ${goalProgressEntries.length}\n\n` +
+      `Progress Code Key (per 603 CMR 28.07):\n` +
+      `  M = Mastered — Goal has been achieved\n` +
+      `  SP = Sufficient Progress — Student is on track to meet goal within IEP period\n` +
+      `  IP = Insufficient Progress — Student is not making adequate progress\n` +
+      `  NP = No Progress — No measurable improvement observed\n` +
+      `  R = Regression — Student performance has declined\n` +
+      `  NA = Not Addressed — Goal was not worked on during this period`;
+
+    const serviceDeliverySummary = svcSummaryLines.length > 0
+      ? `Service Delivery Summary (${periodStart} to ${periodEnd}):\n${svcSummaryLines.join("\n")}\n\n` +
+        `Total: ${(completedSessionLogs[0]?.cnt ?? 0)} sessions completed, ${(missedSessionLogs[0]?.cnt ?? 0)} missed. ` +
+        `${sessionCount} data collection sessions conducted.`
+      : `${(completedSessionLogs[0]?.cnt ?? 0)} service sessions completed, ${(missedSessionLogs[0]?.cnt ?? 0)} missed. ` +
+        `${sessionCount} data collection sessions conducted during this period.`;
+
+    const periodEndDate2 = new Date(periodEnd);
+    periodEndDate2.setMonth(periodEndDate2.getMonth() + 3);
+    const nextReportDate = periodEndDate2.toISOString().split("T")[0];
 
     const [report] = await db.insert(progressReportsTable).values({
       studentId,
@@ -500,11 +673,21 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       overallSummary,
       serviceDeliverySummary,
       goalProgress: goalProgressEntries,
+      studentDob: student.dateOfBirth || null,
+      studentGrade: student.grade || null,
+      schoolName,
+      districtName,
+      iepStartDate: iepDoc?.iepStartDate || null,
+      iepEndDate: iepDoc?.iepEndDate || null,
+      serviceBreakdown,
+      parentNotificationDate: null,
+      parentNotificationMethod: null,
+      nextReportDate,
       recommendations: insufficientCount > 0
-        ? `${insufficientCount} goal(s) show insufficient progress. Consider program modifications, increased service intensity, or updated strategies for these areas.`
+        ? `${insufficientCount} goal(s) show insufficient progress. The IEP Team should consider program modifications, increased service intensity, or updated strategies for these areas. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.`
         : masteredCount > 0
-        ? `${masteredCount} goal(s) have been mastered. Consider developing new goals or advancing criteria for mastered areas.`
-        : "Continue current programming and monitor progress.",
+        ? `${masteredCount} goal(s) have been mastered. The IEP Team should consider developing new goals or advancing criteria for mastered areas. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.`
+        : "Continue current programming and monitor progress. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.",
     }).returning();
 
     res.status(201).json({

@@ -17,6 +17,16 @@ export const progressReportsTable = pgTable("progress_reports", {
   recommendations: text("recommendations"),
   parentNotes: text("parent_notes"),
   goalProgress: jsonb("goal_progress").$type<GoalProgressEntry[]>().default([]),
+  studentDob: text("student_dob"),
+  studentGrade: text("student_grade"),
+  schoolName: text("school_name"),
+  districtName: text("district_name"),
+  iepStartDate: text("iep_start_date"),
+  iepEndDate: text("iep_end_date"),
+  serviceBreakdown: jsonb("service_breakdown").$type<ServiceDeliveryBreakdown[]>().default([]),
+  parentNotificationDate: text("parent_notification_date"),
+  parentNotificationMethod: text("parent_notification_method"),
+  nextReportDate: text("next_report_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -39,6 +49,17 @@ export interface GoalProgressEntry {
   behaviorGoal?: number | null;
   narrative: string;
   benchmarks?: string | null;
+  measurementMethod?: string | null;
+  serviceArea?: string | null;
+}
+
+export interface ServiceDeliveryBreakdown {
+  serviceType: string;
+  requiredMinutes: number;
+  deliveredMinutes: number;
+  missedSessions: number;
+  completedSessions: number;
+  compliancePercent: number;
 }
 
 export const insertProgressReportSchema = createInsertSchema(progressReportsTable).omit({ id: true, createdAt: true, updatedAt: true });

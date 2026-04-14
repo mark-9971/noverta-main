@@ -1,0 +1,164 @@
+1. Real authentication
+
+Build:
+	•	users table
+	•	login/logout
+	•	password hashing
+	•	password reset
+	•	invite flow for staff
+	•	kill the demo role switcher
+
+Definition of done:
+	•	nobody can access the app without login
+	•	staff accounts are real
+	•	sessions expire properly
+
+2. Backend RBAC
+
+Build:
+	•	auth middleware
+	•	role checks on every API route
+	•	school-scoped access
+	•	caseload-based access where needed
+	•	export restrictions
+
+Definition of done:
+	•	users only see what their role and school allow
+	•	frontend role switching is gone
+	•	API access is actually protected
+
+3. Audit logging
+
+Build:
+	•	audit_logs table
+	•	write logging for create/update/delete
+	•	export logging
+	•	capture user, timestamp, record, action, IP if available
+
+Definition of done:
+	•	every sensitive action is attributable
+	•	you can inspect what changed and by whom
+
+4. Real email sending
+
+Build:
+	•	email provider integration
+	•	templates for:
+	•	staff invites
+	•	password reset
+	•	parent notifications
+	•	document delivery
+	•	delivery/failure tracking
+
+Definition of done:
+	•	“sent” means actually sent
+	•	failed sends are visible
+
+5. Security hardening basics
+
+Build:
+	•	secure cookies
+	•	HTTPS-only assumptions
+	•	rate limiting on auth routes
+	•	security headers
+	•	CSRF protection if needed for your stack
+	•	production-safe error handling
+	•	separate dev vs prod config
+
+Definition of done:
+	•	obvious low-level security holes are closed
+
+6. Basic backup / recovery plan
+
+Build:
+	•	automated database backups
+	•	at least one tested restore flow
+	•	written backup cadence
+	•	environment separation
+
+Definition of done:
+	•	you know how to recover from a mistake or outage
+
+⸻
+
+Deliverable by day 30
+
+You should be able to say:
+
+“Trellis is now safe enough for a controlled pilot with real staff accounts and protected student data access.”
+
+Not enterprise-ready.
+Not FERPA-certified magic.
+But credible enough to begin real pilot conversations.
+
+⸻
+
+Days 31–60: make it usable enough for daily school workflows
+
+Goal
+
+Reduce friction so frontline staff can actually use it.
+
+Must get done
+
+7. Guardian model
+
+Build:
+	•	guardians table
+	•	student_guardians table
+	•	relationship flags
+	•	custody/restriction flags
+	•	notification permissions
+
+Definition of done:
+	•	parents/guardians are no longer flat text fields on student records
+
+8. Parent document delivery, not full portal
+
+Build:
+	•	guardian invite flow
+	•	basic parent account
+	•	document delivery
+	•	acknowledgment/signature tracking
+	•	parent incident notice access
+	•	limited summary access only if easy
+
+Definition of done:
+	•	schools can send documents/notices through the system
+	•	parents can receive and acknowledge them
+
+9. Mobile-fast frontline workflows
+
+Build:
+	•	fast incident entry on phone/tablet
+	•	fast session/service logging
+	•	big tap targets
+	•	fewer clicks
+	•	autosave or save draft
+	•	resume later
+
+Definition of done:
+	•	a stressed teacher/provider can realistically use it in the moment
+
+10. Better workflow closure
+
+Build:
+	•	missed/makeup session workflow cleanup
+	•	compliance alert resolution notes
+	•	clear status changes for incidents and notifications
+	•	cleaner admin review flows
+
+Definition of done:
+	•	workflows do not stop halfway
+	•	admins can see what is unresolved
+
+11. Monitoring and operational visibility
+
+Build:
+	•	error monitoring
+	•	email failure monitoring
+	•	background job monitoring if applicable
+	•	basic admin health checks
+
+Definition of done:
+	•	you can detect failures instead of discovering them from users

@@ -599,14 +599,42 @@ export async function seedRealisticData() {
       const numGoals = rand(1, 2);
       const shuffled = [...goalTemplates].sort(() => Math.random() - 0.5);
       for (let i = 0; i < numGoals && i < shuffled.length; i++) {
+        const goalText = shuffled[i];
+        const isTaskAnalysis = goalText.toLowerCase().includes("independence") ||
+          goalText.toLowerCase().includes("self-care") || goalText.toLowerCase().includes("routine") ||
+          goalText.toLowerCase().includes("self-regulation") || goalText.toLowerCase().includes("self-advocacy");
+        const masteryPct = isTaskAnalysis ? 90 : 80;
+
+        const [pt] = await db.insert(programTargetsTable).values({
+          studentId: sid,
+          name: goalText.split(",")[0].substring(0, 80),
+          description: `Student will ${goalText}, as measured by data collection and progress monitoring.`,
+          programType: isTaskAnalysis ? "task_analysis" : "discrete_trial",
+          domain: goalArea,
+          targetCriterion: `${masteryPct}% across 3 consecutive sessions`,
+          masteryCriterionPercent: masteryPct,
+          masteryCriterionSessions: 3,
+          currentPromptLevel: pick(["verbal", "gestural", "model"]),
+        } as any).returning();
+
+        if (!programTargetsByStudent[sid]) programTargetsByStudent[sid] = [];
+        programTargetsByStudent[sid].push({
+          id: pt.id,
+          name: goalText.split(",")[0].substring(0, 80),
+          programType: isTaskAnalysis ? "task_analysis" : "discrete_trial",
+          domain: goalArea,
+          targetCriterion: `${masteryPct}% across 3 consecutive sessions`,
+        });
+
         await db.insert(iepGoalsTable).values({
           studentId: sid,
           goalArea,
           goalNumber: goalNum++,
-          annualGoal: `Student will ${shuffled[i]}, as measured by data collection and progress monitoring.`,
-          targetCriterion: "80% accuracy across 3 consecutive sessions",
+          annualGoal: `Student will ${goalText}, as measured by data collection and progress monitoring.`,
+          targetCriterion: `${masteryPct}% accuracy across 3 consecutive sessions`,
           measurementMethod: "Direct observation and data collection",
           serviceArea: goalArea,
+          programTargetId: pt.id,
           iepDocumentId: iepDocId,
           active: true,
         } as any);
@@ -1310,4 +1338,8 @@ function pctToLetterGrade(pct: number): string {
   if (pct >= 63) return "D";
   if (pct >= 60) return "D-";
   return "F";
+}
+
+if (process.argv[1] && (process.argv[1].includes("seed-realistic-data") || process.argv[1].endsWith("seed"))) {
+  seedRealisticData().then(() => { console.log("Seed complete"); process.exit(0); }).catch(e => { console.error("Seed error:", e); process.exit(1); });
 }
