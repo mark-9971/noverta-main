@@ -85,6 +85,7 @@ import type {
   GetOverdueFollowupsParams,
   GetParaDashboardSummaryParams,
   GetParaMyDayParams,
+  GetParaStudentTargetsParams,
   GetProviderDashboardSummaryParams,
   GetProviderUtilizationParams,
   GetRebalancingSuggestionsParams,
@@ -121,6 +122,8 @@ import type {
   NotificationNeeded,
   ParaDashboardItem,
   ParaMyDayResponse,
+  ParaQuickStartBody,
+  ParaQuickStartResponse,
   ParaStudentTargetsResponse,
   ParentContact,
   PhaseChange,
@@ -10745,16 +10748,32 @@ export function useGetParaMyDay<
 /**
  * @summary Get student targets for para data collection
  */
-export const getGetParaStudentTargetsUrl = (studentId: number) => {
-  return `/api/para/student-targets/${studentId}`;
+export const getGetParaStudentTargetsUrl = (
+  studentId: number,
+  params?: GetParaStudentTargetsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/para/student-targets/${studentId}?${stringifiedParams}`
+    : `/api/para/student-targets/${studentId}`;
 };
 
 export const getParaStudentTargets = async (
   studentId: number,
+  params?: GetParaStudentTargetsParams,
   options?: RequestInit,
 ): Promise<ParaStudentTargetsResponse> => {
   return customFetch<ParaStudentTargetsResponse>(
-    getGetParaStudentTargetsUrl(studentId),
+    getGetParaStudentTargetsUrl(studentId, params),
     {
       ...options,
       method: "GET",
@@ -10762,8 +10781,14 @@ export const getParaStudentTargets = async (
   );
 };
 
-export const getGetParaStudentTargetsQueryKey = (studentId: number) => {
-  return [`/api/para/student-targets/${studentId}`] as const;
+export const getGetParaStudentTargetsQueryKey = (
+  studentId: number,
+  params?: GetParaStudentTargetsParams,
+) => {
+  return [
+    `/api/para/student-targets/${studentId}`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetParaStudentTargetsQueryOptions = <
@@ -10771,6 +10796,7 @@ export const getGetParaStudentTargetsQueryOptions = <
   TError = ErrorType<unknown>,
 >(
   studentId: number,
+  params?: GetParaStudentTargetsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getParaStudentTargets>>,
@@ -10783,12 +10809,13 @@ export const getGetParaStudentTargetsQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetParaStudentTargetsQueryKey(studentId);
+    queryOptions?.queryKey ??
+    getGetParaStudentTargetsQueryKey(studentId, params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getParaStudentTargets>>
   > = ({ signal }) =>
-    getParaStudentTargets(studentId, { signal, ...requestOptions });
+    getParaStudentTargets(studentId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -10816,6 +10843,7 @@ export function useGetParaStudentTargets<
   TError = ErrorType<unknown>,
 >(
   studentId: number,
+  params?: GetParaStudentTargetsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getParaStudentTargets>>,
@@ -10825,7 +10853,11 @@ export function useGetParaStudentTargets<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetParaStudentTargetsQueryOptions(studentId, options);
+  const queryOptions = getGetParaStudentTargetsQueryOptions(
+    studentId,
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -10833,3 +10865,89 @@ export function useGetParaStudentTargets<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Quick-start a session from a schedule block
+ */
+export const getParaQuickStartSessionUrl = () => {
+  return `/api/para/sessions/quick-start`;
+};
+
+export const paraQuickStartSession = async (
+  paraQuickStartBody: ParaQuickStartBody,
+  options?: RequestInit,
+): Promise<ParaQuickStartResponse> => {
+  return customFetch<ParaQuickStartResponse>(getParaQuickStartSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(paraQuickStartBody),
+  });
+};
+
+export const getParaQuickStartSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof paraQuickStartSession>>,
+    TError,
+    { data: BodyType<ParaQuickStartBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof paraQuickStartSession>>,
+  TError,
+  { data: BodyType<ParaQuickStartBody> },
+  TContext
+> => {
+  const mutationKey = ["paraQuickStartSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof paraQuickStartSession>>,
+    { data: BodyType<ParaQuickStartBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return paraQuickStartSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ParaQuickStartSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof paraQuickStartSession>>
+>;
+export type ParaQuickStartSessionMutationBody = BodyType<ParaQuickStartBody>;
+export type ParaQuickStartSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Quick-start a session from a schedule block
+ */
+export const useParaQuickStartSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof paraQuickStartSession>>,
+    TError,
+    { data: BodyType<ParaQuickStartBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof paraQuickStartSession>>,
+  TError,
+  { data: BodyType<ParaQuickStartBody> },
+  TContext
+> => {
+  return useMutation(getParaQuickStartSessionMutationOptions(options));
+};

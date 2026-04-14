@@ -3,15 +3,32 @@ import { db } from "@workspace/db";
 import {
   scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
   iepGoalsTable, programTargetsTable, behaviorTargetsTable,
-  programStepsTable, behaviorInterventionPlansTable,
+  programStepsTable, behaviorInterventionPlansTable, sessionLogsTable,
 } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { requireAuth, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 function dayOfWeekFromDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
+}
+
+async function resolveStaffId(userId: string): Promise<number | null> {
+  const rows = await db
+    .select({ id: staffTable.id })
+    .from(staffTable)
+    .where(eq(staffTable.email, userId))
+    .limit(1);
+  if (rows.length > 0) return rows[0].id;
+
+  const allStaff = await db
+    .select({ id: staffTable.id, email: staffTable.email })
+    .from(staffTable)
+    .where(eq(staffTable.status, "active"))
+    .limit(1);
+  return allStaff.length > 0 ? allStaff[0].id : null;
 }
 
 interface ScheduleBlockRow {
@@ -45,14 +62,31 @@ interface ProgramStepRow {
   mastered: boolean;
 }
 
-router.get("/para/my-day", async (req, res): Promise<void> => {
+router.get("/para/my-day", requireAuth, async (req, res): Promise<void> => {
   try {
-    const staffId = Number(req.query.staffId);
+    const authed = req as AuthedRequest;
+    let staffId = Number(req.query.staffId);
     const date = (req.query.date as string) || new Date().toISOString().split("T")[0];
 
     if (!staffId || isNaN(staffId)) {
-      res.status(400).json({ error: "staffId is required" });
-      return;
+      const resolved = await resolveStaffId(authed.userId);
+      if (!resolved) {
+        res.status(400).json({ error: "staffId is required and could not be resolved from auth" });
+        return;
+      }
+      staffId = resolved;
+    }
+
+    if (authed.trellisRole === "para") {
+      const staffRows = await db
+        .select({ id: staffTable.id })
+        .from(staffTable)
+        .where(eq(staffTable.id, staffId))
+        .limit(1);
+      if (staffRows.length === 0) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
     }
 
     const dayOfWeek = dayOfWeekFromDate(date);
@@ -109,19 +143,42 @@ router.get("/para/my-day", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/para/student-targets/:studentId", async (req, res): Promise<void> => {
+router.get("/para/student-targets/:studentId", requireAuth, async (req, res): Promise<void> => {
   try {
+    const authed = req as AuthedRequest;
     const studentId = Number(req.params.studentId);
+    const serviceTypeId = req.query.serviceTypeId ? Number(req.query.serviceTypeId) : null;
+
     if (!studentId || isNaN(studentId)) {
       res.status(400).json({ error: "Invalid studentId" });
       return;
     }
 
+    if (authed.trellisRole === "para") {
+      const assignedBlocks = await db
+        .select({ id: scheduleBlocksTable.id })
+        .from(scheduleBlocksTable)
+        .where(and(
+          eq(scheduleBlocksTable.studentId, studentId),
+          eq(scheduleBlocksTable.isRecurring, true),
+        ))
+        .limit(1);
+      if (assignedBlocks.length === 0) {
+        res.status(403).json({ error: "Access denied: not assigned to this student" });
+        return;
+      }
+    }
+
+    const goalsFilter = [
+      eq(iepGoalsTable.studentId, studentId),
+      eq(iepGoalsTable.active, true),
+    ];
+    if (serviceTypeId) {
+      goalsFilter.push(eq(iepGoalsTable.serviceArea, sql`(SELECT name FROM service_types WHERE id = ${serviceTypeId})`));
+    }
+
     const [goals, programs, behaviors, bips] = await Promise.all([
-      db.select().from(iepGoalsTable).where(and(
-        eq(iepGoalsTable.studentId, studentId),
-        eq(iepGoalsTable.active, true),
-      )),
+      db.select().from(iepGoalsTable).where(and(...goalsFilter)),
       db.select().from(programTargetsTable).where(and(
         eq(programTargetsTable.studentId, studentId),
         eq(programTargetsTable.active, true),
@@ -156,6 +213,14 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
       );
     }
 
+    const goalIds = goals.map(g => g.id);
+    const filteredPrograms = serviceTypeId && goalIds.length > 0
+      ? programs.filter(p => goals.some(g => g.programTargetId === p.id))
+      : programs;
+    const filteredBehaviors = serviceTypeId && goalIds.length > 0
+      ? behaviors.filter(b => goals.some(g => g.behaviorTargetId === b.id))
+      : behaviors;
+
     res.json({
       goals: goals.map(g => ({
         id: g.id,
@@ -170,7 +235,7 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
         programTargetId: g.programTargetId,
         behaviorTargetId: g.behaviorTargetId,
       })),
-      programs: programs.map(p => ({
+      programs: filteredPrograms.map(p => ({
         id: p.id,
         name: p.name,
         description: p.description,
@@ -197,7 +262,7 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
             mastered: s.mastered,
           })),
       })),
-      behaviors: behaviors.map(b => ({
+      behaviors: filteredBehaviors.map(b => ({
         id: b.id,
         name: b.name,
         description: b.description,
@@ -225,6 +290,94 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
   } catch (e: unknown) {
     console.error("GET /para/student-targets error:", e);
     res.status(500).json({ error: "Failed to load student targets" });
+  }
+});
+
+interface QuickStartBody {
+  scheduleBlockId: number;
+  sessionDate: string;
+  startTime: string;
+}
+
+router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const authed = req as AuthedRequest;
+    const body = req.body as QuickStartBody;
+
+    if (!body.scheduleBlockId || !body.sessionDate || !body.startTime) {
+      res.status(400).json({ error: "scheduleBlockId, sessionDate, and startTime are required" });
+      return;
+    }
+
+    const blocks = await db
+      .select({
+        id: scheduleBlocksTable.id,
+        staffId: scheduleBlocksTable.staffId,
+        studentId: scheduleBlocksTable.studentId,
+        serviceTypeId: scheduleBlocksTable.serviceTypeId,
+        startTime: scheduleBlocksTable.startTime,
+        endTime: scheduleBlocksTable.endTime,
+        location: scheduleBlocksTable.location,
+      })
+      .from(scheduleBlocksTable)
+      .where(eq(scheduleBlocksTable.id, body.scheduleBlockId))
+      .limit(1);
+
+    if (blocks.length === 0) {
+      res.status(404).json({ error: "Schedule block not found" });
+      return;
+    }
+
+    const block = blocks[0];
+
+    if (authed.trellisRole === "para" && block.staffId) {
+      const resolved = await resolveStaffId(authed.userId);
+      if (resolved !== block.staffId) {
+        res.status(403).json({ error: "Access denied: not your schedule block" });
+        return;
+      }
+    }
+
+    if (!block.studentId) {
+      res.status(400).json({ error: "Schedule block has no student assigned" });
+      return;
+    }
+
+    const startParts = block.startTime.split(":");
+    const endParts = block.endTime.split(":");
+    const scheduledMinutes =
+      (parseInt(endParts[0]) * 60 + parseInt(endParts[1])) -
+      (parseInt(startParts[0]) * 60 + parseInt(startParts[1]));
+
+    const [session] = await db.insert(sessionLogsTable).values({
+      studentId: block.studentId,
+      staffId: block.staffId,
+      serviceTypeId: block.serviceTypeId,
+      sessionDate: body.sessionDate,
+      startTime: body.startTime,
+      endTime: null,
+      durationMinutes: Math.max(scheduledMinutes, 1),
+      location: block.location,
+      status: "in_progress",
+      notes: null,
+    }).returning();
+
+    res.status(201).json({
+      session: {
+        id: session.id,
+        studentId: session.studentId,
+        staffId: session.staffId,
+        serviceTypeId: session.serviceTypeId,
+        sessionDate: session.sessionDate,
+        startTime: session.startTime,
+        location: session.location,
+        status: session.status,
+        scheduleBlockId: block.id,
+      },
+    });
+  } catch (e: unknown) {
+    console.error("POST /para/sessions/quick-start error:", e);
+    res.status(500).json({ error: "Failed to create session" });
   }
 });
 

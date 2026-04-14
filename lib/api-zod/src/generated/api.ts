@@ -3436,6 +3436,13 @@ export const GetParaStudentTargetsParams = zod.object({
   studentId: zod.coerce.number(),
 });
 
+export const GetParaStudentTargetsQueryParams = zod.object({
+  serviceTypeId: zod.coerce
+    .number()
+    .optional()
+    .describe("Optional service type ID to scope targets by service area"),
+});
+
 export const GetParaStudentTargetsResponse = zod.object({
   goals: zod.array(
     zod.object({
@@ -3495,4 +3502,13 @@ export const GetParaStudentTargetsResponse = zod.object({
       effectiveDate: zod.coerce.date().nullish(),
     }),
   ),
+});
+
+/**
+ * @summary Quick-start a session from a schedule block
+ */
+export const ParaQuickStartSessionBody = zod.object({
+  scheduleBlockId: zod.number(),
+  sessionDate: zod.coerce.date(),
+  startTime: zod.string().describe("HH:MM format"),
 });

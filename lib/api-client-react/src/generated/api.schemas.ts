@@ -2006,6 +2006,29 @@ export interface ParaStudentTargetsResponse {
   bips: ParaBipSummary[];
 }
 
+export interface ParaQuickStartBody {
+  scheduleBlockId: number;
+  sessionDate: string;
+  /** HH:MM format */
+  startTime: string;
+}
+
+export type ParaQuickStartResponseSession = {
+  id: number;
+  studentId: number;
+  staffId?: number | null;
+  serviceTypeId?: number | null;
+  sessionDate: string;
+  startTime?: string | null;
+  location?: string | null;
+  status: string;
+  scheduleBlockId: number;
+};
+
+export interface ParaQuickStartResponse {
+  session: ParaQuickStartResponseSession;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2717,4 +2740,11 @@ export type GetIoaSummary200 = { [key: string]: IoaTargetSummary };
 export type GetParaMyDayParams = {
   staffId: number;
   date: string;
+};
+
+export type GetParaStudentTargetsParams = {
+  /**
+   * Optional service type ID to scope targets by service area
+   */
+  serviceTypeId?: number;
 };

@@ -2754,6 +2754,12 @@ paths:
           required: true
           schema:
             type: integer
+        - name: serviceTypeId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Optional service type ID to scope targets by service area
       responses:
         "200":
           description: Student goals, programs, behaviors, and BIPs
@@ -2761,6 +2767,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ParaStudentTargetsResponse"
+
+  /para/sessions/quick-start:
+    post:
+      operationId: paraQuickStartSession
+      tags: [para]
+      summary: Quick-start a session from a schedule block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParaQuickStartBody"
+      responses:
+        "201":
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParaQuickStartResponse"
+        "400":
+          description: Invalid request or schedule block has no student
+        "403":
+          description: Access denied
+        "404":
+          description: Schedule block not found
 
 components:
   schemas:
@@ -5736,3 +5767,47 @@ components:
           items:
             $ref: "#/components/schemas/ParaBipSummary"
       required: [goals, programs, behaviors, bips]
+
+    ParaQuickStartBody:
+      type: object
+      properties:
+        scheduleBlockId:
+          type: integer
+        sessionDate:
+          type: string
+          format: date
+        startTime:
+          type: string
+          description: "HH:MM format"
+      required: [scheduleBlockId, sessionDate, startTime]
+
+    ParaQuickStartResponse:
+      type: object
+      properties:
+        session:
+          type: object
+          properties:
+            id:
+              type: integer
+            studentId:
+              type: integer
+            staffId:
+              type: integer
+              nullable: true
+            serviceTypeId:
+              type: integer
+              nullable: true
+            sessionDate:
+              type: string
+            startTime:
+              type: string
+              nullable: true
+            location:
+              type: string
+              nullable: true
+            status:
+              type: string
+            scheduleBlockId:
+              type: integer
+          required: [id, studentId, sessionDate, status, scheduleBlockId]
+      required: [session]

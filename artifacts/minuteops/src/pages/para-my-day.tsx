@@ -245,13 +245,17 @@ export default function ParaMyDayPage() {
       toast.error("No student assigned to this block");
       return;
     }
+
+    const now = new Date();
+    const startTime = now.toTimeString().slice(0, 5);
+
     setActiveSession({
       blockId: block.id,
       studentId: block.studentId,
       studentName: block.studentName || "Student",
       serviceTypeId: block.serviceTypeId,
       serviceTypeName: block.serviceTypeName,
-      startedAt: new Date(),
+      startedAt: now,
       location: block.location,
     });
     setElapsed(0);
@@ -260,7 +264,24 @@ export default function ParaMyDayPage() {
     setView("session");
 
     try {
-      const res = await fetch(`${API}/para/student-targets/${block.studentId}`);
+      await fetch(`${API}/para/sessions/quick-start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduleBlockId: block.id,
+          sessionDate: date,
+          startTime,
+        }),
+      });
+    } catch {
+      // Session will still be saved on stop; quick-start is best-effort
+    }
+
+    try {
+      const stUrl = block.serviceTypeId
+        ? `${API}/para/student-targets/${block.studentId}?serviceTypeId=${block.serviceTypeId}`
+        : `${API}/para/student-targets/${block.studentId}`;
+      const res = await fetch(stUrl);
       if (!res.ok) throw new Error("Failed to load targets");
       const data = await res.json();
       setStudentTargets(data);
