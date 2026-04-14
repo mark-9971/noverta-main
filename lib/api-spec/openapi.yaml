@@ -2068,6 +2068,12 @@ paths:
       operationId: getOverdueFollowups
       tags: [parent-communication]
       summary: Get overdue follow-up contacts
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+          description: Filter by school ID
       responses:
         "200":
           description: List of overdue follow-ups
@@ -2083,6 +2089,12 @@ paths:
       operationId: getNotificationNeeded
       tags: [parent-communication]
       summary: Get alerts needing parent notification
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+          description: Filter by school ID
       responses:
         "200":
           description: List of notification needs

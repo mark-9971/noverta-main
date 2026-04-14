@@ -122,8 +122,8 @@ export default function ParentCommunication() {
       fetch(`${API}/parent-contacts?${params}`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/parent-contacts/overdue-followups${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/parent-contacts/notification-needed${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
-    ]).then(([c, o, n]) => {
-      setContacts(c);
+    ]).then(([cRes, o, n]) => {
+      setContacts(Array.isArray(cRes) ? cRes : (cRes.data || []));
       setOverdueFollowups(o);
       setNotificationNeeds(n);
       setLoading(false);

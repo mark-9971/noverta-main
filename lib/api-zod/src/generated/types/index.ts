@@ -87,6 +87,8 @@ export * from "./getExecutiveSummaryReportParams";
 export * from "./getIepCalendarParams";
 export * from "./getMissedSessionsReportParams";
 export * from "./getMissedSessionsTrendParams";
+export * from "./getNotificationNeededParams";
+export * from "./getOverdueFollowupsParams";
 export * from "./getParaDashboardSummaryParams";
 export * from "./getProviderDashboardSummaryParams";
 export * from "./getProviderUtilizationParams";

@@ -2021,6 +2021,22 @@ export type DeleteParentContact200 = {
   success: boolean;
 };
 
+export type GetOverdueFollowupsParams = {
+  /**
+   * Filter by school ID
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type GetNotificationNeededParams = {
+  /**
+   * Filter by school ID
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
 export type GetStudentProgressSummaryParams = {
   /**
    * @nullable

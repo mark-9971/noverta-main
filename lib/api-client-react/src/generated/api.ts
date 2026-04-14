@@ -71,6 +71,8 @@ import type {
   GetIepCalendarParams,
   GetMissedSessionsReportParams,
   GetMissedSessionsTrendParams,
+  GetNotificationNeededParams,
+  GetOverdueFollowupsParams,
   GetParaDashboardSummaryParams,
   GetProviderDashboardSummaryParams,
   GetProviderUtilizationParams,
@@ -8159,41 +8161,66 @@ export const useDeleteParentContact = <
 /**
  * @summary Get overdue follow-up contacts
  */
-export const getGetOverdueFollowupsUrl = () => {
-  return `/api/parent-contacts/overdue-followups`;
+export const getGetOverdueFollowupsUrl = (
+  params?: GetOverdueFollowupsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/parent-contacts/overdue-followups?${stringifiedParams}`
+    : `/api/parent-contacts/overdue-followups`;
 };
 
 export const getOverdueFollowups = async (
+  params?: GetOverdueFollowupsParams,
   options?: RequestInit,
 ): Promise<ParentContact[]> => {
-  return customFetch<ParentContact[]>(getGetOverdueFollowupsUrl(), {
+  return customFetch<ParentContact[]>(getGetOverdueFollowupsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetOverdueFollowupsQueryKey = () => {
-  return [`/api/parent-contacts/overdue-followups`] as const;
+export const getGetOverdueFollowupsQueryKey = (
+  params?: GetOverdueFollowupsParams,
+) => {
+  return [
+    `/api/parent-contacts/overdue-followups`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetOverdueFollowupsQueryOptions = <
   TData = Awaited<ReturnType<typeof getOverdueFollowups>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getOverdueFollowups>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetOverdueFollowupsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOverdueFollowups>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetOverdueFollowupsQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetOverdueFollowupsQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getOverdueFollowups>>
-  > = ({ signal }) => getOverdueFollowups({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getOverdueFollowups(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getOverdueFollowups>>,
@@ -8214,15 +8241,18 @@ export type GetOverdueFollowupsQueryError = ErrorType<unknown>;
 export function useGetOverdueFollowups<
   TData = Awaited<ReturnType<typeof getOverdueFollowups>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getOverdueFollowups>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetOverdueFollowupsQueryOptions(options);
+>(
+  params?: GetOverdueFollowupsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOverdueFollowups>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOverdueFollowupsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -8234,41 +8264,69 @@ export function useGetOverdueFollowups<
 /**
  * @summary Get alerts needing parent notification
  */
-export const getGetNotificationNeededUrl = () => {
-  return `/api/parent-contacts/notification-needed`;
+export const getGetNotificationNeededUrl = (
+  params?: GetNotificationNeededParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/parent-contacts/notification-needed?${stringifiedParams}`
+    : `/api/parent-contacts/notification-needed`;
 };
 
 export const getNotificationNeeded = async (
+  params?: GetNotificationNeededParams,
   options?: RequestInit,
 ): Promise<NotificationNeeded[]> => {
-  return customFetch<NotificationNeeded[]>(getGetNotificationNeededUrl(), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<NotificationNeeded[]>(
+    getGetNotificationNeededUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetNotificationNeededQueryKey = () => {
-  return [`/api/parent-contacts/notification-needed`] as const;
+export const getGetNotificationNeededQueryKey = (
+  params?: GetNotificationNeededParams,
+) => {
+  return [
+    `/api/parent-contacts/notification-needed`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetNotificationNeededQueryOptions = <
   TData = Awaited<ReturnType<typeof getNotificationNeeded>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getNotificationNeeded>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetNotificationNeededParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNotificationNeeded>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetNotificationNeededQueryKey();
+  const queryKey =
+    queryOptions?.queryKey ?? getGetNotificationNeededQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getNotificationNeeded>>
-  > = ({ signal }) => getNotificationNeeded({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getNotificationNeeded(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getNotificationNeeded>>,
@@ -8289,15 +8347,18 @@ export type GetNotificationNeededQueryError = ErrorType<unknown>;
 export function useGetNotificationNeeded<
   TData = Awaited<ReturnType<typeof getNotificationNeeded>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getNotificationNeeded>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetNotificationNeededQueryOptions(options);
+>(
+  params?: GetNotificationNeededParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNotificationNeeded>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNotificationNeededQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

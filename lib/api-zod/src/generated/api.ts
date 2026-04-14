@@ -2392,6 +2392,10 @@ export const DeleteParentContactResponse = zod.object({
 /**
  * @summary Get overdue follow-up contacts
  */
+export const GetOverdueFollowupsQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish().describe("Filter by school ID"),
+});
+
 export const GetOverdueFollowupsResponseItem = zod.object({
   id: zod.number(),
   studentId: zod.number(),
@@ -2419,6 +2423,10 @@ export const GetOverdueFollowupsResponse = zod.array(
 /**
  * @summary Get alerts needing parent notification
  */
+export const GetNotificationNeededQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish().describe("Filter by school ID"),
+});
+
 export const GetNotificationNeededResponseItem = zod.object({
   alertId: zod.number(),
   alertType: zod.string(),

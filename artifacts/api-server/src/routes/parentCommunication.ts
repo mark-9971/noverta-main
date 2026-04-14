@@ -44,7 +44,12 @@ function formatContactResponse(c: any) {
 
 router.get("/parent-contacts", async (req, res): Promise<void> => {
   try {
-    const { studentId, startDate, endDate, followUpStatus, contactType, schoolId } = req.query as Record<string, string>;
+    const { studentId, startDate, endDate, followUpStatus, contactType, schoolId,
+      page: pageStr, limit: limitStr } = req.query as Record<string, string>;
+
+    const page = parseInt(pageStr) || 1;
+    const limit = Math.min(parseInt(limitStr) || 100, 500);
+    const offset = (page - 1) * limit;
 
     const conditions: any[] = [];
     if (studentId) conditions.push(eq(parentContactsTable.studentId, Number(studentId)));
@@ -100,9 +105,10 @@ router.get("/parent-contacts", async (req, res): Promise<void> => {
       .leftJoin(studentsTable, eq(studentsTable.id, parentContactsTable.studentId))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(parentContactsTable.contactDate))
-      .limit(200);
+      .limit(limit)
+      .offset(offset);
 
-    res.json(contacts.map(c => formatContactResponse(c)));
+    res.json({ data: contacts.map(c => formatContactResponse(c)), page, limit });
   } catch (e: any) {
     console.error("GET /parent-contacts error:", e);
     res.status(500).json({ error: "Failed to fetch parent contacts" });
