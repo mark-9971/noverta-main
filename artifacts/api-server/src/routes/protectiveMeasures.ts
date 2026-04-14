@@ -333,7 +333,7 @@ router.delete("/protective-measures/incidents/:id", async (req: Request, res: Re
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [existing] = await db.select({ id: restraintIncidentsTable.id }).from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
   await db.delete(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
@@ -341,7 +341,9 @@ router.delete("/protective-measures/incidents/:id", async (req: Request, res: Re
     action: "delete",
     targetTable: "restraint_incidents",
     targetId: id,
-    summary: `Deleted restraint incident #${id}`,
+    studentId: existing.studentId,
+    summary: `Deleted restraint incident #${id} for student #${existing.studentId}`,
+    oldValues: { incidentDate: existing.incidentDate, incidentType: existing.incidentType, status: existing.status, restraintType: existing.restraintType } as Record<string, unknown>,
   });
   res.json({ success: true });
 });
@@ -1090,6 +1092,7 @@ router.post("/protective-measures/incidents/:id/signatures/request", async (req:
     targetTable: "incident_signatures",
     targetId: sig.id,
     summary: `Signature request created for incident #${incidentId} (staff #${staffId}, role: ${role})`,
+    newValues: { incidentId, staffId: Number(staffId), role, status: "pending" } as Record<string, unknown>,
   });
   res.status(201).json(sig);
 });

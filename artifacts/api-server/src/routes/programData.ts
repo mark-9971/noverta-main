@@ -6,6 +6,7 @@ import {
   programStepsTable, programTemplatesTable, phaseChangesTable
 } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, isNotNull } from "drizzle-orm";
+import { logAudit } from "../lib/auditLog";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,12 @@ router.get("/students/:studentId/behavior-targets", async (req, res): Promise<vo
     const targets = await db.select().from(behaviorTargetsTable)
       .where(and(...conditions))
       .orderBy(asc(behaviorTargetsTable.name));
+    logAudit(req, {
+      action: "read",
+      targetTable: "behavior_targets",
+      studentId: studentId,
+      summary: `Viewed ${targets.length} behavior targets for student #${studentId}`,
+    });
     res.json(targets.map(t => ({ ...t, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() })));
   } catch (e: any) {
     console.error("GET behavior-targets error:", e);
@@ -42,6 +49,14 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
       enableHourlyTracking: enableHourlyTracking ?? false,
       templateId: templateId || null,
     }).returning();
+    logAudit(req, {
+      action: "create",
+      targetTable: "behavior_targets",
+      targetId: target.id,
+      studentId: studentId,
+      summary: `Created behavior target "${name}" for student #${studentId}`,
+      newValues: { name, measurementType: measurementType || "frequency", targetDirection: targetDirection || "decrease" } as Record<string, unknown>,
+    });
     res.status(201).json({ ...target, createdAt: target.createdAt.toISOString(), updatedAt: target.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("POST behavior-target error:", e);
@@ -58,8 +73,18 @@ router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
     }
     if (req.body.baselineValue !== undefined) updates.baselineValue = req.body.baselineValue != null ? String(req.body.baselineValue) : null;
     if (req.body.goalValue !== undefined) updates.goalValue = req.body.goalValue != null ? String(req.body.goalValue) : null;
+    const [oldTarget] = await db.select().from(behaviorTargetsTable).where(eq(behaviorTargetsTable.id, id));
     const [updated] = await db.update(behaviorTargetsTable).set(updates).where(eq(behaviorTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "behavior_targets",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated behavior target #${id}`,
+      oldValues: oldTarget ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldTarget as Record<string, unknown>)[k]]))) : null,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("PATCH behavior-target error:", e);
@@ -76,6 +101,12 @@ router.get("/students/:studentId/program-targets", async (req, res): Promise<voi
     const targets = await db.select().from(programTargetsTable)
       .where(and(...conditions))
       .orderBy(asc(programTargetsTable.name));
+    logAudit(req, {
+      action: "read",
+      targetTable: "program_targets",
+      studentId: studentId,
+      summary: `Viewed ${targets.length} program targets for student #${studentId}`,
+    });
     res.json(targets.map(t => ({ ...t, createdAt: t.createdAt.toISOString(), updatedAt: t.updatedAt.toISOString() })));
   } catch (e: any) {
     console.error("GET program-targets error:", e);
@@ -131,6 +162,14 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
       return target;
     });
 
+    logAudit(req, {
+      action: "create",
+      targetTable: "program_targets",
+      targetId: result.id,
+      studentId: studentId,
+      summary: `Created program target "${name}" for student #${studentId}`,
+      newValues: { name, programType: programType || "discrete_trial", domain } as Record<string, unknown>,
+    });
     res.status(201).json({ ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("POST program-target error:", e);
@@ -148,8 +187,18 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
                         "regressionSessions","reinforcementSchedule","reinforcementType","tutorInstructions"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    const [oldTarget] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, id));
     const [updated] = await db.update(programTargetsTable).set(updates).where(eq(programTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "program_targets",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated program target #${id}`,
+      oldValues: oldTarget ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldTarget as Record<string, unknown>)[k]]))) : null,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("PATCH program-target error:", e);
@@ -435,6 +484,12 @@ router.get("/students/:studentId/data-sessions", async (req, res): Promise<void>
       .orderBy(desc(dataSessionsTable.sessionDate))
       .limit(limit);
 
+    logAudit(req, {
+      action: "read",
+      targetTable: "data_sessions",
+      studentId: studentId,
+      summary: `Viewed ${sessions.length} data sessions for student #${studentId}`,
+    });
     res.json(sessions.map(s => ({
       ...s,
       staffName: s.staffFirstName && s.staffLastName ? `${s.staffFirstName} ${s.staffLastName}` : null,

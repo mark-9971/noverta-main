@@ -162,6 +162,7 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
       targetId: s.id,
       studentId: s.studentId,
       summary: `Bulk-created session #${s.id} for student #${s.studentId}`,
+      newValues: { sessionDate: s.sessionDate, durationMinutes: s.durationMinutes, status: s.status } as Record<string, unknown>,
     });
   }
   res.status(201).json(inserted.map(s => ({ ...s, createdAt: s.createdAt.toISOString() })));

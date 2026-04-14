@@ -1,6 +1,8 @@
 import { db, auditLogsTable } from "@workspace/db";
 import type { Request } from "express";
+import { getAuth } from "@clerk/express";
 import type { AuthedRequest } from "../middlewares/auth";
+import { isRole } from "./permissions";
 
 interface AuditEntry {
   action: "create" | "read" | "update" | "delete";
@@ -19,10 +21,27 @@ function getClientIp(req: Request): string | null {
   return req.socket?.remoteAddress || null;
 }
 
-export function logAudit(req: Request, entry: AuditEntry): void {
+function resolveActor(req: Request): { userId: string; role: string } {
   const authed = req as AuthedRequest;
-  const actorUserId = authed.userId || "anonymous";
-  const actorRole = authed.trellisRole || "unknown";
+  if (authed.userId && authed.trellisRole) {
+    return { userId: authed.userId, role: authed.trellisRole };
+  }
+  try {
+    const auth = getAuth(req);
+    if (auth?.userId) {
+      const meta = (auth.sessionClaims as Record<string, unknown>)?.publicMetadata as Record<string, unknown> | undefined;
+      const role = meta?.role;
+      return {
+        userId: auth.userId,
+        role: typeof role === "string" && isRole(role) ? role : "unknown",
+      };
+    }
+  } catch (_e) {}
+  return { userId: "anonymous", role: "unknown" };
+}
+
+export function logAudit(req: Request, entry: AuditEntry): void {
+  const { userId: actorUserId, role: actorRole } = resolveActor(req);
   const ipAddress = getClientIp(req);
 
   db.insert(auditLogsTable)

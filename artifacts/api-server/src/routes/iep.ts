@@ -174,7 +174,7 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
 router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const [existing] = await db.select({ id: iepGoalsTable.id, studentId: iepGoalsTable.studentId, goalArea: iepGoalsTable.goalArea }).from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
+    const [existing] = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
     if (!existing) { res.status(404).json({ error: "Not found" }); return; }
     await db.delete(iepGoalsTable).where(eq(iepGoalsTable.id, id));
     logAudit(req, {
@@ -183,6 +183,7 @@ router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
       targetId: id,
       studentId: existing.studentId,
       summary: `Deleted IEP goal #${id} (${existing.goalArea})`,
+      oldValues: { goalArea: existing.goalArea, goalNumber: existing.goalNumber, goalDescription: existing.goalDescription, status: existing.status } as Record<string, unknown>,
     });
     res.json({ ok: true });
   } catch (e: any) {
@@ -754,6 +755,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       targetId: report.id,
       studentId: studentId,
       summary: `Generated progress report #${report.id} for student #${studentId} (${reportingPeriod})`,
+      newValues: { reportingPeriod, periodStart, periodEnd, status: "draft" } as Record<string, unknown>,
     });
     res.status(201).json({
       ...report,
@@ -829,6 +831,7 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
       targetId: doc.id,
       studentId: studentId,
       summary: `Created IEP document #${doc.id} for student #${studentId} (${iepStartDate} - ${iepEndDate})`,
+      newValues: { iepStartDate, iepEndDate, meetingDate } as Record<string, unknown>,
     });
     res.status(201).json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
   } catch (e: any) {
@@ -878,6 +881,7 @@ router.delete("/iep-documents/:id", async (req, res): Promise<void> => {
       targetId: id,
       studentId: oldDoc?.studentId,
       summary: `Deleted IEP document #${id}`,
+      oldValues: oldDoc ? { iepStartDate: oldDoc.iepStartDate, iepEndDate: oldDoc.iepEndDate, status: oldDoc.status } as Record<string, unknown> : null,
     });
     res.json({ ok: true });
   } catch (e: any) {
@@ -920,6 +924,7 @@ router.post("/students/:studentId/accommodations", async (req, res): Promise<voi
       targetId: acc.id,
       studentId: studentId,
       summary: `Created accommodation #${acc.id} for student #${studentId}: ${description}`,
+      newValues: { category: category || "instruction", description, setting, frequency } as Record<string, unknown>,
     });
     res.status(201).json({ ...acc, createdAt: acc.createdAt.toISOString(), updatedAt: acc.updatedAt.toISOString() });
   } catch (e: any) {
@@ -963,6 +968,7 @@ router.delete("/accommodations/:id", async (req, res): Promise<void> => {
       targetId: id,
       studentId: oldAcc?.studentId,
       summary: `Deleted accommodation #${id}`,
+      oldValues: oldAcc ? { category: oldAcc.category, description: oldAcc.description } as Record<string, unknown> : null,
     });
     res.json({ ok: true });
   } catch (e: any) {
