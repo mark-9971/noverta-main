@@ -12,7 +12,7 @@ import {
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 interface CalendarEvent {
-  id: number;
+  id: number | string;
   studentId: number;
   studentName: string;
   grade: string | null;
@@ -42,6 +42,14 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   progress_report: "Progress Report",
 };
 
+const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string; badgeCls: string }> = {
+  annual_review: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "#059669", badgeCls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  reeval_3yr: { bg: "bg-gray-100", text: "text-gray-700", dot: "#4b5563", badgeCls: "bg-gray-100 text-gray-700 border-gray-300" },
+  initial_eval: { bg: "bg-red-50", text: "text-red-700", dot: "#dc2626", badgeCls: "bg-red-50 text-red-700 border-red-200" },
+  transition_plan: { bg: "bg-gray-50", text: "text-gray-600", dot: "#9ca3af", badgeCls: "bg-gray-50 text-gray-600 border-gray-200" },
+  progress_report: { bg: "bg-gray-50", text: "text-gray-600", dot: "#6b7280", badgeCls: "bg-gray-50 text-gray-600 border-gray-200" },
+};
+
 const STATUS_CONFIG: Record<string, { icon: any; className: string; label: string }> = {
   overdue: { icon: AlertTriangle, className: "bg-red-100 text-red-700 border-red-200", label: "Overdue" },
   critical: { icon: Clock, className: "bg-red-50 text-red-600 border-red-100", label: "Due This Week" },
@@ -49,6 +57,10 @@ const STATUS_CONFIG: Record<string, { icon: any; className: string; label: strin
   upcoming: { icon: Calendar, className: "bg-emerald-50 text-emerald-600 border-emerald-200", label: "Upcoming" },
   completed: { icon: CheckCircle2, className: "bg-gray-50 text-gray-500 border-gray-200", label: "Completed" },
 };
+
+function eventTypeColor(eventType: string) {
+  return EVENT_TYPE_COLORS[eventType] ?? EVENT_TYPE_COLORS.progress_report;
+}
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -136,6 +148,7 @@ export default function IepCalendar() {
             <option value="annual_review">Annual Reviews</option>
             <option value="reeval_3yr">3-Year Reevaluations</option>
             <option value="initial_eval">Initial Evaluations</option>
+            <option value="transition_plan">Transition Plans</option>
             <option value="progress_report">Progress Reports</option>
           </select>
           <div className="flex bg-gray-100 rounded-lg p-0.5">
@@ -164,6 +177,16 @@ export default function IepCalendar() {
           <SummaryBadge label="Completed" count={summary.completed} color="text-gray-500 bg-gray-50" />
         </div>
       )}
+
+      <div className="flex items-center gap-4 flex-wrap">
+        <span className="text-xs text-gray-400 font-medium">Event Types:</span>
+        {Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: eventTypeColor(key).dot }} />
+            <span className="text-xs text-gray-500">{label}</span>
+          </div>
+        ))}
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -202,8 +225,6 @@ export default function IepCalendar() {
                   const dayEvents = eventsByDate.get(dateStr) ?? [];
                   const isToday = dateStr === todayStr;
                   const isSelected = dateStr === selectedDate;
-                  const hasOverdue = dayEvents.some(e => e.status === "overdue");
-                  const hasCritical = dayEvents.some(e => e.status === "critical");
 
                   return (
                     <button
@@ -216,19 +237,17 @@ export default function IepCalendar() {
                       </span>
                       {dayEvents.length > 0 && (
                         <div className="mt-0.5 space-y-0.5">
-                          {dayEvents.slice(0, 2).map((e, idx) => (
-                            <div
-                              key={idx}
-                              className={`text-[9px] leading-tight truncate px-1 py-0.5 rounded ${
-                                e.status === "overdue" ? "bg-red-100 text-red-700" :
-                                e.status === "critical" ? "bg-red-50 text-red-600" :
-                                e.status === "completed" ? "bg-gray-100 text-gray-500" :
-                                "bg-emerald-50 text-emerald-600"
-                              }`}
-                            >
-                              {e.studentName.split(" ")[1] ?? e.studentName}
-                            </div>
-                          ))}
+                          {dayEvents.slice(0, 2).map((e, idx) => {
+                            const tc = eventTypeColor(e.eventType);
+                            return (
+                              <div
+                                key={idx}
+                                className={`text-[9px] leading-tight truncate px-1 py-0.5 rounded ${tc.bg} ${tc.text}`}
+                              >
+                                {e.studentName.split(" ")[1] ?? e.studentName}
+                              </div>
+                            );
+                          })}
                           {dayEvents.length > 2 && (
                             <div className="text-[9px] text-gray-400 px-1">+{dayEvents.length - 2} more</div>
                           )}
@@ -236,9 +255,10 @@ export default function IepCalendar() {
                       )}
                       {dayEvents.length > 0 && (
                         <div className="absolute top-1.5 right-1.5 flex gap-0.5">
-                          {hasOverdue && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
-                          {hasCritical && !hasOverdue && <div className="w-1.5 h-1.5 rounded-full bg-red-400" />}
-                          {!hasOverdue && !hasCritical && <div className="w-1.5 h-1.5 rounded-full bg-emerald-600" />}
+                          {dayEvents.map((e, idx) => {
+                            const tc = eventTypeColor(e.eventType);
+                            return <div key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tc.dot }} />;
+                          }).slice(0, 3)}
                         </div>
                       )}
                     </button>
@@ -312,18 +332,24 @@ function SummaryBadge({ label, count, color }: { label: string; count: number; c
 
 function EventCard({ event: e }: { event: CalendarEvent }) {
   const cfg = STATUS_CONFIG[e.status] ?? STATUS_CONFIG.upcoming;
+  const tc = eventTypeColor(e.eventType);
   const Icon = cfg.icon;
   return (
     <Link href={`/students/${e.studentId}`}>
       <div className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all cursor-pointer group">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Icon className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
             <span className="text-sm font-medium text-gray-800 truncate">{e.studentName}</span>
           </div>
-          <Badge variant="outline" className={`text-[10px] font-medium flex-shrink-0 ${cfg.className}`}>{cfg.label}</Badge>
+          <Badge variant="outline" className={`text-[10px] font-medium flex-shrink-0 ${tc.badgeCls}`}>
+            {EVENT_TYPE_LABELS[e.eventType] ?? e.eventType}
+          </Badge>
         </div>
-        <p className="text-xs text-gray-500">{EVENT_TYPE_LABELS[e.eventType] ?? e.eventType}</p>
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className="w-3 h-3 flex-shrink-0 text-gray-400" />
+          <span className={`text-[11px] font-medium ${cfg.className.includes("red") ? "text-red-600" : "text-gray-500"}`}>{cfg.label}</span>
+        </div>
         <div className="flex items-center justify-between mt-2">
           <span className="text-[11px] text-gray-400">
             {e.daysRemaining < 0 ? `${Math.abs(e.daysRemaining)}d overdue` : e.daysRemaining === 0 ? "Due today" : `${e.daysRemaining}d remaining`}
@@ -337,6 +363,7 @@ function EventCard({ event: e }: { event: CalendarEvent }) {
 
 function EventRow({ event: e }: { event: CalendarEvent }) {
   const cfg = STATUS_CONFIG[e.status] ?? STATUS_CONFIG.upcoming;
+  const tc = eventTypeColor(e.eventType);
   return (
     <Link href={`/students/${e.studentId}`}>
       <div className="flex items-center gap-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer group px-2 rounded-lg">
@@ -344,6 +371,7 @@ function EventRow({ event: e }: { event: CalendarEvent }) {
           <p className="text-lg font-bold text-gray-800">{new Date(e.dueDate + "T12:00:00").getDate()}</p>
           <p className="text-[10px] text-gray-400 uppercase">{new Date(e.dueDate + "T12:00:00").toLocaleDateString("en-US", { month: "short" })}</p>
         </div>
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-800 truncate">{e.studentName}</span>
@@ -355,7 +383,7 @@ function EventRow({ event: e }: { event: CalendarEvent }) {
           <span className={`text-xs font-medium ${e.daysRemaining < 0 ? "text-red-500" : e.daysRemaining <= 7 ? "text-red-400" : "text-gray-400"}`}>
             {e.daysRemaining < 0 ? `${Math.abs(e.daysRemaining)}d late` : e.daysRemaining === 0 ? "Today" : `${e.daysRemaining}d`}
           </span>
-          <Badge variant="outline" className={`text-[10px] font-medium ${cfg.className}`}>{cfg.label}</Badge>
+          <Badge variant="outline" className={`text-[10px] font-medium ${tc.badgeCls}`}>{EVENT_TYPE_LABELS[e.eventType] ?? e.eventType}</Badge>
           <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
         </div>
       </div>

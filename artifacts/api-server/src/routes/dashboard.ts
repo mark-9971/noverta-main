@@ -428,6 +428,34 @@ router.get("/dashboard/executive", async (req, res): Promise<void> => {
       ? Math.round(((riskCounts.onTrack) / totalTracked) * 100)
       : 100;
 
+    const iepDeadlineConditions: any[] = [eq(studentsTable.status, "active"), eq(iepDocumentsTable.active, true)];
+    if (sdFilters.schoolId) iepDeadlineConditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
+    if (sdFilters.districtId) iepDeadlineConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+
+    const iepDocs = await db.select({
+      studentId: iepDocumentsTable.studentId,
+      iepEndDate: iepDocumentsTable.iepEndDate,
+      iepStartDate: iepDocumentsTable.iepStartDate,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+    })
+      .from(iepDocumentsTable)
+      .innerJoin(studentsTable, eq(iepDocumentsTable.studentId, studentsTable.id))
+      .where(and(...iepDeadlineConditions));
+
+    const todayMs = new Date().getTime();
+    const deadlineCounts = { within30: 0, within60: 0, within90: 0 };
+    const seenStudents = new Set<number>();
+    for (const doc of iepDocs) {
+      if (seenStudents.has(doc.studentId)) continue;
+      seenStudents.add(doc.studentId);
+      const annualMs = new Date(doc.iepEndDate).getTime();
+      const daysToAnnual = Math.ceil((annualMs - todayMs) / 86400000);
+      if (daysToAnnual >= 0 && daysToAnnual <= 30) deadlineCounts.within30++;
+      if (daysToAnnual >= 0 && daysToAnnual <= 60) deadlineCounts.within60++;
+      if (daysToAnnual >= 0 && daysToAnnual <= 90) deadlineCounts.within90++;
+    }
+
     res.json({
       complianceScore,
       totalStudents,
@@ -435,6 +463,7 @@ router.get("/dashboard/executive", async (req, res): Promise<void> => {
       topAtRiskStudents: atRiskStudents.slice(0, 10),
       openAlerts: alertCounts[0]?.total ?? 0,
       criticalAlerts: alertCounts[0]?.critical ?? 0,
+      deadlineCounts,
     });
   } catch (e: any) {
     console.error("GET /dashboard/executive error:", e);
@@ -498,7 +527,7 @@ router.get("/dashboard/staff-coverage", async (req, res): Promise<void> => {
       serviceMap.get(b.serviceTypeId)!.scheduledWeeklyMinutes += Math.max(0, blockMinutes);
     }
 
-    const result = [...serviceMap.entries()].map(([serviceTypeId, data]) => ({
+    const byService = [...serviceMap.entries()].map(([serviceTypeId, data]) => ({
       serviceTypeId,
       serviceTypeName: data.name,
       mandatedWeeklyMinutes: data.mandatedWeeklyMinutes,
@@ -510,7 +539,20 @@ router.get("/dashboard/staff-coverage", async (req, res): Promise<void> => {
       gap: Math.max(0, data.mandatedWeeklyMinutes - data.scheduledWeeklyMinutes),
     }));
 
-    res.json(result);
+    let totalMandated = 0;
+    let totalScheduled = 0;
+    for (const s of serviceMap.values()) {
+      totalMandated += s.mandatedWeeklyMinutes;
+      totalScheduled += s.scheduledWeeklyMinutes;
+    }
+
+    res.json({
+      byService,
+      totalMandatedWeeklyMinutes: totalMandated,
+      totalScheduledWeeklyMinutes: totalScheduled,
+      totalCoveragePercent: totalMandated > 0 ? Math.round((totalScheduled / totalMandated) * 100) : 100,
+      totalGap: Math.max(0, totalMandated - totalScheduled),
+    });
   } catch (e: any) {
     console.error("GET /dashboard/staff-coverage error:", e);
     res.status(500).json({ error: "Failed to fetch staff coverage" });
@@ -522,19 +564,31 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
     const { startDate, endDate, eventType } = req.query;
     const sdFilters = parseSchoolDistrictFilters(req.query);
 
-    const conditions: any[] = [];
-    if (startDate) conditions.push(gte(complianceEventsTable.dueDate, startDate as string));
-    if (endDate) conditions.push(lte(complianceEventsTable.dueDate, endDate as string));
-    if (eventType && eventType !== "all") conditions.push(eq(complianceEventsTable.eventType, eventType as string));
+    type CalendarEvent = {
+      id: number | string;
+      studentId: number;
+      studentName: string;
+      grade: string | null;
+      eventType: string;
+      title: string;
+      dueDate: string;
+      status: string;
+      completedDate: string | null;
+      notes: string | null;
+      daysRemaining: number;
+    };
 
-    if (sdFilters.schoolId) {
-      conditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
-    }
-    if (sdFilters.districtId) {
-      conditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
-    }
+    const today = new Date().toISOString().split("T")[0];
+    const allEvents: CalendarEvent[] = [];
 
-    const events = await db.select({
+    const ceConditions: any[] = [];
+    if (startDate) ceConditions.push(gte(complianceEventsTable.dueDate, startDate as string));
+    if (endDate) ceConditions.push(lte(complianceEventsTable.dueDate, endDate as string));
+    if (eventType && eventType !== "all") ceConditions.push(eq(complianceEventsTable.eventType, eventType as string));
+    if (sdFilters.schoolId) ceConditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
+    if (sdFilters.districtId) ceConditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+
+    const ceEvents = await db.select({
       id: complianceEventsTable.id,
       studentId: complianceEventsTable.studentId,
       eventType: complianceEventsTable.eventType,
@@ -549,12 +603,11 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
     })
       .from(complianceEventsTable)
       .innerJoin(studentsTable, eq(complianceEventsTable.studentId, studentsTable.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(ceConditions.length > 0 ? and(...ceConditions) : undefined)
       .orderBy(asc(complianceEventsTable.dueDate))
       .limit(500);
 
-    const today = new Date().toISOString().split("T")[0];
-    const enriched = events.map(e => {
+    for (const e of ceEvents) {
       const daysRemaining = Math.ceil((new Date(e.dueDate).getTime() - new Date(today).getTime()) / 86400000);
       let computedStatus = e.status;
       if (e.status !== "completed") {
@@ -563,7 +616,7 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
         else if (daysRemaining <= 30) computedStatus = "due_soon";
         else computedStatus = "upcoming";
       }
-      return {
+      allEvents.push({
         id: e.id,
         studentId: e.studentId,
         studentName: `${e.studentFirstName} ${e.studentLastName}`,
@@ -575,19 +628,100 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
         completedDate: e.completedDate,
         notes: e.notes,
         daysRemaining,
-      };
-    });
+      });
+    }
+
+    const existingKeys = new Set(ceEvents.map(e => `${e.studentId}-${e.eventType}-${e.dueDate}`));
+
+    if (!eventType || eventType === "all" || eventType === "annual_review" || eventType === "reeval_3yr") {
+      const iepConditions: any[] = [eq(iepDocumentsTable.active, true), eq(studentsTable.status, "active")];
+      if (sdFilters.schoolId) iepConditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
+      if (sdFilters.districtId) iepConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+
+      const iepDocs = await db.select({
+        id: iepDocumentsTable.id,
+        studentId: iepDocumentsTable.studentId,
+        iepEndDate: iepDocumentsTable.iepEndDate,
+        iepStartDate: iepDocumentsTable.iepStartDate,
+        studentFirstName: studentsTable.firstName,
+        studentLastName: studentsTable.lastName,
+        studentGrade: studentsTable.grade,
+      })
+        .from(iepDocumentsTable)
+        .innerJoin(studentsTable, eq(iepDocumentsTable.studentId, studentsTable.id))
+        .where(and(...iepConditions));
+
+      for (const doc of iepDocs) {
+        const annualDate = doc.iepEndDate;
+        const annualKey = `${doc.studentId}-annual_review-${annualDate}`;
+        if (!existingKeys.has(annualKey) && (!eventType || eventType === "all" || eventType === "annual_review")) {
+          if ((!startDate || annualDate >= (startDate as string)) && (!endDate || annualDate <= (endDate as string))) {
+            const daysRemaining = Math.ceil((new Date(annualDate).getTime() - new Date(today).getTime()) / 86400000);
+            let status = "upcoming";
+            if (daysRemaining < 0) status = "overdue";
+            else if (daysRemaining <= 7) status = "critical";
+            else if (daysRemaining <= 30) status = "due_soon";
+            allEvents.push({
+              id: `iep-annual-${doc.id}`,
+              studentId: doc.studentId,
+              studentName: `${doc.studentFirstName} ${doc.studentLastName}`,
+              grade: doc.studentGrade,
+              eventType: "annual_review",
+              title: `Annual IEP Review — ${doc.studentFirstName} ${doc.studentLastName}`,
+              dueDate: annualDate,
+              status,
+              completedDate: null,
+              notes: null,
+              daysRemaining,
+            });
+            existingKeys.add(annualKey);
+          }
+        }
+
+        if (!eventType || eventType === "all" || eventType === "reeval_3yr") {
+          const reevalDate3yr = new Date(doc.iepStartDate);
+          reevalDate3yr.setFullYear(reevalDate3yr.getFullYear() + 3);
+          const reevalStr = reevalDate3yr.toISOString().split("T")[0];
+          const reevalKey = `${doc.studentId}-reeval_3yr-${reevalStr}`;
+          if (!existingKeys.has(reevalKey)) {
+            if ((!startDate || reevalStr >= (startDate as string)) && (!endDate || reevalStr <= (endDate as string))) {
+              const daysRemaining = Math.ceil((reevalDate3yr.getTime() - new Date(today).getTime()) / 86400000);
+              let status = "upcoming";
+              if (daysRemaining < 0) status = "overdue";
+              else if (daysRemaining <= 7) status = "critical";
+              else if (daysRemaining <= 30) status = "due_soon";
+              allEvents.push({
+                id: `iep-reeval-${doc.id}`,
+                studentId: doc.studentId,
+                studentName: `${doc.studentFirstName} ${doc.studentLastName}`,
+                grade: doc.studentGrade,
+                eventType: "reeval_3yr",
+                title: `3-Year Reevaluation — ${doc.studentFirstName} ${doc.studentLastName}`,
+                dueDate: reevalStr,
+                status,
+                completedDate: null,
+                notes: null,
+                daysRemaining,
+              });
+              existingKeys.add(reevalKey);
+            }
+          }
+        }
+      }
+    }
+
+    allEvents.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
     const summary = {
-      overdue: enriched.filter(e => e.status === "overdue").length,
-      critical: enriched.filter(e => e.status === "critical").length,
-      dueSoon: enriched.filter(e => e.status === "due_soon").length,
-      upcoming: enriched.filter(e => e.status === "upcoming").length,
-      completed: enriched.filter(e => e.status === "completed").length,
-      total: enriched.length,
+      overdue: allEvents.filter(e => e.status === "overdue").length,
+      critical: allEvents.filter(e => e.status === "critical").length,
+      dueSoon: allEvents.filter(e => e.status === "due_soon").length,
+      upcoming: allEvents.filter(e => e.status === "upcoming").length,
+      completed: allEvents.filter(e => e.status === "completed").length,
+      total: allEvents.length,
     };
 
-    res.json({ events: enriched, summary });
+    res.json({ events: allEvents, summary });
   } catch (e: any) {
     console.error("GET /dashboard/iep-calendar error:", e);
     res.status(500).json({ error: "Failed to fetch IEP calendar" });
