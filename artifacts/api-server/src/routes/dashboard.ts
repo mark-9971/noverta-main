@@ -445,15 +445,28 @@ router.get("/dashboard/executive", async (req, res): Promise<void> => {
 
     const todayMs = new Date().getTime();
     const deadlineCounts = { within30: 0, within60: 0, within90: 0 };
-    const seenStudents = new Set<number>();
+    const seenDeadlines = new Set<string>();
     for (const doc of iepDocs) {
-      if (seenStudents.has(doc.studentId)) continue;
-      seenStudents.add(doc.studentId);
       const annualMs = new Date(doc.iepEndDate).getTime();
       const daysToAnnual = Math.ceil((annualMs - todayMs) / 86400000);
-      if (daysToAnnual >= 0 && daysToAnnual <= 30) deadlineCounts.within30++;
-      if (daysToAnnual >= 0 && daysToAnnual <= 60) deadlineCounts.within60++;
-      if (daysToAnnual >= 0 && daysToAnnual <= 90) deadlineCounts.within90++;
+      const annualKey = `${doc.studentId}-annual`;
+      if (!seenDeadlines.has(annualKey)) {
+        seenDeadlines.add(annualKey);
+        if (daysToAnnual >= 0 && daysToAnnual <= 30) deadlineCounts.within30++;
+        if (daysToAnnual >= 0 && daysToAnnual <= 60) deadlineCounts.within60++;
+        if (daysToAnnual >= 0 && daysToAnnual <= 90) deadlineCounts.within90++;
+      }
+
+      const triennialDate = new Date(doc.iepStartDate);
+      triennialDate.setFullYear(triennialDate.getFullYear() + 3);
+      const daysToTriennial = Math.ceil((triennialDate.getTime() - todayMs) / 86400000);
+      const triennialKey = `${doc.studentId}-triennial`;
+      if (!seenDeadlines.has(triennialKey)) {
+        seenDeadlines.add(triennialKey);
+        if (daysToTriennial >= 0 && daysToTriennial <= 30) deadlineCounts.within30++;
+        if (daysToTriennial >= 0 && daysToTriennial <= 60) deadlineCounts.within60++;
+        if (daysToTriennial >= 0 && daysToTriennial <= 90) deadlineCounts.within90++;
+      }
     }
 
     res.json({
