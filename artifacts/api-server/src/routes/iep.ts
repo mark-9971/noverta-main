@@ -774,6 +774,12 @@ router.get("/students/:studentId/iep-documents", async (req, res): Promise<void>
     const docs = await db.select().from(iepDocumentsTable)
       .where(eq(iepDocumentsTable.studentId, studentId))
       .orderBy(desc(iepDocumentsTable.iepStartDate));
+    logAudit(req, {
+      action: "read",
+      targetTable: "iep_documents",
+      studentId: studentId,
+      summary: `Viewed ${docs.length} IEP documents for student #${studentId}`,
+    });
     res.json(docs.map(d => ({ ...d, createdAt: d.createdAt.toISOString(), updatedAt: d.updatedAt.toISOString() })));
   } catch (e: any) {
     res.status(500).json({ error: "Failed to fetch IEP documents" });
@@ -785,6 +791,13 @@ router.get("/iep-documents/:id", async (req, res): Promise<void> => {
     const id = parseInt(req.params.id);
     const [doc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     if (!doc) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "read",
+      targetTable: "iep_documents",
+      targetId: id,
+      studentId: doc.studentId,
+      summary: `Viewed IEP document #${id} for student #${doc.studentId}`,
+    });
     res.json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to fetch IEP document" });
@@ -810,6 +823,13 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
       assessmentParticipation, assessmentAccommodations, alternateAssessmentJustification,
       scheduleModifications, transportationServices, preparedBy: preparedBy || null,
     }).returning();
+    logAudit(req, {
+      action: "create",
+      targetTable: "iep_documents",
+      targetId: doc.id,
+      studentId: studentId,
+      summary: `Created IEP document #${doc.id} for student #${studentId} (${iepStartDate} - ${iepEndDate})`,
+    });
     res.status(201).json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
   } catch (e: any) {
     console.error("POST iep-document error:", e);
@@ -829,8 +849,18 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
                         "scheduleModifications","transportationServices","preparedBy","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    const [oldDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     const [updated] = await db.update(iepDocumentsTable).set(updates).where(eq(iepDocumentsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "iep_documents",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated IEP document #${id}`,
+      oldValues: oldDoc ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldDoc as Record<string, unknown>)[k]]))) : null,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update IEP document" });
@@ -839,7 +869,16 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
 
 router.delete("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
-    await db.delete(iepDocumentsTable).where(eq(iepDocumentsTable.id, parseInt(req.params.id)));
+    const id = parseInt(req.params.id);
+    const [oldDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
+    await db.delete(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
+    logAudit(req, {
+      action: "delete",
+      targetTable: "iep_documents",
+      targetId: id,
+      studentId: oldDoc?.studentId,
+      summary: `Deleted IEP document #${id}`,
+    });
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to delete IEP document" });
@@ -854,6 +893,12 @@ router.get("/students/:studentId/accommodations", async (req, res): Promise<void
     const accs = await db.select().from(iepAccommodationsTable)
       .where(and(eq(iepAccommodationsTable.studentId, studentId), eq(iepAccommodationsTable.active, true)))
       .orderBy(asc(iepAccommodationsTable.category));
+    logAudit(req, {
+      action: "read",
+      targetTable: "iep_accommodations",
+      studentId: studentId,
+      summary: `Viewed ${accs.length} accommodations for student #${studentId}`,
+    });
     res.json(accs.map(a => ({ ...a, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString() })));
   } catch (e: any) {
     res.status(500).json({ error: "Failed to fetch accommodations" });
@@ -869,6 +914,13 @@ router.post("/students/:studentId/accommodations", async (req, res): Promise<voi
       studentId, category: category || "instruction", description, setting, frequency, provider,
       iepDocumentId: iepDocumentId || null,
     }).returning();
+    logAudit(req, {
+      action: "create",
+      targetTable: "iep_accommodations",
+      targetId: acc.id,
+      studentId: studentId,
+      summary: `Created accommodation #${acc.id} for student #${studentId}: ${description}`,
+    });
     res.status(201).json({ ...acc, createdAt: acc.createdAt.toISOString(), updatedAt: acc.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to create accommodation" });
@@ -882,8 +934,18 @@ router.patch("/accommodations/:id", async (req, res): Promise<void> => {
     for (const key of ["category","description","setting","frequency","provider","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    const [oldAcc] = await db.select().from(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
     const [updated] = await db.update(iepAccommodationsTable).set(updates).where(eq(iepAccommodationsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "iep_accommodations",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated accommodation #${id}`,
+      oldValues: oldAcc ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldAcc as Record<string, unknown>)[k]]))) : null,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update accommodation" });
@@ -892,7 +954,16 @@ router.patch("/accommodations/:id", async (req, res): Promise<void> => {
 
 router.delete("/accommodations/:id", async (req, res): Promise<void> => {
   try {
-    await db.delete(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, parseInt(req.params.id)));
+    const id = parseInt(req.params.id);
+    const [oldAcc] = await db.select().from(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
+    await db.delete(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
+    logAudit(req, {
+      action: "delete",
+      targetTable: "iep_accommodations",
+      targetId: id,
+      studentId: oldAcc?.studentId,
+      summary: `Deleted accommodation #${id}`,
+    });
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to delete accommodation" });
