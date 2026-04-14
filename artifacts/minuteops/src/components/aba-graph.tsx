@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const API = "/api";
+const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 interface PhaseChange {
   id: number;

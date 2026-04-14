@@ -617,6 +617,9 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
 
     if (res.ok) {
       setSaved(true);
+      if (isIoaSession && ioaSessId) {
+        toast.success(`IOA session saved. Session ID: ${ioaSessId} — share this with Observer ${ioaObserverNumber === 1 ? "2" : "1"}`);
+      }
       onSessionSaved();
     }
     setSaving(false);
