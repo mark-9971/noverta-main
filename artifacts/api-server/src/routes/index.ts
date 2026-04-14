@@ -31,6 +31,7 @@ import parentCommunicationRouter from "./parentCommunication";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
+import recentlyDeletedRouter from "./recentlyDeleted";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(parentCommunicationRouter);
 router.use(supervisionRouter);
 router.use(paraRouter);
 router.use(auditLogRouter);
+router.use(recentlyDeletedRouter);
 
 export default router;

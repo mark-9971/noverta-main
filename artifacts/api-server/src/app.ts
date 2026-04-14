@@ -39,14 +39,25 @@ const corsOrigin: cors.CorsOptions["origin"] = rawOrigins
     : true;
 app.use(cors({ credentials: true, origin: corsOrigin }));
 
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 600,
+const readLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
 });
-app.use("/api", apiLimiter);
+
+const mutationLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many write requests, please slow down." },
+  skip: (req) => ["GET", "HEAD", "OPTIONS"].includes(req.method),
+});
+
+app.use("/api", readLimiter);
+app.use("/api", mutationLimiter);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));

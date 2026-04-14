@@ -24,6 +24,7 @@ export const studentsTable = pgTable("students", {
   parentPhone: text("parent_phone"),
   notes: text("notes"),
   tags: text("tags"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -33,6 +34,6 @@ export const studentsTable = pgTable("students", {
   index("stu_name_idx").on(table.lastName, table.firstName),
 ]);
 
-export const insertStudentSchema = createInsertSchema(studentsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStudentSchema = createInsertSchema(studentsTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
 export type Student = typeof studentsTable.$inferSelect;

@@ -17,7 +17,7 @@ import {
   DeleteSessionParams,
   BulkCreateSessionsBody,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { logAudit } from "../lib/auditLog";
 
@@ -69,7 +69,7 @@ router.post("/missed-reasons", async (req, res): Promise<void> => {
 
 router.get("/sessions", async (req, res): Promise<void> => {
   const params = ListSessionsQueryParams.safeParse(req.query);
-  const conditions: any[] = [];
+  const conditions: any[] = [isNull(sessionLogsTable.deletedAt)];
   if (params.success) {
     if (params.data.studentId) conditions.push(eq(sessionLogsTable.studentId, Number(params.data.studentId)));
     if (params.data.staffId) conditions.push(eq(sessionLogsTable.staffId, Number(params.data.staffId)));
@@ -353,7 +353,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, sessionLogsTable.studentId))
     .leftJoin(missedReasonsTable, eq(missedReasonsTable.id, sessionLogsTable.missedReasonId))
-    .where(eq(sessionLogsTable.id, params.data.id));
+    .where(and(eq(sessionLogsTable.id, params.data.id), isNull(sessionLogsTable.deletedAt)));
 
   if (!session) {
     res.status(404).json({ error: "Session not found" });
@@ -862,7 +862,7 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
       await client.query("BEGIN");
       const txDb = drizzle(client);
 
-      await txDb.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+      await txDb.update(sessionLogsTable).set({ deletedAt: new Date() }).where(eq(sessionLogsTable.id, params.data.id));
 
       if (completedStatus) {
         const [obligation] = await txDb.select().from(compensatoryObligationsTable)
@@ -884,7 +884,7 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
       client.release();
     }
   } else {
-    await db.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+    await db.update(sessionLogsTable).set({ deletedAt: new Date() }).where(eq(sessionLogsTable.id, params.data.id));
   }
 
   logAudit(req, {

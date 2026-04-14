@@ -8,6 +8,7 @@ import { registerTokenProvider } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { SchoolProvider } from "@/lib/school-context";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
@@ -43,6 +44,7 @@ import ParentCommunication from "@/pages/parent-communication";
 import Supervision from "@/pages/supervision";
 import ParaMyDayPage from "@/pages/para-my-day";
 import AuditLogPage from "@/pages/audit-log";
+import RecentlyDeletedPage from "@/pages/recently-deleted";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -70,38 +72,51 @@ function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function BoundedRoute({ component: Comp, fallbackTitle, ...rest }: { component: React.ComponentType<any>; fallbackTitle?: string; path?: string }) {
+  return (
+    <Route {...rest}>
+      {(params: any) => (
+        <ErrorBoundary fallbackTitle={fallbackTitle}>
+          <Comp {...params} />
+        </ErrorBoundary>
+      )}
+    </Route>
+  );
+}
+
 function StaffRouter() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/students/:id/iep-builder" component={IepBuilderPage} />
-      <Route path="/students/:id/iep" component={StudentIepPage} />
-      <Route path="/students/:id" component={StudentDetail} />
-      <Route path="/students" component={Students} />
-      <Route path="/sessions" component={Sessions} />
-      <Route path="/schedule" component={Schedule} />
-      <Route path="/staff/:id" component={StaffDetailPage} />
-      <Route path="/staff" component={StaffPage} />
-      <Route path="/search" component={IepSearchPage} />
-      <Route path="/alerts" component={AlertsPage} />
-      <Route path="/compliance/timeline" component={ComplianceTimelinePage} />
-      <Route path="/compliance" component={Compliance} />
-      <Route path="/reports" component={Reports} />
-      <Route path="/import" component={ImportData} />
-      <Route path="/program-data" component={ProgramDataPage} />
-      <Route path="/iep-suggestions" component={IepSuggestions} />
-      <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
-      <Route path="/executive" component={ExecutiveDashboard} />
-      <Route path="/iep-calendar" component={IepCalendarPage} />
-      <Route path="/analytics" component={AnalyticsPage} />
-      <Route path="/behavior-assessment" component={BehaviorAssessmentPage} />
-      <Route path="/district" component={DistrictOverview} />
-      <Route path="/resource-management" component={ResourceManagement} />
-      <Route path="/compensatory-services" component={CompensatoryServices} />
-      <Route path="/parent-communication" component={ParentCommunication} />
-      <Route path="/supervision" component={Supervision} />
-      <Route path="/my-day" component={ParaMyDayPage} />
-      <Route path="/audit-log" component={AuditLogPage} />
+      <BoundedRoute path="/" component={Dashboard} fallbackTitle="Dashboard error" />
+      <BoundedRoute path="/students/:id/iep-builder" component={IepBuilderPage} fallbackTitle="IEP Builder error" />
+      <BoundedRoute path="/students/:id/iep" component={StudentIepPage} fallbackTitle="Student IEP error" />
+      <BoundedRoute path="/students/:id" component={StudentDetail} fallbackTitle="Student details error" />
+      <BoundedRoute path="/students" component={Students} fallbackTitle="Students page error" />
+      <BoundedRoute path="/sessions" component={Sessions} fallbackTitle="Sessions error" />
+      <BoundedRoute path="/schedule" component={Schedule} fallbackTitle="Schedule error" />
+      <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
+      <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
+      <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
+      <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
+      <BoundedRoute path="/compliance/timeline" component={ComplianceTimelinePage} fallbackTitle="Compliance timeline error" />
+      <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" />
+      <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
+      <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
+      <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" />
+      <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" />
+      <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" />
+      <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" />
+      <BoundedRoute path="/iep-calendar" component={IepCalendarPage} fallbackTitle="IEP calendar error" />
+      <BoundedRoute path="/analytics" component={AnalyticsPage} fallbackTitle="Analytics error" />
+      <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" />
+      <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" />
+      <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" />
+      <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" />
+      <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" />
+      <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" />
+      <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
+      <BoundedRoute path="/audit-log" component={AuditLogPage} fallbackTitle="Audit log error" />
+      <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
       <Route component={NotFound} />
     </Switch>
   );
@@ -110,10 +125,10 @@ function StaffRouter() {
 function SpedStudentRouter() {
   return (
     <Switch>
-      <Route path="/sped-portal" component={SpedStudentDashboard} />
-      <Route path="/sped-portal/goals" component={SpedStudentGoals} />
-      <Route path="/sped-portal/sessions" component={SpedStudentSessions} />
-      <Route path="/sped-portal/services" component={SpedStudentServices} />
+      <BoundedRoute path="/sped-portal" component={SpedStudentDashboard} fallbackTitle="Student portal error" />
+      <BoundedRoute path="/sped-portal/goals" component={SpedStudentGoals} fallbackTitle="Goals error" />
+      <BoundedRoute path="/sped-portal/sessions" component={SpedStudentSessions} fallbackTitle="Sessions error" />
+      <BoundedRoute path="/sped-portal/services" component={SpedStudentServices} fallbackTitle="Services error" />
       <Route>{() => <Redirect to="/sped-portal" />}</Route>
     </Switch>
   );

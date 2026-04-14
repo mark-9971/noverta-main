@@ -17,7 +17,7 @@ import {
   CreateStaffAssignmentBody,
   DeleteStaffAssignmentParams,
 } from "@workspace/api-zod";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -48,7 +48,7 @@ function blockToJson(b: any, staffName?: string | null, studentName?: string | n
 
 router.get("/schedule-blocks", async (req, res): Promise<void> => {
   const params = ListScheduleBlocksQueryParams.safeParse(req.query);
-  const conditions: any[] = [];
+  const conditions: any[] = [isNull(scheduleBlocksTable.deletedAt)];
   if (params.success) {
     if (params.data.staffId) conditions.push(eq(scheduleBlocksTable.staffId, Number(params.data.staffId)));
     if (params.data.studentId) conditions.push(eq(scheduleBlocksTable.studentId, Number(params.data.studentId)));
@@ -140,7 +140,7 @@ router.delete("/schedule-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  await db.delete(scheduleBlocksTable).where(eq(scheduleBlocksTable.id, params.data.id));
+  await db.update(scheduleBlocksTable).set({ deletedAt: new Date() }).where(eq(scheduleBlocksTable.id, params.data.id));
   res.sendStatus(204);
 });
 
@@ -162,7 +162,7 @@ router.get("/schedule-blocks/conflicts", async (req, res): Promise<void> => {
     .from(scheduleBlocksTable)
     .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
-    .where(eq(scheduleBlocksTable.isRecurring, true));
+    .where(and(eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)));
 
   // Group by staff + day
   const grouped = new Map<string, typeof allBlocks>();

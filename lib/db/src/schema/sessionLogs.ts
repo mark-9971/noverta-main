@@ -26,6 +26,7 @@ export const sessionLogsTable = pgTable("session_logs", {
   isCompensatory: boolean("is_compensatory").notNull().default(false),
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -36,6 +37,6 @@ export const sessionLogsTable = pgTable("session_logs", {
   index("sl_date_idx").on(table.sessionDate),
 ]);
 
-export const insertSessionLogSchema = createInsertSchema(sessionLogsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSessionLogSchema = createInsertSchema(sessionLogsTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertSessionLog = z.infer<typeof insertSessionLogSchema>;
 export type SessionLog = typeof sessionLogsTable.$inferSelect;

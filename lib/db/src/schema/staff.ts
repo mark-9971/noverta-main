@@ -15,10 +15,11 @@ export const staffTable = pgTable("staff", {
   qualifications: text("qualifications"),
   hourlyRate: numeric("hourly_rate"),
   annualSalary: numeric("annual_salary"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const insertStaffSchema = createInsertSchema(staffTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStaffSchema = createInsertSchema(staffTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
 export type Staff = typeof staffTable.$inferSelect;

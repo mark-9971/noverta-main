@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  X, Save, Plus, Search, Copy, Crown, Lock, Globe, Building2, User,
-  Trash2, Edit3, Eye, Layers, ChevronDown, ChevronRight, Star, Sparkles,
-  BookOpen, Target, Settings2, ArrowUp, ArrowDown, Hand, Mic, Zap, Check,
-  AlertTriangle, GripVertical
+  X, Save, Plus, Search, Copy, Globe, Building2, User,
+  Trash2, Edit3, Layers, ChevronDown, ChevronRight,
+  BookOpen, ArrowUp, ArrowDown, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -79,7 +78,6 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
   const [selectedTemplate, setSelectedTemplate] = useState<ProgramTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<ProgramTemplate | null>(null);
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [cloning, setCloning] = useState<number | null>(null);
 
   const loadTemplates = useCallback(async () => {
@@ -100,10 +98,6 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
   async function cloneToStudent(template: ProgramTemplate) {
-    if (template.tier === "premium") {
-      setShowUpgradeModal(true);
-      return;
-    }
     setCloning(template.id);
     try {
       await cloneTemplateToStudent(template.id, { studentId });
@@ -185,7 +179,6 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                 tierFilter === k ? "bg-white text-gray-700 shadow-sm" : "text-gray-500 hover:text-gray-600"
               }`}>
-              {k === "premium" && <Crown className="w-3 h-3 text-amber-500" />}
               {l}
             </button>
           ))}
@@ -210,7 +203,6 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <p className="text-[13px] font-semibold text-gray-700 truncate">{t.name}</p>
-                      {t.tier === "premium" && <Crown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       {t.domain || t.category} · {PROGRAM_TYPE_LABELS[t.programType] ?? t.programType}
@@ -244,12 +236,10 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
                 )}
 
                 <div className="flex gap-1.5">
-                  <Button size="sm" className={`flex-1 h-8 text-[11px] ${
-                    t.tier === "premium" ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-emerald-700 hover:bg-emerald-800"
-                  } text-white`}
+                  <Button size="sm" className="flex-1 h-8 text-[11px] bg-emerald-700 hover:bg-emerald-800 text-white"
                     onClick={e => { e.stopPropagation(); cloneToStudent(t); }} disabled={cloning === t.id}>
-                    {t.tier === "premium" ? <Lock className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
-                    {cloning === t.id ? "Applying..." : (t.tier === "premium" ? "Upgrade to Use" : "Apply to Student")}
+                    <Copy className="w-3 h-3 mr-1" />
+                    {cloning === t.id ? "Applying..." : "Apply to Student"}
                   </Button>
                 </div>
               </CardContent>
@@ -286,9 +276,6 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
         />
       )}
 
-      {showUpgradeModal && (
-        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
-      )}
     </div>
   );
 }
@@ -298,7 +285,6 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
   onEdit: () => void; onDuplicate: () => void; onDelete: () => void; cloning: boolean;
 }) {
   const [showSteps, setShowSteps] = useState(true);
-  const isPremium = template.tier === "premium";
   const stepsArr = (template.steps as any[]) ?? [];
 
   return (
@@ -308,7 +294,6 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-gray-800">{template.name}</h2>
-              {isPremium && <Crown className="w-4 h-4 text-amber-500" />}
             </div>
             <p className="text-xs text-gray-400">
               {template.domain || template.category} · {PROGRAM_TYPE_LABELS[template.programType] ?? template.programType}
@@ -319,16 +304,6 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
         </div>
 
         <div className="p-4 md:p-5 space-y-4">
-          {isPremium && (
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3.5 flex items-start gap-3">
-              <Crown className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[13px] font-semibold text-amber-800">Premium Template</p>
-                <p className="text-[11px] text-amber-600 mt-0.5">Upgrade your plan to access this professionally designed template with evidence-based protocols.</p>
-              </div>
-            </div>
-          )}
-
           {template.description && (
             <p className="text-[13px] text-gray-600">{template.description}</p>
           )}
@@ -383,11 +358,11 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
             <div>
               <button onClick={() => setShowSteps(!showSteps)} className="flex items-center gap-1 text-[12px] font-semibold text-gray-600 mb-2">
                 {showSteps ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                {stepsArr.length} Steps {isPremium && "(Preview)"}
+                {stepsArr.length} Steps
               </button>
               {showSteps && (
-                <div className={`space-y-1 ${isPremium ? "opacity-60 select-none" : ""}`}>
-                  {stepsArr.slice(0, isPremium ? 3 : undefined).map((s: any, i: number) => (
+                <div className="space-y-1">
+                  {stepsArr.map((s: any, i: number) => (
                     <div key={i} className="flex items-start gap-2 p-2 bg-gray-50 rounded text-[12px]">
                       <span className="text-gray-400 font-bold w-5 text-center flex-shrink-0">{i + 1}</span>
                       <div className="min-w-0">
@@ -398,12 +373,6 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
                       </div>
                     </div>
                   ))}
-                  {isPremium && stepsArr.length > 3 && (
-                    <div className="text-center py-2 text-[11px] text-amber-600 font-medium">
-                      <Lock className="w-3 h-3 inline mr-1" />
-                      +{stepsArr.length - 3} more steps (upgrade to view)
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -422,10 +391,8 @@ function TemplatePreviewModal({ template, onClose, onClone, onEdit, onDuplicate,
               <Trash2 className="w-3 h-3 mr-1" /> Delete
             </Button>
           </div>
-          <Button size="sm" className={`text-[12px] h-8 ${
-            isPremium ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700" : "bg-emerald-700 hover:bg-emerald-800"
-          } text-white`} onClick={onClone} disabled={cloning}>
-            {isPremium ? <><Lock className="w-3 h-3 mr-1" /> Upgrade to Use</> : <><Copy className="w-3 h-3 mr-1" /> Apply to Student</>}
+          <Button size="sm" className="text-[12px] h-8 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onClone} disabled={cloning}>
+            <Copy className="w-3 h-3 mr-1" /> Apply to Student
           </Button>
         </div>
       </div>
@@ -733,48 +700,3 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
   );
 }
 
-function UpgradeModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-md shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-6 text-white text-center">
-          <Crown className="w-12 h-12 mx-auto mb-3 drop-shadow-lg" />
-          <h2 className="text-xl font-bold">Upgrade to Pro</h2>
-          <p className="text-sm mt-1 text-white/80">Access 100+ premium evidence-based program templates</p>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="space-y-3">
-            {[
-              "Evidence-based DTT & TA program templates",
-              "Expert-designed prompt hierarchies",
-              "Built-in error correction protocols",
-              "Comprehensive tutor instructions",
-              "School-wide template management",
-              "Priority support & training",
-            ].map((f, i) => (
-              <div key={i} className="flex items-center gap-2.5 text-[13px] text-gray-600">
-                <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                {f}
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-4 text-center">
-            <p className="text-[11px] text-gray-400 mb-1">Starting at</p>
-            <p className="text-3xl font-bold text-gray-800">$29<span className="text-sm font-normal text-gray-400">/mo</span></p>
-            <p className="text-[11px] text-gray-400 mt-1">per school · billed annually</p>
-          </div>
-
-          <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white h-10 text-[13px] font-semibold"
-            onClick={() => { toast.info("Upgrade flow coming soon!"); onClose(); }}>
-            <Sparkles className="w-4 h-4 mr-2" /> Start Free Trial
-          </Button>
-
-          <button onClick={onClose} className="w-full text-center text-[12px] text-gray-400 hover:text-gray-600">
-            Maybe later
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

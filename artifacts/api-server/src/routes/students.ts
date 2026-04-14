@@ -16,7 +16,7 @@ import {
   GetStudentSessionsQueryParams,
   GetStudentAlertsParams,
 } from "@workspace/api-zod";
-import { eq, and, ilike, or, desc, sql } from "drizzle-orm";
+import { eq, and, ilike, or, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { logAudit, diffObjects } from "../lib/auditLog";
 
@@ -47,7 +47,7 @@ router.get("/students", async (req, res): Promise<void> => {
     .leftJoin(programsTable, eq(programsTable.id, studentsTable.programId))
     .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId));
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: ReturnType<typeof eq>[] = [isNull(studentsTable.deletedAt) as any];
   if (params.success) {
     if (params.data.status) conditions.push(eq(studentsTable.status, params.data.status) as any);
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)) as any);
@@ -150,7 +150,7 @@ router.post("/students", async (req, res): Promise<void> => {
 });
 
 router.get("/sped-students", async (req, res): Promise<void> => {
-  const conditions: any[] = [eq(studentsTable.status, "active")];
+  const conditions: any[] = [eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)];
   if (req.query.schoolId) conditions.push(eq(studentsTable.schoolId, Number(req.query.schoolId)));
   if (req.query.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(req.query.districtId)})`);
 
@@ -204,7 +204,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
     .leftJoin(programsTable, eq(programsTable.id, studentsTable.programId))
     .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId))
-    .where(eq(studentsTable.id, params.data.id));
+    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
 
   if (!student) {
     res.status(404).json({ error: "Student not found" });

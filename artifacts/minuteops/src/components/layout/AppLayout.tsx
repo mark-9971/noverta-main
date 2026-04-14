@@ -8,7 +8,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -75,6 +75,7 @@ const adminNav: NavSection[] = [
       { href: "/search", label: "IEP Search", icon: Search },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
+      { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
     ],
   },
 ];

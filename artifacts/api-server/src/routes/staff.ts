@@ -9,7 +9,7 @@ import {
   UpdateStaffBody,
   GetStaffCaseloadParams,
 } from "@workspace/api-zod";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -20,7 +20,7 @@ function staffToJson(s: typeof staffTable.$inferSelect) {
 
 router.get("/staff", async (req, res): Promise<void> => {
   const params = ListStaffQueryParams.safeParse(req.query);
-  const conditions = [];
+  const conditions: any[] = [isNull(staffTable.deletedAt)];
   if (params.success && params.data.role) conditions.push(eq(staffTable.role, params.data.role));
   if (params.success && params.data.status) conditions.push(eq(staffTable.status, params.data.status));
   if (params.success && params.data.schoolId) conditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
@@ -29,9 +29,7 @@ router.get("/staff", async (req, res): Promise<void> => {
   const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
 
-  const staff = conditions.length > 0
-    ? await db.select().from(staffTable).where(and(...conditions)).orderBy(staffTable.lastName).limit(pageLimit).offset(pageOffset)
-    : await db.select().from(staffTable).orderBy(staffTable.lastName).limit(pageLimit).offset(pageOffset);
+  const staff = await db.select().from(staffTable).where(and(...conditions)).orderBy(staffTable.lastName).limit(pageLimit).offset(pageOffset);
 
   res.json(staff.map(staffToJson));
 });
@@ -52,7 +50,7 @@ router.get("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  const [staff] = await db.select().from(staffTable).where(eq(staffTable.id, params.data.id));
+  const [staff] = await db.select().from(staffTable).where(and(eq(staffTable.id, params.data.id), isNull(staffTable.deletedAt)));
   if (!staff) {
     res.status(404).json({ error: "Staff not found" });
     return;
