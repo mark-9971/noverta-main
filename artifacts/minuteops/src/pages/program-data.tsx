@@ -534,6 +534,8 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
   const [ioaSessionId, setIoaSessionId] = useState<string>("");
   const [ioaObserverName, setIoaObserverName] = useState("");
   const [eventTimestamps, setEventTimestamps] = useState<Record<number, number[]>>({});
+  const [ioaObservedTargets, setIoaObservedTargets] = useState<Record<number, boolean>>({});
+  const [intervalScoresMap, setIntervalScoresMap] = useState<Record<number, boolean[]>>({});
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
 
@@ -560,6 +562,8 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
     setSaved(false);
     setElapsed(0);
     setEventTimestamps({});
+    setIoaObservedTargets({});
+    setIntervalScoresMap({});
     startTimeRef.current = new Date().toTimeString().slice(0, 5);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
   }
@@ -577,7 +581,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
 
     const ioaSessId = isIoaSession ? (ioaSessionId ? parseInt(ioaSessionId) : Math.floor(Math.random() * 2000000000) + 1) : null;
     const behaviorData = behaviorTargets
-      .filter(bt => isIoaSession || behaviorCounts[bt.id] > 0)
+      .filter(bt => behaviorCounts[bt.id] > 0 || (isIoaSession && ioaObservedTargets[bt.id]))
       .map(bt => ({
         behaviorTargetId: bt.id,
         value: behaviorCounts[bt.id] ?? 0,
@@ -586,6 +590,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         observerNumber: isIoaSession ? ioaObserverNumber : null,
         observerName: isIoaSession ? (ioaObserverName || null) : null,
         eventTimestamps: isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null,
+        intervalScores: isIoaSession && intervalScoresMap[bt.id]?.length ? intervalScoresMap[bt.id] : null,
       }));
 
     const programData = programTargets
@@ -817,6 +822,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                         onClick={() => {
                           setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }));
                           if (isIoaSession) {
+                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
                             setEventTimestamps(prev => ({
                               ...prev,
                               [bt.id]: [...(prev[bt.id] || []), Date.now()]
@@ -829,6 +835,55 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
                       </button>
                     </div>
                   </div>
+                  {isIoaSession && bt.measurementType === "interval" && running && (
+                    <div className="border-t border-gray-100 px-3 py-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-gray-500">Intervals:</span>
+                        {(intervalScoresMap[bt.id] || []).map((score, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setIntervalScoresMap(prev => {
+                                const arr = [...(prev[bt.id] || [])];
+                                arr[idx] = !arr[idx];
+                                return { ...prev, [bt.id]: arr };
+                              });
+                            }}
+                            className={`w-6 h-6 text-[9px] rounded border ${score ? "bg-emerald-100 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
+                            setIntervalScoresMap(prev => ({
+                              ...prev,
+                              [bt.id]: [...(prev[bt.id] || []), true]
+                            }));
+                          }}
+                          className="w-6 h-6 text-[9px] rounded border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50"
+                          title="Add interval (behavior present)"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
+                            setIntervalScoresMap(prev => ({
+                              ...prev,
+                              [bt.id]: [...(prev[bt.id] || []), false]
+                            }));
+                          }}
+                          className="w-6 h-6 text-[9px] rounded border border-dashed border-gray-300 text-red-400 hover:bg-red-50"
+                          title="Add interval (behavior absent)"
+                        >
+                          −
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-gray-400 mt-1">Tap + for present, − for absent. Tap numbered boxes to toggle.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
