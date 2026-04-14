@@ -155,7 +155,8 @@ export default function ResourceManagement() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const qs = selectedSchoolId ? `?schoolId=${selectedSchoolId}` : "";
+  const { selectedDistrictId } = useSchoolContext();
+  const qs = selectedSchoolId ? `?schoolId=${selectedSchoolId}` : selectedDistrictId ? `?districtId=${selectedDistrictId}` : "";
 
   useEffect(() => {
     setLoading(true);
@@ -170,7 +171,7 @@ export default function ResourceManagement() {
       setBudgetData(bg);
       setSuggestions(sg);
     }).finally(() => setLoading(false));
-  }, [selectedSchoolId]);
+  }, [selectedSchoolId, selectedDistrictId]);
 
   const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "caseload", label: "Caseload Balance", icon: Scale },

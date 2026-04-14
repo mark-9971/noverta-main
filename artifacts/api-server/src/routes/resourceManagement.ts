@@ -479,8 +479,17 @@ router.patch("/staff/:id/rates", async (req, res): Promise<void> => {
 
   const { hourlyRate, annualSalary } = req.body || {};
   const updates: { hourlyRate?: string; annualSalary?: string } = {};
-  if (hourlyRate !== undefined) updates.hourlyRate = String(hourlyRate);
-  if (annualSalary !== undefined) updates.annualSalary = String(annualSalary);
+
+  if (hourlyRate !== undefined) {
+    const val = Number(hourlyRate);
+    if (isNaN(val) || val < 0) { res.status(400).json({ error: "hourlyRate must be a non-negative number" }); return; }
+    updates.hourlyRate = String(val);
+  }
+  if (annualSalary !== undefined) {
+    const val = Number(annualSalary);
+    if (isNaN(val) || val < 0) { res.status(400).json({ error: "annualSalary must be a non-negative number" }); return; }
+    updates.annualSalary = String(val);
+  }
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No rate fields provided" });
