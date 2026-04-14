@@ -74,11 +74,14 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   const [showArchived, setShowArchived] = useState(false);
   const [fbas, setFbas] = useState<any[]>([]);
 
+  const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
+
   const [form, setForm] = useState({
     targetBehavior: "",
     operationalDefinition: "",
     hypothesizedFunction: "attention",
     fbaId: "",
+    behaviorTargetId: "",
     replacementBehaviors: "",
     preventionStrategies: "",
     teachingStrategies: "",
@@ -96,6 +99,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   useEffect(() => {
     fetchBips();
     fetchFbas();
+    fetchBehaviorTargets();
   }, [studentId]);
 
   async function fetchBips() {
@@ -114,6 +118,13 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     } catch { /* ignore */ }
   }
 
+  async function fetchBehaviorTargets() {
+    try {
+      const res = await fetch(`${API}/students/${studentId}/behavior-targets`);
+      if (res.ok) setBehaviorTargets(await res.json());
+    } catch { /* ignore */ }
+  }
+
   function openCreateForm() {
     setEditingBip(null);
     setForm({
@@ -121,6 +132,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       operationalDefinition: "",
       hypothesizedFunction: "attention",
       fbaId: "",
+      behaviorTargetId: "",
       replacementBehaviors: "",
       preventionStrategies: "",
       teachingStrategies: "",
@@ -144,6 +156,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       operationalDefinition: bip.operationalDefinition,
       hypothesizedFunction: bip.hypothesizedFunction,
       fbaId: bip.fbaId?.toString() || "",
+      behaviorTargetId: bip.behaviorTargetId?.toString() || "",
       replacementBehaviors: bip.replacementBehaviors || "",
       preventionStrategies: bip.preventionStrategies || "",
       teachingStrategies: bip.teachingStrategies || "",
@@ -167,7 +180,11 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     }
     setSaving(true);
     try {
-      const body: any = { ...form, fbaId: form.fbaId ? parseInt(form.fbaId) : null };
+      const body: any = {
+        ...form,
+        fbaId: form.fbaId ? parseInt(form.fbaId) : null,
+        behaviorTargetId: form.behaviorTargetId ? parseInt(form.behaviorTargetId) : null,
+      };
       if (!body.reviewDate) delete body.reviewDate;
       if (!body.effectiveDate) delete body.effectiveDate;
 
@@ -379,6 +396,7 @@ ${bip.implementationNotes ? `<h2>Implementation Notes</h2><div class="field"><di
             onSave={handleSave}
             onCancel={() => { setShowForm(false); setEditingBip(null); }}
             fbas={fbas}
+            behaviorTargets={behaviorTargets}
           />
         )}
       </CardContent>
@@ -519,6 +537,7 @@ function BipForm({
   onSave,
   onCancel,
   fbas,
+  behaviorTargets,
 }: {
   form: any;
   setForm: (f: any) => void;
@@ -527,6 +546,7 @@ function BipForm({
   onSave: () => void;
   onCancel: () => void;
   fbas: any[];
+  behaviorTargets: any[];
 }) {
   const update = (key: string, value: string) => setForm({ ...form, [key]: value });
 
@@ -557,19 +577,34 @@ function BipForm({
 
           <FormTextarea label="Operational Definition *" value={form.operationalDefinition} onChange={v => update("operationalDefinition", v)} rows={3} />
 
-          {fbas.length > 0 && (
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Linked FBA</label>
-              <select
-                value={form.fbaId}
-                onChange={e => update("fbaId", e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600"
-              >
-                <option value="">None</option>
-                {fbas.map((f: any) => <option key={f.id} value={f.id}>{f.targetBehavior} ({f.status})</option>)}
-              </select>
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {behaviorTargets.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Linked Behavior Target</label>
+                <select
+                  value={form.behaviorTargetId}
+                  onChange={e => update("behaviorTargetId", e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600"
+                >
+                  <option value="">None</option>
+                  {behaviorTargets.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            )}
+            {fbas.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Linked FBA</label>
+                <select
+                  value={form.fbaId}
+                  onChange={e => update("fbaId", e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600"
+                >
+                  <option value="">None</option>
+                  {fbas.map((f: any) => <option key={f.id} value={f.id}>{f.targetBehavior} ({f.status})</option>)}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Intervention Strategies</h3>

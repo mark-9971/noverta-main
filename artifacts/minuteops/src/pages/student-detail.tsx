@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useState, useEffect, Fragment } from "react";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
+import { useRole } from "@/lib/role-context";
 
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
@@ -19,9 +20,13 @@ const DIRECTION_COLORS = {
   increase: { good: "#059669", bad: "#f97316", bg: "bg-emerald-50", text: "text-emerald-800" },
 };
 
+const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
+
 export default function StudentDetail() {
   const params = useParams<{ id: string }>();
   const studentId = Number(params.id);
+  const { role } = useRole();
+  const bipReadOnly = !BIP_EDIT_ROLES.includes(role);
 
   const { data: student, isLoading: loadingStudent } = useGetStudent(studentId);
   const { data: progress } = useGetStudentMinuteProgress(studentId);
@@ -989,7 +994,7 @@ export default function StudentDetail() {
         </CardContent>
       </Card>
 
-      <BipManagement studentId={studentId} />
+      <BipManagement studentId={studentId} readOnly={bipReadOnly} />
 
       {showShareModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

@@ -38,6 +38,8 @@ tags:
     description: Parent communication log, follow-ups, and progress sharing
   - name: supervision
     description: Clinical supervision tracking for BCBA oversight of RBTs and paraprofessionals
+  - name: bip
+    description: Behavior Intervention Plan management with versioning
 
 paths:
   /healthz:
@@ -2414,6 +2416,133 @@ paths:
             text/csv:
               schema:
                 type: string
+
+  /students/{studentId}/bips:
+    get:
+      operationId: getStudentBips
+      tags: [bip]
+      summary: List BIPs for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, active, archived, under_review]
+      responses:
+        "200":
+          description: List of BIPs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bip"
+    post:
+      operationId: createBip
+      tags: [bip]
+      summary: Create a new BIP
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBipBody"
+      responses:
+        "201":
+          description: Created BIP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bip"
+        "400":
+          description: Validation error
+
+  /bips/{id}:
+    get:
+      operationId: getBip
+      tags: [bip]
+      summary: Get a single BIP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: BIP details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bip"
+        "404":
+          description: BIP not found
+    patch:
+      operationId: updateBip
+      tags: [bip]
+      summary: Update a BIP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBipBody"
+      responses:
+        "200":
+          description: Updated BIP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bip"
+        "404":
+          description: BIP not found
+
+  /bips/{id}/new-version:
+    post:
+      operationId: createBipVersion
+      tags: [bip]
+      summary: Create a new version of a BIP (archives the current version)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBipBody"
+      responses:
+        "201":
+          description: New version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bip"
+        "400":
+          description: Cannot version an archived BIP
+        "404":
+          description: BIP not found
 
 components:
   schemas:
@@ -4980,3 +5109,140 @@ components:
         totalMinutes:
           type: number
       required: [weekStart, totalMinutes]
+
+    Bip:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        behaviorTargetId:
+          type: ["integer", "null"]
+        fbaId:
+          type: ["integer", "null"]
+        createdBy:
+          type: ["integer", "null"]
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [draft, active, archived, under_review]
+        targetBehavior:
+          type: string
+        operationalDefinition:
+          type: string
+        hypothesizedFunction:
+          type: string
+        replacementBehaviors:
+          type: ["string", "null"]
+        preventionStrategies:
+          type: ["string", "null"]
+        teachingStrategies:
+          type: ["string", "null"]
+        consequenceStrategies:
+          type: ["string", "null"]
+        reinforcementSchedule:
+          type: ["string", "null"]
+        crisisPlan:
+          type: ["string", "null"]
+        implementationNotes:
+          type: ["string", "null"]
+        dataCollectionMethod:
+          type: ["string", "null"]
+        progressCriteria:
+          type: ["string", "null"]
+        reviewDate:
+          type: ["string", "null"]
+        effectiveDate:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdByName:
+          type: ["string", "null"]
+        behaviorTargetName:
+          type: ["string", "null"]
+      required: [id, studentId, version, status, targetBehavior, operationalDefinition, hypothesizedFunction, createdAt, updatedAt]
+
+    CreateBipBody:
+      type: object
+      properties:
+        fbaId:
+          type: ["integer", "null"]
+        behaviorTargetId:
+          type: ["integer", "null"]
+        createdBy:
+          type: ["integer", "null"]
+        targetBehavior:
+          type: string
+        operationalDefinition:
+          type: string
+        hypothesizedFunction:
+          type: string
+        replacementBehaviors:
+          type: string
+        preventionStrategies:
+          type: string
+        teachingStrategies:
+          type: string
+        consequenceStrategies:
+          type: string
+        reinforcementSchedule:
+          type: string
+        crisisPlan:
+          type: string
+        implementationNotes:
+          type: string
+        dataCollectionMethod:
+          type: string
+        progressCriteria:
+          type: string
+        reviewDate:
+          type: string
+        effectiveDate:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, under_review]
+      required: [targetBehavior, operationalDefinition, hypothesizedFunction]
+
+    UpdateBipBody:
+      type: object
+      properties:
+        targetBehavior:
+          type: string
+        operationalDefinition:
+          type: string
+        hypothesizedFunction:
+          type: string
+        behaviorTargetId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [draft, active, under_review, archived]
+        replacementBehaviors:
+          type: string
+        preventionStrategies:
+          type: string
+        teachingStrategies:
+          type: string
+        consequenceStrategies:
+          type: string
+        reinforcementSchedule:
+          type: string
+        crisisPlan:
+          type: string
+        implementationNotes:
+          type: string
+        dataCollectionMethod:
+          type: string
+        progressCriteria:
+          type: string
+        reviewDate:
+          type: string
+        effectiveDate:
+          type: string

@@ -22,6 +22,7 @@ import type {
   Alert,
   AlertsSummary,
   AuditPackageResponse,
+  Bip,
   BudgetResponse,
   BulkCreateSessionsBody,
   CalculateShortfallsBody,
@@ -32,6 +33,7 @@ import type {
   ComplianceByService,
   ComplianceTrendResponse,
   CoverageGap,
+  CreateBipBody,
   CreateCompensatoryObligationBody,
   CreateDistrictBody,
   CreateImportBody,
@@ -84,6 +86,7 @@ import type {
   GetResourceCaseloadParams,
   GetScheduleConflictsParams,
   GetStaffCoverageParams,
+  GetStudentBipsParams,
   GetStudentMinuteSummaryReportParams,
   GetStudentProgressSummaryParams,
   GetStudentSessionsParams,
@@ -141,6 +144,7 @@ import type {
   SupervisionSession,
   SupervisionSessionWithNames,
   SupervisionTrendPoint,
+  UpdateBipBody,
   UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
   UpdateParentContactBody,
@@ -9543,3 +9547,455 @@ export function useExportSupervisionSessionsCsv<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List BIPs for a student
+ */
+export const getGetStudentBipsUrl = (
+  studentId: number,
+  params?: GetStudentBipsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/students/${studentId}/bips?${stringifiedParams}`
+    : `/api/students/${studentId}/bips`;
+};
+
+export const getStudentBips = async (
+  studentId: number,
+  params?: GetStudentBipsParams,
+  options?: RequestInit,
+): Promise<Bip[]> => {
+  return customFetch<Bip[]>(getGetStudentBipsUrl(studentId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStudentBipsQueryKey = (
+  studentId: number,
+  params?: GetStudentBipsParams,
+) => {
+  return [
+    `/api/students/${studentId}/bips`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetStudentBipsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentBips>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetStudentBipsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentBips>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudentBipsQueryKey(studentId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudentBips>>> = ({
+    signal,
+  }) => getStudentBips(studentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentBips>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentBipsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentBips>>
+>;
+export type GetStudentBipsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List BIPs for a student
+ */
+
+export function useGetStudentBips<
+  TData = Awaited<ReturnType<typeof getStudentBips>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetStudentBipsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentBips>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentBipsQueryOptions(
+    studentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new BIP
+ */
+export const getCreateBipUrl = (studentId: number) => {
+  return `/api/students/${studentId}/bips`;
+};
+
+export const createBip = async (
+  studentId: number,
+  createBipBody: CreateBipBody,
+  options?: RequestInit,
+): Promise<Bip> => {
+  return customFetch<Bip>(getCreateBipUrl(studentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBipBody),
+  });
+};
+
+export const getCreateBipMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBip>>,
+    TError,
+    { studentId: number; data: BodyType<CreateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBip>>,
+  TError,
+  { studentId: number; data: BodyType<CreateBipBody> },
+  TContext
+> => {
+  const mutationKey = ["createBip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBip>>,
+    { studentId: number; data: BodyType<CreateBipBody> }
+  > = (props) => {
+    const { studentId, data } = props ?? {};
+
+    return createBip(studentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBip>>
+>;
+export type CreateBipMutationBody = BodyType<CreateBipBody>;
+export type CreateBipMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new BIP
+ */
+export const useCreateBip = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBip>>,
+    TError,
+    { studentId: number; data: BodyType<CreateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBip>>,
+  TError,
+  { studentId: number; data: BodyType<CreateBipBody> },
+  TContext
+> => {
+  return useMutation(getCreateBipMutationOptions(options));
+};
+
+/**
+ * @summary Get a single BIP
+ */
+export const getGetBipUrl = (id: number) => {
+  return `/api/bips/${id}`;
+};
+
+export const getBip = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Bip> => {
+  return customFetch<Bip>(getGetBipUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBipQueryKey = (id: number) => {
+  return [`/api/bips/${id}`] as const;
+};
+
+export const getGetBipQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBip>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getBip>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBipQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBip>>> = ({
+    signal,
+  }) => getBip(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getBip>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetBipQueryResult = NonNullable<Awaited<ReturnType<typeof getBip>>>;
+export type GetBipQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a single BIP
+ */
+
+export function useGetBip<
+  TData = Awaited<ReturnType<typeof getBip>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getBip>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBipQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a BIP
+ */
+export const getUpdateBipUrl = (id: number) => {
+  return `/api/bips/${id}`;
+};
+
+export const updateBip = async (
+  id: number,
+  updateBipBody: UpdateBipBody,
+  options?: RequestInit,
+): Promise<Bip> => {
+  return customFetch<Bip>(getUpdateBipUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBipBody),
+  });
+};
+
+export const getUpdateBipMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBip>>,
+    TError,
+    { id: number; data: BodyType<UpdateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBip>>,
+  TError,
+  { id: number; data: BodyType<UpdateBipBody> },
+  TContext
+> => {
+  const mutationKey = ["updateBip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBip>>,
+    { id: number; data: BodyType<UpdateBipBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateBip(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBip>>
+>;
+export type UpdateBipMutationBody = BodyType<UpdateBipBody>;
+export type UpdateBipMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a BIP
+ */
+export const useUpdateBip = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBip>>,
+    TError,
+    { id: number; data: BodyType<UpdateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBip>>,
+  TError,
+  { id: number; data: BodyType<UpdateBipBody> },
+  TContext
+> => {
+  return useMutation(getUpdateBipMutationOptions(options));
+};
+
+/**
+ * @summary Create a new version of a BIP (archives the current version)
+ */
+export const getCreateBipVersionUrl = (id: number) => {
+  return `/api/bips/${id}/new-version`;
+};
+
+export const createBipVersion = async (
+  id: number,
+  updateBipBody?: UpdateBipBody,
+  options?: RequestInit,
+): Promise<Bip> => {
+  return customFetch<Bip>(getCreateBipVersionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBipBody),
+  });
+};
+
+export const getCreateBipVersionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBipVersion>>,
+    TError,
+    { id: number; data: BodyType<UpdateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBipVersion>>,
+  TError,
+  { id: number; data: BodyType<UpdateBipBody> },
+  TContext
+> => {
+  const mutationKey = ["createBipVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBipVersion>>,
+    { id: number; data: BodyType<UpdateBipBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createBipVersion(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBipVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBipVersion>>
+>;
+export type CreateBipVersionMutationBody = BodyType<UpdateBipBody>;
+export type CreateBipVersionMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a new version of a BIP (archives the current version)
+ */
+export const useCreateBipVersion = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBipVersion>>,
+    TError,
+    { id: number; data: BodyType<UpdateBipBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBipVersion>>,
+  TError,
+  { id: number; data: BodyType<UpdateBipBody> },
+  TContext
+> => {
+  return useMutation(getCreateBipVersionMutationOptions(options));
+};

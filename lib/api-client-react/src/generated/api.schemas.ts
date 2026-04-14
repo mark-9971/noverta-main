@@ -1732,6 +1732,122 @@ export interface SupervisionTrendPoint {
   totalMinutes: number;
 }
 
+export type BipStatus = (typeof BipStatus)[keyof typeof BipStatus];
+
+export const BipStatus = {
+  draft: "draft",
+  active: "active",
+  archived: "archived",
+  under_review: "under_review",
+} as const;
+
+export interface Bip {
+  id: number;
+  studentId: number;
+  /** @nullable */
+  behaviorTargetId?: number | null;
+  /** @nullable */
+  fbaId?: number | null;
+  /** @nullable */
+  createdBy?: number | null;
+  version: number;
+  status: BipStatus;
+  targetBehavior: string;
+  operationalDefinition: string;
+  hypothesizedFunction: string;
+  /** @nullable */
+  replacementBehaviors?: string | null;
+  /** @nullable */
+  preventionStrategies?: string | null;
+  /** @nullable */
+  teachingStrategies?: string | null;
+  /** @nullable */
+  consequenceStrategies?: string | null;
+  /** @nullable */
+  reinforcementSchedule?: string | null;
+  /** @nullable */
+  crisisPlan?: string | null;
+  /** @nullable */
+  implementationNotes?: string | null;
+  /** @nullable */
+  dataCollectionMethod?: string | null;
+  /** @nullable */
+  progressCriteria?: string | null;
+  /** @nullable */
+  reviewDate?: string | null;
+  /** @nullable */
+  effectiveDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  createdByName?: string | null;
+  /** @nullable */
+  behaviorTargetName?: string | null;
+}
+
+export type CreateBipBodyStatus =
+  (typeof CreateBipBodyStatus)[keyof typeof CreateBipBodyStatus];
+
+export const CreateBipBodyStatus = {
+  draft: "draft",
+  active: "active",
+  under_review: "under_review",
+} as const;
+
+export interface CreateBipBody {
+  /** @nullable */
+  fbaId?: number | null;
+  /** @nullable */
+  behaviorTargetId?: number | null;
+  /** @nullable */
+  createdBy?: number | null;
+  targetBehavior: string;
+  operationalDefinition: string;
+  hypothesizedFunction: string;
+  replacementBehaviors?: string;
+  preventionStrategies?: string;
+  teachingStrategies?: string;
+  consequenceStrategies?: string;
+  reinforcementSchedule?: string;
+  crisisPlan?: string;
+  implementationNotes?: string;
+  dataCollectionMethod?: string;
+  progressCriteria?: string;
+  reviewDate?: string;
+  effectiveDate?: string;
+  status?: CreateBipBodyStatus;
+}
+
+export type UpdateBipBodyStatus =
+  (typeof UpdateBipBodyStatus)[keyof typeof UpdateBipBodyStatus];
+
+export const UpdateBipBodyStatus = {
+  draft: "draft",
+  active: "active",
+  under_review: "under_review",
+  archived: "archived",
+} as const;
+
+export interface UpdateBipBody {
+  targetBehavior?: string;
+  operationalDefinition?: string;
+  hypothesizedFunction?: string;
+  /** @nullable */
+  behaviorTargetId?: number | null;
+  status?: UpdateBipBodyStatus;
+  replacementBehaviors?: string;
+  preventionStrategies?: string;
+  teachingStrategies?: string;
+  consequenceStrategies?: string;
+  reinforcementSchedule?: string;
+  crisisPlan?: string;
+  implementationNotes?: string;
+  dataCollectionMethod?: string;
+  progressCriteria?: string;
+  reviewDate?: string;
+  effectiveDate?: string;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2397,3 +2513,17 @@ export type ExportSupervisionSessionsCsvParams = {
    */
   schoolId?: number | null;
 };
+
+export type GetStudentBipsParams = {
+  status?: GetStudentBipsStatus;
+};
+
+export type GetStudentBipsStatus =
+  (typeof GetStudentBipsStatus)[keyof typeof GetStudentBipsStatus];
+
+export const GetStudentBipsStatus = {
+  draft: "draft",
+  active: "active",
+  archived: "archived",
+  under_review: "under_review",
+} as const;

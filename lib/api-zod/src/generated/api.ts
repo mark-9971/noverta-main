@@ -3070,3 +3070,186 @@ export const ExportSupervisionSessionsCsvQueryParams = zod.object({
   endDate: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
 });
+
+/**
+ * @summary List BIPs for a student
+ */
+export const GetStudentBipsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentBipsQueryParams = zod.object({
+  status: zod.enum(["draft", "active", "archived", "under_review"]).optional(),
+});
+
+export const GetStudentBipsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  behaviorTargetId: zod.number().nullish(),
+  fbaId: zod.number().nullish(),
+  createdBy: zod.number().nullish(),
+  version: zod.number(),
+  status: zod.enum(["draft", "active", "archived", "under_review"]),
+  targetBehavior: zod.string(),
+  operationalDefinition: zod.string(),
+  hypothesizedFunction: zod.string(),
+  replacementBehaviors: zod.string().nullish(),
+  preventionStrategies: zod.string().nullish(),
+  teachingStrategies: zod.string().nullish(),
+  consequenceStrategies: zod.string().nullish(),
+  reinforcementSchedule: zod.string().nullish(),
+  crisisPlan: zod.string().nullish(),
+  implementationNotes: zod.string().nullish(),
+  dataCollectionMethod: zod.string().nullish(),
+  progressCriteria: zod.string().nullish(),
+  reviewDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  createdByName: zod.string().nullish(),
+  behaviorTargetName: zod.string().nullish(),
+});
+export const GetStudentBipsResponse = zod.array(GetStudentBipsResponseItem);
+
+/**
+ * @summary Create a new BIP
+ */
+export const CreateBipParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateBipBody = zod.object({
+  fbaId: zod.number().nullish(),
+  behaviorTargetId: zod.number().nullish(),
+  createdBy: zod.number().nullish(),
+  targetBehavior: zod.string(),
+  operationalDefinition: zod.string(),
+  hypothesizedFunction: zod.string(),
+  replacementBehaviors: zod.string().optional(),
+  preventionStrategies: zod.string().optional(),
+  teachingStrategies: zod.string().optional(),
+  consequenceStrategies: zod.string().optional(),
+  reinforcementSchedule: zod.string().optional(),
+  crisisPlan: zod.string().optional(),
+  implementationNotes: zod.string().optional(),
+  dataCollectionMethod: zod.string().optional(),
+  progressCriteria: zod.string().optional(),
+  reviewDate: zod.string().optional(),
+  effectiveDate: zod.string().optional(),
+  status: zod.enum(["draft", "active", "under_review"]).optional(),
+});
+
+/**
+ * @summary Get a single BIP
+ */
+export const GetBipParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBipResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  behaviorTargetId: zod.number().nullish(),
+  fbaId: zod.number().nullish(),
+  createdBy: zod.number().nullish(),
+  version: zod.number(),
+  status: zod.enum(["draft", "active", "archived", "under_review"]),
+  targetBehavior: zod.string(),
+  operationalDefinition: zod.string(),
+  hypothesizedFunction: zod.string(),
+  replacementBehaviors: zod.string().nullish(),
+  preventionStrategies: zod.string().nullish(),
+  teachingStrategies: zod.string().nullish(),
+  consequenceStrategies: zod.string().nullish(),
+  reinforcementSchedule: zod.string().nullish(),
+  crisisPlan: zod.string().nullish(),
+  implementationNotes: zod.string().nullish(),
+  dataCollectionMethod: zod.string().nullish(),
+  progressCriteria: zod.string().nullish(),
+  reviewDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  createdByName: zod.string().nullish(),
+  behaviorTargetName: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a BIP
+ */
+export const UpdateBipParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBipBody = zod.object({
+  targetBehavior: zod.string().optional(),
+  operationalDefinition: zod.string().optional(),
+  hypothesizedFunction: zod.string().optional(),
+  behaviorTargetId: zod.number().nullish(),
+  status: zod.enum(["draft", "active", "under_review", "archived"]).optional(),
+  replacementBehaviors: zod.string().optional(),
+  preventionStrategies: zod.string().optional(),
+  teachingStrategies: zod.string().optional(),
+  consequenceStrategies: zod.string().optional(),
+  reinforcementSchedule: zod.string().optional(),
+  crisisPlan: zod.string().optional(),
+  implementationNotes: zod.string().optional(),
+  dataCollectionMethod: zod.string().optional(),
+  progressCriteria: zod.string().optional(),
+  reviewDate: zod.string().optional(),
+  effectiveDate: zod.string().optional(),
+});
+
+export const UpdateBipResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  behaviorTargetId: zod.number().nullish(),
+  fbaId: zod.number().nullish(),
+  createdBy: zod.number().nullish(),
+  version: zod.number(),
+  status: zod.enum(["draft", "active", "archived", "under_review"]),
+  targetBehavior: zod.string(),
+  operationalDefinition: zod.string(),
+  hypothesizedFunction: zod.string(),
+  replacementBehaviors: zod.string().nullish(),
+  preventionStrategies: zod.string().nullish(),
+  teachingStrategies: zod.string().nullish(),
+  consequenceStrategies: zod.string().nullish(),
+  reinforcementSchedule: zod.string().nullish(),
+  crisisPlan: zod.string().nullish(),
+  implementationNotes: zod.string().nullish(),
+  dataCollectionMethod: zod.string().nullish(),
+  progressCriteria: zod.string().nullish(),
+  reviewDate: zod.string().nullish(),
+  effectiveDate: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  createdByName: zod.string().nullish(),
+  behaviorTargetName: zod.string().nullish(),
+});
+
+/**
+ * @summary Create a new version of a BIP (archives the current version)
+ */
+export const CreateBipVersionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateBipVersionBody = zod.object({
+  targetBehavior: zod.string().optional(),
+  operationalDefinition: zod.string().optional(),
+  hypothesizedFunction: zod.string().optional(),
+  behaviorTargetId: zod.number().nullish(),
+  status: zod.enum(["draft", "active", "under_review", "archived"]).optional(),
+  replacementBehaviors: zod.string().optional(),
+  preventionStrategies: zod.string().optional(),
+  teachingStrategies: zod.string().optional(),
+  consequenceStrategies: zod.string().optional(),
+  reinforcementSchedule: zod.string().optional(),
+  crisisPlan: zod.string().optional(),
+  implementationNotes: zod.string().optional(),
+  dataCollectionMethod: zod.string().optional(),
+  progressCriteria: zod.string().optional(),
+  reviewDate: zod.string().optional(),
+  effectiveDate: zod.string().optional(),
+});
