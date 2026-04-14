@@ -12,7 +12,7 @@ const router: IRouter = Router();
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];
 
-function sessionToJson(s: any) {
+function sessionToJson(s: Record<string, unknown>) {
   return {
     ...s,
     createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
@@ -24,21 +24,15 @@ router.get("/supervision-sessions", async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, startDate, endDate, supervisionType, schoolId } = req.query as Record<string, string>;
 
-    const conditions: any[] = [];
+    const conditions = [];
     if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
     if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
     if (startDate) conditions.push(gte(supervisionSessionsTable.sessionDate, startDate));
     if (endDate) conditions.push(lte(supervisionSessionsTable.sessionDate, endDate));
     if (supervisionType) conditions.push(eq(supervisionSessionsTable.supervisionType, supervisionType));
+    if (schoolId) conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
 
-    const supervisorStaff = db.$with("supervisor_staff").as(
-      db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName }).from(staffTable)
-    );
-    const superviseeStaff = db.$with("supervisee_staff").as(
-      db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName, schoolId: staffTable.schoolId }).from(staffTable)
-    );
-
-    let query = db
+    const sessions = await db
       .select({
         id: supervisionSessionsTable.id,
         supervisorId: supervisionSessionsTable.supervisorId,
@@ -58,18 +52,12 @@ router.get("/supervision-sessions", async (req, res): Promise<void> => {
       })
       .from(supervisionSessionsTable)
       .leftJoin(sql`staff AS sup_r`, sql`sup_r.id = ${supervisionSessionsTable.supervisorId}`)
-      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
-
-    if (schoolId) {
-      conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
-    }
-
-    const sessions = await (query as any)
+      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(supervisionSessionsTable.sessionDate))
       .limit(200);
 
-    res.json(sessions.map((s: any) => ({
+    res.json(sessions.map(s => ({
       id: s.id,
       supervisorId: s.supervisorId,
       superviseeId: s.superviseeId,
@@ -145,13 +133,14 @@ router.get("/supervision-sessions/export/csv", async (req, res): Promise<void> =
   try {
     const { supervisorId, superviseeId, startDate, endDate, schoolId } = req.query as Record<string, string>;
 
-    const conditions: any[] = [];
+    const conditions = [];
     if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
     if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
     if (startDate) conditions.push(gte(supervisionSessionsTable.sessionDate, startDate));
     if (endDate) conditions.push(lte(supervisionSessionsTable.sessionDate, endDate));
+    if (schoolId) conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
 
-    const csvQuery = db
+    const sessions = await db
       .select({
         sessionDate: supervisionSessionsTable.sessionDate,
         durationMinutes: supervisionSessionsTable.durationMinutes,
@@ -166,18 +155,12 @@ router.get("/supervision-sessions/export/csv", async (req, res): Promise<void> =
       })
       .from(supervisionSessionsTable)
       .leftJoin(sql`staff AS sup_r`, sql`sup_r.id = ${supervisionSessionsTable.supervisorId}`)
-      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
-
-    if (schoolId) {
-      conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
-    }
-
-    const sessions = await (csvQuery as any)
+      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(supervisionSessionsTable.sessionDate));
 
     const header = "Date,Duration (min),Type,Supervisor,Supervisee,Topics,Feedback,Status";
-    const rows = sessions.map((s: any) => {
+    const rows = sessions.map(s => {
       const esc = (v: string | null) => v ? `"${v.replace(/"/g, '""')}"` : "";
       return [
         s.sessionDate,
@@ -225,7 +208,7 @@ router.patch("/supervision-sessions/:id", async (req, res): Promise<void> => {
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
-    const updates: any = {};
+    const updates: Partial<Record<string, string | number | null>> = {};
     if (sessionDate !== undefined) updates.sessionDate = sessionDate;
     if (durationMinutes !== undefined) {
       const dur = Number(durationMinutes);
@@ -275,7 +258,7 @@ router.get("/supervision/compliance-summary", async (req, res): Promise<void> =>
     const superviseeRoles = ["para", "provider"];
     const roleConditions = superviseeRoles.map(r => sql`${staffTable.role} = ${r}`);
 
-    let staffConditions: any[] = [
+    const staffConditions = [
       eq(staffTable.status, "active"),
       sql`(${sql.join(roleConditions, sql` OR `)})`,
     ];
@@ -470,24 +453,22 @@ router.get("/supervision/trend", async (req, res): Promise<void> => {
     startDate.setDate(startDate.getDate() - numWeeks * 7);
     const startStr = startDate.toISOString().substring(0, 10);
 
-    const conditions: any[] = [
+    const conditions = [
       gte(supervisionSessionsTable.sessionDate, startStr),
       eq(supervisionSessionsTable.status, "completed"),
     ];
-
-    const query = db
-      .select({
-        sessionDate: supervisionSessionsTable.sessionDate,
-        durationMinutes: supervisionSessionsTable.durationMinutes,
-      })
-      .from(supervisionSessionsTable)
-      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
 
     if (schoolId) {
       conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
     }
 
-    const sessions = await (query as any)
+    const sessions = await db
+      .select({
+        sessionDate: supervisionSessionsTable.sessionDate,
+        durationMinutes: supervisionSessionsTable.durationMinutes,
+      })
+      .from(supervisionSessionsTable)
+      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`)
       .where(and(...conditions))
       .orderBy(asc(supervisionSessionsTable.sessionDate));
 
