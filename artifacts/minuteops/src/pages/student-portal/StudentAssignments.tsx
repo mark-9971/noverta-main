@@ -1,24 +1,21 @@
-import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Calendar, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle } from "lucide-react";
-import { listStudentAssignments } from "@workspace/api-client-react";
+import { getListStudentAssignmentsQueryOptions } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function StudentAssignments() {
   const { studentId } = useRole();
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!studentId) return;
-    listStudentAssignments(studentId).then(d => {
-      setAssignments(d);
-      setLoading(false);
-    });
-  }, [studentId]);
+  const { data: assignmentsData, isLoading: loading } = useQuery({
+    ...getListStudentAssignmentsQueryOptions(studentId),
+    enabled: !!studentId,
+  });
+
+  const assignments = (assignmentsData as any[]) ?? [];
 
   if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-200 rounded-xl" />)}</div></div>;
 

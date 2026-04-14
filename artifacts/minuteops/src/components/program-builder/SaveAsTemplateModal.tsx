@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Save, Globe, Building2, Crown } from "lucide-react";
 import { toast } from "sonner";
-import { apiPost } from "@/lib/api";
+import { saveTargetAsTemplate } from "@workspace/api-client-react";
 
 interface SaveAsTemplateModalProps {
   programId: number;
@@ -22,7 +22,7 @@ export default function SaveAsTemplateModal({ programId, programName, onClose, o
     if (!name.trim()) { toast.error("Template name is required"); return; }
     setSaving(true);
     try {
-      await apiPost(`/api/program-targets/${programId}/save-as-template`, { name: name.trim(), description: description || null, isGlobal, tier });
+      await saveTargetAsTemplate(programId, { name: name.trim(), description: description || null, isGlobal, tier });
       toast.success("Saved as template");
       onSaved();
     } catch { toast.error("Network error"); }

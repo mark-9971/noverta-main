@@ -7,7 +7,10 @@ import {
   Layers, Zap, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import {
+  updateProgramTarget, listProgramSteps, deleteProgramStep,
+  createProgramStep, createProgramTarget,
+} from "@workspace/api-client-react";
 
 interface StepDef {
   id: string;
@@ -153,29 +156,29 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
     setSaving(true);
     try {
       if (isEditing) {
-        await apiPatch(`/api/program-targets/${editingProgram.id}`, {
+        await updateProgramTarget(editingProgram.id, {
             ...form,
             targetCriterion: `${form.masteryCriterionPercent}% across ${form.masteryCriterionSessions} sessions`,
-          });
+          } as any);
 
-        const existingStepsData = await apiGet(`/api/program-targets/${editingProgram.id}/steps`);
+        const existingStepsData = await listProgramSteps(editingProgram.id);
         for (const es of existingStepsData) {
-          await apiDelete(`/api/program-steps/${es.id}`);
+          await deleteProgramStep(es.id);
         }
         for (let i = 0; i < steps.length; i++) {
           const s = steps[i];
-          await apiPost(`/api/program-targets/${editingProgram.id}/steps`, {
+          await createProgramStep(editingProgram.id, {
               name: s.name || `Step ${i + 1}`,
               sdInstruction: s.sdInstruction || null,
               targetResponse: s.targetResponse || null,
               materials: s.materials || null,
               promptStrategy: s.promptStrategy || null,
               errorCorrection: s.errorCorrection || null,
-            });
+            } as any);
         }
         toast.success("Program updated");
       } else {
-        await apiPost(`/api/students/${studentId}/program-targets`, {
+        await createProgramTarget(studentId, {
             ...form,
             targetCriterion: `${form.masteryCriterionPercent}% across ${form.masteryCriterionSessions} sessions`,
             steps: steps.map(s => ({
@@ -186,7 +189,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
               promptStrategy: s.promptStrategy || null,
               errorCorrection: s.errorCorrection || null,
             })),
-          });
+          } as any);
         toast.success("Program created");
       }
       onSaved();

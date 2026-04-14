@@ -14,7 +14,7 @@ export default function TeacherAssignments() {
 
   useEffect(() => {
     if (!teacherId) return;
-    listClasses({ teacherId: String(teacherId) } as any).then(async (clsList) => {
+    listClasses({ teacherId }).then(async (clsList) => {
       setClasses(clsList);
       const all: any[] = [];
       for (const c of clsList) {

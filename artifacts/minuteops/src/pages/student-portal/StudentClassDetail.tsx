@@ -19,7 +19,7 @@ export default function StudentClassDetail() {
     if (!id) return;
     Promise.all([
       getClass(Number(id)),
-      listStudentAssignments(studentId, { classId: Number(id) } as any),
+      listStudentAssignments(studentId, { classId: Number(id) }),
       listAnnouncements(Number(id)),
     ]).then(([c, a, ann]) => {
       setCls(c);

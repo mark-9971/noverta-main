@@ -14,7 +14,7 @@ export default function TeacherRoster() {
 
   useEffect(() => {
     if (!teacherId) return;
-    listClasses({ teacherId: String(teacherId) } as any).then(async (clsList) => {
+    listClasses({ teacherId }).then(async (clsList) => {
       setClasses(clsList);
       const students: any[] = [];
       const seen = new Set<number>();

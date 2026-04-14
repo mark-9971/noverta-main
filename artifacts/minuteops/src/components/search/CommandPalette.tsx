@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/role-context";
-import { apiGet } from "@/lib/api";
+import { globalSearch } from "@workspace/api-client-react";
 import {
   Search, X, Users, UserCheck, AlertTriangle, Target,
   LayoutDashboard, Calendar, Clipboard, Timer, Activity,
@@ -127,7 +127,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await apiGet(`/api/search?q=${encodeURIComponent(query.trim())}&role=${role}`);
+        const data = await globalSearch({ q: query.trim(), role });
         setApiResults(data);
       } catch {
         // silently ignore

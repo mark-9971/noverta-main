@@ -8,7 +8,10 @@ import {
   AlertTriangle, GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
+import {
+  listProgramTemplates, cloneTemplateToStudent, duplicateProgramTemplate,
+  deleteProgramTemplate, createProgramTemplate, updateProgramTemplate,
+} from "@workspace/api-client-react";
 
 interface ProgramTemplate {
   id: number; name: string; description: string; category: string;
@@ -81,12 +84,12 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
 
   const loadTemplates = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (scopeFilter !== "all") params.set("scope", scopeFilter);
-      if (categoryFilter !== "all") params.set("category", categoryFilter);
-      if (tierFilter !== "all") params.set("tier", tierFilter);
-      const data = await apiGet(`/api/program-templates?${params}`);
+      const data = await listProgramTemplates({
+        search: search || undefined,
+        scope: scopeFilter !== "all" ? scopeFilter : undefined,
+        category: categoryFilter !== "all" ? categoryFilter : undefined,
+        tier: tierFilter !== "all" ? tierFilter : undefined,
+      } as any);
       setTemplates(data);
     } catch {
       toast.error("Failed to load templates");
@@ -103,7 +106,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
     }
     setCloning(template.id);
     try {
-      await apiPost(`/api/program-templates/${template.id}/clone-to-student`, { studentId });
+      await cloneTemplateToStudent(template.id, { studentId });
       toast.success(`"${template.name}" applied to student`);
       onCloned();
     } catch { toast.error("Network error"); }
@@ -112,7 +115,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
 
   async function duplicateTemplate(id: number) {
     try {
-      await apiPost(`/api/program-templates/${id}/duplicate`, {});
+      await duplicateProgramTemplate(id);
       toast.success("Template duplicated");
       loadTemplates();
       onTemplateUpdated();
@@ -122,7 +125,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
   async function deleteTemplate(id: number) {
     if (!confirm("Delete this template? This cannot be undone.")) return;
     try {
-      await apiDelete(`/api/program-templates/${id}`);
+      await deleteProgramTemplate(id);
       toast.success("Template deleted");
       setSelectedTemplate(null);
       loadTemplates();
@@ -487,9 +490,9 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
     setSaving(true);
     try {
       if (isNew) {
-        await apiPost(`/api/program-templates`, form);
+        await createProgramTemplate(form as any);
       } else {
-        await apiPut(`/api/program-templates/${template!.id}`, form);
+        await updateProgramTemplate(template!.id, form as any);
       }
       toast.success(isNew ? "Template created" : "Template updated");
       onSaved();

@@ -12,7 +12,7 @@ export default function TeacherGradebook() {
 
   useEffect(() => {
     if (!teacherId) return;
-    listClasses({ teacherId: String(teacherId) } as any).then(d => {
+    listClasses({ teacherId }).then(d => {
       setClasses(d);
       setLoading(false);
     });

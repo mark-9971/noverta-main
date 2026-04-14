@@ -9,7 +9,7 @@ import {
   Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiPost, apiDelete, apiGet } from "@/lib/api";
+import { createPhaseChange, deletePhaseChange, getIoaSummary } from "@workspace/api-client-react";
 
 interface PhaseChange {
   id: number;
@@ -132,7 +132,7 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
   async function handleAddPhase() {
     if (!newPhaseDate || !newPhaseLabel) return;
     try {
-      await apiPost(`/api/behavior-targets/${target.id}/phase-changes`, { changeDate: newPhaseDate, label: newPhaseLabel });
+      await createPhaseChange(target.id, { changeDate: newPhaseDate, label: newPhaseLabel });
       toast.success("Phase change added");
       setAddingPhase(false);
       setNewPhaseDate("");
@@ -145,7 +145,7 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
 
   async function handleDeletePhase(id: number) {
     try {
-      await apiDelete(`/api/phase-changes/${id}`);
+      await deletePhaseChange(id);
       toast.success("Phase change removed");
       onPhaseChangesUpdate();
     } catch {
@@ -502,7 +502,7 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
   async function loadIoa() {
     setLoading(true);
     try {
-      const data = await apiGet(`/api/students/${studentId}/ioa-summary`);
+      const data = await getIoaSummary(studentId);
       setIoaData(data);
     } catch {}
     setLoading(false);

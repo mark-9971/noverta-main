@@ -25,8 +25,8 @@ export default function Alerts() {
   const [resolveNote, setResolveNote] = useState("");
   const [resolving, setResolving] = useState(false);
 
-  const { filterParams } = useSchoolContext();
-  const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false", ...filterParams } as any);
+  const { typedFilter } = useSchoolContext();
+  const { data: alerts, isLoading, isError, refetch } = useListAlerts({ resolved: showResolved ? "true" : "false", ...typedFilter });
   const { mutateAsync: resolveAlert } = useResolveAlert();
 
   const alertList = (alerts as any[]) ?? [];
@@ -41,7 +41,7 @@ export default function Alerts() {
     if (!resolveConfirm) return;
     setResolving(true);
     try {
-      await resolveAlert({ id: resolveConfirm.id, resolveAlertBody: { resolvedNote: resolveNote || "Resolved from dashboard" } } as any);
+      await resolveAlert({ id: resolveConfirm.id, data: { resolvedNote: resolveNote || "Resolved from dashboard" } });
       toast.success("Alert resolved");
       setResolveConfirm(null);
       setResolveNote("");

@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Plus, ChevronDown, ChevronUp, Edit3, Copy, Printer, X, Check, Archive } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import {
+  getStudentBips, listFbas, listBehaviorTargets,
+  updateBip, createBip, createBipVersion, deleteBip,
+} from "@workspace/api-client-react";
 
 interface Bip {
   id: number;
@@ -104,7 +107,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function fetchBips() {
     setLoading(true);
     try {
-      const data = await apiGet(`/api/students/${studentId}/bips`);
+      const data = await getStudentBips(studentId);
       setBips(data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -112,14 +115,14 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
 
   async function fetchFbas() {
     try {
-      const data = await apiGet(`/api/students/${studentId}/fbas`);
+      const data = await listFbas(studentId);
       setFbas(data);
     } catch { /* ignore */ }
   }
 
   async function fetchBehaviorTargets() {
     try {
-      const data = await apiGet(`/api/students/${studentId}/behavior-targets`);
+      const data = await listBehaviorTargets(studentId);
       setBehaviorTargets(data);
     } catch { /* ignore */ }
   }
@@ -188,9 +191,9 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       if (!body.effectiveDate) delete body.effectiveDate;
 
       if (editingBip) {
-        await apiPatch(`/api/bips/${editingBip.id}`, body);
+        await updateBip(editingBip.id, body);
       } else {
-        await apiPost(`/api/students/${studentId}/bips`, body);
+        await createBip(studentId, body);
       }
       toast.success(editingBip ? "BIP updated" : "BIP created");
       setShowForm(false);
@@ -205,7 +208,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function handleNewVersion(bip: Bip) {
     if (!confirm(`Create a new version of this BIP? Version ${bip.version} will be archived.`)) return;
     try {
-      await apiPost(`/api/bips/${bip.id}/new-version`, {});
+      await createBipVersion(bip.id);
       toast.success(`Version ${bip.version + 1} created`);
       fetchBips();
     } catch {
@@ -216,7 +219,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function handleDelete(bipId: number) {
     if (!confirm("Are you sure you want to delete this BIP? This cannot be undone.")) return;
     try {
-      await apiDelete(`/api/bips/${bipId}`);
+      await deleteBip(bipId);
       toast.success("BIP deleted");
       fetchBips();
     } catch {
@@ -226,7 +229,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
 
   async function handleStatusChange(bipId: number, newStatus: string) {
     try {
-      await apiPatch(`/api/bips/${bipId}`, { status: newStatus });
+      await updateBip(bipId, { status: newStatus });
       toast.success(`Status changed to ${STATUS_LABELS[newStatus] || newStatus}`);
       fetchBips();
     } catch {

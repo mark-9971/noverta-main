@@ -80,17 +80,21 @@ export default function Sessions() {
   const [editGoalEntries, setEditGoalEntries] = useState<GoalFormEntry[]>([]);
   const [editGoalsLoading, setEditGoalsLoading] = useState(false);
 
-  const { filterParams } = useSchoolContext();
-  const sessionParams: any = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE), ...filterParams };
-  if (dateFrom) sessionParams.dateFrom = dateFrom;
-  if (dateTo) sessionParams.dateTo = dateTo;
-  if (statusFilter !== "all" && statusFilter !== "makeup") sessionParams.status = statusFilter;
+  const { typedFilter } = useSchoolContext();
+  const sessionParams = {
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+    ...typedFilter,
+    ...(dateFrom ? { dateFrom } : {}),
+    ...(dateTo ? { dateTo } : {}),
+    ...(statusFilter !== "all" && statusFilter !== "makeup" ? { status: statusFilter } : {}),
+  };
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
-  const { data: students } = useListStudents({ ...filterParams } as any);
+  const { data: students } = useListStudents(typedFilter);
   const { data: serviceReqs } = useListServiceRequirements(
-    form.studentId ? { studentId: Number(form.studentId) } as any : ({} as any)
+    form.studentId ? { studentId: Number(form.studentId) } : {}
   );
-  const { data: staffData } = useListStaff({ ...filterParams } as any);
+  const { data: staffData } = useListStaff(typedFilter);
   const { data: missedReasonsData } = useListMissedReasons();
   const { mutateAsync: createSession } = useCreateSession();
   const updateSessionMutation = useUpdateSession();

@@ -1,28 +1,29 @@
-import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, User, Clock, MapPin, ChevronRight } from "lucide-react";
-import { listStudentClasses, getStudentGradesSummary } from "@workspace/api-client-react";
+import { User, Clock, MapPin } from "lucide-react";
+import {
+  getListStudentClassesQueryOptions,
+  getGetStudentGradesSummaryQueryOptions,
+} from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function StudentClasses() {
   const { studentId } = useRole();
-  const [classes, setClasses] = useState<any[]>([]);
-  const [grades, setGrades] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!studentId) return;
-    Promise.all([
-      listStudentClasses(studentId),
-      getStudentGradesSummary(studentId),
-    ]).then(([c, g]) => {
-      setClasses(c);
-      setGrades(g);
-      setLoading(false);
-    });
-  }, [studentId]);
+  const { data: classesData, isLoading: classesLoading } = useQuery({
+    ...getListStudentClassesQueryOptions(studentId),
+    enabled: !!studentId,
+  });
+  const { data: gradesData } = useQuery({
+    ...getGetStudentGradesSummaryQueryOptions(studentId),
+    enabled: !!studentId,
+  });
+
+  const loading = classesLoading;
+  const classes = (classesData as any[]) ?? [];
+  const grades = gradesData as any;
 
   if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 
@@ -40,7 +41,7 @@ export default function StudentClasses() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {classes.map(c => {
+        {classes.map((c: any) => {
           const classGrade = grades?.classes?.find((g: any) => g.classId === c.classId);
           const color = subjectColors[c.subject] || "bg-gray-500";
           return (

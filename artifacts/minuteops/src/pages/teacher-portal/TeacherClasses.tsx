@@ -1,23 +1,20 @@
-import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Clock, MapPin, ChevronRight, Plus } from "lucide-react";
-import { listClasses } from "@workspace/api-client-react";
+import { getListClassesQueryOptions } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function TeacherClasses() {
   const { teacherId } = useRole();
-  const [classes, setClasses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!teacherId) return;
-    listClasses({ teacherId: String(teacherId) } as any).then(d => {
-      setClasses(d);
-      setLoading(false);
-    });
-  }, [teacherId]);
+  const { data: classesData, isLoading: loading } = useQuery({
+    ...getListClassesQueryOptions({ teacherId }),
+    enabled: !!teacherId,
+  });
+
+  const classes = (classesData as any[]) ?? [];
 
   if (loading) return <div className="p-6"><div className="animate-pulse space-y-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl" />)}</div></div>;
 

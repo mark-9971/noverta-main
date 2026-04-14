@@ -9,8 +9,8 @@ import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 
 export default function Staff() {
-  const { filterParams, typedFilter } = useSchoolContext();
-  const { data: staff, isLoading } = useListStaff({ ...filterParams } as any);
+  const { typedFilter } = useSchoolContext();
+  const { data: staff, isLoading } = useListStaff(typedFilter);
   const { data: providerSummary } = useGetProviderDashboardSummary(typedFilter);
   const { data: paraSummary } = useGetParaDashboardSummary(typedFilter);
 

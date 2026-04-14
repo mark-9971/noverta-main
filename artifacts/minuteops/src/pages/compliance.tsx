@@ -10,9 +10,9 @@ import { RISK_CONFIG } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 
 export default function Compliance() {
-  const { filterParams, typedFilter } = useSchoolContext();
+  const { typedFilter } = useSchoolContext();
   const [riskFilter, setRiskFilter] = useState<string>("all");
-  const { data: progress, isLoading, isError, refetch } = useListMinuteProgress({ ...filterParams } as any);
+  const { data: progress, isLoading, isError, refetch } = useListMinuteProgress(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: riskOverview } = useGetDashboardRiskOverview(typedFilter);
 
