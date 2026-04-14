@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
 
 function sanitizeCell(v: string): string {
@@ -280,6 +280,17 @@ function ComplianceTrendTab() {
     });
   }, [data, selectedSchools, granularity]);
 
+  const semesterLines = useMemo(() => {
+    if (!data?.semesterMarkers || !chartData.length) return [];
+    return (data.semesterMarkers as any[]).map((m: any) => {
+      const closest = chartData.reduce((best: any, pt: any) => {
+        const dist = Math.abs(new Date(pt.period).getTime() - new Date(m.date).getTime());
+        return dist < best.dist ? { label: pt.label, dist } : best;
+      }, { label: "", dist: Infinity });
+      return { label: m.label, x: closest.label };
+    }).filter(m => m.x);
+  }, [data?.semesterMarkers, chartData]);
+
   const SCHOOL_COLORS = ["#059669", "#dc2626", "#6b7280", "#d97706"];
 
   function toggleSchool(id: number) {
@@ -353,6 +364,9 @@ function ComplianceTrendTab() {
                   formatter={(v: number) => [`${v}%`, ""]}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
+                {semesterLines.map((m, i) => (
+                  <ReferenceLine key={i} x={m.x} stroke="#d1d5db" strokeDasharray="4 4" label={{ value: m.label, position: "top", fontSize: 10, fill: "#9ca3af" }} />
+                ))}
                 <Line type="monotone" dataKey="overall" name="District Overall" stroke="#111827" strokeWidth={2.5} dot={{ r: 3 }} />
                 {data?.schools?.filter((s: any) => selectedSchools.has(s.schoolId)).map((s: any, i: number) => (
                   <Line
@@ -460,13 +474,13 @@ function AuditPackageTab() {
 
   function exportDetailedCsv() {
     if (!data?.students) return;
-    const headers = ["Student", "Date", "Service", "Duration (min)", "Status", "Makeup", "Provider", "Notes"];
+    const headers = ["Student", "Date", "Service", "Duration (min)", "Status", "Missed Reason", "Makeup", "Provider", "Notes"];
     const rows: string[][] = [];
     for (const s of data.students) {
       for (const sess of s.sessions) {
         rows.push([
           s.studentName, sess.date, sess.service ?? "", String(sess.duration),
-          sess.status, sess.isMakeup ? "Yes" : "No", sess.provider ?? "", sess.notes ?? "",
+          sess.status, sess.missedReason ?? "", sess.isMakeup ? "Yes" : "No", sess.provider ?? "", sess.notes ?? "",
         ]);
       }
     }
@@ -570,6 +584,7 @@ function AuditPackageTab() {
                                   <th className="text-left px-2 py-1.5 text-gray-400 font-semibold">Service</th>
                                   <th className="text-left px-2 py-1.5 text-gray-400 font-semibold">Duration</th>
                                   <th className="text-left px-2 py-1.5 text-gray-400 font-semibold">Status</th>
+                                  <th className="text-left px-2 py-1.5 text-gray-400 font-semibold">Reason</th>
                                   <th className="text-left px-2 py-1.5 text-gray-400 font-semibold">Provider</th>
                                 </tr>
                               </thead>
@@ -584,6 +599,7 @@ function AuditPackageTab() {
                                         {s.status}{s.isMakeup ? " (makeup)" : ""}
                                       </span>
                                     </td>
+                                    <td className="px-2 py-1.5 text-gray-500">{s.status === "missed" ? (s.missedReason ?? "—") : "—"}</td>
                                     <td className="px-2 py-1.5 text-gray-500">{s.provider ?? "—"}</td>
                                   </tr>
                                 ))}

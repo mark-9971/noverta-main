@@ -534,9 +534,15 @@ export interface SchoolTrend {
   trend: ComplianceTrendPoint[];
 }
 
+export interface SemesterMarker {
+  date: string;
+  label: string;
+}
+
 export interface ComplianceTrendResponse {
   trend: ComplianceTrendPoint[];
   schools: SchoolTrend[];
+  semesterMarkers: SemesterMarker[];
 }
 
 export interface RiskCounts {
@@ -596,6 +602,10 @@ export interface AuditStudentSession {
   provider?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  missedReason?: string | null;
+  /** @nullable */
+  missedReasonCategory?: string | null;
 }
 
 export interface AuditServiceRequirement {

@@ -17,4 +17,8 @@ export interface AuditStudentSession {
   provider?: string | null;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  missedReason?: string | null;
+  /** @nullable */
+  missedReasonCategory?: string | null;
 }

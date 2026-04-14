@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable, staffTable, programsTable,
   serviceRequirementsTable, parentContactsTable, schoolsTable, iepDocumentsTable,
-  alertsTable
+  alertsTable, missedReasonsTable
 } from "@workspace/db";
 import {
   GetStudentMinuteSummaryReportQueryParams,
@@ -178,12 +178,27 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
         sql`${serviceRequirementsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`
       ));
 
+    function normalizeToPeriod(requiredMinutes: number, intervalType: string): number {
+      if (gran === "monthly") {
+        if (intervalType === "weekly") return requiredMinutes * 4;
+        if (intervalType === "monthly") return requiredMinutes;
+        if (intervalType === "quarterly") return Math.round(requiredMinutes / 3);
+        return requiredMinutes * 4;
+      }
+      if (intervalType === "monthly") return Math.round(requiredMinutes / 4);
+      if (intervalType === "quarterly") return Math.round(requiredMinutes / 13);
+      return requiredMinutes;
+    }
+
     const reqByStudent = new Map<number, number>();
     for (const r of requirements) {
-      let weeklyMin = r.requiredMinutes;
-      if (r.intervalType === "monthly") weeklyMin = Math.round(r.requiredMinutes / 4);
-      else if (r.intervalType === "quarterly") weeklyMin = Math.round(r.requiredMinutes / 13);
-      reqByStudent.set(r.studentId, (reqByStudent.get(r.studentId) ?? 0) + weeklyMin);
+      const periodMin = normalizeToPeriod(r.requiredMinutes, r.intervalType);
+      reqByStudent.set(r.studentId, (reqByStudent.get(r.studentId) ?? 0) + periodMin);
+    }
+
+    const studentsWithReqs = new Set<number>();
+    for (const [sid, req] of reqByStudent) {
+      if (req > 0) studentsWithReqs.add(sid);
     }
 
     const schoolMap = new Map<number, string>();
@@ -230,39 +245,73 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
       }
     }
 
-    function calcCompliance(pd: PeriodData): number {
+    function calcCompliance(pd: PeriodData, studentPool: Set<number>): number {
       let onTrack = 0;
       let total = 0;
-      for (const [studentId, delivered] of pd.delivered) {
+      for (const studentId of studentPool) {
         const req = reqByStudent.get(studentId) ?? 0;
         if (req <= 0) continue;
         total++;
+        const delivered = pd.delivered.get(studentId) ?? 0;
         if (delivered >= req * 0.85) onTrack++;
       }
       return total > 0 ? Math.round((onTrack / total) * 100) : 100;
     }
 
+    const schoolStudents = new Map<number, Set<number>>();
+    for (const sid of studentsWithReqs) {
+      const schoolId = studentSchool.get(sid);
+      if (schoolId !== undefined) {
+        if (!schoolStudents.has(schoolId)) schoolStudents.set(schoolId, new Set());
+        schoolStudents.get(schoolId)!.add(sid);
+      }
+    }
+
+    function getSemesterMarkers(startStr: string, endStr: string) {
+      const markers: { date: string; label: string }[] = [];
+      const startYear = new Date(startStr + "T12:00:00").getFullYear();
+      const endYear = new Date(endStr + "T12:00:00").getFullYear();
+      for (let y = startYear - 1; y <= endYear + 1; y++) {
+        const sem1Start = `${y}-09-01`;
+        const sem2Start = `${y + 1}-01-15`;
+        const yearEnd = `${y + 1}-06-30`;
+        if (sem1Start >= startStr && sem1Start <= endStr) {
+          markers.push({ date: sem1Start, label: `Fall ${y}` });
+        }
+        if (sem2Start >= startStr && sem2Start <= endStr) {
+          markers.push({ date: sem2Start, label: `Spring ${y + 1}` });
+        }
+        if (yearEnd >= startStr && yearEnd <= endStr) {
+          markers.push({ date: yearEnd, label: `Year End ${y + 1}` });
+        }
+      }
+      return markers;
+    }
+
     const periods = [...byPeriod.keys()].sort();
     const trend = periods.map(pk => ({
       period: pk,
-      compliancePercent: calcCompliance(byPeriod.get(pk)!),
+      compliancePercent: calcCompliance(byPeriod.get(pk)!, studentsWithReqs),
       totalDelivered: byPeriod.get(pk)!.total,
-      studentsTracked: byPeriod.get(pk)!.delivered.size,
+      studentsTracked: studentsWithReqs.size,
     }));
 
     const schools: { schoolId: number; schoolName: string; trend: typeof trend }[] = [];
     for (const [schoolIdStr, periodMap] of bySchoolPeriod) {
       const sid = Number(schoolIdStr);
+      const pool = schoolStudents.get(sid) ?? new Set();
       const schoolTrend = periods.filter(pk => periodMap.has(pk)).map(pk => ({
         period: pk,
-        compliancePercent: calcCompliance(periodMap.get(pk)!),
+        compliancePercent: calcCompliance(periodMap.get(pk)!, pool),
         totalDelivered: periodMap.get(pk)!.total,
-        studentsTracked: periodMap.get(pk)!.delivered.size,
+        studentsTracked: pool.size,
       }));
       schools.push({ schoolId: sid, schoolName: schoolMap.get(sid) ?? "Unknown", trend: schoolTrend });
     }
 
-    res.json({ trend, schools });
+    const semesterMarkers = getSemesterMarkers(start, end);
+
+    res.json({ trend, schools, semesterMarkers });
   } catch (e: any) {
     console.error("GET /reports/compliance-trend error:", e);
     res.status(500).json({ error: "Failed to generate compliance trend" });
@@ -444,10 +493,13 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
         serviceTypeName: serviceTypesTable.name,
         staffFirstName: staffTable.firstName,
         staffLastName: staffTable.lastName,
+        missedReason: missedReasonsTable.label,
+        missedReasonCategory: missedReasonsTable.category,
       })
         .from(sessionLogsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
         .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
+        .leftJoin(missedReasonsTable, eq(missedReasonsTable.id, sessionLogsTable.missedReasonId))
         .where(and(
           sql`${sessionLogsTable.studentId} IN (${sql.join(sIds.map(id => sql`${id}`), sql`, `)})`,
           gte(sessionLogsTable.sessionDate, start),
@@ -529,6 +581,8 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
           isMakeup: s.isMakeup,
           provider: s.staffFirstName ? `${s.staffFirstName} ${s.staffLastName}` : null,
           notes: s.notes,
+          missedReason: s.missedReason ?? null,
+          missedReasonCategory: s.missedReasonCategory ?? null,
         })),
         parentContacts: sContacts.map(c => ({
           date: c.contactDate,

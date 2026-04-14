@@ -1700,6 +1700,12 @@ export const GetComplianceTrendReportResponse = zod.object({
       ),
     }),
   ),
+  semesterMarkers: zod.array(
+    zod.object({
+      date: zod.string(),
+      label: zod.string(),
+    }),
+  ),
 });
 
 /**
@@ -1797,6 +1803,8 @@ export const GetAuditPackageReportResponse = zod.object({
           isMakeup: zod.boolean(),
           provider: zod.string().nullish(),
           notes: zod.string().nullish(),
+          missedReason: zod.string().nullish(),
+          missedReasonCategory: zod.string().nullish(),
         }),
       ),
       parentContacts: zod.array(

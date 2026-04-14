@@ -101,6 +101,7 @@ export * from "./scheduleConflictConflictingBlocksItem";
 export * from "./school";
 export * from "./schoolComplianceSummary";
 export * from "./schoolTrend";
+export * from "./semesterMarker";
 export * from "./serviceDeliveryByType";
 export * from "./serviceRequirement";
 export * from "./serviceType";

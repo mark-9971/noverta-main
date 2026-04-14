@@ -7,8 +7,10 @@
  */
 import type { ComplianceTrendPoint } from "./complianceTrendPoint";
 import type { SchoolTrend } from "./schoolTrend";
+import type { SemesterMarker } from "./semesterMarker";
 
 export interface ComplianceTrendResponse {
   trend: ComplianceTrendPoint[];
   schools: SchoolTrend[];
+  semesterMarkers: SemesterMarker[];
 }

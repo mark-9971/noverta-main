@@ -2278,6 +2278,15 @@ components:
             $ref: "#/components/schemas/ComplianceTrendPoint"
       required: [schoolId, schoolName, trend]
 
+    SemesterMarker:
+      type: object
+      properties:
+        date:
+          type: string
+        label:
+          type: string
+      required: [date, label]
+
     ComplianceTrendResponse:
       type: object
       properties:
@@ -2289,7 +2298,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SchoolTrend"
-      required: [trend, schools]
+        semesterMarkers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SemesterMarker"
+      required: [trend, schools, semesterMarkers]
 
     RiskCounts:
       type: object
@@ -2386,6 +2399,10 @@ components:
         provider:
           type: ["string", "null"]
         notes:
+          type: ["string", "null"]
+        missedReason:
+          type: ["string", "null"]
+        missedReasonCategory:
           type: ["string", "null"]
       required: [date, duration, status, isMakeup]
 
