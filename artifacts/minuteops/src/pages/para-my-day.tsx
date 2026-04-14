@@ -6,7 +6,7 @@ import {
   Clock, MapPin, Play, Square, User, ChevronRight,
   Plus, Minus, Check, X, ArrowLeft, Target, BookOpen,
   AlertTriangle, Hand, Eye, Mic, Sparkles, Save,
-  FileText, Activity, GraduationCap
+  FileText, Activity, GraduationCap, Shield
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
@@ -101,9 +101,53 @@ interface BehaviorTally {
   count: number;
 }
 
+interface BipSummary {
+  id: number;
+  targetBehavior: string;
+  operationalDefinition: string;
+  hypothesizedFunction: string;
+  replacementBehaviors: string | null;
+  preventionStrategies: string | null;
+  teachingStrategies: string | null;
+  consequenceStrategies: string | null;
+  crisisPlan: string | null;
+  dataCollectionMethod: string | null;
+  status: string;
+  version: number;
+  effectiveDate: string | null;
+}
+
+interface GoalDataEntry {
+  iepGoalId: number;
+  programTargetId?: number;
+  programData?: {
+    trialsCorrect: number;
+    trialsTotal: number;
+    promptLevelUsed: string | null;
+  };
+  behaviorTargetId?: number;
+  behaviorData?: { value: number };
+}
+
+interface SessionPayload {
+  studentId: number;
+  staffId: number | null;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  status: string;
+  location: string | null;
+  notes: string | null;
+  serviceTypeId: number | null;
+  goalData?: GoalDataEntry[];
+}
+
 type ViewMode = "agenda" | "session" | "goals" | "bip";
 
-const PROMPT_LEVELS: { key: string; label: string; short: string; icon: any; color: string }[] = [
+type LucideIcon = React.ComponentType<{ className?: string }>;
+
+const PROMPT_LEVELS: { key: string; label: string; short: string; icon: LucideIcon; color: string }[] = [
   { key: "independent", label: "Independent", short: "I", icon: Sparkles, color: "bg-emerald-100 text-emerald-600 border-emerald-300" },
   { key: "verbal", label: "Verbal", short: "V", icon: Mic, color: "bg-gray-100 text-gray-700 border-gray-300" },
   { key: "gestural", label: "Gestural", short: "G", icon: Hand, color: "bg-gray-200 text-gray-700 border-gray-400" },
@@ -154,6 +198,7 @@ export default function ParaMyDayPage() {
     goals: IepGoal[];
     programs: ProgramTarget[];
     behaviors: BehaviorTarget[];
+    bips: BipSummary[];
   } | null>(null);
   const [trials, setTrials] = useState<TrialResult[]>([]);
   const [tallies, setTallies] = useState<BehaviorTally[]>([]);
@@ -234,7 +279,7 @@ export default function ParaMyDayPage() {
     const startTimeStr = activeSession.startedAt.toTimeString().slice(0, 5);
     const endTimeStr = now.toTimeString().slice(0, 5);
 
-    const goalData: any[] = [];
+    const goalData: GoalDataEntry[] = [];
     if (studentTargets) {
       for (const prog of studentTargets.programs) {
         const progTrials = trials.filter(t => t.programTargetId === prog.id);
@@ -271,7 +316,7 @@ export default function ParaMyDayPage() {
     }
 
     try {
-      const body: any = {
+      const body: SessionPayload = {
         studentId: activeSession.studentId,
         staffId,
         sessionDate: date,
@@ -348,6 +393,16 @@ export default function ParaMyDayPage() {
     );
   }
 
+  if (view === "bip" && activeSession && studentTargets) {
+    return (
+      <BipSummaryView
+        bips={studentTargets.bips}
+        studentName={activeSession.studentName}
+        onBack={() => setView("session")}
+      />
+    );
+  }
+
   if (view === "session" && activeSession) {
     return (
       <SessionView
@@ -363,6 +418,7 @@ export default function ParaMyDayPage() {
         onStop={stopAndSaveSession}
         onCancel={cancelSession}
         onViewGoals={() => setView("goals")}
+        onViewBip={() => setView("bip")}
         saving={saving}
         activeProgram={activeProgram}
         onSetActiveProgram={setActiveProgram}
@@ -466,14 +522,14 @@ export default function ParaMyDayPage() {
 
 function SessionView({
   session, elapsed, notes, onNotesChange, targets, trials, tallies,
-  onAddTrial, onUpdateTally, onStop, onCancel, onViewGoals, saving,
+  onAddTrial, onUpdateTally, onStop, onCancel, onViewGoals, onViewBip, saving,
   activeProgram, onSetActiveProgram,
 }: {
   session: ActiveSession;
   elapsed: number;
   notes: string;
   onNotesChange: (v: string) => void;
-  targets: { goals: IepGoal[]; programs: ProgramTarget[]; behaviors: BehaviorTarget[] } | null;
+  targets: { goals: IepGoal[]; programs: ProgramTarget[]; behaviors: BehaviorTarget[]; bips: BipSummary[] } | null;
   trials: TrialResult[];
   tallies: BehaviorTally[];
   onAddTrial: (pid: number, correct: boolean, prompt: string) => void;
@@ -481,6 +537,7 @@ function SessionView({
   onStop: () => void;
   onCancel: () => void;
   onViewGoals: () => void;
+  onViewBip: () => void;
   saving: boolean;
   activeProgram: number | null;
   onSetActiveProgram: (id: number | null) => void;
@@ -658,6 +715,15 @@ function SessionView({
           <BookOpen className="w-4 h-4" />
           View Goals
         </button>
+        {targets && targets.bips.length > 0 && (
+          <button
+            onClick={onViewBip}
+            className="flex-1 min-h-[48px] rounded-xl bg-gray-50 border border-gray-200 text-gray-600 flex items-center justify-center gap-2 text-[13px] font-medium"
+          >
+            <Shield className="w-4 h-4" />
+            View BIP
+          </button>
+        )}
       </div>
 
       {targets && (
@@ -861,6 +927,83 @@ function GoalsSummary({
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function BipSummaryView({
+  bips, studentName, onBack,
+}: {
+  bips: BipSummary[];
+  studentName: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="p-4 max-w-lg mx-auto space-y-4 pb-24">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-gray-100 text-gray-600"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-[18px] font-bold text-gray-800">Behavior Intervention Plans</h1>
+          <p className="text-[13px] text-gray-400">{studentName}</p>
+        </div>
+      </div>
+
+      {bips.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Shield className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+            <p className="text-gray-400 text-sm">No active BIPs found.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bips.map(bip => (
+          <Card key={bip.id}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[15px] font-bold text-gray-800">{bip.targetBehavior}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                      bip.status === "active" ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-500"
+                    }`}>
+                      {bip.status}
+                    </span>
+                    <span className="text-[11px] text-gray-400">v{bip.version}</span>
+                  </div>
+                </div>
+              </div>
+
+              <BipSection label="Operational Definition" content={bip.operationalDefinition} />
+              <BipSection label="Hypothesized Function" content={bip.hypothesizedFunction} />
+              <BipSection label="Replacement Behaviors" content={bip.replacementBehaviors} />
+              <BipSection label="Prevention Strategies" content={bip.preventionStrategies} />
+              <BipSection label="Teaching Strategies" content={bip.teachingStrategies} />
+              <BipSection label="Consequence Strategies" content={bip.consequenceStrategies} />
+              <BipSection label="Crisis Plan" content={bip.crisisPlan} highlight />
+              {bip.dataCollectionMethod && (
+                <BipSection label="Data Collection" content={bip.dataCollectionMethod} />
+              )}
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+function BipSection({ label, content, highlight }: { label: string; content: string | null; highlight?: boolean }) {
+  if (!content) return null;
+  return (
+    <div className={`rounded-lg p-3 ${highlight ? "bg-red-50 border border-red-100" : "bg-gray-50 border border-gray-100"}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${highlight ? "text-red-500" : "text-gray-500"}`}>
+        {label}
+      </p>
+      <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{content}</p>
     </div>
   );
 }

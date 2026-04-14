@@ -3385,3 +3385,114 @@ export const GetIoaSummaryResponse = zod.record(
     meetsThreshold: zod.boolean(),
   }),
 );
+
+/**
+ * @summary Get paraprofessional daily schedule
+ */
+export const GetParaMyDayQueryParams = zod.object({
+  staffId: zod.coerce.number(),
+  date: zod.date(),
+});
+
+export const GetParaMyDayResponse = zod.object({
+  date: zod.coerce.date(),
+  dayOfWeek: zod.enum([
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ]),
+  blocks: zod.array(
+    zod.object({
+      id: zod.number(),
+      staffId: zod.number(),
+      studentId: zod.number().nullish(),
+      serviceTypeId: zod.number().nullish(),
+      dayOfWeek: zod.enum([
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ]),
+      startTime: zod.string(),
+      endTime: zod.string(),
+      location: zod.string().nullish(),
+      studentName: zod.string().nullish(),
+      serviceTypeName: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get student targets for para data collection
+ */
+export const GetParaStudentTargetsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetParaStudentTargetsResponse = zod.object({
+  goals: zod.array(
+    zod.object({
+      id: zod.number(),
+      goalNumber: zod.number(),
+      goalArea: zod.string().nullish(),
+      serviceArea: zod.string().nullish(),
+      annualGoal: zod.string(),
+      baseline: zod.string().nullish(),
+      targetCriterion: zod.string().nullish(),
+      status: zod.string(),
+      programTargetId: zod.number().nullish(),
+      behaviorTargetId: zod.number().nullish(),
+    }),
+  ),
+  programs: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      domain: zod.string().nullish(),
+      programType: zod.string().nullish(),
+      tutorInstructions: zod.string().nullish(),
+      steps: zod.array(
+        zod.object({
+          id: zod.number(),
+          stepNumber: zod.number(),
+          name: zod.string(),
+          sdInstruction: zod.string().nullish(),
+          targetResponse: zod.string().nullish(),
+          mastered: zod.boolean(),
+        }),
+      ),
+    }),
+  ),
+  behaviors: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      operationalDefinition: zod.string().nullish(),
+      measurementType: zod.string().nullish(),
+    }),
+  ),
+  bips: zod.array(
+    zod.object({
+      id: zod.number(),
+      targetBehavior: zod.string(),
+      operationalDefinition: zod.string(),
+      hypothesizedFunction: zod.string(),
+      replacementBehaviors: zod.string().nullish(),
+      preventionStrategies: zod.string().nullish(),
+      teachingStrategies: zod.string().nullish(),
+      consequenceStrategies: zod.string().nullish(),
+      crisisPlan: zod.string().nullish(),
+      dataCollectionMethod: zod.string().nullish(),
+      status: zod.string(),
+      version: zod.number(),
+      effectiveDate: zod.coerce.date().nullish(),
+    }),
+  ),
+});

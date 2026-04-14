@@ -1900,6 +1900,112 @@ export interface IoaTargetSummary {
   meetsThreshold: boolean;
 }
 
+export type ParaScheduleBlockDayOfWeek =
+  (typeof ParaScheduleBlockDayOfWeek)[keyof typeof ParaScheduleBlockDayOfWeek];
+
+export const ParaScheduleBlockDayOfWeek = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+
+export interface ParaScheduleBlock {
+  id: number;
+  staffId: number;
+  studentId?: number | null;
+  serviceTypeId?: number | null;
+  dayOfWeek: ParaScheduleBlockDayOfWeek;
+  startTime: string;
+  endTime: string;
+  location?: string | null;
+  studentName?: string | null;
+  serviceTypeName?: string | null;
+}
+
+export type ParaMyDayResponseDayOfWeek =
+  (typeof ParaMyDayResponseDayOfWeek)[keyof typeof ParaMyDayResponseDayOfWeek];
+
+export const ParaMyDayResponseDayOfWeek = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+
+export interface ParaMyDayResponse {
+  date: string;
+  dayOfWeek: ParaMyDayResponseDayOfWeek;
+  blocks: ParaScheduleBlock[];
+}
+
+export interface ParaIepGoal {
+  id: number;
+  goalNumber: number;
+  goalArea?: string | null;
+  serviceArea?: string | null;
+  annualGoal: string;
+  baseline?: string | null;
+  targetCriterion?: string | null;
+  status: string;
+  programTargetId?: number | null;
+  behaviorTargetId?: number | null;
+}
+
+export interface ParaProgramStep {
+  id: number;
+  stepNumber: number;
+  name: string;
+  sdInstruction?: string | null;
+  targetResponse?: string | null;
+  mastered: boolean;
+}
+
+export interface ParaProgramTarget {
+  id: number;
+  name: string;
+  domain?: string | null;
+  programType?: string | null;
+  tutorInstructions?: string | null;
+  steps: ParaProgramStep[];
+}
+
+export interface ParaBehaviorTarget {
+  id: number;
+  name: string;
+  operationalDefinition?: string | null;
+  measurementType?: string | null;
+}
+
+export interface ParaBipSummary {
+  id: number;
+  targetBehavior: string;
+  operationalDefinition: string;
+  hypothesizedFunction: string;
+  replacementBehaviors?: string | null;
+  preventionStrategies?: string | null;
+  teachingStrategies?: string | null;
+  consequenceStrategies?: string | null;
+  crisisPlan?: string | null;
+  dataCollectionMethod?: string | null;
+  status: string;
+  version: number;
+  effectiveDate?: string | null;
+}
+
+export interface ParaStudentTargetsResponse {
+  goals: ParaIepGoal[];
+  programs: ParaProgramTarget[];
+  behaviors: ParaBehaviorTarget[];
+  bips: ParaBipSummary[];
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2607,3 +2713,8 @@ export type GetIoaSummaryParams = {
 };
 
 export type GetIoaSummary200 = { [key: string]: IoaTargetSummary };
+
+export type GetParaMyDayParams = {
+  staffId: number;
+  date: string;
+};

@@ -3,15 +3,46 @@ import { db } from "@workspace/db";
 import {
   scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
   iepGoalsTable, programTargetsTable, behaviorTargetsTable,
-  programStepsTable,
+  programStepsTable, behaviorInterventionPlansTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 function dayOfWeekFromDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
+}
+
+interface ScheduleBlockRow {
+  id: number;
+  staffId: number;
+  studentId: number | null;
+  serviceTypeId: number | null;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  blockLabel: string | null;
+  blockType: string | null;
+  notes: string | null;
+  studentFirst: string | null;
+  studentLast: string | null;
+  serviceTypeName: string | null;
+}
+
+interface ProgramStepRow {
+  id: number;
+  programTargetId: number;
+  stepNumber: number;
+  name: string;
+  sdInstruction: string | null;
+  targetResponse: string | null;
+  materials: string | null;
+  promptStrategy: string | null;
+  errorCorrection: string | null;
+  active: boolean;
+  mastered: boolean;
 }
 
 router.get("/para/my-day", async (req, res): Promise<void> => {
@@ -26,32 +57,32 @@ router.get("/para/my-day", async (req, res): Promise<void> => {
 
     const dayOfWeek = dayOfWeekFromDate(date);
 
-    const blocks = await db
-    .select({
-      id: scheduleBlocksTable.id,
-      staffId: scheduleBlocksTable.staffId,
-      studentId: scheduleBlocksTable.studentId,
-      serviceTypeId: scheduleBlocksTable.serviceTypeId,
-      dayOfWeek: scheduleBlocksTable.dayOfWeek,
-      startTime: scheduleBlocksTable.startTime,
-      endTime: scheduleBlocksTable.endTime,
-      location: scheduleBlocksTable.location,
-      blockLabel: scheduleBlocksTable.blockLabel,
-      blockType: scheduleBlocksTable.blockType,
-      notes: scheduleBlocksTable.notes,
-      studentFirst: studentsTable.firstName,
-      studentLast: studentsTable.lastName,
-      serviceTypeName: serviceTypesTable.name,
-    })
-    .from(scheduleBlocksTable)
-    .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
-    .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
-    .where(and(
-      eq(scheduleBlocksTable.staffId, staffId),
-      eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
-      eq(scheduleBlocksTable.isRecurring, true),
-    ))
-    .orderBy(scheduleBlocksTable.startTime);
+    const blocks: ScheduleBlockRow[] = await db
+      .select({
+        id: scheduleBlocksTable.id,
+        staffId: scheduleBlocksTable.staffId,
+        studentId: scheduleBlocksTable.studentId,
+        serviceTypeId: scheduleBlocksTable.serviceTypeId,
+        dayOfWeek: scheduleBlocksTable.dayOfWeek,
+        startTime: scheduleBlocksTable.startTime,
+        endTime: scheduleBlocksTable.endTime,
+        location: scheduleBlocksTable.location,
+        blockLabel: scheduleBlocksTable.blockLabel,
+        blockType: scheduleBlocksTable.blockType,
+        notes: scheduleBlocksTable.notes,
+        studentFirst: studentsTable.firstName,
+        studentLast: studentsTable.lastName,
+        serviceTypeName: serviceTypesTable.name,
+      })
+      .from(scheduleBlocksTable)
+      .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
+      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
+      .where(and(
+        eq(scheduleBlocksTable.staffId, staffId),
+        eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
+        eq(scheduleBlocksTable.isRecurring, true),
+      ))
+      .orderBy(scheduleBlocksTable.startTime);
 
     res.json({
       date,
@@ -72,7 +103,7 @@ router.get("/para/my-day", async (req, res): Promise<void> => {
         serviceTypeName: b.serviceTypeName,
       })),
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("GET /para/my-day error:", e);
     res.status(500).json({ error: "Failed to load schedule" });
   }
@@ -86,28 +117,44 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
       return;
     }
 
-  const [goals, programs, behaviors] = await Promise.all([
-    db.select().from(iepGoalsTable).where(and(
-      eq(iepGoalsTable.studentId, studentId),
-      eq(iepGoalsTable.active, true),
-    )),
-    db.select().from(programTargetsTable).where(and(
-      eq(programTargetsTable.studentId, studentId),
-      eq(programTargetsTable.active, true),
-    )),
-    db.select().from(behaviorTargetsTable).where(and(
-      eq(behaviorTargetsTable.studentId, studentId),
-      eq(behaviorTargetsTable.active, true),
-    )),
-  ]);
+    const [goals, programs, behaviors, bips] = await Promise.all([
+      db.select().from(iepGoalsTable).where(and(
+        eq(iepGoalsTable.studentId, studentId),
+        eq(iepGoalsTable.active, true),
+      )),
+      db.select().from(programTargetsTable).where(and(
+        eq(programTargetsTable.studentId, studentId),
+        eq(programTargetsTable.active, true),
+      )),
+      db.select().from(behaviorTargetsTable).where(and(
+        eq(behaviorTargetsTable.studentId, studentId),
+        eq(behaviorTargetsTable.active, true),
+      )),
+      db.select().from(behaviorInterventionPlansTable).where(and(
+        eq(behaviorInterventionPlansTable.studentId, studentId),
+        sql`${behaviorInterventionPlansTable.status} IN ('active', 'approved')`,
+      )).orderBy(desc(behaviorInterventionPlansTable.version)),
+    ]);
 
-  const programIds = programs.map(p => p.id);
-  let steps: any[] = [];
-  if (programIds.length > 0) {
-    steps = await db.select().from(programStepsTable).where(
-      sql`${programStepsTable.programTargetId} IN (${sql.join(programIds.map(id => sql`${id}`), sql`, `)})`
-    );
-  }
+    const programIds = programs.map(p => p.id);
+    let steps: ProgramStepRow[] = [];
+    if (programIds.length > 0) {
+      steps = await db.select({
+        id: programStepsTable.id,
+        programTargetId: programStepsTable.programTargetId,
+        stepNumber: programStepsTable.stepNumber,
+        name: programStepsTable.name,
+        sdInstruction: programStepsTable.sdInstruction,
+        targetResponse: programStepsTable.targetResponse,
+        materials: programStepsTable.materials,
+        promptStrategy: programStepsTable.promptStrategy,
+        errorCorrection: programStepsTable.errorCorrection,
+        active: programStepsTable.active,
+        mastered: programStepsTable.mastered,
+      }).from(programStepsTable).where(
+        sql`${programStepsTable.programTargetId} IN (${sql.join(programIds.map(id => sql`${id}`), sql`, `)})`
+      );
+    }
 
     res.json({
       goals: goals.map(g => ({
@@ -136,9 +183,9 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
         masteryCriterionSessions: p.masteryCriterionSessions,
         tutorInstructions: p.tutorInstructions,
         steps: steps
-          .filter(s => s.programTargetId === p.id && s.active)
-          .sort((a: any, b: any) => a.stepNumber - b.stepNumber)
-          .map((s: any) => ({
+          .filter((s: ProgramStepRow) => s.programTargetId === p.id && s.active)
+          .sort((a: ProgramStepRow, b: ProgramStepRow) => a.stepNumber - b.stepNumber)
+          .map((s: ProgramStepRow) => ({
             id: s.id,
             stepNumber: s.stepNumber,
             name: s.name,
@@ -159,8 +206,23 @@ router.get("/para/student-targets/:studentId", async (req, res): Promise<void> =
         baselineValue: b.baselineValue,
         goalValue: b.goalValue,
       })),
+      bips: bips.map(bip => ({
+        id: bip.id,
+        targetBehavior: bip.targetBehavior,
+        operationalDefinition: bip.operationalDefinition,
+        hypothesizedFunction: bip.hypothesizedFunction,
+        replacementBehaviors: bip.replacementBehaviors,
+        preventionStrategies: bip.preventionStrategies,
+        teachingStrategies: bip.teachingStrategies,
+        consequenceStrategies: bip.consequenceStrategies,
+        crisisPlan: bip.crisisPlan,
+        dataCollectionMethod: bip.dataCollectionMethod,
+        status: bip.status,
+        version: bip.version,
+        effectiveDate: bip.effectiveDate,
+      })),
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("GET /para/student-targets error:", e);
     res.status(500).json({ error: "Failed to load student targets" });
   }

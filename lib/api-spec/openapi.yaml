@@ -40,6 +40,8 @@ tags:
     description: Clinical supervision tracking for BCBA oversight of RBTs and paraprofessionals
   - name: bip
     description: Behavior Intervention Plan management with versioning
+  - name: para
+    description: Paraprofessional mobile data collection endpoints
 
 paths:
   /healthz:
@@ -2715,6 +2717,50 @@ paths:
                 type: object
                 additionalProperties:
                   $ref: "#/components/schemas/IoaTargetSummary"
+
+  /para/my-day:
+    get:
+      operationId: getParaMyDay
+      tags: [para]
+      summary: Get paraprofessional daily schedule
+      parameters:
+        - name: staffId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily schedule with blocks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParaMyDayResponse"
+
+  /para/student-targets/{studentId}:
+    get:
+      operationId: getParaStudentTargets
+      tags: [para]
+      summary: Get student targets for para data collection
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student goals, programs, behaviors, and BIPs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParaStudentTargetsResponse"
 
 components:
   schemas:
@@ -5497,3 +5543,196 @@ components:
         meetsThreshold:
           type: boolean
       required: [targetName, sessions, averageAgreement, meetsThreshold]
+
+    ParaScheduleBlock:
+      type: object
+      properties:
+        id:
+          type: integer
+        staffId:
+          type: integer
+        studentId:
+          type: integer
+          nullable: true
+        serviceTypeId:
+          type: integer
+          nullable: true
+        dayOfWeek:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        location:
+          type: string
+          nullable: true
+        studentName:
+          type: string
+          nullable: true
+        serviceTypeName:
+          type: string
+          nullable: true
+      required: [id, staffId, dayOfWeek, startTime, endTime]
+
+    ParaMyDayResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        dayOfWeek:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaScheduleBlock"
+      required: [date, dayOfWeek, blocks]
+
+    ParaIepGoal:
+      type: object
+      properties:
+        id:
+          type: integer
+        goalNumber:
+          type: integer
+        goalArea:
+          type: string
+          nullable: true
+        serviceArea:
+          type: string
+          nullable: true
+        annualGoal:
+          type: string
+        baseline:
+          type: string
+          nullable: true
+        targetCriterion:
+          type: string
+          nullable: true
+        status:
+          type: string
+        programTargetId:
+          type: integer
+          nullable: true
+        behaviorTargetId:
+          type: integer
+          nullable: true
+      required: [id, goalNumber, annualGoal, status]
+
+    ParaProgramStep:
+      type: object
+      properties:
+        id:
+          type: integer
+        stepNumber:
+          type: integer
+        name:
+          type: string
+        sdInstruction:
+          type: string
+          nullable: true
+        targetResponse:
+          type: string
+          nullable: true
+        mastered:
+          type: boolean
+      required: [id, stepNumber, name, mastered]
+
+    ParaProgramTarget:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        domain:
+          type: string
+          nullable: true
+        programType:
+          type: string
+          nullable: true
+        tutorInstructions:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaProgramStep"
+      required: [id, name, steps]
+
+    ParaBehaviorTarget:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        operationalDefinition:
+          type: string
+          nullable: true
+        measurementType:
+          type: string
+          nullable: true
+      required: [id, name]
+
+    ParaBipSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        targetBehavior:
+          type: string
+        operationalDefinition:
+          type: string
+        hypothesizedFunction:
+          type: string
+        replacementBehaviors:
+          type: string
+          nullable: true
+        preventionStrategies:
+          type: string
+          nullable: true
+        teachingStrategies:
+          type: string
+          nullable: true
+        consequenceStrategies:
+          type: string
+          nullable: true
+        crisisPlan:
+          type: string
+          nullable: true
+        dataCollectionMethod:
+          type: string
+          nullable: true
+        status:
+          type: string
+        version:
+          type: integer
+        effectiveDate:
+          type: string
+          format: date
+          nullable: true
+      required: [id, targetBehavior, operationalDefinition, hypothesizedFunction, status, version]
+
+    ParaStudentTargetsResponse:
+      type: object
+      properties:
+        goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaIepGoal"
+        programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaProgramTarget"
+        behaviors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaBehaviorTarget"
+        bips:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaBipSummary"
+      required: [goals, programs, behaviors, bips]

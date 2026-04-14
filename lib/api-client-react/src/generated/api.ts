@@ -84,6 +84,7 @@ import type {
   GetNotificationNeededParams,
   GetOverdueFollowupsParams,
   GetParaDashboardSummaryParams,
+  GetParaMyDayParams,
   GetProviderDashboardSummaryParams,
   GetProviderUtilizationParams,
   GetRebalancingSuggestionsParams,
@@ -119,6 +120,8 @@ import type {
   MissedSessionsTrendPoint,
   NotificationNeeded,
   ParaDashboardItem,
+  ParaMyDayResponse,
+  ParaStudentTargetsResponse,
   ParentContact,
   PhaseChange,
   Program,
@@ -10637,6 +10640,192 @@ export function useGetIoaSummary<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetIoaSummaryQueryOptions(studentId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get paraprofessional daily schedule
+ */
+export const getGetParaMyDayUrl = (params: GetParaMyDayParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/para/my-day?${stringifiedParams}`
+    : `/api/para/my-day`;
+};
+
+export const getParaMyDay = async (
+  params: GetParaMyDayParams,
+  options?: RequestInit,
+): Promise<ParaMyDayResponse> => {
+  return customFetch<ParaMyDayResponse>(getGetParaMyDayUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetParaMyDayQueryKey = (params?: GetParaMyDayParams) => {
+  return [`/api/para/my-day`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetParaMyDayQueryOptions = <
+  TData = Awaited<ReturnType<typeof getParaMyDay>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetParaMyDayParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getParaMyDay>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetParaMyDayQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getParaMyDay>>> = ({
+    signal,
+  }) => getParaMyDay(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getParaMyDay>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetParaMyDayQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getParaMyDay>>
+>;
+export type GetParaMyDayQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get paraprofessional daily schedule
+ */
+
+export function useGetParaMyDay<
+  TData = Awaited<ReturnType<typeof getParaMyDay>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetParaMyDayParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getParaMyDay>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetParaMyDayQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get student targets for para data collection
+ */
+export const getGetParaStudentTargetsUrl = (studentId: number) => {
+  return `/api/para/student-targets/${studentId}`;
+};
+
+export const getParaStudentTargets = async (
+  studentId: number,
+  options?: RequestInit,
+): Promise<ParaStudentTargetsResponse> => {
+  return customFetch<ParaStudentTargetsResponse>(
+    getGetParaStudentTargetsUrl(studentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetParaStudentTargetsQueryKey = (studentId: number) => {
+  return [`/api/para/student-targets/${studentId}`] as const;
+};
+
+export const getGetParaStudentTargetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getParaStudentTargets>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getParaStudentTargets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetParaStudentTargetsQueryKey(studentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getParaStudentTargets>>
+  > = ({ signal }) =>
+    getParaStudentTargets(studentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getParaStudentTargets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetParaStudentTargetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getParaStudentTargets>>
+>;
+export type GetParaStudentTargetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get student targets for para data collection
+ */
+
+export function useGetParaStudentTargets<
+  TData = Awaited<ReturnType<typeof getParaStudentTargets>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getParaStudentTargets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetParaStudentTargetsQueryOptions(studentId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
