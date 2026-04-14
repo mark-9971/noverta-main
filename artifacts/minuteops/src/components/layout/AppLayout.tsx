@@ -7,7 +7,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -50,6 +50,7 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
+      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
     ],
   },
@@ -106,6 +107,7 @@ const spedTeacherNav: NavSection[] = [
     items: [
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
+      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/search", label: "IEP Search", icon: Search },
     ],

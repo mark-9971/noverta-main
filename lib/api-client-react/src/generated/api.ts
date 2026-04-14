@@ -46,9 +46,11 @@ import type {
   CreateStaffAssignmentBody,
   CreateStaffBody,
   CreateStudentBody,
+  CreateSupervisionSessionBody,
   DashboardSummary,
   DeleteDistrict200,
   DeleteParentContact200,
+  DeleteSupervisionSession200,
   District,
   DistrictDetail,
   DistrictOverview,
@@ -56,6 +58,7 @@ import type {
   ErrorResponse,
   ExecutiveDashboard,
   ExecutiveSummaryResponse,
+  ExportSupervisionSessionsCsvParams,
   GenerateFromShortfallsBody,
   GenerateScheduleBody,
   GeneratedSchedule,
@@ -84,6 +87,7 @@ import type {
   GetStudentMinuteSummaryReportParams,
   GetStudentProgressSummaryParams,
   GetStudentSessionsParams,
+  GetSupervisionComplianceSummaryParams,
   HealthStatus,
   IepCalendarResponse,
   ImportRecord,
@@ -98,6 +102,7 @@ import type {
   ListStaffAssignmentsParams,
   ListStaffParams,
   ListStudentsParams,
+  ListSupervisionSessionsParams,
   LogCompSessionBody,
   MinuteProgress,
   MissedReason,
@@ -126,10 +131,14 @@ import type {
   StaffCoverageResponse,
   StaffDetail,
   StaffRateUpdate,
+  StaffSupervisionSummary,
   Student,
   StudentDetail,
   StudentMinuteSummaryRow,
   StudentSummary,
+  SupervisionComplianceSummary,
+  SupervisionSession,
+  SupervisionSessionWithNames,
   UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
   UpdateParentContactBody,
@@ -138,6 +147,7 @@ import type {
   UpdateSessionBody,
   UpdateStaffBody,
   UpdateStudentBody,
+  UpdateSupervisionSessionBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -8657,6 +8667,770 @@ export function useGetSharedProgress<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetSharedProgressQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List supervision sessions with filters
+ */
+export const getListSupervisionSessionsUrl = (
+  params?: ListSupervisionSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/supervision-sessions?${stringifiedParams}`
+    : `/api/supervision-sessions`;
+};
+
+export const listSupervisionSessions = async (
+  params?: ListSupervisionSessionsParams,
+  options?: RequestInit,
+): Promise<SupervisionSessionWithNames[]> => {
+  return customFetch<SupervisionSessionWithNames[]>(
+    getListSupervisionSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSupervisionSessionsQueryKey = (
+  params?: ListSupervisionSessionsParams,
+) => {
+  return [`/api/supervision-sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSupervisionSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSupervisionSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSupervisionSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSupervisionSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSupervisionSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSupervisionSessions>>
+  > = ({ signal }) =>
+    listSupervisionSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSupervisionSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSupervisionSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSupervisionSessions>>
+>;
+export type ListSupervisionSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supervision sessions with filters
+ */
+
+export function useListSupervisionSessions<
+  TData = Awaited<ReturnType<typeof listSupervisionSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListSupervisionSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSupervisionSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSupervisionSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a new supervision session
+ */
+export const getCreateSupervisionSessionUrl = () => {
+  return `/api/supervision-sessions`;
+};
+
+export const createSupervisionSession = async (
+  createSupervisionSessionBody: CreateSupervisionSessionBody,
+  options?: RequestInit,
+): Promise<SupervisionSession> => {
+  return customFetch<SupervisionSession>(getCreateSupervisionSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSupervisionSessionBody),
+  });
+};
+
+export const getCreateSupervisionSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSupervisionSession>>,
+    TError,
+    { data: BodyType<CreateSupervisionSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSupervisionSession>>,
+  TError,
+  { data: BodyType<CreateSupervisionSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["createSupervisionSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSupervisionSession>>,
+    { data: BodyType<CreateSupervisionSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSupervisionSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSupervisionSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSupervisionSession>>
+>;
+export type CreateSupervisionSessionMutationBody =
+  BodyType<CreateSupervisionSessionBody>;
+export type CreateSupervisionSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log a new supervision session
+ */
+export const useCreateSupervisionSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSupervisionSession>>,
+    TError,
+    { data: BodyType<CreateSupervisionSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSupervisionSession>>,
+  TError,
+  { data: BodyType<CreateSupervisionSessionBody> },
+  TContext
+> => {
+  return useMutation(getCreateSupervisionSessionMutationOptions(options));
+};
+
+/**
+ * @summary Get a supervision session by ID
+ */
+export const getGetSupervisionSessionUrl = (id: number) => {
+  return `/api/supervision-sessions/${id}`;
+};
+
+export const getSupervisionSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SupervisionSession> => {
+  return customFetch<SupervisionSession>(getGetSupervisionSessionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSupervisionSessionQueryKey = (id: number) => {
+  return [`/api/supervision-sessions/${id}`] as const;
+};
+
+export const getGetSupervisionSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSupervisionSession>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSupervisionSessionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSupervisionSession>>
+  > = ({ signal }) => getSupervisionSession(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSupervisionSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSupervisionSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSupervisionSession>>
+>;
+export type GetSupervisionSessionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a supervision session by ID
+ */
+
+export function useGetSupervisionSession<
+  TData = Awaited<ReturnType<typeof getSupervisionSession>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSupervisionSessionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a supervision session
+ */
+export const getUpdateSupervisionSessionUrl = (id: number) => {
+  return `/api/supervision-sessions/${id}`;
+};
+
+export const updateSupervisionSession = async (
+  id: number,
+  updateSupervisionSessionBody: UpdateSupervisionSessionBody,
+  options?: RequestInit,
+): Promise<SupervisionSession> => {
+  return customFetch<SupervisionSession>(getUpdateSupervisionSessionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSupervisionSessionBody),
+  });
+};
+
+export const getUpdateSupervisionSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSupervisionSession>>,
+    TError,
+    { id: number; data: BodyType<UpdateSupervisionSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSupervisionSession>>,
+  TError,
+  { id: number; data: BodyType<UpdateSupervisionSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSupervisionSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSupervisionSession>>,
+    { id: number; data: BodyType<UpdateSupervisionSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSupervisionSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSupervisionSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSupervisionSession>>
+>;
+export type UpdateSupervisionSessionMutationBody =
+  BodyType<UpdateSupervisionSessionBody>;
+export type UpdateSupervisionSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a supervision session
+ */
+export const useUpdateSupervisionSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSupervisionSession>>,
+    TError,
+    { id: number; data: BodyType<UpdateSupervisionSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSupervisionSession>>,
+  TError,
+  { id: number; data: BodyType<UpdateSupervisionSessionBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSupervisionSessionMutationOptions(options));
+};
+
+/**
+ * @summary Delete a supervision session
+ */
+export const getDeleteSupervisionSessionUrl = (id: number) => {
+  return `/api/supervision-sessions/${id}`;
+};
+
+export const deleteSupervisionSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteSupervisionSession200> => {
+  return customFetch<DeleteSupervisionSession200>(
+    getDeleteSupervisionSessionUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteSupervisionSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSupervisionSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSupervisionSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSupervisionSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSupervisionSession>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSupervisionSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSupervisionSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSupervisionSession>>
+>;
+
+export type DeleteSupervisionSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a supervision session
+ */
+export const useDeleteSupervisionSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSupervisionSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSupervisionSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSupervisionSessionMutationOptions(options));
+};
+
+/**
+ * @summary Get supervision compliance summary for all supervisees
+ */
+export const getGetSupervisionComplianceSummaryUrl = (
+  params?: GetSupervisionComplianceSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/supervision/compliance-summary?${stringifiedParams}`
+    : `/api/supervision/compliance-summary`;
+};
+
+export const getSupervisionComplianceSummary = async (
+  params?: GetSupervisionComplianceSummaryParams,
+  options?: RequestInit,
+): Promise<SupervisionComplianceSummary[]> => {
+  return customFetch<SupervisionComplianceSummary[]>(
+    getGetSupervisionComplianceSummaryUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSupervisionComplianceSummaryQueryKey = (
+  params?: GetSupervisionComplianceSummaryParams,
+) => {
+  return [
+    `/api/supervision/compliance-summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetSupervisionComplianceSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSupervisionComplianceSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSupervisionComplianceSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionComplianceSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetSupervisionComplianceSummaryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSupervisionComplianceSummary>>
+  > = ({ signal }) =>
+    getSupervisionComplianceSummary(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSupervisionComplianceSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSupervisionComplianceSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSupervisionComplianceSummary>>
+>;
+export type GetSupervisionComplianceSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get supervision compliance summary for all supervisees
+ */
+
+export function useGetSupervisionComplianceSummary<
+  TData = Awaited<ReturnType<typeof getSupervisionComplianceSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSupervisionComplianceSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionComplianceSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSupervisionComplianceSummaryQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get supervision summary for a specific staff member
+ */
+export const getGetStaffSupervisionSummaryUrl = (staffId: number) => {
+  return `/api/supervision/staff/${staffId}/summary`;
+};
+
+export const getStaffSupervisionSummary = async (
+  staffId: number,
+  options?: RequestInit,
+): Promise<StaffSupervisionSummary> => {
+  return customFetch<StaffSupervisionSummary>(
+    getGetStaffSupervisionSummaryUrl(staffId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStaffSupervisionSummaryQueryKey = (staffId: number) => {
+  return [`/api/supervision/staff/${staffId}/summary`] as const;
+};
+
+export const getGetStaffSupervisionSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStaffSupervisionSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  staffId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStaffSupervisionSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStaffSupervisionSummaryQueryKey(staffId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStaffSupervisionSummary>>
+  > = ({ signal }) =>
+    getStaffSupervisionSummary(staffId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!staffId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStaffSupervisionSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStaffSupervisionSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStaffSupervisionSummary>>
+>;
+export type GetStaffSupervisionSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get supervision summary for a specific staff member
+ */
+
+export function useGetStaffSupervisionSummary<
+  TData = Awaited<ReturnType<typeof getStaffSupervisionSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  staffId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStaffSupervisionSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStaffSupervisionSummaryQueryOptions(
+    staffId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Export supervision sessions as CSV
+ */
+export const getExportSupervisionSessionsCsvUrl = (
+  params?: ExportSupervisionSessionsCsvParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/supervision-sessions/export/csv?${stringifiedParams}`
+    : `/api/supervision-sessions/export/csv`;
+};
+
+export const exportSupervisionSessionsCsv = async (
+  params?: ExportSupervisionSessionsCsvParams,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportSupervisionSessionsCsvUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportSupervisionSessionsCsvQueryKey = (
+  params?: ExportSupervisionSessionsCsvParams,
+) => {
+  return [
+    `/api/supervision-sessions/export/csv`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getExportSupervisionSessionsCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportSupervisionSessionsCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportSupervisionSessionsCsvQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>
+  > = ({ signal }) =>
+    exportSupervisionSessionsCsv(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportSupervisionSessionsCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>
+>;
+export type ExportSupervisionSessionsCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Export supervision sessions as CSV
+ */
+
+export function useExportSupervisionSessionsCsv<
+  TData = Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportSupervisionSessionsCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportSupervisionSessionsCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportSupervisionSessionsCsvQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

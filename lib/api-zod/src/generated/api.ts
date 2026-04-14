@@ -2871,3 +2871,185 @@ export const GetSharedProgressResponse = zod.object({
   behaviorData: zod.array(zod.object({}).passthrough()),
   programData: zod.array(zod.object({}).passthrough()),
 });
+
+/**
+ * @summary List supervision sessions with filters
+ */
+export const ListSupervisionSessionsQueryParams = zod.object({
+  supervisorId: zod.coerce.number().nullish(),
+  superviseeId: zod.coerce.number().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  supervisionType: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const ListSupervisionSessionsResponseItem = zod
+  .object({
+    id: zod.number(),
+    supervisorId: zod.number(),
+    superviseeId: zod.number(),
+    sessionDate: zod.string(),
+    durationMinutes: zod.number(),
+    supervisionType: zod.enum(["individual", "group", "direct_observation"]),
+    topics: zod.string().nullish(),
+    feedbackNotes: zod.string().nullish(),
+    status: zod.enum(["completed", "scheduled", "cancelled"]),
+    createdAt: zod.string().optional(),
+  })
+  .and(
+    zod.object({
+      supervisorName: zod.string().optional(),
+      superviseeName: zod.string().optional(),
+    }),
+  );
+export const ListSupervisionSessionsResponse = zod.array(
+  ListSupervisionSessionsResponseItem,
+);
+
+/**
+ * @summary Log a new supervision session
+ */
+export const CreateSupervisionSessionBody = zod.object({
+  supervisorId: zod.number(),
+  superviseeId: zod.number(),
+  sessionDate: zod.string(),
+  durationMinutes: zod.number(),
+  supervisionType: zod.enum(["individual", "group", "direct_observation"]),
+  topics: zod.string().nullish(),
+  feedbackNotes: zod.string().nullish(),
+  status: zod.enum(["completed", "scheduled", "cancelled"]),
+});
+
+/**
+ * @summary Get a supervision session by ID
+ */
+export const GetSupervisionSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSupervisionSessionResponse = zod.object({
+  id: zod.number(),
+  supervisorId: zod.number(),
+  superviseeId: zod.number(),
+  sessionDate: zod.string(),
+  durationMinutes: zod.number(),
+  supervisionType: zod.enum(["individual", "group", "direct_observation"]),
+  topics: zod.string().nullish(),
+  feedbackNotes: zod.string().nullish(),
+  status: zod.enum(["completed", "scheduled", "cancelled"]),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * @summary Update a supervision session
+ */
+export const UpdateSupervisionSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSupervisionSessionBody = zod.object({
+  sessionDate: zod.string().optional(),
+  durationMinutes: zod.number().optional(),
+  supervisionType: zod
+    .enum(["individual", "group", "direct_observation"])
+    .optional(),
+  topics: zod.string().nullish(),
+  feedbackNotes: zod.string().nullish(),
+  status: zod.enum(["completed", "scheduled", "cancelled"]).optional(),
+});
+
+export const UpdateSupervisionSessionResponse = zod.object({
+  id: zod.number(),
+  supervisorId: zod.number(),
+  superviseeId: zod.number(),
+  sessionDate: zod.string(),
+  durationMinutes: zod.number(),
+  supervisionType: zod.enum(["individual", "group", "direct_observation"]),
+  topics: zod.string().nullish(),
+  feedbackNotes: zod.string().nullish(),
+  status: zod.enum(["completed", "scheduled", "cancelled"]),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a supervision session
+ */
+export const DeleteSupervisionSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteSupervisionSessionResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get supervision compliance summary for all supervisees
+ */
+export const GetSupervisionComplianceSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const GetSupervisionComplianceSummaryResponseItem = zod.object({
+  superviseeId: zod.number(),
+  superviseeName: zod.string(),
+  role: zod.string(),
+  directServiceMinutes: zod.number(),
+  requiredSupervisionMinutes: zod.number(),
+  deliveredSupervisionMinutes: zod.number(),
+  compliancePercent: zod.number(),
+  complianceStatus: zod.enum(["compliant", "at_risk", "non_compliant"]),
+});
+export const GetSupervisionComplianceSummaryResponse = zod.array(
+  GetSupervisionComplianceSummaryResponseItem,
+);
+
+/**
+ * @summary Get supervision summary for a specific staff member
+ */
+export const GetStaffSupervisionSummaryParams = zod.object({
+  staffId: zod.coerce.number(),
+});
+
+export const GetStaffSupervisionSummaryResponse = zod.object({
+  directServiceMinutes: zod.number(),
+  requiredSupervisionMinutes: zod.number(),
+  deliveredSupervisionMinutes: zod.number(),
+  compliancePercent: zod.number(),
+  complianceStatus: zod.enum(["compliant", "at_risk", "non_compliant"]),
+  recentSessions: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        supervisorId: zod.number(),
+        superviseeId: zod.number(),
+        sessionDate: zod.string(),
+        durationMinutes: zod.number(),
+        supervisionType: zod.enum([
+          "individual",
+          "group",
+          "direct_observation",
+        ]),
+        topics: zod.string().nullish(),
+        feedbackNotes: zod.string().nullish(),
+        status: zod.enum(["completed", "scheduled", "cancelled"]),
+        createdAt: zod.string().optional(),
+      })
+      .and(
+        zod.object({
+          supervisorName: zod.string().optional(),
+          superviseeName: zod.string().optional(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary Export supervision sessions as CSV
+ */
+export const ExportSupervisionSessionsCsvQueryParams = zod.object({
+  supervisorId: zod.coerce.number().nullish(),
+  superviseeId: zod.coerce.number().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});

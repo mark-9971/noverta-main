@@ -27,6 +27,7 @@ import iepBuilderRouter from "./iepBuilder";
 import resourceManagementRouter from "./resourceManagement";
 import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
+import supervisionRouter from "./supervision";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use(iepBuilderRouter);
 router.use(resourceManagementRouter);
 router.use(compensatoryRouter);
 router.use(parentCommunicationRouter);
+router.use(supervisionRouter);
 
 export default router;

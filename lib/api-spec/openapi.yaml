@@ -36,6 +36,8 @@ tags:
     description: Compensatory services tracking and obligations
   - name: parent-communication
     description: Parent communication log, follow-ups, and progress sharing
+  - name: supervision
+    description: Clinical supervision tracking for BCBA oversight of RBTs and paraprofessionals
 
 paths:
   /healthz:
@@ -2194,6 +2196,196 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProgressSummary"
+
+  # ─── Supervision ────────────────────────────────────────────────
+  /supervision-sessions:
+    get:
+      operationId: listSupervisionSessions
+      tags: [supervision]
+      summary: List supervision sessions with filters
+      parameters:
+        - name: supervisorId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: superviseeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: supervisionType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of supervision sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupervisionSessionWithNames"
+    post:
+      operationId: createSupervisionSession
+      tags: [supervision]
+      summary: Log a new supervision session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupervisionSessionBody"
+      responses:
+        "201":
+          description: Created supervision session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionSession"
+
+  /supervision-sessions/{id}:
+    get:
+      operationId: getSupervisionSession
+      tags: [supervision]
+      summary: Get a supervision session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Supervision session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionSession"
+    patch:
+      operationId: updateSupervisionSession
+      tags: [supervision]
+      summary: Update a supervision session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSupervisionSessionBody"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupervisionSession"
+    delete:
+      operationId: deleteSupervisionSession
+      tags: [supervision]
+      summary: Delete a supervision session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /supervision/compliance-summary:
+    get:
+      operationId: getSupervisionComplianceSummary
+      tags: [supervision]
+      summary: Get supervision compliance summary for all supervisees
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Compliance summary per supervisee
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupervisionComplianceSummary"
+
+  /supervision/staff/{staffId}/summary:
+    get:
+      operationId: getStaffSupervisionSummary
+      tags: [supervision]
+      summary: Get supervision summary for a specific staff member
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Staff supervision summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSupervisionSummary"
+
+  /supervision-sessions/export/csv:
+    get:
+      operationId: exportSupervisionSessionsCsv
+      tags: [supervision]
+      summary: Export supervision sessions as CSV
+      parameters:
+        - name: supervisorId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: superviseeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
 
 components:
   schemas:
@@ -4631,3 +4823,123 @@ components:
         url:
           type: string
       required: [token, expiresAt, url]
+
+    SupervisionSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        supervisorId:
+          type: integer
+        superviseeId:
+          type: integer
+        sessionDate:
+          type: string
+        durationMinutes:
+          type: integer
+        supervisionType:
+          type: string
+          enum: [individual, group, direct_observation]
+        topics:
+          type: ["string", "null"]
+        feedbackNotes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [completed, scheduled, cancelled]
+        createdAt:
+          type: string
+      required: [id, supervisorId, superviseeId, sessionDate, durationMinutes, supervisionType, status]
+
+    SupervisionSessionWithNames:
+      allOf:
+        - $ref: "#/components/schemas/SupervisionSession"
+        - type: object
+          properties:
+            supervisorName:
+              type: string
+            superviseeName:
+              type: string
+
+    CreateSupervisionSessionBody:
+      type: object
+      properties:
+        supervisorId:
+          type: integer
+        superviseeId:
+          type: integer
+        sessionDate:
+          type: string
+        durationMinutes:
+          type: integer
+        supervisionType:
+          type: string
+          enum: [individual, group, direct_observation]
+        topics:
+          type: ["string", "null"]
+        feedbackNotes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [completed, scheduled, cancelled]
+      required: [supervisorId, superviseeId, sessionDate, durationMinutes, supervisionType, status]
+
+    UpdateSupervisionSessionBody:
+      type: object
+      properties:
+        sessionDate:
+          type: string
+        durationMinutes:
+          type: integer
+        supervisionType:
+          type: string
+          enum: [individual, group, direct_observation]
+        topics:
+          type: ["string", "null"]
+        feedbackNotes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [completed, scheduled, cancelled]
+
+    SupervisionComplianceSummary:
+      type: object
+      properties:
+        superviseeId:
+          type: integer
+        superviseeName:
+          type: string
+        role:
+          type: string
+        directServiceMinutes:
+          type: number
+        requiredSupervisionMinutes:
+          type: number
+        deliveredSupervisionMinutes:
+          type: number
+        compliancePercent:
+          type: number
+        complianceStatus:
+          type: string
+          enum: [compliant, at_risk, non_compliant]
+      required: [superviseeId, superviseeName, role, directServiceMinutes, requiredSupervisionMinutes, deliveredSupervisionMinutes, compliancePercent, complianceStatus]
+
+    StaffSupervisionSummary:
+      type: object
+      properties:
+        directServiceMinutes:
+          type: number
+        requiredSupervisionMinutes:
+          type: number
+        deliveredSupervisionMinutes:
+          type: number
+        compliancePercent:
+          type: number
+        complianceStatus:
+          type: string
+          enum: [compliant, at_risk, non_compliant]
+        recentSessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupervisionSessionWithNames"
+      required: [directServiceMinutes, requiredSupervisionMinutes, deliveredSupervisionMinutes, compliancePercent, complianceStatus, recentSessions]

@@ -1591,6 +1591,142 @@ export interface ShareLink {
   url: string;
 }
 
+export type SupervisionSessionSupervisionType =
+  (typeof SupervisionSessionSupervisionType)[keyof typeof SupervisionSessionSupervisionType];
+
+export const SupervisionSessionSupervisionType = {
+  individual: "individual",
+  group: "group",
+  direct_observation: "direct_observation",
+} as const;
+
+export type SupervisionSessionStatus =
+  (typeof SupervisionSessionStatus)[keyof typeof SupervisionSessionStatus];
+
+export const SupervisionSessionStatus = {
+  completed: "completed",
+  scheduled: "scheduled",
+  cancelled: "cancelled",
+} as const;
+
+export interface SupervisionSession {
+  id: number;
+  supervisorId: number;
+  superviseeId: number;
+  sessionDate: string;
+  durationMinutes: number;
+  supervisionType: SupervisionSessionSupervisionType;
+  /** @nullable */
+  topics?: string | null;
+  /** @nullable */
+  feedbackNotes?: string | null;
+  status: SupervisionSessionStatus;
+  createdAt?: string;
+}
+
+export type SupervisionSessionWithNames = SupervisionSession & {
+  supervisorName?: string;
+  superviseeName?: string;
+};
+
+export type CreateSupervisionSessionBodySupervisionType =
+  (typeof CreateSupervisionSessionBodySupervisionType)[keyof typeof CreateSupervisionSessionBodySupervisionType];
+
+export const CreateSupervisionSessionBodySupervisionType = {
+  individual: "individual",
+  group: "group",
+  direct_observation: "direct_observation",
+} as const;
+
+export type CreateSupervisionSessionBodyStatus =
+  (typeof CreateSupervisionSessionBodyStatus)[keyof typeof CreateSupervisionSessionBodyStatus];
+
+export const CreateSupervisionSessionBodyStatus = {
+  completed: "completed",
+  scheduled: "scheduled",
+  cancelled: "cancelled",
+} as const;
+
+export interface CreateSupervisionSessionBody {
+  supervisorId: number;
+  superviseeId: number;
+  sessionDate: string;
+  durationMinutes: number;
+  supervisionType: CreateSupervisionSessionBodySupervisionType;
+  /** @nullable */
+  topics?: string | null;
+  /** @nullable */
+  feedbackNotes?: string | null;
+  status: CreateSupervisionSessionBodyStatus;
+}
+
+export type UpdateSupervisionSessionBodySupervisionType =
+  (typeof UpdateSupervisionSessionBodySupervisionType)[keyof typeof UpdateSupervisionSessionBodySupervisionType];
+
+export const UpdateSupervisionSessionBodySupervisionType = {
+  individual: "individual",
+  group: "group",
+  direct_observation: "direct_observation",
+} as const;
+
+export type UpdateSupervisionSessionBodyStatus =
+  (typeof UpdateSupervisionSessionBodyStatus)[keyof typeof UpdateSupervisionSessionBodyStatus];
+
+export const UpdateSupervisionSessionBodyStatus = {
+  completed: "completed",
+  scheduled: "scheduled",
+  cancelled: "cancelled",
+} as const;
+
+export interface UpdateSupervisionSessionBody {
+  sessionDate?: string;
+  durationMinutes?: number;
+  supervisionType?: UpdateSupervisionSessionBodySupervisionType;
+  /** @nullable */
+  topics?: string | null;
+  /** @nullable */
+  feedbackNotes?: string | null;
+  status?: UpdateSupervisionSessionBodyStatus;
+}
+
+export type SupervisionComplianceSummaryComplianceStatus =
+  (typeof SupervisionComplianceSummaryComplianceStatus)[keyof typeof SupervisionComplianceSummaryComplianceStatus];
+
+export const SupervisionComplianceSummaryComplianceStatus = {
+  compliant: "compliant",
+  at_risk: "at_risk",
+  non_compliant: "non_compliant",
+} as const;
+
+export interface SupervisionComplianceSummary {
+  superviseeId: number;
+  superviseeName: string;
+  role: string;
+  directServiceMinutes: number;
+  requiredSupervisionMinutes: number;
+  deliveredSupervisionMinutes: number;
+  compliancePercent: number;
+  complianceStatus: SupervisionComplianceSummaryComplianceStatus;
+}
+
+export type StaffSupervisionSummaryComplianceStatus =
+  (typeof StaffSupervisionSummaryComplianceStatus)[keyof typeof StaffSupervisionSummaryComplianceStatus];
+
+export const StaffSupervisionSummaryComplianceStatus = {
+  compliant: "compliant",
+  at_risk: "at_risk",
+  non_compliant: "non_compliant",
+} as const;
+
+export interface StaffSupervisionSummary {
+  directServiceMinutes: number;
+  requiredSupervisionMinutes: number;
+  deliveredSupervisionMinutes: number;
+  compliancePercent: number;
+  complianceStatus: StaffSupervisionSummaryComplianceStatus;
+  recentSessions: SupervisionSessionWithNames[];
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2183,4 +2319,61 @@ export type GetStudentProgressSummaryParams = {
 export type CreateProgressShareLinkBody = {
   days?: number;
   expiresInHours?: number;
+};
+
+export type ListSupervisionSessionsParams = {
+  /**
+   * @nullable
+   */
+  supervisorId?: number | null;
+  /**
+   * @nullable
+   */
+  superviseeId?: number | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  supervisionType?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type DeleteSupervisionSession200 = {
+  success: boolean;
+};
+
+export type GetSupervisionComplianceSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type ExportSupervisionSessionsCsvParams = {
+  /**
+   * @nullable
+   */
+  supervisorId?: number | null;
+  /**
+   * @nullable
+   */
+  superviseeId?: number | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
 };

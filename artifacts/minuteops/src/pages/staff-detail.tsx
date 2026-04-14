@@ -8,7 +8,7 @@ import { Link } from "wouter";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import {
   ArrowLeft, Users, Calendar, AlertTriangle, CheckCircle2, Clock,
-  Mail, Phone, Building, Shield, ChevronRight
+  Mail, Phone, Building, Shield, ChevronRight, ClipboardCheck
 } from "lucide-react";
 
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
@@ -20,6 +20,7 @@ export default function StaffDetail() {
   const staffId = parseInt(id || "0");
   const [staff, setStaff] = useState<any>(null);
   const [caseload, setCaseload] = useState<any>(null);
+  const [supervisionSummary, setSupervisionSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -31,9 +32,11 @@ export default function StaffDetail() {
       fetch(`${API}/staff/${staffId}`).then(r => r.ok ? r.json() : null),
       fetch(`${API}/staff/${staffId}/caseload-summary`).then(r => r.ok ? r.json() : { students: [], summary: {} }),
       fetch(`${API}/staff/${staffId}/caseload`).then(r => r.ok ? r.json() : []),
-    ]).then(([s, cs, cl]) => {
+      fetch(`${API}/supervision/staff/${staffId}/summary`).then(r => r.ok ? r.json() : null),
+    ]).then(([s, cs, cl, sup]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });
+      setSupervisionSummary(sup);
     }).catch(() => setLoadError(true)).finally(() => setLoading(false));
   }
 
@@ -225,6 +228,71 @@ export default function StaffDetail() {
               </div>
             ) : (
               <p className="text-sm text-gray-400 text-center py-4">No schedule blocks assigned</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {supervisionSummary && (
+        <Card>
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-emerald-600" />
+                Supervision Summary — Last 30 Days
+              </CardTitle>
+              <Link href="/supervision">
+                <Button variant="outline" size="sm" className="text-xs">View All</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-gray-50">
+                <p className="text-[11px] text-gray-400">Direct Service</p>
+                <p className="text-lg font-bold text-gray-800">{supervisionSummary.directServiceMinutes} min</p>
+              </div>
+              <div className="p-3 rounded-lg bg-gray-50">
+                <p className="text-[11px] text-gray-400">Required (5%)</p>
+                <p className="text-lg font-bold text-gray-800">{supervisionSummary.requiredSupervisionMinutes} min</p>
+              </div>
+              <div className="p-3 rounded-lg bg-gray-50">
+                <p className="text-[11px] text-gray-400">Delivered</p>
+                <p className="text-lg font-bold text-gray-800">{supervisionSummary.deliveredSupervisionMinutes} min</p>
+              </div>
+              <div className="p-3 rounded-lg bg-gray-50">
+                <p className="text-[11px] text-gray-400">Status</p>
+                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-medium ${
+                  supervisionSummary.complianceStatus === "compliant" ? "bg-emerald-100 text-emerald-700" :
+                  supervisionSummary.complianceStatus === "at_risk" ? "bg-amber-100 text-amber-700" :
+                  "bg-red-100 text-red-700"
+                }`}>
+                  {supervisionSummary.complianceStatus === "compliant" ? "Compliant" :
+                   supervisionSummary.complianceStatus === "at_risk" ? "At Risk" : "Non-Compliant"}
+                  {supervisionSummary.compliancePercent > 0 && ` (${supervisionSummary.compliancePercent}%)`}
+                </span>
+              </div>
+            </div>
+
+            {(supervisionSummary.recentSessions || []).length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[12px] font-semibold text-gray-500">Recent Sessions</p>
+                {supervisionSummary.recentSessions.slice(0, 5).map((s: any) => (
+                  <div key={s.id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 text-[12px]">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-700 font-medium">{s.sessionDate}</span>
+                      <span className="text-gray-500">{s.durationMinutes} min</span>
+                      <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 text-[10px]">
+                        {s.supervisionType === "individual" ? "Individual" :
+                         s.supervisionType === "group" ? "Group" : "Direct Obs"}
+                      </span>
+                    </div>
+                    <span className="text-gray-400">{s.supervisorName || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-3">No supervision sessions in the last 30 days</p>
             )}
           </CardContent>
         </Card>
