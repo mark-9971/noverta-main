@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
@@ -13,7 +13,12 @@ import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
-import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink } from "@workspace/api-client-react";
+import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink, createServiceRequirement, updateServiceRequirement, deleteServiceRequirement, listServiceTypes, listStaff, createStaffAssignment, deleteStaffAssignment } from "@workspace/api-client-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DIRECTION_COLORS = {
   decrease: { good: "#10b981", bad: "#ef4444", bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -60,6 +65,124 @@ export default function StudentDetail() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareDays, setShareDays] = useState(30);
   const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
+
+  const [svcDialogOpen, setSvcDialogOpen] = useState(false);
+  const [editingSvc, setEditingSvc] = useState<any>(null);
+  const [deletingSvc, setDeletingSvc] = useState<any>(null);
+  const [svcSaving, setSvcSaving] = useState(false);
+  const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [svcForm, setSvcForm] = useState({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: "", endDate: "", priority: "medium", notes: "" });
+
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignForm, setAssignForm] = useState({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" });
+
+  useEffect(() => {
+    listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
+    listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
+  }, []);
+
+  function openAddSvc() {
+    setEditingSvc(null);
+    setSvcForm({ serviceTypeId: "", providerId: "", deliveryType: "direct", requiredMinutes: "", intervalType: "weekly", startDate: new Date().toISOString().split("T")[0], endDate: "", priority: "medium", notes: "" });
+    setSvcDialogOpen(true);
+  }
+
+  function openEditSvc(req: any) {
+    setEditingSvc(req);
+    setSvcForm({
+      serviceTypeId: String(req.serviceTypeId),
+      providerId: req.providerId ? String(req.providerId) : "",
+      deliveryType: req.deliveryType || "direct",
+      requiredMinutes: String(req.requiredMinutes),
+      intervalType: req.intervalType || "weekly",
+      startDate: req.startDate || "",
+      endDate: req.endDate || "",
+      priority: req.priority || "medium",
+      notes: req.notes || "",
+    });
+    setSvcDialogOpen(true);
+  }
+
+  async function handleSaveSvc() {
+    if (!svcForm.serviceTypeId || !svcForm.requiredMinutes) { toast.error("Service type and minutes are required"); return; }
+    setSvcSaving(true);
+    try {
+      if (editingSvc) {
+        await updateServiceRequirement(editingSvc.id, {
+          providerId: svcForm.providerId && svcForm.providerId !== "__none" ? Number(svcForm.providerId) : null,
+          deliveryType: svcForm.deliveryType,
+          requiredMinutes: Number(svcForm.requiredMinutes),
+          intervalType: svcForm.intervalType,
+          startDate: svcForm.startDate || null,
+          endDate: svcForm.endDate || null,
+          priority: svcForm.priority,
+          notes: svcForm.notes || null,
+        });
+        toast.success("Service requirement updated");
+      } else {
+        await createServiceRequirement({
+          studentId,
+          serviceTypeId: Number(svcForm.serviceTypeId),
+          providerId: svcForm.providerId && svcForm.providerId !== "__none" ? Number(svcForm.providerId) : null,
+          deliveryType: svcForm.deliveryType,
+          requiredMinutes: Number(svcForm.requiredMinutes),
+          intervalType: svcForm.intervalType,
+          startDate: svcForm.startDate,
+          endDate: svcForm.endDate || null,
+          priority: svcForm.priority,
+          notes: svcForm.notes || null,
+          active: true,
+        });
+        toast.success("Service requirement added");
+      }
+      setSvcDialogOpen(false);
+      window.location.reload();
+    } catch { toast.error("Failed to save service requirement"); }
+    setSvcSaving(false);
+  }
+
+  async function handleDeleteSvc() {
+    if (!deletingSvc) return;
+    setSvcSaving(true);
+    try {
+      await deleteServiceRequirement(deletingSvc.id);
+      toast.success("Service requirement deleted");
+      setDeletingSvc(null);
+      window.location.reload();
+    } catch { toast.error("Failed to delete"); }
+    setSvcSaving(false);
+  }
+
+  async function handleAddAssignment() {
+    if (!assignForm.staffId || !assignForm.assignmentType) { toast.error("Staff and assignment type required"); return; }
+    setAssignSaving(true);
+    try {
+      await createStaffAssignment({
+        staffId: Number(assignForm.staffId),
+        studentId,
+        assignmentType: assignForm.assignmentType,
+        startDate: assignForm.startDate || null,
+        endDate: assignForm.endDate || null,
+        notes: assignForm.notes || null,
+      });
+      toast.success("Staff assigned");
+      setAssignDialogOpen(false);
+      window.location.reload();
+    } catch { toast.error("Failed to assign staff"); }
+    setAssignSaving(false);
+  }
+
+  async function handleRemoveAssignment(id: number) {
+    try {
+      await deleteStaffAssignment(id);
+      toast.success("Assignment removed");
+      window.location.reload();
+    } catch { toast.error("Failed to remove assignment"); }
+  }
+
+  const isEditable = role === "admin" || role === "case_manager";
 
   function loadPhaseChanges() {
     getStudentPhaseChanges(studentId).catch(() => {}).then(setPhaseChangesByTarget as any).catch(() => {});
@@ -435,14 +558,22 @@ export default function StudentDetail() {
 
         <Card className="lg:col-span-5">
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-gray-600">Service Breakdown</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600">Service Requirements</CardTitle>
+              {isEditable && (
+                <button onClick={openAddSvc} className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {progressList.length > 0 ? progressList.map((p: any, idx: number) => {
               const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
               const rCfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
+              const svcReq = s?.serviceRequirements?.find((r: any) => r.id === p.serviceRequirementId);
               return (
-                <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50">
+                <div key={p.serviceRequirementId ?? idx} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 group">
                   <MiniProgressRing value={pct} size={36} strokeWidth={3.5} color={rCfg.ringColor} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-gray-700 truncate">{p.serviceTypeName}</p>
@@ -454,14 +585,81 @@ export default function StudentDetail() {
                     <p className="text-sm font-bold text-gray-700">{pct}%</p>
                     <p className={`text-[10px] font-medium ${rCfg.color}`}>{rCfg.label}</p>
                   </div>
+                  {isEditable && svcReq && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <button onClick={() => openEditSvc(svcReq)} className="p-1 hover:bg-gray-200 rounded" title="Edit">
+                        <Pencil className="w-3 h-3 text-gray-400" />
+                      </button>
+                      <button onClick={() => setDeletingSvc(svcReq)} className="p-1 hover:bg-red-100 rounded" title="Delete">
+                        <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             }) : (
-              <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="w-full h-14" />)}</div>
+              <div className="text-center py-6">
+                <p className="text-sm text-gray-400">No service requirements</p>
+                {isEditable && (
+                  <button onClick={openAddSvc} className="mt-2 text-xs font-medium text-emerald-700 hover:text-emerald-800">
+                    + Add first service requirement
+                  </button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {s?.assignedStaff && (
+        <Card>
+          <CardHeader className="pb-0">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600">Assigned Staff</CardTitle>
+              {isEditable && (
+                <button onClick={() => { setAssignForm({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" }); setAssignDialogOpen(true); }} className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors">
+                  <UserPlus className="w-3.5 h-3.5" /> Assign
+                </button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {(s.assignedStaff as any[]).length > 0 ? (
+              <div className="space-y-2">
+                {(s.assignedStaff as any[]).map((a: any) => (
+                  <div key={a.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/50 group">
+                    <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-[11px] font-bold text-gray-600 flex-shrink-0">
+                      {a.staffName?.split(" ").map((n: string) => n[0]).join("") || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-gray-700">{a.staffName || `Staff #${a.staffId}`}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {a.assignmentType?.replace(/_/g, " ")}
+                        {a.staffRole ? ` · ${a.staffRole}` : ""}
+                        {a.startDate ? ` · from ${a.startDate}` : ""}
+                      </p>
+                    </div>
+                    {isEditable && (
+                      <button onClick={() => handleRemoveAssignment(a.id)} className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-100 rounded transition-all" title="Remove assignment">
+                        <UserMinus className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-400">No staff assigned</p>
+                {isEditable && (
+                  <button onClick={() => { setAssignForm({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" }); setAssignDialogOpen(true); }} className="mt-2 text-xs font-medium text-emerald-700 hover:text-emerald-800">
+                    + Assign first provider
+                  </button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {compSummary && compSummary.counts?.total > 0 && (
         <Card>
@@ -1023,6 +1221,164 @@ export default function StudentDetail() {
       </Card>
 
       <BipManagement studentId={studentId} readOnly={bipReadOnly} />
+
+      <Dialog open={svcDialogOpen} onOpenChange={v => { if (!v) setSvcDialogOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">
+              {editingSvc ? "Edit Service Requirement" : "Add Service Requirement"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Service Type</Label>
+                <Select value={svcForm.serviceTypeId} onValueChange={v => setSvcForm(f => ({ ...f, serviceTypeId: v }))} disabled={!!editingSvc}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {serviceTypesList.map((st: any) => (
+                      <SelectItem key={st.id} value={String(st.id)} className="text-[13px]">{st.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Provider</Label>
+                <Select value={svcForm.providerId} onValueChange={v => setSvcForm(f => ({ ...f, providerId: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none" className="text-[13px]">Unassigned</SelectItem>
+                    {staffList.map((st: any) => (
+                      <SelectItem key={st.id} value={String(st.id)} className="text-[13px]">{st.firstName} {st.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Required Minutes</Label>
+                <Input type="number" value={svcForm.requiredMinutes} onChange={e => setSvcForm(f => ({ ...f, requiredMinutes: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. 120" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Interval</Label>
+                <Select value={svcForm.intervalType} onValueChange={v => setSvcForm(f => ({ ...f, intervalType: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly" className="text-[13px]">Weekly</SelectItem>
+                    <SelectItem value="monthly" className="text-[13px]">Monthly</SelectItem>
+                    <SelectItem value="daily" className="text-[13px]">Daily</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Delivery Type</Label>
+                <Select value={svcForm.deliveryType} onValueChange={v => setSvcForm(f => ({ ...f, deliveryType: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="direct" className="text-[13px]">Direct</SelectItem>
+                    <SelectItem value="consult" className="text-[13px]">Consult</SelectItem>
+                    <SelectItem value="indirect" className="text-[13px]">Indirect</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Start Date</Label>
+                <input type="date" value={svcForm.startDate} onChange={e => setSvcForm(f => ({ ...f, startDate: e.target.value }))} className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">End Date</Label>
+                <input type="date" value={svcForm.endDate} onChange={e => setSvcForm(f => ({ ...f, endDate: e.target.value }))} className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Priority</Label>
+                <Select value={svcForm.priority} onValueChange={v => setSvcForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low" className="text-[13px]">Low</SelectItem>
+                    <SelectItem value="medium" className="text-[13px]">Medium</SelectItem>
+                    <SelectItem value="high" className="text-[13px]">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setSvcDialogOpen(false)} disabled={svcSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveSvc} disabled={svcSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {svcSaving ? "Saving…" : editingSvc ? "Update" : "Add Requirement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingSvc} onOpenChange={v => { if (!v) setDeletingSvc(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Delete Service Requirement</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-gray-600 py-2">
+            Are you sure you want to delete the service requirement for <strong>{deletingSvc?.serviceTypeName || "this service"}</strong>? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingSvc(null)} disabled={svcSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleDeleteSvc} disabled={svcSaving} className="bg-red-600 hover:bg-red-700 text-white">
+              {svcSaving ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assignDialogOpen} onOpenChange={v => { if (!v) setAssignDialogOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Assign Staff</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Staff Member</Label>
+              <Select value={assignForm.staffId} onValueChange={v => setAssignForm(f => ({ ...f, staffId: v }))}>
+                <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                <SelectContent>
+                  {staffList.map((st: any) => (
+                    <SelectItem key={st.id} value={String(st.id)} className="text-[13px]">{st.firstName} {st.lastName} ({st.role})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Assignment Type</Label>
+              <Select value={assignForm.assignmentType} onValueChange={v => setAssignForm(f => ({ ...f, assignmentType: v }))}>
+                <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="service_provider" className="text-[13px]">Service Provider</SelectItem>
+                  <SelectItem value="case_manager" className="text-[13px]">Case Manager</SelectItem>
+                  <SelectItem value="supervisor" className="text-[13px]">Supervisor</SelectItem>
+                  <SelectItem value="consultant" className="text-[13px]">Consultant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Start Date</Label>
+                <input type="date" value={assignForm.startDate} onChange={e => setAssignForm(f => ({ ...f, startDate: e.target.value }))} className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">End Date</Label>
+                <input type="date" value={assignForm.endDate} onChange={e => setAssignForm(f => ({ ...f, endDate: e.target.value }))} className="w-full h-9 px-3 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setAssignDialogOpen(false)} disabled={assignSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleAddAssignment} disabled={assignSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {assignSaving ? "Assigning…" : "Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showShareModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

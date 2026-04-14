@@ -1,15 +1,21 @@
 import { useState, useMemo } from "react";
-import { useListStudents, useListMinuteProgress, useListSpedStudents } from "@workspace/api-client-react";
+import { useListStudents, useListMinuteProgress, useListSpedStudents, useListSchools, createStudent } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 type TypeFilter = "all" | "sped" | "gen_ed";
 
@@ -17,11 +23,39 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" });
 
   const { filterParams } = useSchoolContext();
+  const { role } = useRole();
   const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500 } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
+  const { data: schoolsData } = useListSchools();
+  const schoolsList = (Array.isArray(schoolsData) ? schoolsData : []) as any[];
+
+  const isAdmin = role === "admin";
+
+  async function handleAddStudent() {
+    if (!addForm.firstName || !addForm.lastName) { toast.error("First and last name are required"); return; }
+    setAddSaving(true);
+    try {
+      await createStudent({
+        firstName: addForm.firstName,
+        lastName: addForm.lastName,
+        grade: addForm.grade || null,
+        schoolId: addForm.schoolId ? Number(addForm.schoolId) : null,
+        externalId: addForm.externalId || null,
+        status: "active",
+      });
+      toast.success(`${addForm.firstName} ${addForm.lastName} added`);
+      setAddDialogOpen(false);
+      setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" });
+      refetch();
+    } catch { toast.error("Failed to add student"); }
+    setAddSaving(false);
+  }
 
   const spedIds = new Set<number>((Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []).map((s: any) => s.id));
 
@@ -75,12 +109,33 @@ export default function Students() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Students</h1>
-        <p className="text-xs md:text-sm text-gray-400 mt-1">
-          {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Students</h1>
+          <p className="text-xs md:text-sm text-gray-400 mt-1">
+            {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => { setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" }); setAddDialogOpen(true); }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex-shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Student
+          </button>
+        )}
       </div>
+
+      {isAdmin && (
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[12px] text-gray-600">
+          <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <span className="font-medium text-gray-700">No SIS connected.</span> Student demographics are managed manually. Use the "Add Student" button above or{" "}
+            <Link href="/import-data" className="text-emerald-700 hover:text-emerald-800 underline">import from CSV</Link>{" "}
+            to add students in bulk.
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {([
@@ -182,6 +237,60 @@ export default function Students() {
           );
         })}
       </div>
+
+      <Dialog open={addDialogOpen} onOpenChange={v => { if (!v) setAddDialogOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Add Student</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">First Name</Label>
+                <Input value={addForm.firstName} onChange={e => setAddForm(f => ({ ...f, firstName: e.target.value }))} className="h-9 text-[13px]" placeholder="First name" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Last Name</Label>
+                <Input value={addForm.lastName} onChange={e => setAddForm(f => ({ ...f, lastName: e.target.value }))} className="h-9 text-[13px]" placeholder="Last name" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Grade</Label>
+                <Select value={addForm.grade} onValueChange={v => setAddForm(f => ({ ...f, grade: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {["PK", "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(g => (
+                      <SelectItem key={g} value={g} className="text-[13px]">{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">School</Label>
+                <Select value={addForm.schoolId} onValueChange={v => setAddForm(f => ({ ...f, schoolId: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {schoolsList.map((sch: any) => (
+                      <SelectItem key={sch.id} value={String(sch.id)} className="text-[13px]">{sch.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">External ID</Label>
+                <Input value={addForm.externalId} onChange={e => setAddForm(f => ({ ...f, externalId: e.target.value }))} className="h-9 text-[13px]" placeholder="SIS ID" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(false)} disabled={addSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleAddStudent} disabled={addSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {addSaving ? "Adding…" : "Add Student"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

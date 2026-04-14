@@ -6,13 +6,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
-import { Settings, RotateCcw, Calendar } from "lucide-react";
-import { updateSchoolScheduleSettings, listSchools } from "@workspace/api-client-react";
+import { Settings, RotateCcw, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { updateSchoolScheduleSettings, listSchools, createScheduleBlock, updateScheduleBlock, deleteScheduleBlock, listServiceTypes, useListSpedStudents } from "@workspace/api-client-react";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const WEEKDAY_LABELS: Record<string, string> = {
@@ -224,10 +225,103 @@ export default function Schedule() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [schoolConfig, setSchoolConfig] = useState<SchoolScheduleConfig | null>(null);
 
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<any>(null);
+  const [deletingBlock, setDeletingBlock] = useState<any>(null);
+  const [blockSaving, setBlockSaving] = useState(false);
+  const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
+  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", notes: "", blockType: "service", isRecurring: true });
+
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
   const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({ ...filterParams } as any);
   const { data: staff } = useListStaff({ ...filterParams } as any);
+  const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
+  const studentList = (Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []) as any[];
+
+  useEffect(() => {
+    listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
+  }, []);
+
+  function openAddBlock(dayOfWeek?: string, hour?: string) {
+    setEditingBlock(null);
+    setBlockForm({
+      staffId: staffFilter !== "all" ? staffFilter : "",
+      studentId: "",
+      serviceTypeId: "",
+      dayOfWeek: dayOfWeek || "monday",
+      startTime: hour || "09:00",
+      endTime: hour ? `${String(Number(hour.split(":")[0]) + 1).padStart(2, "0")}:00` : "10:00",
+      location: "",
+      notes: "",
+      blockType: "service",
+      isRecurring: true,
+    });
+    setBlockDialogOpen(true);
+  }
+
+  function openEditBlock(block: any) {
+    setEditingBlock(block);
+    setBlockForm({
+      staffId: String(block.staffId),
+      studentId: block.studentId ? String(block.studentId) : "",
+      serviceTypeId: block.serviceTypeId ? String(block.serviceTypeId) : "",
+      dayOfWeek: block.dayOfWeek,
+      startTime: block.startTime?.substring(0, 5) || "09:00",
+      endTime: block.endTime?.substring(0, 5) || "10:00",
+      location: block.location || "",
+      notes: block.notes || "",
+      blockType: block.blockType || "service",
+      isRecurring: block.isRecurring ?? true,
+    });
+    setBlockDialogOpen(true);
+  }
+
+  async function handleSaveBlock() {
+    if (!blockForm.staffId) { toast.error("Staff is required"); return; }
+    setBlockSaving(true);
+    try {
+      if (editingBlock) {
+        await updateScheduleBlock(editingBlock.id, {
+          studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
+          startTime: blockForm.startTime,
+          endTime: blockForm.endTime,
+          location: blockForm.location || null,
+          notes: blockForm.notes || null,
+        });
+        toast.success("Schedule block updated");
+      } else {
+        await createScheduleBlock({
+          staffId: Number(blockForm.staffId),
+          studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
+          serviceTypeId: blockForm.serviceTypeId && blockForm.serviceTypeId !== "__none" ? Number(blockForm.serviceTypeId) : null,
+          dayOfWeek: blockForm.dayOfWeek,
+          startTime: blockForm.startTime,
+          endTime: blockForm.endTime,
+          location: blockForm.location || null,
+          blockType: blockForm.blockType,
+          notes: blockForm.notes || null,
+          isRecurring: blockForm.isRecurring,
+        });
+        toast.success("Schedule block created");
+      }
+      setBlockDialogOpen(false);
+      refetch();
+    } catch { toast.error("Failed to save schedule block"); }
+    setBlockSaving(false);
+  }
+
+  async function handleDeleteBlock() {
+    if (!deletingBlock) return;
+    setBlockSaving(true);
+    try {
+      await deleteScheduleBlock(deletingBlock.id);
+      toast.success("Schedule block deleted");
+      setDeletingBlock(null);
+      refetch();
+    } catch { toast.error("Failed to delete block"); }
+    setBlockSaving(false);
+  }
 
   // Load school schedule configuration
   useEffect(() => {
@@ -323,11 +417,20 @@ export default function Schedule() {
         <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
           {isAdmin && (
             <button
+              onClick={() => openAddBlock()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Block
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-gray-500 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
             >
               <Settings className="w-3.5 h-3.5" />
-              Schedule Settings
+              Settings
             </button>
           )}
           <Select value={staffFilter} onValueChange={setStaffFilter}>
@@ -398,14 +501,24 @@ export default function Schedule() {
                     {columns.map(col => (
                       <td
                         key={col}
-                        className={`p-1 align-top ${todayRotationDay === col ? "bg-emerald-50/20" : ""}`}
+                        className={`p-1 align-top ${todayRotationDay === col ? "bg-emerald-50/20" : ""} ${isAdmin ? "cursor-pointer hover:bg-gray-50/60" : ""}`}
+                        onClick={() => { if (isAdmin && (grid[col]?.[hour] ?? []).length === 0) openAddBlock(col, hour); }}
                       >
                         <div className="space-y-1">
                           {(grid[col]?.[hour] ?? []).map((block: any) => (
-                            <div key={block.id} className={`text-[10px] p-2 rounded-lg border ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]} leading-tight`}>
+                            <div key={block.id} className={`text-[10px] p-2 rounded-lg border ${serviceColorMap[block.serviceTypeId] ?? BLOCK_COLORS[0]} leading-tight ${isAdmin ? "cursor-pointer hover:ring-1 hover:ring-emerald-300" : ""} group/block relative`} onClick={(e) => { e.stopPropagation(); if (isAdmin) openEditBlock(block); }}>
                               <div className="font-semibold truncate">{block.studentName ?? "Student"}</div>
                               <div className="opacity-70 truncate">{block.serviceTypeName}</div>
                               <div className="opacity-50 mt-0.5">{block.startTime}–{block.endTime}</div>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeletingBlock(block); }}
+                                  className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover/block:opacity-100 hover:bg-red-100 transition-opacity"
+                                  title="Delete block"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -447,7 +560,7 @@ export default function Schedule() {
                   const isToday = todayRotationDay && block.rotationDay === todayRotationDay;
 
                   return (
-                    <tr key={block.id} className={`hover:bg-gray-50/50 transition-colors ${isToday ? "bg-emerald-50/30" : ""}`}>
+                    <tr key={block.id} className={`hover:bg-gray-50/50 transition-colors ${isToday ? "bg-emerald-50/30" : ""} ${isAdmin ? "cursor-pointer" : ""} group`} onClick={() => { if (isAdmin) openEditBlock(block); }}>
                       <td className="px-5 py-3">
                         <span className={`text-[13px] font-medium ${isToday ? "text-emerald-700" : "text-gray-700"}`}>
                           {colLabel}
@@ -462,7 +575,14 @@ export default function Schedule() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-[13px] text-gray-500">{block.staffName ?? "—"}</td>
-                      <td className="px-5 py-3 text-[13px] text-gray-400">{block.location ?? "—"}</td>
+                      <td className="px-5 py-3 text-[13px] text-gray-400 flex items-center gap-2">
+                        {block.location ?? "—"}
+                        {isAdmin && (
+                          <button onClick={(e) => { e.stopPropagation(); setDeletingBlock(block); }} className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-100 rounded transition-opacity ml-auto" title="Delete">
+                            <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-500" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -472,7 +592,6 @@ export default function Schedule() {
         </Card>
       )}
 
-      {/* Settings dialog — admin only */}
       {isAdmin && schoolConfig && (
         <ScheduleSettingsDialog
           open={settingsOpen}
@@ -481,6 +600,108 @@ export default function Schedule() {
           onSaved={updated => setSchoolConfig(updated)}
         />
       )}
+
+      <Dialog open={blockDialogOpen} onOpenChange={v => { if (!v) setBlockDialogOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">
+              {editingBlock ? "Edit Schedule Block" : "Add Schedule Block"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Staff</Label>
+                <Select value={blockForm.staffId} onValueChange={v => setBlockForm(f => ({ ...f, staffId: v }))} disabled={!!editingBlock}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                  <SelectContent>
+                    {staffList.map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)} className="text-[13px]">{s.firstName} {s.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Student</Label>
+                <Select value={blockForm.studentId} onValueChange={v => setBlockForm(f => ({ ...f, studentId: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select student..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none" className="text-[13px]">None</SelectItem>
+                    {studentList.map((s: any) => (
+                      <SelectItem key={s.id} value={String(s.id)} className="text-[13px]">{s.firstName} {s.lastName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Service Type</Label>
+                <Select value={blockForm.serviceTypeId} onValueChange={v => setBlockForm(f => ({ ...f, serviceTypeId: v }))} disabled={!!editingBlock}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {serviceTypesList.map((st: any) => (
+                      <SelectItem key={st.id} value={String(st.id)} className="text-[13px]">{st.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Day</Label>
+                <Select value={blockForm.dayOfWeek} onValueChange={v => setBlockForm(f => ({ ...f, dayOfWeek: v }))} disabled={!!editingBlock}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {WEEKDAYS.map(d => (
+                      <SelectItem key={d} value={d} className="text-[13px]">{WEEKDAY_LABELS[d]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Start Time</Label>
+                <Input type="time" value={blockForm.startTime} onChange={e => setBlockForm(f => ({ ...f, startTime: e.target.value }))} className="h-9 text-[13px]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">End Time</Label>
+                <Input type="time" value={blockForm.endTime} onChange={e => setBlockForm(f => ({ ...f, endTime: e.target.value }))} className="h-9 text-[13px]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Location</Label>
+                <Input value={blockForm.location} onChange={e => setBlockForm(f => ({ ...f, location: e.target.value }))} className="h-9 text-[13px]" placeholder="Room 101" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Notes</Label>
+              <Textarea value={blockForm.notes} onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))} className="text-[13px] min-h-[60px] resize-none" placeholder="Optional notes..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setBlockDialogOpen(false)} disabled={blockSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveBlock} disabled={blockSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {blockSaving ? "Saving…" : editingBlock ? "Update Block" : "Create Block"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingBlock} onOpenChange={v => { if (!v) setDeletingBlock(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Delete Schedule Block</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-gray-600 py-2">
+            Delete {deletingBlock?.serviceTypeName || "this"} block for {deletingBlock?.studentName || "student"} on {WEEKDAY_LABELS[deletingBlock?.dayOfWeek] || deletingBlock?.dayOfWeek}?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingBlock(null)} disabled={blockSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleDeleteBlock} disabled={blockSaving} className="bg-red-600 hover:bg-red-700 text-white">
+              {blockSaving ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
