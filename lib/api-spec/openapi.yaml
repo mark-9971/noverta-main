@@ -7229,6 +7229,8 @@ components:
           type: boolean
         weekOf:
           type: ["string", "null"]
+        rotationDay:
+          type: ["string", "null"]
       required: [staffId, dayOfWeek, startTime, endTime, blockType, isRecurring]
 
     UpdateScheduleBlockBody:

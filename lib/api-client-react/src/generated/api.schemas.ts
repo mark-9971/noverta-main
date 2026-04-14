@@ -832,6 +832,8 @@ export interface CreateScheduleBlockBody {
   isRecurring: boolean;
   /** @nullable */
   weekOf?: string | null;
+  /** @nullable */
+  rotationDay?: string | null;
 }
 
 export interface UpdateScheduleBlockBody {

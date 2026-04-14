@@ -1604,6 +1604,7 @@ export const CreateScheduleBlockBody = zod.object({
   notes: zod.string().nullish(),
   isRecurring: zod.boolean(),
   weekOf: zod.string().nullish(),
+  rotationDay: zod.string().nullish(),
 });
 
 /**

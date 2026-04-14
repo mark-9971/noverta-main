@@ -230,7 +230,7 @@ export default function Schedule() {
   const [deletingBlock, setDeletingBlock] = useState<any>(null);
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
-  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", notes: "", blockType: "service", isRecurring: true });
+  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", notes: "", blockType: "service", isRecurring: true, rotationDay: "" });
 
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
@@ -257,6 +257,7 @@ export default function Schedule() {
       notes: "",
       blockType: "service",
       isRecurring: true,
+      rotationDay: !isStandard && col ? col : "",
     });
     setBlockDialogOpen(true);
   }
@@ -274,6 +275,7 @@ export default function Schedule() {
       notes: block.notes || "",
       blockType: block.blockType || "service",
       isRecurring: block.isRecurring ?? true,
+      rotationDay: block.rotationDay || "",
     });
     setBlockDialogOpen(true);
   }
@@ -303,6 +305,7 @@ export default function Schedule() {
           blockType: blockForm.blockType,
           notes: blockForm.notes || null,
           isRecurring: blockForm.isRecurring,
+          rotationDay: blockForm.rotationDay || null,
         });
         toast.success("Schedule block created");
       }
