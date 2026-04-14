@@ -344,7 +344,7 @@ router.patch("/team-meetings/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const updates: any = {};
-    for (const key of ["meetingType", "scheduledDate", "scheduledTime", "location", "status", "notes", "attendees", "consentStatus", "noticeSentDate", "outcome"]) {
+    for (const key of ["meetingType", "scheduledDate", "scheduledTime", "duration", "location", "meetingFormat", "status", "agendaItems", "notes", "attendees", "actionItems", "outcome", "followUpDate", "minutesFinalized", "consentStatus", "noticeSentDate"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [updated] = await db.update(teamMeetingsTable).set(updates).where(eq(teamMeetingsTable.id, id)).returning();
