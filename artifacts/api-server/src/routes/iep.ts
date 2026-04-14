@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
+import { logAudit } from "../lib/auditLog";
 
 const router: IRouter = Router();
 
@@ -116,6 +117,14 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
       iepDocumentId: iepDocumentId || null,
       notes: notes || null,
     }).returning();
+    logAudit(req, {
+      action: "create",
+      targetTable: "iep_goals",
+      targetId: goal.id,
+      studentId: studentId,
+      summary: `Created IEP goal: ${goalArea} #${goalNumber || 1}`,
+      newValues: { goalArea, annualGoal, targetCriterion } as Record<string, unknown>,
+    });
     res.status(201).json({
       ...goal,
       createdAt: goal.createdAt.toISOString(),
@@ -140,6 +149,14 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
     }
     const [updated] = await db.update(iepGoalsTable).set(updates).where(eq(iepGoalsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "iep_goals",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated IEP goal #${id}`,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update IEP goal" });
@@ -149,7 +166,16 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
 router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const [existing] = await db.select({ id: iepGoalsTable.id, studentId: iepGoalsTable.studentId, goalArea: iepGoalsTable.goalArea }).from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
     await db.delete(iepGoalsTable).where(eq(iepGoalsTable.id, id));
+    logAudit(req, {
+      action: "delete",
+      targetTable: "iep_goals",
+      targetId: id,
+      studentId: existing.studentId,
+      summary: `Deleted IEP goal #${id} (${existing.goalArea})`,
+    });
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to delete IEP goal" });

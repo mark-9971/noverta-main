@@ -29,6 +29,7 @@ import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
+import auditLogRouter from "./auditLog";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(compensatoryRouter);
 router.use(parentCommunicationRouter);
 router.use(supervisionRouter);
 router.use(paraRouter);
+router.use(auditLogRouter);
 
 export default router;

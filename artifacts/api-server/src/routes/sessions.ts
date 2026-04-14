@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, gte, lte, desc, asc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { logAudit } from "../lib/auditLog";
 
 type GoalEntry = {
   iepGoalId: number;
@@ -232,6 +233,14 @@ router.post("/sessions", async (req, res): Promise<void> => {
       return session;
     });
 
+    logAudit(req, {
+      action: "create",
+      targetTable: "session_logs",
+      targetId: result.id,
+      studentId: result.studentId,
+      summary: `Logged session for student #${result.studentId} on ${result.sessionDate}`,
+      newValues: { sessionDate: result.sessionDate, durationMinutes: result.durationMinutes, status: result.status } as Record<string, unknown>,
+    });
     res.status(201).json({ ...result, createdAt: result.createdAt.toISOString() });
   } catch (e: any) {
     console.error("POST /sessions error:", e);
@@ -736,6 +745,14 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
       }
 
       await client.query("COMMIT");
+      logAudit(req, {
+        action: "update",
+        targetTable: "session_logs",
+        targetId: session.id,
+        studentId: session.studentId,
+        summary: `Updated session #${session.id} for student #${session.studentId}`,
+        newValues: updateData as Record<string, unknown>,
+      });
       res.json({ ...session, createdAt: session.createdAt.toISOString() });
     } catch (err) {
       await client.query("ROLLBACK");

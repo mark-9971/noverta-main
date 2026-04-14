@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
 import PDFDocument from "pdfkit";
+import { logAudit } from "../lib/auditLog";
 
 const router = Router();
 
@@ -112,6 +113,13 @@ router.get("/protective-measures/incidents/:id", async (req: Request, res: Respo
     .where(eq(incidentSignaturesTable.incidentId, id))
     .orderBy(incidentSignaturesTable.requestedAt);
 
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: incident.studentId,
+    summary: `Viewed restraint incident #${id}`,
+  });
   res.json({
     ...incident,
     student,
@@ -249,6 +257,14 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
     await db.insert(incidentSignaturesTable).values(sigRequests);
   }
 
+  logAudit(req, {
+    action: "create",
+    targetTable: "restraint_incidents",
+    targetId: incident.id,
+    studentId: studentId,
+    summary: `Created ${body.incidentType} incident for student #${studentId}`,
+    newValues: { incidentType: body.incidentType, incidentDate: body.incidentDate, location: body.location } as Record<string, unknown>,
+  });
   res.status(201).json(incident);
 });
 
@@ -295,6 +311,14 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
   }
 
   const [updated] = await db.update(restraintIncidentsTable).set(updates).where(eq(restraintIncidentsTable.id, id)).returning();
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: updated.studentId,
+    summary: `Updated restraint incident #${id}`,
+    newValues: updates,
+  });
   res.json(updated);
 });
 
@@ -306,6 +330,12 @@ router.delete("/protective-measures/incidents/:id", async (req: Request, res: Re
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
   await db.delete(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  logAudit(req, {
+    action: "delete",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    summary: `Deleted restraint incident #${id}`,
+  });
   res.json({ success: true });
 });
 

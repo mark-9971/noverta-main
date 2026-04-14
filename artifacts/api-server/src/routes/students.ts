@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, ilike, or, desc, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { logAudit, diffObjects } from "../lib/auditLog";
 
 const router: IRouter = Router();
 
@@ -137,6 +138,14 @@ router.post("/students", async (req, res): Promise<void> => {
     return;
   }
   const [student] = await db.insert(studentsTable).values(parsed.data).returning();
+  logAudit(req, {
+    action: "create",
+    targetTable: "students",
+    targetId: student.id,
+    studentId: student.id,
+    summary: `Created student ${student.firstName} ${student.lastName}`,
+    newValues: parsed.data as Record<string, unknown>,
+  });
   res.status(201).json({ ...student, createdAt: student.createdAt.toISOString(), updatedAt: student.updatedAt.toISOString() });
 });
 
@@ -335,6 +344,14 @@ router.get("/students/:id", async (req, res): Promise<void> => {
       studentName: `${student.firstName} ${student.lastName}`,
     })),
   });
+
+  logAudit(req, {
+    action: "read",
+    targetTable: "students",
+    targetId: student.id,
+    studentId: student.id,
+    summary: `Viewed student detail: ${student.firstName} ${student.lastName}`,
+  });
 });
 
 router.patch("/students/:id", async (req, res): Promise<void> => {
@@ -361,10 +378,25 @@ router.patch("/students/:id", async (req, res): Promise<void> => {
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.tags !== undefined) updateData.tags = parsed.data.tags;
 
+  const [oldStudent] = await db.select().from(studentsTable).where(eq(studentsTable.id, params.data.id));
   const [student] = await db.update(studentsTable).set(updateData).where(eq(studentsTable.id, params.data.id)).returning();
   if (!student) {
     res.status(404).json({ error: "Student not found" });
     return;
+  }
+  if (oldStudent) {
+    const changes = diffObjects(oldStudent as Record<string, unknown>, student as Record<string, unknown>);
+    if (changes) {
+      logAudit(req, {
+        action: "update",
+        targetTable: "students",
+        targetId: student.id,
+        studentId: student.id,
+        summary: `Updated student ${student.firstName} ${student.lastName}`,
+        oldValues: changes.old,
+        newValues: changes.new,
+      });
+    }
   }
   res.json({ ...student, createdAt: student.createdAt.toISOString(), updatedAt: student.updatedAt.toISOString() });
 });
