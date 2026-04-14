@@ -80,8 +80,10 @@ export default function Dashboard() {
   const recent = (recentAlerts as any[])?.slice(0, 5) ?? [];
 
   const totalStudents = s?.totalActiveStudents ?? 0;
+  // Use trackedStudents (students with active service requirements) as compliance denominator
+  const trackedStudents = s?.trackedStudents ?? totalStudents;
   const onTrack = s?.onTrackStudents ?? 0;
-  const onTrackPct = totalStudents > 0 ? Math.round((onTrack / totalStudents) * 100) : 0;
+  const onTrackPct = trackedStudents > 0 ? Math.round((onTrack / trackedStudents) * 100) : 0;
 
   const riskPieData = ro ? [
     { name: "On Track", value: ro.onTrack },

@@ -123,8 +123,12 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     }
   }
 
+  // trackedStudents = students with at least one active service requirement (correct compliance denominator)
+  const trackedStudents = studentRisk.size;
+
   res.json({
     totalActiveStudents: activeStudentsResult?.count ?? 0,
+    trackedStudents,
     onTrackStudents: onTrack,
     slightlyBehindStudents: slightlyBehind,
     atRiskStudents: atRisk,
