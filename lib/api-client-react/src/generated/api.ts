@@ -146,6 +146,12 @@ import type {
   GetAnalyticsDeliveryHeatmap200,
   GetAnalyticsMinutesSummary200,
   GetAnalyticsOverview200,
+  GetAnalyticsPmAntecedents200Item,
+  GetAnalyticsPmByStudent200Item,
+  GetAnalyticsPmEpisodeRatio200,
+  GetAnalyticsPmOverview200,
+  GetAnalyticsPmPhaseTrends200Item,
+  GetAnalyticsPmPhaseTrendsParams,
   GetAnalyticsProgramSummary200,
   GetAnalyticsStudent200,
   GetAssignment200,
@@ -12016,6 +12022,431 @@ export function useGetAnalyticsStudent<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAnalyticsStudentQueryOptions(studentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get protective measures analytics overview
+ */
+export const getGetAnalyticsPmOverviewUrl = () => {
+  return `/api/analytics/pm-overview`;
+};
+
+export const getAnalyticsPmOverview = async (
+  options?: RequestInit,
+): Promise<GetAnalyticsPmOverview200> => {
+  return customFetch<GetAnalyticsPmOverview200>(
+    getGetAnalyticsPmOverviewUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnalyticsPmOverviewQueryKey = () => {
+  return [`/api/analytics/pm-overview`] as const;
+};
+
+export const getGetAnalyticsPmOverviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsPmOverview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnalyticsPmOverviewQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsPmOverview>>
+  > = ({ signal }) => getAnalyticsPmOverview({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmOverview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsPmOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsPmOverview>>
+>;
+export type GetAnalyticsPmOverviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get protective measures analytics overview
+ */
+
+export function useGetAnalyticsPmOverview<
+  TData = Awaited<ReturnType<typeof getAnalyticsPmOverview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsPmOverviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get protective measures per-student breakdown
+ */
+export const getGetAnalyticsPmByStudentUrl = () => {
+  return `/api/analytics/pm-by-student`;
+};
+
+export const getAnalyticsPmByStudent = async (
+  options?: RequestInit,
+): Promise<GetAnalyticsPmByStudent200Item[]> => {
+  return customFetch<GetAnalyticsPmByStudent200Item[]>(
+    getGetAnalyticsPmByStudentUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnalyticsPmByStudentQueryKey = () => {
+  return [`/api/analytics/pm-by-student`] as const;
+};
+
+export const getGetAnalyticsPmByStudentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsPmByStudent>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmByStudent>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnalyticsPmByStudentQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsPmByStudent>>
+  > = ({ signal }) => getAnalyticsPmByStudent({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmByStudent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsPmByStudentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsPmByStudent>>
+>;
+export type GetAnalyticsPmByStudentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get protective measures per-student breakdown
+ */
+
+export function useGetAnalyticsPmByStudent<
+  TData = Awaited<ReturnType<typeof getAnalyticsPmByStudent>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmByStudent>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsPmByStudentQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get protective measures antecedent breakdown
+ */
+export const getGetAnalyticsPmAntecedentsUrl = () => {
+  return `/api/analytics/pm-antecedents`;
+};
+
+export const getAnalyticsPmAntecedents = async (
+  options?: RequestInit,
+): Promise<GetAnalyticsPmAntecedents200Item[]> => {
+  return customFetch<GetAnalyticsPmAntecedents200Item[]>(
+    getGetAnalyticsPmAntecedentsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnalyticsPmAntecedentsQueryKey = () => {
+  return [`/api/analytics/pm-antecedents`] as const;
+};
+
+export const getGetAnalyticsPmAntecedentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnalyticsPmAntecedentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>
+  > = ({ signal }) => getAnalyticsPmAntecedents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsPmAntecedentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>
+>;
+export type GetAnalyticsPmAntecedentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get protective measures antecedent breakdown
+ */
+
+export function useGetAnalyticsPmAntecedents<
+  TData = Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmAntecedents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsPmAntecedentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get ratio of behavior episodes that resulted in a protective measure
+ */
+export const getGetAnalyticsPmEpisodeRatioUrl = () => {
+  return `/api/analytics/pm-episode-ratio`;
+};
+
+export const getAnalyticsPmEpisodeRatio = async (
+  options?: RequestInit,
+): Promise<GetAnalyticsPmEpisodeRatio200> => {
+  return customFetch<GetAnalyticsPmEpisodeRatio200>(
+    getGetAnalyticsPmEpisodeRatioUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnalyticsPmEpisodeRatioQueryKey = () => {
+  return [`/api/analytics/pm-episode-ratio`] as const;
+};
+
+export const getGetAnalyticsPmEpisodeRatioQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnalyticsPmEpisodeRatioQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>
+  > = ({ signal }) => getAnalyticsPmEpisodeRatio({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsPmEpisodeRatioQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>
+>;
+export type GetAnalyticsPmEpisodeRatioQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get ratio of behavior episodes that resulted in a protective measure
+ */
+
+export function useGetAnalyticsPmEpisodeRatio<
+  TData = Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmEpisodeRatio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsPmEpisodeRatioQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get PM incident trends relative to phase changes
+ */
+export const getGetAnalyticsPmPhaseTrendsUrl = (
+  params?: GetAnalyticsPmPhaseTrendsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/analytics/pm-phase-trends?${stringifiedParams}`
+    : `/api/analytics/pm-phase-trends`;
+};
+
+export const getAnalyticsPmPhaseTrends = async (
+  params?: GetAnalyticsPmPhaseTrendsParams,
+  options?: RequestInit,
+): Promise<GetAnalyticsPmPhaseTrends200Item[]> => {
+  return customFetch<GetAnalyticsPmPhaseTrends200Item[]>(
+    getGetAnalyticsPmPhaseTrendsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAnalyticsPmPhaseTrendsQueryKey = (
+  params?: GetAnalyticsPmPhaseTrendsParams,
+) => {
+  return [
+    `/api/analytics/pm-phase-trends`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetAnalyticsPmPhaseTrendsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAnalyticsPmPhaseTrendsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAnalyticsPmPhaseTrendsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>
+  > = ({ signal }) =>
+    getAnalyticsPmPhaseTrends(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalyticsPmPhaseTrendsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>
+>;
+export type GetAnalyticsPmPhaseTrendsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get PM incident trends relative to phase changes
+ */
+
+export function useGetAnalyticsPmPhaseTrends<
+  TData = Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAnalyticsPmPhaseTrendsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalyticsPmPhaseTrends>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsPmPhaseTrendsQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

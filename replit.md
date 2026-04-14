@@ -45,7 +45,7 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **Clinical Supervision Tracking:** Tracks BCBA supervision of RBTs and paraprofessionals, including session logging and compliance dashboards.
 -   **Dashboards:** Role-specific dashboards (Admin, SPED Teacher, SPED Student) provide an overview of KPIs and activities.
 -   **Student & Teacher Portals:** Blackboard-style student portal for assignments and grades; teacher portal for class management and gradebooks.
--   **Analytics & Reporting:** Multi-tab analytics covering overview, behavior, academic, minutes, student deep dives, and various compliance reports with filtering and export capabilities.
+-   **Analytics & Reporting:** Multi-tab analytics covering overview, behavior, academic, minutes, student deep dives, and a **Safety** tab dedicated to protective measures analysis (incident trends, antecedent breakdown, episode→PM probability ratio, student frequency drill-down, compliance indicators). 251 realistic seed incidents across 16 students spanning SY 2025-26 with phase-based trend variation. Backend endpoints: `/analytics/pm-overview`, `/analytics/pm-by-student`, `/analytics/pm-antecedents`, `/analytics/pm-episode-ratio`, `/analytics/pm-phase-trends`. Protective Measures page includes a collapsible "Incident Trends & Insights" panel with monthly sparkline, antecedent bars, and high-frequency student alerts.
 
 ## External Dependencies
 

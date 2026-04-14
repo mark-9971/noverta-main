@@ -2995,6 +2995,137 @@ paths:
               schema:
                 type: object
 
+  /analytics/pm-overview:
+    get:
+      operationId: getAnalyticsPmOverview
+      tags: [analytics]
+      summary: Get protective measures analytics overview
+      responses:
+        "200":
+          description: PM overview analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalIncidents: { type: integer }
+                  studentsAffected: { type: integer }
+                  injuryCount: { type: integer }
+                  injuryRate: { type: integer }
+                  medicalCount: { type: integer }
+                  desePending: { type: integer }
+                  pendingReview: { type: integer }
+                  avgDurationMinutes: { type: number }
+                  bipRate: { type: integer }
+                  debriefRate: { type: integer }
+                  byType:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string }
+                        count: { type: integer }
+                  monthlyTrend:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+  /analytics/pm-by-student:
+    get:
+      operationId: getAnalyticsPmByStudent
+      tags: [analytics]
+      summary: Get protective measures per-student breakdown
+      responses:
+        "200":
+          description: PM by student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    studentId: { type: integer }
+                    firstName: { type: string }
+                    lastName: { type: string }
+                    grade: { type: string }
+                    total: { type: integer }
+                    injuries: { type: integer }
+                    physical: { type: integer }
+                    seclusion: { type: integer }
+                    avgDuration: { type: number }
+                    lastIncident: { type: string }
+
+  /analytics/pm-antecedents:
+    get:
+      operationId: getAnalyticsPmAntecedents
+      tags: [analytics]
+      summary: Get protective measures antecedent breakdown
+      responses:
+        "200":
+          description: PM antecedents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    category: { type: string }
+                    count: { type: integer }
+                    percentage: { type: integer }
+                    injuries: { type: integer }
+                    avgDuration: { type: number }
+
+  /analytics/pm-episode-ratio:
+    get:
+      operationId: getAnalyticsPmEpisodeRatio
+      tags: [analytics]
+      summary: Get ratio of behavior episodes that resulted in a protective measure
+      responses:
+        "200":
+          description: PM episode ratio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalBehaviorSessions: { type: integer }
+                  totalPmIncidents: { type: integer }
+                  totalPhysicalRestraints: { type: integer }
+                  episodeToPmRatio: { type: number }
+                  perStudent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        studentId: { type: integer }
+                        sessions: { type: integer }
+                        incidents: { type: integer }
+                        ratio: { type: number }
+
+  /analytics/pm-phase-trends:
+    get:
+      operationId: getAnalyticsPmPhaseTrends
+      tags: [analytics]
+      summary: Get PM incident trends relative to phase changes
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PM phase trends
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+
   # ─── Program Data ───────────────────────────────────────────────
   /students/{studentId}/behavior-targets:
     get:

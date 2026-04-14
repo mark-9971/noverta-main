@@ -2828,6 +2828,72 @@ export type GetAnalyticsDeliveryHeatmap200 = { [key: string]: unknown };
 
 export type GetAnalyticsStudent200 = { [key: string]: unknown };
 
+export type GetAnalyticsPmOverview200ByTypeItem = {
+  type?: string;
+  count?: number;
+};
+
+export type GetAnalyticsPmOverview200MonthlyTrendItem = {
+  [key: string]: unknown;
+};
+
+export type GetAnalyticsPmOverview200 = {
+  totalIncidents?: number;
+  studentsAffected?: number;
+  injuryCount?: number;
+  injuryRate?: number;
+  medicalCount?: number;
+  desePending?: number;
+  pendingReview?: number;
+  avgDurationMinutes?: number;
+  bipRate?: number;
+  debriefRate?: number;
+  byType?: GetAnalyticsPmOverview200ByTypeItem[];
+  monthlyTrend?: GetAnalyticsPmOverview200MonthlyTrendItem[];
+};
+
+export type GetAnalyticsPmByStudent200Item = {
+  studentId?: number;
+  firstName?: string;
+  lastName?: string;
+  grade?: string;
+  total?: number;
+  injuries?: number;
+  physical?: number;
+  seclusion?: number;
+  avgDuration?: number;
+  lastIncident?: string;
+};
+
+export type GetAnalyticsPmAntecedents200Item = {
+  category?: string;
+  count?: number;
+  percentage?: number;
+  injuries?: number;
+  avgDuration?: number;
+};
+
+export type GetAnalyticsPmEpisodeRatio200PerStudentItem = {
+  studentId?: number;
+  sessions?: number;
+  incidents?: number;
+  ratio?: number;
+};
+
+export type GetAnalyticsPmEpisodeRatio200 = {
+  totalBehaviorSessions?: number;
+  totalPmIncidents?: number;
+  totalPhysicalRestraints?: number;
+  episodeToPmRatio?: number;
+  perStudent?: GetAnalyticsPmEpisodeRatio200PerStudentItem[];
+};
+
+export type GetAnalyticsPmPhaseTrendsParams = {
+  studentId?: number;
+};
+
+export type GetAnalyticsPmPhaseTrends200Item = { [key: string]: unknown };
+
 export type ListBehaviorTargetsParams = {
   /**
    * @nullable

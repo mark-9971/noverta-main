@@ -3623,6 +3623,99 @@ export const GetAnalyticsStudentParams = zod.object({
 export const GetAnalyticsStudentResponse = zod.object({}).passthrough();
 
 /**
+ * @summary Get protective measures analytics overview
+ */
+export const GetAnalyticsPmOverviewResponse = zod.object({
+  totalIncidents: zod.number().optional(),
+  studentsAffected: zod.number().optional(),
+  injuryCount: zod.number().optional(),
+  injuryRate: zod.number().optional(),
+  medicalCount: zod.number().optional(),
+  desePending: zod.number().optional(),
+  pendingReview: zod.number().optional(),
+  avgDurationMinutes: zod.number().optional(),
+  bipRate: zod.number().optional(),
+  debriefRate: zod.number().optional(),
+  byType: zod
+    .array(
+      zod.object({
+        type: zod.string().optional(),
+        count: zod.number().optional(),
+      }),
+    )
+    .optional(),
+  monthlyTrend: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+});
+
+/**
+ * @summary Get protective measures per-student breakdown
+ */
+export const GetAnalyticsPmByStudentResponseItem = zod.object({
+  studentId: zod.number().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+  grade: zod.string().optional(),
+  total: zod.number().optional(),
+  injuries: zod.number().optional(),
+  physical: zod.number().optional(),
+  seclusion: zod.number().optional(),
+  avgDuration: zod.number().optional(),
+  lastIncident: zod.string().optional(),
+});
+export const GetAnalyticsPmByStudentResponse = zod.array(
+  GetAnalyticsPmByStudentResponseItem,
+);
+
+/**
+ * @summary Get protective measures antecedent breakdown
+ */
+export const GetAnalyticsPmAntecedentsResponseItem = zod.object({
+  category: zod.string().optional(),
+  count: zod.number().optional(),
+  percentage: zod.number().optional(),
+  injuries: zod.number().optional(),
+  avgDuration: zod.number().optional(),
+});
+export const GetAnalyticsPmAntecedentsResponse = zod.array(
+  GetAnalyticsPmAntecedentsResponseItem,
+);
+
+/**
+ * @summary Get ratio of behavior episodes that resulted in a protective measure
+ */
+export const GetAnalyticsPmEpisodeRatioResponse = zod.object({
+  totalBehaviorSessions: zod.number().optional(),
+  totalPmIncidents: zod.number().optional(),
+  totalPhysicalRestraints: zod.number().optional(),
+  episodeToPmRatio: zod.number().optional(),
+  perStudent: zod
+    .array(
+      zod.object({
+        studentId: zod.number().optional(),
+        sessions: zod.number().optional(),
+        incidents: zod.number().optional(),
+        ratio: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get PM incident trends relative to phase changes
+ */
+export const GetAnalyticsPmPhaseTrendsQueryParams = zod.object({
+  studentId: zod.coerce.number().optional(),
+});
+
+export const GetAnalyticsPmPhaseTrendsResponseItem = zod.record(
+  zod.string(),
+  zod.unknown(),
+);
+export const GetAnalyticsPmPhaseTrendsResponse = zod.array(
+  GetAnalyticsPmPhaseTrendsResponseItem,
+);
+
+/**
  * @summary List behavior targets for student
  */
 export const ListBehaviorTargetsParams = zod.object({
