@@ -21,8 +21,10 @@ import type {
   AcceptScheduleResult,
   Alert,
   AlertsSummary,
+  AuditPackageResponse,
   BulkCreateSessionsBody,
   ComplianceByService,
+  ComplianceTrendResponse,
   CoverageGap,
   CreateDistrictBody,
   CreateImportBody,
@@ -43,14 +45,18 @@ import type {
   DistrictSummary,
   ErrorResponse,
   ExecutiveDashboard,
+  ExecutiveSummaryResponse,
   GenerateScheduleBody,
   GeneratedSchedule,
+  GetAuditPackageReportParams,
   GetComplianceByServiceParams,
+  GetComplianceTrendReportParams,
   GetDashboardAlertsSummaryParams,
   GetDashboardRiskOverviewParams,
   GetDashboardSummaryParams,
   GetDistrictOverviewParams,
   GetExecutiveDashboardParams,
+  GetExecutiveSummaryReportParams,
   GetIepCalendarParams,
   GetMissedSessionsReportParams,
   GetMissedSessionsTrendParams,
@@ -5949,6 +5955,324 @@ export function useGetComplianceRiskReport<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetComplianceRiskReportQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get compliance trend over time
+ */
+export const getGetComplianceTrendReportUrl = (
+  params?: GetComplianceTrendReportParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/compliance-trend?${stringifiedParams}`
+    : `/api/reports/compliance-trend`;
+};
+
+export const getComplianceTrendReport = async (
+  params?: GetComplianceTrendReportParams,
+  options?: RequestInit,
+): Promise<ComplianceTrendResponse> => {
+  return customFetch<ComplianceTrendResponse>(
+    getGetComplianceTrendReportUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetComplianceTrendReportQueryKey = (
+  params?: GetComplianceTrendReportParams,
+) => {
+  return [
+    `/api/reports/compliance-trend`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetComplianceTrendReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComplianceTrendReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetComplianceTrendReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplianceTrendReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetComplianceTrendReportQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComplianceTrendReport>>
+  > = ({ signal }) =>
+    getComplianceTrendReport(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceTrendReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComplianceTrendReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComplianceTrendReport>>
+>;
+export type GetComplianceTrendReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get compliance trend over time
+ */
+
+export function useGetComplianceTrendReport<
+  TData = Awaited<ReturnType<typeof getComplianceTrendReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetComplianceTrendReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getComplianceTrendReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComplianceTrendReportQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get executive compliance summary
+ */
+export const getGetExecutiveSummaryReportUrl = (
+  params?: GetExecutiveSummaryReportParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/executive-summary?${stringifiedParams}`
+    : `/api/reports/executive-summary`;
+};
+
+export const getExecutiveSummaryReport = async (
+  params?: GetExecutiveSummaryReportParams,
+  options?: RequestInit,
+): Promise<ExecutiveSummaryResponse> => {
+  return customFetch<ExecutiveSummaryResponse>(
+    getGetExecutiveSummaryReportUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetExecutiveSummaryReportQueryKey = (
+  params?: GetExecutiveSummaryReportParams,
+) => {
+  return [
+    `/api/reports/executive-summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetExecutiveSummaryReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExecutiveSummaryReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveSummaryReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveSummaryReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetExecutiveSummaryReportQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getExecutiveSummaryReport>>
+  > = ({ signal }) =>
+    getExecutiveSummaryReport(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveSummaryReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetExecutiveSummaryReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExecutiveSummaryReport>>
+>;
+export type GetExecutiveSummaryReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get executive compliance summary
+ */
+
+export function useGetExecutiveSummaryReport<
+  TData = Awaited<ReturnType<typeof getExecutiveSummaryReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveSummaryReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveSummaryReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetExecutiveSummaryReportQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get audit package with per-student detail
+ */
+export const getGetAuditPackageReportUrl = (
+  params?: GetAuditPackageReportParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/audit-package?${stringifiedParams}`
+    : `/api/reports/audit-package`;
+};
+
+export const getAuditPackageReport = async (
+  params?: GetAuditPackageReportParams,
+  options?: RequestInit,
+): Promise<AuditPackageResponse> => {
+  return customFetch<AuditPackageResponse>(
+    getGetAuditPackageReportUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAuditPackageReportQueryKey = (
+  params?: GetAuditPackageReportParams,
+) => {
+  return [`/api/reports/audit-package`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAuditPackageReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAuditPackageReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAuditPackageReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAuditPackageReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAuditPackageReportQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAuditPackageReport>>
+  > = ({ signal }) =>
+    getAuditPackageReport(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAuditPackageReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAuditPackageReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAuditPackageReport>>
+>;
+export type GetAuditPackageReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get audit package with per-student detail
+ */
+
+export function useGetAuditPackageReport<
+  TData = Awaited<ReturnType<typeof getAuditPackageReport>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAuditPackageReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAuditPackageReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAuditPackageReportQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

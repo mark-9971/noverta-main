@@ -521,6 +521,144 @@ export interface BulkCreateSessionsBody {
   sessions: CreateSessionBody[];
 }
 
+export interface ComplianceTrendPoint {
+  period: string;
+  compliancePercent: number;
+  totalDelivered: number;
+  studentsTracked: number;
+}
+
+export interface SchoolTrend {
+  schoolId: number;
+  schoolName: string;
+  trend: ComplianceTrendPoint[];
+}
+
+export interface ComplianceTrendResponse {
+  trend: ComplianceTrendPoint[];
+  schools: SchoolTrend[];
+}
+
+export interface RiskCounts {
+  onTrack: number;
+  slightlyBehind: number;
+  atRisk: number;
+  outOfCompliance: number;
+}
+
+export interface ServiceDeliveryByType {
+  serviceTypeName: string;
+  deliveredMinutes: number;
+  requiredMinutes: number;
+  percentComplete: number;
+  studentCount: number;
+}
+
+export type ExecutiveSummaryResponseServiceDelivery = {
+  totalDeliveredMinutes: number;
+  totalRequiredMinutes: number;
+  overallPercent: number;
+  totalMissedSessions: number;
+  totalMakeupSessions: number;
+  byService: ServiceDeliveryByType[];
+};
+
+export type ExecutiveSummaryResponseIepDeadlines = {
+  within30: number;
+  within60: number;
+  within90: number;
+  overdue: number;
+};
+
+export type ExecutiveSummaryResponseAlerts = {
+  openAlerts: number;
+  criticalAlerts: number;
+};
+
+export interface ExecutiveSummaryResponse {
+  generatedAt: string;
+  totalActiveStudents: number;
+  complianceRate: number;
+  riskCounts: RiskCounts;
+  serviceDelivery: ExecutiveSummaryResponseServiceDelivery;
+  iepDeadlines: ExecutiveSummaryResponseIepDeadlines;
+  alerts: ExecutiveSummaryResponseAlerts;
+}
+
+export interface AuditStudentSession {
+  date: string;
+  /** @nullable */
+  service?: string | null;
+  duration: number;
+  status: string;
+  isMakeup: boolean;
+  /** @nullable */
+  provider?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface AuditServiceRequirement {
+  /** @nullable */
+  serviceTypeName?: string | null;
+  requiredMinutes: number;
+  intervalType: string;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
+  active: boolean;
+  /** @nullable */
+  provider?: string | null;
+}
+
+export interface AuditParentContact {
+  date: string;
+  /** @nullable */
+  type?: string | null;
+  /** @nullable */
+  method?: string | null;
+  /** @nullable */
+  subject?: string | null;
+  /** @nullable */
+  outcome?: string | null;
+  /** @nullable */
+  parentName?: string | null;
+  /** @nullable */
+  contactedBy?: string | null;
+}
+
+export type AuditStudentSessionSummary = {
+  totalCompleted: number;
+  totalMissed: number;
+  totalMakeup: number;
+  deliveredMinutes: number;
+};
+
+export interface AuditStudent {
+  studentId: number;
+  studentName: string;
+  /** @nullable */
+  grade?: string | null;
+  /** @nullable */
+  school?: string | null;
+  serviceRequirements: AuditServiceRequirement[];
+  sessionSummary: AuditStudentSessionSummary;
+  sessions: AuditStudentSession[];
+  parentContacts: AuditParentContact[];
+}
+
+export type AuditPackageResponseDateRange = {
+  start: string;
+  end: string;
+};
+
+export interface AuditPackageResponse {
+  generatedAt: string;
+  dateRange: AuditPackageResponseDateRange;
+  students: AuditStudent[];
+}
+
 export interface CreateScheduleBlockBody {
   staffId: number;
   /** @nullable */
@@ -1306,4 +1444,70 @@ export type GetMissedSessionsReportParams = {
    * @nullable
    */
   dateTo?: string | null;
+};
+
+export type GetComplianceTrendReportParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  granularity?: GetComplianceTrendReportGranularity;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetComplianceTrendReportGranularity =
+  | (typeof GetComplianceTrendReportGranularity)[keyof typeof GetComplianceTrendReportGranularity]
+  | null;
+
+export const GetComplianceTrendReportGranularity = {
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
+export type GetExecutiveSummaryReportParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetAuditPackageReportParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
 };

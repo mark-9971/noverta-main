@@ -1665,6 +1665,156 @@ export const GetComplianceRiskReportResponse = zod.array(
 );
 
 /**
+ * @summary Get compliance trend over time
+ */
+export const GetComplianceTrendReportQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  granularity: zod
+    .union([zod.literal("weekly"), zod.literal("monthly"), zod.literal(null)])
+    .nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
+export const GetComplianceTrendReportResponse = zod.object({
+  trend: zod.array(
+    zod.object({
+      period: zod.string(),
+      compliancePercent: zod.number(),
+      totalDelivered: zod.number(),
+      studentsTracked: zod.number(),
+    }),
+  ),
+  schools: zod.array(
+    zod.object({
+      schoolId: zod.number(),
+      schoolName: zod.string(),
+      trend: zod.array(
+        zod.object({
+          period: zod.string(),
+          compliancePercent: zod.number(),
+          totalDelivered: zod.number(),
+          studentsTracked: zod.number(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Get executive compliance summary
+ */
+export const GetExecutiveSummaryReportQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
+export const GetExecutiveSummaryReportResponse = zod.object({
+  generatedAt: zod.string(),
+  totalActiveStudents: zod.number(),
+  complianceRate: zod.number(),
+  riskCounts: zod.object({
+    onTrack: zod.number(),
+    slightlyBehind: zod.number(),
+    atRisk: zod.number(),
+    outOfCompliance: zod.number(),
+  }),
+  serviceDelivery: zod.object({
+    totalDeliveredMinutes: zod.number(),
+    totalRequiredMinutes: zod.number(),
+    overallPercent: zod.number(),
+    totalMissedSessions: zod.number(),
+    totalMakeupSessions: zod.number(),
+    byService: zod.array(
+      zod.object({
+        serviceTypeName: zod.string(),
+        deliveredMinutes: zod.number(),
+        requiredMinutes: zod.number(),
+        percentComplete: zod.number(),
+        studentCount: zod.number(),
+      }),
+    ),
+  }),
+  iepDeadlines: zod.object({
+    within30: zod.number(),
+    within60: zod.number(),
+    within90: zod.number(),
+    overdue: zod.number(),
+  }),
+  alerts: zod.object({
+    openAlerts: zod.number(),
+    criticalAlerts: zod.number(),
+  }),
+});
+
+/**
+ * @summary Get audit package with per-student detail
+ */
+export const GetAuditPackageReportQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+  studentId: zod.coerce.number().nullish(),
+});
+
+export const GetAuditPackageReportResponse = zod.object({
+  generatedAt: zod.string(),
+  dateRange: zod.object({
+    start: zod.string(),
+    end: zod.string(),
+  }),
+  students: zod.array(
+    zod.object({
+      studentId: zod.number(),
+      studentName: zod.string(),
+      grade: zod.string().nullish(),
+      school: zod.string().nullish(),
+      serviceRequirements: zod.array(
+        zod.object({
+          serviceTypeName: zod.string().nullish(),
+          requiredMinutes: zod.number(),
+          intervalType: zod.string(),
+          startDate: zod.string().nullish(),
+          endDate: zod.string().nullish(),
+          active: zod.boolean(),
+          provider: zod.string().nullish(),
+        }),
+      ),
+      sessionSummary: zod.object({
+        totalCompleted: zod.number(),
+        totalMissed: zod.number(),
+        totalMakeup: zod.number(),
+        deliveredMinutes: zod.number(),
+      }),
+      sessions: zod.array(
+        zod.object({
+          date: zod.string(),
+          service: zod.string().nullish(),
+          duration: zod.number(),
+          status: zod.string(),
+          isMakeup: zod.boolean(),
+          provider: zod.string().nullish(),
+          notes: zod.string().nullish(),
+        }),
+      ),
+      parentContacts: zod.array(
+        zod.object({
+          date: zod.string(),
+          type: zod.string().nullish(),
+          method: zod.string().nullish(),
+          subject: zod.string().nullish(),
+          outcome: zod.string().nullish(),
+          parentName: zod.string().nullish(),
+          contactedBy: zod.string().nullish(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
  * @summary List import history
  */
 export const ListImportsResponseItem = zod.object({

@@ -39,7 +39,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, with a distinct separati
 -   **Service & Schedule Management:** Tracking service requirements, logging sessions (including bulk imports), and recurring schedule blocks with conflict detection.
 -   **Compliance Tracking:** IDEA compliance event tracking, automated deadline generation, and alerts.
 -   **Analytics & Insights:** A multi-tab analytics page covers overview, behavior, academic, minutes, and student deep dives.
--   **Reporting:** Includes minute summaries, missed session reports, and at-risk student reports with CSV export.
+-   **Reporting:** Includes minute summaries, missed session reports, at-risk student reports, executive compliance summary, compliance trend analysis (line chart with school overlay), and audit package generation with per-student detail and CSV export. All report tabs support school/district filtering and date range selection.
 -   **Global Search:** Functionality to search across IEP goals, accommodations, and students.
 -   **Import Functionality:** Bulk CSV imports for students, service requirements, and session logs.
 
