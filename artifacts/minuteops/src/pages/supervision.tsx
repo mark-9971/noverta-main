@@ -208,12 +208,26 @@ export default function Supervision() {
     setShowForm(true);
   }
 
-  function exportCSV() {
+  async function exportCSV() {
     const params = new URLSearchParams();
     if (filterSupervisor) params.set("supervisorId", filterSupervisor);
     if (filterSupervisee) params.set("superviseeId", filterSupervisee);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
-    window.open(`${API}/supervision-sessions/export/csv?${params}`, "_blank");
+    try {
+      const res = await fetch(`${API}/supervision-sessions/export/csv?${params}`, {
+        headers: { "x-demo-role": role },
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `supervision_sessions_${new Date().toISOString().substring(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to export CSV");
+    }
   }
 
   const compliantCount = compliance.filter(c => c.complianceStatus === "compliant").length;
