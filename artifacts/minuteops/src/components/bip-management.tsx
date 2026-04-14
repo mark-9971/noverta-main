@@ -108,7 +108,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     setLoading(true);
     try {
       const data = await getStudentBips(studentId);
-      setBips(data);
+      setBips(data as any);
     } catch { /* ignore */ }
     setLoading(false);
   }
@@ -229,7 +229,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
 
   async function handleStatusChange(bipId: number, newStatus: string) {
     try {
-      await updateBip(bipId, { status: newStatus });
+      await updateBip(bipId, { status: newStatus as any });
       toast.success(`Status changed to ${STATUS_LABELS[newStatus] || newStatus}`);
       fetchBips();
     } catch {

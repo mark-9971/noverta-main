@@ -132,11 +132,11 @@ export default function ProgramDataPage() {
       getBehaviorDataTrends(sid),
       getProgramDataTrends(sid),
     ]);
-    setBehaviorTargets(bt);
-    setProgramTargets(pt);
-    setDataSessions(ds);
-    setBehaviorTrends(btrend);
-    setProgramTrends(ptrend);
+    setBehaviorTargets(bt as any);
+    setProgramTargets(pt as any);
+    setDataSessions(ds as any);
+    setBehaviorTrends(btrend as any);
+    setProgramTrends(ptrend as any);
   }, []);
 
   useEffect(() => {
@@ -1095,7 +1095,7 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
   async function addStep() {
     if (!newStepName.trim()) return;
     const step = await createProgramStep(program.id, { name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null });
-    setSteps(prev => [...prev, step]);
+    setSteps(prev => [...prev, step as any]);
     setNewStepName(""); setNewStepSd(""); setNewStepResponse("");
   }
 

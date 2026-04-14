@@ -3027,6 +3027,28 @@ export type AmendIepDocumentBody = { [key: string]: unknown };
 
 export type AmendIepDocument201 = { [key: string]: unknown };
 
+export type GetStudentIepDocumentCompleteness200MissingSectionsItem = {
+  [key: string]: unknown;
+};
+
+export type GetStudentIepDocumentCompleteness200SectionSummary = {
+  [key: string]: unknown;
+};
+
+export type GetStudentIepDocumentCompleteness200ChecksItem = {
+  [key: string]: unknown;
+};
+
+export type GetStudentIepDocumentCompleteness200 = {
+  percentage?: number;
+  completedCount?: number;
+  totalCount?: number;
+  isComplete?: boolean;
+  missingSections?: GetStudentIepDocumentCompleteness200MissingSectionsItem[];
+  sectionSummary?: GetStudentIepDocumentCompleteness200SectionSummary;
+  checks?: GetStudentIepDocumentCompleteness200ChecksItem[];
+};
+
 export type ListAccommodations200Item = { [key: string]: unknown };
 
 export type CreateAccommodationBody = { [key: string]: unknown };
@@ -3038,6 +3060,8 @@ export type UpdateAccommodationBody = { [key: string]: unknown };
 export type UpdateAccommodation200 = { [key: string]: unknown };
 
 export type DeleteAccommodation200 = { [key: string]: unknown };
+
+export type GetStudentIepBuilderContext200 = { [key: string]: unknown };
 
 export type GenerateIepBuilderBody = { [key: string]: unknown };
 
@@ -3348,6 +3372,8 @@ export type GetStudentClassroomObservations200Item = { [key: string]: unknown };
 
 export type GetStudentProgressNoteHistory200Item = { [key: string]: unknown };
 
+export type GetStudentIepSuggestions200 = { [key: string]: unknown };
+
 export type GetIepSuggestionsAllStudents200Item = { [key: string]: unknown };
 
 export type ApplyIepSuggestionsBody = { [key: string]: unknown };
@@ -3411,6 +3437,28 @@ export type ListFaSessions200Item = { [key: string]: unknown };
 export type CreateFaSessionBody = { [key: string]: unknown };
 
 export type CreateFaSession201 = { [key: string]: unknown };
+
+export type GenerateBipFromFba201 = {
+  id?: number;
+  studentId?: number;
+  /** @nullable */
+  fbaId?: number | null;
+  /** @nullable */
+  targetBehavior?: string | null;
+  /** @nullable */
+  hypothesizedFunction?: string | null;
+  /** @nullable */
+  replacementBehaviors?: string | null;
+  /** @nullable */
+  preventionStrategies?: string | null;
+  /** @nullable */
+  teachingStrategies?: string | null;
+  /** @nullable */
+  consequenceStrategies?: string | null;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 export type DeleteFaSession200 = { [key: string]: unknown };
 

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis
 } from "recharts";
 import { toast } from "sonner";
-import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, customFetch } from "@workspace/api-client-react";
+import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, generateBipFromFba } from "@workspace/api-client-react";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface FbaRecord {
@@ -121,19 +121,19 @@ export default function BehaviorAssessmentPage() {
 
   useEffect(() => {
     listStudents({ limit: 200 } as any).then(d => {
-      const list = Array.isArray(d) ? d : d.students || [];
+      const list = Array.isArray(d) ? d : (d as any).students || [];
       setStudents(list);
     }).catch(() => {});
   }, []);
 
   const loadFbas = useCallback(async (sid: number) => {
     const data = await listFbas(sid);
-    setFbas(data);
+    setFbas(data as any);
   }, []);
 
   const loadBips = useCallback(async (sid: number) => {
     const data = await getStudentBips(sid);
-    setBips(data);
+    setBips(data as any);
   }, []);
 
   const loadObservations = useCallback(async (fbaId: number) => {
@@ -141,13 +141,13 @@ export default function BehaviorAssessmentPage() {
       listFbaObservations(fbaId),
       getFbaObservationsSummary(fbaId),
     ]);
-    setObservations(obsR);
-    setObsSummary(sumR);
+    setObservations(obsR as any);
+    setObsSummary(sumR as any);
   }, []);
 
   const loadFaSessions = useCallback(async (fbaId: number) => {
     const data = await listFaSessions(fbaId);
-    setFaSessions(data);
+    setFaSessions(data as any);
   }, []);
 
   const selectStudent = (s: Student) => {
@@ -1062,7 +1062,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     if (!selectedFba) { toast.error("Select an FBA first"); return; }
     setGenerating(true);
     try {
-      await customFetch(`/api/fbas/${selectedFba.id}/generate-bip`, { method: "POST" });
+      await generateBipFromFba(selectedFba.id);
       toast.success("BIP generated from FBA data");
       onRefresh();
     } catch { toast.error("Failed to generate BIP"); }

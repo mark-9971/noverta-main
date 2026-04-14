@@ -54,7 +54,7 @@ export default function ComplianceTimelinePage() {
   const loadData = useCallback(async () => {
     try {
       const data = await getComplianceTimeline({ status: filter } as any);
-      setEvents(Array.isArray(data) ? data : []);
+      setEvents(Array.isArray(data) ? data as any : []);
     } catch (e) {
       console.error("Failed to load compliance timeline:", e);
     }

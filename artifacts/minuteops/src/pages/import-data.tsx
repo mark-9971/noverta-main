@@ -6,7 +6,7 @@ import {
   Upload, FileSpreadsheet, Users, Clock, ClipboardList,
   CheckCircle, XCircle, AlertTriangle, Download, RefreshCw
 } from "lucide-react";
-import { listImports, customFetch } from "@workspace/api-client-react";
+import { listImports, createImport } from "@workspace/api-client-react";
 
 type ImportType = "students" | "service-requirements" | "sessions";
 
@@ -48,7 +48,7 @@ export default function ImportData() {
     setLoadingHistory(true);
     try {
       const data = await listImports();
-      setHistory(data);
+      setHistory(data as any);
     } catch (_) {}
     setLoadingHistory(false);
   }, []);
@@ -105,8 +105,8 @@ export default function ImportData() {
     try {
       const csvData = await file.text();
       try {
-        const data = await customFetch(`/api/imports/${selectedType}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csvData, fileName: file.name }) });
-        setResult(data);
+        const data = await createImport({ importType: selectedType, csvData, fileName: file.name });
+        setResult(data as any);
       } catch (apiErr: any) {
         const errMsg = apiErr?.data?.error || apiErr?.message || "Import failed";
         setResult({ id: 0, importType: selectedType, fileName: file.name, status: "failed", rowsProcessed: 0, rowsImported: 0, rowsErrored: 0, errors: [errMsg], createdAt: new Date().toISOString() });

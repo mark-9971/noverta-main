@@ -93,8 +93,8 @@ export default function IepCalendar() {
 
     setLoading(true);
     getIepCalendar(Object.fromEntries(params) as any).catch(() => ({ events: [], summary: {} })).then(d => {
-        setEvents(d.events ?? []);
-        setSummary(d.summary ?? null);
+        setEvents((d.events ?? []) as any);
+        setSummary((d.summary ?? null) as any);
       })
       .catch(() => { setEvents([]); setSummary(null); })
       .finally(() => setLoading(false));

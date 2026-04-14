@@ -132,7 +132,7 @@ function ScheduleSettingsDialog({
           rotationStartDate: rotationStartDate || null,
           scheduleNotes: scheduleNotes || null,
         });
-      onSaved(updated);
+      onSaved(updated as any);
       toast.success("Schedule settings saved");
       onClose();
     } catch {
@@ -231,11 +231,11 @@ export default function Schedule() {
 
   // Load school schedule configuration
   useEffect(() => {
-    listSchools().then((schools: SchoolScheduleConfig[]) => {
+    listSchools().then((schools: any) => {
         if (!schools?.length) return;
         // Use the selected school if one is chosen; otherwise pick the first
         const target = selectedSchoolId
-          ? schools.find(s => s.id === selectedSchoolId)
+          ? schools.find((s: any) => s.id === selectedSchoolId)
           : schools[0];
         if (target) setSchoolConfig(target);
       })

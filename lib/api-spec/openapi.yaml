@@ -3870,6 +3870,49 @@ paths:
               schema:
                 type: object
 
+  /students/{studentId}/iep-documents/{docId}/completeness:
+    get:
+      operationId: getStudentIepDocumentCompleteness
+      tags: [iep]
+      summary: Get completeness check for an IEP document
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: IEP document completeness
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  percentage:
+                    type: integer
+                  completedCount:
+                    type: integer
+                  totalCount:
+                    type: integer
+                  isComplete:
+                    type: boolean
+                  missingSections:
+                    type: array
+                    items:
+                      type: object
+                  sectionSummary:
+                    type: object
+                  checks:
+                    type: array
+                    items:
+                      type: object
+
   /students/{studentId}/accommodations:
     get:
       operationId: listAccommodations
@@ -3957,6 +4000,25 @@ paths:
                 type: object
 
   # ─── IEP Builder ────────────────────────────────────────────────
+  /students/{studentId}/iep-builder/context:
+    get:
+      operationId: getStudentIepBuilderContext
+      tags: [iep]
+      summary: Get IEP builder context for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: IEP builder context
+          content:
+            application/json:
+              schema:
+                type: object
+
   /students/{studentId}/iep-builder/generate:
     post:
       operationId: generateIepBuilder
@@ -5467,6 +5529,25 @@ paths:
                   type: object
 
   # ─── IEP Suggestions ───────────────────────────────────────────
+  /students/{studentId}/iep-suggestions:
+    get:
+      operationId: getStudentIepSuggestions
+      tags: [iep]
+      summary: Get IEP suggestions for a specific student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: IEP suggestions for student
+          content:
+            application/json:
+              schema:
+                type: object
+
   /iep-suggestions/all-students:
     get:
       operationId: getIepSuggestionsAllStudents
@@ -5885,6 +5966,50 @@ paths:
             application/json:
               schema:
                 type: object
+
+  /fbas/{fbaId}/generate-bip:
+    post:
+      operationId: generateBipFromFba
+      tags: [fba]
+      summary: Generate a BIP from FBA data
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Generated BIP
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  studentId:
+                    type: integer
+                  fbaId:
+                    type: ["integer", "null"]
+                  targetBehavior:
+                    type: ["string", "null"]
+                  hypothesizedFunction:
+                    type: ["string", "null"]
+                  replacementBehaviors:
+                    type: ["string", "null"]
+                  preventionStrategies:
+                    type: ["string", "null"]
+                  teachingStrategies:
+                    type: ["string", "null"]
+                  consequenceStrategies:
+                    type: ["string", "null"]
+                  status:
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
 
   /fa-sessions/{id}:
     delete:

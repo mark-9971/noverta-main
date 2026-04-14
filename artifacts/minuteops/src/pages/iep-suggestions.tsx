@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getIepSuggestionsAllStudents, customFetch, applyIepSuggestions } from "@workspace/api-client-react";
+import { getIepSuggestionsAllStudents, getStudentIepSuggestions, applyIepSuggestions } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,15 +69,15 @@ export default function IepSuggestions() {
 
   useEffect(() => {
     getIepSuggestionsAllStudents()
-      .then(d => { setStudents(Array.isArray(d) ? d : []); setLoading(false); })
+      .then(d => { setStudents(Array.isArray(d) ? d as any : []); setLoading(false); })
       .catch(() => { toast.error("Failed to load suggestions"); setLoading(false); });
   }, []);
 
   const loadDetail = useCallback((studentId: number) => {
     setDetailLoading(true);
     setSelected({ behaviors: new Set(), programs: new Set() });
-    customFetch<any>(`/api/students/${studentId}/iep-suggestions`)
-      .then(d => { setDetail(d); setView("detail"); setDetailLoading(false); })
+    getStudentIepSuggestions(studentId)
+      .then(d => { setDetail(d as any); setView("detail"); setDetailLoading(false); })
       .catch(() => { toast.error("Failed to load student suggestions"); setDetailLoading(false); });
   }, []);
 

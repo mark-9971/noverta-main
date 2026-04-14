@@ -84,10 +84,10 @@ export default function StudentDetail() {
       setBehaviorTrends(btTrends);
       setProgramTrends(ptTrends);
       setDataSessions(ds);
-      setProtectiveData(pm);
+      setProtectiveData(pm as any);
       setMinutesTrend(mt);
       setCompSummary(cs);
-      setPhaseChangesByTarget(pcs);
+      setPhaseChangesByTarget(pcs as any);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);

@@ -525,7 +525,7 @@ async function checkAutoProgress(tx: any, programTargetId: number) {
 
   if (recentData.length >= masterySessions) {
     const masteryCheck = recentData.slice(0, masterySessions);
-    const allAboveMastery = masteryCheck.every(d => parseFloat(d.percentCorrect ?? "0") >= masteryPct);
+    const allAboveMastery = masteryCheck.every((d: { percentCorrect: string | null }) => parseFloat(d.percentCorrect ?? "0") >= masteryPct);
 
     if (allAboveMastery && currentIdx < hierarchy.length - 1) {
       const newLevel = hierarchy[currentIdx + 1];
@@ -538,7 +538,7 @@ async function checkAutoProgress(tx: any, programTargetId: number) {
 
   if (recentData.length >= regressionSessions) {
     const regressionCheck = recentData.slice(0, regressionSessions);
-    const allBelowThreshold = regressionCheck.every(d => parseFloat(d.percentCorrect ?? "0") < regressionThreshold);
+    const allBelowThreshold = regressionCheck.every((d: { percentCorrect: string | null }) => parseFloat(d.percentCorrect ?? "0") < regressionThreshold);
 
     if (allBelowThreshold && currentIdx > 0) {
       const newLevel = hierarchy[currentIdx - 1];

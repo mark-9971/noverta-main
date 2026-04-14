@@ -183,7 +183,7 @@ router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
       targetId: id,
       studentId: existing.studentId,
       summary: `Deleted IEP goal #${id} (${existing.goalArea})`,
-      oldValues: { goalArea: existing.goalArea, goalNumber: existing.goalNumber, goalDescription: existing.goalDescription, status: existing.status } as Record<string, unknown>,
+      oldValues: { goalArea: existing.goalArea, goalNumber: existing.goalNumber, annualGoal: existing.annualGoal, status: existing.status } as Record<string, unknown>,
     });
     res.json({ ok: true });
   } catch (e: any) {

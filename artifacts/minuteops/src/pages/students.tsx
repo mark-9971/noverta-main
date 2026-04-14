@@ -122,7 +122,7 @@ export default function Students() {
       </div>
 
       <div className="space-y-2">
-        {isError && allStudents.length === 0 ? (
+        {isError && studentList.length === 0 ? (
           <ErrorBanner message="Failed to load student list." onRetry={() => refetch()} />
         ) : loading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)

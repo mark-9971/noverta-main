@@ -114,7 +114,7 @@ export default function CompensatoryServices() {
     setCalcLoading(true);
     try {
       const data = await calculateShortfalls({ periodStart, periodEnd, schoolId: selectedSchoolId || undefined } as any);
-      setShortfalls(data);
+      setShortfalls(data as any);
       if (data.length === 0) toast.info("No shortfalls found for this period");
     } catch { toast.error("Error calculating shortfalls"); }
     setCalcLoading(false);

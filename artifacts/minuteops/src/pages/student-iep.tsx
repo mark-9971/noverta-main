@@ -19,7 +19,7 @@ import {
   amendIepDocument, updateIepDocument, createIepDocument,
   createAccommodation, deleteAccommodation, updateTeamMeeting, createTeamMeeting,
   deleteTeamMeeting, listGoalBank, listParentContacts, createParentContact,
-  customFetch,
+  getStudentIepDocumentCompleteness,
 } from "@workspace/api-client-react";
 
 
@@ -200,13 +200,13 @@ export default function StudentIepPage() {
         listTeamMeetings(studentId),
       ]);
       setStudent(s as Student | null);
-      setGoals(Array.isArray(g) ? g : []);
-      setReports(Array.isArray(r) ? r : []);
-      setProgramTargets(Array.isArray(pt) ? pt : []);
-      setBehaviorTargets(Array.isArray(bt) ? bt : []);
-      setIepDocs(Array.isArray(docs) ? docs : []);
-      setAccommodations(Array.isArray(accs) ? accs : []);
-      setTeamMeetings(Array.isArray(mtgs) ? mtgs : []);
+      setGoals(Array.isArray(g) ? g as any : []);
+      setReports(Array.isArray(r) ? r as any : []);
+      setProgramTargets(Array.isArray(pt) ? pt as any : []);
+      setBehaviorTargets(Array.isArray(bt) ? bt as any : []);
+      setIepDocs(Array.isArray(docs) ? docs as any : []);
+      setAccommodations(Array.isArray(accs) ? accs as any : []);
+      setTeamMeetings(Array.isArray(mtgs) ? mtgs as any : []);
     } catch (e) {
       console.error("Failed to load IEP data:", e);
     }
@@ -744,7 +744,7 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
   async function generate() {
     setGenerating(true);
     const report = await generateProgressReport(studentId, { periodStart, periodEnd, reportingPeriod });
-    onGenerated(report as ProgressReport);
+    onGenerated(report as unknown as ProgressReport);
     setGenerating(false);
   }
 
@@ -2153,7 +2153,7 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
 
   useEffect(() => {
     listGoalBank().then(d => {
-      setAllGoals(Array.isArray(d) ? d : []);
+      setAllGoals(Array.isArray(d) ? d as any : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -2248,7 +2248,7 @@ function IepCompletenessIndicator({ studentId, docId }: { studentId: number; doc
   const [data, setData] = useState<CompletenessData | null>(null);
 
   useEffect(() => {
-    customFetch<CompletenessData>(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d))
+    getStudentIepDocumentCompleteness(studentId, docId).then(d => setData(d as unknown as CompletenessData))
       .catch(() => {});
   }, [studentId, docId]);
 
@@ -2298,7 +2298,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    listParentContacts(studentId).catch(() => []).then(d => setContacts(Array.isArray(d) ? d : []))
+    listParentContacts({ studentId }).catch(() => []).then(d => setContacts(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [studentId]);
@@ -2307,7 +2307,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
     if (!form.subject.trim()) return;
     setSaving(true);
     try {
-      const res = await createParentContact(studentId, form);
+      const res = await createParentContact({ ...form, studentId });
       setContacts(prev => [res, ...prev]);
       setShowAdd(false);
       setForm({ contactType: "progress_update", contactDate: new Date().toISOString().split("T")[0],

@@ -177,6 +177,11 @@ router.post("/sessions", async (req, res): Promise<void> => {
       return;
     }
 
+    if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
+      res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
+      return;
+    }
+
     let goalData: GoalEntry[] = [];
     if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {
       const goalParsed = validateGoalData(rawGoalData);
@@ -187,126 +192,126 @@ router.post("/sessions", async (req, res): Promise<void> => {
       goalData = goalParsed.data;
     }
 
-    const result = await db.transaction(async (tx) => {
-      const [session] = await tx.insert(sessionLogsTable).values(parsed.data).returning();
+    if (parsed.data.isCompensatory && parsed.data.compensatoryObligationId) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const txDb = drizzle(client);
 
-      if (goalData.length > 0) {
-        const [dataSession] = await tx.insert(dataSessionsTable).values({
+        const [obligation] = await txDb.select().from(compensatoryObligationsTable)
+          .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
+        if (!obligation) {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: "Compensatory obligation not found" });
+          return;
+        }
+        if (obligation.studentId !== parsed.data.studentId) {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: "Obligation student does not match session student" });
+          return;
+        }
+        if (obligation.status === "completed" || obligation.status === "waived") {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: `Cannot log sessions against a ${obligation.status} obligation` });
+          return;
+        }
+
+        const [session] = await txDb.insert(sessionLogsTable).values(parsed.data).returning();
+        const completedStatus = parsed.data.status === "completed" || parsed.data.status === "makeup";
+        if (completedStatus) {
+          const newDelivered = obligation.minutesDelivered + parsed.data.durationMinutes;
+          const newStatus = newDelivered >= obligation.minutesOwed ? "completed" : "in_progress";
+          await txDb.update(compensatoryObligationsTable)
+            .set({ minutesDelivered: newDelivered, status: newStatus })
+            .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
+        }
+
+        await client.query("COMMIT");
+        logAudit(req, {
+          action: "create",
+          targetTable: "session_logs",
+          targetId: session.id,
           studentId: session.studentId,
-          staffId: session.staffId,
-          sessionLogId: session.id,
-          sessionDate: session.sessionDate,
-          startTime: session.startTime,
-          endTime: session.endTime,
-          notes: session.notes,
-        }).returning();
+          summary: `Logged compensatory session for student #${session.studentId} on ${session.sessionDate}`,
+          newValues: { sessionDate: session.sessionDate, durationMinutes: session.durationMinutes, status: session.status } as Record<string, unknown>,
+        });
+        res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      const result = await db.transaction(async (tx) => {
+        const [session] = await tx.insert(sessionLogsTable).values(parsed.data).returning();
 
-        for (const entry of goalData) {
-          await tx.insert(sessionGoalDataTable).values({
+        if (goalData.length > 0) {
+          const [dataSession] = await tx.insert(dataSessionsTable).values({
+            studentId: session.studentId,
+            staffId: session.staffId,
             sessionLogId: session.id,
-            iepGoalId: entry.iepGoalId,
-            notes: entry.notes || null,
-          });
+            sessionDate: session.sessionDate,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            notes: session.notes,
+          }).returning();
 
-          if (entry.behaviorData && entry.behaviorTargetId) {
-            await tx.insert(behaviorDataTable).values({
-              dataSessionId: dataSession.id,
-              behaviorTargetId: entry.behaviorTargetId,
-              value: String(entry.behaviorData.value),
-              intervalCount: entry.behaviorData.intervalCount ?? null,
-              intervalsWith: entry.behaviorData.intervalsWith ?? null,
-              hourBlock: entry.behaviorData.hourBlock ?? null,
-              notes: entry.behaviorData.notes ?? null,
+          for (const entry of goalData) {
+            await tx.insert(sessionGoalDataTable).values({
+              sessionLogId: session.id,
+              iepGoalId: entry.iepGoalId,
+              notes: entry.notes || null,
             });
-          }
 
-          if (entry.programData && entry.programTargetId) {
-            const trialsCorrect = entry.programData.trialsCorrect ?? 0;
-            const trialsTotal = entry.programData.trialsTotal ?? 0;
-            const pctCorrect = trialsTotal > 0 ? Math.round((trialsCorrect / trialsTotal) * 100) : 0;
-            await tx.insert(programDataTable).values({
-              dataSessionId: dataSession.id,
-              programTargetId: entry.programTargetId,
-              trialsCorrect,
-              trialsTotal,
-              prompted: entry.programData.prompted ?? 0,
-              stepNumber: entry.programData.stepNumber ?? null,
-              independenceLevel: entry.programData.independenceLevel ?? null,
-              percentCorrect: String(pctCorrect),
-              promptLevelUsed: entry.programData.promptLevelUsed ?? null,
-              notes: entry.programData.notes ?? null,
-            });
+            if (entry.behaviorData && entry.behaviorTargetId) {
+              await tx.insert(behaviorDataTable).values({
+                dataSessionId: dataSession.id,
+                behaviorTargetId: entry.behaviorTargetId,
+                value: String(entry.behaviorData.value),
+                intervalCount: entry.behaviorData.intervalCount ?? null,
+                intervalsWith: entry.behaviorData.intervalsWith ?? null,
+                hourBlock: entry.behaviorData.hourBlock ?? null,
+                notes: entry.behaviorData.notes ?? null,
+              });
+            }
+
+            if (entry.programData && entry.programTargetId) {
+              const trialsCorrect = entry.programData.trialsCorrect ?? 0;
+              const trialsTotal = entry.programData.trialsTotal ?? 0;
+              const pctCorrect = trialsTotal > 0 ? Math.round((trialsCorrect / trialsTotal) * 100) : 0;
+              await tx.insert(programDataTable).values({
+                dataSessionId: dataSession.id,
+                programTargetId: entry.programTargetId,
+                trialsCorrect,
+                trialsTotal,
+                prompted: entry.programData.prompted ?? 0,
+                stepNumber: entry.programData.stepNumber ?? null,
+                independenceLevel: entry.programData.independenceLevel ?? null,
+                percentCorrect: String(pctCorrect),
+                promptLevelUsed: entry.programData.promptLevelUsed ?? null,
+                notes: entry.programData.notes ?? null,
+              });
+            }
           }
         }
-      }
 
-      return session;
-    });
+        return session;
+      });
 
-    logAudit(req, {
-      action: "create",
-      targetTable: "session_logs",
-      targetId: result.id,
-      studentId: result.studentId,
-      summary: `Logged session for student #${result.studentId} on ${result.sessionDate}`,
-      newValues: { sessionDate: result.sessionDate, durationMinutes: result.durationMinutes, status: result.status } as Record<string, unknown>,
-    });
-    res.status(201).json({ ...result, createdAt: result.createdAt.toISOString() });
+      logAudit(req, {
+        action: "create",
+        targetTable: "session_logs",
+        targetId: result.id,
+        studentId: result.studentId,
+        summary: `Logged session for student #${result.studentId} on ${result.sessionDate}`,
+        newValues: { sessionDate: result.sessionDate, durationMinutes: result.durationMinutes, status: result.status } as Record<string, unknown>,
+      });
+      res.status(201).json({ ...result, createdAt: result.createdAt.toISOString() });
+    }
   } catch (e: any) {
     console.error("POST /sessions error:", e);
     res.status(500).json({ error: "Failed to create session" });
-  }
-
-  if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
-    res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
-    return;
-  }
-
-  if (parsed.data.isCompensatory && parsed.data.compensatoryObligationId) {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const txDb = drizzle(client);
-
-      const [obligation] = await txDb.select().from(compensatoryObligationsTable)
-        .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
-      if (!obligation) {
-        await client.query("ROLLBACK");
-        res.status(400).json({ error: "Compensatory obligation not found" });
-        return;
-      }
-      if (obligation.studentId !== parsed.data.studentId) {
-        await client.query("ROLLBACK");
-        res.status(400).json({ error: "Obligation student does not match session student" });
-        return;
-      }
-      if (obligation.status === "completed" || obligation.status === "waived") {
-        await client.query("ROLLBACK");
-        res.status(400).json({ error: `Cannot log sessions against a ${obligation.status} obligation` });
-        return;
-      }
-
-      const [session] = await txDb.insert(sessionLogsTable).values(parsed.data).returning();
-      const completedStatus = parsed.data.status === "completed" || parsed.data.status === "makeup";
-      if (completedStatus) {
-        const newDelivered = obligation.minutesDelivered + parsed.data.durationMinutes;
-        const newStatus = newDelivered >= obligation.minutesOwed ? "completed" : "in_progress";
-        await txDb.update(compensatoryObligationsTable)
-          .set({ minutesDelivered: newDelivered, status: newStatus })
-          .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
-      }
-
-      await client.query("COMMIT");
-      res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
-  } else {
-    const [session] = await db.insert(sessionLogsTable).values(parsed.data).returning();
-    res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
   }
 });
 

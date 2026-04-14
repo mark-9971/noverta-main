@@ -66,7 +66,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 };
 
 export default function ParentCommunication() {
-  const { selectedSchool } = useSchoolContext();
+  const { selectedSchoolId } = useSchoolContext();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [overdueFollowups, setOverdueFollowups] = useState<Contact[]>([]);
   const [notificationNeeds, setNotificationNeeds] = useState<NotificationNeeded[]>([]);
@@ -102,10 +102,10 @@ export default function ParentCommunication() {
   const [students, setStudents] = useState<{ id: number; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
-    listSpedStudents(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined)
+    listSpedStudents(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined)
       .then(setStudents as any)
       .catch(() => {});
-  }, [selectedSchool]);
+  }, [selectedSchoolId]);
 
   function fetchAll() {
     setLoading(true);
@@ -115,21 +115,21 @@ export default function ParentCommunication() {
     if (filterEndDate) params.set("endDate", filterEndDate);
     if (filterFollowUp) params.set("followUpStatus", filterFollowUp);
     if (filterContactType) params.set("contactType", filterContactType);
-    if (selectedSchool?.id) params.set("schoolId", String(selectedSchool.id));
+    if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
 
     Promise.all([
       listParentContacts(Object.fromEntries(params) as any).catch(() => ({ data: [], page: 1, limit: 100 })),
-      getOverdueFollowups(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined).catch(() => []),
-      getNotificationNeeded(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined).catch(() => []),
+      getOverdueFollowups(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined).catch(() => []),
+      getNotificationNeeded(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined).catch(() => []),
     ]).then(([cRes, o, n]) => {
-      setContacts(cRes.data || []);
-      setOverdueFollowups(o);
-      setNotificationNeeds(n);
+      setContacts((cRes as any).data || []);
+      setOverdueFollowups(o as any);
+      setNotificationNeeds(n as any);
       setLoading(false);
     }).catch(() => setLoading(false));
   }
 
-  useEffect(() => { fetchAll(); }, [filterStudent, filterStartDate, filterEndDate, filterFollowUp, filterContactType, selectedSchool]);
+  useEffect(() => { fetchAll(); }, [filterStudent, filterStartDate, filterEndDate, filterFollowUp, filterContactType, selectedSchoolId]);
 
   function resetForm() {
     setFormData({

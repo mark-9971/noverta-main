@@ -6,7 +6,7 @@ import {
   Plus, Calendar, MapPin, Send, Users, ShieldCheck, X
 } from "lucide-react";
 import { toast } from "sonner";
-import { customFetch, createTeacherObservation } from "@workspace/api-client-react";
+import { getStaffClassroom, createTeacherObservation } from "@workspace/api-client-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -73,8 +73,8 @@ export default function TeacherClassroom() {
   useEffect(() => {
     if (!teacherId) return;
     setLoading(true);
-    customFetch<any>(`/api/staff/${teacherId}/classroom`).then(d => {
-        setStudents(d.students || []);
+    getStaffClassroom(teacherId).then(d => {
+        setStudents((d as any)?.students || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

@@ -118,8 +118,10 @@ function formatWeek(w: string) {
 }
 
 function OverviewTab() {
-  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsOverview();
-  const { data: heatmap, isLoading: heatLoading } = useGetAnalyticsDeliveryHeatmap();
+  const { data: _overviewData, isLoading: loading, isError: error, refetch } = useGetAnalyticsOverview();
+  const data = _overviewData as any;
+  const { data: _heatmapData, isLoading: heatLoading } = useGetAnalyticsDeliveryHeatmap();
+  const heatmap = _heatmapData as any;
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load overview" onRetry={refetch} />;
@@ -287,7 +289,8 @@ function OverviewTab() {
 }
 
 function BehaviorTab() {
-  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsBehaviorSummary();
+  const { data: _behaviorData, isLoading: loading, isError: error, refetch } = useGetAnalyticsBehaviorSummary();
+  const data = _behaviorData as any;
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load behavior data" onRetry={refetch} />;
@@ -457,7 +460,8 @@ function BehaviorTab() {
 }
 
 function AcademicTab() {
-  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsProgramSummary();
+  const { data: _academicData, isLoading: loading, isError: error, refetch } = useGetAnalyticsProgramSummary();
+  const data = _academicData as any;
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load academic data" onRetry={refetch} />;
@@ -716,7 +720,8 @@ function AcademicTab() {
 }
 
 function MinutesTab() {
-  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsMinutesSummary();
+  const { data: _minutesData, isLoading: loading, isError: error, refetch } = useGetAnalyticsMinutesSummary();
+  const data = _minutesData as any;
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load minutes data" onRetry={refetch} />;
@@ -886,10 +891,11 @@ function StudentTab() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const { data: studentsRaw, isLoading: listLoading } = useListStudents({ limit: 500 } as any);
-  const { data: studentData, isLoading: loading } = useGetAnalyticsStudent(
+  const { data: _studentData, isLoading: loading } = useGetAnalyticsStudent(
     selectedId as number,
-    { query: { enabled: !!selectedId } },
+    { query: { enabled: !!selectedId } as any },
   );
+  const studentData = _studentData as any;
 
   const students: any[] = Array.isArray(studentsRaw) ? studentsRaw : (studentsRaw as any)?.students ?? [];
 

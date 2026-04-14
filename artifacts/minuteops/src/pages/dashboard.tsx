@@ -51,7 +51,8 @@ export default function Dashboard() {
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
-  const { data: academics } = useGetAcademicsOverview();
+  const { data: _academicsData } = useGetAcademicsOverview();
+  const academics = _academicsData as any;
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
   const deadlines = (() => {

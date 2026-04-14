@@ -167,7 +167,7 @@ export default function ResourceManagement() {
       getRebalancingSuggestions(qs ? Object.fromEntries(new URLSearchParams(qs.slice(1))) as any : undefined),
     ]).then(([cl, ut, bg, sg]) => {
       setCaseloadData(cl);
-      setUtilData(ut);
+      setUtilData(ut as any);
       setBudgetData(bg);
       setSuggestions(sg);
     }).finally(() => setLoading(false));

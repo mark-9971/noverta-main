@@ -11,7 +11,7 @@ import {
   Home, Building2, Star, RefreshCw, Info
 } from "lucide-react";
 import { toast } from "sonner";
-import { customFetch, generateIepBuilder } from "@workspace/api-client-react";
+import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -197,7 +197,7 @@ export default function IepBuilderPage() {
   });
 
   useEffect(() => {
-    customFetch<any>(`/api/students/${studentId}/iep-builder/context`).then(data => { setContext(data); setLoading(false); })
+    getStudentIepBuilderContext(studentId).then(data => { setContext(data as any); setLoading(false); })
       .catch(() => { toast.error("Failed to load student context"); setLoading(false); });
   }, [studentId]);
 
@@ -210,7 +210,7 @@ export default function IepBuilderPage() {
           transitionInput: transition,
           includeTransition: context?.needsTransition || false,
         });
-      setDraft(res);
+      setDraft(res as any);
       setStep(5);
     } catch {
       toast.error("Failed to generate draft. Please try again.");

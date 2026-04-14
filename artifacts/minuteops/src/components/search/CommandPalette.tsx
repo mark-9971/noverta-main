@@ -127,8 +127,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await globalSearch({ q: query.trim(), role });
-        setApiResults(data);
+        const data = await globalSearch({ q: query.trim() });
+        setApiResults(data as any);
       } catch {
         // silently ignore
       } finally {

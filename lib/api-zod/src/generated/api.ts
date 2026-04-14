@@ -4020,6 +4020,24 @@ export const AmendIepDocumentParams = zod.object({
 export const AmendIepDocumentBody = zod.object({}).passthrough();
 
 /**
+ * @summary Get completeness check for an IEP document
+ */
+export const GetStudentIepDocumentCompletenessParams = zod.object({
+  studentId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const GetStudentIepDocumentCompletenessResponse = zod.object({
+  percentage: zod.number().optional(),
+  completedCount: zod.number().optional(),
+  totalCount: zod.number().optional(),
+  isComplete: zod.boolean().optional(),
+  missingSections: zod.array(zod.object({}).passthrough()).optional(),
+  sectionSummary: zod.object({}).passthrough().optional(),
+  checks: zod.array(zod.object({}).passthrough()).optional(),
+});
+
+/**
  * @summary List accommodations for student
  */
 export const ListAccommodationsParams = zod.object({
@@ -4059,6 +4077,15 @@ export const DeleteAccommodationParams = zod.object({
 });
 
 export const DeleteAccommodationResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get IEP builder context for a student
+ */
+export const GetStudentIepBuilderContextParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentIepBuilderContextResponse = zod.object({}).passthrough();
 
 /**
  * @summary Generate IEP document from builder
@@ -4775,6 +4802,15 @@ export const GetStudentProgressNoteHistoryResponse = zod.array(
 );
 
 /**
+ * @summary Get IEP suggestions for a specific student
+ */
+export const GetStudentIepSuggestionsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentIepSuggestionsResponse = zod.object({}).passthrough();
+
+/**
  * @summary Get IEP suggestions for all students
  */
 export const GetIepSuggestionsAllStudentsResponseItem = zod
@@ -4969,6 +5005,13 @@ export const CreateFaSessionParams = zod.object({
 });
 
 export const CreateFaSessionBody = zod.object({}).passthrough();
+
+/**
+ * @summary Generate a BIP from FBA data
+ */
+export const GenerateBipFromFbaParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
 
 /**
  * @summary Delete FA session

@@ -145,11 +145,11 @@ export default function AuditLogPage() {
       studentIdFilter,
     ],
     queryFn: async () => {
-      return listAuditLogs(Object.fromEntries(new URLSearchParams(buildParams())) as any) as Promise<AuditLogsResponse>;
+      return listAuditLogs(Object.fromEntries(new URLSearchParams(buildParams())) as any) as unknown as AuditLogsResponse;
     },
   });
 
-  const { data: stats } = useQuery<AuditStats>({
+  const { data: _statsData } = useQuery({
     queryKey: ["audit-logs-stats", dateFrom, dateTo],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -158,6 +158,7 @@ export default function AuditLogPage() {
       return getAuditLogStats(Object.fromEntries(params) as any);
     },
   });
+  const stats = _statsData as AuditStats | undefined;
 
   const logs = data?.logs ?? [];
   const total = data?.total ?? 0;

@@ -14,15 +14,15 @@ export default function TeacherRoster() {
 
   useEffect(() => {
     if (!teacherId) return;
-    listClasses({ teacherId }).then(async (clsList) => {
+    listClasses({ teacherId: teacherId as number }).then(async (clsList) => {
       setClasses(clsList);
       const students: any[] = [];
       const seen = new Set<number>();
       for (const c of clsList) {
-        const roster = await getClassRoster(c.id);
+        const roster = await getClassRoster((c as any).id);
         for (const s of roster) {
-          if (!seen.has(s.studentId)) {
-            seen.add(s.studentId);
+          if (!seen.has((s as any).studentId)) {
+            seen.add((s as any).studentId);
             students.push({ ...s, classes: [c.name] });
           } else {
             const existing = students.find(st => st.studentId === s.studentId);

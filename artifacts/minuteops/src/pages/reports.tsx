@@ -307,13 +307,13 @@ function ComplianceTrendTab() {
 
   const semesterLines = useMemo(() => {
     if (!data?.semesterMarkers || !chartData.length) return [];
-    return data.semesterMarkers.map(m => {
-      const closest = chartData.reduce((best, pt) => {
-        const dist = Math.abs(new Date(pt.period as string).getTime() - new Date(m.date).getTime());
+    return ((data as any).semesterMarkers.map((m: any) => {
+      const closest = chartData.reduce<{ label: string; dist: number }>((best, pt) => {
+        const dist = Math.abs(new Date(pt.period as string).getTime() - new Date(m.date as string).getTime());
         return dist < best.dist ? { label: pt.label as string, dist } : best;
       }, { label: "", dist: Infinity });
-      return { label: m.label, x: closest.label };
-    }).filter(m => m.x);
+      return { label: m.label as string, x: closest.label };
+    }) as { label: string; x: string }[]).filter(m => m.x);
   }, [data?.semesterMarkers, chartData]);
 
   const SCHOOL_COLORS = ["#059669", "#dc2626", "#6b7280", "#d97706"];
@@ -390,8 +390,8 @@ function ComplianceTrendTab() {
                   formatter={(v: number) => [`${v}%`, ""]}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                {semesterLines.map((m, i) => (
-                  <ReferenceLine key={i} x={m.x} stroke="#d1d5db" strokeDasharray="4 4" label={{ value: m.label, position: "top", fontSize: 10, fill: "#9ca3af" }} />
+                {semesterLines.map((m: { label: string; x: string }, i: number) => (
+                  <ReferenceLine key={i} x={m.x} stroke="#d1d5db" strokeDasharray="4 4" label={{ value: m.label, position: "top" as any, fontSize: 10, fill: "#9ca3af" }} />
                 ))}
                 <Line type="monotone" dataKey="overall" name="District Overall" stroke="#111827" strokeWidth={2.5} dot={{ r: 3 }} />
                 {data?.schools?.filter(s => selectedSchools.has(s.schoolId)).map((s, i) => (
@@ -796,7 +796,7 @@ function MissedSessionsTab() {
   function exportMissed() {
     downloadCsv("missed_sessions.csv",
       ["Student", "Service", "Date", "Reason", "Staff"],
-      missedList.map(r => [r.studentName ?? "", r.serviceTypeName ?? "", r.sessionDate ?? "", r.missedReason ?? "—", r.staffName ?? "—"]),
+      missedList.map(r => [r.studentName ?? "", r.serviceTypeName ?? "", r.sessionDate ?? "", (r as any).missedReason ?? "—", r.staffName ?? "—"]),
       { generatedAt: new Date().toISOString(), preparedBy: user.name }
     );
   }

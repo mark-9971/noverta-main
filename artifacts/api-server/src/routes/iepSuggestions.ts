@@ -346,7 +346,6 @@ router.post("/students/:studentId/apply-suggestions", async (req, res): Promise<
               programTargetId: created.id,
               stepNumber: i + 1,
               name: catalogItem.steps[i],
-              description: catalogItem.steps[i],
             });
           }
         }

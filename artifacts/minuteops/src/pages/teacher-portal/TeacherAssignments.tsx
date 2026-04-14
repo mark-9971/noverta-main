@@ -14,11 +14,11 @@ export default function TeacherAssignments() {
 
   useEffect(() => {
     if (!teacherId) return;
-    listClasses({ teacherId }).then(async (clsList) => {
+    listClasses({ teacherId: teacherId as number }).then(async (clsList) => {
       setClasses(clsList);
       const all: any[] = [];
       for (const c of clsList) {
-        const asgns = await listClassAssignments(c.id);
+        const asgns = await listClassAssignments((c as any).id);
         all.push(...asgns.map((a: any) => ({ ...a, className: c.name, classSubject: c.subject })));
       }
       all.sort((a, b) => (b.dueDate || "").localeCompare(a.dueDate || ""));

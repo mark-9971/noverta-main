@@ -69,7 +69,7 @@ export default function DistrictOverview() {
 
   const { data: overview, isLoading } = useGetDistrictOverview(
     effectiveDistrictId ? { districtId: effectiveDistrictId } : {},
-    { query: { enabled: true } }
+    { query: { enabled: true } as any }
   ) as any;
 
   const overviewData = overview as any;

@@ -90,7 +90,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
         category: categoryFilter !== "all" ? categoryFilter : undefined,
         tier: tierFilter !== "all" ? tierFilter : undefined,
       } as any);
-      setTemplates(data);
+      setTemplates(data as any);
     } catch {
       toast.error("Failed to load templates");
     }

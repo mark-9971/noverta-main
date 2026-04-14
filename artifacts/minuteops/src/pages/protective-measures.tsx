@@ -225,18 +225,19 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
 }) {
   const [exportYear, setExportYear] = useState("2025-2026");
 
-  const { data: incidents = [], isLoading } = useQuery<Incident[]>({
+  const { data: incidents = [], isLoading } = useQuery({
     queryKey: ["protective-incidents", filterType, filterStatus],
     queryFn: ({ signal }) => listProtectiveIncidents({
       ...(filterType !== "all" ? { incidentType: filterType } : {}),
       ...(filterStatus !== "all" ? { status: filterStatus } : {}),
-    }, { signal }),
+    }, { signal }) as Promise<Incident[]>,
   });
 
-  const { data: summary } = useQuery<Summary>({
+  const { data: _summaryData } = useQuery({
     queryKey: ["protective-summary"],
     queryFn: ({ signal }) => getProtectiveSummary(undefined, { signal }),
   });
+  const summary = _summaryData as Summary | undefined;
 
   const filtered = useMemo(() => {
     if (!searchTerm) return incidents;
@@ -505,9 +506,9 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
     queryFn: ({ signal }) => listStudents(undefined, { signal }),
   });
 
-  const { data: staff = [] } = useQuery<Staff[]>({
+  const { data: staff = [] } = useQuery({
     queryKey: ["staff-list"],
-    queryFn: ({ signal }) => listStaff(undefined, { signal }),
+    queryFn: ({ signal }) => listStaff(undefined, { signal }) as Promise<Staff[]>,
   });
 
   const mutation = useMutation({
@@ -1047,9 +1048,9 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
     queryFn: ({ signal }) => getProtectiveIncident(id, { signal }),
   });
 
-  const { data: staff = [] } = useQuery<Staff[]>({
+  const { data: staff = [] } = useQuery({
     queryKey: ["staff-list"],
-    queryFn: ({ signal }) => listStaff(undefined, { signal }),
+    queryFn: ({ signal }) => listStaff(undefined, { signal }) as Promise<Staff[]>,
   });
 
   const invalidateAll = () => {

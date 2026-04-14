@@ -4,7 +4,7 @@ import {
   studentsTable, iepGoalsTable, progressReportsTable, serviceRequirementsTable,
   serviceTypesTable, programTargetsTable, behaviorTargetsTable, programDataTable,
   behaviorDataTable, dataSessionsTable, iepDocumentsTable, iepAccommodationsTable,
-  sessionLogsTable, schoolsTable, fbas, behaviorInterventionPlans
+  sessionLogsTable, schoolsTable
 } from "@workspace/db";
 import { eq, desc, and, asc, count, gte } from "drizzle-orm";
 

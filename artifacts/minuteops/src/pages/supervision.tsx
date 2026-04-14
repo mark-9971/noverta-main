@@ -13,7 +13,7 @@ import {
   Filter, Eye, TrendingUp
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { listSupervisionSessions, getSupervisionComplianceSummary, listStaff, getSupervisionTrend, updateSupervisionSession, createSupervisionSession, deleteSupervisionSession, customFetch } from "@workspace/api-client-react";
+import { listSupervisionSessions, getSupervisionComplianceSummary, listStaff, getSupervisionTrend, updateSupervisionSession, createSupervisionSession, deleteSupervisionSession, exportSupervisionSessionsCsv } from "@workspace/api-client-react";
 
 interface SupervisionSession {
   id: number;
@@ -115,8 +115,8 @@ export default function Supervision() {
       listStaff({ status: "active", ...(selectedSchoolId ? { schoolId: selectedSchoolId } : {}) } as any).catch(() => []),
       isAdminOrTeacher ? getSupervisionTrend(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined).catch(() => []) : Promise.resolve([]),
     ]).then(([s, c, st, tr]) => {
-      setSessions(s);
-      setCompliance(c);
+      setSessions(s as any);
+      setCompliance(c as any);
       setStaff(st);
       setTrend(tr);
     }).catch(() => toast.error("Failed to load supervision data"))
@@ -201,9 +201,14 @@ export default function Supervision() {
     if (filterSupervisee) params.set("superviseeId", filterSupervisee);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
     try {
-      const blob = await customFetch<Blob>(`/api/supervision-sessions/export/csv?${params}`, {
-        responseType: "blob",
-      });
+      const blob = await exportSupervisionSessionsCsv(
+        {
+          supervisorId: filterSupervisor ? Number(filterSupervisor) : null,
+          superviseeId: filterSupervisee ? Number(filterSupervisee) : null,
+          schoolId: selectedSchoolId ?? null,
+        },
+        { responseType: "blob" } as RequestInit,
+      ) as unknown as Blob;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

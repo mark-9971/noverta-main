@@ -220,7 +220,7 @@ export default function ParaMyDayPage() {
     setLoading(true);
     try {
       const data = await getParaMyDay({ staffId, date } as any);
-      setBlocks(data.blocks || []);
+      setBlocks((data as any).blocks || []);
     } catch {
       toast.error("Failed to load schedule");
     }
@@ -282,7 +282,7 @@ export default function ParaMyDayPage() {
           block.studentId,
           block.serviceTypeId ? { serviceTypeId: block.serviceTypeId } as any : undefined
         );
-      setStudentTargets(data);
+      setStudentTargets(data as any);
       setTallies(data.behaviors.map((b: BehaviorTarget) => ({ behaviorTargetId: b.id, count: 0 })));
     } catch {
       toast.error("Failed to load student targets");

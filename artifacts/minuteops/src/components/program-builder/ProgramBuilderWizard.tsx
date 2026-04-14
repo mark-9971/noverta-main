@@ -161,13 +161,13 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
             targetCriterion: `${form.masteryCriterionPercent}% across ${form.masteryCriterionSessions} sessions`,
           } as any);
 
-        const existingStepsData = await listProgramSteps(editingProgram.id);
+        const existingStepsData = (await listProgramSteps(editingProgram.id as number)) as any[];
         for (const es of existingStepsData) {
           await deleteProgramStep(es.id);
         }
         for (let i = 0; i < steps.length; i++) {
           const s = steps[i];
-          await createProgramStep(editingProgram.id, {
+          await createProgramStep(editingProgram.id as number, {
               name: s.name || `Step ${i + 1}`,
               sdInstruction: s.sdInstruction || null,
               targetResponse: s.targetResponse || null,

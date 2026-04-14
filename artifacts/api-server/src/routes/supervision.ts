@@ -209,8 +209,8 @@ router.get("/supervision-sessions/export/csv", requireWriteRole, async (req, res
 
 router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
-    const id = parseInt(req.params.id);
+    const authed = req as unknown as AuthedRequest;
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [session] = await db
@@ -236,7 +236,7 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
 
 router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const { sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
@@ -271,7 +271,7 @@ router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Pr
 
 router.delete("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const [deleted] = await db.delete(supervisionSessionsTable).where(eq(supervisionSessionsTable.id, id)).returning();
@@ -391,8 +391,8 @@ router.get("/supervision/compliance-summary", requireWriteRole, async (req, res)
 
 router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
-    const staffId = parseInt(req.params.staffId);
+    const authed = req as unknown as AuthedRequest;
+    const staffId = parseInt(String(req.params.staffId));
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
 
     if (!isPrivileged(authed)) {

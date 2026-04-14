@@ -132,6 +132,7 @@ import type {
   ExecutiveSummaryResponse,
   ExportAuditLogsParams,
   ExportSupervisionSessionsCsvParams,
+  GenerateBipFromFba201,
   GenerateFromShortfallsBody,
   GenerateIepBuilder200,
   GenerateIepBuilderBody,
@@ -210,6 +211,9 @@ import type {
   GetStudentClassroomObservations200Item,
   GetStudentDashboard200,
   GetStudentGradesSummary200,
+  GetStudentIepBuilderContext200,
+  GetStudentIepDocumentCompleteness200,
+  GetStudentIepSuggestions200,
   GetStudentIepSummary200,
   GetStudentMinuteSummaryReportParams,
   GetStudentMinutesTrend200Item,
@@ -15481,6 +15485,117 @@ export const useAmendIepDocument = <
 };
 
 /**
+ * @summary Get completeness check for an IEP document
+ */
+export const getGetStudentIepDocumentCompletenessUrl = (
+  studentId: number,
+  docId: number,
+) => {
+  return `/api/students/${studentId}/iep-documents/${docId}/completeness`;
+};
+
+export const getStudentIepDocumentCompleteness = async (
+  studentId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<GetStudentIepDocumentCompleteness200> => {
+  return customFetch<GetStudentIepDocumentCompleteness200>(
+    getGetStudentIepDocumentCompletenessUrl(studentId, docId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStudentIepDocumentCompletenessQueryKey = (
+  studentId: number,
+  docId: number,
+) => {
+  return [
+    `/api/students/${studentId}/iep-documents/${docId}/completeness`,
+  ] as const;
+};
+
+export const getGetStudentIepDocumentCompletenessQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetStudentIepDocumentCompletenessQueryKey(studentId, docId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>
+  > = ({ signal }) =>
+    getStudentIepDocumentCompleteness(studentId, docId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(studentId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentIepDocumentCompletenessQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>
+>;
+export type GetStudentIepDocumentCompletenessQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get completeness check for an IEP document
+ */
+
+export function useGetStudentIepDocumentCompleteness<
+  TData = Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepDocumentCompleteness>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentIepDocumentCompletenessQueryOptions(
+    studentId,
+    docId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List accommodations for student
  */
 export const getListAccommodationsUrl = (studentId: number) => {
@@ -15832,6 +15947,101 @@ export const useDeleteAccommodation = <
 > => {
   return useMutation(getDeleteAccommodationMutationOptions(options));
 };
+
+/**
+ * @summary Get IEP builder context for a student
+ */
+export const getGetStudentIepBuilderContextUrl = (studentId: number) => {
+  return `/api/students/${studentId}/iep-builder/context`;
+};
+
+export const getStudentIepBuilderContext = async (
+  studentId: number,
+  options?: RequestInit,
+): Promise<GetStudentIepBuilderContext200> => {
+  return customFetch<GetStudentIepBuilderContext200>(
+    getGetStudentIepBuilderContextUrl(studentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStudentIepBuilderContextQueryKey = (studentId: number) => {
+  return [`/api/students/${studentId}/iep-builder/context`] as const;
+};
+
+export const getGetStudentIepBuilderContextQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentIepBuilderContext>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepBuilderContext>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudentIepBuilderContextQueryKey(studentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentIepBuilderContext>>
+  > = ({ signal }) =>
+    getStudentIepBuilderContext(studentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentIepBuilderContext>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentIepBuilderContextQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentIepBuilderContext>>
+>;
+export type GetStudentIepBuilderContextQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get IEP builder context for a student
+ */
+
+export function useGetStudentIepBuilderContext<
+  TData = Awaited<ReturnType<typeof getStudentIepBuilderContext>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepBuilderContext>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentIepBuilderContextQueryOptions(
+    studentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Generate IEP document from builder
@@ -22186,6 +22396,101 @@ export function useGetStudentProgressNoteHistory<
 }
 
 /**
+ * @summary Get IEP suggestions for a specific student
+ */
+export const getGetStudentIepSuggestionsUrl = (studentId: number) => {
+  return `/api/students/${studentId}/iep-suggestions`;
+};
+
+export const getStudentIepSuggestions = async (
+  studentId: number,
+  options?: RequestInit,
+): Promise<GetStudentIepSuggestions200> => {
+  return customFetch<GetStudentIepSuggestions200>(
+    getGetStudentIepSuggestionsUrl(studentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStudentIepSuggestionsQueryKey = (studentId: number) => {
+  return [`/api/students/${studentId}/iep-suggestions`] as const;
+};
+
+export const getGetStudentIepSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentIepSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStudentIepSuggestionsQueryKey(studentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentIepSuggestions>>
+  > = ({ signal }) =>
+    getStudentIepSuggestions(studentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentIepSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentIepSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentIepSuggestions>>
+>;
+export type GetStudentIepSuggestionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get IEP suggestions for a specific student
+ */
+
+export function useGetStudentIepSuggestions<
+  TData = Awaited<ReturnType<typeof getStudentIepSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentIepSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentIepSuggestionsQueryOptions(
+    studentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get IEP suggestions for all students
  */
 export const getGetIepSuggestionsAllStudentsUrl = () => {
@@ -23967,6 +24272,90 @@ export const useCreateFaSession = <
   TContext
 > => {
   return useMutation(getCreateFaSessionMutationOptions(options));
+};
+
+/**
+ * @summary Generate a BIP from FBA data
+ */
+export const getGenerateBipFromFbaUrl = (fbaId: number) => {
+  return `/api/fbas/${fbaId}/generate-bip`;
+};
+
+export const generateBipFromFba = async (
+  fbaId: number,
+  options?: RequestInit,
+): Promise<GenerateBipFromFba201> => {
+  return customFetch<GenerateBipFromFba201>(getGenerateBipFromFbaUrl(fbaId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateBipFromFbaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateBipFromFba>>,
+    TError,
+    { fbaId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateBipFromFba>>,
+  TError,
+  { fbaId: number },
+  TContext
+> => {
+  const mutationKey = ["generateBipFromFba"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateBipFromFba>>,
+    { fbaId: number }
+  > = (props) => {
+    const { fbaId } = props ?? {};
+
+    return generateBipFromFba(fbaId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateBipFromFbaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateBipFromFba>>
+>;
+
+export type GenerateBipFromFbaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a BIP from FBA data
+ */
+export const useGenerateBipFromFba = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateBipFromFba>>,
+    TError,
+    { fbaId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateBipFromFba>>,
+  TError,
+  { fbaId: number },
+  TContext
+> => {
+  return useMutation(getGenerateBipFromFbaMutationOptions(options));
 };
 
 /**
