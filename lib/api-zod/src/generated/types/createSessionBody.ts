@@ -28,6 +28,9 @@ export interface CreateSessionBody {
   /** @nullable */
   missedReasonId?: number | null;
   isMakeup: boolean;
+  isCompensatory?: boolean;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
 }

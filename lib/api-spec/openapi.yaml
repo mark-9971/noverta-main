@@ -2481,6 +2481,10 @@ components:
           type: ["string", "null"]
         isMakeup:
           type: boolean
+        isCompensatory:
+          type: boolean
+        compensatoryObligationId:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -2516,6 +2520,10 @@ components:
           type: ["integer", "null"]
         isMakeup:
           type: boolean
+        isCompensatory:
+          type: boolean
+        compensatoryObligationId:
+          type: ["integer", "null"]
         notes:
           type: ["string", "null"]
       required: [studentId, sessionDate, durationMinutes, status, isMakeup]
@@ -2533,6 +2541,10 @@ components:
           type: ["string", "null"]
         location:
           type: ["string", "null"]
+        isCompensatory:
+          type: ["boolean", "null"]
+        compensatoryObligationId:
+          type: ["integer", "null"]
 
     BulkCreateSessionsBody:
       type: object

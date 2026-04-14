@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable, staffTable, programsTable,
   serviceRequirementsTable, parentContactsTable, schoolsTable, iepDocumentsTable,
-  alertsTable, missedReasonsTable
+  alertsTable, missedReasonsTable, compensatoryObligationsTable
 } from "@workspace/db";
 import {
   GetStudentMinuteSummaryReportQueryParams,
@@ -572,7 +572,7 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
 
     const sIds = students.map(s => s.id);
 
-    const [reqs, sessions, contacts] = await Promise.all([
+    const [reqs, sessions, contacts, compObligations] = await Promise.all([
       db.select({
         id: serviceRequirementsTable.id,
         studentId: serviceRequirementsTable.studentId,
@@ -598,6 +598,8 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
         durationMinutes: sessionLogsTable.durationMinutes,
         status: sessionLogsTable.status,
         isMakeup: sessionLogsTable.isMakeup,
+        isCompensatory: sessionLogsTable.isCompensatory,
+        compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
         notes: sessionLogsTable.notes,
         serviceTypeName: serviceTypesTable.name,
         staffFirstName: staffTable.firstName,
@@ -635,6 +637,28 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
           lte(parentContactsTable.contactDate, end)
         ))
         .orderBy(asc(parentContactsTable.contactDate)),
+
+      db.select({
+        id: compensatoryObligationsTable.id,
+        studentId: compensatoryObligationsTable.studentId,
+        serviceRequirementId: compensatoryObligationsTable.serviceRequirementId,
+        periodStart: compensatoryObligationsTable.periodStart,
+        periodEnd: compensatoryObligationsTable.periodEnd,
+        minutesOwed: compensatoryObligationsTable.minutesOwed,
+        minutesDelivered: compensatoryObligationsTable.minutesDelivered,
+        status: compensatoryObligationsTable.status,
+        source: compensatoryObligationsTable.source,
+        notes: compensatoryObligationsTable.notes,
+        agreedDate: compensatoryObligationsTable.agreedDate,
+        agreedWith: compensatoryObligationsTable.agreedWith,
+        createdAt: compensatoryObligationsTable.createdAt,
+        serviceTypeName: serviceTypesTable.name,
+      })
+        .from(compensatoryObligationsTable)
+        .leftJoin(serviceRequirementsTable, eq(serviceRequirementsTable.id, compensatoryObligationsTable.serviceRequirementId))
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+        .where(sql`${compensatoryObligationsTable.studentId} IN (${sql.join(sIds.map(id => sql`${id}`), sql`, `)})`)
+        .orderBy(asc(compensatoryObligationsTable.periodStart)),
     ]);
 
     const reqsByStudent = new Map<number, typeof reqs>();
@@ -652,15 +676,22 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
       if (!contactsByStudent.has(c.studentId)) contactsByStudent.set(c.studentId, []);
       contactsByStudent.get(c.studentId)!.push(c);
     }
+    const compByStudent = new Map<number, typeof compObligations>();
+    for (const co of compObligations) {
+      if (!compByStudent.has(co.studentId)) compByStudent.set(co.studentId, []);
+      compByStudent.get(co.studentId)!.push(co);
+    }
 
     const result = students.map(student => {
       const sReqs = reqsByStudent.get(student.id) ?? [];
       const sSessions = sessionsByStudent.get(student.id) ?? [];
       const sContacts = contactsByStudent.get(student.id) ?? [];
+      const sComp = compByStudent.get(student.id) ?? [];
 
       const completedSessions = sSessions.filter(s => s.status === "completed" || s.status === "makeup");
       const missedSessions = sSessions.filter(s => s.status === "missed");
       const makeupSessions = sSessions.filter(s => s.isMakeup);
+      const compSessions = sSessions.filter(s => s.isCompensatory);
 
       return {
         studentId: student.id,
@@ -680,7 +711,9 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
           totalCompleted: completedSessions.length,
           totalMissed: missedSessions.length,
           totalMakeup: makeupSessions.length,
+          totalCompensatory: compSessions.length,
           deliveredMinutes: completedSessions.reduce((s, sess) => s + sess.durationMinutes, 0),
+          compensatoryMinutes: compSessions.filter(s => s.status === "completed" || s.status === "makeup").reduce((s, sess) => s + sess.durationMinutes, 0),
         },
         sessions: sSessions.map(s => ({
           date: s.sessionDate,
@@ -688,11 +721,38 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
           duration: s.durationMinutes,
           status: s.status,
           isMakeup: s.isMakeup,
+          isCompensatory: s.isCompensatory,
+          compensatoryObligationId: s.compensatoryObligationId,
           provider: s.staffFirstName ? `${s.staffFirstName} ${s.staffLastName}` : null,
           notes: s.notes,
           missedReason: s.missedReason ?? null,
           missedReasonCategory: s.missedReasonCategory ?? null,
         })),
+        compensatoryObligations: sComp.map(co => ({
+          id: co.id,
+          serviceTypeName: co.serviceTypeName,
+          periodStart: co.periodStart,
+          periodEnd: co.periodEnd,
+          minutesOwed: co.minutesOwed,
+          minutesDelivered: co.minutesDelivered,
+          remainingMinutes: co.minutesOwed - co.minutesDelivered,
+          status: co.status,
+          source: co.source,
+          notes: co.notes,
+          agreedDate: co.agreedDate,
+          agreedWith: co.agreedWith,
+          createdAt: co.createdAt ? co.createdAt.toISOString() : null,
+        })),
+        compensatorySummary: {
+          totalObligations: sComp.length,
+          totalMinutesOwed: sComp.reduce((s, co) => s + co.minutesOwed, 0),
+          totalMinutesDelivered: sComp.reduce((s, co) => s + co.minutesDelivered, 0),
+          totalMinutesRemaining: sComp.reduce((s, co) => s + (co.minutesOwed - co.minutesDelivered), 0),
+          pending: sComp.filter(co => co.status === "pending").length,
+          inProgress: sComp.filter(co => co.status === "in_progress").length,
+          completed: sComp.filter(co => co.status === "completed").length,
+          waived: sComp.filter(co => co.status === "waived").length,
+        },
         parentContacts: sContacts.map(c => ({
           date: c.contactDate,
           type: c.contactType,

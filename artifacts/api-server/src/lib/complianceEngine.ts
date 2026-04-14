@@ -2,8 +2,9 @@ import { db } from "@workspace/db";
 import {
   alertsTable,
   scheduleBlocksTable,
+  compensatoryObligationsTable,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import { logger } from "./logger";
 
@@ -131,6 +132,59 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     newAlerts = alertsToCreate.length;
   }
 
-  logger.info({ newAlerts, resolvedAlerts }, "Compliance checks complete");
+  const compGenerated = await generateCompensatoryObligations(allProgress);
+
+  logger.info({ newAlerts, resolvedAlerts, compGenerated }, "Compliance checks complete");
   return { newAlerts, resolvedAlerts };
+}
+
+async function generateCompensatoryObligations(
+  allProgress: Awaited<ReturnType<typeof computeAllActiveMinuteProgress>>
+): Promise<number> {
+  const now = new Date();
+  const endedWithShortfall = allProgress.filter(p => {
+    const intervalEnd = new Date(p.intervalEnd);
+    return intervalEnd < now && p.deliveredMinutes < p.requiredMinutes;
+  });
+
+  if (endedWithShortfall.length === 0) return 0;
+
+  let generated = 0;
+  for (const p of endedWithShortfall) {
+    const shortfall = p.requiredMinutes - p.deliveredMinutes;
+    if (shortfall <= 0) continue;
+
+    const existing = await db
+      .select({ id: compensatoryObligationsTable.id })
+      .from(compensatoryObligationsTable)
+      .where(
+        and(
+          eq(compensatoryObligationsTable.studentId, p.studentId),
+          eq(compensatoryObligationsTable.serviceRequirementId, p.serviceRequirementId),
+          sql`${compensatoryObligationsTable.periodStart} = ${p.intervalStart}`,
+          sql`${compensatoryObligationsTable.periodEnd} = ${p.intervalEnd}`
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) continue;
+
+    await db.insert(compensatoryObligationsTable).values({
+      studentId: p.studentId,
+      serviceRequirementId: p.serviceRequirementId,
+      periodStart: p.intervalStart,
+      periodEnd: p.intervalEnd,
+      minutesOwed: shortfall,
+      minutesDelivered: 0,
+      status: "pending",
+      source: "auto_compliance",
+      notes: `Auto-generated: ${p.studentName} - ${p.serviceTypeName}, shortfall of ${shortfall} minutes for interval ${p.intervalStart} to ${p.intervalEnd}.`,
+    });
+    generated++;
+  }
+
+  if (generated > 0) {
+    logger.info({ generated }, "Auto-generated compensatory obligations from interval shortfalls");
+  }
+  return generated;
 }

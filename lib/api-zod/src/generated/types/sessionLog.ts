@@ -37,6 +37,9 @@ export interface SessionLog {
   /** @nullable */
   missedReasonLabel?: string | null;
   isMakeup: boolean;
+  isCompensatory?: boolean;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;

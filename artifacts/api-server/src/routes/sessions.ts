@@ -74,6 +74,8 @@ router.get("/sessions", async (req, res): Promise<void> => {
       status: sessionLogsTable.status,
       missedReasonId: sessionLogsTable.missedReasonId,
       isMakeup: sessionLogsTable.isMakeup,
+      isCompensatory: sessionLogsTable.isCompensatory,
+      compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
       notes: sessionLogsTable.notes,
       createdAt: sessionLogsTable.createdAt,
       serviceTypeName: serviceTypesTable.name,
@@ -145,6 +147,8 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
       status: sessionLogsTable.status,
       missedReasonId: sessionLogsTable.missedReasonId,
       isMakeup: sessionLogsTable.isMakeup,
+      isCompensatory: sessionLogsTable.isCompensatory,
+      compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
       notes: sessionLogsTable.notes,
       createdAt: sessionLogsTable.createdAt,
       serviceTypeName: serviceTypesTable.name,
@@ -274,6 +278,8 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
   if (parsed.data.missedReasonId !== undefined) updateData.missedReasonId = parsed.data.missedReasonId;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.location !== undefined) updateData.location = parsed.data.location;
+  if (parsed.data.isCompensatory !== undefined && parsed.data.isCompensatory !== null) updateData.isCompensatory = parsed.data.isCompensatory;
+  if (parsed.data.compensatoryObligationId !== undefined) updateData.compensatoryObligationId = parsed.data.compensatoryObligationId;
 
   const [session] = await db.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
   if (!session) {

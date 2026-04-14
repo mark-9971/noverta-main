@@ -182,6 +182,9 @@ export interface SessionLog {
   /** @nullable */
   missedReasonLabel?: string | null;
   isMakeup: boolean;
+  isCompensatory?: boolean;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -508,6 +511,9 @@ export interface CreateSessionBody {
   /** @nullable */
   missedReasonId?: number | null;
   isMakeup: boolean;
+  isCompensatory?: boolean;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
   /** @nullable */
   notes?: string | null;
 }
@@ -523,6 +529,10 @@ export interface UpdateSessionBody {
   notes?: string | null;
   /** @nullable */
   location?: string | null;
+  /** @nullable */
+  isCompensatory?: boolean | null;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
 }
 
 export interface BulkCreateSessionsBody {

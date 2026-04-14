@@ -17,4 +17,8 @@ export interface UpdateSessionBody {
   notes?: string | null;
   /** @nullable */
   location?: string | null;
+  /** @nullable */
+  isCompensatory?: boolean | null;
+  /** @nullable */
+  compensatoryObligationId?: number | null;
 }

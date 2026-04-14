@@ -552,6 +552,8 @@ export const GetStudentResponse = zod.object({
       missedReasonId: zod.number().nullish(),
       missedReasonLabel: zod.string().nullish(),
       isMakeup: zod.boolean(),
+      isCompensatory: zod.boolean().optional(),
+      compensatoryObligationId: zod.number().nullish(),
       notes: zod.string().nullish(),
       createdAt: zod.string(),
     }),
@@ -691,6 +693,8 @@ export const GetStudentSessionsResponseItem = zod.object({
   missedReasonId: zod.number().nullish(),
   missedReasonLabel: zod.string().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
 });
@@ -1064,6 +1068,8 @@ export const ListSessionsResponseItem = zod.object({
   missedReasonId: zod.number().nullish(),
   missedReasonLabel: zod.string().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
 });
@@ -1086,6 +1092,8 @@ export const CreateSessionBody = zod.object({
   status: zod.string(),
   missedReasonId: zod.number().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -1115,6 +1123,8 @@ export const GetSessionResponse = zod.object({
   missedReasonId: zod.number().nullish(),
   missedReasonLabel: zod.string().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
 });
@@ -1132,6 +1142,8 @@ export const UpdateSessionBody = zod.object({
   missedReasonId: zod.number().nullish(),
   notes: zod.string().nullish(),
   location: zod.string().nullish(),
+  isCompensatory: zod.boolean().nullish(),
+  compensatoryObligationId: zod.number().nullish(),
 });
 
 export const UpdateSessionResponse = zod.object({
@@ -1153,6 +1165,8 @@ export const UpdateSessionResponse = zod.object({
   missedReasonId: zod.number().nullish(),
   missedReasonLabel: zod.string().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
 });
@@ -1183,6 +1197,8 @@ export const BulkCreateSessionsBody = zod.object({
       status: zod.string(),
       missedReasonId: zod.number().nullish(),
       isMakeup: zod.boolean(),
+      isCompensatory: zod.boolean().optional(),
+      compensatoryObligationId: zod.number().nullish(),
       notes: zod.string().nullish(),
     }),
   ),
@@ -1635,6 +1651,8 @@ export const GetMissedSessionsReportResponseItem = zod.object({
   missedReasonId: zod.number().nullish(),
   missedReasonLabel: zod.string().nullish(),
   isMakeup: zod.boolean(),
+  isCompensatory: zod.boolean().optional(),
+  compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
 });
