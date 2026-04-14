@@ -133,7 +133,8 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
       const inserted = await db.insert(alertsTable).values(batch).returning({ id: alertsTable.id, studentId: alertsTable.studentId, type: alertsTable.type, severity: alertsTable.severity, message: alertsTable.message });
 
       const notificationContacts = inserted
-        .filter(a => a.studentId && (a.severity === "critical" || a.severity === "high"))
+        .filter(a => a.studentId && (a.severity === "critical" || a.severity === "high") &&
+          ["behind_on_minutes", "missed_sessions", "projected_shortfall"].includes(a.type || ""))
         .map(a => ({
           studentId: a.studentId!,
           contactType: "notification" as const,
