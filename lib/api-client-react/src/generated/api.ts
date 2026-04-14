@@ -90,6 +90,7 @@ import type {
   ListAlertsParams,
   ListCompensatoryObligationsParams,
   ListMinuteProgressParams,
+  ListParentContacts200,
   ListParentContactsParams,
   ListScheduleBlocksParams,
   ListServiceRequirementsParams,
@@ -7826,8 +7827,8 @@ export const getListParentContactsUrl = (params?: ListParentContactsParams) => {
 export const listParentContacts = async (
   params?: ListParentContactsParams,
   options?: RequestInit,
-): Promise<ParentContact[]> => {
-  return customFetch<ParentContact[]>(getListParentContactsUrl(params), {
+): Promise<ListParentContacts200> => {
+  return customFetch<ListParentContacts200>(getListParentContactsUrl(params), {
     ...options,
     method: "GET",
   });

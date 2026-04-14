@@ -2290,31 +2290,39 @@ export const ListParentContactsQueryParams = zod.object({
   followUpStatus: zod.coerce.string().nullish(),
   contactType: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
+  page: zod.coerce.number().nullish().describe("Page number (default 1)"),
+  limit: zod.coerce
+    .number()
+    .nullish()
+    .describe("Items per page (default 100, max 500)"),
 });
 
-export const ListParentContactsResponseItem = zod.object({
-  id: zod.number(),
-  studentId: zod.number(),
-  contactType: zod.string(),
-  contactDate: zod.string(),
-  contactMethod: zod.string(),
-  subject: zod.string(),
-  notes: zod.string().nullish(),
-  outcome: zod.string().nullish(),
-  followUpNeeded: zod.string().nullish(),
-  followUpDate: zod.string().nullish(),
-  contactedBy: zod.string().nullish(),
-  parentName: zod.string().nullish(),
-  notificationRequired: zod.boolean(),
-  relatedAlertId: zod.number().nullish(),
-  studentName: zod.string().nullish(),
-  studentGrade: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
+export const ListParentContactsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      studentId: zod.number(),
+      contactType: zod.string(),
+      contactDate: zod.string(),
+      contactMethod: zod.string(),
+      subject: zod.string(),
+      notes: zod.string().nullish(),
+      outcome: zod.string().nullish(),
+      followUpNeeded: zod.string().nullish(),
+      followUpDate: zod.string().nullish(),
+      contactedBy: zod.string().nullish(),
+      parentName: zod.string().nullish(),
+      notificationRequired: zod.boolean(),
+      relatedAlertId: zod.number().nullish(),
+      studentName: zod.string().nullish(),
+      studentGrade: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+  page: zod.number(),
+  limit: zod.number(),
 });
-export const ListParentContactsResponse = zod.array(
-  ListParentContactsResponseItem,
-);
 
 /**
  * @summary Log a new parent contact

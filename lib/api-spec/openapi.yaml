@@ -1990,15 +1990,33 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: page
+          in: query
+          schema:
+            type: ["integer", "null"]
+          description: Page number (default 1)
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+          description: Items per page (default 100, max 500)
       responses:
         "200":
-          description: List of parent contacts
+          description: Paginated list of parent contacts
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ParentContact"
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ParentContact"
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                required: [data, page, limit]
     post:
       operationId: createParentContact
       tags: [parent-communication]

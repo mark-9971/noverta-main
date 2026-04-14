@@ -2015,6 +2015,22 @@ export type ListParentContactsParams = {
    * @nullable
    */
   schoolId?: number | null;
+  /**
+   * Page number (default 1)
+   * @nullable
+   */
+  page?: number | null;
+  /**
+   * Items per page (default 100, max 500)
+   * @nullable
+   */
+  limit?: number | null;
+};
+
+export type ListParentContacts200 = {
+  data: ParentContact[];
+  page: number;
+  limit: number;
 };
 
 export type DeleteParentContact200 = {

@@ -31,4 +31,14 @@ export type ListParentContactsParams = {
    * @nullable
    */
   schoolId?: number | null;
+  /**
+   * Page number (default 1)
+   * @nullable
+   */
+  page?: number | null;
+  /**
+   * Items per page (default 100, max 500)
+   * @nullable
+   */
+  limit?: number | null;
 };

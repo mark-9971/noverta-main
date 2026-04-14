@@ -108,6 +108,7 @@ export * from "./importRecord";
 export * from "./listAlertsParams";
 export * from "./listCompensatoryObligationsParams";
 export * from "./listMinuteProgressParams";
+export * from "./listParentContacts200";
 export * from "./listParentContactsParams";
 export * from "./listScheduleBlocksParams";
 export * from "./listServiceRequirementsParams";
