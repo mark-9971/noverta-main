@@ -7,8 +7,7 @@ import {
   Layers, Zap, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 
 interface StepDef {
   id: string;
@@ -154,42 +153,29 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
     setSaving(true);
     try {
       if (isEditing) {
-        const res = await fetch(`${API}/program-targets/${editingProgram.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        await apiPatch(`/api/program-targets/${editingProgram.id}`, {
             ...form,
             targetCriterion: `${form.masteryCriterionPercent}% across ${form.masteryCriterionSessions} sessions`,
-          }),
-        });
-        if (!res.ok) throw new Error("Failed to save");
+          });
 
-        const existingRes = await fetch(`${API}/program-targets/${editingProgram.id}/steps`);
-        const existingStepsData = await existingRes.json();
+        const existingStepsData = await apiGet(`/api/program-targets/${editingProgram.id}/steps`);
         for (const es of existingStepsData) {
-          await fetch(`${API}/program-steps/${es.id}`, { method: "DELETE" });
+          await apiDelete(`/api/program-steps/${es.id}`);
         }
         for (let i = 0; i < steps.length; i++) {
           const s = steps[i];
-          await fetch(`${API}/program-targets/${editingProgram.id}/steps`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          await apiPost(`/api/program-targets/${editingProgram.id}/steps`, {
               name: s.name || `Step ${i + 1}`,
               sdInstruction: s.sdInstruction || null,
               targetResponse: s.targetResponse || null,
               materials: s.materials || null,
               promptStrategy: s.promptStrategy || null,
               errorCorrection: s.errorCorrection || null,
-            }),
-          });
+            });
         }
         toast.success("Program updated");
       } else {
-        const res = await fetch(`${API}/students/${studentId}/program-targets`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        await apiPost(`/api/students/${studentId}/program-targets`, {
             ...form,
             targetCriterion: `${form.masteryCriterionPercent}% across ${form.masteryCriterionSessions} sessions`,
             steps: steps.map(s => ({
@@ -200,9 +186,7 @@ export default function ProgramBuilderWizard({ studentId, studentName, onClose, 
               promptStrategy: s.promptStrategy || null,
               errorCorrection: s.errorCorrection || null,
             })),
-          }),
-        });
-        if (!res.ok) throw new Error("Failed to save");
+          });
         toast.success("Program created");
       }
       onSaved();

@@ -8,8 +8,7 @@ import {
   AlertTriangle, GripVertical
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 
 interface ProgramTemplate {
   id: number; name: string; description: string; category: string;
@@ -87,8 +86,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
       if (scopeFilter !== "all") params.set("scope", scopeFilter);
       if (categoryFilter !== "all") params.set("category", categoryFilter);
       if (tierFilter !== "all") params.set("tier", tierFilter);
-      const res = await fetch(`${API}/program-templates?${params}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/program-templates?${params}`);
       setTemplates(data);
     } catch {
       toast.error("Failed to load templates");
@@ -105,37 +103,31 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
     }
     setCloning(template.id);
     try {
-      const res = await fetch(`${API}/program-templates/${template.id}/clone-to-student`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId }),
-      });
-      if (res.ok) {
-        toast.success(`"${template.name}" applied to student`);
-        onCloned();
-      } else toast.error("Failed to clone template");
+      await apiPost(`/api/program-templates/${template.id}/clone-to-student`, { studentId });
+      toast.success(`"${template.name}" applied to student`);
+      onCloned();
     } catch { toast.error("Network error"); }
     setCloning(null);
   }
 
   async function duplicateTemplate(id: number) {
-    const res = await fetch(`${API}/program-templates/${id}/duplicate`, { method: "POST" });
-    if (res.ok) {
+    try {
+      await apiPost(`/api/program-templates/${id}/duplicate`, {});
       toast.success("Template duplicated");
       loadTemplates();
       onTemplateUpdated();
-    }
+    } catch { toast.error("Failed to duplicate template"); }
   }
 
   async function deleteTemplate(id: number) {
     if (!confirm("Delete this template? This cannot be undone.")) return;
-    const res = await fetch(`${API}/program-templates/${id}`, { method: "DELETE" });
-    if (res.ok) {
+    try {
+      await apiDelete(`/api/program-templates/${id}`);
       toast.success("Template deleted");
       setSelectedTemplate(null);
       loadTemplates();
       onTemplateUpdated();
-    }
+    } catch { toast.error("Failed to delete template"); }
   }
 
   const filtered = templates;
@@ -494,17 +486,13 @@ function TemplateEditorModal({ template, onClose, onSaved }: {
     if (!form.name.trim()) { toast.error("Template name is required"); return; }
     setSaving(true);
     try {
-      const url = isNew ? `${API}/program-templates` : `${API}/program-templates/${template!.id}`;
-      const method = isNew ? "POST" : "PUT";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (res.ok) {
-        toast.success(isNew ? "Template created" : "Template updated");
-        onSaved();
-      } else toast.error("Failed to save template");
+      if (isNew) {
+        await apiPost(`/api/program-templates`, form);
+      } else {
+        await apiPut(`/api/program-templates/${template!.id}`, form);
+      }
+      toast.success(isNew ? "Template created" : "Template updated");
+      onSaved();
     } catch { toast.error("Network error"); }
     setSaving(false);
   }

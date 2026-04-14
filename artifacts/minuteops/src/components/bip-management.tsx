@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Plus, ChevronDown, ChevronUp, Edit3, Copy, Printer, X, Check, Archive } from "lucide-react";
 import { toast } from "sonner";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 
 interface Bip {
   id: number;
@@ -105,23 +104,23 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function fetchBips() {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/students/${studentId}/bips`);
-      if (res.ok) setBips(await res.json());
+      const data = await apiGet(`/api/students/${studentId}/bips`);
+      setBips(data);
     } catch { /* ignore */ }
     setLoading(false);
   }
 
   async function fetchFbas() {
     try {
-      const res = await fetch(`${API}/students/${studentId}/fbas`);
-      if (res.ok) setFbas(await res.json());
+      const data = await apiGet(`/api/students/${studentId}/fbas`);
+      setFbas(data);
     } catch { /* ignore */ }
   }
 
   async function fetchBehaviorTargets() {
     try {
-      const res = await fetch(`${API}/students/${studentId}/behavior-targets`);
-      if (res.ok) setBehaviorTargets(await res.json());
+      const data = await apiGet(`/api/students/${studentId}/behavior-targets`);
+      setBehaviorTargets(data);
     } catch { /* ignore */ }
   }
 
@@ -188,30 +187,15 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       if (!body.reviewDate) delete body.reviewDate;
       if (!body.effectiveDate) delete body.effectiveDate;
 
-      let res;
       if (editingBip) {
-        res = await fetch(`${API}/bips/${editingBip.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        await apiPatch(`/api/bips/${editingBip.id}`, body);
       } else {
-        res = await fetch(`${API}/students/${studentId}/bips`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        await apiPost(`/api/students/${studentId}/bips`, body);
       }
-
-      if (res.ok) {
-        toast.success(editingBip ? "BIP updated" : "BIP created");
-        setShowForm(false);
-        setEditingBip(null);
-        fetchBips();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.error || "Failed to save BIP");
-      }
+      toast.success(editingBip ? "BIP updated" : "BIP created");
+      setShowForm(false);
+      setEditingBip(null);
+      fetchBips();
     } catch {
       toast.error("Network error");
     }
@@ -221,17 +205,9 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function handleNewVersion(bip: Bip) {
     if (!confirm(`Create a new version of this BIP? Version ${bip.version} will be archived.`)) return;
     try {
-      const res = await fetch(`${API}/bips/${bip.id}/new-version`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        toast.success(`Version ${bip.version + 1} created`);
-        fetchBips();
-      } else {
-        toast.error("Failed to create new version");
-      }
+      await apiPost(`/api/bips/${bip.id}/new-version`, {});
+      toast.success(`Version ${bip.version + 1} created`);
+      fetchBips();
     } catch {
       toast.error("Network error");
     }
@@ -240,13 +216,9 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   async function handleDelete(bipId: number) {
     if (!confirm("Are you sure you want to delete this BIP? This cannot be undone.")) return;
     try {
-      const res = await fetch(`${API}/bips/${bipId}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("BIP deleted");
-        fetchBips();
-      } else {
-        toast.error("Failed to delete BIP");
-      }
+      await apiDelete(`/api/bips/${bipId}`);
+      toast.success("BIP deleted");
+      fetchBips();
     } catch {
       toast.error("Network error");
     }
@@ -254,15 +226,9 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
 
   async function handleStatusChange(bipId: number, newStatus: string) {
     try {
-      const res = await fetch(`${API}/bips/${bipId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        toast.success(`Status changed to ${STATUS_LABELS[newStatus] || newStatus}`);
-        fetchBips();
-      }
+      await apiPatch(`/api/bips/${bipId}`, { status: newStatus });
+      toast.success(`Status changed to ${STATUS_LABELS[newStatus] || newStatus}`);
+      fetchBips();
     } catch {
       toast.error("Failed to update status");
     }

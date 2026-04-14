@@ -267,15 +267,12 @@ export default function ParaMyDayPage() {
     setView("session");
 
     try {
-      const qsRes = await apiPost(`/api/para/sessions/quick-start`, {
+      const qsData = await apiPost(`/api/para/sessions/quick-start`, {
           scheduleBlockId: block.id,
           sessionDate: date,
           startTime,
-        });
-      if (qsRes.ok) {
-        const qsData = await qsRes.json() as { session: { id: number } };
-        setActiveSession(prev => prev ? { ...prev, serverSessionId: qsData.session.id } : prev);
-      }
+        }) as { session: { id: number } };
+      setActiveSession(prev => prev ? { ...prev, serverSessionId: qsData.session.id } : prev);
     } catch {
       // Session creation on stop will serve as fallback
     }
@@ -341,14 +338,18 @@ export default function ParaMyDayPage() {
       let saveOk = false;
 
       if (activeSession.serverSessionId) {
-        const stopRes = await apiPatch(`/api/para/sessions/${activeSession.serverSessionId}/stop`, {
-            endTime: endTimeStr,
-            durationMinutes,
-            notes: sessionNotes || null,
-            status: "completed",
-            goalData: goalData.length > 0 ? goalData : undefined,
-          });
-        saveOk = stopRes.ok;
+        try {
+          await apiPatch(`/api/para/sessions/${activeSession.serverSessionId}/stop`, {
+              endTime: endTimeStr,
+              durationMinutes,
+              notes: sessionNotes || null,
+              status: "completed",
+              goalData: goalData.length > 0 ? goalData : undefined,
+            });
+          saveOk = true;
+        } catch {
+          saveOk = false;
+        }
       }
 
       if (!saveOk) {

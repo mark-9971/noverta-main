@@ -121,11 +121,10 @@ export default function IepSuggestions() {
     if (totalSelected === 0) { toast.error("Select at least one suggestion to apply"); return; }
     setApplying(true);
     try {
-      const resp = await apiPost(`/api/students/${detail.student.id}/apply-suggestions`, {
+      const result = await apiPost(`/api/students/${detail.student.id}/apply-suggestions`, {
           behaviors: [...selected.behaviors].map(name => ({ name })),
           programs: [...selected.programs].map(name => ({ name })),
         });
-      const result = await resp.json();
       toast.success(`Created ${result.behaviorsCreated} behavior targets and ${result.programsCreated} programs`);
       loadDetail(detail.student.id);
     } catch {

@@ -9,8 +9,7 @@ import {
   Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiPost, apiDelete, apiGet } from "@/lib/api";
 
 interface PhaseChange {
   id: number;
@@ -133,18 +132,12 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
   async function handleAddPhase() {
     if (!newPhaseDate || !newPhaseLabel) return;
     try {
-      const res = await fetch(`${API}/behavior-targets/${target.id}/phase-changes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ changeDate: newPhaseDate, label: newPhaseLabel }),
-      });
-      if (res.ok) {
-        toast.success("Phase change added");
-        setAddingPhase(false);
-        setNewPhaseDate("");
-        setNewPhaseLabel("");
-        onPhaseChangesUpdate();
-      }
+      await apiPost(`/api/behavior-targets/${target.id}/phase-changes`, { changeDate: newPhaseDate, label: newPhaseLabel });
+      toast.success("Phase change added");
+      setAddingPhase(false);
+      setNewPhaseDate("");
+      setNewPhaseLabel("");
+      onPhaseChangesUpdate();
     } catch {
       toast.error("Failed to add phase change");
     }
@@ -152,7 +145,7 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
 
   async function handleDeletePhase(id: number) {
     try {
-      await fetch(`${API}/phase-changes/${id}`, { method: "DELETE" });
+      await apiDelete(`/api/phase-changes/${id}`);
       toast.success("Phase change removed");
       onPhaseChangesUpdate();
     } catch {
@@ -509,11 +502,8 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
   async function loadIoa() {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/students/${studentId}/ioa-summary`);
-      if (res.ok) {
-        const data = await res.json();
-        setIoaData(data);
-      }
+      const data = await apiGet(`/api/students/${studentId}/ioa-summary`);
+      setIoaData(data);
     } catch {}
     setLoading(false);
     setLoaded(true);

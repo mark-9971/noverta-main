@@ -1867,18 +1867,13 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
   }
 
   async function deleteMeeting(id: number) {
-    await apiPost(`/api/team-meetings/${id}`, {
-          goalArea: entry.goalArea,
-          goalNumber,
-          annualGoal: entry.goalText,
-          benchmarks: entry.benchmarkText || null,
-          serviceArea: entry.domain,
-        });
-      onGoalAdded();
-    } catch (e) {
-      console.error("Failed to add goal:", e);
+    try {
+      await apiDelete(`/api/team-meetings/${id}`);
+      onSaved();
+      toast.success("Meeting deleted");
+    } catch {
+      toast.error("Failed to delete meeting");
     }
-    setAdding(null);
   }
 
   return (
