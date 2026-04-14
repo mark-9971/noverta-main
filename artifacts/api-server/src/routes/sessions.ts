@@ -541,6 +541,14 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     });
   }
 
+  logAudit(req, {
+    action: "read",
+    targetTable: "session_logs",
+    targetId: session.id,
+    studentId: session.studentId,
+    summary: `Viewed session #${session.id} for student #${session.studentId}`,
+  });
+
   res.json({
     ...session,
     studentName: session.studentFirst ? `${session.studentFirst} ${session.studentLast}` : null,
@@ -751,6 +759,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
         targetId: session.id,
         studentId: session.studentId,
         summary: `Updated session #${session.id} for student #${session.studentId}`,
+        oldValues: Object.fromEntries(Object.keys(updateData).map(k => [k, (oldSession as Record<string, unknown>)[k]])),
         newValues: updateData as Record<string, unknown>,
       });
       res.json({ ...session, createdAt: session.createdAt.toISOString() });
@@ -818,6 +827,8 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
 
   const [existing] = await db.select({
     id: sessionLogsTable.id,
+    studentId: sessionLogsTable.studentId,
+    sessionDate: sessionLogsTable.sessionDate,
     isCompensatory: sessionLogsTable.isCompensatory,
     compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
     durationMinutes: sessionLogsTable.durationMinutes,
@@ -861,6 +872,14 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
     await db.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
   }
 
+  logAudit(req, {
+    action: "delete",
+    targetTable: "session_logs",
+    targetId: existing.id,
+    studentId: existing.studentId,
+    summary: `Deleted session #${existing.id} for student #${existing.studentId} on ${existing.sessionDate}`,
+    oldValues: { sessionDate: existing.sessionDate, durationMinutes: existing.durationMinutes, status: existing.status } as Record<string, unknown>,
+  });
   res.sendStatus(204);
 });
 

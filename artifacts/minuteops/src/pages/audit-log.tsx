@@ -112,6 +112,8 @@ export default function AuditLogPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [actorFilter, setActorFilter] = useState("");
+  const [studentIdFilter, setStudentIdFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -125,9 +127,11 @@ export default function AuditLogPage() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (searchText) params.set("search", searchText);
+      if (actorFilter) params.set("actorUserId", actorFilter);
+      if (studentIdFilter) params.set("studentId", studentIdFilter);
       return params.toString();
     },
-    [offset, actionFilter, tableFilter, dateFrom, dateTo, searchText]
+    [offset, actionFilter, tableFilter, dateFrom, dateTo, searchText, actorFilter, studentIdFilter]
   );
 
   const { data, isLoading, error } = useQuery<AuditLogsResponse>({
@@ -139,6 +143,8 @@ export default function AuditLogPage() {
       dateFrom,
       dateTo,
       searchText,
+      actorFilter,
+      studentIdFilter,
     ],
     queryFn: async () => {
       const res = await authFetch(`${API}/audit-logs?${buildParams()}`);
@@ -173,6 +179,8 @@ export default function AuditLogPage() {
       if (tableFilter) params.set("targetTable", tableFilter);
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
+      if (actorFilter) params.set("actorUserId", actorFilter);
+      if (studentIdFilter) params.set("studentId", studentIdFilter);
 
       const res = await authFetch(
         `${API}/audit-logs/export?${params.toString()}`
@@ -198,11 +206,13 @@ export default function AuditLogPage() {
     setDateFrom("");
     setDateTo("");
     setSearchText("");
+    setActorFilter("");
+    setStudentIdFilter("");
     setOffset(0);
   };
 
   const hasFilters =
-    actionFilter || tableFilter || dateFrom || dateTo || searchText;
+    actionFilter || tableFilter || dateFrom || dateTo || searchText || actorFilter || studentIdFilter;
 
   return (
     <div className="p-4 md:p-6 max-w-[1200px] mx-auto space-y-6">
@@ -298,7 +308,7 @@ export default function AuditLogPage() {
         </div>
 
         {showFilters && (
-          <div className="p-3 border-b border-gray-100 bg-gray-50/50 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 border-b border-gray-100 bg-gray-50/50 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
               <label className="text-[11px] font-medium text-gray-500 mb-1 block">
                 Action
@@ -373,6 +383,35 @@ export default function AuditLogPage() {
                 value={dateTo}
                 onChange={(e) => {
                   setDateTo(e.target.value);
+                  setOffset(0);
+                }}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 mb-1 block">
+                Actor User ID
+              </label>
+              <Input
+                placeholder="user_..."
+                value={actorFilter}
+                onChange={(e) => {
+                  setActorFilter(e.target.value);
+                  setOffset(0);
+                }}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 mb-1 block">
+                Student ID
+              </label>
+              <Input
+                type="number"
+                placeholder="e.g. 42"
+                value={studentIdFilter}
+                onChange={(e) => {
+                  setStudentIdFilter(e.target.value);
                   setOffset(0);
                 }}
                 className="h-8 text-sm"

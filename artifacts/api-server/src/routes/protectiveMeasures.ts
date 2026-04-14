@@ -272,7 +272,7 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [existing] = await db.select({ id: restraintIncidentsTable.id }).from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
   const allowed = [
@@ -317,6 +317,7 @@ router.patch("/protective-measures/incidents/:id", async (req: Request, res: Res
     targetId: id,
     studentId: updated.studentId,
     summary: `Updated restraint incident #${id}`,
+    oldValues: Object.fromEntries(Object.keys(updates).map(k => [k, (existing as Record<string, unknown>)[k]])),
     newValues: updates,
   });
   res.json(updated);

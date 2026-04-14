@@ -42,6 +42,12 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
       return { ...goal, linkedTarget, createdAt: goal.createdAt.toISOString(), updatedAt: goal.updatedAt.toISOString() };
     });
 
+    logAudit(req, {
+      action: "read",
+      targetTable: "iep_goals",
+      studentId: studentId,
+      summary: `Viewed ${enriched.length} IEP goals for student #${studentId}`,
+    });
     res.json(enriched);
   } catch (e: any) {
     console.error("GET iep-goals error:", e);
@@ -147,6 +153,7 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
                         "benchmarks","iepDocumentId","notes","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    const [oldGoal] = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
     const [updated] = await db.update(iepGoalsTable).set(updates).where(eq(iepGoalsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, {
@@ -155,6 +162,7 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
       targetId: id,
       studentId: updated.studentId,
       summary: `Updated IEP goal #${id}`,
+      oldValues: oldGoal ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldGoal as Record<string, unknown>)[k]]))) : null,
       newValues: updates as Record<string, unknown>,
     });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
@@ -295,12 +303,19 @@ router.get("/students/:studentId/progress-reports", async (req, res): Promise<vo
       .leftJoin(staffTable, eq(progressReportsTable.preparedBy, staffTable.id))
       .where(eq(progressReportsTable.studentId, studentId))
       .orderBy(desc(progressReportsTable.createdAt));
-    res.json(reports.map(r => ({
+    const mapped = reports.map(r => ({
       ...r,
       preparedByName: r.staffFirstName && r.staffLastName ? `${r.staffFirstName} ${r.staffLastName}` : null,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
-    })));
+    }));
+    logAudit(req, {
+      action: "read",
+      targetTable: "progress_reports",
+      studentId: studentId,
+      summary: `Viewed ${mapped.length} progress reports for student #${studentId}`,
+    });
+    res.json(mapped);
   } catch (e: any) {
     res.status(500).json({ error: "Failed to fetch progress reports" });
   }
@@ -342,6 +357,13 @@ router.get("/progress-reports/:id", async (req, res): Promise<void> => {
       .leftJoin(studentsTable, eq(progressReportsTable.studentId, studentsTable.id))
       .where(eq(progressReportsTable.id, id));
     if (!report) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "read",
+      targetTable: "progress_reports",
+      targetId: id,
+      studentId: report.studentId,
+      summary: `Viewed progress report #${id} for ${report.studentFirstName} ${report.studentLastName}`,
+    });
     res.json({
       ...report,
       preparedByName: report.staffFirstName && report.staffLastName ? `${report.staffFirstName} ${report.staffLastName}` : null,
@@ -361,8 +383,18 @@ router.patch("/progress-reports/:id", async (req, res): Promise<void> => {
     for (const key of ["status","overallSummary","serviceDeliverySummary","recommendations","parentNotes","goalProgress","preparedBy"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    const [oldReport] = await db.select().from(progressReportsTable).where(eq(progressReportsTable.id, id));
     const [updated] = await db.update(progressReportsTable).set(updates).where(eq(progressReportsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    logAudit(req, {
+      action: "update",
+      targetTable: "progress_reports",
+      targetId: id,
+      studentId: updated.studentId,
+      summary: `Updated progress report #${id}`,
+      oldValues: oldReport ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldReport as Record<string, unknown>)[k]]))) : null,
+      newValues: updates as Record<string, unknown>,
+    });
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update progress report" });
