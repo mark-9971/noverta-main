@@ -125,6 +125,7 @@ export * from "./iepCalendarResponse";
 export * from "./iepCalendarSummary";
 export * from "./importRecord";
 export * from "./ioaSession";
+export * from "./ioaSessionDataQuality";
 export * from "./ioaTargetSummary";
 export * from "./listAlertsParams";
 export * from "./listCompensatoryObligationsParams";

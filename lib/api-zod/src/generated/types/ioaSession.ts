@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { IoaSessionDataQuality } from "./ioaSessionDataQuality";
 
 export interface IoaSession {
   ioaSessionId: number;
@@ -16,4 +17,5 @@ export interface IoaSession {
   agreementPercent: number;
   measurementType: string;
   ioaMethod: string;
+  dataQuality: IoaSessionDataQuality;
 }

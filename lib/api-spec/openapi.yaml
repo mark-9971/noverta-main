@@ -5478,7 +5478,10 @@ components:
           type: string
         ioaMethod:
           type: string
-      required: [ioaSessionId, sessionDate, observer1Value, observer2Value, observer1Name, observer2Name, agreementPercent, measurementType, ioaMethod]
+        dataQuality:
+          type: string
+          enum: [point_by_point, aggregate_fallback]
+      required: [ioaSessionId, sessionDate, observer1Value, observer2Value, observer1Name, observer2Name, agreementPercent, measurementType, ioaMethod, dataQuality]
 
     IoaTargetSummary:
       type: object

@@ -496,6 +496,7 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
       agreementPercent: number;
       measurementType: string;
       ioaMethod?: string;
+      dataQuality?: string;
       observer1Name?: string;
       observer2Name?: string;
     }>;
@@ -570,6 +571,11 @@ export function IoaSummary({ studentId }: IoaSummaryProps) {
                     {s.ioaMethod && (
                       <span className="text-[9px] text-gray-400">
                         {s.ioaMethod === "point_by_point" ? "Point-by-Point" : s.ioaMethod === "total_count" ? "Total Count" : s.ioaMethod === "interval_by_interval" ? "Interval-by-Interval" : s.ioaMethod === "exact_agreement" ? "Exact" : s.ioaMethod || "—"}
+                      </span>
+                    )}
+                    {s.dataQuality === "aggregate_fallback" && (
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-yellow-50 text-yellow-600" title="Calculated from aggregate data. For clinical accuracy, use IOA mode during data collection to capture point-by-point data.">
+                        ≈
                       </span>
                     )}
                   </div>

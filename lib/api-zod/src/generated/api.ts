@@ -3378,6 +3378,7 @@ export const GetIoaSummaryResponse = zod.record(
         agreementPercent: zod.number(),
         measurementType: zod.string(),
         ioaMethod: zod.string(),
+        dataQuality: zod.enum(["point_by_point", "aggregate_fallback"]),
       }),
     ),
     averageAgreement: zod.number(),

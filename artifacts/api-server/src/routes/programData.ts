@@ -841,7 +841,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
 
     const grouped: Record<string, any[]> = {};
     for (const r of rows) {
-      const key = `${r.behaviorTargetId}-${r.ioaSessionId}`;
+      const key = `${r.behaviorTargetId}-${r.ioaSessionId}-${r.sessionDate}`;
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(r);
     }
@@ -858,6 +858,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       agreementPercent: number;
       measurementType: string;
       ioaMethod: string;
+      dataQuality: "point_by_point" | "aggregate_fallback";
     }> = [];
 
     for (const [, observations] of Object.entries(grouped)) {
@@ -871,6 +872,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
       const v2 = parseFloat(obs2.value);
       const mt = obs1.measurementType;
       let ioaMethod = "total_count";
+      let dataQuality: "point_by_point" | "aggregate_fallback" = "aggregate_fallback";
 
       if (mt === "frequency") {
         const ts1 = obs1.eventTimestamps as number[] | null;
@@ -891,11 +893,13 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
           const totalEvents = Math.max(ts1.length, ts2.length);
           agreement = totalEvents > 0 ? Math.round((agreements / totalEvents) * 100) : 100;
           ioaMethod = "point_by_point";
+          dataQuality = "point_by_point";
         } else {
           const smaller = Math.min(v1, v2);
           const larger = Math.max(v1, v2);
           agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
           ioaMethod = "total_count";
+          dataQuality = "aggregate_fallback";
         }
       } else if (mt === "interval") {
         const scores1 = obs1.intervalScores as boolean[] | null;
@@ -910,6 +914,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
           }
           agreement = Math.round((agreements / len) * 100);
           ioaMethod = "interval_by_interval";
+          dataQuality = "point_by_point";
         } else if (obs1.intervalCount && obs2.intervalCount && obs1.intervalsWith != null && obs2.intervalsWith != null) {
           const totalIntervals = Math.max(obs1.intervalCount, obs2.intervalCount);
           const obs1Without = obs1.intervalCount - (obs1.intervalsWith ?? 0);
@@ -919,18 +924,22 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
           const totalAgreements = agreedPresent + agreedAbsent;
           agreement = totalIntervals > 0 ? Math.round((totalAgreements / totalIntervals) * 100) : 0;
           ioaMethod = "interval_by_interval";
+          dataQuality = "aggregate_fallback";
         } else {
           const smaller = Math.min(v1, v2);
           const larger = Math.max(v1, v2);
           agreement = larger > 0 ? Math.round((smaller / larger) * 100) : (v1 === v2 ? 100 : 0);
           ioaMethod = "total_count";
+          dataQuality = "aggregate_fallback";
         }
       } else if (mt === "duration") {
         agreement = v1 === v2 ? 100 : 0;
         ioaMethod = "exact_agreement";
+        dataQuality = "point_by_point";
       } else {
         agreement = v1 === v2 ? 100 : 0;
         ioaMethod = "exact_agreement";
+        dataQuality = "point_by_point";
       }
 
       ioaResults.push({
@@ -945,6 +954,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
         agreementPercent: Math.max(0, Math.min(100, agreement)),
         measurementType: mt,
         ioaMethod,
+        dataQuality,
       });
     }
 

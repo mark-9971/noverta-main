@@ -1872,6 +1872,14 @@ export interface UpdatePhaseChangeBody {
   notes?: string | null;
 }
 
+export type IoaSessionDataQuality =
+  (typeof IoaSessionDataQuality)[keyof typeof IoaSessionDataQuality];
+
+export const IoaSessionDataQuality = {
+  point_by_point: "point_by_point",
+  aggregate_fallback: "aggregate_fallback",
+} as const;
+
 export interface IoaSession {
   ioaSessionId: number;
   sessionDate: string;
@@ -1882,6 +1890,7 @@ export interface IoaSession {
   agreementPercent: number;
   measurementType: string;
   ioaMethod: string;
+  dataQuality: IoaSessionDataQuality;
 }
 
 export interface IoaTargetSummary {
