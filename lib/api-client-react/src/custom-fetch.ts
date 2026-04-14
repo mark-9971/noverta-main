@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _extraHeaders: Record<string, string> | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +43,17 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Set static extra headers to attach to every request.
+ * Pass `null` to clear all extra headers.
+ *
+ * Useful for injecting dev-mode role overrides or other
+ * cross-cutting headers without modifying individual call sites.
+ */
+export function setExtraHeaders(headers: Record<string, string> | null): void {
+  _extraHeaders = headers;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -335,7 +347,7 @@ export async function customFetch<T = unknown>(
     throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
   }
 
-  const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, _extraHeaders ?? undefined, headersInit);
 
   if (
     typeof init.body === "string" &&

@@ -13,6 +13,15 @@ function extractRole(req: Request): TrellisRole | null {
   const meta = (auth.sessionClaims as any)?.publicMetadata;
   const role = meta?.role;
   if (isRole(role)) return role;
+
+  // In non-production environments, accept the X-Demo-Role header as a
+  // fallback so that dev/demo users can operate without Clerk metadata.
+  if (process.env.NODE_ENV !== "production") {
+    const demoRole = req.headers["x-demo-role"];
+    if (isRole(demoRole)) return demoRole as TrellisRole;
+    return "admin"; // default demo role for full access
+  }
+
   return null;
 }
 

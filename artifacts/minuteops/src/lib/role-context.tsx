@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useUser } from "@clerk/react";
 import { useLocation } from "wouter";
+import { setExtraHeaders } from "@workspace/api-client-react";
 
 export type UserRole =
   | "admin"
@@ -112,6 +113,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? "sped_teacher");
   const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
   const teacherId = (isDevMode && devTeacherId) ? devTeacherId : clerkStaffId;
+
+  // In dev mode, tell the API server which role the UI is currently simulating.
+  // The backend accepts X-Demo-Role as a fallback when Clerk metadata has no role.
+  useEffect(() => {
+    if (isDevMode) {
+      setExtraHeaders({ "x-demo-role": role });
+    }
+    return () => {
+      if (isDevMode) setExtraHeaders(null);
+    };
+  }, [isDevMode, role]);
 
   const clerkName = clerkUser?.fullName || clerkUser?.firstName || "";
   const userName = (isDevMode && devRole)
