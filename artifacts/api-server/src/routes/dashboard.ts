@@ -2,9 +2,11 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   studentsTable, alertsTable, sessionLogsTable,
-  scheduleBlocksTable, staffTable, staffAssignmentsTable
+  scheduleBlocksTable, staffTable, staffAssignmentsTable,
+  serviceRequirementsTable, serviceTypesTable,
+  complianceEventsTable, iepDocumentsTable
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, desc } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -357,6 +359,239 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
   }
 
   res.json(weeks);
+});
+
+router.get("/dashboard/executive", async (req, res): Promise<void> => {
+  try {
+    const sdFilters = parseSchoolDistrictFilters(req.query);
+    const studentFilter = buildStudentSubquery(sdFilters);
+    const alertFilter = buildAlertStudentFilter(sdFilters);
+
+    const studentConditions = [eq(studentsTable.status, "active")];
+    if (studentFilter) studentConditions.push(studentFilter as any);
+
+    const alertConditions: any[] = [eq(alertsTable.resolved, false)];
+    if (alertFilter) alertConditions.push(alertFilter);
+
+    const [
+      [activeStudentsResult],
+      allProgress,
+      alertCounts,
+    ] = await Promise.all([
+      db.select({ count: count() }).from(studentsTable).where(and(...studentConditions)),
+      computeAllActiveMinuteProgress(sdFilters),
+      db.select({
+        total: count(),
+        critical: sql<number>`count(*) filter (where ${alertsTable.severity} = 'critical')`,
+      }).from(alertsTable).where(and(...alertConditions)),
+    ]);
+
+    const studentRisk = new Map<number, { status: string; name: string; id: number; percentComplete: number; serviceCount: number }>();
+    for (const p of allProgress) {
+      const priority: Record<string, number> = {
+        out_of_compliance: 4, at_risk: 3, slightly_behind: 2, on_track: 1, completed: 0,
+      };
+      const current = studentRisk.get(p.studentId);
+      if (!current || (priority[p.riskStatus] ?? 0) > (priority[current.status] ?? 0)) {
+        studentRisk.set(p.studentId, {
+          status: p.riskStatus,
+          name: p.studentName,
+          id: p.studentId,
+          percentComplete: p.percentComplete,
+          serviceCount: (current?.serviceCount ?? 0) + 1,
+        });
+      } else if (current) {
+        current.serviceCount++;
+      }
+    }
+
+    const riskCounts = { onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0 };
+    const atRiskStudents: { studentId: number; studentName: string; riskStatus: string; percentComplete: number }[] = [];
+
+    for (const [_, v] of studentRisk) {
+      if (v.status === "on_track" || v.status === "completed") riskCounts.onTrack++;
+      else if (v.status === "slightly_behind") riskCounts.slightlyBehind++;
+      else if (v.status === "at_risk") {
+        riskCounts.atRisk++;
+        atRiskStudents.push({ studentId: v.id, studentName: v.name, riskStatus: v.status, percentComplete: v.percentComplete });
+      } else if (v.status === "out_of_compliance") {
+        riskCounts.outOfCompliance++;
+        atRiskStudents.push({ studentId: v.id, studentName: v.name, riskStatus: v.status, percentComplete: v.percentComplete });
+      }
+    }
+
+    atRiskStudents.sort((a, b) => a.percentComplete - b.percentComplete);
+
+    const totalStudents = activeStudentsResult?.count ?? 0;
+    const totalTracked = riskCounts.onTrack + riskCounts.slightlyBehind + riskCounts.atRisk + riskCounts.outOfCompliance;
+    const complianceScore = totalTracked > 0
+      ? Math.round(((riskCounts.onTrack) / totalTracked) * 100)
+      : 100;
+
+    res.json({
+      complianceScore,
+      totalStudents,
+      riskCounts,
+      topAtRiskStudents: atRiskStudents.slice(0, 10),
+      openAlerts: alertCounts[0]?.total ?? 0,
+      criticalAlerts: alertCounts[0]?.critical ?? 0,
+    });
+  } catch (e: any) {
+    console.error("GET /dashboard/executive error:", e);
+    res.status(500).json({ error: "Failed to fetch executive dashboard" });
+  }
+});
+
+router.get("/dashboard/staff-coverage", async (req, res): Promise<void> => {
+  try {
+    const sdFilters = parseSchoolDistrictFilters(req.query);
+
+    const reqConditions: any[] = [eq(serviceRequirementsTable.active, true)];
+    if (sdFilters.schoolId) reqConditions.push(sql`${serviceRequirementsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
+    if (sdFilters.districtId) reqConditions.push(sql`${serviceRequirementsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+
+    const blockConditions: any[] = [eq(scheduleBlocksTable.isRecurring, true)];
+    if (sdFilters.schoolId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
+    if (sdFilters.districtId) blockConditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+
+    const [requirements, blocks] = await Promise.all([
+      db.select({
+        serviceTypeId: serviceRequirementsTable.serviceTypeId,
+        serviceTypeName: serviceTypesTable.name,
+        requiredMinutes: serviceRequirementsTable.requiredMinutes,
+        intervalType: serviceRequirementsTable.intervalType,
+      })
+        .from(serviceRequirementsTable)
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+        .where(and(...reqConditions)),
+      db.select({
+        serviceTypeId: scheduleBlocksTable.serviceTypeId,
+        startTime: scheduleBlocksTable.startTime,
+        endTime: scheduleBlocksTable.endTime,
+      })
+        .from(scheduleBlocksTable)
+        .where(and(...blockConditions)),
+    ]);
+
+    const serviceMap = new Map<number, { name: string; mandatedWeeklyMinutes: number; scheduledWeeklyMinutes: number; requirementCount: number }>();
+
+    for (const r of requirements) {
+      if (!serviceMap.has(r.serviceTypeId)) {
+        serviceMap.set(r.serviceTypeId, { name: r.serviceTypeName ?? "Unknown", mandatedWeeklyMinutes: 0, scheduledWeeklyMinutes: 0, requirementCount: 0 });
+      }
+      const entry = serviceMap.get(r.serviceTypeId)!;
+      entry.requirementCount++;
+      let weeklyMinutes = r.requiredMinutes;
+      if (r.intervalType === "monthly") weeklyMinutes = Math.round(r.requiredMinutes / 4);
+      else if (r.intervalType === "quarterly") weeklyMinutes = Math.round(r.requiredMinutes / 13);
+      entry.mandatedWeeklyMinutes += weeklyMinutes;
+    }
+
+    for (const b of blocks) {
+      if (!b.serviceTypeId) continue;
+      const [startH, startM] = (b.startTime || "0:0").split(":").map(Number);
+      const [endH, endM] = (b.endTime || "0:0").split(":").map(Number);
+      const blockMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      if (!serviceMap.has(b.serviceTypeId)) {
+        serviceMap.set(b.serviceTypeId, { name: "Unknown", mandatedWeeklyMinutes: 0, scheduledWeeklyMinutes: 0, requirementCount: 0 });
+      }
+      serviceMap.get(b.serviceTypeId)!.scheduledWeeklyMinutes += Math.max(0, blockMinutes);
+    }
+
+    const result = [...serviceMap.entries()].map(([serviceTypeId, data]) => ({
+      serviceTypeId,
+      serviceTypeName: data.name,
+      mandatedWeeklyMinutes: data.mandatedWeeklyMinutes,
+      scheduledWeeklyMinutes: data.scheduledWeeklyMinutes,
+      coveragePercent: data.mandatedWeeklyMinutes > 0
+        ? Math.round((data.scheduledWeeklyMinutes / data.mandatedWeeklyMinutes) * 100)
+        : 100,
+      requirementCount: data.requirementCount,
+      gap: Math.max(0, data.mandatedWeeklyMinutes - data.scheduledWeeklyMinutes),
+    }));
+
+    res.json(result);
+  } catch (e: any) {
+    console.error("GET /dashboard/staff-coverage error:", e);
+    res.status(500).json({ error: "Failed to fetch staff coverage" });
+  }
+});
+
+router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
+  try {
+    const { startDate, endDate, eventType } = req.query;
+    const sdFilters = parseSchoolDistrictFilters(req.query);
+
+    const conditions: any[] = [];
+    if (startDate) conditions.push(gte(complianceEventsTable.dueDate, startDate as string));
+    if (endDate) conditions.push(lte(complianceEventsTable.dueDate, endDate as string));
+    if (eventType && eventType !== "all") conditions.push(eq(complianceEventsTable.eventType, eventType as string));
+
+    if (sdFilters.schoolId) {
+      conditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
+    }
+    if (sdFilters.districtId) {
+      conditions.push(sql`${complianceEventsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+    }
+
+    const events = await db.select({
+      id: complianceEventsTable.id,
+      studentId: complianceEventsTable.studentId,
+      eventType: complianceEventsTable.eventType,
+      title: complianceEventsTable.title,
+      dueDate: complianceEventsTable.dueDate,
+      status: complianceEventsTable.status,
+      completedDate: complianceEventsTable.completedDate,
+      notes: complianceEventsTable.notes,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+      studentGrade: studentsTable.grade,
+    })
+      .from(complianceEventsTable)
+      .innerJoin(studentsTable, eq(complianceEventsTable.studentId, studentsTable.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(complianceEventsTable.dueDate))
+      .limit(500);
+
+    const today = new Date().toISOString().split("T")[0];
+    const enriched = events.map(e => {
+      const daysRemaining = Math.ceil((new Date(e.dueDate).getTime() - new Date(today).getTime()) / 86400000);
+      let computedStatus = e.status;
+      if (e.status !== "completed") {
+        if (daysRemaining < 0) computedStatus = "overdue";
+        else if (daysRemaining <= 7) computedStatus = "critical";
+        else if (daysRemaining <= 30) computedStatus = "due_soon";
+        else computedStatus = "upcoming";
+      }
+      return {
+        id: e.id,
+        studentId: e.studentId,
+        studentName: `${e.studentFirstName} ${e.studentLastName}`,
+        grade: e.studentGrade,
+        eventType: e.eventType,
+        title: e.title,
+        dueDate: e.dueDate,
+        status: computedStatus,
+        completedDate: e.completedDate,
+        notes: e.notes,
+        daysRemaining,
+      };
+    });
+
+    const summary = {
+      overdue: enriched.filter(e => e.status === "overdue").length,
+      critical: enriched.filter(e => e.status === "critical").length,
+      dueSoon: enriched.filter(e => e.status === "due_soon").length,
+      upcoming: enriched.filter(e => e.status === "upcoming").length,
+      completed: enriched.filter(e => e.status === "completed").length,
+      total: enriched.length,
+    };
+
+    res.json({ events: enriched, summary });
+  } catch (e: any) {
+    console.error("GET /dashboard/iep-calendar error:", e);
+    res.status(500).json({ error: "Failed to fetch IEP calendar" });
+  }
 });
 
 export default router;

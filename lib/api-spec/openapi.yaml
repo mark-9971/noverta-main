@@ -208,6 +208,86 @@ paths:
                 items:
                   $ref: "#/components/schemas/MissedSessionsTrendPoint"
 
+  /dashboard/executive:
+    get:
+      operationId: getExecutiveDashboard
+      tags: [dashboard]
+      summary: Get principal executive dashboard summary
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Executive dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutiveDashboard"
+
+  /dashboard/staff-coverage:
+    get:
+      operationId: getStaffCoverage
+      tags: [dashboard]
+      summary: Get staff coverage by service type
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Staff coverage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffCoverageItem"
+
+  /dashboard/iep-calendar:
+    get:
+      operationId: getIepCalendar
+      tags: [dashboard]
+      summary: Get IEP calendar events with date filtering
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: eventType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: IEP calendar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IepCalendarResponse"
+
   # ─── Districts ────────────────────────────────────────────────────
   /districts:
     get:
@@ -2713,3 +2793,123 @@ components:
               type: integer
           required: [total, critical]
       required: [schools, totalStudents, totalStaff, complianceSummary, alertsSummary]
+
+    # ─── Executive Dashboard ────────────────────────────────────────
+    ExecutiveRiskCounts:
+      type: object
+      properties:
+        onTrack:
+          type: integer
+        slightlyBehind:
+          type: integer
+        atRisk:
+          type: integer
+        outOfCompliance:
+          type: integer
+      required: [onTrack, slightlyBehind, atRisk, outOfCompliance]
+
+    AtRiskStudent:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        riskStatus:
+          type: string
+        percentComplete:
+          type: number
+      required: [studentId, studentName, riskStatus, percentComplete]
+
+    ExecutiveDashboard:
+      type: object
+      properties:
+        complianceScore:
+          type: integer
+        totalStudents:
+          type: integer
+        riskCounts:
+          $ref: "#/components/schemas/ExecutiveRiskCounts"
+        topAtRiskStudents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AtRiskStudent"
+        openAlerts:
+          type: integer
+        criticalAlerts:
+          type: integer
+      required: [complianceScore, totalStudents, riskCounts, topAtRiskStudents, openAlerts, criticalAlerts]
+
+    StaffCoverageItem:
+      type: object
+      properties:
+        serviceTypeId:
+          type: integer
+        serviceTypeName:
+          type: string
+        mandatedWeeklyMinutes:
+          type: integer
+        scheduledWeeklyMinutes:
+          type: integer
+        coveragePercent:
+          type: integer
+        requirementCount:
+          type: integer
+        gap:
+          type: integer
+      required: [serviceTypeId, serviceTypeName, mandatedWeeklyMinutes, scheduledWeeklyMinutes, coveragePercent, requirementCount, gap]
+
+    IepCalendarEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        grade:
+          type: ["string", "null"]
+        eventType:
+          type: string
+        title:
+          type: string
+        dueDate:
+          type: string
+        status:
+          type: string
+        completedDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        daysRemaining:
+          type: integer
+      required: [id, studentId, studentName, eventType, title, dueDate, status, daysRemaining]
+
+    IepCalendarSummary:
+      type: object
+      properties:
+        overdue:
+          type: integer
+        critical:
+          type: integer
+        dueSoon:
+          type: integer
+        upcoming:
+          type: integer
+        completed:
+          type: integer
+        total:
+          type: integer
+      required: [overdue, critical, dueSoon, upcoming, completed, total]
+
+    IepCalendarResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/IepCalendarEvent"
+        summary:
+          $ref: "#/components/schemas/IepCalendarSummary"
+      required: [events, summary]

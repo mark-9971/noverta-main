@@ -32,6 +32,8 @@ import IepSuggestions from "@/pages/iep-suggestions";
 import DistrictOverview from "@/pages/district-overview";
 import BehaviorAssessmentPage from "@/pages/behavior-assessment";
 import IepBuilderPage from "@/pages/iep-builder";
+import ExecutiveDashboard from "@/pages/executive-dashboard";
+import IepCalendarPage from "@/pages/iep-calendar";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +65,8 @@ function AdminRouter() {
       <Route path="/program-data" component={ProgramDataPage} />
       <Route path="/iep-suggestions" component={IepSuggestions} />
       <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
+      <Route path="/executive" component={ExecutiveDashboard} />
+      <Route path="/iep-calendar" component={IepCalendarPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/behavior-assessment" component={BehaviorAssessmentPage} />
       <Route path="/district" component={DistrictOverview} />

@@ -150,6 +150,91 @@ export const GetMissedSessionsTrendResponse = zod.array(
 );
 
 /**
+ * @summary Get principal executive dashboard summary
+ */
+export const GetExecutiveDashboardQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
+export const GetExecutiveDashboardResponse = zod.object({
+  complianceScore: zod.number(),
+  totalStudents: zod.number(),
+  riskCounts: zod.object({
+    onTrack: zod.number(),
+    slightlyBehind: zod.number(),
+    atRisk: zod.number(),
+    outOfCompliance: zod.number(),
+  }),
+  topAtRiskStudents: zod.array(
+    zod.object({
+      studentId: zod.number(),
+      studentName: zod.string(),
+      riskStatus: zod.string(),
+      percentComplete: zod.number(),
+    }),
+  ),
+  openAlerts: zod.number(),
+  criticalAlerts: zod.number(),
+});
+
+/**
+ * @summary Get staff coverage by service type
+ */
+export const GetStaffCoverageQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
+export const GetStaffCoverageResponseItem = zod.object({
+  serviceTypeId: zod.number(),
+  serviceTypeName: zod.string(),
+  mandatedWeeklyMinutes: zod.number(),
+  scheduledWeeklyMinutes: zod.number(),
+  coveragePercent: zod.number(),
+  requirementCount: zod.number(),
+  gap: zod.number(),
+});
+export const GetStaffCoverageResponse = zod.array(GetStaffCoverageResponseItem);
+
+/**
+ * @summary Get IEP calendar events with date filtering
+ */
+export const GetIepCalendarQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  eventType: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+});
+
+export const GetIepCalendarResponse = zod.object({
+  events: zod.array(
+    zod.object({
+      id: zod.number(),
+      studentId: zod.number(),
+      studentName: zod.string(),
+      grade: zod.string().nullish(),
+      eventType: zod.string(),
+      title: zod.string(),
+      dueDate: zod.string(),
+      status: zod.string(),
+      completedDate: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      daysRemaining: zod.number(),
+    }),
+  ),
+  summary: zod.object({
+    overdue: zod.number(),
+    critical: zod.number(),
+    dueSoon: zod.number(),
+    upcoming: zod.number(),
+    completed: zod.number(),
+    total: zod.number(),
+  }),
+});
+
+/**
  * @summary List districts
  */
 export const ListDistrictsResponseItem = zod.object({

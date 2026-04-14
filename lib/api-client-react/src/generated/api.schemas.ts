@@ -831,6 +831,70 @@ export interface DistrictOverview {
   alertsSummary: DistrictOverviewAlertsSummary;
 }
 
+export interface ExecutiveRiskCounts {
+  onTrack: number;
+  slightlyBehind: number;
+  atRisk: number;
+  outOfCompliance: number;
+}
+
+export interface AtRiskStudent {
+  studentId: number;
+  studentName: string;
+  riskStatus: string;
+  percentComplete: number;
+}
+
+export interface ExecutiveDashboard {
+  complianceScore: number;
+  totalStudents: number;
+  riskCounts: ExecutiveRiskCounts;
+  topAtRiskStudents: AtRiskStudent[];
+  openAlerts: number;
+  criticalAlerts: number;
+}
+
+export interface StaffCoverageItem {
+  serviceTypeId: number;
+  serviceTypeName: string;
+  mandatedWeeklyMinutes: number;
+  scheduledWeeklyMinutes: number;
+  coveragePercent: number;
+  requirementCount: number;
+  gap: number;
+}
+
+export interface IepCalendarEvent {
+  id: number;
+  studentId: number;
+  studentName: string;
+  /** @nullable */
+  grade?: string | null;
+  eventType: string;
+  title: string;
+  dueDate: string;
+  status: string;
+  /** @nullable */
+  completedDate?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  daysRemaining: number;
+}
+
+export interface IepCalendarSummary {
+  overdue: number;
+  critical: number;
+  dueSoon: number;
+  upcoming: number;
+  completed: number;
+  total: number;
+}
+
+export interface IepCalendarResponse {
+  events: IepCalendarEvent[];
+  summary: IepCalendarSummary;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -898,6 +962,51 @@ export type GetComplianceByServiceParams = {
 };
 
 export type GetMissedSessionsTrendParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetExecutiveDashboardParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetStaffCoverageParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetIepCalendarParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  eventType?: string | null;
   /**
    * @nullable
    */

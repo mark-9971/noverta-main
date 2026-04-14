@@ -6,7 +6,7 @@ import {
   BarChart3, UserCheck, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Wand2,
-  Timer, Clipboard, Sprout
+  Timer, Clipboard, Sprout, Gauge, CalendarDays
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -42,6 +42,13 @@ const adminNav: NavSection[] = [
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
       { href: "/search", label: "IEP Search", icon: Search },
+    ],
+  },
+  {
+    label: "Leadership",
+    items: [
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
     ],
   },
   {

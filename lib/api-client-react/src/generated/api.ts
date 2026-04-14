@@ -42,6 +42,7 @@ import type {
   DistrictOverview,
   DistrictSummary,
   ErrorResponse,
+  ExecutiveDashboard,
   GenerateScheduleBody,
   GeneratedSchedule,
   GetComplianceByServiceParams,
@@ -49,14 +50,18 @@ import type {
   GetDashboardRiskOverviewParams,
   GetDashboardSummaryParams,
   GetDistrictOverviewParams,
+  GetExecutiveDashboardParams,
+  GetIepCalendarParams,
   GetMissedSessionsReportParams,
   GetMissedSessionsTrendParams,
   GetParaDashboardSummaryParams,
   GetProviderDashboardSummaryParams,
   GetScheduleConflictsParams,
+  GetStaffCoverageParams,
   GetStudentMinuteSummaryReportParams,
   GetStudentSessionsParams,
   HealthStatus,
+  IepCalendarResponse,
   ImportRecord,
   ListAlertsParams,
   ListMinuteProgressParams,
@@ -83,6 +88,7 @@ import type {
   SessionLog,
   Staff,
   StaffAssignment,
+  StaffCoverageItem,
   StaffDetail,
   Student,
   StudentDetail,
@@ -902,6 +908,300 @@ export function useGetMissedSessionsTrend<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMissedSessionsTrendQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get principal executive dashboard summary
+ */
+export const getGetExecutiveDashboardUrl = (
+  params?: GetExecutiveDashboardParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/executive?${stringifiedParams}`
+    : `/api/dashboard/executive`;
+};
+
+export const getExecutiveDashboard = async (
+  params?: GetExecutiveDashboardParams,
+  options?: RequestInit,
+): Promise<ExecutiveDashboard> => {
+  return customFetch<ExecutiveDashboard>(getGetExecutiveDashboardUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetExecutiveDashboardQueryKey = (
+  params?: GetExecutiveDashboardParams,
+) => {
+  return [`/api/dashboard/executive`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetExecutiveDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExecutiveDashboard>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveDashboardParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveDashboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetExecutiveDashboardQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getExecutiveDashboard>>
+  > = ({ signal }) =>
+    getExecutiveDashboard(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getExecutiveDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetExecutiveDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExecutiveDashboard>>
+>;
+export type GetExecutiveDashboardQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get principal executive dashboard summary
+ */
+
+export function useGetExecutiveDashboard<
+  TData = Awaited<ReturnType<typeof getExecutiveDashboard>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetExecutiveDashboardParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExecutiveDashboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetExecutiveDashboardQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get staff coverage by service type
+ */
+export const getGetStaffCoverageUrl = (params?: GetStaffCoverageParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/staff-coverage?${stringifiedParams}`
+    : `/api/dashboard/staff-coverage`;
+};
+
+export const getStaffCoverage = async (
+  params?: GetStaffCoverageParams,
+  options?: RequestInit,
+): Promise<StaffCoverageItem[]> => {
+  return customFetch<StaffCoverageItem[]>(getGetStaffCoverageUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStaffCoverageQueryKey = (
+  params?: GetStaffCoverageParams,
+) => {
+  return [
+    `/api/dashboard/staff-coverage`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetStaffCoverageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStaffCoverage>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStaffCoverageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStaffCoverage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStaffCoverageQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStaffCoverage>>
+  > = ({ signal }) => getStaffCoverage(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStaffCoverage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStaffCoverageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStaffCoverage>>
+>;
+export type GetStaffCoverageQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get staff coverage by service type
+ */
+
+export function useGetStaffCoverage<
+  TData = Awaited<ReturnType<typeof getStaffCoverage>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetStaffCoverageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStaffCoverage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStaffCoverageQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get IEP calendar events with date filtering
+ */
+export const getGetIepCalendarUrl = (params?: GetIepCalendarParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/iep-calendar?${stringifiedParams}`
+    : `/api/dashboard/iep-calendar`;
+};
+
+export const getIepCalendar = async (
+  params?: GetIepCalendarParams,
+  options?: RequestInit,
+): Promise<IepCalendarResponse> => {
+  return customFetch<IepCalendarResponse>(getGetIepCalendarUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetIepCalendarQueryKey = (params?: GetIepCalendarParams) => {
+  return [`/api/dashboard/iep-calendar`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetIepCalendarQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIepCalendar>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetIepCalendarParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIepCalendar>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetIepCalendarQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getIepCalendar>>> = ({
+    signal,
+  }) => getIepCalendar(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIepCalendar>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetIepCalendarQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIepCalendar>>
+>;
+export type GetIepCalendarQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get IEP calendar events with date filtering
+ */
+
+export function useGetIepCalendar<
+  TData = Awaited<ReturnType<typeof getIepCalendar>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetIepCalendarParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getIepCalendar>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIepCalendarQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
