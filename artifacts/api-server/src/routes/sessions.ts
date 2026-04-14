@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   sessionLogsTable, serviceTypesTable, staffTable, studentsTable,
   missedReasonsTable, iepGoalsTable,
   dataSessionsTable, programDataTable, behaviorDataTable,
   programTargetsTable, behaviorTargetsTable,
+  compensatoryObligationsTable,
 } from "@workspace/db";
 import {
   ListSessionsQueryParams,
@@ -16,6 +17,7 @@ import {
   BulkCreateSessionsBody,
 } from "@workspace/api-zod";
 import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 
 const router: IRouter = Router();
 
@@ -121,8 +123,53 @@ router.post("/sessions", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [session] = await db.insert(sessionLogsTable).values(parsed.data).returning();
-  res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
+
+  if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
+    res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
+    return;
+  }
+
+  if (parsed.data.isCompensatory && parsed.data.compensatoryObligationId) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+
+      const [obligation] = await txDb.select().from(compensatoryObligationsTable)
+        .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
+      if (!obligation) {
+        await client.query("ROLLBACK");
+        res.status(400).json({ error: "Compensatory obligation not found" });
+        return;
+      }
+      if (obligation.status === "completed" || obligation.status === "waived") {
+        await client.query("ROLLBACK");
+        res.status(400).json({ error: `Cannot log sessions against a ${obligation.status} obligation` });
+        return;
+      }
+
+      const [session] = await txDb.insert(sessionLogsTable).values(parsed.data).returning();
+      const completedStatus = parsed.data.status === "completed" || parsed.data.status === "makeup";
+      if (completedStatus) {
+        const newDelivered = obligation.minutesDelivered + parsed.data.durationMinutes;
+        const newStatus = newDelivered >= obligation.minutesOwed ? "completed" : "in_progress";
+        await txDb.update(compensatoryObligationsTable)
+          .set({ minutesDelivered: newDelivered, status: newStatus })
+          .where(eq(compensatoryObligationsTable.id, parsed.data.compensatoryObligationId));
+      }
+
+      await client.query("COMMIT");
+      res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } else {
+    const [session] = await db.insert(sessionLogsTable).values(parsed.data).returning();
+    res.status(201).json({ ...session, createdAt: session.createdAt.toISOString() });
+  }
 });
 
 router.get("/sessions/:id", async (req, res): Promise<void> => {
@@ -338,7 +385,52 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  await db.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+
+  const [existing] = await db.select({
+    id: sessionLogsTable.id,
+    isCompensatory: sessionLogsTable.isCompensatory,
+    compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
+    durationMinutes: sessionLogsTable.durationMinutes,
+    status: sessionLogsTable.status,
+  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  if (existing.isCompensatory && existing.compensatoryObligationId) {
+    const completedStatus = existing.status === "completed" || existing.status === "makeup";
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+
+      await txDb.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+
+      if (completedStatus) {
+        const [obligation] = await txDb.select().from(compensatoryObligationsTable)
+          .where(eq(compensatoryObligationsTable.id, existing.compensatoryObligationId));
+        if (obligation) {
+          const newDelivered = Math.max(0, obligation.minutesDelivered - existing.durationMinutes);
+          const newStatus = newDelivered >= obligation.minutesOwed ? "completed" : (newDelivered > 0 ? "in_progress" : "pending");
+          await txDb.update(compensatoryObligationsTable)
+            .set({ minutesDelivered: newDelivered, status: newStatus })
+            .where(eq(compensatoryObligationsTable.id, existing.compensatoryObligationId));
+        }
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } else {
+    await db.delete(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+  }
+
   res.sendStatus(204);
 });
 

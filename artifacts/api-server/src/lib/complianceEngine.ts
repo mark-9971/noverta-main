@@ -185,14 +185,6 @@ async function generateCompensatoryObligations(
 ): Promise<number> {
   if (allProgress.length === 0) return 0;
 
-  const reqsByInterval = new Map<string, typeof allProgress>();
-  for (const p of allProgress) {
-    const prev = getPreviousInterval(p.intervalType);
-    const key = `${p.studentId}|${p.serviceRequirementId}|${prev.start}|${prev.end}`;
-    if (!reqsByInterval.has(key)) reqsByInterval.set(key, []);
-    reqsByInterval.get(key)!.push(p);
-  }
-
   const uniqueReqs = new Map<number, (typeof allProgress)[0]>();
   for (const p of allProgress) {
     if (!uniqueReqs.has(p.serviceRequirementId)) {
