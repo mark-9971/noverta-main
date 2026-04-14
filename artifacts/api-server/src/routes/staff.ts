@@ -73,7 +73,7 @@ router.get("/staff/:id", async (req, res): Promise<void> => {
     .leftJoin(studentsTable, eq(studentsTable.id, staffAssignmentsTable.studentId))
     .where(eq(staffAssignmentsTable.staffId, params.data.id));
 
-  const blocks = await db.select().from(scheduleBlocksTable).where(eq(scheduleBlocksTable.staffId, params.data.id));
+  const blocks = await db.select().from(scheduleBlocksTable).where(and(eq(scheduleBlocksTable.staffId, params.data.id), isNull(scheduleBlocksTable.deletedAt)));
 
   res.json({
     ...staffToJson(staff),
@@ -130,6 +130,24 @@ router.get("/staff/:id/caseload", async (req, res): Promise<void> => {
 
   const progress = await computeAllActiveMinuteProgress({ staffId: params.data.id });
   res.json(progress);
+});
+
+router.delete("/staff/:id", async (req, res): Promise<void> => {
+  const params = GetStaffParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const [updated] = await db
+    .update(staffTable)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(staffTable.id, params.data.id), isNull(staffTable.deletedAt)))
+    .returning({ id: staffTable.id });
+  if (!updated) {
+    res.status(404).json({ error: "Staff not found" });
+    return;
+  }
+  res.json({ success: true });
 });
 
 export default router;

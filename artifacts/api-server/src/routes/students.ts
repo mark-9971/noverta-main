@@ -47,18 +47,18 @@ router.get("/students", async (req, res): Promise<void> => {
     .leftJoin(programsTable, eq(programsTable.id, studentsTable.programId))
     .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId));
 
-  const conditions: ReturnType<typeof eq>[] = [isNull(studentsTable.deletedAt) as any];
+  const conditions: any[] = [isNull(studentsTable.deletedAt)];
   if (params.success) {
-    if (params.data.status) conditions.push(eq(studentsTable.status, params.data.status) as any);
-    if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)) as any);
-    if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)) as any);
-    if (params.data.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})` as any);
-    if (params.data.caseManagerId) conditions.push(eq(studentsTable.caseManagerId, Number(params.data.caseManagerId)) as any);
-    if (params.data.grade) conditions.push(eq(studentsTable.grade, params.data.grade) as any);
+    if (params.data.status) conditions.push(eq(studentsTable.status, params.data.status));
+    if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)));
+    if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)));
+    if (params.data.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+    if (params.data.caseManagerId) conditions.push(eq(studentsTable.caseManagerId, Number(params.data.caseManagerId)));
+    if (params.data.grade) conditions.push(eq(studentsTable.grade, params.data.grade));
     if ((params.data as any).type === "sped") {
-      conditions.push(sql`EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})` as any);
+      conditions.push(sql`EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})`);
     } else if ((params.data as any).type === "gen_ed") {
-      conditions.push(sql`NOT EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})` as any);
+      conditions.push(sql`NOT EXISTS (SELECT 1 FROM service_requirements WHERE student_id = ${studentsTable.id})`);
     }
     if (params.data.search) {
       const searchTerm = `%${params.data.search}%`;
@@ -67,7 +67,7 @@ router.get("/students", async (req, res): Promise<void> => {
           ilike(studentsTable.firstName, searchTerm),
           ilike(studentsTable.lastName, searchTerm),
           ilike(studentsTable.externalId, searchTerm)
-        ) as any
+        )
       );
     }
   }
@@ -76,8 +76,8 @@ router.get("/students", async (req, res): Promise<void> => {
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
 
   const students = conditions.length > 0
-    ? await (query as any).where(and(...conditions)).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset)
-    : await (query as any).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset);
+    ? await query.where(and(...conditions)).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset)
+    : await query.orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset);
 
   const studentIds = students.map((s: any) => s.id);
 
@@ -264,7 +264,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     .from(sessionLogsTable)
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
-    .where(eq(sessionLogsTable.studentId, params.data.id))
+    .where(and(eq(sessionLogsTable.studentId, params.data.id), isNull(sessionLogsTable.deletedAt)))
     .orderBy(desc(sessionLogsTable.sessionDate))
     .limit(20);
 
@@ -448,7 +448,7 @@ router.get("/students/:id/sessions", async (req, res): Promise<void> => {
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, sessionLogsTable.studentId))
-    .where(eq(sessionLogsTable.studentId, params.data.id))
+    .where(and(eq(sessionLogsTable.studentId, params.data.id), isNull(sessionLogsTable.deletedAt)))
     .orderBy(desc(sessionLogsTable.sessionDate))
     .limit(limit);
 
@@ -478,6 +478,33 @@ router.get("/students/:id/alerts", async (req, res): Promise<void> => {
     createdAt: a.createdAt.toISOString(),
     resolvedAt: a.resolvedAt?.toISOString() ?? null,
   })));
+});
+
+router.delete("/students/:id", async (req, res): Promise<void> => {
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const [updated] = await db
+    .update(studentsTable)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
+    .returning({ id: studentsTable.id });
+  if (!updated) {
+    res.status(404).json({ error: "Student not found" });
+    return;
+  }
+
+  logAudit(req, {
+    action: "delete",
+    targetTable: "students",
+    targetId: params.data.id,
+    studentId: params.data.id,
+    summary: `Soft-deleted student #${params.data.id}`,
+  });
+
+  res.json({ success: true });
 });
 
 export default router;

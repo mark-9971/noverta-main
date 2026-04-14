@@ -58,7 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const root = document.documentElement;
     THEMES.forEach(t => root.classList.remove(`theme-${t.id}`));
-    root.classList.add(`theme-${t.id}`);
+    root.classList.add(`theme-${theme}`);
 
     if (theme === "reduced-motion") {
       root.style.setProperty("--transition-speed", "0s");

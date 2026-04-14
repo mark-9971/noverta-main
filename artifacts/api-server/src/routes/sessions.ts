@@ -798,6 +798,7 @@ router.get("/students/:studentId/minutes-trend", async (req, res): Promise<void>
     const conditions: any[] = [
       eq(sessionLogsTable.studentId, studentId),
       eq(sessionLogsTable.status, "completed"),
+      isNull(sessionLogsTable.deletedAt),
     ];
     if (from) conditions.push(gte(sessionLogsTable.sessionDate, from as string));
     if (to) conditions.push(lte(sessionLogsTable.sessionDate, to as string));

@@ -232,7 +232,7 @@ router.get("/schedule-blocks/coverage-gaps", async (req, res): Promise<void> => 
       serviceTypeId: scheduleBlocksTable.serviceTypeId,
     })
     .from(scheduleBlocksTable)
-    .where(eq(scheduleBlocksTable.isRecurring, true));
+    .where(and(eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)));
 
   const coveredSet = new Set(coveredPairs.map(p => `${p.studentId}-${p.serviceTypeId}`));
 
