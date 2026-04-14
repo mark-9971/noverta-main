@@ -35,3 +35,7 @@ export * from "./submissions";
 export * from "./announcements";
 export * from "./teacherObservations";
 export * from "./progressNoteContributions";
+export * from "./fbas";
+export * from "./fbaObservations";
+export * from "./functionalAnalyses";
+export * from "./behaviorInterventionPlans";

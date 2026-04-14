@@ -30,6 +30,7 @@ import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
 import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
 import IepSuggestions from "@/pages/iep-suggestions";
 import DistrictOverview from "@/pages/district-overview";
+import BehaviorAssessmentPage from "@/pages/behavior-assessment";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ function AdminRouter() {
       <Route path="/iep-suggestions" component={IepSuggestions} />
       <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
       <Route path="/analytics" component={AnalyticsPage} />
+      <Route path="/behavior-assessment" component={BehaviorAssessmentPage} />
       <Route path="/district" component={DistrictOverview} />
       <Route component={NotFound} />
     </Switch>

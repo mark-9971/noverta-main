@@ -22,6 +22,7 @@ import assignmentsRouter from "./assignments";
 import iepSuggestionsRouter from "./iepSuggestions";
 import classroomRouter from "./classroom";
 import districtsRouter from "./districts";
+import fbaRouter from "./fba";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(classesRouter);
 router.use(assignmentsRouter);
 router.use(iepSuggestionsRouter);
 router.use(classroomRouter);
+router.use(fbaRouter);
 
 export default router;

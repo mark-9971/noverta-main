@@ -38,6 +38,7 @@ const adminNav: NavSection[] = [
     label: "Clinical & IEP",
     items: [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
       { href: "/search", label: "IEP Search", icon: Search },
@@ -75,6 +76,7 @@ const spedTeacherNav: NavSection[] = [
     label: "Clinical & IEP",
     items: [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/search", label: "IEP Search", icon: Search },
     ],
