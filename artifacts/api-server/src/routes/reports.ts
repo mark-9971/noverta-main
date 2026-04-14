@@ -344,60 +344,125 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 router.get("/reports/executive-summary", async (req, res): Promise<void> => {
   try {
     const { schoolId, districtId, startDate, endDate } = req.query;
-    const filters: Record<string, number | string> = {};
-    if (schoolId) filters.schoolId = Number(schoolId);
-    if (districtId) filters.districtId = Number(districtId);
-    if (startDate) filters.startDate = startDate as string;
-    if (endDate) filters.endDate = endDate as string;
+    const now = new Date();
+    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
+    const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const allProgress = await computeAllActiveMinuteProgress(filters);
+    const studentConditions: ReturnType<typeof eq>[] = [eq(studentsTable.status, "active") as ReturnType<typeof eq>];
+    if (schoolId) studentConditions.push(eq(studentsTable.schoolId, Number(schoolId)) as ReturnType<typeof eq>);
+    if (districtId) studentConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(districtId)})` as ReturnType<typeof eq>);
 
-    const studentConditions: any[] = [eq(studentsTable.status, "active")];
-    if (schoolId) studentConditions.push(eq(studentsTable.schoolId, Number(schoolId)));
-    if (districtId) studentConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(districtId)})`);
+    const activeStudents = await db.select({
+      id: studentsTable.id,
+    }).from(studentsTable).where(and(...studentConditions));
 
-    const [activeResult] = await db.select({ count: count() }).from(studentsTable).where(and(...studentConditions));
+    const studentIds = activeStudents.map(s => s.id);
+    if (studentIds.length === 0) {
+      res.json({
+        generatedAt: new Date().toISOString(),
+        preparedBy: (req.query.preparedBy as string) || null,
+        totalActiveStudents: 0, complianceRate: 100,
+        riskCounts: { onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0 },
+        serviceDelivery: { totalDeliveredMinutes: 0, totalRequiredMinutes: 0, overallPercent: 100, totalMissedSessions: 0, totalMakeupSessions: 0, byService: [] },
+        iepDeadlines: { within30: 0, within60: 0, within90: 0, overdue: 0 },
+        alerts: { openAlerts: 0, criticalAlerts: 0 },
+      });
+      return;
+    }
 
-    const studentRisk = new Map<number, string>();
-    const riskPriority: Record<string, number> = {
-      out_of_compliance: 4, at_risk: 3, slightly_behind: 2, on_track: 1, completed: 0,
-    };
-    for (const p of allProgress) {
-      const current = studentRisk.get(p.studentId);
-      if (!current || (riskPriority[p.riskStatus] ?? 0) > (riskPriority[current] ?? 0)) {
-        studentRisk.set(p.studentId, p.riskStatus);
+    const requirements = await db.select({
+      id: serviceRequirementsTable.id,
+      studentId: serviceRequirementsTable.studentId,
+      serviceTypeId: serviceRequirementsTable.serviceTypeId,
+      requiredMinutes: serviceRequirementsTable.requiredMinutes,
+      intervalType: serviceRequirementsTable.intervalType,
+      serviceTypeName: serviceTypesTable.name,
+    })
+      .from(serviceRequirementsTable)
+      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+      .where(and(
+        eq(serviceRequirementsTable.active, true),
+        sql`${serviceRequirementsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`
+      ));
+
+    const sessions = await db.select({
+      studentId: sessionLogsTable.studentId,
+      serviceRequirementId: sessionLogsTable.serviceRequirementId,
+      durationMinutes: sessionLogsTable.durationMinutes,
+      status: sessionLogsTable.status,
+      isMakeup: sessionLogsTable.isMakeup,
+    })
+      .from(sessionLogsTable)
+      .where(and(
+        gte(sessionLogsTable.sessionDate, start),
+        lte(sessionLogsTable.sessionDate, end),
+        sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`
+      ));
+
+    function normalizeToRange(requiredMinutes: number, intervalType: string): number {
+      const startD = new Date(start + "T12:00:00");
+      const endD = new Date(end + "T12:00:00");
+      const rangeDays = Math.max(1, (endD.getTime() - startD.getTime()) / 86400000);
+      const rangeWeeks = rangeDays / 7;
+      const rangeMonths = rangeDays / 30.44;
+      if (intervalType === "weekly") return requiredMinutes * rangeWeeks;
+      if (intervalType === "monthly") return requiredMinutes * rangeMonths;
+      if (intervalType === "quarterly") return requiredMinutes * (rangeMonths / 3);
+      return requiredMinutes * rangeWeeks;
+    }
+
+    const reqByStudent = new Map<number, { required: number; delivered: number; missed: number; makeup: number }>();
+    const serviceDelivery: Record<string, { delivered: number; required: number; students: Set<number> }> = {};
+
+    for (const r of requirements) {
+      const rangeReq = normalizeToRange(r.requiredMinutes, r.intervalType);
+      if (!reqByStudent.has(r.studentId)) reqByStudent.set(r.studentId, { required: 0, delivered: 0, missed: 0, makeup: 0 });
+      reqByStudent.get(r.studentId)!.required += rangeReq;
+      const svcName = r.serviceTypeName ?? "Unknown";
+      if (!serviceDelivery[svcName]) serviceDelivery[svcName] = { delivered: 0, required: 0, students: new Set() };
+      serviceDelivery[svcName].required += rangeReq;
+      serviceDelivery[svcName].students.add(r.studentId);
+    }
+
+    for (const s of sessions) {
+      const entry = reqByStudent.get(s.studentId);
+      if (!entry) continue;
+      if (s.status === "completed" || s.status === "makeup") {
+        entry.delivered += s.durationMinutes;
+      }
+      if (s.status === "missed") entry.missed++;
+      if (s.isMakeup) entry.makeup++;
+
+      const req = requirements.find(r => r.id === s.serviceRequirementId);
+      if (req) {
+        const svcName = req.serviceTypeName ?? "Unknown";
+        if (serviceDelivery[svcName] && (s.status === "completed" || s.status === "makeup")) {
+          serviceDelivery[svcName].delivered += s.durationMinutes;
+        }
       }
     }
 
     const riskCounts = { onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0 };
-    for (const [_, status] of studentRisk) {
-      if (status === "on_track" || status === "completed") riskCounts.onTrack++;
-      else if (status === "slightly_behind") riskCounts.slightlyBehind++;
-      else if (status === "at_risk") riskCounts.atRisk++;
-      else if (status === "out_of_compliance") riskCounts.outOfCompliance++;
+    let totalDelivered = 0, totalRequired = 0, totalMissed = 0, totalMakeup = 0;
+    for (const [, entry] of reqByStudent) {
+      totalDelivered += entry.delivered;
+      totalRequired += entry.required;
+      totalMissed += entry.missed;
+      totalMakeup += entry.makeup;
+      const pct = entry.required > 0 ? entry.delivered / entry.required : 1;
+      if (pct >= 0.95) riskCounts.onTrack++;
+      else if (pct >= 0.85) riskCounts.slightlyBehind++;
+      else if (pct >= 0.70) riskCounts.atRisk++;
+      else riskCounts.outOfCompliance++;
     }
 
     const totalTracked = riskCounts.onTrack + riskCounts.slightlyBehind + riskCounts.atRisk + riskCounts.outOfCompliance;
     const complianceRate = totalTracked > 0 ? Math.round((riskCounts.onTrack / totalTracked) * 100) : 100;
 
-    const totalDelivered = allProgress.reduce((s, p) => s + p.deliveredMinutes, 0);
-    const totalRequired = allProgress.reduce((s, p) => s + p.requiredMinutes, 0);
-    const totalMissed = allProgress.reduce((s, p) => s + p.missedSessionsCount, 0);
-    const totalMakeup = allProgress.reduce((s, p) => s + p.makeupSessionsCount, 0);
-
-    const serviceDelivery: Record<string, { delivered: number; required: number; students: Set<number> }> = {};
-    for (const p of allProgress) {
-      if (!serviceDelivery[p.serviceTypeName]) {
-        serviceDelivery[p.serviceTypeName] = { delivered: 0, required: 0, students: new Set() };
-      }
-      serviceDelivery[p.serviceTypeName].delivered += p.deliveredMinutes;
-      serviceDelivery[p.serviceTypeName].required += p.requiredMinutes;
-      serviceDelivery[p.serviceTypeName].students.add(p.studentId);
-    }
     const serviceBreakdown = Object.entries(serviceDelivery).map(([name, d]) => ({
       serviceTypeName: name,
-      deliveredMinutes: d.delivered,
-      requiredMinutes: d.required,
+      deliveredMinutes: Math.round(d.delivered),
+      requiredMinutes: Math.round(d.required),
       percentComplete: d.required > 0 ? Math.round((d.delivered / d.required) * 100) : 100,
       studentCount: d.students.size,
     }));
@@ -432,12 +497,12 @@ router.get("/reports/executive-summary", async (req, res): Promise<void> => {
     res.json({
       generatedAt: new Date().toISOString(),
       preparedBy: (req.query.preparedBy as string) || null,
-      totalActiveStudents: activeResult?.count ?? 0,
+      totalActiveStudents: activeStudents.length,
       complianceRate,
       riskCounts,
       serviceDelivery: {
-        totalDeliveredMinutes: totalDelivered,
-        totalRequiredMinutes: totalRequired,
+        totalDeliveredMinutes: Math.round(totalDelivered),
+        totalRequiredMinutes: Math.round(totalRequired),
         overallPercent: totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 100) : 100,
         totalMissedSessions: totalMissed,
         totalMakeupSessions: totalMakeup,
