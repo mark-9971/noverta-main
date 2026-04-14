@@ -2006,6 +2006,14 @@ export interface ParaStudentTargetsResponse {
   bips: ParaBipSummary[];
 }
 
+export interface ParaStopSessionBody {
+  /** HH:MM format */
+  endTime: string;
+  durationMinutes: number;
+  notes?: string | null;
+  status?: string;
+}
+
 export interface ParaQuickStartBody {
   scheduleBlockId: number;
   sessionDate: string;
@@ -2747,4 +2755,10 @@ export type GetParaStudentTargetsParams = {
    * Optional service type ID to scope targets by service area
    */
   serviceTypeId?: number;
+};
+
+export type ParaStopSession200Session = { [key: string]: unknown };
+
+export type ParaStopSession200 = {
+  session: ParaStopSession200Session;
 };

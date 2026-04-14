@@ -2793,6 +2793,41 @@ paths:
         "404":
           description: Schedule block not found
 
+  /para/sessions/{sessionId}/stop:
+    patch:
+      operationId: paraStopSession
+      tags: [para]
+      summary: Stop an in-progress para session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParaStopSessionBody"
+      responses:
+        "200":
+          description: Session stopped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: object
+                required: [session]
+        "400":
+          description: Session not in progress
+        "403":
+          description: Access denied
+        "404":
+          description: Session not found
+
 components:
   schemas:
     HealthStatus:
@@ -5767,6 +5802,22 @@ components:
           items:
             $ref: "#/components/schemas/ParaBipSummary"
       required: [goals, programs, behaviors, bips]
+
+    ParaStopSessionBody:
+      type: object
+      properties:
+        endTime:
+          type: string
+          description: "HH:MM format"
+        durationMinutes:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          default: completed
+      required: [endTime, durationMinutes]
 
     ParaQuickStartBody:
       type: object

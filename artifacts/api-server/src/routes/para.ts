@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { requireAuth, type AuthedRequest } from "../middlewares/auth";
+import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -15,20 +16,16 @@ function dayOfWeekFromDate(dateStr: string): string {
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 }
 
-async function resolveStaffId(userId: string): Promise<number | null> {
-  const rows = await db
-    .select({ id: staffTable.id })
-    .from(staffTable)
-    .where(eq(staffTable.email, userId))
-    .limit(1);
-  if (rows.length > 0) return rows[0].id;
-
-  const allStaff = await db
-    .select({ id: staffTable.id, email: staffTable.email })
-    .from(staffTable)
-    .where(eq(staffTable.status, "active"))
-    .limit(1);
-  return allStaff.length > 0 ? allStaff[0].id : null;
+async function getStaffIdForUser(req: AuthedRequest): Promise<number | null> {
+  const auth = getAuth(req);
+  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
+  const clerkStaffId = meta?.staffId ? Number(meta.staffId) : null;
+  if (clerkStaffId) {
+    const rows = await db.select({ id: staffTable.id }).from(staffTable)
+      .where(eq(staffTable.id, clerkStaffId)).limit(1);
+    if (rows.length > 0) return rows[0].id;
+  }
+  return null;
 }
 
 interface ScheduleBlockRow {
@@ -65,28 +62,28 @@ interface ProgramStepRow {
 router.get("/para/my-day", requireAuth, async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
-    let staffId = Number(req.query.staffId);
     const date = (req.query.date as string) || new Date().toISOString().split("T")[0];
 
-    if (!staffId || isNaN(staffId)) {
-      const resolved = await resolveStaffId(authed.userId);
-      if (!resolved) {
-        res.status(400).json({ error: "staffId is required and could not be resolved from auth" });
-        return;
-      }
-      staffId = resolved;
-    }
+    let staffId = Number(req.query.staffId);
 
     if (authed.trellisRole === "para") {
-      const staffRows = await db
-        .select({ id: staffTable.id })
-        .from(staffTable)
-        .where(eq(staffTable.id, staffId))
-        .limit(1);
-      if (staffRows.length === 0) {
-        res.status(403).json({ error: "Access denied" });
+      const myStaffId = await getStaffIdForUser(authed);
+      if (!myStaffId) {
+        res.status(403).json({ error: "No staff profile linked to your account" });
         return;
       }
+      if (staffId && staffId !== myStaffId) {
+        res.status(403).json({ error: "Access denied: cannot view another staff's schedule" });
+        return;
+      }
+      staffId = myStaffId;
+    } else if (!staffId || isNaN(staffId)) {
+      const myStaffId = await getStaffIdForUser(authed);
+      if (!myStaffId) {
+        res.status(400).json({ error: "staffId is required" });
+        return;
+      }
+      staffId = myStaffId;
     }
 
     const dayOfWeek = dayOfWeekFromDate(date);
@@ -155,10 +152,16 @@ router.get("/para/student-targets/:studentId", requireAuth, async (req, res): Pr
     }
 
     if (authed.trellisRole === "para") {
+      const myStaffId = await getStaffIdForUser(authed);
+      if (!myStaffId) {
+        res.status(403).json({ error: "No staff profile linked to your account" });
+        return;
+      }
       const assignedBlocks = await db
         .select({ id: scheduleBlocksTable.id })
         .from(scheduleBlocksTable)
         .where(and(
+          eq(scheduleBlocksTable.staffId, myStaffId),
           eq(scheduleBlocksTable.studentId, studentId),
           eq(scheduleBlocksTable.isRecurring, true),
         ))
@@ -330,9 +333,9 @@ router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise
 
     const block = blocks[0];
 
-    if (authed.trellisRole === "para" && block.staffId) {
-      const resolved = await resolveStaffId(authed.userId);
-      if (resolved !== block.staffId) {
+    if (authed.trellisRole === "para") {
+      const myStaffId = await getStaffIdForUser(authed);
+      if (!myStaffId || myStaffId !== block.staffId) {
         res.status(403).json({ error: "Access denied: not your schedule block" });
         return;
       }
@@ -343,12 +346,6 @@ router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise
       return;
     }
 
-    const startParts = block.startTime.split(":");
-    const endParts = block.endTime.split(":");
-    const scheduledMinutes =
-      (parseInt(endParts[0]) * 60 + parseInt(endParts[1])) -
-      (parseInt(startParts[0]) * 60 + parseInt(startParts[1]));
-
     const [session] = await db.insert(sessionLogsTable).values({
       studentId: block.studentId,
       staffId: block.staffId,
@@ -356,10 +353,12 @@ router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise
       sessionDate: body.sessionDate,
       startTime: body.startTime,
       endTime: null,
-      durationMinutes: Math.max(scheduledMinutes, 1),
+      durationMinutes: 0,
       location: block.location,
       status: "in_progress",
       notes: null,
+      isMakeup: false,
+      isCompensatory: false,
     }).returning();
 
     res.status(201).json({
@@ -378,6 +377,64 @@ router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise
   } catch (e: unknown) {
     console.error("POST /para/sessions/quick-start error:", e);
     res.status(500).json({ error: "Failed to create session" });
+  }
+});
+
+interface StopSessionBody {
+  endTime: string;
+  durationMinutes: number;
+  notes: string | null;
+  status: string;
+}
+
+router.patch("/para/sessions/:sessionId/stop", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const authed = req as AuthedRequest;
+    const sessionId = Number(req.params.sessionId);
+    const body = req.body as StopSessionBody;
+
+    if (!sessionId || isNaN(sessionId)) {
+      res.status(400).json({ error: "Invalid sessionId" });
+      return;
+    }
+
+    const sessions = await db.select().from(sessionLogsTable)
+      .where(eq(sessionLogsTable.id, sessionId)).limit(1);
+
+    if (sessions.length === 0) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const session = sessions[0];
+
+    if (authed.trellisRole === "para") {
+      const myStaffId = await getStaffIdForUser(authed);
+      if (!myStaffId || session.staffId !== myStaffId) {
+        res.status(403).json({ error: "Access denied: not your session" });
+        return;
+      }
+    }
+
+    if (session.status !== "in_progress") {
+      res.status(400).json({ error: "Session is not in progress" });
+      return;
+    }
+
+    const [updated] = await db.update(sessionLogsTable)
+      .set({
+        endTime: body.endTime,
+        durationMinutes: body.durationMinutes,
+        notes: body.notes,
+        status: body.status || "completed",
+      })
+      .where(eq(sessionLogsTable.id, sessionId))
+      .returning();
+
+    res.json({ session: updated });
+  } catch (e: unknown) {
+    console.error("PATCH /para/sessions/:sessionId/stop error:", e);
+    res.status(500).json({ error: "Failed to stop session" });
   }
 });
 

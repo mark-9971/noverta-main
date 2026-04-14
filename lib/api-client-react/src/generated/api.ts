@@ -124,6 +124,8 @@ import type {
   ParaMyDayResponse,
   ParaQuickStartBody,
   ParaQuickStartResponse,
+  ParaStopSession200,
+  ParaStopSessionBody,
   ParaStudentTargetsResponse,
   ParentContact,
   PhaseChange,
@@ -10950,4 +10952,91 @@ export const useParaQuickStartSession = <
   TContext
 > => {
   return useMutation(getParaQuickStartSessionMutationOptions(options));
+};
+
+/**
+ * @summary Stop an in-progress para session
+ */
+export const getParaStopSessionUrl = (sessionId: number) => {
+  return `/api/para/sessions/${sessionId}/stop`;
+};
+
+export const paraStopSession = async (
+  sessionId: number,
+  paraStopSessionBody: ParaStopSessionBody,
+  options?: RequestInit,
+): Promise<ParaStopSession200> => {
+  return customFetch<ParaStopSession200>(getParaStopSessionUrl(sessionId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(paraStopSessionBody),
+  });
+};
+
+export const getParaStopSessionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof paraStopSession>>,
+    TError,
+    { sessionId: number; data: BodyType<ParaStopSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof paraStopSession>>,
+  TError,
+  { sessionId: number; data: BodyType<ParaStopSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["paraStopSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof paraStopSession>>,
+    { sessionId: number; data: BodyType<ParaStopSessionBody> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return paraStopSession(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ParaStopSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof paraStopSession>>
+>;
+export type ParaStopSessionMutationBody = BodyType<ParaStopSessionBody>;
+export type ParaStopSessionMutationError = ErrorType<void>;
+
+/**
+ * @summary Stop an in-progress para session
+ */
+export const useParaStopSession = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof paraStopSession>>,
+    TError,
+    { sessionId: number; data: BodyType<ParaStopSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof paraStopSession>>,
+  TError,
+  { sessionId: number; data: BodyType<ParaStopSessionBody> },
+  TContext
+> => {
+  return useMutation(getParaStopSessionMutationOptions(options));
 };

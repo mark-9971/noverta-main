@@ -3512,3 +3512,23 @@ export const ParaQuickStartSessionBody = zod.object({
   sessionDate: zod.coerce.date(),
   startTime: zod.string().describe("HH:MM format"),
 });
+
+/**
+ * @summary Stop an in-progress para session
+ */
+export const ParaStopSessionParams = zod.object({
+  sessionId: zod.coerce.number(),
+});
+
+export const paraStopSessionBodyStatusDefault = `completed`;
+
+export const ParaStopSessionBody = zod.object({
+  endTime: zod.string().describe("HH:MM format"),
+  durationMinutes: zod.number(),
+  notes: zod.string().nullish(),
+  status: zod.string().default(paraStopSessionBodyStatusDefault),
+});
+
+export const ParaStopSessionResponse = zod.object({
+  session: zod.object({}).passthrough(),
+});

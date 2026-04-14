@@ -88,6 +88,7 @@ interface ActiveSession {
   serviceTypeName: string | null;
   startedAt: Date;
   location: string | null;
+  serverSessionId: number | null;
 }
 
 interface TrialResult {
@@ -140,6 +141,7 @@ interface SessionPayload {
   location: string | null;
   notes: string | null;
   serviceTypeId: number | null;
+  isMakeup: boolean;
   goalData?: GoalDataEntry[];
 }
 
@@ -249,7 +251,7 @@ export default function ParaMyDayPage() {
     const now = new Date();
     const startTime = now.toTimeString().slice(0, 5);
 
-    setActiveSession({
+    const sessionState: ActiveSession = {
       blockId: block.id,
       studentId: block.studentId,
       studentName: block.studentName || "Student",
@@ -257,14 +259,17 @@ export default function ParaMyDayPage() {
       serviceTypeName: block.serviceTypeName,
       startedAt: now,
       location: block.location,
-    });
+      serverSessionId: null,
+    };
+
+    setActiveSession(sessionState);
     setElapsed(0);
     setSessionNotes("");
     setTrials([]);
     setView("session");
 
     try {
-      await fetch(`${API}/para/sessions/quick-start`, {
+      const qsRes = await fetch(`${API}/para/sessions/quick-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -273,8 +278,12 @@ export default function ParaMyDayPage() {
           startTime,
         }),
       });
+      if (qsRes.ok) {
+        const qsData = await qsRes.json() as { session: { id: number } };
+        setActiveSession(prev => prev ? { ...prev, serverSessionId: qsData.session.id } : prev);
+      }
     } catch {
-      // Session will still be saved on stop; quick-start is best-effort
+      // Session creation on stop will serve as fallback
     }
 
     try {
@@ -337,26 +346,46 @@ export default function ParaMyDayPage() {
     }
 
     try {
-      const body: SessionPayload = {
-        studentId: activeSession.studentId,
-        staffId,
-        sessionDate: date,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        durationMinutes,
-        status: "completed",
-        location: activeSession.location,
-        notes: sessionNotes || null,
-        serviceTypeId: activeSession.serviceTypeId,
-      };
-      if (goalData.length > 0) body.goalData = goalData;
+      let saveOk = false;
 
-      const res = await fetch(`${API}/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error("Save failed");
+      if (activeSession.serverSessionId) {
+        const stopRes = await fetch(`${API}/para/sessions/${activeSession.serverSessionId}/stop`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endTime: endTimeStr,
+            durationMinutes,
+            notes: sessionNotes || null,
+            status: "completed",
+          }),
+        });
+        saveOk = stopRes.ok;
+      }
+
+      if (!saveOk) {
+        const body: SessionPayload = {
+          studentId: activeSession.studentId,
+          staffId,
+          sessionDate: date,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          durationMinutes,
+          status: "completed",
+          location: activeSession.location,
+          notes: sessionNotes || null,
+          serviceTypeId: activeSession.serviceTypeId,
+          isMakeup: false,
+        };
+        if (goalData.length > 0) body.goalData = goalData;
+
+        const res = await fetch(`${API}/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Save failed");
+      }
+
       toast.success("Session saved!");
       setActiveSession(null);
       setElapsed(0);
