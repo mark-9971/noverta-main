@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, UserCheck, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
-  Star, Clock, Sparkles,
+  Star, Clock, Sparkles, Wand2,
   Timer, Clipboard, Sprout
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";

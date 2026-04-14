@@ -8,7 +8,7 @@ import {
   ArrowLeft, Plus, FileText, Target, TrendingUp, TrendingDown, Minus as MinusIcon,
   Save, X, ChevronRight, AlertTriangle, CheckCircle2, Clock, Sparkles,
   Download, Edit2, BookOpen, BarChart3, Loader2, FileCheck, Search,
-  CalendarDays, Users, Copy, History, Phone, Mail, MessageSquare
+  CalendarDays, Users, Copy, History, Phone, Mail, MessageSquare, Wand2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -210,6 +210,11 @@ export default function StudentIepPage() {
                 <p className="text-xs md:text-sm text-gray-400">IEP — 603 CMR 28.00 · Grade {student.grade}</p>
               </div>
             </div>
+            <Link href={`/students/${studentId}/iep-builder`}>
+              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5">
+                <Wand2 className="w-4 h-4" /> Annual Review Assistant
+              </Button>
+            </Link>
           </div>
         )}
       </div>
