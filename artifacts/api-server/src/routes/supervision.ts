@@ -15,7 +15,7 @@ const WRITE_ROLES = ["admin", "sped_teacher"];
 
 function requireWriteRole(req: Request, res: Response, next: NextFunction): void {
   const role = req.headers["x-demo-role"] as string | undefined;
-  if (role && !WRITE_ROLES.includes(role)) {
+  if (!role || !WRITE_ROLES.includes(role)) {
     res.status(403).json({ error: "Insufficient permissions. Only admin and SPED teacher roles can modify supervision records." });
     return;
   }
@@ -33,10 +33,16 @@ function sessionToJson(s: Record<string, unknown>) {
 router.get("/supervision-sessions", async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, startDate, endDate, supervisionType, schoolId } = req.query as Record<string, string>;
+    const demoRole = req.headers["x-demo-role"] as string | undefined;
+    const selfStaffId = req.headers["x-demo-staff-id"] as string | undefined;
 
     const conditions = [];
-    if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
-    if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
+    if (demoRole && !WRITE_ROLES.includes(demoRole) && selfStaffId) {
+      conditions.push(eq(supervisionSessionsTable.superviseeId, Number(selfStaffId)));
+    } else {
+      if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
+      if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
+    }
     if (startDate) conditions.push(gte(supervisionSessionsTable.sessionDate, startDate));
     if (endDate) conditions.push(lte(supervisionSessionsTable.sessionDate, endDate));
     if (supervisionType) conditions.push(eq(supervisionSessionsTable.supervisionType, supervisionType));

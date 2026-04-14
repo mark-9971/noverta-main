@@ -110,11 +110,13 @@ export default function Supervision() {
     if (filterType) params.set("supervisionType", filterType);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
 
+    const roleHeaders: HeadersInit = { "x-demo-role": role };
+
     Promise.all([
-      fetch(`${API}/supervision-sessions?${params}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/supervision-sessions?${params}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []),
+      isAdminOrTeacher ? fetch(`${API}/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
       fetch(`${API}/staff?status=active${selectedSchoolId ? `&schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
+      isAdminOrTeacher ? fetch(`${API}/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
     ]).then(([s, c, st, tr]) => {
       setSessions(s);
       setCompliance(c);
