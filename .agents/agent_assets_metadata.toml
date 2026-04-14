@@ -6,3 +6,9 @@ id = "t6I71PV2TrHJP7g2vXgRR"
 uri = "file://Trellis-Business-Analysis.md"
 type = "text"
 title = "Trellis — Complete Business Extraction & Sales Positioning"
+
+[[outputs]]
+id = "fMJA58BQrAeexqL46OkQw"
+uri = "file://Trellis-Platform-Analysis.md"
+type = "text"
+title = "Trellis Platform Analysis: PowerSchool Replacement Roadmap"
