@@ -358,6 +358,14 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
   const newIsCompleted = newStatus === "completed" || newStatus === "makeup";
   const newDuration = updateData.durationMinutes ?? oldSession.durationMinutes;
 
+  if (newIsComp && !newObligId) {
+    res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
+    return;
+  }
+  if (!newIsComp && newObligId) {
+    updateData.compensatoryObligationId = null;
+  }
+
   const compChanged = oldIsComp !== newIsComp || oldObligId !== newObligId || oldDuration !== newDuration || oldWasCompleted !== newIsCompleted;
 
   if (compChanged && (oldIsComp || newIsComp)) {
@@ -378,7 +386,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
         }
       }
 
-      if (newIsComp && newObligId && newIsCompleted) {
+      if (newIsComp && newObligId) {
         const [newObligation] = await txDb.select().from(compensatoryObligationsTable)
           .where(eq(compensatoryObligationsTable.id, newObligId));
         if (!newObligation) {
@@ -391,11 +399,18 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
           res.status(400).json({ error: "Obligation student does not match session student" });
           return;
         }
-        const addedDelivered = newObligation.minutesDelivered + newDuration;
-        const addedStatus = addedDelivered >= newObligation.minutesOwed ? "completed" : "in_progress";
-        await txDb.update(compensatoryObligationsTable)
-          .set({ minutesDelivered: addedDelivered, status: addedStatus })
-          .where(eq(compensatoryObligationsTable.id, newObligId));
+        if (newObligation.status === "completed" || newObligation.status === "waived") {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: `Cannot link sessions to a ${newObligation.status} obligation` });
+          return;
+        }
+        if (newIsCompleted) {
+          const addedDelivered = newObligation.minutesDelivered + newDuration;
+          const addedStatus = addedDelivered >= newObligation.minutesOwed ? "completed" : "in_progress";
+          await txDb.update(compensatoryObligationsTable)
+            .set({ minutesDelivered: addedDelivered, status: addedStatus })
+            .where(eq(compensatoryObligationsTable.id, newObligId));
+        }
       }
 
       const [session] = await txDb.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();

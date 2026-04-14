@@ -221,7 +221,8 @@ async function generateCompensatoryObligations(
         and(
           sql`${sessionLogsTable.serviceRequirementId} IN (${sql.join(typeReqIds.map(id => sql`${id}`), sql`, `)})`,
           sql`${sessionLogsTable.sessionDate} >= ${prev.start}`,
-          sql`${sessionLogsTable.sessionDate} <= ${prev.end}`
+          sql`${sessionLogsTable.sessionDate} <= ${prev.end}`,
+          eq(sessionLogsTable.isCompensatory, false)
         )
       );
 
