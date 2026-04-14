@@ -142,6 +142,11 @@ router.post("/sessions", async (req, res): Promise<void> => {
         res.status(400).json({ error: "Compensatory obligation not found" });
         return;
       }
+      if (obligation.studentId !== parsed.data.studentId) {
+        await client.query("ROLLBACK");
+        res.status(400).json({ error: "Obligation student does not match session student" });
+        return;
+      }
       if (obligation.status === "completed" || obligation.status === "waived") {
         await client.query("ROLLBACK");
         res.status(400).json({ error: `Cannot log sessions against a ${obligation.status} obligation` });
@@ -328,12 +333,84 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
   if (parsed.data.isCompensatory !== undefined && parsed.data.isCompensatory !== null) updateData.isCompensatory = parsed.data.isCompensatory;
   if (parsed.data.compensatoryObligationId !== undefined) updateData.compensatoryObligationId = parsed.data.compensatoryObligationId;
 
-  const [session] = await db.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
-  if (!session) {
+  const [oldSession] = await db.select({
+    id: sessionLogsTable.id,
+    isCompensatory: sessionLogsTable.isCompensatory,
+    compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
+    durationMinutes: sessionLogsTable.durationMinutes,
+    status: sessionLogsTable.status,
+    studentId: sessionLogsTable.studentId,
+  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+
+  if (!oldSession) {
     res.status(404).json({ error: "Session not found" });
     return;
   }
-  res.json({ ...session, createdAt: session.createdAt.toISOString() });
+
+  const oldIsComp = oldSession.isCompensatory;
+  const oldObligId = oldSession.compensatoryObligationId;
+  const oldWasCompleted = oldSession.status === "completed" || oldSession.status === "makeup";
+  const oldDuration = oldSession.durationMinutes;
+
+  const newIsComp = updateData.isCompensatory ?? oldSession.isCompensatory;
+  const newObligId = updateData.compensatoryObligationId !== undefined ? updateData.compensatoryObligationId : oldSession.compensatoryObligationId;
+  const newStatus = updateData.status ?? oldSession.status;
+  const newIsCompleted = newStatus === "completed" || newStatus === "makeup";
+  const newDuration = updateData.durationMinutes ?? oldSession.durationMinutes;
+
+  const compChanged = oldIsComp !== newIsComp || oldObligId !== newObligId || oldDuration !== newDuration || oldWasCompleted !== newIsCompleted;
+
+  if (compChanged && (oldIsComp || newIsComp)) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const txDb = drizzle(client);
+
+      if (oldIsComp && oldObligId && oldWasCompleted) {
+        const [oldObligation] = await txDb.select().from(compensatoryObligationsTable)
+          .where(eq(compensatoryObligationsTable.id, oldObligId));
+        if (oldObligation) {
+          const newDelivered = Math.max(0, oldObligation.minutesDelivered - oldDuration);
+          const revertedStatus = newDelivered >= oldObligation.minutesOwed ? "completed" : (newDelivered > 0 ? "in_progress" : "pending");
+          await txDb.update(compensatoryObligationsTable)
+            .set({ minutesDelivered: newDelivered, status: revertedStatus })
+            .where(eq(compensatoryObligationsTable.id, oldObligId));
+        }
+      }
+
+      if (newIsComp && newObligId && newIsCompleted) {
+        const [newObligation] = await txDb.select().from(compensatoryObligationsTable)
+          .where(eq(compensatoryObligationsTable.id, newObligId));
+        if (!newObligation) {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: "Compensatory obligation not found" });
+          return;
+        }
+        if (newObligation.studentId !== oldSession.studentId) {
+          await client.query("ROLLBACK");
+          res.status(400).json({ error: "Obligation student does not match session student" });
+          return;
+        }
+        const addedDelivered = newObligation.minutesDelivered + newDuration;
+        const addedStatus = addedDelivered >= newObligation.minutesOwed ? "completed" : "in_progress";
+        await txDb.update(compensatoryObligationsTable)
+          .set({ minutesDelivered: addedDelivered, status: addedStatus })
+          .where(eq(compensatoryObligationsTable.id, newObligId));
+      }
+
+      const [session] = await txDb.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
+      await client.query("COMMIT");
+      res.json({ ...session, createdAt: session.createdAt.toISOString() });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } else {
+    const [session] = await db.update(sessionLogsTable).set(updateData).where(eq(sessionLogsTable.id, params.data.id)).returning();
+    res.json({ ...session, createdAt: session.createdAt.toISOString() });
+  }
 });
 
 router.get("/students/:studentId/minutes-trend", async (req, res): Promise<void> => {
