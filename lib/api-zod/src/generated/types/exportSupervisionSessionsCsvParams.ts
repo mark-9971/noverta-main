@@ -23,4 +23,8 @@ export type ExportSupervisionSessionsCsvParams = {
    * @nullable
    */
   endDate?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
 };

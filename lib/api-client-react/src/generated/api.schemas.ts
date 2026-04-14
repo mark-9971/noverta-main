@@ -1727,6 +1727,11 @@ export interface StaffSupervisionSummary {
   recentSessions: SupervisionSessionWithNames[];
 }
 
+export interface SupervisionTrendPoint {
+  weekStart: string;
+  totalMinutes: number;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -2359,6 +2364,17 @@ export type GetSupervisionComplianceSummaryParams = {
   schoolId?: number | null;
 };
 
+export type GetSupervisionTrendParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  weeks?: number | null;
+};
+
 export type ExportSupervisionSessionsCsvParams = {
   /**
    * @nullable
@@ -2376,4 +2392,8 @@ export type ExportSupervisionSessionsCsvParams = {
    * @nullable
    */
   endDate?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
 };

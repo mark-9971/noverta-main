@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
 import {
   ClipboardCheck, Plus, X, Download, Users, Clock,
   CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp,
-  Filter, Eye
+  Filter, Eye, TrendingUp
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const API = "/api";
 
@@ -70,10 +72,13 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function Supervision() {
-  const { selectedSchool } = useSchoolContext();
-  const [activeTab, setActiveTab] = useState<"log" | "compliance">("log");
+  const { selectedSchoolId } = useSchoolContext();
+  const { role } = useRole();
+  const isAdmin = role === "admin";
+  const [activeTab, setActiveTab] = useState<"log" | "compliance" | "trend">("log");
   const [sessions, setSessions] = useState<SupervisionSession[]>([]);
   const [compliance, setCompliance] = useState<ComplianceSummary[]>([]);
+  const [trend, setTrend] = useState<{ weekStart: string; totalMinutes: number }[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -99,26 +104,27 @@ export default function Supervision() {
 
   function fetchAll() {
     setLoading(true);
-    const schoolParam = selectedSchool?.id ? `&schoolId=${selectedSchool.id}` : "";
     const params = new URLSearchParams();
     if (filterSupervisor) params.set("supervisorId", filterSupervisor);
     if (filterSupervisee) params.set("superviseeId", filterSupervisee);
     if (filterType) params.set("supervisionType", filterType);
-    if (selectedSchool?.id) params.set("schoolId", String(selectedSchool.id));
+    if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
 
     Promise.all([
       fetch(`${API}/supervision-sessions?${params}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/supervision/compliance-summary${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/staff?status=active${selectedSchool?.id ? `&schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
-    ]).then(([s, c, st]) => {
+      fetch(`${API}/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/staff?status=active${selectedSchoolId ? `&schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
+    ]).then(([s, c, st, tr]) => {
       setSessions(s);
       setCompliance(c);
       setStaff(st);
+      setTrend(tr);
     }).catch(() => toast.error("Failed to load supervision data"))
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchAll(); }, [selectedSchool, filterSupervisor, filterSupervisee, filterType]);
+  useEffect(() => { fetchAll(); }, [selectedSchoolId, filterSupervisor, filterSupervisee, filterType]);
 
   function resetForm() {
     setFormData({
@@ -204,7 +210,7 @@ export default function Supervision() {
     const params = new URLSearchParams();
     if (filterSupervisor) params.set("supervisorId", filterSupervisor);
     if (filterSupervisee) params.set("superviseeId", filterSupervisee);
-    if (selectedSchool) params.set("schoolId", String(selectedSchool));
+    if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
     window.open(`${API}/supervision-sessions/export/csv?${params}`, "_blank");
   }
 
@@ -220,22 +226,31 @@ export default function Supervision() {
             <ClipboardCheck className="w-5 h-5 text-emerald-600" />
             Clinical Supervision
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">Track BCBA supervision of RBTs and paraprofessionals</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {isAdmin ? "Track BCBA supervision of RBTs and paraprofessionals" : "View your supervision history"}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportCSV} className="text-gray-600">
-            <Download className="w-4 h-4 mr-1" /> Export CSV
-          </Button>
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(!showForm); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Plus className="w-4 h-4 mr-1" /> Log Session
-          </Button>
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={exportCSV} className="text-gray-600">
+                <Download className="w-4 h-4 mr-1" /> Export CSV
+              </Button>
+              <Button size="sm" onClick={() => { resetForm(); setShowForm(!showForm); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Plus className="w-4 h-4 mr-1" /> Log Session
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="flex gap-1 border-b border-gray-200">
         {[
-          { key: "log" as const, label: "Session Log", count: sessions.length },
-          { key: "compliance" as const, label: "Compliance Dashboard", count: compliance.length },
+          { key: "log" as const, label: isAdmin ? "Session Log" : "My Supervision", count: sessions.length },
+          ...(isAdmin ? [
+            { key: "compliance" as const, label: "Compliance Dashboard", count: compliance.length },
+            { key: "trend" as const, label: "Trend", count: null as number | null },
+          ] : []),
         ].map(t => (
           <button
             key={t.key}
@@ -441,7 +456,7 @@ export default function Supervision() {
                     <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Type</th>
                     <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Duration</th>
                     <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Status</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Actions</th>
+                    {isAdmin && <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -467,18 +482,20 @@ export default function Supervision() {
                             "bg-red-100 text-red-600"
                           }`}>{s.status}</span>
                         </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={() => startEdit(s)}
-                              className="text-gray-400 hover:text-emerald-600 text-[11px] px-2 py-1"
-                            >Edit</button>
-                            <button
-                              onClick={() => handleDelete(s.id)}
-                              className="text-gray-400 hover:text-red-600 text-[11px] px-2 py-1"
-                            >Delete</button>
-                          </div>
-                        </td>
+                        {isAdmin && (
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={() => startEdit(s)}
+                                className="text-gray-400 hover:text-emerald-600 text-[11px] px-2 py-1"
+                              >Edit</button>
+                              <button
+                                onClick={() => handleDelete(s.id)}
+                                className="text-gray-400 hover:text-red-600 text-[11px] px-2 py-1"
+                              >Delete</button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                       {expandedId === s.id && (
                         <tr key={`${s.id}-detail`} className="bg-gray-50/50">
@@ -599,6 +616,70 @@ export default function Supervision() {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {activeTab === "trend" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                Supervision Hours — Weekly Trend (Last 12 Weeks)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {trend.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={trend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="weekStart"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      tickFormatter={(v: string) => {
+                        const d = new Date(v);
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} label={{ value: "Minutes", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#6b7280" } }} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                      formatter={(value: number) => [`${value} min`, "Supervision"]}
+                      labelFormatter={(v: string) => `Week of ${v}`}
+                    />
+                    <Bar dataKey="totalMinutes" fill="#059669" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-gray-400 py-12">No supervision data for the trend period</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-[11px] text-gray-400">Total Minutes (12 Weeks)</p>
+                <p className="text-2xl font-bold text-gray-800">{trend.reduce((s, t) => s + t.totalMinutes, 0)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-[11px] text-gray-400">Weekly Average</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {trend.length > 0 ? Math.round(trend.reduce((s, t) => s + t.totalMinutes, 0) / trend.length) : 0} min
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-[11px] text-gray-400">Peak Week</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {trend.length > 0 ? Math.max(...trend.map(t => t.totalMinutes)) : 0} min
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

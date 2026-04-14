@@ -2357,6 +2357,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/StaffSupervisionSummary"
 
+  /supervision/trend:
+    get:
+      operationId: getSupervisionTrend
+      tags: [supervision]
+      summary: Get weekly supervision minutes trend
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: weeks
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Weekly supervision trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupervisionTrendPoint"
+
   /supervision-sessions/export/csv:
     get:
       operationId: exportSupervisionSessionsCsv
@@ -2379,6 +2403,10 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: CSV file
@@ -4943,3 +4971,12 @@ components:
           items:
             $ref: "#/components/schemas/SupervisionSessionWithNames"
       required: [directServiceMinutes, requiredSupervisionMinutes, deliveredSupervisionMinutes, compliancePercent, complianceStatus, recentSessions]
+
+    SupervisionTrendPoint:
+      type: object
+      properties:
+        weekStart:
+          type: string
+        totalMinutes:
+          type: number
+      required: [weekStart, totalMinutes]

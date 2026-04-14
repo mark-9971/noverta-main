@@ -88,6 +88,7 @@ import type {
   GetStudentProgressSummaryParams,
   GetStudentSessionsParams,
   GetSupervisionComplianceSummaryParams,
+  GetSupervisionTrendParams,
   HealthStatus,
   IepCalendarResponse,
   ImportRecord,
@@ -139,6 +140,7 @@ import type {
   SupervisionComplianceSummary,
   SupervisionSession,
   SupervisionSessionWithNames,
+  SupervisionTrendPoint,
   UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
   UpdateParentContactBody,
@@ -9325,6 +9327,109 @@ export function useGetStaffSupervisionSummary<
     staffId,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get weekly supervision minutes trend
+ */
+export const getGetSupervisionTrendUrl = (
+  params?: GetSupervisionTrendParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/supervision/trend?${stringifiedParams}`
+    : `/api/supervision/trend`;
+};
+
+export const getSupervisionTrend = async (
+  params?: GetSupervisionTrendParams,
+  options?: RequestInit,
+): Promise<SupervisionTrendPoint[]> => {
+  return customFetch<SupervisionTrendPoint[]>(
+    getGetSupervisionTrendUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSupervisionTrendQueryKey = (
+  params?: GetSupervisionTrendParams,
+) => {
+  return [`/api/supervision/trend`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSupervisionTrendQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSupervisionTrend>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSupervisionTrendParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionTrend>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSupervisionTrendQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSupervisionTrend>>
+  > = ({ signal }) =>
+    getSupervisionTrend(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSupervisionTrend>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSupervisionTrendQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSupervisionTrend>>
+>;
+export type GetSupervisionTrendQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get weekly supervision minutes trend
+ */
+
+export function useGetSupervisionTrend<
+  TData = Awaited<ReturnType<typeof getSupervisionTrend>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetSupervisionTrendParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSupervisionTrend>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSupervisionTrendQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

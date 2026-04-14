@@ -3045,6 +3045,22 @@ export const GetStaffSupervisionSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Get weekly supervision minutes trend
+ */
+export const GetSupervisionTrendQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+  weeks: zod.coerce.number().nullish(),
+});
+
+export const GetSupervisionTrendResponseItem = zod.object({
+  weekStart: zod.string(),
+  totalMinutes: zod.number(),
+});
+export const GetSupervisionTrendResponse = zod.array(
+  GetSupervisionTrendResponseItem,
+);
+
+/**
  * @summary Export supervision sessions as CSV
  */
 export const ExportSupervisionSessionsCsvQueryParams = zod.object({
@@ -3052,4 +3068,5 @@ export const ExportSupervisionSessionsCsvQueryParams = zod.object({
   superviseeId: zod.coerce.number().nullish(),
   startDate: zod.coerce.string().nullish(),
   endDate: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
 });

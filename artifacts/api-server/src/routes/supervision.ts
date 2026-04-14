@@ -402,6 +402,72 @@ router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void
   }
 });
 
+router.get("/supervision/trend", async (req, res): Promise<void> => {
+  try {
+    const { schoolId, weeks } = req.query as Record<string, string>;
+    const numWeeks = Math.min(Math.max(parseInt(weeks) || 12, 4), 52);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - numWeeks * 7);
+    const startStr = startDate.toISOString().substring(0, 10);
+
+    const conditions: any[] = [
+      gte(supervisionSessionsTable.sessionDate, startStr),
+      eq(supervisionSessionsTable.status, "completed"),
+    ];
+
+    const query = db
+      .select({
+        sessionDate: supervisionSessionsTable.sessionDate,
+        durationMinutes: supervisionSessionsTable.durationMinutes,
+      })
+      .from(supervisionSessionsTable)
+      .leftJoin(sql`staff AS sup_e`, sql`sup_e.id = ${supervisionSessionsTable.superviseeId}`);
+
+    if (schoolId) {
+      conditions.push(sql`sup_e.school_id = ${Number(schoolId)}`);
+    }
+
+    const sessions = await (query as any)
+      .where(and(...conditions))
+      .orderBy(asc(supervisionSessionsTable.sessionDate));
+
+    const weekBuckets: Record<string, number> = {};
+    for (let i = 0; i < numWeeks; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (numWeeks - 1 - i) * 7);
+      const weekStart = new Date(d);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const key = weekStart.toISOString().substring(0, 10);
+      weekBuckets[key] = 0;
+    }
+
+    for (const s of sessions) {
+      const d = new Date(s.sessionDate);
+      d.setDate(d.getDate() - d.getDay());
+      const key = d.toISOString().substring(0, 10);
+      if (weekBuckets[key] !== undefined) {
+        weekBuckets[key] += s.durationMinutes;
+      } else {
+        const keys = Object.keys(weekBuckets);
+        const closest = keys.reduce((prev, curr) =>
+          Math.abs(new Date(curr).getTime() - d.getTime()) < Math.abs(new Date(prev).getTime() - d.getTime()) ? curr : prev
+        );
+        weekBuckets[closest] += s.durationMinutes;
+      }
+    }
+
+    const trend = Object.entries(weekBuckets).sort().map(([weekStart, totalMinutes]) => ({
+      weekStart,
+      totalMinutes,
+    }));
+
+    res.json(trend);
+  } catch (e: any) {
+    console.error("GET /supervision/trend error:", e);
+    res.status(500).json({ error: "Failed to compute supervision trend" });
+  }
+});
+
 router.get("/supervision-sessions/export/csv", async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, startDate, endDate, schoolId } = req.query as Record<string, string>;
