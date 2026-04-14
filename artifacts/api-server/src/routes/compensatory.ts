@@ -11,12 +11,24 @@ import {
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { pool } from "@workspace/db";
 import { drizzle } from "drizzle-orm/node-postgres";
+import {
+  ListCompensatoryObligationsQueryParams,
+  CreateCompensatoryObligationBody,
+  GetCompensatoryObligationParams,
+  UpdateCompensatoryObligationParams,
+  UpdateCompensatoryObligationBody,
+} from "@workspace/api-zod";
 
 const VALID_STATUSES = ["pending", "in_progress", "completed", "waived"];
 
 const router: IRouter = Router();
 
 router.get("/compensatory-obligations", async (req, res): Promise<void> => {
+  const queryParsed = ListCompensatoryObligationsQueryParams.safeParse(req.query);
+  if (!queryParsed.success) {
+    res.status(400).json({ error: "Invalid query parameters", details: queryParsed.error.flatten() });
+    return;
+  }
   const { studentId, status, schoolId } = req.query;
 
   const conditions: any[] = [];
@@ -125,11 +137,12 @@ router.get("/compensatory-obligations/:id", async (req, res): Promise<void> => {
 });
 
 router.post("/compensatory-obligations", async (req, res): Promise<void> => {
-  const { studentId, serviceRequirementId, periodStart, periodEnd, minutesOwed, notes, agreedDate, agreedWith, source } = req.body;
-  if (!studentId || !periodStart || !periodEnd || !minutesOwed) {
-    res.status(400).json({ error: "studentId, periodStart, periodEnd, and minutesOwed are required" });
+  const bodyParsed = CreateCompensatoryObligationBody.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: bodyParsed.error.flatten() });
     return;
   }
+  const { studentId, serviceRequirementId, periodStart, periodEnd, minutesOwed, notes, agreedDate, agreedWith, source } = bodyParsed.data;
 
   const [row] = await db.insert(compensatoryObligationsTable).values({
     studentId: Number(studentId),
@@ -149,25 +162,39 @@ router.post("/compensatory-obligations", async (req, res): Promise<void> => {
 });
 
 router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const paramsParsed = UpdateCompensatoryObligationParams.safeParse(req.params);
+  if (!paramsParsed.success) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = paramsParsed.data.id;
+
+  const bodyParsed = UpdateCompensatoryObligationBody.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: bodyParsed.error.flatten() });
+    return;
+  }
 
   const updateData: any = {};
-  if (req.body.minutesOwed != null) {
-    const owed = Number(req.body.minutesOwed);
+  if (bodyParsed.data.minutesOwed != null) {
+    const owed = Number(bodyParsed.data.minutesOwed);
     if (owed <= 0) { res.status(400).json({ error: "minutesOwed must be positive" }); return; }
     updateData.minutesOwed = owed;
   }
-  if (req.body.status != null) {
-    if (!VALID_STATUSES.includes(req.body.status)) {
+  if (bodyParsed.data.status != null) {
+    if (!VALID_STATUSES.includes(bodyParsed.data.status)) {
       res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` });
       return;
     }
-    updateData.status = req.body.status;
+    if (bodyParsed.data.status === "waived") {
+      const notes = bodyParsed.data.notes ?? req.body.notes;
+      if (!notes || (typeof notes === "string" && notes.trim().length === 0)) {
+        res.status(400).json({ error: "Notes with documentation are required when waiving an obligation" });
+        return;
+      }
+    }
+    updateData.status = bodyParsed.data.status;
   }
-  if (req.body.notes !== undefined) updateData.notes = req.body.notes;
-  if (req.body.agreedDate !== undefined) updateData.agreedDate = req.body.agreedDate;
-  if (req.body.agreedWith !== undefined) updateData.agreedWith = req.body.agreedWith;
+  if (bodyParsed.data.notes !== undefined) updateData.notes = bodyParsed.data.notes;
+  if (bodyParsed.data.agreedDate !== undefined) updateData.agreedDate = bodyParsed.data.agreedDate;
+  if (bodyParsed.data.agreedWith !== undefined) updateData.agreedWith = bodyParsed.data.agreedWith;
 
   const [row] = await db.update(compensatoryObligationsTable)
     .set(updateData)
