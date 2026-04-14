@@ -120,8 +120,8 @@ export default function ParentCommunication() {
 
     Promise.all([
       fetch(`${API}/parent-contacts?${params}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/parent-contacts/overdue-followups`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/parent-contacts/notification-needed`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/parent-contacts/overdue-followups${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/parent-contacts/notification-needed${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
     ]).then(([c, o, n]) => {
       setContacts(c);
       setOverdueFollowups(o);

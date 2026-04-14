@@ -5,6 +5,7 @@ import {
   compensatoryObligationsTable,
   sessionLogsTable,
   serviceRequirementsTable,
+  parentContactsTable,
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
@@ -129,7 +130,25 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     const BATCH_SIZE = 500;
     for (let i = 0; i < alertsToCreate.length; i += BATCH_SIZE) {
       const batch = alertsToCreate.slice(i, i + BATCH_SIZE).map(a => ({ ...a, resolved: false }));
-      await db.insert(alertsTable).values(batch);
+      const inserted = await db.insert(alertsTable).values(batch).returning({ id: alertsTable.id, studentId: alertsTable.studentId, type: alertsTable.type, severity: alertsTable.severity, message: alertsTable.message });
+
+      const notificationContacts = inserted
+        .filter(a => a.studentId && (a.severity === "critical" || a.severity === "high"))
+        .map(a => ({
+          studentId: a.studentId!,
+          contactType: "notification" as const,
+          contactDate: new Date().toISOString().substring(0, 10),
+          contactMethod: "pending",
+          subject: `Parent notification required: ${a.type?.replace(/_/g, " ")}`,
+          notes: a.message || "",
+          notificationRequired: true,
+          relatedAlertId: a.id,
+        }));
+
+      if (notificationContacts.length > 0) {
+        await db.insert(parentContactsTable).values(notificationContacts);
+        logger.info({ count: notificationContacts.length }, "Created notification-required parent contacts for alerts");
+      }
     }
     newAlerts = alertsToCreate.length;
   }

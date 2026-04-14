@@ -11,14 +11,13 @@ import {
   programTargetsTable,
   programDataTable,
   dataSessionsTable,
+  shareLinksTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, asc, or, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import crypto from "crypto";
 
 const router: IRouter = Router();
-
-const shareLinkStore = new Map<string, { studentId: number; expiresAt: number; summary: any }>();
 
 function formatContactResponse(c: any) {
   return {
@@ -200,6 +199,19 @@ router.delete("/parent-contacts/:id", async (req, res): Promise<void> => {
 router.get("/parent-contacts/overdue-followups", async (req, res): Promise<void> => {
   try {
     const today = new Date().toISOString().substring(0, 10);
+    const { schoolId } = req.query as Record<string, string>;
+    const conditions: any[] = [
+      eq(parentContactsTable.followUpNeeded, "yes"),
+      sql`${parentContactsTable.followUpDate} < ${today}`,
+      or(
+        isNull(parentContactsTable.outcome),
+        sql`${parentContactsTable.outcome} = ''`
+      ),
+    ];
+    if (schoolId) {
+      conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+    }
+
     const overdue = await db
       .select({
         id: parentContactsTable.id,
@@ -224,16 +236,7 @@ router.get("/parent-contacts/overdue-followups", async (req, res): Promise<void>
       })
       .from(parentContactsTable)
       .leftJoin(studentsTable, eq(studentsTable.id, parentContactsTable.studentId))
-      .where(
-        and(
-          eq(parentContactsTable.followUpNeeded, "yes"),
-          sql`${parentContactsTable.followUpDate} < ${today}`,
-          or(
-            isNull(parentContactsTable.outcome),
-            sql`${parentContactsTable.outcome} = ''`
-          )
-        )
-      )
+      .where(and(...conditions))
       .orderBy(asc(parentContactsTable.followUpDate));
 
     res.json(overdue.map(c => formatContactResponse(c)));
@@ -245,6 +248,16 @@ router.get("/parent-contacts/overdue-followups", async (req, res): Promise<void>
 
 router.get("/parent-contacts/notification-needed", async (req, res): Promise<void> => {
   try {
+    const { schoolId } = req.query as Record<string, string>;
+    const alertConditions: any[] = [
+      eq(alertsTable.resolved, false),
+      sql`${alertsTable.type} IN ('behind_on_minutes', 'missed_sessions', 'projected_shortfall')`,
+      sql`${alertsTable.studentId} IS NOT NULL`,
+    ];
+    if (schoolId) {
+      alertConditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+    }
+
     const unresolvedAlerts = await db
       .select({
         alertId: alertsTable.id,
@@ -258,13 +271,7 @@ router.get("/parent-contacts/notification-needed", async (req, res): Promise<voi
       })
       .from(alertsTable)
       .leftJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
-      .where(
-        and(
-          eq(alertsTable.resolved, false),
-          sql`${alertsTable.type} IN ('behind_on_minutes', 'missed_sessions', 'projected_shortfall')`,
-          sql`${alertsTable.studentId} IS NOT NULL`
-        )
-      )
+      .where(and(...alertConditions))
       .orderBy(desc(alertsTable.createdAt));
 
     const alertStudentIds = [...new Set(unresolvedAlerts.map(a => a.studentId).filter(Boolean))];
@@ -488,15 +495,19 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
     if (!summary) { res.status(404).json({ error: "Student not found" }); return; }
 
     const token = crypto.randomBytes(24).toString("hex");
-    const expiresAt = Date.now() + expiresInHours * 60 * 60 * 1000;
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
-    shareLinkStore.set(token, { studentId, expiresAt, summary });
-
-    setTimeout(() => shareLinkStore.delete(token), expiresInHours * 60 * 60 * 1000);
+    await db.insert(shareLinksTable).values({
+      tokenHash,
+      studentId,
+      summary: JSON.stringify(summary),
+      expiresAt,
+    });
 
     res.status(201).json({
       token,
-      expiresAt: new Date(expiresAt).toISOString(),
+      expiresAt: expiresAt.toISOString(),
       url: `/api/shared/progress/${token}`,
     });
   } catch (e: any) {
@@ -508,20 +519,26 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
 router.get("/shared/progress/:token", async (req, res): Promise<void> => {
   try {
     const { token } = req.params;
-    const entry = shareLinkStore.get(token);
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [entry] = await db
+      .select()
+      .from(shareLinksTable)
+      .where(eq(shareLinksTable.tokenHash, tokenHash))
+      .limit(1);
 
     if (!entry) {
       res.status(404).json({ error: "Link not found or expired" });
       return;
     }
 
-    if (Date.now() > entry.expiresAt) {
-      shareLinkStore.delete(token);
+    if (new Date() > entry.expiresAt) {
+      await db.delete(shareLinksTable).where(eq(shareLinksTable.id, entry.id));
       res.status(410).json({ error: "This link has expired" });
       return;
     }
 
-    res.json(entry.summary);
+    res.json(JSON.parse(entry.summary));
   } catch (e: any) {
     console.error("GET shared progress error:", e);
     res.status(500).json({ error: "Failed to fetch shared progress" });
