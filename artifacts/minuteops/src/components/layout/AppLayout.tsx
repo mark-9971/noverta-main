@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, UserCheck, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
-  Star, Clock, Sparkles,
+  Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut
 } from "lucide-react";
@@ -123,6 +123,23 @@ const spedTeacherNav: NavSection[] = [
   },
 ];
 
+const paraNav: NavSection[] = [
+  {
+    items: [
+      { href: "/my-day", label: "My Day", icon: Sun, primary: true },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+    ],
+  },
+  {
+    label: "Session Work",
+    items: [
+      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/sessions", label: "Session Log", icon: Clipboard },
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+    ],
+  },
+];
+
 // SPED STUDENT — student-facing portal
 // Simple: overview → goals (what I'm working toward) → services (what I'm entitled to) → sessions (history)
 const spedStudentNav: NavSection[] = [
@@ -166,7 +183,16 @@ const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
   bcba: STAFF_NAV_CONFIG.sped_teacher,
   sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
   provider: STAFF_NAV_CONFIG.sped_teacher,
-  para: STAFF_NAV_CONFIG.sped_teacher,
+  para: {
+    nav: paraNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-600 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/my-day",
+  },
   sped_student: {
     nav: spedStudentNav,
     color: "bg-emerald-600",

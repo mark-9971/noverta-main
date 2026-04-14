@@ -41,6 +41,7 @@ import ResourceManagement from "@/pages/resource-management";
 import CompensatoryServices from "@/pages/compensatory-services";
 import ParentCommunication from "@/pages/parent-communication";
 import Supervision from "@/pages/supervision";
+import ParaMyDayPage from "@/pages/para-my-day";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -98,6 +99,7 @@ function StaffRouter() {
       <Route path="/compensatory-services" component={CompensatoryServices} />
       <Route path="/parent-communication" component={ParentCommunication} />
       <Route path="/supervision" component={Supervision} />
+      <Route path="/my-day" component={ParaMyDayPage} />
       <Route component={NotFound} />
     </Switch>
   );

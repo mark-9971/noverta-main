@@ -28,6 +28,7 @@ import resourceManagementRouter from "./resourceManagement";
 import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
 import supervisionRouter from "./supervision";
+import paraRouter from "./para";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(resourceManagementRouter);
 router.use(compensatoryRouter);
 router.use(parentCommunicationRouter);
 router.use(supervisionRouter);
+router.use(paraRouter);
 
 export default router;
