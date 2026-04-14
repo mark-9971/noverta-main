@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { registerTokenProvider } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { RoleProvider, useRole } from "@/lib/role-context";
+import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { SchoolProvider } from "@/lib/school-context";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -39,6 +42,9 @@ import CompensatoryServices from "@/pages/compensatory-services";
 import ParentCommunication from "@/pages/parent-communication";
 import Supervision from "@/pages/supervision";
 
+import SignInPage from "@/pages/sign-in";
+import SignUpPage from "@/pages/sign-up";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -48,7 +54,21 @@ const queryClient = new QueryClient({
   },
 });
 
-function AdminRouter() {
+const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
+
+function ProtectedRoutes({ children }: { children: React.ReactNode }) {
+  const { isSignedIn, isLoaded, getToken } = useAuth();
+
+  useEffect(() => {
+    registerTokenProvider(() => getToken());
+  }, [getToken]);
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <RedirectToSignIn />;
+  return <>{children}</>;
+}
+
+function StaffRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -97,29 +117,50 @@ function SpedStudentRouter() {
 
 function AppRouter() {
   const { role } = useRole();
+  const isStaff = (STAFF_ROLES as string[]).includes(role);
 
   return (
     <AppLayout>
-      {(role === "admin" || role === "sped_teacher") && <AdminRouter />}
+      {isStaff && <StaffRouter />}
       {role === "sped_student" && <SpedStudentRouter />}
     </AppLayout>
   );
 }
 
 function App() {
+  const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <RoleProvider>
-          <SchoolProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AppRouter />
-            </WouterRouter>
-          </SchoolProvider>
-        </RoleProvider>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      signInUrl={`${base}/sign-in`}
+      signUpUrl={`${base}/sign-up`}
+      afterSignOutUrl={`${base}/sign-in`}
+    >
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={base}>
+            <Switch>
+              <Route path="/sign-in" component={SignInPage} />
+              <Route path="/sign-in/:rest*" component={SignInPage} />
+              <Route path="/sign-up" component={SignUpPage} />
+              <Route path="/sign-up/:rest*" component={SignUpPage} />
+              <Route>
+                <ProtectedRoutes>
+                  <RoleProvider>
+                    <SchoolProvider>
+                      <AppRouter />
+                    </SchoolProvider>
+                  </RoleProvider>
+                </ProtectedRoutes>
+              </Route>
+            </Switch>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 

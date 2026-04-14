@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import { useClerk } from "@clerk/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
@@ -7,7 +8,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -135,7 +136,7 @@ const spedStudentNav: NavSection[] = [
   },
 ];
 
-const roleConfig = {
+const STAFF_NAV_CONFIG = {
   admin: {
     nav: adminNav,
     color: "bg-emerald-600",
@@ -156,6 +157,16 @@ const roleConfig = {
     subtitle: "Built to support.",
     homeHref: "/",
   },
+};
+
+const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
+  admin: STAFF_NAV_CONFIG.admin,
+  case_manager: STAFF_NAV_CONFIG.admin,
+  coordinator: STAFF_NAV_CONFIG.admin,
+  bcba: STAFF_NAV_CONFIG.sped_teacher,
+  sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
+  provider: STAFF_NAV_CONFIG.sped_teacher,
+  para: STAFF_NAV_CONFIG.sped_teacher,
   sped_student: {
     nav: spedStudentNav,
     color: "bg-emerald-600",
@@ -173,11 +184,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { role, user } = useRole();
+  const { role, user, isDevMode } = useRole();
+  const { signOut } = useClerk();
   const { typedFilter } = useSchoolContext();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = (alertsSummary as any)?.total ?? 0;
-  const config = roleConfig[role];
+  const config = roleConfig[role] ?? roleConfig["sped_teacher"];
 
   // Global Cmd+K / Ctrl+K shortcut
   useEffect(() => {
@@ -202,7 +214,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     i.href === homeHref ? location === homeHref : location.startsWith(i.href)
   );
 
-  const initials = user.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = user.initials || user.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "T";
 
   function isActive(item: NavItem) {
     return item.href === homeHref
@@ -245,8 +257,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <X className="w-5 h-5" />
             </button>
           </div>
-          <RoleSwitcher />
-          {(role === "admin" || role === "sped_teacher") && (
+          {isDevMode && <RoleSwitcher />}
+          {role !== "sped_student" && (
             <div className="mt-2">
               <SchoolDistrictSelector />
             </div>
@@ -310,8 +322,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User identity */}
-        <div className="px-4 py-3 border-t border-gray-100">
-          <div className="flex items-center gap-2.5">
+        <div className="px-3 py-3 border-t border-gray-100">
+          <div className="flex items-center gap-2">
             <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0", config.color)}>
               {initials}
             </div>
@@ -319,6 +331,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="text-[13px] font-semibold text-gray-800 truncate leading-tight">{user.name}</p>
               <p className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">{user.subtitle}</p>
             </div>
+            <button
+              onClick={() => signOut({ redirectUrl: "/sign-in" })}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>
