@@ -160,7 +160,7 @@ export default function Supervision() {
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-demo-role": role },
         body: JSON.stringify(body),
       });
 
@@ -182,7 +182,7 @@ export default function Supervision() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this supervision session?")) return;
     try {
-      const res = await fetch(`${API}/supervision-sessions/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/supervision-sessions/${id}`, { method: "DELETE", headers: { "x-demo-role": role } });
       if (!res.ok) throw new Error();
       toast.success("Session deleted");
       fetchAll();

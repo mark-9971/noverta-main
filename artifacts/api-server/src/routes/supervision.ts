@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import {
   supervisionSessionsTable,
@@ -11,6 +11,16 @@ const router: IRouter = Router();
 
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];
+const WRITE_ROLES = ["admin", "sped_teacher"];
+
+function requireWriteRole(req: Request, res: Response, next: NextFunction): void {
+  const role = req.headers["x-demo-role"] as string | undefined;
+  if (role && !WRITE_ROLES.includes(role)) {
+    res.status(403).json({ error: "Insufficient permissions. Only admin and SPED teacher roles can modify supervision records." });
+    return;
+  }
+  next();
+}
 
 function sessionToJson(s: Record<string, unknown>) {
   return {
@@ -78,7 +88,7 @@ router.get("/supervision-sessions", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/supervision-sessions", async (req, res): Promise<void> => {
+router.post("/supervision-sessions", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
 
@@ -202,7 +212,7 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/supervision-sessions/:id", async (req, res): Promise<void> => {
+router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -237,7 +247,7 @@ router.patch("/supervision-sessions/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/supervision-sessions/:id", async (req, res): Promise<void> => {
+router.delete("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
