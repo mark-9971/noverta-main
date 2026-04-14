@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import {
   useGetStudentMinuteSummaryReport, useGetMissedSessionsReport, useGetComplianceRiskReport,
   useGetExecutiveSummaryReport, useGetComplianceTrendReport, getAuditPackageReport,
+  type GetExecutiveSummaryReportParams, type GetComplianceTrendReportParams,
+  type GetAuditPackageReportParams,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,7 +70,7 @@ export default function Reports() {
 
 function ExecutiveSummaryTab() {
   const { filterParams } = useSchoolContext();
-  const params: any = {};
+  const params: GetExecutiveSummaryReportParams = {};
   if (filterParams.schoolId) params.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
   const { data, isLoading: loading, isError } = useGetExecutiveSummaryReport(params);
@@ -245,7 +247,7 @@ function ComplianceTrendTab() {
   const [startDate, setStartDate] = useState(() => new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(() => now.toISOString().split("T")[0]);
 
-  const queryParams: any = { startDate, endDate, granularity };
+  const queryParams: GetComplianceTrendReportParams = { startDate, endDate, granularity: granularity as "weekly" | "monthly" };
   if (filterParams.schoolId) queryParams.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) queryParams.districtId = Number(filterParams.districtId);
 
@@ -435,7 +437,7 @@ function AuditPackageTab() {
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
 
   function generate() {
-    const params: any = { startDate, endDate };
+    const params: GetAuditPackageReportParams = { startDate, endDate };
     if (filterParams.schoolId) params.schoolId = Number(filterParams.schoolId);
     if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
     setLoading(true);

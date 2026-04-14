@@ -150,7 +150,7 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 
     const studentIds = activeStudents.map(s => s.id);
     if (studentIds.length === 0) {
-      res.json({ trend: [], schools: [] });
+      res.json({ trend: [], schools: [], semesterMarkers: [] });
       return;
     }
 
