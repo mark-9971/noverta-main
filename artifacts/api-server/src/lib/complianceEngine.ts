@@ -4,6 +4,7 @@ import {
   scheduleBlocksTable,
   compensatoryObligationsTable,
   sessionLogsTable,
+  serviceRequirementsTable,
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
@@ -192,6 +193,23 @@ async function generateCompensatoryObligations(
     }
   }
 
+  const reqIds = [...uniqueReqs.keys()];
+  if (reqIds.length === 0) return 0;
+
+  const reqRows = await db
+    .select({
+      id: serviceRequirementsTable.id,
+      startDate: serviceRequirementsTable.startDate,
+      endDate: serviceRequirementsTable.endDate,
+    })
+    .from(serviceRequirementsTable)
+    .where(sql`${serviceRequirementsTable.id} IN (${sql.join(reqIds.map(id => sql`${id}`), sql`, `)})`);
+
+  const reqDatesById = new Map<number, { startDate: string; endDate: string | null }>();
+  for (const r of reqRows) {
+    reqDatesById.set(r.id, { startDate: r.startDate, endDate: r.endDate });
+  }
+
   const prevIntervalsByType = new Map<string, { start: string; end: string }>();
   for (const p of allProgress) {
     if (!prevIntervalsByType.has(p.intervalType)) {
@@ -199,14 +217,21 @@ async function generateCompensatoryObligations(
     }
   }
 
-  const reqIds = [...uniqueReqs.keys()];
-  if (reqIds.length === 0) return 0;
+  const eligibleReqIds: number[] = [];
+  for (const [reqId, p] of uniqueReqs.entries()) {
+    const prev = prevIntervalsByType.get(p.intervalType)!;
+    const reqDates = reqDatesById.get(reqId);
+    if (!reqDates) continue;
+    if (reqDates.startDate > prev.end) continue;
+    if (reqDates.endDate && reqDates.endDate < prev.start) continue;
+    eligibleReqIds.push(reqId);
+  }
+
+  if (eligibleReqIds.length === 0) return 0;
 
   const prevSessions = new Map<string, number>();
   for (const [intervalType, prev] of prevIntervalsByType.entries()) {
-    const typeReqIds = [...uniqueReqs.entries()]
-      .filter(([_, p]) => p.intervalType === intervalType)
-      .map(([id]) => id);
+    const typeReqIds = eligibleReqIds.filter(id => uniqueReqs.get(id)!.intervalType === intervalType);
 
     if (typeReqIds.length === 0) continue;
 
@@ -236,8 +261,10 @@ async function generateCompensatoryObligations(
   }
 
   let generated = 0;
-  for (const [reqId, p] of uniqueReqs.entries()) {
+  for (const reqId of eligibleReqIds) {
+    const p = uniqueReqs.get(reqId)!;
     const prev = prevIntervalsByType.get(p.intervalType)!;
+
     const key = `${reqId}|${prev.start}|${prev.end}`;
     const delivered = prevSessions.get(key) || 0;
     const shortfall = p.requiredMinutes - delivered;
