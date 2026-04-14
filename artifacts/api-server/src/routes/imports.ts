@@ -2,8 +2,10 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { importsTable, studentsTable, sessionLogsTable, serviceRequirementsTable, serviceTypesTable } from "@workspace/db";
 import { desc, eq, and, ilike } from "drizzle-orm";
+import { requireRoles } from "../middlewares/auth";
 
 const router: IRouter = Router();
+const requireAdmin = requireRoles("admin");
 
 router.get("/imports", async (req, res): Promise<void> => {
   try {
@@ -136,7 +138,7 @@ async function findServiceTypeId(name: string): Promise<number | null> {
   return null;
 }
 
-router.post("/imports/students", async (req, res): Promise<void> => {
+router.post("/imports/students", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { csvData, fileName } = req.body;
     if (!csvData || typeof csvData !== "string") {
@@ -214,7 +216,7 @@ router.post("/imports/students", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/imports/service-requirements", async (req, res): Promise<void> => {
+router.post("/imports/service-requirements", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { csvData, fileName } = req.body;
     if (!csvData || typeof csvData !== "string") {
@@ -307,7 +309,7 @@ router.post("/imports/service-requirements", async (req, res): Promise<void> => 
   }
 });
 
-router.post("/imports/sessions", async (req, res): Promise<void> => {
+router.post("/imports/sessions", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { csvData, fileName } = req.body;
     if (!csvData || typeof csvData !== "string") {

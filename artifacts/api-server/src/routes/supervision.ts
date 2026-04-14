@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   supervisionSessionsTable,
@@ -6,27 +6,26 @@ import {
   sessionLogsTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, asc } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
+import { requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { WRITE_SUPERVISION_ROLES, PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
 
 const router: IRouter = Router();
 
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];
-const PRIVILEGED_ROLES = ["admin", "sped_teacher", "bcba"];
 
-function getDemoAuth(req: Request) {
-  const role = req.headers["x-demo-role"] as string | undefined;
-  const staffId = req.headers["x-demo-staff-id"] as string | undefined;
-  const isPrivileged = !!role && PRIVILEGED_ROLES.includes(role);
-  return { role, staffId: staffId ? Number(staffId) : null, isPrivileged };
+const requireWriteRole = requireRoles(...WRITE_SUPERVISION_ROLES);
+
+function isPrivileged(req: AuthedRequest): boolean {
+  return PRIVILEGED_STAFF_ROLES.includes(req.trellisRole);
 }
 
-function requirePrivilegedRole(req: Request, res: Response, next: NextFunction): void {
-  const { isPrivileged } = getDemoAuth(req);
-  if (!isPrivileged) {
-    res.status(403).json({ error: "Insufficient permissions. Only admin and SPED teacher roles can perform this action." });
-    return;
-  }
-  next();
+function getClerkStaffId(req: AuthedRequest): number | null {
+  const auth = getAuth(req);
+  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
+  const id = meta?.staffId ? Number(meta.staffId) : null;
+  return id && Number.isFinite(id) ? id : null;
 }
 
 function sessionToJson(s: Record<string, unknown>) {
@@ -39,16 +38,14 @@ function sessionToJson(s: Record<string, unknown>) {
 
 router.get("/supervision-sessions", async (req, res): Promise<void> => {
   try {
+    const authed = req as AuthedRequest;
     const { supervisorId, superviseeId, startDate, endDate, supervisionType, schoolId } = req.query as Record<string, string>;
-    const auth = getDemoAuth(req);
 
     const conditions = [];
-    if (!auth.isPrivileged) {
-      if (!auth.staffId) {
-        res.json([]);
-        return;
-      }
-      conditions.push(eq(supervisionSessionsTable.superviseeId, auth.staffId));
+    if (!isPrivileged(authed)) {
+      const staffId = getClerkStaffId(authed);
+      if (!staffId) { res.json([]); return; }
+      conditions.push(eq(supervisionSessionsTable.superviseeId, staffId));
     } else {
       if (supervisorId) conditions.push(eq(supervisionSessionsTable.supervisorId, Number(supervisorId)));
       if (superviseeId) conditions.push(eq(supervisionSessionsTable.superviseeId, Number(superviseeId)));
@@ -104,7 +101,7 @@ router.get("/supervision-sessions", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/supervision-sessions", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.post("/supervision-sessions", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
 
@@ -155,7 +152,7 @@ router.post("/supervision-sessions", requirePrivilegedRole, async (req, res): Pr
   }
 });
 
-router.get("/supervision-sessions/export/csv", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.get("/supervision-sessions/export/csv", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const { supervisorId, superviseeId, startDate, endDate, schoolId } = req.query as Record<string, string>;
 
@@ -212,9 +209,9 @@ router.get("/supervision-sessions/export/csv", requirePrivilegedRole, async (req
 
 router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   try {
+    const authed = req as AuthedRequest;
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const auth = getDemoAuth(req);
 
     const [session] = await db
       .select()
@@ -222,9 +219,13 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
       .where(eq(supervisionSessionsTable.id, id));
 
     if (!session) { res.status(404).json({ error: "Supervision session not found" }); return; }
-    if (!auth.isPrivileged && (!auth.staffId || session.superviseeId !== auth.staffId)) {
-      res.status(403).json({ error: "You can only view your own supervision sessions" });
-      return;
+
+    if (!isPrivileged(authed)) {
+      const staffId = getClerkStaffId(authed);
+      if (!staffId || session.superviseeId !== staffId) {
+        res.status(403).json({ error: "You can only view your own supervision sessions" });
+        return;
+      }
     }
     res.json(sessionToJson(session));
   } catch (e: any) {
@@ -233,7 +234,7 @@ router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/supervision-sessions/:id", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -268,7 +269,7 @@ router.patch("/supervision-sessions/:id", requirePrivilegedRole, async (req, res
   }
 });
 
-router.delete("/supervision-sessions/:id", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.delete("/supervision-sessions/:id", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -282,7 +283,7 @@ router.delete("/supervision-sessions/:id", requirePrivilegedRole, async (req, re
   }
 });
 
-router.get("/supervision/compliance-summary", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.get("/supervision/compliance-summary", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const { schoolId } = req.query as Record<string, string>;
 
@@ -390,12 +391,16 @@ router.get("/supervision/compliance-summary", requirePrivilegedRole, async (req,
 
 router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void> => {
   try {
+    const authed = req as AuthedRequest;
     const staffId = parseInt(req.params.staffId);
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
-    const auth = getDemoAuth(req);
-    if (!auth.isPrivileged && (!auth.staffId || staffId !== auth.staffId)) {
-      res.status(403).json({ error: "You can only view your own supervision summary" });
-      return;
+
+    if (!isPrivileged(authed)) {
+      const clerkStaffId = getClerkStaffId(authed);
+      if (!clerkStaffId || staffId !== clerkStaffId) {
+        res.status(403).json({ error: "You can only view your own supervision summary" });
+        return;
+      }
     }
 
     const now = new Date();
@@ -481,7 +486,7 @@ router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void
   }
 });
 
-router.get("/supervision/trend", requirePrivilegedRole, async (req, res): Promise<void> => {
+router.get("/supervision/trend", requireWriteRole, async (req, res): Promise<void> => {
   try {
     const { schoolId, weeks } = req.query as Record<string, string>;
     const numWeeks = Math.min(Math.max(parseInt(weeks) || 12, 4), 52);
