@@ -207,6 +207,8 @@ export async function computeAllActiveMinuteProgress(filters?: {
   riskStatus?: string;
   schoolId?: number;
   districtId?: number;
+  startDate?: string;
+  endDate?: string;
 }): Promise<MinuteProgressResult[]> {
   const conditions: ReturnType<typeof eq>[] = [eq(serviceRequirementsTable.active, true) as any];
   if (filters?.studentId) conditions.push(eq(serviceRequirementsTable.studentId, filters.studentId) as any);
@@ -263,6 +265,9 @@ export async function computeAllActiveMinuteProgress(filters?: {
     if (iv.endStr > globalLatestStr) globalLatestStr = iv.endStr;
   }
 
+  const sessionStartStr = filters?.startDate && filters.startDate > globalEarliestStr ? filters.startDate : globalEarliestStr;
+  const sessionEndStr = filters?.endDate && filters.endDate < globalLatestStr ? filters.endDate : globalLatestStr;
+
   const allSessions = await db
     .select({
       serviceRequirementId: sessionLogsTable.serviceRequirementId,
@@ -275,8 +280,8 @@ export async function computeAllActiveMinuteProgress(filters?: {
     .where(
       and(
         inArray(sessionLogsTable.serviceRequirementId, reqIds),
-        gte(sessionLogsTable.sessionDate, globalEarliestStr),
-        lte(sessionLogsTable.sessionDate, globalLatestStr)
+        gte(sessionLogsTable.sessionDate, sessionStartStr),
+        lte(sessionLogsTable.sessionDate, sessionEndStr)
       )
     );
 
@@ -293,8 +298,10 @@ export async function computeAllActiveMinuteProgress(filters?: {
     const iv = intervalsByType.get(key)!;
 
     const reqSessions = sessionsByReqId.get(req.id) ?? [];
+    const filterStart = filters?.startDate && filters.startDate > iv.startStr ? filters.startDate : iv.startStr;
+    const filterEnd = filters?.endDate && filters.endDate < iv.endStr ? filters.endDate : iv.endStr;
     const filteredSessions = reqSessions
-      .filter(s => s.sessionDate >= iv.startStr && s.sessionDate <= iv.endStr)
+      .filter(s => s.sessionDate >= filterStart && s.sessionDate <= filterEnd)
       .map(s => ({ durationMinutes: s.durationMinutes, status: s.status, isMakeup: s.isMakeup }));
 
     results.push(buildProgressFromSessions(req, filteredSessions, iv.intervalStart, iv.intervalEnd, iv.startStr, iv.endStr));

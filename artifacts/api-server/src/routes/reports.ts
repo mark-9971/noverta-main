@@ -320,16 +320,16 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
     }));
 
     const schools: { schoolId: number; schoolName: string; trend: typeof trend }[] = [];
-    for (const [schoolIdStr, periodMap] of bySchoolPeriod) {
-      const sid = Number(schoolIdStr);
+    for (const [sid, sName] of schoolMap) {
+      const periodMap = bySchoolPeriod.get(String(sid));
       const pool = schoolStudents.get(sid) ?? new Set();
       const schoolTrend = periods.map(pk => ({
         period: pk,
-        compliancePercent: calcCompliance(periodMap.get(pk) ?? emptyPeriod, pool),
-        totalDelivered: periodMap.get(pk)?.total ?? 0,
+        compliancePercent: calcCompliance(periodMap?.get(pk) ?? emptyPeriod, pool),
+        totalDelivered: periodMap?.get(pk)?.total ?? 0,
         studentsTracked: pool.size,
       }));
-      schools.push({ schoolId: sid, schoolName: schoolMap.get(sid) ?? "Unknown", trend: schoolTrend });
+      schools.push({ schoolId: sid, schoolName: sName, trend: schoolTrend });
     }
 
     const semesterMarkers = getSemesterMarkers(start, end);
