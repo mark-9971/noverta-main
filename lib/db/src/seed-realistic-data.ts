@@ -5,7 +5,8 @@ import {
   dataSessionsTable, behaviorDataTable, programDataTable,
   iepGoalsTable, staffTable,
   classesTable, classEnrollmentsTable, gradeCategoriesTable,
-  assignmentsTable, submissionsTable, announcementsTable
+  assignmentsTable, submissionsTable, announcementsTable,
+  scheduleBlocksTable,
 } from "./index";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -681,7 +682,7 @@ export async function seedRealisticData() {
     return `${d.getFullYear()}-W${Math.floor(dayOfYear / 7)}`;
   }
 
-  function canSchedule(studentId: number, staffId: number, date: string, duration: number): boolean {
+  function canScheduleWeekly(studentId: number, staffId: number, date: string, duration: number): boolean {
     const weekKey = getWeekKey(date);
     const studentWeek = `${studentId}-${weekKey}`;
     const staffWeek = `${staffId}-${weekKey}`;
@@ -690,12 +691,65 @@ export async function seedRealisticData() {
     return (currentStudent + duration <= MAX_WEEKLY_MINUTES) && (currentStaff + duration <= MAX_WEEKLY_MINUTES);
   }
 
-  function recordMinutes(studentId: number, staffId: number, date: string, duration: number) {
+  function recordWeeklyMinutes(studentId: number, staffId: number, date: string, duration: number) {
     const weekKey = getWeekKey(date);
     const studentWeek = `${studentId}-${weekKey}`;
     const staffWeek = `${staffId}-${weekKey}`;
     weeklyStudentMinutes[studentWeek] = (weeklyStudentMinutes[studentWeek] || 0) + duration;
     weeklyStaffMinutes[staffWeek] = (weeklyStaffMinutes[staffWeek] || 0) + duration;
+  }
+
+  // Per-date time interval tracking to prevent double-booking
+  const dailyStudentIntervals: Record<string, Array<[number, number]>> = {};
+  const dailyStaffIntervals: Record<string, Array<[number, number]>> = {};
+
+  function isTimeSlotFree(
+    intervals: Record<string, Array<[number, number]>>,
+    key: string,
+    startMin: number,
+    durationMin: number
+  ): boolean {
+    const endMin = startMin + durationMin;
+    const occupied = intervals[key] || [];
+    return !occupied.some(([s, e]) => startMin < e && endMin > s);
+  }
+
+  function reserveTimeSlot(
+    intervals: Record<string, Array<[number, number]>>,
+    key: string,
+    startMin: number,
+    durationMin: number
+  ) {
+    if (!intervals[key]) intervals[key] = [];
+    intervals[key].push([startMin, startMin + durationMin]);
+  }
+
+  // Valid start hours (minutes from midnight) — 8am–3pm, skip noon
+  const ALL_START_MINS = [8*60, 9*60, 10*60, 11*60, 13*60, 14*60, 15*60];
+
+  function findAvailableStartMin(
+    studentId: number,
+    staffId: number,
+    date: string,
+    duration: number,
+    preferredHours: number[]
+  ): number | null {
+    const sKey = `${studentId}-${date}`;
+    const stKey = `${staffId}-${date}`;
+    const tryMins = [
+      ...preferredHours.map(h => h * 60),
+      ...ALL_START_MINS.filter(m => !preferredHours.includes(m / 60)),
+    ];
+    for (const startMin of tryMins) {
+      if (startMin + duration > 16 * 60) continue; // must end by 4pm
+      if (
+        isTimeSlotFree(dailyStudentIntervals, sKey, startMin, duration) &&
+        isTimeSlotFree(dailyStaffIntervals, stKey, startMin, duration)
+      ) {
+        return startMin;
+      }
+    }
+    return null;
   }
 
   const struggleStudentIds = new Set([3, 12, 27, 38, 45]);
@@ -759,6 +813,7 @@ export async function seedRealisticData() {
     const targetDurationPerSession = Math.round(weeklyTarget / sessPerWeek);
     const sessionDuration = Math.max(svc.min, Math.min(svc.max, Math.round(targetDurationPerSession / 5) * 5));
 
+    const preferredStartHours = START_HOURS[sr.serviceTypeId] || [9, 10, 13];
     let sessionIndex = 0;
     for (const date of schoolDays) {
       const dow = new Date(date + "T00:00:00").getDay();
@@ -768,22 +823,35 @@ export async function seedRealisticData() {
 
       let duration = 0;
       let notes: string | null = null;
+      let startTime = "09:00";
+      let endTime = "09:30";
 
       if (!isMissed) {
         const jitter = Math.round((Math.random() * 2 - 1) * (svc.max - svc.min) * 0.15);
         duration = Math.max(svc.min, Math.min(svc.max, sessionDuration + jitter));
         duration = Math.round(duration / 5) * 5;
 
-        if (!canSchedule(sr.studentId, staffId, date, duration)) {
+        // Skip if weekly cap reached
+        if (!canScheduleWeekly(sr.studentId, staffId, date, duration)) {
           continue;
         }
+
+        // Find a non-conflicting time slot for this student AND staff on this day
+        const startMin = findAvailableStartMin(sr.studentId, staffId, date, duration, preferredStartHours);
+        if (startMin === null) continue; // no free slot today — skip rather than double-book
+
+        reserveTimeSlot(dailyStudentIntervals, `${sr.studentId}-${date}`, startMin, duration);
+        reserveTimeSlot(dailyStaffIntervals, `${staffId}-${date}`, startMin, duration);
+        recordWeeklyMinutes(sr.studentId, staffId, date, duration);
+
+        const endTotalMin = startMin + duration;
+        startTime = `${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`;
+        endTime = `${String(Math.min(Math.floor(endTotalMin / 60), 17)).padStart(2, "0")}:${String(endTotalMin % 60).padStart(2, "0")}`;
 
         const totalSessions = Math.floor(schoolDays.length * (sessPerWeek / 5));
         const progressRatio = Math.min(1, sessionIndex / Math.max(1, totalSessions));
         const goalText = svcGoals.length > 0 ? pick(svcGoals) : "current IEP objectives";
         notes = generateSessionNotes(sr.serviceTypeId, goalText, progressRatio, behNames, progNames);
-
-        recordMinutes(sr.studentId, staffId, date, duration);
       } else {
         const missedReasons = [
           "Student absent from school.",
@@ -794,14 +862,12 @@ export async function seedRealisticData() {
           "Student in crisis — services deferred.",
         ];
         notes = pick(missedReasons);
+        // For missed sessions, use a plausible time (no need to reserve — it wasn't held)
+        const prefHour = preferredStartHours[(sr.studentId + sessionIndex) % preferredStartHours.length];
+        startTime = `${String(prefHour).padStart(2, "0")}:00`;
+        endTime = `${String(prefHour).padStart(2, "0")}:00`;
+        duration = 0;
       }
-
-      const hours = START_HOURS[sr.serviceTypeId] || [9, 10, 13];
-      const hour = hours[(sr.studentId + sessionIndex) % hours.length];
-      const startTime = `${String(hour).padStart(2, "0")}:00`;
-      const endMin = duration % 60;
-      const endHour = hour + Math.floor(duration / 60);
-      const endTime = `${String(Math.min(endHour, 17)).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
 
       sessionBatch.push({
         studentId: sr.studentId,
@@ -849,6 +915,128 @@ export async function seedRealisticData() {
   const overStaff = staffWeeklyAvgs.filter(s => s.avg > MAX_WEEKLY_MINUTES);
   if (overStudents.length) console.log(`  WARNING: ${overStudents.length} students over 40hr cap`);
   if (overStaff.length) console.log(`  WARNING: ${overStaff.length} staff over 40hr cap`);
+
+  console.log("Step 5b: Generate conflict-free recurring schedule blocks...");
+  await db.delete(scheduleBlocksTable);
+
+  const DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const BLOCK_START_MINS = [8*60, 9*60, 10*60, 11*60, 13*60, 14*60, 15*60];
+
+  const LOCATIONS_BY_SVC: Record<number, string> = {
+    1: "ABA Therapy Room",
+    2: "OT Room",
+    3: "Speech Room",
+    4: "Counseling Office",
+    5: "Classroom",
+    6: "Gymnasium",
+    7: "PT Room",
+    8: "Conference Room",
+  };
+
+  function minToTimeStr(mins: number): string {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // Per-student and per-staff slot occupancy for schedule blocks
+  // key: "{id}-{dayOfWeek}", value: [[startMin, endMin], ...]
+  const sbStudentSlots: Record<string, Array<[number, number]>> = {};
+  const sbStaffSlots: Record<string, Array<[number, number]>> = {};
+
+  function isBlockSlotFree(slots: Record<string, Array<[number, number]>>, key: string, startMin: number, endMin: number): boolean {
+    return !(slots[key] || []).some(([s, e]) => startMin < e && endMin > s);
+  }
+
+  function reserveBlockSlot(slots: Record<string, Array<[number, number]>>, key: string, startMin: number, endMin: number) {
+    if (!slots[key]) slots[key] = [];
+    slots[key].push([startMin, endMin]);
+  }
+
+  const blocksBatch: any[] = [];
+  // Sort so intensive services (ABA=1, Para=5) get scheduled first
+  const sortedSRsForBlocks = [...sortedSRs].filter(sr => !deactivatedParas.has(sr.id));
+
+  for (const sr of sortedSRsForBlocks) {
+    const svc = SESSION_DURATIONS[sr.serviceTypeId] || { typical: 30, min: 20, max: 45 };
+    const weeklyTarget = sr.requiredMinutes / WEEKS_PER_MONTH;
+    let sessPerWeek = Math.max(1, Math.round(weeklyTarget / svc.typical));
+    sessPerWeek = Math.min(sessPerWeek, 5);
+    if (sr.serviceTypeId === 5 && weeklyTarget > 300) sessPerWeek = 5;
+
+    const sessionDuration = Math.max(svc.min, Math.min(svc.max, Math.round(weeklyTarget / sessPerWeek / 5) * 5));
+    const staffId = sr.providerId || 1;
+
+    // Shuffle days deterministically (varies by student+service so blocks spread across the week)
+    const dayOrder = [...DAYS_OF_WEEK].sort((a, b) => {
+      const ai = (sr.studentId * 7 + sr.serviceTypeId * 3 + DAYS_OF_WEEK.indexOf(a)) % 5;
+      const bi = (sr.studentId * 7 + sr.serviceTypeId * 3 + DAYS_OF_WEEK.indexOf(b)) % 5;
+      return ai - bi;
+    });
+
+    let scheduled = 0;
+    for (const day of dayOrder) {
+      if (scheduled >= sessPerWeek) break;
+
+      const sKey = `${sr.studentId}-${day}`;
+      const stKey = `${staffId}-${day}`;
+
+      // Find an available time slot
+      for (const slotMin of BLOCK_START_MINS) {
+        const endMin = slotMin + sessionDuration;
+        if (endMin > 16 * 60) continue; // must end by 4pm
+        if (
+          isBlockSlotFree(sbStudentSlots, sKey, slotMin, endMin) &&
+          isBlockSlotFree(sbStaffSlots, stKey, slotMin, endMin)
+        ) {
+          reserveBlockSlot(sbStudentSlots, sKey, slotMin, endMin);
+          reserveBlockSlot(sbStaffSlots, stKey, slotMin, endMin);
+          blocksBatch.push({
+            staffId,
+            studentId: sr.studentId,
+            serviceTypeId: sr.serviceTypeId,
+            dayOfWeek: day,
+            startTime: minToTimeStr(slotMin),
+            endTime: minToTimeStr(endMin),
+            location: LOCATIONS_BY_SVC[sr.serviceTypeId] || "Resource Room",
+            blockLabel: null,
+            blockType: "service",
+            isRecurring: true,
+            isAutoGenerated: true,
+          });
+          scheduled++;
+          break;
+        }
+      }
+    }
+
+    if (scheduled < sessPerWeek) {
+      console.log(`  WARN: student ${sr.studentId} svc ${sr.serviceTypeId} — only scheduled ${scheduled}/${sessPerWeek} blocks`);
+    }
+  }
+
+  for (let i = 0; i < blocksBatch.length; i += 200) {
+    await db.insert(scheduleBlocksTable).values(blocksBatch.slice(i, i + 200));
+  }
+  console.log(`  Inserted ${blocksBatch.length} conflict-free schedule blocks`);
+
+  // Verify no student conflicts remain
+  const conflictCheck: Record<string, Array<[number, number]>> = sbStudentSlots;
+  let totalConflicts = 0;
+  for (const [key, intervals] of Object.entries(conflictCheck)) {
+    for (let i = 0; i < intervals.length; i++) {
+      for (let j = i + 1; j < intervals.length; j++) {
+        const [s1, e1] = intervals[i];
+        const [s2, e2] = intervals[j];
+        if (s1 < e2 && s2 < e1) totalConflicts++;
+      }
+    }
+  }
+  if (totalConflicts > 0) {
+    console.log(`  WARNING: ${totalConflicts} schedule block conflicts detected — investigate seed logic`);
+  } else {
+    console.log(`  ✓ Zero student schedule conflicts confirmed`);
+  }
 
   console.log("Step 6: Generate data sessions with behavior & program data...");
 
