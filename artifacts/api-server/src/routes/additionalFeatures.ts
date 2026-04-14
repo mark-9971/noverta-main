@@ -1,7 +1,6 @@
 import { Router } from "express";
 import {
   db,
-  parentContactsTable,
   studentsTable,
   iepGoalsTable,
   iepAccommodationsTable,
@@ -13,85 +12,11 @@ import {
   staffTable,
   alertsTable,
   schoolsTable,
+  parentContactsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, sql } from "drizzle-orm";
 
 const router = Router();
-
-router.get("/students/:studentId/parent-contacts", async (req, res): Promise<void> => {
-  try {
-    const studentId = parseInt(req.params.studentId);
-    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    const contacts = await db.select().from(parentContactsTable)
-      .where(eq(parentContactsTable.studentId, studentId))
-      .orderBy(desc(parentContactsTable.contactDate));
-    res.json(contacts.map(c => ({
-      ...c,
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt.toISOString(),
-    })));
-  } catch (e: any) {
-    console.error("GET parent-contacts error:", e);
-    res.status(500).json({ error: "Failed to fetch parent contacts" });
-  }
-});
-
-router.post("/students/:studentId/parent-contacts", async (req, res): Promise<void> => {
-  try {
-    const studentId = parseInt(req.params.studentId);
-    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    const { contactType, contactDate, contactMethod, subject, notes, outcome, followUpNeeded, followUpDate, contactedBy, parentName } = req.body;
-    if (!contactType || !contactDate || !contactMethod || !subject) {
-      res.status(400).json({ error: "contactType, contactDate, contactMethod, and subject are required" });
-      return;
-    }
-    const [contact] = await db.insert(parentContactsTable).values({
-      studentId, contactType, contactDate, contactMethod, subject,
-      notes: notes || null, outcome: outcome || null,
-      followUpNeeded: followUpNeeded || null, followUpDate: followUpDate || null,
-      contactedBy: contactedBy || null, parentName: parentName || null,
-    }).returning();
-    res.status(201).json({ ...contact, createdAt: contact.createdAt.toISOString(), updatedAt: contact.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("POST parent-contacts error:", e);
-    res.status(500).json({ error: "Failed to create parent contact" });
-  }
-});
-
-router.patch("/parent-contacts/:id", async (req, res): Promise<void> => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid contact ID" }); return; }
-    const allowedFields = ["contactType", "contactDate", "contactMethod", "subject", "notes", "outcome", "followUpNeeded", "followUpDate", "contactedBy", "parentName"];
-    const updates: Record<string, any> = {};
-    for (const key of allowedFields) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
-    }
-    if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields to update" }); return; }
-    const [updated] = await db.update(parentContactsTable)
-      .set(updates)
-      .where(eq(parentContactsTable.id, id))
-      .returning();
-    if (!updated) { res.status(404).json({ error: "Contact not found" }); return; }
-    res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("PATCH parent-contacts error:", e);
-    res.status(500).json({ error: "Failed to update parent contact" });
-  }
-});
-
-router.delete("/parent-contacts/:id", async (req, res): Promise<void> => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid contact ID" }); return; }
-    const [deleted] = await db.delete(parentContactsTable).where(eq(parentContactsTable.id, id)).returning();
-    if (!deleted) { res.status(404).json({ error: "Contact not found" }); return; }
-    res.json({ success: true });
-  } catch (e: any) {
-    console.error("DELETE parent-contacts error:", e);
-    res.status(500).json({ error: "Failed to delete parent contact" });
-  }
-});
 
 router.get("/search/iep", async (req, res): Promise<void> => {
   try {

@@ -2279,3 +2279,225 @@ export const GenerateFromShortfallsBody = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary List parent contacts with filters
+ */
+export const ListParentContactsQueryParams = zod.object({
+  studentId: zod.coerce.number().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  followUpStatus: zod.coerce.string().nullish(),
+  contactType: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const ListParentContactsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  contactType: zod.string(),
+  contactDate: zod.string(),
+  contactMethod: zod.string(),
+  subject: zod.string(),
+  notes: zod.string().nullish(),
+  outcome: zod.string().nullish(),
+  followUpNeeded: zod.string().nullish(),
+  followUpDate: zod.string().nullish(),
+  contactedBy: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  notificationRequired: zod.boolean(),
+  relatedAlertId: zod.number().nullish(),
+  studentName: zod.string().nullish(),
+  studentGrade: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListParentContactsResponse = zod.array(
+  ListParentContactsResponseItem,
+);
+
+/**
+ * @summary Log a new parent contact
+ */
+export const CreateParentContactBody = zod.object({
+  studentId: zod.number(),
+  contactType: zod.string(),
+  contactDate: zod.string(),
+  contactMethod: zod.string(),
+  subject: zod.string(),
+  notes: zod.string().nullish(),
+  outcome: zod.string().nullish(),
+  followUpNeeded: zod.string().nullish(),
+  followUpDate: zod.string().nullish(),
+  contactedBy: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  notificationRequired: zod.boolean().optional(),
+  relatedAlertId: zod.number().nullish(),
+});
+
+/**
+ * @summary Update a parent contact
+ */
+export const UpdateParentContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateParentContactBody = zod.object({
+  contactType: zod.string().nullish(),
+  contactDate: zod.string().nullish(),
+  contactMethod: zod.string().nullish(),
+  subject: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  outcome: zod.string().nullish(),
+  followUpNeeded: zod.string().nullish(),
+  followUpDate: zod.string().nullish(),
+  contactedBy: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  notificationRequired: zod.boolean().nullish(),
+  relatedAlertId: zod.number().nullish(),
+});
+
+export const UpdateParentContactResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  contactType: zod.string(),
+  contactDate: zod.string(),
+  contactMethod: zod.string(),
+  subject: zod.string(),
+  notes: zod.string().nullish(),
+  outcome: zod.string().nullish(),
+  followUpNeeded: zod.string().nullish(),
+  followUpDate: zod.string().nullish(),
+  contactedBy: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  notificationRequired: zod.boolean(),
+  relatedAlertId: zod.number().nullish(),
+  studentName: zod.string().nullish(),
+  studentGrade: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a parent contact
+ */
+export const DeleteParentContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteParentContactResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get overdue follow-up contacts
+ */
+export const GetOverdueFollowupsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  contactType: zod.string(),
+  contactDate: zod.string(),
+  contactMethod: zod.string(),
+  subject: zod.string(),
+  notes: zod.string().nullish(),
+  outcome: zod.string().nullish(),
+  followUpNeeded: zod.string().nullish(),
+  followUpDate: zod.string().nullish(),
+  contactedBy: zod.string().nullish(),
+  parentName: zod.string().nullish(),
+  notificationRequired: zod.boolean(),
+  relatedAlertId: zod.number().nullish(),
+  studentName: zod.string().nullish(),
+  studentGrade: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const GetOverdueFollowupsResponse = zod.array(
+  GetOverdueFollowupsResponseItem,
+);
+
+/**
+ * @summary Get alerts needing parent notification
+ */
+export const GetNotificationNeededResponseItem = zod.object({
+  alertId: zod.number(),
+  alertType: zod.string(),
+  severity: zod.string(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  message: zod.string(),
+  alertDate: zod.string(),
+  parentNotified: zod.boolean(),
+  lastContactDate: zod.string().nullish(),
+});
+export const GetNotificationNeededResponse = zod.array(
+  GetNotificationNeededResponseItem,
+);
+
+/**
+ * @summary Generate student progress summary for sharing
+ */
+export const GetStudentProgressSummaryParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentProgressSummaryQueryParams = zod.object({
+  days: zod.coerce.number().nullish(),
+});
+
+export const GetStudentProgressSummaryResponse = zod.object({
+  student: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    grade: zod.string().nullish(),
+    school: zod.string().nullish(),
+  }),
+  reportPeriod: zod.object({
+    days: zod.number(),
+    startDate: zod.string(),
+    endDate: zod.string(),
+  }),
+  generatedAt: zod.string(),
+  goals: zod.array(zod.object({}).passthrough()),
+  serviceDelivery: zod.array(zod.object({}).passthrough()),
+  behaviorData: zod.array(zod.object({}).passthrough()),
+  programData: zod.array(zod.object({}).passthrough()),
+});
+
+/**
+ * @summary Generate a time-limited share link for a progress summary
+ */
+export const CreateProgressShareLinkParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateProgressShareLinkBody = zod.object({
+  days: zod.number().optional(),
+  expiresInHours: zod.number().optional(),
+});
+
+/**
+ * @summary Access a shared progress summary via token
+ */
+export const GetSharedProgressParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetSharedProgressResponse = zod.object({
+  student: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    grade: zod.string().nullish(),
+    school: zod.string().nullish(),
+  }),
+  reportPeriod: zod.object({
+    days: zod.number(),
+    startDate: zod.string(),
+    endDate: zod.string(),
+  }),
+  generatedAt: zod.string(),
+  goals: zod.array(zod.object({}).passthrough()),
+  serviceDelivery: zod.array(zod.object({}).passthrough()),
+  behaviorData: zod.array(zod.object({}).passthrough()),
+  programData: zod.array(zod.object({}).passthrough()),
+});

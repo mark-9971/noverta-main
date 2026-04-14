@@ -26,6 +26,7 @@ import fbaRouter from "./fba";
 import iepBuilderRouter from "./iepBuilder";
 import resourceManagementRouter from "./resourceManagement";
 import compensatoryRouter from "./compensatory";
+import parentCommunicationRouter from "./parentCommunication";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(fbaRouter);
 router.use(iepBuilderRouter);
 router.use(resourceManagementRouter);
 router.use(compensatoryRouter);
+router.use(parentCommunicationRouter);
 
 export default router;

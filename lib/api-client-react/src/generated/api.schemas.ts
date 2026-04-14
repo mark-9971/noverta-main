@@ -1338,6 +1338,139 @@ export interface GenerateFromShortfallsBody {
   shortfalls: ServiceShortfall[];
 }
 
+export interface ParentContact {
+  id: number;
+  studentId: number;
+  contactType: string;
+  contactDate: string;
+  contactMethod: string;
+  subject: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  outcome?: string | null;
+  /** @nullable */
+  followUpNeeded?: string | null;
+  /** @nullable */
+  followUpDate?: string | null;
+  /** @nullable */
+  contactedBy?: string | null;
+  /** @nullable */
+  parentName?: string | null;
+  notificationRequired: boolean;
+  /** @nullable */
+  relatedAlertId?: number | null;
+  /** @nullable */
+  studentName?: string | null;
+  /** @nullable */
+  studentGrade?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateParentContactBody {
+  studentId: number;
+  contactType: string;
+  contactDate: string;
+  contactMethod: string;
+  subject: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  outcome?: string | null;
+  /** @nullable */
+  followUpNeeded?: string | null;
+  /** @nullable */
+  followUpDate?: string | null;
+  /** @nullable */
+  contactedBy?: string | null;
+  /** @nullable */
+  parentName?: string | null;
+  notificationRequired?: boolean;
+  /** @nullable */
+  relatedAlertId?: number | null;
+}
+
+export interface UpdateParentContactBody {
+  /** @nullable */
+  contactType?: string | null;
+  /** @nullable */
+  contactDate?: string | null;
+  /** @nullable */
+  contactMethod?: string | null;
+  /** @nullable */
+  subject?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  outcome?: string | null;
+  /** @nullable */
+  followUpNeeded?: string | null;
+  /** @nullable */
+  followUpDate?: string | null;
+  /** @nullable */
+  contactedBy?: string | null;
+  /** @nullable */
+  parentName?: string | null;
+  /** @nullable */
+  notificationRequired?: boolean | null;
+  /** @nullable */
+  relatedAlertId?: number | null;
+}
+
+export interface NotificationNeeded {
+  alertId: number;
+  alertType: string;
+  severity: string;
+  studentId: number;
+  /** @nullable */
+  studentName?: string | null;
+  message: string;
+  alertDate: string;
+  parentNotified: boolean;
+  /** @nullable */
+  lastContactDate?: string | null;
+}
+
+export type ProgressSummaryStudent = {
+  id: number;
+  name: string;
+  /** @nullable */
+  grade?: string | null;
+  /** @nullable */
+  school?: string | null;
+};
+
+export type ProgressSummaryReportPeriod = {
+  days: number;
+  startDate: string;
+  endDate: string;
+};
+
+export type ProgressSummaryGoalsItem = { [key: string]: unknown };
+
+export type ProgressSummaryServiceDeliveryItem = { [key: string]: unknown };
+
+export type ProgressSummaryBehaviorDataItem = { [key: string]: unknown };
+
+export type ProgressSummaryProgramDataItem = { [key: string]: unknown };
+
+export interface ProgressSummary {
+  student: ProgressSummaryStudent;
+  reportPeriod: ProgressSummaryReportPeriod;
+  generatedAt: string;
+  goals: ProgressSummaryGoalsItem[];
+  serviceDelivery: ProgressSummaryServiceDeliveryItem[];
+  behaviorData: ProgressSummaryBehaviorDataItem[];
+  programData: ProgressSummaryProgramDataItem[];
+}
+
+export interface ShareLink {
+  token: string;
+  expiresAt: string;
+  url: string;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -1855,4 +1988,47 @@ export type ListCompensatoryObligationsParams = {
    * @nullable
    */
   schoolId?: number | null;
+};
+
+export type ListParentContactsParams = {
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  followUpStatus?: string | null;
+  /**
+   * @nullable
+   */
+  contactType?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type DeleteParentContact200 = {
+  success: boolean;
+};
+
+export type GetStudentProgressSummaryParams = {
+  /**
+   * @nullable
+   */
+  days?: number | null;
+};
+
+export type CreateProgressShareLinkBody = {
+  days?: number;
+  expiresInHours?: number;
 };

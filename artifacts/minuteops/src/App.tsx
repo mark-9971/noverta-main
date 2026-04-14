@@ -36,6 +36,7 @@ import ExecutiveDashboard from "@/pages/executive-dashboard";
 import IepCalendarPage from "@/pages/iep-calendar";
 import ResourceManagement from "@/pages/resource-management";
 import CompensatoryServices from "@/pages/compensatory-services";
+import ParentCommunication from "@/pages/parent-communication";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +75,7 @@ function AdminRouter() {
       <Route path="/district" component={DistrictOverview} />
       <Route path="/resource-management" component={ResourceManagement} />
       <Route path="/compensatory-services" component={CompensatoryServices} />
+      <Route path="/parent-communication" component={ParentCommunication} />
       <Route component={NotFound} />
     </Switch>
   );

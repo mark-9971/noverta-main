@@ -34,6 +34,8 @@ tags:
     description: Resource management, caseload balancing, and budget analysis
   - name: compensatory
     description: Compensatory services tracking and obligations
+  - name: parent-communication
+    description: Parent communication log, follow-ups, and progress sharing
 
 paths:
   /healthz:
@@ -1956,6 +1958,212 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CompensatoryObligation"
+
+  # ─── Parent Communication ─────────────────────────────────────────
+  /parent-contacts:
+    get:
+      operationId: listParentContacts
+      tags: [parent-communication]
+      summary: List parent contacts with filters
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: followUpStatus
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: contactType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of parent contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ParentContact"
+    post:
+      operationId: createParentContact
+      tags: [parent-communication]
+      summary: Log a new parent contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateParentContactBody"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentContact"
+
+  /parent-contacts/{id}:
+    patch:
+      operationId: updateParentContact
+      tags: [parent-communication]
+      summary: Update a parent contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateParentContactBody"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentContact"
+    delete:
+      operationId: deleteParentContact
+      tags: [parent-communication]
+      summary: Delete a parent contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /parent-contacts/overdue-followups:
+    get:
+      operationId: getOverdueFollowups
+      tags: [parent-communication]
+      summary: Get overdue follow-up contacts
+      responses:
+        "200":
+          description: List of overdue follow-ups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ParentContact"
+
+  /parent-contacts/notification-needed:
+    get:
+      operationId: getNotificationNeeded
+      tags: [parent-communication]
+      summary: Get alerts needing parent notification
+      responses:
+        "200":
+          description: List of notification needs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationNeeded"
+
+  /students/{studentId}/progress-summary:
+    get:
+      operationId: getStudentProgressSummary
+      tags: [parent-communication]
+      summary: Generate student progress summary for sharing
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: days
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressSummary"
+
+  /students/{studentId}/progress-summary/share-link:
+    post:
+      operationId: createProgressShareLink
+      tags: [parent-communication]
+      summary: Generate a time-limited share link for a progress summary
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days:
+                  type: integer
+                expiresInHours:
+                  type: integer
+      responses:
+        "201":
+          description: Share link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareLink"
+
+  /shared/progress/{token}:
+    get:
+      operationId: getSharedProgress
+      tags: [parent-communication]
+      summary: Access a shared progress summary via token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressSummary"
 
 components:
   schemas:
@@ -4082,3 +4290,182 @@ components:
           items:
             $ref: "#/components/schemas/ServiceShortfall"
       required: [shortfalls]
+
+    ParentContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        contactType:
+          type: string
+        contactDate:
+          type: string
+        contactMethod:
+          type: string
+        subject:
+          type: string
+        notes:
+          type: ["string", "null"]
+        outcome:
+          type: ["string", "null"]
+        followUpNeeded:
+          type: ["string", "null"]
+        followUpDate:
+          type: ["string", "null"]
+        contactedBy:
+          type: ["string", "null"]
+        parentName:
+          type: ["string", "null"]
+        notificationRequired:
+          type: boolean
+        relatedAlertId:
+          type: ["integer", "null"]
+        studentName:
+          type: ["string", "null"]
+        studentGrade:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, studentId, contactType, contactDate, contactMethod, subject, notificationRequired, createdAt, updatedAt]
+
+    CreateParentContactBody:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        contactType:
+          type: string
+        contactDate:
+          type: string
+        contactMethod:
+          type: string
+        subject:
+          type: string
+        notes:
+          type: ["string", "null"]
+        outcome:
+          type: ["string", "null"]
+        followUpNeeded:
+          type: ["string", "null"]
+        followUpDate:
+          type: ["string", "null"]
+        contactedBy:
+          type: ["string", "null"]
+        parentName:
+          type: ["string", "null"]
+        notificationRequired:
+          type: boolean
+        relatedAlertId:
+          type: ["integer", "null"]
+      required: [studentId, contactType, contactDate, contactMethod, subject]
+
+    UpdateParentContactBody:
+      type: object
+      properties:
+        contactType:
+          type: ["string", "null"]
+        contactDate:
+          type: ["string", "null"]
+        contactMethod:
+          type: ["string", "null"]
+        subject:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        outcome:
+          type: ["string", "null"]
+        followUpNeeded:
+          type: ["string", "null"]
+        followUpDate:
+          type: ["string", "null"]
+        contactedBy:
+          type: ["string", "null"]
+        parentName:
+          type: ["string", "null"]
+        notificationRequired:
+          type: ["boolean", "null"]
+        relatedAlertId:
+          type: ["integer", "null"]
+
+    NotificationNeeded:
+      type: object
+      properties:
+        alertId:
+          type: integer
+        alertType:
+          type: string
+        severity:
+          type: string
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        message:
+          type: string
+        alertDate:
+          type: string
+        parentNotified:
+          type: boolean
+        lastContactDate:
+          type: ["string", "null"]
+      required: [alertId, alertType, severity, studentId, message, alertDate, parentNotified]
+
+    ProgressSummary:
+      type: object
+      properties:
+        student:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            grade:
+              type: ["string", "null"]
+            school:
+              type: ["string", "null"]
+          required: [id, name]
+        reportPeriod:
+          type: object
+          properties:
+            days:
+              type: integer
+            startDate:
+              type: string
+            endDate:
+              type: string
+          required: [days, startDate, endDate]
+        generatedAt:
+          type: string
+        goals:
+          type: array
+          items:
+            type: object
+        serviceDelivery:
+          type: array
+          items:
+            type: object
+        behaviorData:
+          type: array
+          items:
+            type: object
+        programData:
+          type: array
+          items:
+            type: object
+      required: [student, reportPeriod, generatedAt, goals, serviceDelivery, behaviorData, programData]
+
+    ShareLink:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+        url:
+          type: string
+      required: [token, expiresAt, url]

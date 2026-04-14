@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect, Fragment } from "react";
@@ -47,6 +48,11 @@ export default function StudentDetail() {
   const [minutesExpanded, setMinutesExpanded] = useState(false);
   const [minutesTrend, setMinutesTrend] = useState<any[]>([]);
   const [minutesPhaseLines, setMinutesPhaseLines] = useState<{ id: string; date: string; label: string; color?: string }[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareSummary, setShareSummary] = useState<any>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareDays, setShareDays] = useState(30);
 
   useEffect(() => {
     if (isNaN(studentId)) return;
@@ -190,6 +196,77 @@ export default function StudentDetail() {
     setExpandedServiceLoading(false);
   }
 
+  async function handleShareProgress() {
+    setShowShareModal(true);
+    setShareLoading(true);
+    setShareLink(null);
+    setShareSummary(null);
+    try {
+      const res = await fetch(`${API}/students/${studentId}/progress-summary?days=${shareDays}`);
+      if (res.ok) setShareSummary(await res.json());
+    } catch {}
+    setShareLoading(false);
+  }
+
+  async function generateShareLink() {
+    try {
+      const res = await fetch(`${API}/students/${studentId}/progress-summary/share-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: shareDays, expiresInHours: 72 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const fullUrl = `${window.location.origin}${data.url}`;
+        setShareLink(fullUrl);
+        toast.success("Share link generated (expires in 72 hours)");
+      }
+    } catch {
+      toast.error("Failed to generate share link");
+    }
+  }
+
+  function handlePrintSummary() {
+    const w = window.open("", "_blank");
+    if (!w || !shareSummary) return;
+    const s = shareSummary;
+    w.document.write(`<!DOCTYPE html><html><head><title>Progress Summary - ${s.student.name}</title>
+      <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1f2937}
+      h1{font-size:24px;border-bottom:2px solid #059669;padding-bottom:8px}
+      h2{font-size:16px;color:#059669;margin-top:24px}
+      table{width:100%;border-collapse:collapse;margin:8px 0}
+      th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb;font-size:13px}
+      th{background:#f9fafb;font-weight:600}
+      .meta{color:#6b7280;font-size:13px}
+      .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600}
+      .on_track{background:#ecfdf5;color:#059669}.at_risk{background:#fef3c7;color:#d97706}
+      .out_of_compliance{background:#fef2f2;color:#dc2626}.completed{background:#ecfdf5;color:#059669}
+      @media print{body{margin:0}}</style></head><body>
+      <h1>Progress Summary</h1>
+      <p class="meta">${s.student.name} | Grade ${s.student.grade} | ${s.student.school || ""}</p>
+      <p class="meta">Report Period: ${s.reportPeriod.startDate} to ${s.reportPeriod.endDate} (${s.reportPeriod.days} days)</p>
+      <h2>IEP Goals</h2>
+      <table><tr><th>Area</th><th>#</th><th>Goal</th><th>Status</th></tr>
+      ${s.goals.map((g: any) => `<tr><td>${g.goalArea}</td><td>${g.goalNumber}</td><td>${g.annualGoal}</td><td>${g.status}</td></tr>`).join("")}
+      </table>
+      <h2>Service Delivery</h2>
+      <table><tr><th>Service</th><th>Required</th><th>Delivered</th><th>%</th><th>Status</th></tr>
+      ${s.serviceDelivery.map((d: any) => `<tr><td>${d.serviceType}</td><td>${d.requiredMinutes} min</td><td>${d.deliveredMinutes} min</td><td>${d.percentComplete}%</td><td><span class="badge ${d.riskStatus}">${d.riskStatus.replace(/_/g, " ")}</span></td></tr>`).join("")}
+      </table>
+      ${s.behaviorData.length > 0 ? `<h2>Behavior Data Trends</h2>
+      <table><tr><th>Target</th><th>Type</th><th>Baseline</th><th>Goal</th><th>Avg</th><th>Recent</th><th>Trend</th></tr>
+      ${s.behaviorData.map((b: any) => `<tr><td>${b.targetName}</td><td>${b.measurementType}</td><td>${b.baselineValue}</td><td>${b.goalValue}</td><td>${b.average ?? "\u2014"}</td><td>${b.recentAverage ?? "\u2014"}</td><td>${b.trend}</td></tr>`).join("")}
+      </table>` : ""}
+      ${s.programData.length > 0 ? `<h2>Program/Academic Progress</h2>
+      <table><tr><th>Target</th><th>Mastery</th><th>Avg %</th><th>Recent %</th><th>Trend</th></tr>
+      ${s.programData.map((p: any) => `<tr><td>${p.targetName}</td><td>${p.masteryCriterion}%</td><td>${p.averagePercent ?? "\u2014"}</td><td>${p.recentAveragePercent ?? "\u2014"}</td><td>${p.trend}</td></tr>`).join("")}
+      </table>` : ""}
+      <p class="meta" style="margin-top:24px">Generated ${new Date().toLocaleDateString()}</p>
+      </body></html>`);
+    w.document.close();
+    w.print();
+  }
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-5 md:space-y-8">
       <div>
@@ -215,6 +292,12 @@ export default function StudentDetail() {
               <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
                 <FileText className="w-3.5 h-3.5" /> IEP & Reports
               </Link>
+              <button
+                onClick={handleShareProgress}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5" /> Share Progress
+              </button>
             </div>
           </div>
         ) : (
@@ -904,6 +987,158 @@ export default function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-emerald-600" /> Share Progress Summary
+              </h2>
+              <button onClick={() => setShowShareModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <XCircle className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-medium text-gray-600">Report Period:</label>
+                <select
+                  value={shareDays}
+                  onChange={e => { setShareDays(Number(e.target.value)); }}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+                >
+                  <option value={30}>Last 30 days</option>
+                  <option value={60}>Last 60 days</option>
+                  <option value={90}>Last 90 days</option>
+                </select>
+                <button
+                  onClick={handleShareProgress}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {shareLoading ? (
+                <div className="space-y-3 py-4">
+                  <Skeleton className="w-full h-16" />
+                  <Skeleton className="w-full h-32" />
+                  <Skeleton className="w-full h-24" />
+                </div>
+              ) : shareSummary ? (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">IEP Goals ({shareSummary.goals.length})</h3>
+                    {shareSummary.goals.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {shareSummary.goals.map((g: any) => (
+                          <div key={g.id} className="flex items-center gap-2 text-xs bg-white p-2 rounded-lg">
+                            <span className="font-medium text-gray-700">{g.goalArea} #{g.goalNumber}</span>
+                            <span className="text-gray-400 flex-1 truncate">{g.annualGoal}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{g.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-xs text-gray-400">No active goals</p>}
+                  </div>
+
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Service Delivery</h3>
+                    {shareSummary.serviceDelivery.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {shareSummary.serviceDelivery.map((d: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-xs bg-white p-2 rounded-lg">
+                            <span className="font-medium text-gray-700 min-w-[120px]">{d.serviceType}</span>
+                            <span className="text-gray-500">{d.deliveredMinutes}/{d.requiredMinutes} min</span>
+                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, d.percentComplete)}%` }} />
+                            </div>
+                            <span className="font-bold text-gray-700 w-10 text-right">{d.percentComplete}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-xs text-gray-400">No service requirements</p>}
+                  </div>
+
+                  {shareSummary.behaviorData.length > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Behavior Data Trends</h3>
+                      <div className="space-y-1.5">
+                        {shareSummary.behaviorData.map((b: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-xs bg-white p-2 rounded-lg">
+                            <span className="font-medium text-gray-700">{b.targetName}</span>
+                            <span className="text-gray-400">Avg: {b.average ?? "\u2014"}</span>
+                            <span className="text-gray-400">Recent: {b.recentAverage ?? "\u2014"}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              b.trend === "increasing" ? "bg-emerald-50 text-emerald-600" :
+                              b.trend === "decreasing" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
+                            }`}>{b.trend.replace(/_/g, " ")}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {shareSummary.programData.length > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Program Progress</h3>
+                      <div className="space-y-1.5">
+                        {shareSummary.programData.map((p: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-xs bg-white p-2 rounded-lg">
+                            <span className="font-medium text-gray-700">{p.targetName}</span>
+                            <span className="text-gray-400">Avg: {p.averagePercent ?? "\u2014"}%</span>
+                            <span className="text-gray-400">Recent: {p.recentAveragePercent ?? "\u2014"}%</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              p.trend === "increasing" ? "bg-emerald-50 text-emerald-600" :
+                              p.trend === "decreasing" ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
+                            }`}>{p.trend.replace(/_/g, " ")}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-6">Failed to load summary</p>
+              )}
+
+              {shareSummary && (
+                <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={handlePrintSummary}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+                  >
+                    Print / Export PDF
+                  </button>
+                  <button
+                    onClick={generateShareLink}
+                    className="px-4 py-2 border border-emerald-200 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-50"
+                  >
+                    Generate Share Link
+                  </button>
+                  {shareLink && (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shareLink}
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-gray-50 text-gray-600"
+                      />
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(shareLink); toast.success("Link copied"); }}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                        title="Copy link"
+                      >
+                        <Copy className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -35,7 +35,9 @@ import type {
   CreateCompensatoryObligationBody,
   CreateDistrictBody,
   CreateImportBody,
+  CreateParentContactBody,
   CreateProgramBody,
+  CreateProgressShareLinkBody,
   CreateScheduleBlockBody,
   CreateSchoolBody,
   CreateServiceRequirementBody,
@@ -46,6 +48,7 @@ import type {
   CreateStudentBody,
   DashboardSummary,
   DeleteDistrict200,
+  DeleteParentContact200,
   District,
   DistrictDetail,
   DistrictOverview,
@@ -77,6 +80,7 @@ import type {
   GetScheduleConflictsParams,
   GetStaffCoverageParams,
   GetStudentMinuteSummaryReportParams,
+  GetStudentProgressSummaryParams,
   GetStudentSessionsParams,
   HealthStatus,
   IepCalendarResponse,
@@ -84,6 +88,7 @@ import type {
   ListAlertsParams,
   ListCompensatoryObligationsParams,
   ListMinuteProgressParams,
+  ListParentContactsParams,
   ListScheduleBlocksParams,
   ListServiceRequirementsParams,
   ListSessionsParams,
@@ -94,8 +99,11 @@ import type {
   MinuteProgress,
   MissedReason,
   MissedSessionsTrendPoint,
+  NotificationNeeded,
   ParaDashboardItem,
+  ParentContact,
   Program,
+  ProgressSummary,
   ProviderDashboardItem,
   ProviderUtilization,
   RebalancingSuggestion,
@@ -109,6 +117,7 @@ import type {
   ServiceShortfall,
   ServiceType,
   SessionLog,
+  ShareLink,
   Staff,
   StaffAssignment,
   StaffCoverageResponse,
@@ -120,6 +129,7 @@ import type {
   StudentSummary,
   UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
+  UpdateParentContactBody,
   UpdateScheduleBlockBody,
   UpdateServiceRequirementBody,
   UpdateSessionBody,
@@ -7791,3 +7801,804 @@ export const useGenerateFromShortfalls = <
 > => {
   return useMutation(getGenerateFromShortfallsMutationOptions(options));
 };
+
+/**
+ * @summary List parent contacts with filters
+ */
+export const getListParentContactsUrl = (params?: ListParentContactsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/parent-contacts?${stringifiedParams}`
+    : `/api/parent-contacts`;
+};
+
+export const listParentContacts = async (
+  params?: ListParentContactsParams,
+  options?: RequestInit,
+): Promise<ParentContact[]> => {
+  return customFetch<ParentContact[]>(getListParentContactsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListParentContactsQueryKey = (
+  params?: ListParentContactsParams,
+) => {
+  return [`/api/parent-contacts`, ...(params ? [params] : [])] as const;
+};
+
+export const getListParentContactsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listParentContacts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListParentContactsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listParentContacts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListParentContactsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listParentContacts>>
+  > = ({ signal }) => listParentContacts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listParentContacts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListParentContactsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listParentContacts>>
+>;
+export type ListParentContactsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List parent contacts with filters
+ */
+
+export function useListParentContacts<
+  TData = Awaited<ReturnType<typeof listParentContacts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListParentContactsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listParentContacts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListParentContactsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Log a new parent contact
+ */
+export const getCreateParentContactUrl = () => {
+  return `/api/parent-contacts`;
+};
+
+export const createParentContact = async (
+  createParentContactBody: CreateParentContactBody,
+  options?: RequestInit,
+): Promise<ParentContact> => {
+  return customFetch<ParentContact>(getCreateParentContactUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createParentContactBody),
+  });
+};
+
+export const getCreateParentContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createParentContact>>,
+    TError,
+    { data: BodyType<CreateParentContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createParentContact>>,
+  TError,
+  { data: BodyType<CreateParentContactBody> },
+  TContext
+> => {
+  const mutationKey = ["createParentContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createParentContact>>,
+    { data: BodyType<CreateParentContactBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createParentContact(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateParentContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createParentContact>>
+>;
+export type CreateParentContactMutationBody = BodyType<CreateParentContactBody>;
+export type CreateParentContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log a new parent contact
+ */
+export const useCreateParentContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createParentContact>>,
+    TError,
+    { data: BodyType<CreateParentContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createParentContact>>,
+  TError,
+  { data: BodyType<CreateParentContactBody> },
+  TContext
+> => {
+  return useMutation(getCreateParentContactMutationOptions(options));
+};
+
+/**
+ * @summary Update a parent contact
+ */
+export const getUpdateParentContactUrl = (id: number) => {
+  return `/api/parent-contacts/${id}`;
+};
+
+export const updateParentContact = async (
+  id: number,
+  updateParentContactBody: UpdateParentContactBody,
+  options?: RequestInit,
+): Promise<ParentContact> => {
+  return customFetch<ParentContact>(getUpdateParentContactUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateParentContactBody),
+  });
+};
+
+export const getUpdateParentContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateParentContact>>,
+    TError,
+    { id: number; data: BodyType<UpdateParentContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateParentContact>>,
+  TError,
+  { id: number; data: BodyType<UpdateParentContactBody> },
+  TContext
+> => {
+  const mutationKey = ["updateParentContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateParentContact>>,
+    { id: number; data: BodyType<UpdateParentContactBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateParentContact(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateParentContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateParentContact>>
+>;
+export type UpdateParentContactMutationBody = BodyType<UpdateParentContactBody>;
+export type UpdateParentContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a parent contact
+ */
+export const useUpdateParentContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateParentContact>>,
+    TError,
+    { id: number; data: BodyType<UpdateParentContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateParentContact>>,
+  TError,
+  { id: number; data: BodyType<UpdateParentContactBody> },
+  TContext
+> => {
+  return useMutation(getUpdateParentContactMutationOptions(options));
+};
+
+/**
+ * @summary Delete a parent contact
+ */
+export const getDeleteParentContactUrl = (id: number) => {
+  return `/api/parent-contacts/${id}`;
+};
+
+export const deleteParentContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteParentContact200> => {
+  return customFetch<DeleteParentContact200>(getDeleteParentContactUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteParentContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteParentContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteParentContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteParentContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteParentContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteParentContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteParentContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteParentContact>>
+>;
+
+export type DeleteParentContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a parent contact
+ */
+export const useDeleteParentContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteParentContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteParentContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteParentContactMutationOptions(options));
+};
+
+/**
+ * @summary Get overdue follow-up contacts
+ */
+export const getGetOverdueFollowupsUrl = () => {
+  return `/api/parent-contacts/overdue-followups`;
+};
+
+export const getOverdueFollowups = async (
+  options?: RequestInit,
+): Promise<ParentContact[]> => {
+  return customFetch<ParentContact[]>(getGetOverdueFollowupsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOverdueFollowupsQueryKey = () => {
+  return [`/api/parent-contacts/overdue-followups`] as const;
+};
+
+export const getGetOverdueFollowupsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOverdueFollowups>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOverdueFollowups>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOverdueFollowupsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOverdueFollowups>>
+  > = ({ signal }) => getOverdueFollowups({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOverdueFollowups>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOverdueFollowupsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOverdueFollowups>>
+>;
+export type GetOverdueFollowupsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get overdue follow-up contacts
+ */
+
+export function useGetOverdueFollowups<
+  TData = Awaited<ReturnType<typeof getOverdueFollowups>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getOverdueFollowups>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOverdueFollowupsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get alerts needing parent notification
+ */
+export const getGetNotificationNeededUrl = () => {
+  return `/api/parent-contacts/notification-needed`;
+};
+
+export const getNotificationNeeded = async (
+  options?: RequestInit,
+): Promise<NotificationNeeded[]> => {
+  return customFetch<NotificationNeeded[]>(getGetNotificationNeededUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNotificationNeededQueryKey = () => {
+  return [`/api/parent-contacts/notification-needed`] as const;
+};
+
+export const getGetNotificationNeededQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNotificationNeeded>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationNeeded>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetNotificationNeededQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNotificationNeeded>>
+  > = ({ signal }) => getNotificationNeeded({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationNeeded>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNotificationNeededQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNotificationNeeded>>
+>;
+export type GetNotificationNeededQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get alerts needing parent notification
+ */
+
+export function useGetNotificationNeeded<
+  TData = Awaited<ReturnType<typeof getNotificationNeeded>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationNeeded>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNotificationNeededQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate student progress summary for sharing
+ */
+export const getGetStudentProgressSummaryUrl = (
+  studentId: number,
+  params?: GetStudentProgressSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/students/${studentId}/progress-summary?${stringifiedParams}`
+    : `/api/students/${studentId}/progress-summary`;
+};
+
+export const getStudentProgressSummary = async (
+  studentId: number,
+  params?: GetStudentProgressSummaryParams,
+  options?: RequestInit,
+): Promise<ProgressSummary> => {
+  return customFetch<ProgressSummary>(
+    getGetStudentProgressSummaryUrl(studentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStudentProgressSummaryQueryKey = (
+  studentId: number,
+  params?: GetStudentProgressSummaryParams,
+) => {
+  return [
+    `/api/students/${studentId}/progress-summary`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetStudentProgressSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStudentProgressSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetStudentProgressSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentProgressSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetStudentProgressSummaryQueryKey(studentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStudentProgressSummary>>
+  > = ({ signal }) =>
+    getStudentProgressSummary(studentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStudentProgressSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStudentProgressSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStudentProgressSummary>>
+>;
+export type GetStudentProgressSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Generate student progress summary for sharing
+ */
+
+export function useGetStudentProgressSummary<
+  TData = Awaited<ReturnType<typeof getStudentProgressSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  params?: GetStudentProgressSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStudentProgressSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStudentProgressSummaryQueryOptions(
+    studentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate a time-limited share link for a progress summary
+ */
+export const getCreateProgressShareLinkUrl = (studentId: number) => {
+  return `/api/students/${studentId}/progress-summary/share-link`;
+};
+
+export const createProgressShareLink = async (
+  studentId: number,
+  createProgressShareLinkBody: CreateProgressShareLinkBody,
+  options?: RequestInit,
+): Promise<ShareLink> => {
+  return customFetch<ShareLink>(getCreateProgressShareLinkUrl(studentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createProgressShareLinkBody),
+  });
+};
+
+export const getCreateProgressShareLinkMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgressShareLink>>,
+    TError,
+    { studentId: number; data: BodyType<CreateProgressShareLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProgressShareLink>>,
+  TError,
+  { studentId: number; data: BodyType<CreateProgressShareLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["createProgressShareLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProgressShareLink>>,
+    { studentId: number; data: BodyType<CreateProgressShareLinkBody> }
+  > = (props) => {
+    const { studentId, data } = props ?? {};
+
+    return createProgressShareLink(studentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProgressShareLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProgressShareLink>>
+>;
+export type CreateProgressShareLinkMutationBody =
+  BodyType<CreateProgressShareLinkBody>;
+export type CreateProgressShareLinkMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a time-limited share link for a progress summary
+ */
+export const useCreateProgressShareLink = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgressShareLink>>,
+    TError,
+    { studentId: number; data: BodyType<CreateProgressShareLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProgressShareLink>>,
+  TError,
+  { studentId: number; data: BodyType<CreateProgressShareLinkBody> },
+  TContext
+> => {
+  return useMutation(getCreateProgressShareLinkMutationOptions(options));
+};
+
+/**
+ * @summary Access a shared progress summary via token
+ */
+export const getGetSharedProgressUrl = (token: string) => {
+  return `/api/shared/progress/${token}`;
+};
+
+export const getSharedProgress = async (
+  token: string,
+  options?: RequestInit,
+): Promise<ProgressSummary> => {
+  return customFetch<ProgressSummary>(getGetSharedProgressUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSharedProgressQueryKey = (token: string) => {
+  return [`/api/shared/progress/${token}`] as const;
+};
+
+export const getGetSharedProgressQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSharedProgress>>,
+  TError = ErrorType<unknown>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedProgress>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSharedProgressQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSharedProgress>>
+  > = ({ signal }) => getSharedProgress(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSharedProgress>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSharedProgressQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSharedProgress>>
+>;
+export type GetSharedProgressQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Access a shared progress summary via token
+ */
+
+export function useGetSharedProgress<
+  TData = Awaited<ReturnType<typeof getSharedProgress>>,
+  TError = ErrorType<unknown>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedProgress>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSharedProgressQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
