@@ -7,7 +7,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale
+  BookOpen, Scale, Gift
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -61,6 +61,7 @@ const adminNav: NavSection[] = [
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/resource-management", label: "Resource Management", icon: Scale },
+      { href: "/compensatory-services", label: "Comp Services", icon: Gift },
     ],
   },
   {

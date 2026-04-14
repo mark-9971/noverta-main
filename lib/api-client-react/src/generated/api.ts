@@ -24,10 +24,15 @@ import type {
   AuditPackageResponse,
   BudgetResponse,
   BulkCreateSessionsBody,
+  CalculateShortfallsBody,
   CaseloadResponse,
+  CompensatoryObligation,
+  CompensatoryObligationDetail,
+  CompensatorySummary,
   ComplianceByService,
   ComplianceTrendResponse,
   CoverageGap,
+  CreateCompensatoryObligationBody,
   CreateDistrictBody,
   CreateImportBody,
   CreateProgramBody,
@@ -48,6 +53,7 @@ import type {
   ErrorResponse,
   ExecutiveDashboard,
   ExecutiveSummaryResponse,
+  GenerateFromShortfallsBody,
   GenerateScheduleBody,
   GeneratedSchedule,
   GetAuditPackageReportParams,
@@ -76,6 +82,7 @@ import type {
   IepCalendarResponse,
   ImportRecord,
   ListAlertsParams,
+  ListCompensatoryObligationsParams,
   ListMinuteProgressParams,
   ListScheduleBlocksParams,
   ListServiceRequirementsParams,
@@ -83,6 +90,7 @@ import type {
   ListStaffAssignmentsParams,
   ListStaffParams,
   ListStudentsParams,
+  LogCompSessionBody,
   MinuteProgress,
   MissedReason,
   MissedSessionsTrendPoint,
@@ -98,6 +106,7 @@ import type {
   ScheduleConflict,
   School,
   ServiceRequirement,
+  ServiceShortfall,
   ServiceType,
   SessionLog,
   Staff,
@@ -109,6 +118,7 @@ import type {
   StudentDetail,
   StudentMinuteSummaryRow,
   StudentSummary,
+  UpdateCompensatoryObligationBody,
   UpdateDistrictBody,
   UpdateScheduleBlockBody,
   UpdateServiceRequirementBody,
@@ -6954,4 +6964,830 @@ export const useUpdateStaffRates = <
   TContext
 > => {
   return useMutation(getUpdateStaffRatesMutationOptions(options));
+};
+
+/**
+ * @summary List compensatory obligations
+ */
+export const getListCompensatoryObligationsUrl = (
+  params?: ListCompensatoryObligationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/compensatory-obligations?${stringifiedParams}`
+    : `/api/compensatory-obligations`;
+};
+
+export const listCompensatoryObligations = async (
+  params?: ListCompensatoryObligationsParams,
+  options?: RequestInit,
+): Promise<CompensatoryObligation[]> => {
+  return customFetch<CompensatoryObligation[]>(
+    getListCompensatoryObligationsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCompensatoryObligationsQueryKey = (
+  params?: ListCompensatoryObligationsParams,
+) => {
+  return [
+    `/api/compensatory-obligations`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListCompensatoryObligationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCompensatoryObligations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCompensatoryObligationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompensatoryObligations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCompensatoryObligationsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCompensatoryObligations>>
+  > = ({ signal }) =>
+    listCompensatoryObligations(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCompensatoryObligations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCompensatoryObligationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCompensatoryObligations>>
+>;
+export type ListCompensatoryObligationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List compensatory obligations
+ */
+
+export function useListCompensatoryObligations<
+  TData = Awaited<ReturnType<typeof listCompensatoryObligations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCompensatoryObligationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompensatoryObligations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCompensatoryObligationsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a compensatory obligation
+ */
+export const getCreateCompensatoryObligationUrl = () => {
+  return `/api/compensatory-obligations`;
+};
+
+export const createCompensatoryObligation = async (
+  createCompensatoryObligationBody: CreateCompensatoryObligationBody,
+  options?: RequestInit,
+): Promise<CompensatoryObligation> => {
+  return customFetch<CompensatoryObligation>(
+    getCreateCompensatoryObligationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCompensatoryObligationBody),
+    },
+  );
+};
+
+export const getCreateCompensatoryObligationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompensatoryObligation>>,
+    TError,
+    { data: BodyType<CreateCompensatoryObligationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCompensatoryObligation>>,
+  TError,
+  { data: BodyType<CreateCompensatoryObligationBody> },
+  TContext
+> => {
+  const mutationKey = ["createCompensatoryObligation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCompensatoryObligation>>,
+    { data: BodyType<CreateCompensatoryObligationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCompensatoryObligation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCompensatoryObligationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCompensatoryObligation>>
+>;
+export type CreateCompensatoryObligationMutationBody =
+  BodyType<CreateCompensatoryObligationBody>;
+export type CreateCompensatoryObligationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a compensatory obligation
+ */
+export const useCreateCompensatoryObligation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCompensatoryObligation>>,
+    TError,
+    { data: BodyType<CreateCompensatoryObligationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCompensatoryObligation>>,
+  TError,
+  { data: BodyType<CreateCompensatoryObligationBody> },
+  TContext
+> => {
+  return useMutation(getCreateCompensatoryObligationMutationOptions(options));
+};
+
+/**
+ * @summary Get obligation detail with comp sessions
+ */
+export const getGetCompensatoryObligationUrl = (id: number) => {
+  return `/api/compensatory-obligations/${id}`;
+};
+
+export const getCompensatoryObligation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CompensatoryObligationDetail> => {
+  return customFetch<CompensatoryObligationDetail>(
+    getGetCompensatoryObligationUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCompensatoryObligationQueryKey = (id: number) => {
+  return [`/api/compensatory-obligations/${id}`] as const;
+};
+
+export const getGetCompensatoryObligationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCompensatoryObligation>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompensatoryObligation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCompensatoryObligationQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCompensatoryObligation>>
+  > = ({ signal }) =>
+    getCompensatoryObligation(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCompensatoryObligation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCompensatoryObligationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCompensatoryObligation>>
+>;
+export type GetCompensatoryObligationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get obligation detail with comp sessions
+ */
+
+export function useGetCompensatoryObligation<
+  TData = Awaited<ReturnType<typeof getCompensatoryObligation>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompensatoryObligation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCompensatoryObligationQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an obligation
+ */
+export const getUpdateCompensatoryObligationUrl = (id: number) => {
+  return `/api/compensatory-obligations/${id}`;
+};
+
+export const updateCompensatoryObligation = async (
+  id: number,
+  updateCompensatoryObligationBody: UpdateCompensatoryObligationBody,
+  options?: RequestInit,
+): Promise<CompensatoryObligation> => {
+  return customFetch<CompensatoryObligation>(
+    getUpdateCompensatoryObligationUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateCompensatoryObligationBody),
+    },
+  );
+};
+
+export const getUpdateCompensatoryObligationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompensatoryObligation>>,
+    TError,
+    { id: number; data: BodyType<UpdateCompensatoryObligationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCompensatoryObligation>>,
+  TError,
+  { id: number; data: BodyType<UpdateCompensatoryObligationBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCompensatoryObligation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCompensatoryObligation>>,
+    { id: number; data: BodyType<UpdateCompensatoryObligationBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCompensatoryObligation(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCompensatoryObligationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCompensatoryObligation>>
+>;
+export type UpdateCompensatoryObligationMutationBody =
+  BodyType<UpdateCompensatoryObligationBody>;
+export type UpdateCompensatoryObligationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an obligation
+ */
+export const useUpdateCompensatoryObligation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCompensatoryObligation>>,
+    TError,
+    { id: number; data: BodyType<UpdateCompensatoryObligationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCompensatoryObligation>>,
+  TError,
+  { id: number; data: BodyType<UpdateCompensatoryObligationBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCompensatoryObligationMutationOptions(options));
+};
+
+/**
+ * @summary Delete an obligation
+ */
+export const getDeleteCompensatoryObligationUrl = (id: number) => {
+  return `/api/compensatory-obligations/${id}`;
+};
+
+export const deleteCompensatoryObligation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCompensatoryObligationUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCompensatoryObligationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompensatoryObligation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCompensatoryObligation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCompensatoryObligation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCompensatoryObligation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCompensatoryObligation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCompensatoryObligationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCompensatoryObligation>>
+>;
+
+export type DeleteCompensatoryObligationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an obligation
+ */
+export const useDeleteCompensatoryObligation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompensatoryObligation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCompensatoryObligation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteCompensatoryObligationMutationOptions(options));
+};
+
+/**
+ * @summary Log a comp session against an obligation
+ */
+export const getLogCompensatorySessionUrl = (id: number) => {
+  return `/api/compensatory-obligations/${id}/sessions`;
+};
+
+export const logCompensatorySession = async (
+  id: number,
+  logCompSessionBody: LogCompSessionBody,
+  options?: RequestInit,
+): Promise<SessionLog> => {
+  return customFetch<SessionLog>(getLogCompensatorySessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(logCompSessionBody),
+  });
+};
+
+export const getLogCompensatorySessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logCompensatorySession>>,
+    TError,
+    { id: number; data: BodyType<LogCompSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logCompensatorySession>>,
+  TError,
+  { id: number; data: BodyType<LogCompSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["logCompensatorySession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logCompensatorySession>>,
+    { id: number; data: BodyType<LogCompSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return logCompensatorySession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogCompensatorySessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logCompensatorySession>>
+>;
+export type LogCompensatorySessionMutationBody = BodyType<LogCompSessionBody>;
+export type LogCompensatorySessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Log a comp session against an obligation
+ */
+export const useLogCompensatorySession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logCompensatorySession>>,
+    TError,
+    { id: number; data: BodyType<LogCompSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logCompensatorySession>>,
+  TError,
+  { id: number; data: BodyType<LogCompSessionBody> },
+  TContext
+> => {
+  return useMutation(getLogCompensatorySessionMutationOptions(options));
+};
+
+/**
+ * @summary Get comp time summary for a student
+ */
+export const getGetCompensatorySummaryByStudentUrl = (studentId: number) => {
+  return `/api/compensatory-obligations/summary/by-student/${studentId}`;
+};
+
+export const getCompensatorySummaryByStudent = async (
+  studentId: number,
+  options?: RequestInit,
+): Promise<CompensatorySummary> => {
+  return customFetch<CompensatorySummary>(
+    getGetCompensatorySummaryByStudentUrl(studentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCompensatorySummaryByStudentQueryKey = (
+  studentId: number,
+) => {
+  return [
+    `/api/compensatory-obligations/summary/by-student/${studentId}`,
+  ] as const;
+};
+
+export const getGetCompensatorySummaryByStudentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetCompensatorySummaryByStudentQueryKey(studentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>
+  > = ({ signal }) =>
+    getCompensatorySummaryByStudent(studentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!studentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCompensatorySummaryByStudentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>
+>;
+export type GetCompensatorySummaryByStudentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get comp time summary for a student
+ */
+
+export function useGetCompensatorySummaryByStudent<
+  TData = Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>,
+  TError = ErrorType<unknown>,
+>(
+  studentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCompensatorySummaryByStudent>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCompensatorySummaryByStudentQueryOptions(
+    studentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Calculate service shortfalls for a period
+ */
+export const getCalculateShortfallsUrl = () => {
+  return `/api/compensatory-obligations/calculate-shortfalls`;
+};
+
+export const calculateShortfalls = async (
+  calculateShortfallsBody: CalculateShortfallsBody,
+  options?: RequestInit,
+): Promise<ServiceShortfall[]> => {
+  return customFetch<ServiceShortfall[]>(getCalculateShortfallsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(calculateShortfallsBody),
+  });
+};
+
+export const getCalculateShortfallsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof calculateShortfalls>>,
+    TError,
+    { data: BodyType<CalculateShortfallsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof calculateShortfalls>>,
+  TError,
+  { data: BodyType<CalculateShortfallsBody> },
+  TContext
+> => {
+  const mutationKey = ["calculateShortfalls"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof calculateShortfalls>>,
+    { data: BodyType<CalculateShortfallsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return calculateShortfalls(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CalculateShortfallsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof calculateShortfalls>>
+>;
+export type CalculateShortfallsMutationBody = BodyType<CalculateShortfallsBody>;
+export type CalculateShortfallsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Calculate service shortfalls for a period
+ */
+export const useCalculateShortfalls = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof calculateShortfalls>>,
+    TError,
+    { data: BodyType<CalculateShortfallsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof calculateShortfalls>>,
+  TError,
+  { data: BodyType<CalculateShortfallsBody> },
+  TContext
+> => {
+  return useMutation(getCalculateShortfallsMutationOptions(options));
+};
+
+/**
+ * @summary Generate obligations from shortfalls
+ */
+export const getGenerateFromShortfallsUrl = () => {
+  return `/api/compensatory-obligations/generate-from-shortfalls`;
+};
+
+export const generateFromShortfalls = async (
+  generateFromShortfallsBody: GenerateFromShortfallsBody,
+  options?: RequestInit,
+): Promise<CompensatoryObligation[]> => {
+  return customFetch<CompensatoryObligation[]>(getGenerateFromShortfallsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateFromShortfallsBody),
+  });
+};
+
+export const getGenerateFromShortfallsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateFromShortfalls>>,
+    TError,
+    { data: BodyType<GenerateFromShortfallsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateFromShortfalls>>,
+  TError,
+  { data: BodyType<GenerateFromShortfallsBody> },
+  TContext
+> => {
+  const mutationKey = ["generateFromShortfalls"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateFromShortfalls>>,
+    { data: BodyType<GenerateFromShortfallsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateFromShortfalls(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateFromShortfallsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateFromShortfalls>>
+>;
+export type GenerateFromShortfallsMutationBody =
+  BodyType<GenerateFromShortfallsBody>;
+export type GenerateFromShortfallsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate obligations from shortfalls
+ */
+export const useGenerateFromShortfalls = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateFromShortfalls>>,
+    TError,
+    { data: BodyType<GenerateFromShortfallsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateFromShortfalls>>,
+  TError,
+  { data: BodyType<GenerateFromShortfallsBody> },
+  TContext
+> => {
+  return useMutation(getGenerateFromShortfallsMutationOptions(options));
 };

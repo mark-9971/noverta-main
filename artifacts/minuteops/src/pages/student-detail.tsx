@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect, Fragment } from "react";
@@ -32,6 +32,7 @@ export default function StudentDetail() {
   const [dataSessions, setDataSessions] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
+  const [compSummary, setCompSummary] = useState<any>(null);
 
   const [expandedDataSessionId, setExpandedDataSessionId] = useState<number | null>(null);
   const [expandedDataDetail, setExpandedDataDetail] = useState<any>(null);
@@ -58,7 +59,8 @@ export default function StudentDetail() {
       fetch(`${API}/students/${studentId}/data-sessions?limit=10`).then(r => r.ok ? r.json() : []),
       fetch(`${API}/students/${studentId}/protective-measures`).then(r => r.ok ? r.json() : null),
       fetch(`${API}/students/${studentId}/minutes-trend`).then(r => r.ok ? r.json() : []),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt]) => {
+      fetch(`${API}/compensatory-obligations/summary/by-student/${studentId}`).then(r => r.ok ? r.json() : null),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
@@ -66,6 +68,7 @@ export default function StudentDetail() {
       setDataSessions(ds);
       setProtectiveData(pm);
       setMinutesTrend(mt);
+      setCompSummary(cs);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);
@@ -372,6 +375,61 @@ export default function StudentDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {compSummary && compSummary.counts?.total > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                <Gift className="w-4 h-4 text-emerald-600" />
+                Compensatory Services
+              </CardTitle>
+              <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                View All
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-gray-800">{compSummary.totalRemaining}</p>
+                <p className="text-[10px] text-gray-400">Min Remaining</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-emerald-700">{compSummary.totalDelivered}</p>
+                <p className="text-[10px] text-gray-400">Min Delivered</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <p className="text-lg font-bold text-gray-800">{compSummary.counts.pending + compSummary.counts.inProgress}</p>
+                <p className="text-[10px] text-gray-400">Active</p>
+              </div>
+            </div>
+            {compSummary.obligations?.length > 0 && (
+              <div className="space-y-1.5">
+                {compSummary.obligations.slice(0, 5).map((ob: any) => {
+                  const pct = ob.minutesOwed > 0 ? Math.round((ob.minutesDelivered / ob.minutesOwed) * 100) : 0;
+                  return (
+                    <div key={ob.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-700">{ob.serviceTypeName || "Service"}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {ob.minutesRemaining} min remaining · {ob.status.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                      <div className="w-16">
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
+                        </div>
+                        <p className="text-[9px] text-gray-400 text-right mt-0.5">{pct}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {(behaviorTargets.length > 0 || dataLoading) && (
         <Card>

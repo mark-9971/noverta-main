@@ -39,3 +39,4 @@ export * from "./fbas";
 export * from "./fbaObservations";
 export * from "./functionalAnalyses";
 export * from "./behaviorInterventionPlans";
+export * from "./compensatoryObligations";

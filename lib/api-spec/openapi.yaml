@@ -32,6 +32,8 @@ tags:
     description: Reports
   - name: resource-management
     description: Resource management, caseload balancing, and budget analysis
+  - name: compensatory
+    description: Compensatory services tracking and obligations
 
 paths:
   /healthz:
@@ -1767,6 +1769,193 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Staff"
+
+  # ─── Compensatory Services ──────────────────────────────────────
+  /compensatory-obligations:
+    get:
+      operationId: listCompensatoryObligations
+      tags: [compensatory]
+      summary: List compensatory obligations
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of compensatory obligations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompensatoryObligation"
+    post:
+      operationId: createCompensatoryObligation
+      tags: [compensatory]
+      summary: Create a compensatory obligation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompensatoryObligationBody"
+      responses:
+        "201":
+          description: Created obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompensatoryObligation"
+
+  /compensatory-obligations/{id}:
+    get:
+      operationId: getCompensatoryObligation
+      tags: [compensatory]
+      summary: Get obligation detail with comp sessions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Obligation detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompensatoryObligationDetail"
+    patch:
+      operationId: updateCompensatoryObligation
+      tags: [compensatory]
+      summary: Update an obligation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompensatoryObligationBody"
+      responses:
+        "200":
+          description: Updated obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompensatoryObligation"
+    delete:
+      operationId: deleteCompensatoryObligation
+      tags: [compensatory]
+      summary: Delete an obligation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /compensatory-obligations/{id}/sessions:
+    post:
+      operationId: logCompensatorySession
+      tags: [compensatory]
+      summary: Log a comp session against an obligation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogCompSessionBody"
+      responses:
+        "201":
+          description: Logged session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionLog"
+
+  /compensatory-obligations/summary/by-student/{studentId}:
+    get:
+      operationId: getCompensatorySummaryByStudent
+      tags: [compensatory]
+      summary: Get comp time summary for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student comp summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompensatorySummary"
+
+  /compensatory-obligations/calculate-shortfalls:
+    post:
+      operationId: calculateShortfalls
+      tags: [compensatory]
+      summary: Calculate service shortfalls for a period
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateShortfallsBody"
+      responses:
+        "200":
+          description: List of shortfalls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceShortfall"
+
+  /compensatory-obligations/generate-from-shortfalls:
+    post:
+      operationId: generateFromShortfalls
+      tags: [compensatory]
+      summary: Generate obligations from shortfalls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFromShortfallsBody"
+      responses:
+        "201":
+          description: Created obligations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompensatoryObligation"
 
 components:
   schemas:
@@ -3662,3 +3851,222 @@ components:
           type: number
         annualSalary:
           type: number
+
+    CompensatoryObligation:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        serviceRequirementId:
+          type: ["integer", "null"]
+        serviceTypeName:
+          type: ["string", "null"]
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        minutesOwed:
+          type: integer
+        minutesDelivered:
+          type: integer
+        minutesRemaining:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        agreedDate:
+          type: ["string", "null"]
+        agreedWith:
+          type: ["string", "null"]
+        source:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, studentId, periodStart, periodEnd, minutesOwed, minutesDelivered, minutesRemaining, status, source, createdAt, updatedAt]
+
+    CompensatoryObligationDetail:
+      allOf:
+        - $ref: "#/components/schemas/CompensatoryObligation"
+        - type: object
+          properties:
+            sessions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  sessionDate:
+                    type: string
+                  durationMinutes:
+                    type: integer
+                  startTime:
+                    type: ["string", "null"]
+                  endTime:
+                    type: ["string", "null"]
+                  status:
+                    type: string
+                  notes:
+                    type: ["string", "null"]
+                  staffName:
+                    type: ["string", "null"]
+                  serviceTypeName:
+                    type: ["string", "null"]
+
+    CreateCompensatoryObligationBody:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        serviceRequirementId:
+          type: ["integer", "null"]
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        minutesOwed:
+          type: integer
+        notes:
+          type: ["string", "null"]
+        agreedDate:
+          type: ["string", "null"]
+        agreedWith:
+          type: ["string", "null"]
+        source:
+          type: string
+      required: [studentId, periodStart, periodEnd, minutesOwed]
+
+    UpdateCompensatoryObligationBody:
+      type: object
+      properties:
+        minutesOwed:
+          type: integer
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        agreedDate:
+          type: ["string", "null"]
+        agreedWith:
+          type: ["string", "null"]
+
+    LogCompSessionBody:
+      type: object
+      properties:
+        sessionDate:
+          type: string
+        durationMinutes:
+          type: integer
+        staffId:
+          type: ["integer", "null"]
+        serviceTypeId:
+          type: ["integer", "null"]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+      required: [sessionDate, durationMinutes]
+
+    CompensatorySummary:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        totalOwed:
+          type: integer
+        totalDelivered:
+          type: integer
+        totalRemaining:
+          type: integer
+        counts:
+          type: object
+          properties:
+            pending:
+              type: integer
+            inProgress:
+              type: integer
+            completed:
+              type: integer
+            waived:
+              type: integer
+            total:
+              type: integer
+          required: [pending, inProgress, completed, waived, total]
+        obligations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              serviceRequirementId:
+                type: ["integer", "null"]
+              serviceTypeName:
+                type: ["string", "null"]
+              periodStart:
+                type: string
+              periodEnd:
+                type: string
+              minutesOwed:
+                type: integer
+              minutesDelivered:
+                type: integer
+              minutesRemaining:
+                type: integer
+              status:
+                type: string
+      required: [studentId, totalOwed, totalDelivered, totalRemaining, counts, obligations]
+
+    CalculateShortfallsBody:
+      type: object
+      properties:
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        schoolId:
+          type: ["integer", "null"]
+      required: [periodStart, periodEnd]
+
+    ServiceShortfall:
+      type: object
+      properties:
+        serviceRequirementId:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        serviceTypeName:
+          type: ["string", "null"]
+        requiredMinutes:
+          type: integer
+        deliveredMinutes:
+          type: integer
+        deficitMinutes:
+          type: integer
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+      required: [serviceRequirementId, studentId, requiredMinutes, deliveredMinutes, deficitMinutes, periodStart, periodEnd]
+
+    GenerateFromShortfallsBody:
+      type: object
+      properties:
+        shortfalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceShortfall"
+      required: [shortfalls]

@@ -1181,6 +1181,153 @@ export interface StaffRateUpdate {
   annualSalary?: number;
 }
 
+export interface CompensatoryObligation {
+  id: number;
+  studentId: number;
+  /** @nullable */
+  studentName?: string | null;
+  /** @nullable */
+  serviceRequirementId?: number | null;
+  /** @nullable */
+  serviceTypeName?: string | null;
+  periodStart: string;
+  periodEnd: string;
+  minutesOwed: number;
+  minutesDelivered: number;
+  minutesRemaining: number;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  agreedDate?: string | null;
+  /** @nullable */
+  agreedWith?: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CompensatoryObligationDetailSessionsItem = {
+  id?: number;
+  sessionDate?: string;
+  durationMinutes?: number;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  status?: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  staffName?: string | null;
+  /** @nullable */
+  serviceTypeName?: string | null;
+};
+
+export type CompensatoryObligationDetail = CompensatoryObligation & {
+  sessions?: CompensatoryObligationDetailSessionsItem[];
+};
+
+export interface CreateCompensatoryObligationBody {
+  studentId: number;
+  /** @nullable */
+  serviceRequirementId?: number | null;
+  periodStart: string;
+  periodEnd: string;
+  minutesOwed: number;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  agreedDate?: string | null;
+  /** @nullable */
+  agreedWith?: string | null;
+  source?: string;
+}
+
+export interface UpdateCompensatoryObligationBody {
+  minutesOwed?: number;
+  status?: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  agreedDate?: string | null;
+  /** @nullable */
+  agreedWith?: string | null;
+}
+
+export interface LogCompSessionBody {
+  sessionDate: string;
+  durationMinutes: number;
+  /** @nullable */
+  staffId?: number | null;
+  /** @nullable */
+  serviceTypeId?: number | null;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  location?: string | null;
+}
+
+export type CompensatorySummaryCounts = {
+  pending: number;
+  inProgress: number;
+  completed: number;
+  waived: number;
+  total: number;
+};
+
+export type CompensatorySummaryObligationsItem = {
+  id?: number;
+  /** @nullable */
+  serviceRequirementId?: number | null;
+  /** @nullable */
+  serviceTypeName?: string | null;
+  periodStart?: string;
+  periodEnd?: string;
+  minutesOwed?: number;
+  minutesDelivered?: number;
+  minutesRemaining?: number;
+  status?: string;
+};
+
+export interface CompensatorySummary {
+  studentId: number;
+  totalOwed: number;
+  totalDelivered: number;
+  totalRemaining: number;
+  counts: CompensatorySummaryCounts;
+  obligations: CompensatorySummaryObligationsItem[];
+}
+
+export interface CalculateShortfallsBody {
+  periodStart: string;
+  periodEnd: string;
+  /** @nullable */
+  schoolId?: number | null;
+}
+
+export interface ServiceShortfall {
+  serviceRequirementId: number;
+  studentId: number;
+  /** @nullable */
+  studentName?: string | null;
+  /** @nullable */
+  serviceTypeName?: string | null;
+  requiredMinutes: number;
+  deliveredMinutes: number;
+  deficitMinutes: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface GenerateFromShortfallsBody {
+  shortfalls: ServiceShortfall[];
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -1683,4 +1830,19 @@ export type GetResourceBudgetParams = {
 export type GetRebalancingSuggestionsParams = {
   schoolId?: number;
   districtId?: number;
+};
+
+export type ListCompensatoryObligationsParams = {
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+  /**
+   * @nullable
+   */
+  status?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
 };

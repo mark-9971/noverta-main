@@ -2030,3 +2030,234 @@ export const UpdateStaffRatesResponse = zod.object({
   annualSalary: zod.string().nullish(),
   createdAt: zod.string(),
 });
+
+/**
+ * @summary List compensatory obligations
+ */
+export const ListCompensatoryObligationsQueryParams = zod.object({
+  studentId: zod.coerce.number().nullish(),
+  status: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const ListCompensatoryObligationsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  serviceRequirementId: zod.number().nullish(),
+  serviceTypeName: zod.string().nullish(),
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+  minutesOwed: zod.number(),
+  minutesDelivered: zod.number(),
+  minutesRemaining: zod.number(),
+  status: zod.string(),
+  notes: zod.string().nullish(),
+  agreedDate: zod.string().nullish(),
+  agreedWith: zod.string().nullish(),
+  source: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListCompensatoryObligationsResponse = zod.array(
+  ListCompensatoryObligationsResponseItem,
+);
+
+/**
+ * @summary Create a compensatory obligation
+ */
+export const CreateCompensatoryObligationBody = zod.object({
+  studentId: zod.number(),
+  serviceRequirementId: zod.number().nullish(),
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+  minutesOwed: zod.number(),
+  notes: zod.string().nullish(),
+  agreedDate: zod.string().nullish(),
+  agreedWith: zod.string().nullish(),
+  source: zod.string().optional(),
+});
+
+/**
+ * @summary Get obligation detail with comp sessions
+ */
+export const GetCompensatoryObligationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCompensatoryObligationResponse = zod
+  .object({
+    id: zod.number(),
+    studentId: zod.number(),
+    studentName: zod.string().nullish(),
+    serviceRequirementId: zod.number().nullish(),
+    serviceTypeName: zod.string().nullish(),
+    periodStart: zod.string(),
+    periodEnd: zod.string(),
+    minutesOwed: zod.number(),
+    minutesDelivered: zod.number(),
+    minutesRemaining: zod.number(),
+    status: zod.string(),
+    notes: zod.string().nullish(),
+    agreedDate: zod.string().nullish(),
+    agreedWith: zod.string().nullish(),
+    source: zod.string(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .and(
+    zod.object({
+      sessions: zod
+        .array(
+          zod.object({
+            id: zod.number().optional(),
+            sessionDate: zod.string().optional(),
+            durationMinutes: zod.number().optional(),
+            startTime: zod.string().nullish(),
+            endTime: zod.string().nullish(),
+            status: zod.string().optional(),
+            notes: zod.string().nullish(),
+            staffName: zod.string().nullish(),
+            serviceTypeName: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+    }),
+  );
+
+/**
+ * @summary Update an obligation
+ */
+export const UpdateCompensatoryObligationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCompensatoryObligationBody = zod.object({
+  minutesOwed: zod.number().optional(),
+  status: zod.string().optional(),
+  notes: zod.string().nullish(),
+  agreedDate: zod.string().nullish(),
+  agreedWith: zod.string().nullish(),
+});
+
+export const UpdateCompensatoryObligationResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  serviceRequirementId: zod.number().nullish(),
+  serviceTypeName: zod.string().nullish(),
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+  minutesOwed: zod.number(),
+  minutesDelivered: zod.number(),
+  minutesRemaining: zod.number(),
+  status: zod.string(),
+  notes: zod.string().nullish(),
+  agreedDate: zod.string().nullish(),
+  agreedWith: zod.string().nullish(),
+  source: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete an obligation
+ */
+export const DeleteCompensatoryObligationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Log a comp session against an obligation
+ */
+export const LogCompensatorySessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const LogCompensatorySessionBody = zod.object({
+  sessionDate: zod.string(),
+  durationMinutes: zod.number(),
+  staffId: zod.number().nullish(),
+  serviceTypeId: zod.number().nullish(),
+  startTime: zod.string().nullish(),
+  endTime: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  location: zod.string().nullish(),
+});
+
+/**
+ * @summary Get comp time summary for a student
+ */
+export const GetCompensatorySummaryByStudentParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetCompensatorySummaryByStudentResponse = zod.object({
+  studentId: zod.number(),
+  totalOwed: zod.number(),
+  totalDelivered: zod.number(),
+  totalRemaining: zod.number(),
+  counts: zod.object({
+    pending: zod.number(),
+    inProgress: zod.number(),
+    completed: zod.number(),
+    waived: zod.number(),
+    total: zod.number(),
+  }),
+  obligations: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      serviceRequirementId: zod.number().nullish(),
+      serviceTypeName: zod.string().nullish(),
+      periodStart: zod.string().optional(),
+      periodEnd: zod.string().optional(),
+      minutesOwed: zod.number().optional(),
+      minutesDelivered: zod.number().optional(),
+      minutesRemaining: zod.number().optional(),
+      status: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Calculate service shortfalls for a period
+ */
+export const CalculateShortfallsBody = zod.object({
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+  schoolId: zod.number().nullish(),
+});
+
+export const CalculateShortfallsResponseItem = zod.object({
+  serviceRequirementId: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  serviceTypeName: zod.string().nullish(),
+  requiredMinutes: zod.number(),
+  deliveredMinutes: zod.number(),
+  deficitMinutes: zod.number(),
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+});
+export const CalculateShortfallsResponse = zod.array(
+  CalculateShortfallsResponseItem,
+);
+
+/**
+ * @summary Generate obligations from shortfalls
+ */
+export const GenerateFromShortfallsBody = zod.object({
+  shortfalls: zod.array(
+    zod.object({
+      serviceRequirementId: zod.number(),
+      studentId: zod.number(),
+      studentName: zod.string().nullish(),
+      serviceTypeName: zod.string().nullish(),
+      requiredMinutes: zod.number(),
+      deliveredMinutes: zod.number(),
+      deficitMinutes: zod.number(),
+      periodStart: zod.string(),
+      periodEnd: zod.string(),
+    }),
+  ),
+});
