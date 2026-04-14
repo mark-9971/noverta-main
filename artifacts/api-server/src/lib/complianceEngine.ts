@@ -138,20 +138,115 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
   return { newAlerts, resolvedAlerts };
 }
 
+function getPreviousInterval(intervalType: string): { start: string; end: string } {
+  const now = new Date();
+  if (intervalType === "monthly") {
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    return {
+      start: prevStart.toISOString().substring(0, 10),
+      end: prevEnd.toISOString().substring(0, 10),
+    };
+  }
+  if (intervalType === "weekly") {
+    const dayOfWeek = now.getDay();
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    thisMonday.setHours(0, 0, 0, 0);
+    const prevMonday = new Date(thisMonday);
+    prevMonday.setDate(thisMonday.getDate() - 7);
+    const prevSunday = new Date(prevMonday);
+    prevSunday.setDate(prevMonday.getDate() + 6);
+    return {
+      start: prevMonday.toISOString().substring(0, 10),
+      end: prevSunday.toISOString().substring(0, 10),
+    };
+  }
+  if (intervalType === "quarterly") {
+    const quarter = Math.floor(now.getMonth() / 3);
+    const prevQuarter = quarter === 0 ? 3 : quarter - 1;
+    const prevYear = quarter === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const prevStart = new Date(prevYear, prevQuarter * 3, 1);
+    const prevEnd = new Date(prevYear, prevQuarter * 3 + 3, 0);
+    return {
+      start: prevStart.toISOString().substring(0, 10),
+      end: prevEnd.toISOString().substring(0, 10),
+    };
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const ys = yesterday.toISOString().substring(0, 10);
+  return { start: ys, end: ys };
+}
+
 async function generateCompensatoryObligations(
   allProgress: Awaited<ReturnType<typeof computeAllActiveMinuteProgress>>
 ): Promise<number> {
-  const now = new Date();
-  const endedWithShortfall = allProgress.filter(p => {
-    const intervalEnd = new Date(p.intervalEnd);
-    return intervalEnd < now && p.deliveredMinutes < p.requiredMinutes;
-  });
+  if (allProgress.length === 0) return 0;
 
-  if (endedWithShortfall.length === 0) return 0;
+  const reqsByInterval = new Map<string, typeof allProgress>();
+  for (const p of allProgress) {
+    const prev = getPreviousInterval(p.intervalType);
+    const key = `${p.studentId}|${p.serviceRequirementId}|${prev.start}|${prev.end}`;
+    if (!reqsByInterval.has(key)) reqsByInterval.set(key, []);
+    reqsByInterval.get(key)!.push(p);
+  }
+
+  const uniqueReqs = new Map<number, (typeof allProgress)[0]>();
+  for (const p of allProgress) {
+    if (!uniqueReqs.has(p.serviceRequirementId)) {
+      uniqueReqs.set(p.serviceRequirementId, p);
+    }
+  }
+
+  const prevIntervalsByType = new Map<string, { start: string; end: string }>();
+  for (const p of allProgress) {
+    if (!prevIntervalsByType.has(p.intervalType)) {
+      prevIntervalsByType.set(p.intervalType, getPreviousInterval(p.intervalType));
+    }
+  }
+
+  const reqIds = [...uniqueReqs.keys()];
+  if (reqIds.length === 0) return 0;
+
+  const prevSessions = new Map<string, number>();
+  for (const [intervalType, prev] of prevIntervalsByType.entries()) {
+    const typeReqIds = [...uniqueReqs.entries()]
+      .filter(([_, p]) => p.intervalType === intervalType)
+      .map(([id]) => id);
+
+    if (typeReqIds.length === 0) continue;
+
+    const sessions = await db
+      .select({
+        serviceRequirementId: sessionLogsTable.serviceRequirementId,
+        durationMinutes: sessionLogsTable.durationMinutes,
+        status: sessionLogsTable.status,
+      })
+      .from(sessionLogsTable)
+      .where(
+        and(
+          sql`${sessionLogsTable.serviceRequirementId} IN (${sql.join(typeReqIds.map(id => sql`${id}`), sql`, `)})`,
+          sql`${sessionLogsTable.sessionDate} >= ${prev.start}`,
+          sql`${sessionLogsTable.sessionDate} <= ${prev.end}`
+        )
+      );
+
+    for (const s of sessions) {
+      if (s.status === "completed" || s.status === "makeup") {
+        const key = `${s.serviceRequirementId}|${prev.start}|${prev.end}`;
+        const cur = prevSessions.get(key) || 0;
+        prevSessions.set(key, cur + s.durationMinutes);
+      }
+    }
+  }
 
   let generated = 0;
-  for (const p of endedWithShortfall) {
-    const shortfall = p.requiredMinutes - p.deliveredMinutes;
+  for (const [reqId, p] of uniqueReqs.entries()) {
+    const prev = prevIntervalsByType.get(p.intervalType)!;
+    const key = `${reqId}|${prev.start}|${prev.end}`;
+    const delivered = prevSessions.get(key) || 0;
+    const shortfall = p.requiredMinutes - delivered;
     if (shortfall <= 0) continue;
 
     const existing = await db
@@ -160,9 +255,9 @@ async function generateCompensatoryObligations(
       .where(
         and(
           eq(compensatoryObligationsTable.studentId, p.studentId),
-          eq(compensatoryObligationsTable.serviceRequirementId, p.serviceRequirementId),
-          sql`${compensatoryObligationsTable.periodStart} = ${p.intervalStart}`,
-          sql`${compensatoryObligationsTable.periodEnd} = ${p.intervalEnd}`
+          eq(compensatoryObligationsTable.serviceRequirementId, reqId),
+          sql`${compensatoryObligationsTable.periodStart} = ${prev.start}`,
+          sql`${compensatoryObligationsTable.periodEnd} = ${prev.end}`
         )
       )
       .limit(1);
@@ -171,20 +266,20 @@ async function generateCompensatoryObligations(
 
     await db.insert(compensatoryObligationsTable).values({
       studentId: p.studentId,
-      serviceRequirementId: p.serviceRequirementId,
-      periodStart: p.intervalStart,
-      periodEnd: p.intervalEnd,
+      serviceRequirementId: reqId,
+      periodStart: prev.start,
+      periodEnd: prev.end,
       minutesOwed: shortfall,
       minutesDelivered: 0,
       status: "pending",
       source: "auto_compliance",
-      notes: `Auto-generated: ${p.studentName} - ${p.serviceTypeName}, shortfall of ${shortfall} minutes for interval ${p.intervalStart} to ${p.intervalEnd}.`,
+      notes: `Auto-generated: ${p.studentName} - ${p.serviceTypeName}, shortfall of ${shortfall} minutes for ${prev.start} to ${prev.end}.`,
     });
     generated++;
   }
 
   if (generated > 0) {
-    logger.info({ generated }, "Auto-generated compensatory obligations from interval shortfalls");
+    logger.info({ generated }, "Auto-generated compensatory obligations from previous interval shortfalls");
   }
   return generated;
 }

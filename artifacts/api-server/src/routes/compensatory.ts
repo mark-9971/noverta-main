@@ -145,7 +145,7 @@ router.post("/compensatory-obligations", async (req, res): Promise<void> => {
     source: source || "manual",
   }).returning();
 
-  res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  res.status(201).json({ ...row, minutesRemaining: Math.max(0, row.minutesOwed - row.minutesDelivered), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
 });
 
 router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> => {
@@ -175,7 +175,7 @@ router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> =>
     .returning();
 
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  res.json({ ...row, minutesRemaining: Math.max(0, row.minutesOwed - row.minutesDelivered), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
 });
 
 router.delete("/compensatory-obligations/:id", async (req, res): Promise<void> => {
@@ -378,7 +378,26 @@ router.post("/compensatory-obligations/generate-from-shortfalls", async (req, re
   }
 
   const created: any[] = [];
+  const skipped: number[] = [];
   for (const sf of shortfalls) {
+    const existing = await db
+      .select({ id: compensatoryObligationsTable.id })
+      .from(compensatoryObligationsTable)
+      .where(
+        and(
+          eq(compensatoryObligationsTable.studentId, sf.studentId),
+          eq(compensatoryObligationsTable.serviceRequirementId, sf.serviceRequirementId),
+          sql`${compensatoryObligationsTable.periodStart} = ${sf.periodStart}`,
+          sql`${compensatoryObligationsTable.periodEnd} = ${sf.periodEnd}`
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      skipped.push(sf.serviceRequirementId);
+      continue;
+    }
+
     const [row] = await db.insert(compensatoryObligationsTable).values({
       studentId: sf.studentId,
       serviceRequirementId: sf.serviceRequirementId || null,
@@ -390,10 +409,10 @@ router.post("/compensatory-obligations/generate-from-shortfalls", async (req, re
       source: "auto_calculated",
       notes: `Auto-generated from ${sf.serviceTypeName || "service"} shortfall: ${sf.deficitMinutes} min deficit (${sf.deliveredMinutes}/${sf.requiredMinutes} delivered).`,
     }).returning();
-    created.push({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+    created.push({ ...row, minutesRemaining: row.minutesOwed, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   }
 
-  res.status(201).json(created);
+  res.status(201).json({ created, skippedDuplicates: skipped.length });
 });
 
 export default router;
