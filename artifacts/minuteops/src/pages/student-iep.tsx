@@ -54,7 +54,7 @@ interface ProgressReport {
 }
 interface IepDocument {
   id: number; studentId: number; iepStartDate: string; iepEndDate: string;
-  meetingDate: string | null; status: string;
+  meetingDate: string | null; status: string; iepType?: string | null; version?: string | null;
   studentConcerns: string | null; parentConcerns: string | null; teamVision: string | null;
   plaafpAcademic: string | null; plaafpBehavioral: string | null;
   plaafpCommunication: string | null; plaafpAdditional: string | null;
@@ -114,6 +114,52 @@ const TREND_ICONS: Record<string, { icon: any; color: string; label: string }> =
   stable: { icon: MinusIcon, color: "text-gray-400", label: "Stable" },
 };
 
+const MEETING_TYPES = [
+  { value: "annual", label: "Annual IEP Review" },
+  { value: "initial", label: "Initial Eligibility" },
+  { value: "reevaluation", label: "Reevaluation" },
+  { value: "amendment", label: "IEP Amendment" },
+  { value: "transition", label: "Transition Planning" },
+  { value: "manifestation", label: "Manifestation Determination" },
+  { value: "eligibility", label: "Eligibility Meeting" },
+  { value: "other", label: "Other Meeting" },
+];
+
+const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+  scheduled: { bg: "bg-gray-100", color: "text-gray-700", label: "Scheduled" },
+  completed: { bg: "bg-emerald-100", color: "text-emerald-700", label: "Completed" },
+  cancelled: { bg: "bg-gray-100", color: "text-gray-400", label: "Cancelled" },
+};
+
+const MEETING_FORMATS = [
+  { value: "in-person", label: "In Person", icon: MapPin },
+  { value: "virtual", label: "Virtual", icon: Video },
+  { value: "hybrid", label: "Hybrid", icon: Users },
+];
+
+const SUGGESTED_ATTENDEE_ROLES = [
+  "Parent / Guardian", "Student", "Special Education Teacher",
+  "General Education Teacher", "School Psychologist",
+  "Speech-Language Pathologist", "Occupational Therapist",
+  "Physical Therapist", "ABA Therapist / BCBA",
+  "School Administrator / LEA Rep", "Social Worker",
+  "Paraprofessional", "Interpreter", "Outside Agency Rep",
+];
+
+const ACCOMMODATION_CATEGORIES = [
+  { value: "instruction", label: "Instruction" },
+  { value: "assessment", label: "Assessment" },
+  { value: "environment", label: "Environment" },
+  { value: "materials", label: "Materials" },
+  { value: "behavioral", label: "Behavioral" },
+  { value: "communication", label: "Communication" },
+  { value: "other", label: "Other" },
+];
+
+function genId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
 export default function StudentIepPage() {
   const params = useParams<{ id: string }>();
   const studentId = Number(params.id);
@@ -145,7 +191,7 @@ export default function StudentIepPage() {
         apiGet(`/api/students/${studentId}/accommodations`),
         apiGet(`/api/students/${studentId}/team-meetings`),
       ]);
-      setStudent(s);
+      setStudent(s as Student | null);
       setGoals(Array.isArray(g) ? g : []);
       setReports(Array.isArray(r) ? r : []);
       setProgramTargets(Array.isArray(pt) ? pt : []);
@@ -690,7 +736,7 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
   async function generate() {
     setGenerating(true);
     const report = await apiPost(`/api/students/${studentId}/progress-reports/generate`, { periodStart, periodEnd, reportingPeriod });
-    onGenerated(report);
+    onGenerated(report as ProgressReport);
     setGenerating(false);
   }
 
@@ -1105,15 +1151,6 @@ const PLAAFP_SECTIONS = [
   { key: "plaafpAdditional", label: "D. Additional (Health, Physical, Daily Living)" },
 ] as const;
 
-const ACCOMMODATION_CATEGORIES = [
-  { value: "instruction", label: "Instructional" },
-  { value: "assessment", label: "Assessment" },
-  { value: "testing", label: "State Testing" },
-  { value: "environmental", label: "Environmental" },
-  { value: "behavioral", label: "Behavioral" },
-  { value: "other", label: "Other" },
-];
-
 function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId: number; onAmended: () => void }) {
   const [showDialog, setShowDialog] = useState(false);
   const [reason, setReason] = useState("");
@@ -1457,6 +1494,124 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
       await apiDelete(`/api/accommodations/${id}`);
       onSaved();
     } catch { toast.error("Failed to remove accommodation"); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">Accommodations & Modifications</h3>
+        <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="w-3 h-3 mr-1" /> Add Accommodation
+        </Button>
+      </div>
+
+      {accommodations.length === 0 && !showAdd && (
+        <div className="text-center py-10 border border-dashed border-gray-200 rounded-lg">
+          <p className="text-sm text-gray-400">No accommodations recorded.</p>
+          <Button size="sm" variant="outline" className="mt-3 text-[12px]" onClick={() => setShowAdd(true)}>
+            <Plus className="w-3 h-3 mr-1" /> Add First Accommodation
+          </Button>
+        </div>
+      )}
+
+      {ACCOMMODATION_CATEGORIES.map(cat => {
+        const items = accommodations.filter(a => a.category === cat.value && a.active);
+        if (items.length === 0) return null;
+        return (
+          <div key={cat.value} className="space-y-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{cat.label}</p>
+            {items.map(acc => (
+              <div key={acc.id} className="flex items-start gap-3 bg-white border border-gray-200 rounded-lg p-3 group">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-gray-800">{acc.description}</p>
+                  <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-gray-400">
+                    {acc.setting && <span>Setting: {acc.setting}</span>}
+                    {acc.frequency && <span>Frequency: {acc.frequency}</span>}
+                    {acc.provider && <span>Provider: {acc.provider}</span>}
+                  </div>
+                </div>
+                <button onClick={() => removeAccommodation(acc.id)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 flex-shrink-0 mt-0.5">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      {showAdd && (
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+          <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider">New Accommodation</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                {ACCOMMODATION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Setting (optional)</label>
+              <input value={setting} onChange={e => setSetting(e.target.value)}
+                placeholder="e.g. All settings, Testing only"
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium">Description *</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+              placeholder="Describe the accommodation or modification…"
+              className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Frequency (optional)</label>
+              <input value={frequency} onChange={e => setFrequency(e.target.value)}
+                placeholder="e.g. Daily, As needed"
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Provider (optional)</label>
+              <input value={provider} onChange={e => setProvider(e.target.value)}
+                placeholder="e.g. Special Ed Teacher"
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
+              onClick={addAccommodation} disabled={saving || !description.trim()}>
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+              Save
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MeetingCard({ meeting, onSaved, onDelete }: {
+  meeting: TeamMeeting; onSaved: () => void; onDelete: () => void;
+}) {
+  const [m, setM] = useState<TeamMeeting>(meeting);
+  const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<"agenda" | "attendees" | "notes" | "actions" | "outcome">("agenda");
+  const [saving, setSaving] = useState(false);
+  const [newAgenda, setNewAgenda] = useState("");
+  const [newAttendee, setNewAttendee] = useState({ name: "", role: "" });
+  const [showAttendeeSuggestions, setShowAttendeeSuggestions] = useState(false);
+  const [newAction, setNewAction] = useState({ description: "", assignee: "", dueDate: "" });
+
+  async function patch(updates: Partial<TeamMeeting>) {
+    setSaving(true);
+    try {
+      const updated = await apiPatch(`/api/team-meetings/${m.id}`, updates);
+      setM(prev => ({ ...prev, ...(updated as Partial<TeamMeeting>) }));
+      onSaved();
+    } catch { toast.error("Failed to save changes"); }
+    setSaving(false);
   }
 
   function togglePresent(idx: number) {
@@ -1877,6 +2032,150 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
   }
 
   return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">Team Meetings</h3>
+        <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="w-3 h-3 mr-1" /> Schedule Meeting
+        </Button>
+      </div>
+
+      {openActions.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p className="text-[11px] font-semibold text-amber-700 mb-2 uppercase tracking-wider">Open Action Items ({openActions.length})</p>
+          <div className="space-y-1">
+            {openActions.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 text-[12px] text-amber-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                <span>{a.description}{a.assignee ? ` — ${a.assignee}` : ""}{a.dueDate ? ` (due ${formatDate(a.dueDate)})` : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+          <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wider">Schedule New Meeting</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Meeting Type</label>
+              <select value={form.meetingType} onChange={e => setForm(p => ({ ...p, meetingType: e.target.value }))}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Format</label>
+              <select value={form.meetingFormat} onChange={e => setForm(p => ({ ...p, meetingFormat: e.target.value }))}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
+                {MEETING_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Date *</label>
+              <input type="date" value={form.scheduledDate} onChange={e => setForm(p => ({ ...p, scheduledDate: e.target.value }))}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Time</label>
+              <input type="time" value={form.scheduledTime} onChange={e => setForm(p => ({ ...p, scheduledTime: e.target.value }))}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Duration (min)</label>
+              <input type="number" min="15" max="480" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))}
+                placeholder="60"
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Location</label>
+              <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+                placeholder="e.g. Room 204, Zoom"
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium">Notice Sent Date</label>
+              <input type="date" value={form.noticeSentDate} onChange={e => setForm(p => ({ ...p, noticeSentDate: e.target.value }))}
+                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
+              onClick={addMeeting} disabled={saving || !form.scheduledDate}>
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CalendarDays className="w-3 h-3 mr-1" />}
+              Schedule
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {sorted.length === 0 && !showAdd && (
+        <div className="text-center py-10 border border-dashed border-gray-200 rounded-lg">
+          <p className="text-sm text-gray-400">No meetings scheduled.</p>
+          <Button size="sm" variant="outline" className="mt-3 text-[12px]" onClick={() => setShowAdd(true)}>
+            <Plus className="w-3 h-3 mr-1" /> Schedule First Meeting
+          </Button>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {sorted.map(m => (
+          <MeetingCard
+            key={m.id}
+            meeting={m}
+            onSaved={onSaved}
+            onDelete={() => deleteMeeting(m.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
+  studentId: number; existingGoals: IepGoal[]; onClose: () => void; onGoalAdded: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [domainFilter, setDomainFilter] = useState("");
+  const [allGoals, setAllGoals] = useState<GoalBankEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiGet("/api/goal-bank").then(d => {
+      setAllGoals(Array.isArray(d) ? d : []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const domains = [...new Set(allGoals.map(g => g.domain))].sort();
+  const existingGoalTexts = new Set(existingGoals.map(g => g.annualGoal));
+  const goals = allGoals.filter(g => {
+    if (domainFilter && g.domain !== domainFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return g.goalText.toLowerCase().includes(q) || g.domain.toLowerCase().includes(q) || g.goalArea.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  async function addGoalToStudent(g: GoalBankEntry) {
+    setAdding(g.id);
+    try {
+      await apiPost(`/api/students/${studentId}/iep-goals`, {
+        goalArea: g.goalArea,
+        annualGoal: g.goalText,
+        benchmarks: g.benchmarkText || null,
+        status: "active",
+      });
+      onGoalAdded();
+      toast.success("Goal added from goal bank");
+    } catch { toast.error("Failed to add goal"); }
+    setAdding(null);
+  }
+
+  return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-10 md:pt-20 px-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -1906,13 +2205,14 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
             <p className="text-center text-sm text-gray-400 py-8">No matching goals found</p>
           )}
           {goals.map(g => (
-            <div key={g.id} className="border border-gray-200 rounded-lg p-3 hover:border-emerald-200 transition-colors">
+            <div key={g.id} className={`border rounded-lg p-3 transition-colors ${existingGoalTexts.has(g.goalText) ? "border-emerald-200 bg-emerald-50/40" : "border-gray-200 hover:border-emerald-200"}`}>
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium">{g.domain}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{g.goalArea}</span>
                     {g.gradeRange && <span className="text-[10px] text-gray-400">Grades {g.gradeRange}</span>}
+                    {existingGoalTexts.has(g.goalText) && <span className="text-[10px] text-emerald-600 font-medium">Already added</span>}
                   </div>
                   <p className="text-[12px] text-gray-700 leading-relaxed">{g.goalText}</p>
                   {g.benchmarkText && (
@@ -1923,7 +2223,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
                   )}
                 </div>
                 <Button size="sm" variant="outline" className="text-[11px] h-7 px-2 flex-shrink-0"
-                  disabled={adding === g.id} onClick={() => addGoalToStudent(g)}>
+                  disabled={adding === g.id || existingGoalTexts.has(g.goalText)} onClick={() => addGoalToStudent(g)}>
                   {adding === g.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3 mr-0.5" />}
                   Add
                 </Button>
@@ -1940,7 +2240,7 @@ function IepCompletenessIndicator({ studentId, docId }: { studentId: number; doc
   const [data, setData] = useState<CompletenessData | null>(null);
 
   useEffect(() => {
-    apiGet(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d))
+    apiGet(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d as CompletenessData))
       .catch(() => {});
   }, [studentId, docId]);
 
