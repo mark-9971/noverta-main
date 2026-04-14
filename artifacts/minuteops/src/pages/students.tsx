@@ -36,6 +36,9 @@ export default function Students() {
   const schoolsList = (Array.isArray(schoolsData) ? schoolsData : []) as any[];
 
   const isAdmin = role === "admin";
+  // hasSIS: set to true once a Student Information System integration is configured.
+  // When false, admins manually add students; when true, redirect to SIS sync flow.
+  const hasSIS = false;
 
   async function handleAddStudent() {
     if (!addForm.firstName || !addForm.lastName) { toast.error("First and last name are required"); return; }
@@ -116,7 +119,7 @@ export default function Students() {
             {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
           </p>
         </div>
-        {isAdmin && (
+        {isAdmin && !hasSIS && (
           <button
             onClick={() => { setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" }); setAddDialogOpen(true); }}
             className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex-shrink-0"
@@ -126,13 +129,23 @@ export default function Students() {
         )}
       </div>
 
-      {isAdmin && (
+      {isAdmin && !hasSIS && (
         <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[12px] text-gray-600">
           <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
           <div>
             <span className="font-medium text-gray-700">No SIS connected.</span> Student demographics are managed manually. Use the "Add Student" button above or{" "}
             <Link href="/import-data" className="text-emerald-700 hover:text-emerald-800 underline">import from CSV</Link>{" "}
             to add students in bulk.
+          </div>
+        </div>
+      )}
+      {isAdmin && hasSIS && (
+        <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[12px] text-gray-600">
+          <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <span className="font-medium text-gray-700">SIS connected.</span> Student records sync automatically. To add a student manually,{" "}
+            <Link href="/import-data" className="text-emerald-700 hover:text-emerald-800 underline">use the SIS or CSV import</Link>{" "}
+            to avoid duplicate records.
           </div>
         </div>
       )}

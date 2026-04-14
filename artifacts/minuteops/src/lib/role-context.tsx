@@ -110,7 +110,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const clerkStudentId = Number(clerkUser?.publicMetadata?.studentId) || 0;
   const clerkStaffId = Number(clerkUser?.publicMetadata?.staffId) || 0;
 
-  const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? "admin");
+  const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
   const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
   const teacherId = (isDevMode && devTeacherId) ? devTeacherId : clerkStaffId;
 
