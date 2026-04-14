@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { sessionLogsTable, serviceTypesTable, staffTable, studentsTable, missedReasonsTable, iepGoalsTable } from "@workspace/db";
+import {
+  sessionLogsTable, serviceTypesTable, staffTable, studentsTable,
+  missedReasonsTable, iepGoalsTable,
+  dataSessionsTable, programDataTable, behaviorDataTable,
+  programTargetsTable, behaviorTargetsTable,
+} from "@workspace/db";
 import {
   ListSessionsQueryParams,
   CreateSessionBody,
@@ -186,6 +191,61 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
       (svcName.includes("counseling") && sa.includes("social"));
   });
 
+  // Fetch clinical data sessions recorded for this student on the same date
+  const dataSessions = await db.select({
+    id: dataSessionsTable.id,
+    startTime: dataSessionsTable.startTime,
+    endTime: dataSessionsTable.endTime,
+    notes: dataSessionsTable.notes,
+    staffFirst: staffTable.firstName,
+    staffLast: staffTable.lastName,
+  }).from(dataSessionsTable)
+    .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
+    .where(and(
+      eq(dataSessionsTable.studentId, session.studentId),
+      eq(dataSessionsTable.sessionDate, session.sessionDate),
+    ));
+
+  const clinicalData: any[] = [];
+  for (const ds of dataSessions) {
+    const [progRows, behRows] = await Promise.all([
+      db.select({
+        id: programDataTable.id,
+        programTargetId: programDataTable.programTargetId,
+        trialsCorrect: programDataTable.trialsCorrect,
+        trialsTotal: programDataTable.trialsTotal,
+        percentCorrect: programDataTable.percentCorrect,
+        promptLevelUsed: programDataTable.promptLevelUsed,
+        targetName: programTargetsTable.name,
+        programType: programTargetsTable.programType,
+      }).from(programDataTable)
+        .leftJoin(programTargetsTable, eq(programDataTable.programTargetId, programTargetsTable.id))
+        .where(eq(programDataTable.dataSessionId, ds.id)),
+      db.select({
+        id: behaviorDataTable.id,
+        behaviorTargetId: behaviorDataTable.behaviorTargetId,
+        value: behaviorDataTable.value,
+        intervalCount: behaviorDataTable.intervalCount,
+        intervalsWith: behaviorDataTable.intervalsWith,
+        targetName: behaviorTargetsTable.name,
+        measurementType: behaviorTargetsTable.measurementType,
+        targetDirection: behaviorTargetsTable.targetDirection,
+      }).from(behaviorDataTable)
+        .leftJoin(behaviorTargetsTable, eq(behaviorDataTable.behaviorTargetId, behaviorTargetsTable.id))
+        .where(eq(behaviorDataTable.dataSessionId, ds.id)),
+    ]);
+
+    clinicalData.push({
+      dataSessionId: ds.id,
+      startTime: ds.startTime,
+      endTime: ds.endTime,
+      notes: ds.notes,
+      staffName: ds.staffFirst && ds.staffLast ? `${ds.staffFirst} ${ds.staffLast}` : null,
+      programData: progRows,
+      behaviorData: behRows,
+    });
+  }
+
   res.json({
     ...session,
     studentName: session.studentFirst ? `${session.studentFirst} ${session.studentLast}` : null,
@@ -193,6 +253,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     staffName: session.staffFirst ? `${session.staffFirst} ${session.staffLast}` : null,
     createdAt: session.createdAt.toISOString(),
     linkedGoals: goals,
+    clinicalData,
   });
 });
 
