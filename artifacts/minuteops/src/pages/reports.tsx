@@ -1,9 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useGetStudentMinuteSummaryReport, useGetMissedSessionsReport, useGetComplianceRiskReport,
   useGetExecutiveSummaryReport, useGetComplianceTrendReport, getAuditPackageReport,
-  type GetExecutiveSummaryReportParams, type GetComplianceTrendReportParams,
-  type GetAuditPackageReportParams,
+} from "@workspace/api-client-react";
+import type {
+  GetExecutiveSummaryReportParams, GetComplianceTrendReportParams,
+  GetAuditPackageReportParams, ComplianceTrendResponse, ExecutiveSummaryResponse,
+  AuditPackageResponse, SchoolTrend,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -216,7 +219,7 @@ function ExecutiveSummaryTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {sd.byService.map((s: any, i: number) => (
+                {sd.byService.map((s, i) => (
                   <tr key={i}>
                     <td className="px-4 py-2 text-[13px] text-gray-700 font-medium">{s.serviceTypeName}</td>
                     <td className="px-4 py-2 text-[13px] text-gray-600 text-right">{s.studentCount}</td>
@@ -251,21 +254,18 @@ function ComplianceTrendTab() {
   if (filterParams.schoolId) queryParams.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) queryParams.districtId = Number(filterParams.districtId);
 
-  const { data, isLoading: loading } = useGetComplianceTrendReport(queryParams, {
-    query: {
-      select: (d: any) => {
-        if (d?.schools && selectedSchools.size === 0) {
-          setTimeout(() => setSelectedSchools(new Set(d.schools.map((s: any) => s.schoolId))), 0);
-        }
-        return d;
-      }
+  const { data, isLoading: loading } = useGetComplianceTrendReport(queryParams);
+
+  useEffect(() => {
+    if (data?.schools && data.schools.length > 0 && selectedSchools.size === 0) {
+      setSelectedSchools(new Set(data.schools.map(s => s.schoolId)));
     }
-  });
+  }, [data?.schools]);
 
   const chartData = useMemo(() => {
     if (!data?.trend) return [];
-    return data.trend.map((t: any) => {
-      const point: any = {
+    return data.trend.map(t => {
+      const point: Record<string, string | number | null> = {
         period: t.period,
         label: formatPeriodLabel(t.period, granularity),
         overall: t.compliancePercent,
@@ -273,7 +273,7 @@ function ComplianceTrendTab() {
       if (data.schools) {
         for (const school of data.schools) {
           if (selectedSchools.has(school.schoolId)) {
-            const sp = school.trend.find((st: any) => st.period === t.period);
+            const sp = school.trend.find(st => st.period === t.period);
             point[`school_${school.schoolId}`] = sp?.compliancePercent ?? null;
           }
         }
@@ -284,10 +284,10 @@ function ComplianceTrendTab() {
 
   const semesterLines = useMemo(() => {
     if (!data?.semesterMarkers || !chartData.length) return [];
-    return (data.semesterMarkers as any[]).map((m: any) => {
-      const closest = chartData.reduce((best: any, pt: any) => {
-        const dist = Math.abs(new Date(pt.period).getTime() - new Date(m.date).getTime());
-        return dist < best.dist ? { label: pt.label, dist } : best;
+    return data.semesterMarkers.map(m => {
+      const closest = chartData.reduce((best, pt) => {
+        const dist = Math.abs(new Date(pt.period as string).getTime() - new Date(m.date).getTime());
+        return dist < best.dist ? { label: pt.label as string, dist } : best;
       }, { label: "", dist: Infinity });
       return { label: m.label, x: closest.label };
     }).filter(m => m.x);
@@ -308,7 +308,7 @@ function ComplianceTrendTab() {
     if (!data?.trend) return;
     downloadCsv("compliance_trend.csv",
       ["Period", "Compliance %", "Students Tracked", "Minutes Delivered"],
-      data.trend.map((t: any) => [t.period, String(t.compliancePercent), String(t.studentsTracked), String(t.totalDelivered)])
+      data.trend.map(t => [t.period, String(t.compliancePercent), String(t.studentsTracked), String(t.totalDelivered)])
     );
   }
 
@@ -343,7 +343,7 @@ function ComplianceTrendTab() {
       {data?.schools && data.schools.length > 1 && (
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs text-gray-400">Schools:</span>
-          {data.schools.map((s: any, i: number) => (
+          {data.schools.map((s, i) => (
             <button key={s.schoolId} onClick={() => toggleSchool(s.schoolId)}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selectedSchools.has(s.schoolId) ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200"}`}>
               <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: SCHOOL_COLORS[i % SCHOOL_COLORS.length] }} />
@@ -370,7 +370,7 @@ function ComplianceTrendTab() {
                   <ReferenceLine key={i} x={m.x} stroke="#d1d5db" strokeDasharray="4 4" label={{ value: m.label, position: "top", fontSize: 10, fill: "#9ca3af" }} />
                 ))}
                 <Line type="monotone" dataKey="overall" name="District Overall" stroke="#111827" strokeWidth={2.5} dot={{ r: 3 }} />
-                {data?.schools?.filter((s: any) => selectedSchools.has(s.schoolId)).map((s: any, i: number) => (
+                {data?.schools?.filter(s => selectedSchools.has(s.schoolId)).map((s, i) => (
                   <Line
                     key={s.schoolId}
                     type="monotone"
@@ -404,7 +404,7 @@ function ComplianceTrendTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data.trend.map((t: any) => (
+                {data.trend.map(t => (
                   <tr key={t.period}>
                     <td className="px-4 py-2 text-[13px] text-gray-700 font-medium">{formatPeriodLabel(t.period, granularity)}</td>
                     <td className="px-4 py-2 text-right">
@@ -427,7 +427,7 @@ function ComplianceTrendTab() {
 
 function AuditPackageTab() {
   const { filterParams } = useSchoolContext();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AuditPackageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 6);
@@ -442,7 +442,7 @@ function AuditPackageTab() {
     if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
     setLoading(true);
     getAuditPackageReport(params)
-      .then(setData)
+      .then(d => setData(d as AuditPackageResponse))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }
@@ -534,7 +534,7 @@ function AuditPackageTab() {
         <Card className="border-gray-200/60">
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
-              {data.students.map((student: any) => (
+              {data.students.map(student => (
                 <div key={student.studentId}>
                   <button
                     onClick={() => setExpandedStudent(expandedStudent === student.studentId ? null : student.studentId)}
@@ -542,7 +542,7 @@ function AuditPackageTab() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600">
-                        {student.studentName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                        {student.studentName.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <div>
                         <span className="text-sm font-medium text-gray-800">{student.studentName}</span>
@@ -563,7 +563,7 @@ function AuditPackageTab() {
                       <div>
                         <h4 className="text-[11px] font-semibold text-gray-400 uppercase mb-1.5">Service Requirements</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {student.serviceRequirements.map((r: any, i: number) => (
+                          {student.serviceRequirements.map((r, i) => (
                             <div key={i} className="bg-white rounded-lg border border-gray-100 p-2.5 text-xs">
                               <div className="font-medium text-gray-700">{r.serviceTypeName}</div>
                               <div className="text-gray-500 mt-0.5">{r.requiredMinutes} min/{r.intervalType} {r.provider && `· ${r.provider}`}</div>
@@ -591,7 +591,7 @@ function AuditPackageTab() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-50">
-                                {student.sessions.slice(-20).map((s: any, i: number) => (
+                                {student.sessions.slice(-20).map((s, i) => (
                                   <tr key={i}>
                                     <td className="px-2 py-1.5 text-gray-600">{s.date}</td>
                                     <td className="px-2 py-1.5 text-gray-600">{s.service}</td>
@@ -617,7 +617,7 @@ function AuditPackageTab() {
                             Parent Contacts ({student.parentContacts.length})
                           </h4>
                           <div className="space-y-1.5">
-                            {student.parentContacts.map((c: any, i: number) => (
+                            {student.parentContacts.map((c, i) => (
                               <div key={i} className="bg-white rounded-lg border border-gray-100 p-2.5 text-xs">
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-600 font-medium">{c.date}</span>
@@ -654,13 +654,13 @@ function AuditPackageTab() {
 }
 
 function MinuteSummaryTab() {
-  const { data: minuteSummary, isLoading: loadingMinutes, isError: errMinutes, refetch: refetchMinutes } = useGetStudentMinuteSummaryReport({} as any);
-  const minuteList = (minuteSummary as any[]) ?? [];
+  const { data: minuteSummary, isLoading: loadingMinutes, isError: errMinutes, refetch: refetchMinutes } = useGetStudentMinuteSummaryReport();
+  const minuteList = Array.isArray(minuteSummary) ? minuteSummary : [];
 
   function exportMinutes() {
     downloadCsv("minute_summary.csv",
       ["Student", "Service", "Delivered (min)", "Required (min)", "% Complete", "Status"],
-      minuteList.map((r: any) => [r.studentName, r.serviceTypeName, r.deliveredMinutes, r.requiredMinutes, Math.round(r.percentComplete ?? 0), r.riskStatus])
+      minuteList.map(r => [r.studentName, r.serviceTypeName, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0)), r.riskStatus])
     );
   }
 
@@ -687,7 +687,7 @@ function MinuteSummaryTab() {
           <tbody className="divide-y divide-gray-50">
             {loadingMinutes ? [...Array(10)].map((_, i) => (
               <tr key={i}>{[...Array(6)].map((_, j) => <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
-            )) : minuteList.slice(0, 200).map((row: any, i: number) => {
+            )) : minuteList.slice(0, 200).map((row, i) => {
               const cfg = RISK_CONFIG[row.riskStatus] ?? RISK_CONFIG.on_track;
               const pct = Math.min(100, row.percentComplete ?? 0);
               return (
@@ -723,13 +723,13 @@ function MinuteSummaryTab() {
 }
 
 function MissedSessionsTab() {
-  const { data: missedSessions, isLoading: loadingMissed, isError: errMissed, refetch: refetchMissed } = useGetMissedSessionsReport({} as any);
-  const missedList = (missedSessions as any[]) ?? [];
+  const { data: missedSessions, isLoading: loadingMissed, isError: errMissed, refetch: refetchMissed } = useGetMissedSessionsReport();
+  const missedList = Array.isArray(missedSessions) ? missedSessions : [];
 
   function exportMissed() {
     downloadCsv("missed_sessions.csv",
       ["Student", "Service", "Date", "Reason", "Staff"],
-      missedList.map((r: any) => [r.studentName, r.serviceTypeName, r.sessionDate, r.missedReason ?? "—", r.staffName ?? "—"])
+      missedList.map(r => [r.studentName ?? "", r.serviceTypeName ?? "", r.sessionDate ?? "", r.missedReason ?? "—", r.staffName ?? "—"])
     );
   }
 
@@ -756,7 +756,7 @@ function MissedSessionsTab() {
           <tbody className="divide-y divide-gray-50">
             {loadingMissed ? [...Array(10)].map((_, i) => (
               <tr key={i}>{[...Array(6)].map((_, j) => <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
-            )) : missedList.slice(0, 200).map((s: any, i: number) => (
+            )) : missedList.slice(0, 200).map((s, i) => (
               <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-5 py-3 text-[13px] text-gray-600 whitespace-nowrap">{formatDate(s.sessionDate)}</td>
                 <td className="px-5 py-3">
@@ -784,12 +784,12 @@ function MissedSessionsTab() {
 
 function RiskTab() {
   const { data: complianceRisk, isLoading: loadingRisk, isError: errRisk, refetch: refetchRisk } = useGetComplianceRiskReport();
-  const riskList = (complianceRisk as any[]) ?? [];
+  const riskList = Array.isArray(complianceRisk) ? complianceRisk : [];
 
   function exportRisk() {
     downloadCsv("at_risk_students.csv",
       ["Student", "Service", "Risk Status", "Delivered", "Required", "% Complete"],
-      riskList.map((r: any) => [r.studentName, r.serviceTypeName, r.riskStatus, r.deliveredMinutes, r.requiredMinutes, Math.round(r.percentComplete ?? 0)])
+      riskList.map(r => [r.studentName, r.serviceTypeName, r.riskStatus, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0))])
     );
   }
 
@@ -816,7 +816,7 @@ function RiskTab() {
           <tbody className="divide-y divide-gray-50">
             {loadingRisk ? [...Array(10)].map((_, i) => (
               <tr key={i}>{[...Array(6)].map((_, j) => <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
-            )) : riskList.slice(0, 200).map((r: any, i: number) => {
+            )) : riskList.slice(0, 200).map((r, i) => {
               const cfg = RISK_CONFIG[r.riskStatus] ?? RISK_CONFIG.on_track;
               const pct = Math.min(100, r.percentComplete ?? 0);
               return (
