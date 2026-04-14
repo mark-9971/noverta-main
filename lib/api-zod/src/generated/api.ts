@@ -1823,6 +1823,7 @@ export const GetAuditPackageReportResponse = zod.object({
           method: zod.string().nullish(),
           subject: zod.string().nullish(),
           outcome: zod.string().nullish(),
+          notes: zod.string().nullish(),
           parentName: zod.string().nullish(),
           contactedBy: zod.string().nullish(),
         }),

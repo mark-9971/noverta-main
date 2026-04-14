@@ -554,7 +554,7 @@ function AuditPackageTab() {
           </div>
         </div>
         {data?.students && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportAuditCsv}>
               <Download className="w-3.5 h-3.5" /> Summary CSV
             </Button>
@@ -563,6 +563,9 @@ function AuditPackageTab() {
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportParentContactsCsv}>
               <Download className="w-3.5 h-3.5" /> Parent Contacts CSV
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={() => window.print()}>
+              <Printer className="w-3.5 h-3.5" /> Print / PDF
             </Button>
           </div>
         )}
@@ -576,15 +579,26 @@ function AuditPackageTab() {
         </div>
       )}
 
+      {data && (
+        <div className="hidden print:block mb-6">
+          <h2 className="text-xl font-bold text-gray-900 text-center">SPED Audit Package</h2>
+          <p className="text-sm text-gray-500 text-center">
+            {data.dateRange.start} — {data.dateRange.end} | {data.students.length} students
+            {data.preparedBy ? ` | Prepared by ${data.preparedBy}` : ""}
+            {` | Generated ${new Date(data.generatedAt).toLocaleString()}`}
+          </p>
+        </div>
+      )}
+
       {data?.students && data.students.length > 0 ? (
         <Card className="border-gray-200/60">
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
               {data.students.map(student => (
-                <div key={student.studentId}>
+                <div key={student.studentId} className="print:break-inside-avoid">
                   <button
                     onClick={() => setExpandedStudent(expandedStudent === student.studentId ? null : student.studentId)}
-                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors text-left print:hidden"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600">
@@ -604,8 +618,13 @@ function AuditPackageTab() {
                       <span className={`transform transition-transform ${expandedStudent === student.studentId ? "rotate-180" : ""}`}>▼</span>
                     </div>
                   </button>
-                  {expandedStudent === student.studentId && (
-                    <div className="px-5 pb-4 bg-gray-50/50 space-y-3">
+                  <div className="hidden print:block px-5 py-2 border-b border-gray-200">
+                    <span className="text-sm font-semibold text-gray-800">{student.studentName}</span>
+                    <span className="text-xs text-gray-400 ml-2">Gr. {student.grade ?? "?"}</span>
+                    {student.school && <span className="text-xs text-gray-400 ml-2">{student.school}</span>}
+                    <span className="text-xs text-gray-500 ml-3">{student.sessionSummary.totalCompleted} completed, {student.sessionSummary.totalMissed} missed, {student.sessionSummary.deliveredMinutes.toLocaleString()} min</span>
+                  </div>
+                  <div className={`px-5 pb-4 bg-gray-50/50 space-y-3 ${expandedStudent === student.studentId ? "" : "hidden print:block"}`}>
                       <div>
                         <h4 className="text-[11px] font-semibold text-gray-400 uppercase mb-1.5">Service Requirements</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -677,8 +696,7 @@ function AuditPackageTab() {
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>

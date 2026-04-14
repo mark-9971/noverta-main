@@ -616,6 +616,7 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
           method: c.contactMethod,
           subject: c.subject,
           outcome: c.outcome,
+          notes: c.notes,
           parentName: c.parentName,
           contactedBy: c.contactedBy,
         })),

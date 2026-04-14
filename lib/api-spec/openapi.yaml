@@ -2466,6 +2466,8 @@ components:
           type: ["string", "null"]
         outcome:
           type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
         parentName:
           type: ["string", "null"]
         contactedBy:

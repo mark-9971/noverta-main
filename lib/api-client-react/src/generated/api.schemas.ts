@@ -636,6 +636,8 @@ export interface AuditParentContact {
   /** @nullable */
   outcome?: string | null;
   /** @nullable */
+  notes?: string | null;
+  /** @nullable */
   parentName?: string | null;
   /** @nullable */
   contactedBy?: string | null;
