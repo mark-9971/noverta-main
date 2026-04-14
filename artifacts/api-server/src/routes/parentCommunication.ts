@@ -282,6 +282,7 @@ router.get("/parent-contacts/notification-needed", async (req, res): Promise<voi
             studentId: parentContactsTable.studentId,
             relatedAlertId: parentContactsTable.relatedAlertId,
             contactDate: parentContactsTable.contactDate,
+            contactMethod: parentContactsTable.contactMethod,
           })
           .from(parentContactsTable)
           .where(
@@ -292,9 +293,10 @@ router.get("/parent-contacts/notification-needed", async (req, res): Promise<voi
           )
       : [];
 
-    const contactedAlertIds = new Set(recentContacts.filter(c => c.relatedAlertId).map(c => c.relatedAlertId));
+    const completedContacts = recentContacts.filter(c => c.contactMethod !== "pending");
+    const contactedAlertIds = new Set(completedContacts.filter(c => c.relatedAlertId).map(c => c.relatedAlertId));
     const contactedStudentDates = new Map<number, string>();
-    for (const c of recentContacts) {
+    for (const c of completedContacts) {
       if (c.studentId) {
         const existing = contactedStudentDates.get(c.studentId);
         if (!existing || c.contactDate > existing) {
