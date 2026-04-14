@@ -5635,6 +5635,15 @@ components:
         location:
           type: string
           nullable: true
+        blockLabel:
+          type: string
+          nullable: true
+        blockType:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
         studentName:
           type: string
           nullable: true
@@ -5737,10 +5746,19 @@ components:
           type: integer
         name:
           type: string
-        operationalDefinition:
+        description:
           type: string
           nullable: true
         measurementType:
+          type: string
+          nullable: true
+        targetDirection:
+          type: string
+          nullable: true
+        baselineValue:
+          type: string
+          nullable: true
+        goalValue:
           type: string
           nullable: true
       required: [id, name]

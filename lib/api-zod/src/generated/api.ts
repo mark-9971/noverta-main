@@ -3426,6 +3426,9 @@ export const GetParaMyDayResponse = zod.object({
       startTime: zod.string(),
       endTime: zod.string(),
       location: zod.string().nullish(),
+      blockLabel: zod.string().nullish(),
+      blockType: zod.string().nullish(),
+      notes: zod.string().nullish(),
       studentName: zod.string().nullish(),
       serviceTypeName: zod.string().nullish(),
     }),
@@ -3484,8 +3487,11 @@ export const GetParaStudentTargetsResponse = zod.object({
     zod.object({
       id: zod.number(),
       name: zod.string(),
-      operationalDefinition: zod.string().nullish(),
+      description: zod.string().nullish(),
       measurementType: zod.string().nullish(),
+      targetDirection: zod.string().nullish(),
+      baselineValue: zod.string().nullish(),
+      goalValue: zod.string().nullish(),
     }),
   ),
   bips: zod.array(

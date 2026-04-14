@@ -1922,6 +1922,9 @@ export interface ParaScheduleBlock {
   startTime: string;
   endTime: string;
   location?: string | null;
+  blockLabel?: string | null;
+  blockType?: string | null;
+  notes?: string | null;
   studentName?: string | null;
   serviceTypeName?: string | null;
 }
@@ -1979,8 +1982,11 @@ export interface ParaProgramTarget {
 export interface ParaBehaviorTarget {
   id: number;
   name: string;
-  operationalDefinition?: string | null;
+  description?: string | null;
   measurementType?: string | null;
+  targetDirection?: string | null;
+  baselineValue?: string | null;
+  goalValue?: string | null;
 }
 
 export interface ParaBipSummary {

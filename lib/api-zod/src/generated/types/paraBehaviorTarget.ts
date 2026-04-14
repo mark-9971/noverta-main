@@ -9,6 +9,9 @@
 export interface ParaBehaviorTarget {
   id: number;
   name: string;
-  operationalDefinition?: string | null;
+  description?: string | null;
   measurementType?: string | null;
+  targetDirection?: string | null;
+  baselineValue?: string | null;
+  goalValue?: string | null;
 }

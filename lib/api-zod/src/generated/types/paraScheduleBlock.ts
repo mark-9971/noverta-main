@@ -16,6 +16,9 @@ export interface ParaScheduleBlock {
   startTime: string;
   endTime: string;
   location?: string | null;
+  blockLabel?: string | null;
+  blockType?: string | null;
+  notes?: string | null;
   studentName?: string | null;
   serviceTypeName?: string | null;
 }
