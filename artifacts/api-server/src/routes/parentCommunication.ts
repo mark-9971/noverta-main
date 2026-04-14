@@ -68,6 +68,12 @@ router.get("/parent-contacts", async (req, res): Promise<void> => {
       );
     } else if (followUpStatus === "pending") {
       conditions.push(eq(parentContactsTable.followUpNeeded, "yes"));
+      conditions.push(
+        or(
+          isNull(parentContactsTable.outcome),
+          sql`${parentContactsTable.outcome} = ''`
+        )
+      );
     } else if (followUpStatus === "completed") {
       conditions.push(eq(parentContactsTable.followUpNeeded, "yes"));
       conditions.push(sql`${parentContactsTable.outcome} IS NOT NULL AND ${parentContactsTable.outcome} != ''`);
@@ -496,8 +502,8 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
-    const days = parseInt(req.body.days as string) || 30;
-    const expiresInHours = parseInt(req.body.expiresInHours as string) || 72;
+    const days = Math.max(1, Math.min(parseInt(req.body.days as string) || 30, 365));
+    const expiresInHours = Math.max(1, Math.min(parseInt(req.body.expiresInHours as string) || 72, 720));
 
     const summary = await generateProgressSummary(studentId, days);
     if (!summary) { res.status(404).json({ error: "Student not found" }); return; }
