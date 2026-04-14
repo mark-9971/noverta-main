@@ -559,6 +559,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
     setRunning(true);
     setSaved(false);
     setElapsed(0);
+    setEventTimestamps({});
     startTimeRef.current = new Date().toTimeString().slice(0, 5);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
   }
@@ -574,7 +575,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
     const endTime = now.toTimeString().slice(0, 5);
     const sessionDate = now.toISOString().split("T")[0];
 
-    const ioaSessId = isIoaSession ? (ioaSessionId ? parseInt(ioaSessionId) : Date.now()) : null;
+    const ioaSessId = isIoaSession ? (ioaSessionId ? parseInt(ioaSessionId) : Math.floor(Math.random() * 2000000000) + 1) : null;
     const behaviorData = behaviorTargets
       .filter(bt => isIoaSession || behaviorCounts[bt.id] > 0)
       .map(bt => ({
