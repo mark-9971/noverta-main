@@ -3,9 +3,9 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
-  BarChart3, BookOpen, UserCheck, Bell, Upload, Activity,
+  BarChart3, UserCheck, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
-  GraduationCap, FileText, Award, Inbox, Bookmark, Brain, Star, Clock, Sparkles,
+  Star, Clock, Sparkles,
   Timer, Clipboard, Sprout
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
@@ -41,13 +41,6 @@ const adminNav: NavSection[] = [
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
       { href: "/search", label: "IEP Search", icon: Search },
-    ],
-  },
-  {
-    label: "Academics",
-    items: [
-      { href: "/classes", label: "Classes", icon: BookOpen },
-      { href: "/gradebook", label: "Gradebook", icon: Award },
     ],
   },
   {
@@ -95,30 +88,6 @@ const spedTeacherNav: NavSection[] = [
   },
 ];
 
-const genEdTeacherNav: NavSection[] = [
-  {
-    items: [
-      { href: "/teacher", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      { href: "/teacher/classes", label: "My Classes", icon: BookOpen, primary: true },
-      { href: "/teacher/gradebook", label: "Gradebook", icon: Award, primary: true },
-      { href: "/teacher/assignments", label: "Assignments", icon: FileText, primary: true },
-    ],
-  },
-  {
-    label: "IEP Support",
-    items: [
-      { href: "/teacher/classroom", label: "My Classroom", icon: ClipboardList },
-    ],
-  },
-  {
-    label: "Students",
-    items: [
-      { href: "/teacher/roster", label: "Student Roster", icon: Users },
-      { href: "/teacher/submissions", label: "Submissions", icon: Inbox },
-    ],
-  },
-];
-
 const spedStudentNav: NavSection[] = [
   {
     items: [
@@ -126,17 +95,6 @@ const spedStudentNav: NavSection[] = [
       { href: "/sped-portal/goals", label: "My Goals", icon: Star, primary: true },
       { href: "/sped-portal/sessions", label: "My Sessions", icon: Clock, primary: true },
       { href: "/sped-portal/services", label: "My Services", icon: ClipboardList, primary: true },
-    ],
-  },
-];
-
-const genEdStudentNav: NavSection[] = [
-  {
-    items: [
-      { href: "/portal", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      { href: "/portal/classes", label: "My Classes", icon: BookOpen, primary: true },
-      { href: "/portal/assignments", label: "Assignments", icon: FileText, primary: true },
-      { href: "/portal/grades", label: "My Grades", icon: Award, primary: true },
     ],
   },
 ];
@@ -162,16 +120,6 @@ const roleConfig = {
     subtitle: "Built to support.",
     homeHref: "/",
   },
-  gen_ed_teacher: {
-    nav: genEdTeacherNav,
-    color: "bg-emerald-600",
-    textColor: "text-emerald-600",
-    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
-    iconActive: "text-emerald-600",
-    label: "Trellis",
-    subtitle: "Built to support.",
-    homeHref: "/teacher",
-  },
   sped_student: {
     nav: spedStudentNav,
     color: "bg-emerald-600",
@@ -181,16 +129,6 @@ const roleConfig = {
     label: "Trellis",
     subtitle: "Built to support.",
     homeHref: "/sped-portal",
-  },
-  gen_ed_student: {
-    nav: genEdStudentNav,
-    color: "bg-gray-600",
-    textColor: "text-gray-600",
-    bgActive: "bg-gray-100 text-gray-700 font-semibold",
-    iconActive: "text-gray-600",
-    label: "Trellis",
-    subtitle: "Built to support.",
-    homeHref: "/portal",
   },
 };
 

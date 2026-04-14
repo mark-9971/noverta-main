@@ -23,25 +23,6 @@ import StaffDetailPage from "@/pages/staff-detail";
 import IepSearchPage from "@/pages/iep-search";
 import ProtectiveMeasuresPage from "@/pages/protective-measures";
 import AnalyticsPage from "@/pages/analytics";
-import AdminClasses from "@/pages/admin-classes";
-import AdminGradebook from "@/pages/admin-gradebook";
-
-import StudentDashboard from "@/pages/student-portal/StudentDashboard";
-import StudentClasses from "@/pages/student-portal/StudentClasses";
-import StudentClassDetail from "@/pages/student-portal/StudentClassDetail";
-import StudentAssignments from "@/pages/student-portal/StudentAssignments";
-import StudentAssignmentDetail from "@/pages/student-portal/StudentAssignmentDetail";
-import StudentGrades from "@/pages/student-portal/StudentGrades";
-
-import TeacherDashboard from "@/pages/teacher-portal/TeacherDashboard";
-import TeacherClasses from "@/pages/teacher-portal/TeacherClasses";
-import TeacherClassDetail from "@/pages/teacher-portal/TeacherClassDetail";
-import TeacherGradebook from "@/pages/teacher-portal/TeacherGradebook";
-import TeacherAssignments from "@/pages/teacher-portal/TeacherAssignments";
-import TeacherGradeAssignment from "@/pages/teacher-portal/TeacherGradeAssignment";
-import TeacherSubmissions from "@/pages/teacher-portal/TeacherSubmissions";
-import TeacherRoster from "@/pages/teacher-portal/TeacherRoster";
-import TeacherClassroom from "@/pages/teacher-portal/TeacherClassroom";
 
 import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
 import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
@@ -80,41 +61,8 @@ function AdminRouter() {
       <Route path="/iep-suggestions" component={IepSuggestions} />
       <Route path="/protective-measures" component={ProtectiveMeasuresPage} />
       <Route path="/analytics" component={AnalyticsPage} />
-      <Route path="/classes" component={AdminClasses} />
-      <Route path="/gradebook" component={AdminGradebook} />
       <Route path="/district" component={DistrictOverview} />
       <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function GenEdTeacherRouter() {
-  return (
-    <Switch>
-      <Route path="/teacher" component={TeacherDashboard} />
-      <Route path="/teacher/classes/:id" component={TeacherClassDetail} />
-      <Route path="/teacher/classes" component={TeacherClasses} />
-      <Route path="/teacher/gradebook" component={TeacherGradebook} />
-      <Route path="/teacher/assignments/:id/grade" component={TeacherGradeAssignment} />
-      <Route path="/teacher/assignments" component={TeacherAssignments} />
-      <Route path="/teacher/submissions" component={TeacherSubmissions} />
-      <Route path="/teacher/roster" component={TeacherRoster} />
-      <Route path="/teacher/classroom" component={TeacherClassroom} />
-      <Route>{() => <Redirect to="/teacher" />}</Route>
-    </Switch>
-  );
-}
-
-function GenEdStudentRouter() {
-  return (
-    <Switch>
-      <Route path="/portal" component={StudentDashboard} />
-      <Route path="/portal/classes/:id" component={StudentClassDetail} />
-      <Route path="/portal/classes" component={StudentClasses} />
-      <Route path="/portal/assignments/:id" component={StudentAssignmentDetail} />
-      <Route path="/portal/assignments" component={StudentAssignments} />
-      <Route path="/portal/grades" component={StudentGrades} />
-      <Route>{() => <Redirect to="/portal" />}</Route>
     </Switch>
   );
 }
@@ -137,8 +85,6 @@ function AppRouter() {
   return (
     <AppLayout>
       {(role === "admin" || role === "sped_teacher") && <AdminRouter />}
-      {role === "gen_ed_teacher" && <GenEdTeacherRouter />}
-      {role === "gen_ed_student" && <GenEdStudentRouter />}
       {role === "sped_student" && <SpedStudentRouter />}
     </AppLayout>
   );

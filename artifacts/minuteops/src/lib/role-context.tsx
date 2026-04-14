@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 
-export type UserRole = "admin" | "sped_teacher" | "gen_ed_teacher" | "sped_student" | "gen_ed_student";
+export type UserRole = "admin" | "sped_teacher" | "sped_student";
 
 interface RoleUser {
   role: UserRole;
@@ -13,17 +13,13 @@ interface RoleUser {
 const DEMO_USERS: Record<UserRole, RoleUser> = {
   admin: { role: "admin", id: 0, name: "Theresa Jackson", subtitle: "Case Manager / Admin" },
   sped_teacher: { role: "sped_teacher", id: 0, name: "SPED Staff View", subtitle: "SPED Teacher" },
-  gen_ed_teacher: { role: "gen_ed_teacher", id: 0, name: "Select a teacher", subtitle: "Gen Ed Teacher" },
   sped_student: { role: "sped_student", id: 0, name: "Select a student", subtitle: "SPED Student" },
-  gen_ed_student: { role: "gen_ed_student", id: 0, name: "Select a student", subtitle: "Gen Ed Student" },
 };
 
 const ROLE_HOME: Record<UserRole, string> = {
   admin: "/",
   sped_teacher: "/",
-  gen_ed_teacher: "/teacher",
   sped_student: "/sped-portal",
-  gen_ed_student: "/portal",
 };
 
 interface RoleContextType {
@@ -49,17 +45,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
   const [role, setRoleState] = useState<UserRole>(() => {
     const saved = localStorage.getItem("trellis_role");
-    return (saved as UserRole) || "admin";
+    if (saved === "admin" || saved === "sped_teacher" || saved === "sped_student") return saved;
+    return "admin";
   });
-
-  const [genEdTeacherId, setGenEdTeacherIdState] = useState(() => lsGet("trellis_gen_ed_teacher_id"));
-  const [genEdTeacherName, setGenEdTeacherName] = useState(() => lsGetStr("trellis_gen_ed_teacher_name"));
 
   const [spedStudentId, setSpedStudentIdState] = useState(() => lsGet("trellis_sped_student_id"));
   const [spedStudentName, setSpedStudentName] = useState(() => lsGetStr("trellis_sped_student_name"));
-
-  const [genEdStudentId, setGenEdStudentIdState] = useState(() => lsGet("trellis_gen_ed_student_id"));
-  const [genEdStudentName, setGenEdStudentName] = useState(() => lsGetStr("trellis_gen_ed_student_name"));
 
   const setRole = (r: UserRole) => {
     setRoleState(r);
@@ -67,49 +58,29 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setLocation(ROLE_HOME[r]);
   };
 
-  const setTeacherId = (id: number, name?: string) => {
-    setGenEdTeacherIdState(id);
-    localStorage.setItem("trellis_gen_ed_teacher_id", String(id));
-    if (name) {
-      setGenEdTeacherName(name);
-      localStorage.setItem("trellis_gen_ed_teacher_name", name);
-    }
+  const setTeacherId = (_id: number, _name?: string) => {
   };
 
   const setStudentId = (id: number, name?: string) => {
-    if (role === "sped_student") {
-      setSpedStudentIdState(id);
-      localStorage.setItem("trellis_sped_student_id", String(id));
-      if (name) {
-        setSpedStudentName(name);
-        localStorage.setItem("trellis_sped_student_name", name);
-      }
-    } else {
-      setGenEdStudentIdState(id);
-      localStorage.setItem("trellis_gen_ed_student_id", String(id));
-      if (name) {
-        setGenEdStudentName(name);
-        localStorage.setItem("trellis_gen_ed_student_name", name);
-      }
+    setSpedStudentIdState(id);
+    localStorage.setItem("trellis_sped_student_id", String(id));
+    if (name) {
+      setSpedStudentName(name);
+      localStorage.setItem("trellis_sped_student_name", name);
     }
   };
 
-  const teacherId = genEdTeacherId;
-  const studentId = role === "sped_student" ? spedStudentId : genEdStudentId;
+  const teacherId = 0;
+  const studentId = spedStudentId;
 
   const resolvedName = (() => {
-    if (role === "gen_ed_teacher") return genEdTeacherId ? (genEdTeacherName || "Teacher") : DEMO_USERS.gen_ed_teacher.name;
     if (role === "sped_student") return spedStudentId ? (spedStudentName || "Student") : DEMO_USERS.sped_student.name;
-    if (role === "gen_ed_student") return genEdStudentId ? (genEdStudentName || "Student") : DEMO_USERS.gen_ed_student.name;
     return DEMO_USERS[role].name;
   })();
 
   const user: RoleUser = {
     ...DEMO_USERS[role],
-    id: role === "gen_ed_teacher" ? genEdTeacherId
-      : role === "sped_student" ? spedStudentId
-      : role === "gen_ed_student" ? genEdStudentId
-      : 0,
+    id: role === "sped_student" ? spedStudentId : 0,
     name: resolvedName,
   };
 
