@@ -4,12 +4,16 @@ import {
   scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
   iepGoalsTable, programTargetsTable, behaviorTargetsTable,
   programStepsTable, behaviorInterventionPlansTable, sessionLogsTable,
+  dataSessionsTable, sessionGoalDataTable, programDataTable, behaviorDataTable,
 } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { requireAuth, type AuthedRequest } from "../middlewares/auth";
+import { requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { STAFF_ROLES } from "../lib/permissions";
 import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
+
+const requireStaff = requireRoles(...STAFF_ROLES);
 
 function dayOfWeekFromDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
@@ -59,15 +63,39 @@ interface ProgramStepRow {
   mastered: boolean;
 }
 
-router.get("/para/my-day", requireAuth, async (req, res): Promise<void> => {
+interface GoalDataEntry {
+  iepGoalId: number;
+  notes?: string | null;
+  programTargetId?: number;
+  programData?: {
+    trialsCorrect: number;
+    trialsTotal: number;
+    promptLevelUsed?: string | null;
+    prompted?: number | null;
+    stepNumber?: number | null;
+    independenceLevel?: string | null;
+    notes?: string | null;
+  };
+  behaviorTargetId?: number;
+  behaviorData?: {
+    value: number;
+    intervalCount?: number | null;
+    intervalsWith?: number | null;
+    hourBlock?: string | null;
+    notes?: string | null;
+  };
+}
+
+router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
     const date = (req.query.date as string) || new Date().toISOString().split("T")[0];
 
     let staffId = Number(req.query.staffId);
 
+    const myStaffId = await getStaffIdForUser(authed);
+
     if (authed.trellisRole === "para") {
-      const myStaffId = await getStaffIdForUser(authed);
       if (!myStaffId) {
         res.status(403).json({ error: "No staff profile linked to your account" });
         return;
@@ -77,13 +105,14 @@ router.get("/para/my-day", requireAuth, async (req, res): Promise<void> => {
         return;
       }
       staffId = myStaffId;
-    } else if (!staffId || isNaN(staffId)) {
-      const myStaffId = await getStaffIdForUser(authed);
-      if (!myStaffId) {
-        res.status(400).json({ error: "staffId is required" });
-        return;
+    } else {
+      if (!staffId || isNaN(staffId)) {
+        if (!myStaffId) {
+          res.status(400).json({ error: "staffId is required" });
+          return;
+        }
+        staffId = myStaffId;
       }
-      staffId = myStaffId;
     }
 
     const dayOfWeek = dayOfWeekFromDate(date);
@@ -140,7 +169,7 @@ router.get("/para/my-day", requireAuth, async (req, res): Promise<void> => {
   }
 });
 
-router.get("/para/student-targets/:studentId", requireAuth, async (req, res): Promise<void> => {
+router.get("/para/student-targets/:studentId", requireStaff, async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
     const studentId = Number(req.params.studentId);
@@ -216,11 +245,10 @@ router.get("/para/student-targets/:studentId", requireAuth, async (req, res): Pr
       );
     }
 
-    const goalIds = goals.map(g => g.id);
-    const filteredPrograms = serviceTypeId && goalIds.length > 0
+    const filteredPrograms = serviceTypeId
       ? programs.filter(p => goals.some(g => g.programTargetId === p.id))
       : programs;
-    const filteredBehaviors = serviceTypeId && goalIds.length > 0
+    const filteredBehaviors = serviceTypeId
       ? behaviors.filter(b => goals.some(g => g.behaviorTargetId === b.id))
       : behaviors;
 
@@ -302,7 +330,7 @@ interface QuickStartBody {
   startTime: string;
 }
 
-router.post("/para/sessions/quick-start", requireAuth, async (req, res): Promise<void> => {
+router.post("/para/sessions/quick-start", requireStaff, async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
     const body = req.body as QuickStartBody;
@@ -385,9 +413,10 @@ interface StopSessionBody {
   durationMinutes: number;
   notes: string | null;
   status: string;
+  goalData?: GoalDataEntry[];
 }
 
-router.patch("/para/sessions/:sessionId/stop", requireAuth, async (req, res): Promise<void> => {
+router.patch("/para/sessions/:sessionId/stop", requireStaff, async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
     const sessionId = Number(req.params.sessionId);
@@ -421,17 +450,71 @@ router.patch("/para/sessions/:sessionId/stop", requireAuth, async (req, res): Pr
       return;
     }
 
-    const [updated] = await db.update(sessionLogsTable)
-      .set({
-        endTime: body.endTime,
-        durationMinutes: body.durationMinutes,
-        notes: body.notes,
-        status: body.status || "completed",
-      })
-      .where(eq(sessionLogsTable.id, sessionId))
-      .returning();
+    const result = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(sessionLogsTable)
+        .set({
+          endTime: body.endTime,
+          durationMinutes: body.durationMinutes,
+          notes: body.notes,
+          status: body.status || "completed",
+        })
+        .where(eq(sessionLogsTable.id, sessionId))
+        .returning();
 
-    res.json({ session: updated });
+      if (body.goalData && body.goalData.length > 0) {
+        const [dataSession] = await tx.insert(dataSessionsTable).values({
+          studentId: updated.studentId,
+          staffId: updated.staffId,
+          sessionLogId: updated.id,
+          sessionDate: updated.sessionDate,
+          startTime: updated.startTime,
+          endTime: updated.endTime,
+          notes: updated.notes,
+        }).returning();
+
+        for (const entry of body.goalData) {
+          await tx.insert(sessionGoalDataTable).values({
+            sessionLogId: updated.id,
+            iepGoalId: entry.iepGoalId,
+            notes: entry.notes || null,
+          });
+
+          if (entry.behaviorData && entry.behaviorTargetId) {
+            await tx.insert(behaviorDataTable).values({
+              dataSessionId: dataSession.id,
+              behaviorTargetId: entry.behaviorTargetId,
+              value: String(entry.behaviorData.value),
+              intervalCount: entry.behaviorData.intervalCount ?? null,
+              intervalsWith: entry.behaviorData.intervalsWith ?? null,
+              hourBlock: entry.behaviorData.hourBlock ?? null,
+              notes: entry.behaviorData.notes ?? null,
+            });
+          }
+
+          if (entry.programData && entry.programTargetId) {
+            const trialsCorrect = entry.programData.trialsCorrect ?? 0;
+            const trialsTotal = entry.programData.trialsTotal ?? 0;
+            const pctCorrect = trialsTotal > 0 ? Math.round((trialsCorrect / trialsTotal) * 100) : 0;
+            await tx.insert(programDataTable).values({
+              dataSessionId: dataSession.id,
+              programTargetId: entry.programTargetId,
+              trialsCorrect,
+              trialsTotal,
+              prompted: entry.programData.prompted ?? 0,
+              stepNumber: entry.programData.stepNumber ?? null,
+              independenceLevel: entry.programData.independenceLevel ?? null,
+              percentCorrect: String(pctCorrect),
+              promptLevelUsed: entry.programData.promptLevelUsed ?? null,
+              notes: entry.programData.notes ?? null,
+            });
+          }
+        }
+      }
+
+      return updated;
+    });
+
+    res.json({ session: result });
   } catch (e: unknown) {
     console.error("PATCH /para/sessions/:sessionId/stop error:", e);
     res.status(500).json({ error: "Failed to stop session" });

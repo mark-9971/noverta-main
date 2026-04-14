@@ -3390,8 +3390,11 @@ export const GetIoaSummaryResponse = zod.record(
  * @summary Get paraprofessional daily schedule
  */
 export const GetParaMyDayQueryParams = zod.object({
-  staffId: zod.coerce.number(),
-  date: zod.date(),
+  staffId: zod.coerce
+    .number()
+    .optional()
+    .describe("Optional staffId; derived from auth if omitted"),
+  date: zod.date().optional().describe("Defaults to today if omitted"),
 });
 
 export const GetParaMyDayResponse = zod.object({
@@ -3527,6 +3530,27 @@ export const ParaStopSessionBody = zod.object({
   durationMinutes: zod.number(),
   notes: zod.string().nullish(),
   status: zod.string().default(paraStopSessionBodyStatusDefault),
+  goalData: zod
+    .array(
+      zod.object({
+        iepGoalId: zod.number(),
+        programTargetId: zod.number().optional(),
+        programData: zod
+          .object({
+            trialsCorrect: zod.number(),
+            trialsTotal: zod.number(),
+            promptLevelUsed: zod.string().nullish(),
+          })
+          .optional(),
+        behaviorTargetId: zod.number().optional(),
+        behaviorData: zod
+          .object({
+            value: zod.number(),
+          })
+          .optional(),
+      }),
+    )
+    .optional(),
 });
 
 export const ParaStopSessionResponse = zod.object({

@@ -10656,7 +10656,7 @@ export function useGetIoaSummary<
 /**
  * @summary Get paraprofessional daily schedule
  */
-export const getGetParaMyDayUrl = (params: GetParaMyDayParams) => {
+export const getGetParaMyDayUrl = (params?: GetParaMyDayParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -10673,7 +10673,7 @@ export const getGetParaMyDayUrl = (params: GetParaMyDayParams) => {
 };
 
 export const getParaMyDay = async (
-  params: GetParaMyDayParams,
+  params?: GetParaMyDayParams,
   options?: RequestInit,
 ): Promise<ParaMyDayResponse> => {
   return customFetch<ParaMyDayResponse>(getGetParaMyDayUrl(params), {
@@ -10690,7 +10690,7 @@ export const getGetParaMyDayQueryOptions = <
   TData = Awaited<ReturnType<typeof getParaMyDay>>,
   TError = ErrorType<unknown>,
 >(
-  params: GetParaMyDayParams,
+  params?: GetParaMyDayParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getParaMyDay>>,
@@ -10728,7 +10728,7 @@ export function useGetParaMyDay<
   TData = Awaited<ReturnType<typeof getParaMyDay>>,
   TError = ErrorType<unknown>,
 >(
-  params: GetParaMyDayParams,
+  params?: GetParaMyDayParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getParaMyDay>>,

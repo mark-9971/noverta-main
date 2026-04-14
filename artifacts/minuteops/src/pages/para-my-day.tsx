@@ -357,6 +357,7 @@ export default function ParaMyDayPage() {
             durationMinutes,
             notes: sessionNotes || null,
             status: "completed",
+            goalData: goalData.length > 0 ? goalData : undefined,
           }),
         });
         saveOk = stopRes.ok;

@@ -7,6 +7,12 @@
  */
 
 export type GetParaMyDayParams = {
-  staffId: number;
-  date: Date;
+  /**
+   * Optional staffId; derived from auth if omitted
+   */
+  staffId?: number;
+  /**
+   * Defaults to today if omitted
+   */
+  date?: Date;
 };

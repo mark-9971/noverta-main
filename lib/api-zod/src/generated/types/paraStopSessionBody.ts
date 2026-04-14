@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ParaGoalDataEntry } from "./paraGoalDataEntry";
 
 export interface ParaStopSessionBody {
   /** HH:MM format */
@@ -12,4 +13,5 @@ export interface ParaStopSessionBody {
   durationMinutes: number;
   notes?: string | null;
   status?: string;
+  goalData?: ParaGoalDataEntry[];
 }

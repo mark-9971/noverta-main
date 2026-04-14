@@ -2006,12 +2006,31 @@ export interface ParaStudentTargetsResponse {
   bips: ParaBipSummary[];
 }
 
+export type ParaGoalDataEntryProgramData = {
+  trialsCorrect: number;
+  trialsTotal: number;
+  promptLevelUsed?: string | null;
+};
+
+export type ParaGoalDataEntryBehaviorData = {
+  value: number;
+};
+
+export interface ParaGoalDataEntry {
+  iepGoalId: number;
+  programTargetId?: number;
+  programData?: ParaGoalDataEntryProgramData;
+  behaviorTargetId?: number;
+  behaviorData?: ParaGoalDataEntryBehaviorData;
+}
+
 export interface ParaStopSessionBody {
   /** HH:MM format */
   endTime: string;
   durationMinutes: number;
   notes?: string | null;
   status?: string;
+  goalData?: ParaGoalDataEntry[];
 }
 
 export interface ParaQuickStartBody {
@@ -2746,8 +2765,14 @@ export type GetIoaSummaryParams = {
 export type GetIoaSummary200 = { [key: string]: IoaTargetSummary };
 
 export type GetParaMyDayParams = {
-  staffId: number;
-  date: string;
+  /**
+   * Optional staffId; derived from auth if omitted
+   */
+  staffId?: number;
+  /**
+   * Defaults to today if omitted
+   */
+  date?: string;
 };
 
 export type GetParaStudentTargetsParams = {

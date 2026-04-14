@@ -2726,15 +2726,17 @@ paths:
       parameters:
         - name: staffId
           in: query
-          required: true
+          required: false
           schema:
             type: integer
+          description: Optional staffId; derived from auth if omitted
         - name: date
           in: query
-          required: true
+          required: false
           schema:
             type: string
             format: date
+          description: Defaults to today if omitted
       responses:
         "200":
           description: Daily schedule with blocks
@@ -5817,7 +5819,39 @@ components:
         status:
           type: string
           default: completed
+        goalData:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParaGoalDataEntry"
       required: [endTime, durationMinutes]
+
+    ParaGoalDataEntry:
+      type: object
+      properties:
+        iepGoalId:
+          type: integer
+        programTargetId:
+          type: integer
+        programData:
+          type: object
+          properties:
+            trialsCorrect:
+              type: integer
+            trialsTotal:
+              type: integer
+            promptLevelUsed:
+              type: string
+              nullable: true
+          required: [trialsCorrect, trialsTotal]
+        behaviorTargetId:
+          type: integer
+        behaviorData:
+          type: object
+          properties:
+            value:
+              type: number
+          required: [value]
+      required: [iepGoalId]
 
     ParaQuickStartBody:
       type: object
