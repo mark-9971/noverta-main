@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
@@ -6,8 +6,8 @@ import {
   BarChart3, UserCheck, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles,
-  Timer, Clipboard, Sprout, Gauge, CalendarDays, ChevronRight,
-  FileText, BookOpen
+  Timer, Clipboard, Sprout, Gauge, CalendarDays,
+  BookOpen
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -15,6 +15,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
+import { CommandPalette } from "@/components/search/CommandPalette";
 
 type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
@@ -165,11 +166,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { role, user } = useRole();
   const { typedFilter } = useSchoolContext();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = (alertsSummary as any)?.total ?? 0;
   const config = roleConfig[role];
+
+  // Global Cmd+K / Ctrl+K shortcut
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const navSections = config.nav;
   const navItems = navSections.flatMap(s => s.items);
@@ -193,6 +207,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-gray-50/60 overflow-hidden">
       <Toaster position="top-right" richColors closeButton duration={4000} />
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
@@ -232,8 +247,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
+        {/* Search trigger */}
+        <div className="px-2.5 pt-2.5 pb-1">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200/70 text-gray-400 hover:text-gray-600 transition-colors text-[12px] group"
+          >
+            <Search className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="flex-1 text-left">Search…</span>
+            <kbd className="text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white group-hover:border-gray-300 font-mono leading-none">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+
         {/* Navigation */}
-        <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
           {navSections.map((section, si) => (
             <div key={si} className={si > 0 ? "mt-4" : ""}>
               {section.label && (

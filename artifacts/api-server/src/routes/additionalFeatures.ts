@@ -10,6 +10,9 @@ import {
   serviceTypesTable,
   staffAssignmentsTable,
   sessionLogsTable,
+  staffTable,
+  alertsTable,
+  schoolsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, sql } from "drizzle-orm";
 
@@ -157,6 +160,141 @@ router.get("/search/iep", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("GET search/iep error:", e);
     res.status(500).json({ error: "Failed to search IEP data" });
+  }
+});
+
+// Unified site-wide search — role-scoped results
+router.get("/search", async (req, res): Promise<void> => {
+  try {
+    const q = (req.query.q as string || "").trim();
+    const role = (req.query.role as string) || "admin";
+    if (!q || q.length < 2) {
+      res.json({ students: [], staff: [], alerts: [], goals: [] });
+      return;
+    }
+    const pattern = `%${q}%`;
+    const LIMIT = 6;
+
+    const [students, staff, alerts, goals] = await Promise.all([
+      // Students — all roles (teachers/admins see all; scoping by real auth TBD)
+      (role === "admin" || role === "sped_teacher")
+        ? db.select({
+            id: studentsTable.id,
+            firstName: studentsTable.firstName,
+            lastName: studentsTable.lastName,
+            grade: studentsTable.grade,
+            disabilityCategory: studentsTable.disabilityCategory,
+            schoolName: schoolsTable.name,
+          })
+          .from(studentsTable)
+          .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+          .where(and(
+            eq(studentsTable.status, "active"),
+            or(
+              ilike(studentsTable.firstName, pattern),
+              ilike(studentsTable.lastName, pattern),
+              ilike(sql`${studentsTable.firstName} || ' ' || ${studentsTable.lastName}`, pattern),
+              ilike(studentsTable.disabilityCategory, pattern),
+            )
+          ))
+          .limit(LIMIT)
+        : Promise.resolve([]),
+
+      // Staff — admin only
+      role === "admin"
+        ? db.select({
+            id: staffTable.id,
+            firstName: staffTable.firstName,
+            lastName: staffTable.lastName,
+            role: staffTable.role,
+            title: staffTable.title,
+            schoolName: schoolsTable.name,
+          })
+          .from(staffTable)
+          .leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+          .where(and(
+            eq(staffTable.status, "active"),
+            or(
+              ilike(staffTable.firstName, pattern),
+              ilike(staffTable.lastName, pattern),
+              ilike(sql`${staffTable.firstName} || ' ' || ${staffTable.lastName}`, pattern),
+              ilike(staffTable.role, pattern),
+              ilike(staffTable.title, pattern),
+            )
+          ))
+          .limit(LIMIT)
+        : Promise.resolve([]),
+
+      // Alerts — admin and teacher (unresolved only)
+      (role === "admin" || role === "sped_teacher")
+        ? db.select({
+            id: alertsTable.id,
+            message: alertsTable.message,
+            severity: alertsTable.severity,
+            type: alertsTable.type,
+            studentId: alertsTable.studentId,
+            firstName: studentsTable.firstName,
+            lastName: studentsTable.lastName,
+          })
+          .from(alertsTable)
+          .leftJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
+          .where(and(
+            eq(alertsTable.resolved, false),
+            ilike(alertsTable.message, pattern),
+          ))
+          .orderBy(desc(alertsTable.createdAt))
+          .limit(LIMIT)
+        : Promise.resolve([]),
+
+      // IEP Goals — all roles (student portal would be scoped by auth in future)
+      db.select({
+        id: iepGoalsTable.id,
+        annualGoal: iepGoalsTable.annualGoal,
+        goalArea: iepGoalsTable.goalArea,
+        studentId: iepGoalsTable.studentId,
+        firstName: studentsTable.firstName,
+        lastName: studentsTable.lastName,
+      })
+      .from(iepGoalsTable)
+      .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
+      .where(or(
+        ilike(iepGoalsTable.annualGoal, pattern),
+        ilike(iepGoalsTable.goalArea, pattern),
+      ))
+      .limit(LIMIT),
+    ]);
+
+    res.json({
+      students: students.map(s => ({
+        id: s.id,
+        name: `${s.firstName} ${s.lastName}`,
+        subtitle: [s.grade ? `Grade ${s.grade}` : null, s.disabilityCategory, s.schoolName].filter(Boolean).join(" · "),
+        href: `/students/${s.id}`,
+      })),
+      staff: (staff as any[]).map(s => ({
+        id: s.id,
+        name: `${s.firstName} ${s.lastName}`,
+        subtitle: [s.title || s.role, s.schoolName].filter(Boolean).join(" · "),
+        href: `/staff/${s.id}`,
+      })),
+      alerts: (alerts as any[]).map(a => ({
+        id: a.id,
+        name: a.message,
+        subtitle: a.firstName ? `${a.firstName} ${a.lastName}` : a.type,
+        severity: a.severity,
+        studentId: a.studentId,
+        href: `/alerts`,
+      })),
+      goals: goals.map(g => ({
+        id: g.id,
+        name: g.annualGoal,
+        subtitle: [`${g.firstName} ${g.lastName}`, g.goalArea].filter(Boolean).join(" · "),
+        href: `/students/${g.studentId}/iep`,
+      })),
+    });
+  } catch (e: any) {
+    console.error("GET /search error:", e);
+    res.status(500).json({ error: "Search failed" });
   }
 });
 
