@@ -62,6 +62,7 @@ export * from "./createSupervisionSessionBodyStatus";
 export * from "./createSupervisionSessionBodySupervisionType";
 export * from "./dashboardSummary";
 export * from "./deadlineCounts";
+export * from "./deleteBip200";
 export * from "./deleteDistrict200";
 export * from "./deleteParentContact200";
 export * from "./deleteSupervisionSession200";

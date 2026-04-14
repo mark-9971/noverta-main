@@ -50,6 +50,7 @@ import type {
   CreateStudentBody,
   CreateSupervisionSessionBody,
   DashboardSummary,
+  DeleteBip200,
   DeleteDistrict200,
   DeleteParentContact200,
   DeleteSupervisionSession200,
@@ -9911,6 +9912,90 @@ export const useUpdateBip = <
   TContext
 > => {
   return useMutation(getUpdateBipMutationOptions(options));
+};
+
+/**
+ * @summary Delete a BIP
+ */
+export const getDeleteBipUrl = (id: number) => {
+  return `/api/bips/${id}`;
+};
+
+export const deleteBip = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteBip200> => {
+  return customFetch<DeleteBip200>(getDeleteBipUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteBipMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBip>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteBip>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteBip"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteBip>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteBip(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteBipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteBip>>
+>;
+
+export type DeleteBipMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a BIP
+ */
+export const useDeleteBip = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBip>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteBip>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteBipMutationOptions(options));
 };
 
 /**

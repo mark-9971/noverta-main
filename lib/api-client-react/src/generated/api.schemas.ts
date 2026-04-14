@@ -2527,3 +2527,8 @@ export const GetStudentBipsStatus = {
   archived: "archived",
   under_review: "under_review",
 } as const;
+
+export type DeleteBip200 = {
+  success?: boolean;
+  id?: number;
+};

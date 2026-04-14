@@ -401,6 +401,19 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
   }
 });
 
+router.delete("/bips/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [deleted] = await db.delete(behaviorInterventionPlansTable)
+      .where(eq(behaviorInterventionPlansTable.id, id)).returning();
+    if (!deleted) { res.status(404).json({ error: "BIP not found" }); return; }
+    res.json({ success: true, id: deleted.id });
+  } catch (e: any) {
+    console.error("DELETE bip error:", e);
+    res.status(500).json({ error: "Failed to delete BIP" });
+  }
+});
+
 router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);

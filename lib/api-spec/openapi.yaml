@@ -2515,6 +2515,31 @@ paths:
         "404":
           description: BIP not found
 
+    delete:
+      operationId: deleteBip
+      tags: [bip]
+      summary: Delete a BIP
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: BIP deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: integer
+        "404":
+          description: BIP not found
+
   /bips/{id}/new-version:
     post:
       operationId: createBipVersion

@@ -3229,6 +3229,18 @@ export const UpdateBipResponse = zod.object({
 });
 
 /**
+ * @summary Delete a BIP
+ */
+export const DeleteBipParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteBipResponse = zod.object({
+  success: zod.boolean().optional(),
+  id: zod.number().optional(),
+});
+
+/**
  * @summary Create a new version of a BIP (archives the current version)
  */
 export const CreateBipVersionParams = zod.object({

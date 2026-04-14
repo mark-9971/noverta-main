@@ -237,6 +237,21 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     }
   }
 
+  async function handleDelete(bipId: number) {
+    if (!confirm("Are you sure you want to delete this BIP? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API}/bips/${bipId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("BIP deleted");
+        fetchBips();
+      } else {
+        toast.error("Failed to delete BIP");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+  }
+
   async function handleStatusChange(bipId: number, newStatus: string) {
     try {
       const res = await fetch(`${API}/bips/${bipId}`, {
@@ -353,6 +368,7 @@ ${bip.implementationNotes ? `<h2>Implementation Notes</h2><div class="field"><di
                 onToggle={() => setExpandedId(expandedId === bip.id ? null : bip.id)}
                 onEdit={readOnly ? undefined : () => openEditForm(bip)}
                 onNewVersion={readOnly ? undefined : () => handleNewVersion(bip)}
+                onDelete={readOnly ? undefined : () => handleDelete(bip.id)}
                 onStatusChange={readOnly ? undefined : (s) => handleStatusChange(bip.id, s)}
                 onPrint={() => handlePrint(bip)}
                 readOnly={readOnly}
@@ -412,6 +428,7 @@ function BipRow({
   onNewVersion,
   onStatusChange,
   onPrint,
+  onDelete,
   readOnly,
 }: {
   bip: Bip;
@@ -419,6 +436,7 @@ function BipRow({
   onToggle: () => void;
   onEdit?: () => void;
   onNewVersion?: () => void;
+  onDelete?: () => void;
   onStatusChange?: (s: string) => void;
   onPrint: () => void;
   readOnly?: boolean;
@@ -489,6 +507,11 @@ function BipRow({
             <button onClick={onPrint} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
+            {!readOnly && onDelete && bip.status === "draft" && (
+              <button onClick={onDelete} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                <X className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
             {!readOnly && onStatusChange && bip.status !== "archived" && (
               <div className="ml-auto flex items-center gap-1.5">
                 {bip.status === "draft" && (
