@@ -10,6 +10,7 @@ import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect, Fragment } from "react";
 import { RISK_CONFIG } from "@/lib/constants";
+import BipManagement from "@/components/bip-management";
 
 const API = (import.meta as any).env.VITE_API_URL || "/api";
 
@@ -987,6 +988,8 @@ export default function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      <BipManagement studentId={studentId} />
 
       {showShareModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   fbasTable, fbaObservationsTable, functionalAnalysesTable,
-  behaviorInterventionPlansTable, studentsTable, staffTable
+  behaviorInterventionPlansTable, studentsTable, staffTable,
+  behaviorTargetsTable
 } from "@workspace/db";
-import { eq, desc, and, sql, asc } from "drizzle-orm";
+import { eq, desc, and, sql, asc, max } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -244,10 +245,49 @@ router.delete("/fa-sessions/:id", async (req, res): Promise<void> => {
 router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const bips = await db.select().from(behaviorInterventionPlansTable)
-      .where(eq(behaviorInterventionPlansTable.studentId, studentId))
-      .orderBy(desc(behaviorInterventionPlansTable.createdAt));
-    res.json(bips.map(b => ({ ...b, createdAt: isoDate(b.createdAt), updatedAt: isoDate(b.updatedAt) })));
+    const statusFilter = req.query.status as string | undefined;
+    const conditions: any[] = [eq(behaviorInterventionPlansTable.studentId, studentId)];
+    if (statusFilter) conditions.push(eq(behaviorInterventionPlansTable.status, statusFilter));
+
+    const bips = await db.select({
+      id: behaviorInterventionPlansTable.id,
+      studentId: behaviorInterventionPlansTable.studentId,
+      behaviorTargetId: behaviorInterventionPlansTable.behaviorTargetId,
+      fbaId: behaviorInterventionPlansTable.fbaId,
+      createdBy: behaviorInterventionPlansTable.createdBy,
+      version: behaviorInterventionPlansTable.version,
+      status: behaviorInterventionPlansTable.status,
+      targetBehavior: behaviorInterventionPlansTable.targetBehavior,
+      operationalDefinition: behaviorInterventionPlansTable.operationalDefinition,
+      hypothesizedFunction: behaviorInterventionPlansTable.hypothesizedFunction,
+      replacementBehaviors: behaviorInterventionPlansTable.replacementBehaviors,
+      preventionStrategies: behaviorInterventionPlansTable.preventionStrategies,
+      teachingStrategies: behaviorInterventionPlansTable.teachingStrategies,
+      consequenceStrategies: behaviorInterventionPlansTable.consequenceStrategies,
+      reinforcementSchedule: behaviorInterventionPlansTable.reinforcementSchedule,
+      crisisPlan: behaviorInterventionPlansTable.crisisPlan,
+      implementationNotes: behaviorInterventionPlansTable.implementationNotes,
+      dataCollectionMethod: behaviorInterventionPlansTable.dataCollectionMethod,
+      progressCriteria: behaviorInterventionPlansTable.progressCriteria,
+      reviewDate: behaviorInterventionPlansTable.reviewDate,
+      effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+      createdAt: behaviorInterventionPlansTable.createdAt,
+      updatedAt: behaviorInterventionPlansTable.updatedAt,
+      createdByFirst: staffTable.firstName,
+      createdByLast: staffTable.lastName,
+      behaviorTargetName: behaviorTargetsTable.name,
+    }).from(behaviorInterventionPlansTable)
+      .leftJoin(staffTable, eq(staffTable.id, behaviorInterventionPlansTable.createdBy))
+      .leftJoin(behaviorTargetsTable, eq(behaviorTargetsTable.id, behaviorInterventionPlansTable.behaviorTargetId))
+      .where(and(...conditions))
+      .orderBy(desc(behaviorInterventionPlansTable.version), desc(behaviorInterventionPlansTable.createdAt));
+
+    res.json(bips.map(b => ({
+      ...b,
+      createdByName: b.createdByFirst ? `${b.createdByFirst} ${b.createdByLast}` : null,
+      createdAt: isoDate(b.createdAt),
+      updatedAt: isoDate(b.updatedAt),
+    })));
   } catch (e: any) {
     console.error("GET bips error:", e);
     res.status(500).json({ error: "Failed to fetch BIPs" });
@@ -257,9 +297,9 @@ router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
 router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const { fbaId, createdBy, targetBehavior, operationalDefinition, hypothesizedFunction,
+    const { fbaId, createdBy, behaviorTargetId, targetBehavior, operationalDefinition, hypothesizedFunction,
       replacementBehaviors, preventionStrategies, teachingStrategies, consequenceStrategies,
-      reinforcementSchedule, crisisPlan, dataCollectionMethod, progressCriteria,
+      reinforcementSchedule, crisisPlan, implementationNotes, dataCollectionMethod, progressCriteria,
       reviewDate, effectiveDate, status } = req.body;
     if (!targetBehavior || !operationalDefinition || !hypothesizedFunction) {
       res.status(400).json({ error: "targetBehavior, operationalDefinition, and hypothesizedFunction are required" });
@@ -267,6 +307,7 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
     }
     const [bip] = await db.insert(behaviorInterventionPlansTable).values({
       studentId, fbaId: fbaId || null, createdBy: createdBy || null,
+      behaviorTargetId: behaviorTargetId || null,
       targetBehavior, operationalDefinition, hypothesizedFunction,
       replacementBehaviors: replacementBehaviors || null,
       preventionStrategies: preventionStrategies || null,
@@ -274,11 +315,13 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
       consequenceStrategies: consequenceStrategies || null,
       reinforcementSchedule: reinforcementSchedule || null,
       crisisPlan: crisisPlan || null,
+      implementationNotes: implementationNotes || null,
       dataCollectionMethod: dataCollectionMethod || null,
       progressCriteria: progressCriteria || null,
       reviewDate: reviewDate || null,
       effectiveDate: effectiveDate || null,
       status: status || "draft",
+      version: 1,
     }).returning();
     res.status(201).json({ ...bip, createdAt: isoDate(bip.createdAt), updatedAt: isoDate(bip.updatedAt) });
   } catch (e: any) {
@@ -290,9 +333,45 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
 router.get("/bips/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const [bip] = await db.select().from(behaviorInterventionPlansTable).where(eq(behaviorInterventionPlansTable.id, id));
+    const [bip] = await db.select({
+      id: behaviorInterventionPlansTable.id,
+      studentId: behaviorInterventionPlansTable.studentId,
+      behaviorTargetId: behaviorInterventionPlansTable.behaviorTargetId,
+      fbaId: behaviorInterventionPlansTable.fbaId,
+      createdBy: behaviorInterventionPlansTable.createdBy,
+      version: behaviorInterventionPlansTable.version,
+      status: behaviorInterventionPlansTable.status,
+      targetBehavior: behaviorInterventionPlansTable.targetBehavior,
+      operationalDefinition: behaviorInterventionPlansTable.operationalDefinition,
+      hypothesizedFunction: behaviorInterventionPlansTable.hypothesizedFunction,
+      replacementBehaviors: behaviorInterventionPlansTable.replacementBehaviors,
+      preventionStrategies: behaviorInterventionPlansTable.preventionStrategies,
+      teachingStrategies: behaviorInterventionPlansTable.teachingStrategies,
+      consequenceStrategies: behaviorInterventionPlansTable.consequenceStrategies,
+      reinforcementSchedule: behaviorInterventionPlansTable.reinforcementSchedule,
+      crisisPlan: behaviorInterventionPlansTable.crisisPlan,
+      implementationNotes: behaviorInterventionPlansTable.implementationNotes,
+      dataCollectionMethod: behaviorInterventionPlansTable.dataCollectionMethod,
+      progressCriteria: behaviorInterventionPlansTable.progressCriteria,
+      reviewDate: behaviorInterventionPlansTable.reviewDate,
+      effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+      createdAt: behaviorInterventionPlansTable.createdAt,
+      updatedAt: behaviorInterventionPlansTable.updatedAt,
+      createdByFirst: staffTable.firstName,
+      createdByLast: staffTable.lastName,
+      behaviorTargetName: behaviorTargetsTable.name,
+    }).from(behaviorInterventionPlansTable)
+      .leftJoin(staffTable, eq(staffTable.id, behaviorInterventionPlansTable.createdBy))
+      .leftJoin(behaviorTargetsTable, eq(behaviorTargetsTable.id, behaviorInterventionPlansTable.behaviorTargetId))
+      .where(eq(behaviorInterventionPlansTable.id, id));
+
     if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
-    res.json({ ...bip, createdAt: isoDate(bip.createdAt), updatedAt: isoDate(bip.updatedAt) });
+    res.json({
+      ...bip,
+      createdByName: bip.createdByFirst ? `${bip.createdByFirst} ${bip.createdByLast}` : null,
+      createdAt: isoDate(bip.createdAt),
+      updatedAt: isoDate(bip.updatedAt),
+    });
   } catch (e: any) {
     console.error("GET bip error:", e);
     res.status(500).json({ error: "Failed to fetch BIP" });
@@ -304,8 +383,8 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
     const id = parseInt(req.params.id);
     const allowed = [
       "targetBehavior", "operationalDefinition", "hypothesizedFunction", "status",
-      "replacementBehaviors", "preventionStrategies", "teachingStrategies",
-      "consequenceStrategies", "reinforcementSchedule", "crisisPlan",
+      "behaviorTargetId", "replacementBehaviors", "preventionStrategies", "teachingStrategies",
+      "consequenceStrategies", "reinforcementSchedule", "crisisPlan", "implementationNotes",
       "dataCollectionMethod", "progressCriteria", "reviewDate", "effectiveDate"
     ];
     const updates: any = {};
@@ -319,6 +398,52 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("PATCH bip error:", e);
     res.status(500).json({ error: "Failed to update BIP" });
+  }
+});
+
+router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [existing] = await db.select().from(behaviorInterventionPlansTable)
+      .where(eq(behaviorInterventionPlansTable.id, id));
+    if (!existing) { res.status(404).json({ error: "BIP not found" }); return; }
+    if (existing.status === "archived") { res.status(400).json({ error: "Cannot version an archived BIP" }); return; }
+
+    const body = req.body || {};
+    const newBip = await db.transaction(async (tx) => {
+      await tx.update(behaviorInterventionPlansTable)
+        .set({ status: "archived" })
+        .where(eq(behaviorInterventionPlansTable.id, id));
+
+      const [created] = await tx.insert(behaviorInterventionPlansTable).values({
+        studentId: existing.studentId,
+        behaviorTargetId: body.behaviorTargetId ?? existing.behaviorTargetId,
+        fbaId: existing.fbaId,
+        createdBy: body.createdBy ?? existing.createdBy,
+        version: existing.version + 1,
+        status: body.status || "draft",
+        targetBehavior: body.targetBehavior ?? existing.targetBehavior,
+        operationalDefinition: body.operationalDefinition ?? existing.operationalDefinition,
+        hypothesizedFunction: body.hypothesizedFunction ?? existing.hypothesizedFunction,
+        replacementBehaviors: body.replacementBehaviors ?? existing.replacementBehaviors,
+        preventionStrategies: body.preventionStrategies ?? existing.preventionStrategies,
+        teachingStrategies: body.teachingStrategies ?? existing.teachingStrategies,
+        consequenceStrategies: body.consequenceStrategies ?? existing.consequenceStrategies,
+        reinforcementSchedule: body.reinforcementSchedule ?? existing.reinforcementSchedule,
+        crisisPlan: body.crisisPlan ?? existing.crisisPlan,
+        implementationNotes: body.implementationNotes ?? existing.implementationNotes,
+        dataCollectionMethod: body.dataCollectionMethod ?? existing.dataCollectionMethod,
+        progressCriteria: body.progressCriteria ?? existing.progressCriteria,
+        reviewDate: body.reviewDate ?? existing.reviewDate,
+        effectiveDate: body.effectiveDate ?? existing.effectiveDate,
+      }).returning();
+      return created;
+    });
+
+    res.status(201).json({ ...newBip, createdAt: isoDate(newBip.createdAt), updatedAt: isoDate(newBip.updatedAt) });
+  } catch (e: any) {
+    console.error("POST bip new-version error:", e);
+    res.status(500).json({ error: "Failed to create new BIP version" });
   }
 });
 
