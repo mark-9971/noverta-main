@@ -33,8 +33,8 @@ export default function StudentDetail() {
   const { role } = useRole();
   const bipReadOnly = !BIP_EDIT_ROLES.includes(role);
 
-  const { data: student, isLoading: loadingStudent } = useGetStudent(studentId);
-  const { data: progress } = useGetStudentMinuteProgress(studentId);
+  const { data: student, isLoading: loadingStudent, refetch: refetchStudent } = useGetStudent(studentId);
+  const { data: progress, refetch: refetchProgress } = useGetStudentMinuteProgress(studentId);
   const { data: sessions } = useGetStudentSessions(studentId, { limit: 20 } as any);
 
   const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
@@ -138,7 +138,8 @@ export default function StudentDetail() {
         toast.success("Service requirement added");
       }
       setSvcDialogOpen(false);
-      window.location.reload();
+      refetchStudent();
+      refetchProgress();
     } catch { toast.error("Failed to save service requirement"); }
     setSvcSaving(false);
   }
@@ -150,7 +151,8 @@ export default function StudentDetail() {
       await deleteServiceRequirement(deletingSvc.id);
       toast.success("Service requirement deleted");
       setDeletingSvc(null);
-      window.location.reload();
+      refetchStudent();
+      refetchProgress();
     } catch { toast.error("Failed to delete"); }
     setSvcSaving(false);
   }
@@ -169,7 +171,7 @@ export default function StudentDetail() {
       });
       toast.success("Staff assigned");
       setAssignDialogOpen(false);
-      window.location.reload();
+      refetchStudent();
     } catch { toast.error("Failed to assign staff"); }
     setAssignSaving(false);
   }
@@ -178,7 +180,7 @@ export default function StudentDetail() {
     try {
       await deleteStaffAssignment(id);
       toast.success("Assignment removed");
-      window.location.reload();
+      refetchStudent();
     } catch { toast.error("Failed to remove assignment"); }
   }
 
