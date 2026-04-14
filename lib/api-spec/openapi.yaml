@@ -30,6 +30,8 @@ tags:
     description: District management
   - name: reports
     description: Reports
+  - name: resource-management
+    description: Resource management, caseload balancing, and budget analysis
 
 paths:
   /healthz:
@@ -1649,6 +1651,123 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportRecord"
 
+  /resource-management/caseload:
+    get:
+      operationId: getResourceCaseload
+      tags: [resource-management]
+      summary: Get caseload analysis by school and role
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: integer
+        - name: districtId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Caseload data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseloadResponse"
+
+  /resource-management/provider-utilization:
+    get:
+      operationId: getProviderUtilization
+      tags: [resource-management]
+      summary: Get provider utilization details
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: integer
+        - name: districtId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Provider utilization list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderUtilization"
+
+  /resource-management/budget:
+    get:
+      operationId: getResourceBudget
+      tags: [resource-management]
+      summary: Get budget and cost analysis
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: integer
+        - name: districtId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Budget data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetResponse"
+
+  /resource-management/rebalancing:
+    get:
+      operationId: getRebalancingSuggestions
+      tags: [resource-management]
+      summary: Get rebalancing suggestions
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: integer
+        - name: districtId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rebalancing suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RebalancingSuggestion"
+
+  /staff/{id}/rates:
+    patch:
+      operationId: updateStaffRates
+      tags: [staff]
+      summary: Update staff hourly rate and annual salary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffRateUpdate"
+      responses:
+        "200":
+          description: Updated staff record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMember"
+
 components:
   schemas:
     HealthStatus:
@@ -1927,6 +2046,10 @@ components:
           type: string
         qualifications:
           type: ["string", "null"]
+        hourlyRate:
+          type: ["string", "null"]
+        annualSalary:
+          type: ["string", "null"]
         createdAt:
           type: string
       required: [id, firstName, lastName, role, status, createdAt]
@@ -1951,6 +2074,10 @@ components:
         status:
           type: string
         qualifications:
+          type: ["string", "null"]
+        hourlyRate:
+          type: ["string", "null"]
+        annualSalary:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -3316,3 +3443,207 @@ components:
         summary:
           $ref: "#/components/schemas/IepCalendarSummary"
       required: [events, summary]
+
+    CaseloadRoleData:
+      type: object
+      properties:
+        role:
+          type: string
+        fteCount:
+          type: integer
+        studentsServed:
+          type: integer
+        avgCaseload:
+          type: number
+        totalRequiredWeeklyMinutes:
+          type: integer
+        capacityWeeklyMinutes:
+          type: integer
+        utilizationPercent:
+          type: integer
+        unfilledWeeklyMinutes:
+          type: integer
+        status:
+          type: string
+      required: [role, fteCount, studentsServed, avgCaseload, totalRequiredWeeklyMinutes, capacityWeeklyMinutes, utilizationPercent, unfilledWeeklyMinutes, status]
+
+    CaseloadSchool:
+      type: object
+      properties:
+        schoolId:
+          type: integer
+        schoolName:
+          type: string
+        totalStudents:
+          type: integer
+        totalProviders:
+          type: integer
+        totalStaff:
+          type: integer
+        byRole:
+          type: array
+          items:
+            $ref: "#/components/schemas/CaseloadRoleData"
+      required: [schoolId, schoolName, totalStudents, totalProviders, totalStaff, byRole]
+
+    CaseloadResponse:
+      type: object
+      properties:
+        schools:
+          type: array
+          items:
+            $ref: "#/components/schemas/CaseloadSchool"
+      required: [schools]
+
+    ServiceBreakdown:
+      type: object
+      properties:
+        serviceType:
+          type: string
+        studentCount:
+          type: integer
+        weeklyMinutes:
+          type: integer
+      required: [serviceType, studentCount, weeklyMinutes]
+
+    ProviderUtilization:
+      type: object
+      properties:
+        staffId:
+          type: integer
+        name:
+          type: string
+        role:
+          type: string
+        schoolName:
+          type: string
+        hourlyRate:
+          type: number
+          nullable: true
+        studentsServed:
+          type: integer
+        scheduledWeeklyMinutes:
+          type: integer
+        capacityWeeklyMinutes:
+          type: integer
+        utilizationPercent:
+          type: integer
+        status:
+          type: string
+        serviceBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBreakdown"
+      required: [staffId, name, role, schoolName, studentsServed, scheduledWeeklyMinutes, capacityWeeklyMinutes, utilizationPercent, status, serviceBreakdown]
+
+    BudgetSummary:
+      type: object
+      properties:
+        totalDeliveredMinutes:
+          type: integer
+        totalServiceCost:
+          type: number
+        totalAnnualSalary:
+          type: number
+        totalStaff:
+          type: integer
+        totalStudentsServed:
+          type: integer
+        avgCostPerStudent:
+          type: number
+      required: [totalDeliveredMinutes, totalServiceCost, totalAnnualSalary, totalStaff, totalStudentsServed, avgCostPerStudent]
+
+    BudgetCostByStudent:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        name:
+          type: string
+        schoolName:
+          type: string
+        totalCost:
+          type: number
+        totalMinutes:
+          type: integer
+      required: [studentId, name, schoolName, totalCost, totalMinutes]
+
+    BudgetCostByService:
+      type: object
+      properties:
+        serviceType:
+          type: string
+        totalMinutes:
+          type: integer
+        totalCost:
+          type: number
+        studentCount:
+          type: integer
+        avgCostPerStudent:
+          type: number
+      required: [serviceType, totalMinutes, totalCost, studentCount, avgCostPerStudent]
+
+    BudgetCostBySchool:
+      type: object
+      properties:
+        schoolId:
+          type: integer
+        schoolName:
+          type: string
+        totalMinutes:
+          type: integer
+        totalCost:
+          type: number
+        studentCount:
+          type: integer
+        avgCostPerStudent:
+          type: number
+      required: [schoolId, schoolName, totalMinutes, totalCost, studentCount, avgCostPerStudent]
+
+    BudgetResponse:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/BudgetSummary"
+        costByStudent:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetCostByStudent"
+        costByServiceType:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetCostByService"
+        costBySchool:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetCostBySchool"
+      required: [summary, costByStudent, costByServiceType, costBySchool]
+
+    RebalancingSuggestion:
+      type: object
+      properties:
+        role:
+          type: string
+        fromSchool:
+          type: string
+        toSchool:
+          type: string
+        fromSchoolId:
+          type: integer
+        toSchoolId:
+          type: integer
+        reason:
+          type: string
+        providerName:
+          type: string
+        staffId:
+          type: integer
+      required: [role, fromSchool, toSchool, fromSchoolId, toSchoolId, reason, providerName, staffId]
+
+    StaffRateUpdate:
+      type: object
+      properties:
+        hourlyRate:
+          type: number
+        annualSalary:
+          type: number

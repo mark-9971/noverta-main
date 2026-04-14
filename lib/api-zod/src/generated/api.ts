@@ -745,6 +745,8 @@ export const ListStaffResponseItem = zod.object({
   schoolId: zod.number().nullish(),
   status: zod.string(),
   qualifications: zod.string().nullish(),
+  hourlyRate: zod.string().nullish(),
+  annualSalary: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListStaffResponse = zod.array(ListStaffResponseItem);
@@ -780,6 +782,8 @@ export const GetStaffResponse = zod.object({
   schoolId: zod.number().nullish(),
   status: zod.string(),
   qualifications: zod.string().nullish(),
+  hourlyRate: zod.string().nullish(),
+  annualSalary: zod.string().nullish(),
   createdAt: zod.string(),
   assignedStudents: zod.array(
     zod.object({
@@ -848,6 +852,8 @@ export const UpdateStaffResponse = zod.object({
   schoolId: zod.number().nullish(),
   status: zod.string(),
   qualifications: zod.string().nullish(),
+  hourlyRate: zod.string().nullish(),
+  annualSalary: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -1857,3 +1863,150 @@ export const CreateImportBody = zod.object({
   csvData: zod.string(),
   columnMapping: zod.string().nullish(),
 });
+
+/**
+ * @summary Get caseload analysis by school and role
+ */
+export const GetResourceCaseloadQueryParams = zod.object({
+  schoolId: zod.coerce.number().optional(),
+  districtId: zod.coerce.number().optional(),
+});
+
+export const GetResourceCaseloadResponse = zod.object({
+  schools: zod.array(
+    zod.object({
+      schoolId: zod.number(),
+      schoolName: zod.string(),
+      totalStudents: zod.number(),
+      totalProviders: zod.number(),
+      totalStaff: zod.number(),
+      byRole: zod.array(
+        zod.object({
+          role: zod.string(),
+          fteCount: zod.number(),
+          studentsServed: zod.number(),
+          avgCaseload: zod.number(),
+          totalRequiredWeeklyMinutes: zod.number(),
+          capacityWeeklyMinutes: zod.number(),
+          utilizationPercent: zod.number(),
+          unfilledWeeklyMinutes: zod.number(),
+          status: zod.string(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Get provider utilization details
+ */
+export const GetProviderUtilizationQueryParams = zod.object({
+  schoolId: zod.coerce.number().optional(),
+  districtId: zod.coerce.number().optional(),
+});
+
+export const GetProviderUtilizationResponseItem = zod.object({
+  staffId: zod.number(),
+  name: zod.string(),
+  role: zod.string(),
+  schoolName: zod.string(),
+  hourlyRate: zod.number().nullish(),
+  studentsServed: zod.number(),
+  scheduledWeeklyMinutes: zod.number(),
+  capacityWeeklyMinutes: zod.number(),
+  utilizationPercent: zod.number(),
+  status: zod.string(),
+  serviceBreakdown: zod.array(
+    zod.object({
+      serviceType: zod.string(),
+      studentCount: zod.number(),
+      weeklyMinutes: zod.number(),
+    }),
+  ),
+});
+export const GetProviderUtilizationResponse = zod.array(
+  GetProviderUtilizationResponseItem,
+);
+
+/**
+ * @summary Get budget and cost analysis
+ */
+export const GetResourceBudgetQueryParams = zod.object({
+  schoolId: zod.coerce.number().optional(),
+  districtId: zod.coerce.number().optional(),
+});
+
+export const GetResourceBudgetResponse = zod.object({
+  summary: zod.object({
+    totalDeliveredMinutes: zod.number(),
+    totalServiceCost: zod.number(),
+    totalAnnualSalary: zod.number(),
+    totalStaff: zod.number(),
+    totalStudentsServed: zod.number(),
+    avgCostPerStudent: zod.number(),
+  }),
+  costByStudent: zod.array(
+    zod.object({
+      studentId: zod.number(),
+      name: zod.string(),
+      schoolName: zod.string(),
+      totalCost: zod.number(),
+      totalMinutes: zod.number(),
+    }),
+  ),
+  costByServiceType: zod.array(
+    zod.object({
+      serviceType: zod.string(),
+      totalMinutes: zod.number(),
+      totalCost: zod.number(),
+      studentCount: zod.number(),
+      avgCostPerStudent: zod.number(),
+    }),
+  ),
+  costBySchool: zod.array(
+    zod.object({
+      schoolId: zod.number(),
+      schoolName: zod.string(),
+      totalMinutes: zod.number(),
+      totalCost: zod.number(),
+      studentCount: zod.number(),
+      avgCostPerStudent: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get rebalancing suggestions
+ */
+export const GetRebalancingSuggestionsQueryParams = zod.object({
+  schoolId: zod.coerce.number().optional(),
+  districtId: zod.coerce.number().optional(),
+});
+
+export const GetRebalancingSuggestionsResponseItem = zod.object({
+  role: zod.string(),
+  fromSchool: zod.string(),
+  toSchool: zod.string(),
+  fromSchoolId: zod.number(),
+  toSchoolId: zod.number(),
+  reason: zod.string(),
+  providerName: zod.string(),
+  staffId: zod.number(),
+});
+export const GetRebalancingSuggestionsResponse = zod.array(
+  GetRebalancingSuggestionsResponseItem,
+);
+
+/**
+ * @summary Update staff hourly rate and annual salary
+ */
+export const UpdateStaffRatesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateStaffRatesBody = zod.object({
+  hourlyRate: zod.number().optional(),
+  annualSalary: zod.number().optional(),
+});
+
+export const UpdateStaffRatesResponse = zod.unknown();

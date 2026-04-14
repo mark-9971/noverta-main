@@ -194,6 +194,7 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
   const filters = parseSchoolDistrictFilters(req.query);
 
   const staffConditions: any[] = [eq(staffTable.status, "active")];
+  if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
   if (filters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
 
   const providerRoles = ["bcba", "slp", "ot", "pt", "counselor", "para"];

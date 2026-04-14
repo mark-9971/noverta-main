@@ -22,7 +22,9 @@ import type {
   Alert,
   AlertsSummary,
   AuditPackageResponse,
+  BudgetResponse,
   BulkCreateSessionsBody,
+  CaseloadResponse,
   ComplianceByService,
   ComplianceTrendResponse,
   CoverageGap,
@@ -62,6 +64,10 @@ import type {
   GetMissedSessionsTrendParams,
   GetParaDashboardSummaryParams,
   GetProviderDashboardSummaryParams,
+  GetProviderUtilizationParams,
+  GetRebalancingSuggestionsParams,
+  GetResourceBudgetParams,
+  GetResourceCaseloadParams,
   GetScheduleConflictsParams,
   GetStaffCoverageParams,
   GetStudentMinuteSummaryReportParams,
@@ -83,6 +89,8 @@ import type {
   ParaDashboardItem,
   Program,
   ProviderDashboardItem,
+  ProviderUtilization,
+  RebalancingSuggestion,
   ResolveAlertBody,
   RiskOverview,
   RunChecksResult,
@@ -96,6 +104,8 @@ import type {
   StaffAssignment,
   StaffCoverageResponse,
   StaffDetail,
+  StaffMember,
+  StaffRateUpdate,
   Student,
   StudentDetail,
   StudentMinuteSummaryRow,
@@ -6440,4 +6450,509 @@ export const useCreateImport = <
   TContext
 > => {
   return useMutation(getCreateImportMutationOptions(options));
+};
+
+/**
+ * @summary Get caseload analysis by school and role
+ */
+export const getGetResourceCaseloadUrl = (
+  params?: GetResourceCaseloadParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/resource-management/caseload?${stringifiedParams}`
+    : `/api/resource-management/caseload`;
+};
+
+export const getResourceCaseload = async (
+  params?: GetResourceCaseloadParams,
+  options?: RequestInit,
+): Promise<CaseloadResponse> => {
+  return customFetch<CaseloadResponse>(getGetResourceCaseloadUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetResourceCaseloadQueryKey = (
+  params?: GetResourceCaseloadParams,
+) => {
+  return [
+    `/api/resource-management/caseload`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetResourceCaseloadQueryOptions = <
+  TData = Awaited<ReturnType<typeof getResourceCaseload>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetResourceCaseloadParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResourceCaseload>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetResourceCaseloadQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getResourceCaseload>>
+  > = ({ signal }) =>
+    getResourceCaseload(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getResourceCaseload>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetResourceCaseloadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getResourceCaseload>>
+>;
+export type GetResourceCaseloadQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get caseload analysis by school and role
+ */
+
+export function useGetResourceCaseload<
+  TData = Awaited<ReturnType<typeof getResourceCaseload>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetResourceCaseloadParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResourceCaseload>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetResourceCaseloadQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get provider utilization details
+ */
+export const getGetProviderUtilizationUrl = (
+  params?: GetProviderUtilizationParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/resource-management/provider-utilization?${stringifiedParams}`
+    : `/api/resource-management/provider-utilization`;
+};
+
+export const getProviderUtilization = async (
+  params?: GetProviderUtilizationParams,
+  options?: RequestInit,
+): Promise<ProviderUtilization[]> => {
+  return customFetch<ProviderUtilization[]>(
+    getGetProviderUtilizationUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetProviderUtilizationQueryKey = (
+  params?: GetProviderUtilizationParams,
+) => {
+  return [
+    `/api/resource-management/provider-utilization`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetProviderUtilizationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProviderUtilization>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetProviderUtilizationParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProviderUtilization>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetProviderUtilizationQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProviderUtilization>>
+  > = ({ signal }) =>
+    getProviderUtilization(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProviderUtilization>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProviderUtilizationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProviderUtilization>>
+>;
+export type GetProviderUtilizationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get provider utilization details
+ */
+
+export function useGetProviderUtilization<
+  TData = Awaited<ReturnType<typeof getProviderUtilization>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetProviderUtilizationParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProviderUtilization>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProviderUtilizationQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get budget and cost analysis
+ */
+export const getGetResourceBudgetUrl = (params?: GetResourceBudgetParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/resource-management/budget?${stringifiedParams}`
+    : `/api/resource-management/budget`;
+};
+
+export const getResourceBudget = async (
+  params?: GetResourceBudgetParams,
+  options?: RequestInit,
+): Promise<BudgetResponse> => {
+  return customFetch<BudgetResponse>(getGetResourceBudgetUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetResourceBudgetQueryKey = (
+  params?: GetResourceBudgetParams,
+) => {
+  return [
+    `/api/resource-management/budget`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetResourceBudgetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getResourceBudget>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetResourceBudgetParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResourceBudget>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetResourceBudgetQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getResourceBudget>>
+  > = ({ signal }) => getResourceBudget(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getResourceBudget>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetResourceBudgetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getResourceBudget>>
+>;
+export type GetResourceBudgetQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get budget and cost analysis
+ */
+
+export function useGetResourceBudget<
+  TData = Awaited<ReturnType<typeof getResourceBudget>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetResourceBudgetParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getResourceBudget>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetResourceBudgetQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get rebalancing suggestions
+ */
+export const getGetRebalancingSuggestionsUrl = (
+  params?: GetRebalancingSuggestionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/resource-management/rebalancing?${stringifiedParams}`
+    : `/api/resource-management/rebalancing`;
+};
+
+export const getRebalancingSuggestions = async (
+  params?: GetRebalancingSuggestionsParams,
+  options?: RequestInit,
+): Promise<RebalancingSuggestion[]> => {
+  return customFetch<RebalancingSuggestion[]>(
+    getGetRebalancingSuggestionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetRebalancingSuggestionsQueryKey = (
+  params?: GetRebalancingSuggestionsParams,
+) => {
+  return [
+    `/api/resource-management/rebalancing`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetRebalancingSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRebalancingSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRebalancingSuggestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRebalancingSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRebalancingSuggestionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRebalancingSuggestions>>
+  > = ({ signal }) =>
+    getRebalancingSuggestions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRebalancingSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRebalancingSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRebalancingSuggestions>>
+>;
+export type GetRebalancingSuggestionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get rebalancing suggestions
+ */
+
+export function useGetRebalancingSuggestions<
+  TData = Awaited<ReturnType<typeof getRebalancingSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetRebalancingSuggestionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRebalancingSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRebalancingSuggestionsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update staff hourly rate and annual salary
+ */
+export const getUpdateStaffRatesUrl = (id: number) => {
+  return `/api/staff/${id}/rates`;
+};
+
+export const updateStaffRates = async (
+  id: number,
+  staffRateUpdate: StaffRateUpdate,
+  options?: RequestInit,
+): Promise<StaffMember> => {
+  return customFetch<StaffMember>(getUpdateStaffRatesUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(staffRateUpdate),
+  });
+};
+
+export const getUpdateStaffRatesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStaffRates>>,
+    TError,
+    { id: number; data: BodyType<StaffRateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStaffRates>>,
+  TError,
+  { id: number; data: BodyType<StaffRateUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateStaffRates"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStaffRates>>,
+    { id: number; data: BodyType<StaffRateUpdate> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateStaffRates(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStaffRatesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStaffRates>>
+>;
+export type UpdateStaffRatesMutationBody = BodyType<StaffRateUpdate>;
+export type UpdateStaffRatesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update staff hourly rate and annual salary
+ */
+export const useUpdateStaffRates = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStaffRates>>,
+    TError,
+    { id: number; data: BodyType<StaffRateUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStaffRates>>,
+  TError,
+  { id: number; data: BodyType<StaffRateUpdate> },
+  TContext
+> => {
+  return useMutation(getUpdateStaffRatesMutationOptions(options));
 };

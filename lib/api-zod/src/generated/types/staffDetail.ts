@@ -22,6 +22,10 @@ export interface StaffDetail {
   status: string;
   /** @nullable */
   qualifications?: string | null;
+  /** @nullable */
+  hourlyRate?: string | null;
+  /** @nullable */
+  annualSalary?: string | null;
   createdAt: string;
   assignedStudents: StaffAssignment[];
   scheduleBlocks: ScheduleBlock[];

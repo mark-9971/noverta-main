@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSchoolContext } from "@/lib/school-context";
+import { toast } from "sonner";
 import {
   Users, DollarSign, Scale, Download, TrendingUp, TrendingDown,
   AlertTriangle, CheckCircle, ArrowRight, Building2, ChevronDown,
-  ChevronUp,
+  ChevronUp, Pencil, Check, X,
 } from "lucide-react";
 
 const API = "/api";
@@ -216,7 +217,9 @@ export default function ResourceManagement() {
       ) : (
         <>
           {tab === "caseload" && caseloadData && <CaseloadTab data={caseloadData} suggestions={suggestions} />}
-          {tab === "utilization" && utilData && <UtilizationTab data={utilData} />}
+          {tab === "utilization" && utilData && <UtilizationTab data={utilData} onRateUpdate={(staffId, rate, salary) => {
+            setUtilData(prev => prev ? prev.map(p => p.staffId === staffId ? { ...p, hourlyRate: rate } : p) : prev);
+          }} />}
           {tab === "budget" && budgetData && <BudgetTab data={budgetData} />}
         </>
       )}
@@ -328,10 +331,45 @@ function CaseloadTab({ data, suggestions }: { data: { schools: SchoolCaseload[] 
   );
 }
 
-function UtilizationTab({ data }: { data: ProviderUtil[] }) {
+function UtilizationTab({ data, onRateUpdate }: { data: ProviderUtil[]; onRateUpdate: (staffId: number, hourlyRate: number, annualSalary: number) => void }) {
   const [sortField, setSortField] = useState<"util" | "students" | "name">("util");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editRate, setEditRate] = useState("");
+  const [editSalary, setEditSalary] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function startEdit(p: ProviderUtil) {
+    setEditingId(p.staffId);
+    setEditRate(p.hourlyRate ? String(p.hourlyRate) : "");
+    setEditSalary("");
+  }
+
+  async function saveRate(staffId: number) {
+    const rate = parseFloat(editRate);
+    if (isNaN(rate) || rate <= 0) {
+      toast.error("Enter a valid hourly rate");
+      return;
+    }
+    const salary = editSalary ? parseFloat(editSalary) : Math.round(rate * 2080);
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/staff/${staffId}/rates`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hourlyRate: rate, annualSalary: salary }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      toast.success("Rate updated");
+      onRateUpdate(staffId, rate, salary);
+      setEditingId(null);
+    } catch {
+      toast.error("Failed to update rate");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const sorted = useMemo(() => {
     const copy = [...data];
@@ -410,7 +448,35 @@ function UtilizationTab({ data }: { data: ProviderUtil[] }) {
                   <td className="px-6 py-3 font-medium text-gray-900">{p.name}</td>
                   <td className="px-4 py-3 text-gray-600">{ROLE_LABELS[p.role] || p.role}</td>
                   <td className="px-4 py-3 text-gray-600">{p.schoolName}</td>
-                  <td className="px-4 py-3 text-center text-gray-700">{p.hourlyRate ? `$${p.hourlyRate}/hr` : "—"}</td>
+                  <td className="px-4 py-3 text-center text-gray-700">
+                    {editingId === p.staffId ? (
+                      <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
+                        <span className="text-gray-400 text-xs">$</span>
+                        <input
+                          type="number"
+                          value={editRate}
+                          onChange={e => setEditRate(e.target.value)}
+                          className="w-16 text-xs border border-gray-300 rounded px-1.5 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                          placeholder="Rate"
+                          autoFocus
+                          onKeyDown={e => { if (e.key === "Enter") saveRate(p.staffId); if (e.key === "Escape") setEditingId(null); }}
+                        />
+                        <button onClick={() => saveRate(p.staffId)} disabled={saving} className="text-emerald-600 hover:text-emerald-700 p-0.5">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 p-0.5">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="group inline-flex items-center gap-1">
+                        {p.hourlyRate ? `$${p.hourlyRate}/hr` : "—"}
+                        <button onClick={(e) => { e.stopPropagation(); startEdit(p); }} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 p-0.5">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center text-gray-700">{p.studentsServed}</td>
                   <td className="px-4 py-3 text-center">
                     <UtilBar pct={p.utilizationPercent} />

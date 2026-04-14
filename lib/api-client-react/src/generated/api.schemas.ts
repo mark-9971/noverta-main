@@ -329,6 +329,10 @@ export interface Staff {
   status: string;
   /** @nullable */
   qualifications?: string | null;
+  /** @nullable */
+  hourlyRate?: string | null;
+  /** @nullable */
+  annualSalary?: string | null;
   createdAt: string;
 }
 
@@ -376,6 +380,10 @@ export interface StaffDetail {
   status: string;
   /** @nullable */
   qualifications?: string | null;
+  /** @nullable */
+  hourlyRate?: string | null;
+  /** @nullable */
+  annualSalary?: string | null;
   createdAt: string;
   assignedStudents: StaffAssignment[];
   scheduleBlocks: ScheduleBlock[];
@@ -1064,6 +1072,108 @@ export interface IepCalendarResponse {
   summary: IepCalendarSummary;
 }
 
+export interface CaseloadRoleData {
+  role: string;
+  fteCount: number;
+  studentsServed: number;
+  avgCaseload: number;
+  totalRequiredWeeklyMinutes: number;
+  capacityWeeklyMinutes: number;
+  utilizationPercent: number;
+  unfilledWeeklyMinutes: number;
+  status: string;
+}
+
+export interface CaseloadSchool {
+  schoolId: number;
+  schoolName: string;
+  totalStudents: number;
+  totalProviders: number;
+  totalStaff: number;
+  byRole: CaseloadRoleData[];
+}
+
+export interface CaseloadResponse {
+  schools: CaseloadSchool[];
+}
+
+export interface ServiceBreakdown {
+  serviceType: string;
+  studentCount: number;
+  weeklyMinutes: number;
+}
+
+export interface ProviderUtilization {
+  staffId: number;
+  name: string;
+  role: string;
+  schoolName: string;
+  hourlyRate?: number | null;
+  studentsServed: number;
+  scheduledWeeklyMinutes: number;
+  capacityWeeklyMinutes: number;
+  utilizationPercent: number;
+  status: string;
+  serviceBreakdown: ServiceBreakdown[];
+}
+
+export interface BudgetSummary {
+  totalDeliveredMinutes: number;
+  totalServiceCost: number;
+  totalAnnualSalary: number;
+  totalStaff: number;
+  totalStudentsServed: number;
+  avgCostPerStudent: number;
+}
+
+export interface BudgetCostByStudent {
+  studentId: number;
+  name: string;
+  schoolName: string;
+  totalCost: number;
+  totalMinutes: number;
+}
+
+export interface BudgetCostByService {
+  serviceType: string;
+  totalMinutes: number;
+  totalCost: number;
+  studentCount: number;
+  avgCostPerStudent: number;
+}
+
+export interface BudgetCostBySchool {
+  schoolId: number;
+  schoolName: string;
+  totalMinutes: number;
+  totalCost: number;
+  studentCount: number;
+  avgCostPerStudent: number;
+}
+
+export interface BudgetResponse {
+  summary: BudgetSummary;
+  costByStudent: BudgetCostByStudent[];
+  costByServiceType: BudgetCostByService[];
+  costBySchool: BudgetCostBySchool[];
+}
+
+export interface RebalancingSuggestion {
+  role: string;
+  fromSchool: string;
+  toSchool: string;
+  fromSchoolId: number;
+  toSchoolId: number;
+  reason: string;
+  providerName: string;
+  staffId: number;
+}
+
+export interface StaffRateUpdate {
+  hourlyRate?: number;
+  annualSalary?: number;
+}
+
 export type GetDashboardSummaryParams = {
   /**
    * @nullable
@@ -1546,4 +1656,24 @@ export type GetAuditPackageReportParams = {
    * @nullable
    */
   preparedBy?: string | null;
+};
+
+export type GetResourceCaseloadParams = {
+  schoolId?: number;
+  districtId?: number;
+};
+
+export type GetProviderUtilizationParams = {
+  schoolId?: number;
+  districtId?: number;
+};
+
+export type GetResourceBudgetParams = {
+  schoolId?: number;
+  districtId?: number;
+};
+
+export type GetRebalancingSuggestionsParams = {
+  schoolId?: number;
+  districtId?: number;
 };
