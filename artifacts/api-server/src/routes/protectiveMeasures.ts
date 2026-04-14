@@ -53,6 +53,12 @@ router.get("/protective-measures/incidents", async (req: Request, res: Response)
     .where(where)
     .orderBy(desc(restraintIncidentsTable.incidentDate), desc(restraintIncidentsTable.incidentTime));
 
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    studentId: studentId ? Number(studentId) : undefined,
+    summary: `Viewed ${incidents.length} restraint incidents${studentId ? ` for student #${studentId}` : ""}`,
+  });
   res.json(incidents);
 });
 
@@ -360,6 +366,15 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
     status: "reviewed",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `Admin review of restraint incident #${id}`,
+    oldValues: { status: existing.status, adminReviewedBy: existing.adminReviewedBy } as Record<string, unknown>,
+    newValues: { status: "reviewed", adminReviewedBy: Number(adminStaffId) } as Record<string, unknown>,
+  });
   res.json(updated);
 });
 
@@ -381,6 +396,13 @@ router.post("/protective-measures/incidents/:id/parent-notification", async (req
       parentVerbalNotificationAt: now,
       parentNotifiedBy: Number(notifiedById),
     }).where(eq(restraintIncidentsTable.id, id)).returning();
+    logAudit(req, {
+      action: "update",
+      targetTable: "restraint_incidents",
+      targetId: id,
+      studentId: existing.studentId,
+      summary: `Verbal parent notification for restraint incident #${id}`,
+    });
     res.json(updated);
     return;
   }
@@ -392,6 +414,13 @@ router.post("/protective-measures/incidents/:id/parent-notification", async (req
     parentNotificationMethod: method || "phone",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `Parent notification (${method || "phone"}) for restraint incident #${id}`,
+  });
   res.json(updated);
 });
 
@@ -413,6 +442,13 @@ router.post("/protective-measures/incidents/:id/written-report", async (req: Req
     parentNotifiedAt: existing.parentNotifiedAt || now,
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `Written report sent for restraint incident #${id} via ${method || "email"}`,
+  });
   res.json(updated);
 });
 
@@ -428,6 +464,13 @@ router.post("/protective-measures/incidents/:id/dese-report", async (req: Reques
   if (req.body.thirtyDayLogSent) updates.thirtyDayLogSentToDese = true;
 
   const [updated] = await db.update(restraintIncidentsTable).set(updates).where(eq(restraintIncidentsTable.id, id)).returning();
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `DESE report filed for restraint incident #${id}`,
+  });
   res.json(updated);
 });
 
@@ -453,6 +496,13 @@ router.post("/protective-measures/incidents/:id/signature", async (req: Request,
   }
 
   const [updated] = await db.update(restraintIncidentsTable).set(updates).where(eq(restraintIncidentsTable.id, id)).returning();
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `${type} signature added to restraint incident #${id}`,
+  });
   res.json(updated);
 });
 
@@ -996,6 +1046,12 @@ router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (
     }
   }
 
+  logAudit(req, {
+    action: "update",
+    targetTable: "incident_signatures",
+    targetId: sigId,
+    summary: `Signature signed for incident #${incidentId} (role: ${existing.role})`,
+  });
   res.json(updated);
 });
 
@@ -1029,6 +1085,12 @@ router.post("/protective-measures/incidents/:id/signatures/request", async (req:
     status: "pending",
   }).returning();
 
+  logAudit(req, {
+    action: "create",
+    targetTable: "incident_signatures",
+    targetId: sig.id,
+    summary: `Signature request created for incident #${incidentId} (staff #${staffId}, role: ${role})`,
+  });
   res.status(201).json(sig);
 });
 
@@ -1076,6 +1138,12 @@ router.get("/students/:id/protective-measures", async (req: Request, res: Respon
     deseReportsPending: incidents.filter(i => i.deseReportRequired && !i.deseReportSentAt).length,
   };
 
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    studentId: studentId,
+    summary: `Viewed ${incidents.length} protective measures for student #${studentId}`,
+  });
   res.json({ incidents, summary });
 });
 
@@ -1315,6 +1383,13 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     writtenReportSentMethod: method || "email",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: incident.studentId,
+    summary: `Parent notification sent for restraint incident #${id} via ${method || "email"}`,
+  });
   res.json({
     ...updated,
     sender: { firstName: sender.firstName, lastName: sender.lastName },

@@ -47,8 +47,10 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
       conditions.push(ilike(auditLogsTable.summary, `%${search}%`));
     }
 
-    const limit = Math.min(parseInt(String(limitStr) || "100"), 500);
-    const offset = parseInt(String(offsetStr) || "0");
+    const parsedLimit = typeof limitStr === "string" ? parseInt(limitStr, 10) : NaN;
+    const limit = Math.min(Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100, 500);
+    const parsedOffset = typeof offsetStr === "string" ? parseInt(offsetStr, 10) : NaN;
+    const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 

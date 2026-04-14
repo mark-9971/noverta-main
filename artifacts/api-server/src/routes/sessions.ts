@@ -155,6 +155,15 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
     return;
   }
   const inserted = await db.insert(sessionLogsTable).values(parsed.data.sessions).returning();
+  for (const s of inserted) {
+    logAudit(req, {
+      action: "create",
+      targetTable: "session_logs",
+      targetId: s.id,
+      studentId: s.studentId,
+      summary: `Bulk-created session #${s.id} for student #${s.studentId}`,
+    });
+  }
   res.status(201).json(inserted.map(s => ({ ...s, createdAt: s.createdAt.toISOString() })));
 });
 

@@ -748,6 +748,13 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         : "Continue current programming and monitor progress. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.",
     }).returning();
 
+    logAudit(req, {
+      action: "create",
+      targetTable: "progress_reports",
+      targetId: report.id,
+      studentId: studentId,
+      summary: `Generated progress report #${report.id} for student #${studentId} (${reportingPeriod})`,
+    });
     res.status(201).json({
       ...report,
       createdAt: report.createdAt.toISOString(),
