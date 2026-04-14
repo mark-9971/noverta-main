@@ -13,4 +13,6 @@ export interface ComplianceTrendResponse {
   trend: ComplianceTrendPoint[];
   schools: SchoolTrend[];
   semesterMarkers: SemesterMarker[];
+  generatedAt: string;
+  preparedBy?: string | null;
 }

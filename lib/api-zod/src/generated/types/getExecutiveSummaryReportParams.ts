@@ -15,4 +15,8 @@ export type GetExecutiveSummaryReportParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };

@@ -1532,6 +1532,10 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: preparedBy
+          in: query
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Compliance trend data
@@ -1554,6 +1558,10 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: preparedBy
+          in: query
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Executive summary data
@@ -1588,6 +1596,10 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: preparedBy
+          in: query
+          schema:
+            type: ["string", "null"]
       responses:
         "200":
           description: Audit package data
@@ -2302,7 +2314,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SemesterMarker"
-      required: [trend, schools, semesterMarkers]
+        generatedAt:
+          type: string
+        preparedBy:
+          type: string
+          nullable: true
+      required: [trend, schools, semesterMarkers, generatedAt]
 
     RiskCounts:
       type: object
@@ -2337,6 +2354,9 @@ components:
       properties:
         generatedAt:
           type: string
+        preparedBy:
+          type: string
+          nullable: true
         totalActiveStudents:
           type: integer
         complianceRate:
@@ -2486,6 +2506,9 @@ components:
       properties:
         generatedAt:
           type: string
+        preparedBy:
+          type: string
+          nullable: true
         dateRange:
           type: object
           properties:

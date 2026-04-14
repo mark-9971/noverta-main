@@ -543,6 +543,8 @@ export interface ComplianceTrendResponse {
   trend: ComplianceTrendPoint[];
   schools: SchoolTrend[];
   semesterMarkers: SemesterMarker[];
+  generatedAt: string;
+  preparedBy?: string | null;
 }
 
 export interface RiskCounts {
@@ -583,6 +585,7 @@ export type ExecutiveSummaryResponseAlerts = {
 
 export interface ExecutiveSummaryResponse {
   generatedAt: string;
+  preparedBy?: string | null;
   totalActiveStudents: number;
   complianceRate: number;
   riskCounts: RiskCounts;
@@ -665,6 +668,7 @@ export type AuditPackageResponseDateRange = {
 
 export interface AuditPackageResponse {
   generatedAt: string;
+  preparedBy?: string | null;
   dateRange: AuditPackageResponseDateRange;
   students: AuditStudent[];
 }
@@ -1477,6 +1481,10 @@ export type GetComplianceTrendReportParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };
 
 export type GetComplianceTrendReportGranularity =
@@ -1497,6 +1505,10 @@ export type GetExecutiveSummaryReportParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };
 
 export type GetAuditPackageReportParams = {
@@ -1520,4 +1532,8 @@ export type GetAuditPackageReportParams = {
    * @nullable
    */
   studentId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };

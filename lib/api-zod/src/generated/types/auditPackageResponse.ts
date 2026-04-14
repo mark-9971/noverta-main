@@ -10,6 +10,7 @@ import type { AuditStudent } from "./auditStudent";
 
 export interface AuditPackageResponse {
   generatedAt: string;
+  preparedBy?: string | null;
   dateRange: AuditPackageResponseDateRange;
   students: AuditStudent[];
 }

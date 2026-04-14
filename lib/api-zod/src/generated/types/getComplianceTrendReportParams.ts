@@ -28,4 +28,8 @@ export type GetComplianceTrendReportParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };

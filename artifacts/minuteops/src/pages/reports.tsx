@@ -21,6 +21,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
@@ -31,9 +32,13 @@ function sanitizeCell(v: string): string {
   return s;
 }
 
-function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+function downloadCsv(filename: string, headers: string[], rows: string[][], meta?: { generatedAt?: string; preparedBy?: string | null }) {
   const escape = (v: string) => `"${sanitizeCell(v).replace(/"/g, '""')}"`;
-  const csv = [headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
+  const metaLines: string[] = [];
+  if (meta?.generatedAt) metaLines.push(`"Generated At","${sanitizeCell(meta.generatedAt)}"`);
+  if (meta?.preparedBy) metaLines.push(`"Prepared By","${sanitizeCell(meta.preparedBy)}"`);
+  if (metaLines.length) metaLines.push("");
+  const csv = [...metaLines, headers.map(escape).join(","), ...rows.map(r => r.map(escape).join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -73,7 +78,8 @@ export default function Reports() {
 
 function ExecutiveSummaryTab() {
   const { filterParams } = useSchoolContext();
-  const params: GetExecutiveSummaryReportParams = {};
+  const { user } = useRole();
+  const params: GetExecutiveSummaryReportParams = { preparedBy: user.name };
   if (filterParams.schoolId) params.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
   const { data, isLoading: loading, isError } = useGetExecutiveSummaryReport(params);
@@ -93,7 +99,7 @@ function ExecutiveSummaryTab() {
   return (
     <div className="space-y-6 print:space-y-4" id="executive-summary">
       <div className="flex items-center justify-between print:hidden">
-        <p className="text-xs text-gray-400">Generated {new Date(data.generatedAt).toLocaleString()}</p>
+        <p className="text-xs text-gray-400">Generated {new Date(data.generatedAt).toLocaleString()}{data.preparedBy ? ` by ${data.preparedBy}` : ""}</p>
         <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={handlePrint}>
           <Printer className="w-3.5 h-3.5" /> Print / PDF
         </Button>
@@ -243,6 +249,7 @@ function ExecutiveSummaryTab() {
 
 function ComplianceTrendTab() {
   const { filterParams } = useSchoolContext();
+  const { user } = useRole();
   const [granularity, setGranularity] = useState<string>("monthly");
   const [selectedSchools, setSelectedSchools] = useState<Set<number>>(new Set());
 
@@ -250,7 +257,7 @@ function ComplianceTrendTab() {
   const [startDate, setStartDate] = useState(() => new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(() => now.toISOString().split("T")[0]);
 
-  const queryParams: GetComplianceTrendReportParams = { startDate, endDate, granularity: granularity as "weekly" | "monthly" };
+  const queryParams: GetComplianceTrendReportParams = { startDate, endDate, granularity: granularity as "weekly" | "monthly", preparedBy: user.name };
   if (filterParams.schoolId) queryParams.schoolId = Number(filterParams.schoolId);
   if (filterParams.districtId) queryParams.districtId = Number(filterParams.districtId);
 
@@ -308,7 +315,8 @@ function ComplianceTrendTab() {
     if (!data?.trend) return;
     downloadCsv("compliance_trend.csv",
       ["Period", "Compliance %", "Students Tracked", "Minutes Delivered"],
-      data.trend.map(t => [t.period, String(t.compliancePercent), String(t.studentsTracked), String(t.totalDelivered)])
+      data.trend.map(t => [t.period, String(t.compliancePercent), String(t.studentsTracked), String(t.totalDelivered)]),
+      { generatedAt: data.generatedAt, preparedBy: data.preparedBy }
     );
   }
 
@@ -427,6 +435,7 @@ function ComplianceTrendTab() {
 
 function AuditPackageTab() {
   const { filterParams } = useSchoolContext();
+  const { user } = useRole();
   const [data, setData] = useState<AuditPackageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(() => {
@@ -437,7 +446,7 @@ function AuditPackageTab() {
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
 
   function generate() {
-    const params: GetAuditPackageReportParams = { startDate, endDate };
+    const params: GetAuditPackageReportParams = { startDate, endDate, preparedBy: user.name };
     if (filterParams.schoolId) params.schoolId = Number(filterParams.schoolId);
     if (filterParams.districtId) params.districtId = Number(filterParams.districtId);
     setLoading(true);
@@ -471,7 +480,8 @@ function AuditPackageTab() {
         ]);
       }
     }
-    downloadCsv(`audit_package_${startDate}_${endDate}.csv`, headers, rows);
+    const meta = { generatedAt: data.generatedAt, preparedBy: data.preparedBy };
+    downloadCsv(`audit_package_${startDate}_${endDate}.csv`, headers, rows, meta);
   }
 
   function exportDetailedCsv() {
@@ -486,7 +496,8 @@ function AuditPackageTab() {
         ]);
       }
     }
-    downloadCsv(`audit_sessions_detail_${startDate}_${endDate}.csv`, headers, rows);
+    const meta = { generatedAt: data.generatedAt, preparedBy: data.preparedBy };
+    downloadCsv(`audit_sessions_detail_${startDate}_${endDate}.csv`, headers, rows, meta);
   }
 
   return (
@@ -654,13 +665,15 @@ function AuditPackageTab() {
 }
 
 function MinuteSummaryTab() {
+  const { user } = useRole();
   const { data: minuteSummary, isLoading: loadingMinutes, isError: errMinutes, refetch: refetchMinutes } = useGetStudentMinuteSummaryReport();
   const minuteList = Array.isArray(minuteSummary) ? minuteSummary : [];
 
   function exportMinutes() {
     downloadCsv("minute_summary.csv",
       ["Student", "Service", "Delivered (min)", "Required (min)", "% Complete", "Status"],
-      minuteList.map(r => [r.studentName, r.serviceTypeName, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0)), r.riskStatus])
+      minuteList.map(r => [r.studentName, r.serviceTypeName, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0)), r.riskStatus]),
+      { generatedAt: new Date().toISOString(), preparedBy: user.name }
     );
   }
 
@@ -723,13 +736,15 @@ function MinuteSummaryTab() {
 }
 
 function MissedSessionsTab() {
+  const { user } = useRole();
   const { data: missedSessions, isLoading: loadingMissed, isError: errMissed, refetch: refetchMissed } = useGetMissedSessionsReport();
   const missedList = Array.isArray(missedSessions) ? missedSessions : [];
 
   function exportMissed() {
     downloadCsv("missed_sessions.csv",
       ["Student", "Service", "Date", "Reason", "Staff"],
-      missedList.map(r => [r.studentName ?? "", r.serviceTypeName ?? "", r.sessionDate ?? "", r.missedReason ?? "—", r.staffName ?? "—"])
+      missedList.map(r => [r.studentName ?? "", r.serviceTypeName ?? "", r.sessionDate ?? "", r.missedReason ?? "—", r.staffName ?? "—"]),
+      { generatedAt: new Date().toISOString(), preparedBy: user.name }
     );
   }
 
@@ -783,13 +798,15 @@ function MissedSessionsTab() {
 }
 
 function RiskTab() {
+  const { user } = useRole();
   const { data: complianceRisk, isLoading: loadingRisk, isError: errRisk, refetch: refetchRisk } = useGetComplianceRiskReport();
   const riskList = Array.isArray(complianceRisk) ? complianceRisk : [];
 
   function exportRisk() {
     downloadCsv("at_risk_students.csv",
       ["Student", "Service", "Risk Status", "Delivered", "Required", "% Complete"],
-      riskList.map(r => [r.studentName, r.serviceTypeName, r.riskStatus, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0))])
+      riskList.map(r => [r.studentName, r.serviceTypeName, r.riskStatus, String(r.deliveredMinutes), String(r.requiredMinutes), String(Math.round(r.percentComplete ?? 0))]),
+      { generatedAt: new Date().toISOString(), preparedBy: user.name }
     );
   }
 

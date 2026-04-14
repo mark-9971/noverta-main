@@ -27,4 +27,8 @@ export type GetAuditPackageReportParams = {
    * @nullable
    */
   studentId?: number | null;
+  /**
+   * @nullable
+   */
+  preparedBy?: string | null;
 };

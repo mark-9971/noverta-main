@@ -150,7 +150,7 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 
     const studentIds = activeStudents.map(s => s.id);
     if (studentIds.length === 0) {
-      res.json({ trend: [], schools: [], semesterMarkers: [] });
+      res.json({ trend: [], schools: [], semesterMarkers: [], generatedAt: new Date().toISOString(), preparedBy: (req.query.preparedBy as string) || null });
       return;
     }
 
@@ -288,11 +288,34 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
       return markers;
     }
 
-    const periods = [...byPeriod.keys()].sort();
+    function enumeratePeriods(startStr: string, endStr: string): string[] {
+      const result: string[] = [];
+      const endD = new Date(endStr + "T12:00:00");
+      if (gran === "monthly") {
+        const d = new Date(startStr + "T12:00:00");
+        d.setDate(1);
+        while (d <= endD) {
+          result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+          d.setMonth(d.getMonth() + 1);
+        }
+      } else {
+        const d = new Date(startStr + "T12:00:00");
+        const day = d.getDay();
+        d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+        while (d <= endD) {
+          result.push(d.toISOString().split("T")[0]);
+          d.setDate(d.getDate() + 7);
+        }
+      }
+      return result;
+    }
+
+    const emptyPeriod: PeriodData = { delivered: new Map(), total: 0 };
+    const periods = enumeratePeriods(start, end);
     const trend = periods.map(pk => ({
       period: pk,
-      compliancePercent: calcCompliance(byPeriod.get(pk)!, studentsWithReqs),
-      totalDelivered: byPeriod.get(pk)!.total,
+      compliancePercent: calcCompliance(byPeriod.get(pk) ?? emptyPeriod, studentsWithReqs),
+      totalDelivered: byPeriod.get(pk)?.total ?? 0,
       studentsTracked: studentsWithReqs.size,
     }));
 
@@ -300,10 +323,10 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
     for (const [schoolIdStr, periodMap] of bySchoolPeriod) {
       const sid = Number(schoolIdStr);
       const pool = schoolStudents.get(sid) ?? new Set();
-      const schoolTrend = periods.filter(pk => periodMap.has(pk)).map(pk => ({
+      const schoolTrend = periods.map(pk => ({
         period: pk,
-        compliancePercent: calcCompliance(periodMap.get(pk)!, pool),
-        totalDelivered: periodMap.get(pk)!.total,
+        compliancePercent: calcCompliance(periodMap.get(pk) ?? emptyPeriod, pool),
+        totalDelivered: periodMap.get(pk)?.total ?? 0,
         studentsTracked: pool.size,
       }));
       schools.push({ schoolId: sid, schoolName: schoolMap.get(sid) ?? "Unknown", trend: schoolTrend });
@@ -311,7 +334,7 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
 
     const semesterMarkers = getSemesterMarkers(start, end);
 
-    res.json({ trend, schools, semesterMarkers });
+    res.json({ trend, schools, semesterMarkers, generatedAt: new Date().toISOString(), preparedBy: (req.query.preparedBy as string) || null });
   } catch (e: any) {
     console.error("GET /reports/compliance-trend error:", e);
     res.status(500).json({ error: "Failed to generate compliance trend" });
@@ -406,6 +429,7 @@ router.get("/reports/executive-summary", async (req, res): Promise<void> => {
 
     res.json({
       generatedAt: new Date().toISOString(),
+      preparedBy: (req.query.preparedBy as string) || null,
       totalActiveStudents: activeResult?.count ?? 0,
       complianceRate,
       riskCounts,
@@ -457,7 +481,7 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
       .orderBy(asc(studentsTable.lastName), asc(studentsTable.firstName));
 
     if (students.length === 0) {
-      res.json({ generatedAt: new Date().toISOString(), dateRange: { start, end }, students: [] });
+      res.json({ generatedAt: new Date().toISOString(), preparedBy: (req.query.preparedBy as string) || null, dateRange: { start, end }, students: [] });
       return;
     }
 
@@ -598,6 +622,7 @@ router.get("/reports/audit-package", async (req, res): Promise<void> => {
 
     res.json({
       generatedAt: new Date().toISOString(),
+      preparedBy: (req.query.preparedBy as string) || null,
       dateRange: { start, end },
       students: result,
     });

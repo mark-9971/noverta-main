@@ -12,6 +12,7 @@ import type { RiskCounts } from "./riskCounts";
 
 export interface ExecutiveSummaryResponse {
   generatedAt: string;
+  preparedBy?: string | null;
   totalActiveStudents: number;
   complianceRate: number;
   riskCounts: RiskCounts;

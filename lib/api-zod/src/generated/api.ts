@@ -1675,6 +1675,7 @@ export const GetComplianceTrendReportQueryParams = zod.object({
     .nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  preparedBy: zod.coerce.string().nullish(),
 });
 
 export const GetComplianceTrendReportResponse = zod.object({
@@ -1706,6 +1707,8 @@ export const GetComplianceTrendReportResponse = zod.object({
       label: zod.string(),
     }),
   ),
+  generatedAt: zod.string(),
+  preparedBy: zod.string().nullish(),
 });
 
 /**
@@ -1714,10 +1717,12 @@ export const GetComplianceTrendReportResponse = zod.object({
 export const GetExecutiveSummaryReportQueryParams = zod.object({
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  preparedBy: zod.coerce.string().nullish(),
 });
 
 export const GetExecutiveSummaryReportResponse = zod.object({
   generatedAt: zod.string(),
+  preparedBy: zod.string().nullish(),
   totalActiveStudents: zod.number(),
   complianceRate: zod.number(),
   riskCounts: zod.object({
@@ -1763,10 +1768,12 @@ export const GetAuditPackageReportQueryParams = zod.object({
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
   studentId: zod.coerce.number().nullish(),
+  preparedBy: zod.coerce.string().nullish(),
 });
 
 export const GetAuditPackageReportResponse = zod.object({
   generatedAt: zod.string(),
+  preparedBy: zod.string().nullish(),
   dateRange: zod.object({
     start: zod.string(),
     end: zod.string(),
