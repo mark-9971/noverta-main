@@ -16,8 +16,7 @@ import {
   User, ChevronRight, Search, Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
-
-const API = "/api";
+import { apiGet } from "@/lib/api";
 
 function useAnalytics(endpoint: string) {
   const [data, setData] = useState<any>(null);
@@ -27,8 +26,7 @@ function useAnalytics(endpoint: string) {
   const refetch = () => {
     setLoading(true);
     setError(false);
-    fetch(`${API}/analytics/${endpoint}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    apiGet(`/api/analytics/${endpoint}`)
       .then(d => { setData(d); setLoading(false); })
       .catch(() => { setError(true); setLoading(false); });
   };
@@ -901,17 +899,14 @@ function StudentTab() {
   const [listLoading, setListLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/students`)
-      .then(r => r.ok ? r.json() : [])
-      .then(d => { setStudents(Array.isArray(d) ? d : d.students || []); setListLoading(false); })
+    apiGet(`/api/students`).catch(() => []).then(d => { setStudents(Array.isArray(d) ? d : d.students || []); setListLoading(false); })
       .catch(() => setListLoading(false));
   }, []);
 
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
-    fetch(`${API}/analytics/student/${selectedId}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    apiGet(`/api/analytics/student/${selectedId}`)
       .then(d => { setStudentData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [selectedId]);

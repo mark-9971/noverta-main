@@ -3,8 +3,7 @@ import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, ChevronRight } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function TeacherGradebook() {
   const { teacherId } = useRole();
@@ -13,7 +12,7 @@ export default function TeacherGradebook() {
 
   useEffect(() => {
     if (!teacherId) return;
-    fetch(`${API}/classes?teacherId=${teacherId}`).then(r => r.json()).then(d => {
+    apiGet(`/api/classes?teacherId=${teacherId}`).then(d => {
       setClasses(d);
       setLoading(false);
     });

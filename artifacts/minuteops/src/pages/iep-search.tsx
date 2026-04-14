@@ -3,8 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Search, Target, BookOpen, Users, ChevronRight, Filter } from "lucide-react";
+import { apiGet } from "@/lib/api";
 
-const API = "/api";
 
 export default function IepSearch() {
   const [query, setQuery] = useState("");
@@ -16,8 +16,8 @@ export default function IepSearch() {
     if (query.trim().length < 2) return;
     setSearching(true);
     try {
-      const res = await fetch(`${API}/search/iep?q=${encodeURIComponent(query.trim())}&type=${searchType}`);
-      if (res.ok) setResults(await res.json());
+      const data = await apiGet(`/api/search/iep?q=${encodeURIComponent(query.trim())}&type=${searchType}`);
+      setResults(data);
     } catch (e) {
       console.error("Search failed:", e);
     }

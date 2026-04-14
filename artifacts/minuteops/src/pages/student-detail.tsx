@@ -13,8 +13,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 const DIRECTION_COLORS = {
   decrease: { good: "#10b981", bad: "#ef4444", bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -63,22 +62,22 @@ export default function StudentDetail() {
   const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
 
   function loadPhaseChanges() {
-    fetch(`${API}/students/${studentId}/phase-changes`).then(r => r.ok ? r.json() : {}).then(setPhaseChangesByTarget).catch(() => {});
+    apiGet(`/api/students/${studentId}/phase-changes`).catch(() => {}).then(setPhaseChangesByTarget).catch(() => {});
   }
 
   useEffect(() => {
     if (isNaN(studentId)) return;
     setDataLoading(true);
     Promise.all([
-      fetch(`${API}/students/${studentId}/behavior-targets`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/students/${studentId}/program-targets`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/students/${studentId}/behavior-data/trends`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/students/${studentId}/program-data/trends`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/students/${studentId}/data-sessions?limit=10`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/students/${studentId}/protective-measures`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/students/${studentId}/minutes-trend`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/compensatory-obligations/summary/by-student/${studentId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/students/${studentId}/phase-changes`).then(r => r.ok ? r.json() : {}),
+      apiGet(`/api/students/${studentId}/behavior-targets`).catch(() => []),
+      apiGet(`/api/students/${studentId}/program-targets`).catch(() => []),
+      apiGet(`/api/students/${studentId}/behavior-data/trends`).catch(() => []),
+      apiGet(`/api/students/${studentId}/program-data/trends`).catch(() => []),
+      apiGet(`/api/students/${studentId}/data-sessions?limit=10`).catch(() => []),
+      apiGet(`/api/students/${studentId}/protective-measures`).catch(() => null),
+      apiGet(`/api/students/${studentId}/minutes-trend`).catch(() => []),
+      apiGet(`/api/compensatory-obligations/summary/by-student/${studentId}`).catch(() => null),
+      apiGet(`/api/students/${studentId}/phase-changes`).catch(() => {}),
     ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
@@ -187,9 +186,8 @@ export default function StudentDetail() {
     setExpandedDataSessionId(id);
     setExpandedDataLoading(true);
     try {
-      const res = await fetch(`${API}/data-sessions/${id}`);
-      if (res.ok) setExpandedDataDetail(await res.json());
-      else setExpandedDataDetail(null);
+      const data = await apiGet(`/api/data-sessions/${id}`);
+      setExpandedDataDetail(data);
     } catch { setExpandedDataDetail(null); }
     setExpandedDataLoading(false);
   }
@@ -203,9 +201,8 @@ export default function StudentDetail() {
     setExpandedServiceSessionId(id);
     setExpandedServiceLoading(true);
     try {
-      const res = await fetch(`${API}/sessions/${id}`);
-      if (res.ok) setExpandedServiceDetail(await res.json());
-      else setExpandedServiceDetail(null);
+      const data = await apiGet(`/api/sessions/${id}`);
+      setExpandedServiceDetail(data);
     } catch { setExpandedServiceDetail(null); }
     setExpandedServiceLoading(false);
   }
@@ -216,25 +213,18 @@ export default function StudentDetail() {
     setShareLink(null);
     setShareSummary(null);
     try {
-      const res = await fetch(`${API}/students/${studentId}/progress-summary?days=${shareDays}`);
-      if (res.ok) setShareSummary(await res.json());
+      const data = await apiGet(`/api/students/${studentId}/progress-summary?days=${shareDays}`);
+      setShareSummary(data);
     } catch {}
     setShareLoading(false);
   }
 
   async function generateShareLink() {
     try {
-      const res = await fetch(`${API}/students/${studentId}/progress-summary/share-link`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: shareDays, expiresInHours: 72 }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const fullUrl = `${window.location.origin}${data.url}`;
-        setShareLink(fullUrl);
-        toast.success("Share link generated (expires in 72 hours)");
-      }
+      const data = await apiPost<{ url: string }>(`/api/students/${studentId}/progress-summary/share-link`, { days: shareDays, expiresInHours: 72 });
+      const fullUrl = `${window.location.origin}${data.url}`;
+      setShareLink(fullUrl);
+      toast.success("Share link generated (expires in 72 hours)");
     } catch {
       toast.error("Failed to generate share link");
     }

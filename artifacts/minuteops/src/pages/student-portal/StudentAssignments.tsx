@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Calendar, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function StudentAssignments() {
   const { studentId } = useRole();
@@ -15,7 +14,7 @@ export default function StudentAssignments() {
 
   useEffect(() => {
     if (!studentId) return;
-    fetch(`${API}/students/${studentId}/assignments`).then(r => r.json()).then(d => {
+    apiGet(`/api/students/${studentId}/assignments`).then(d => {
       setAssignments(d);
       setLoading(false);
     });

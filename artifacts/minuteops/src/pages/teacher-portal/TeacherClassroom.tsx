@@ -6,8 +6,7 @@ import {
   Plus, Calendar, MapPin, Send, Users, ShieldCheck, X
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -74,9 +73,7 @@ export default function TeacherClassroom() {
   useEffect(() => {
     if (!teacherId) return;
     setLoading(true);
-    fetch(`${API}/staff/${teacherId}/classroom`)
-      .then(r => r.json())
-      .then(d => {
+    apiGet(`/api/staff/${teacherId}/classroom`).then(d => {
         setStudents(d.students || []);
         setLoading(false);
       })
@@ -363,22 +360,16 @@ function ObservationModal({ student, staffId, onClose, onSaved }: {
     if (!description.trim()) { toast.error("Please enter an observation"); return; }
     setSaving(true);
     try {
-      const res = await fetch(`${API}/teacher-observations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await apiPost(`/api/teacher-observations`, {
           studentId: student.id,
           staffId,
           observationDate: today,
           description: description.trim(),
           severity,
           behaviorTargetId,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      const obs = await res.json();
+        });
       toast.success("Observation logged");
-      onSaved(obs);
+      onSaved(res);
     } catch {
       toast.error("Failed to save observation");
     } finally {

@@ -4,8 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ChevronRight } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function TeacherAssignments() {
   const { teacherId } = useRole();
@@ -15,11 +14,11 @@ export default function TeacherAssignments() {
 
   useEffect(() => {
     if (!teacherId) return;
-    fetch(`${API}/classes?teacherId=${teacherId}`).then(r => r.json()).then(async (clsList) => {
+    apiGet(`/api/classes?teacherId=${teacherId}`).then(async (clsList) => {
       setClasses(clsList);
       const all: any[] = [];
       for (const c of clsList) {
-        const asgns = await fetch(`${API}/classes/${c.id}/assignments`).then(r => r.json());
+        const asgns = await apiGet(`/api/classes/${c.id}/assignments`);
         all.push(...asgns.map((a: any) => ({ ...a, className: c.name, classSubject: c.subject })));
       }
       all.sort((a, b) => (b.dueDate || "").localeCompare(a.dueDate || ""));

@@ -4,8 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Inbox, ChevronRight } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function TeacherSubmissions() {
   const { teacherId } = useRole();
@@ -14,7 +13,7 @@ export default function TeacherSubmissions() {
 
   useEffect(() => {
     if (!teacherId) return;
-    fetch(`${API}/teacher/${teacherId}/dashboard`).then(r => r.json()).then(d => {
+    apiGet(`/api/teacher/${teacherId}/dashboard`).then(d => {
       setData(d);
       setLoading(false);
     });

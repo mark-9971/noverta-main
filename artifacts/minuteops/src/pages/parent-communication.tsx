@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 
-const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 type Contact = {
   id: number;
@@ -102,8 +102,7 @@ export default function ParentCommunication() {
   const [students, setStudents] = useState<{ id: number; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/sped-students${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`)
-      .then(r => r.ok ? r.json() : [])
+    apiGet(`/api/sped-students${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`)
       .then(setStudents)
       .catch(() => {});
   }, [selectedSchool]);
@@ -119,9 +118,9 @@ export default function ParentCommunication() {
     if (selectedSchool?.id) params.set("schoolId", String(selectedSchool.id));
 
     Promise.all([
-      fetch(`${API}/parent-contacts?${params}`).then(r => r.ok ? r.json() : { data: [], page: 1, limit: 100 }),
-      fetch(`${API}/parent-contacts/overdue-followups${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/parent-contacts/notification-needed${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).then(r => r.ok ? r.json() : []),
+      apiGet(`/api/parent-contacts?${params}`).catch(() => ({ data: [], page: 1, limit: 100 })),
+      apiGet(`/api/parent-contacts/overdue-followups${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).catch(() => []),
+      apiGet(`/api/parent-contacts/notification-needed${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).catch(() => []),
     ]).then(([cRes, o, n]) => {
       setContacts(cRes.data || []);
       setOverdueFollowups(o);
@@ -165,20 +164,10 @@ export default function ParentCommunication() {
       };
 
       if (editingContact) {
-        const res = await fetch(`${API}/parent-contacts/${editingContact.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("Failed to update");
+        await apiPatch(`/api/parent-contacts/${editingContact.id}`, body);
         toast.success("Contact updated");
       } else {
-        const res = await fetch(`${API}/parent-contacts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("Failed to create");
+        await apiPost(`/api/parent-contacts`, body);
         toast.success("Contact logged");
       }
 
@@ -193,7 +182,7 @@ export default function ParentCommunication() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this contact log?")) return;
     try {
-      await fetch(`${API}/parent-contacts/${id}`, { method: "DELETE" });
+      await apiDelete(`/api/parent-contacts/${id}`);
       toast.success("Contact deleted");
       fetchAll();
     } catch {

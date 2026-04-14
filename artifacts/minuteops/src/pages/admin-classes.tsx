@@ -3,8 +3,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Clock, MapPin, ChevronRight, Search } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function AdminClasses() {
   const [classes, setClasses] = useState<any[]>([]);
@@ -12,7 +11,7 @@ export default function AdminClasses() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/classes`).then(r => r.json()).then(d => { setClasses(d); setLoading(false); });
+    apiGet(`/api/classes`).then(d => { setClasses(d); setLoading(false); });
   }, []);
 
   const filtered = classes.filter(c =>

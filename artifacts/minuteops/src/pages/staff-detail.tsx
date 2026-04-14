@@ -13,8 +13,7 @@ import {
 
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
-
-const API = "/api";
+import { apiGet } from "@/lib/api";
 
 export default function StaffDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,10 +31,10 @@ export default function StaffDetail() {
     setLoadError(false);
     const roleHeaders: HeadersInit = { "x-demo-role": role };
     Promise.all([
-      fetch(`${API}/staff/${staffId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/staff/${staffId}/caseload-summary`).then(r => r.ok ? r.json() : { students: [], summary: {} }),
-      fetch(`${API}/staff/${staffId}/caseload`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/supervision/staff/${staffId}/summary`, { headers: roleHeaders }).then(r => r.ok ? r.json() : null),
+      apiGet(`/api/staff/${staffId}`).catch(() => null),
+      apiGet(`/api/staff/${staffId}/caseload-summary`).catch(() => ({ students: [], summary: {} })),
+      apiGet(`/api/staff/${staffId}/caseload`).catch(() => []),
+      apiGet(`/api/supervision/staff/${staffId}/summary`).catch(() => null),
     ]).then(([s, cs, cl, sup]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });

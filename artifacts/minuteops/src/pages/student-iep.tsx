@@ -12,17 +12,9 @@ import {
   Circle, Printer, UserPlus, ClipboardList as ClipboardListIcon, Video, MapPin
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 
-const API = "/api";
 
-async function apiFetch(url: string, opts?: RequestInit) {
-  const res = await fetch(url, opts);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API error ${res.status}: ${text}`);
-  }
-  return res;
-}
 
 interface Student { id: number; firstName: string; lastName: string; grade: string; dateOfBirth?: string | null; }
 interface ProgramTarget { id: number; name: string; domain: string; programType: string; currentPromptLevel: string; masteryCriterionPercent: number; }
@@ -144,14 +136,14 @@ export default function StudentIepPage() {
   const loadData = useCallback(async () => {
     try {
       const [s, g, r, pt, bt, docs, accs, mtgs] = await Promise.all([
-        fetch(`${API}/students/${studentId}`).then(r => r.ok ? r.json() : null),
-        fetch(`${API}/students/${studentId}/iep-goals`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/progress-reports`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/program-targets`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/behavior-targets`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/iep-documents`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/accommodations`).then(r => r.json()),
-        fetch(`${API}/students/${studentId}/team-meetings`).then(r => r.json()),
+        apiGet(`/api/students/${studentId}`).catch(() => null),
+        apiGet(`/api/students/${studentId}/iep-goals`),
+        apiGet(`/api/students/${studentId}/progress-reports`),
+        apiGet(`/api/students/${studentId}/program-targets`),
+        apiGet(`/api/students/${studentId}/behavior-targets`),
+        apiGet(`/api/students/${studentId}/iep-documents`),
+        apiGet(`/api/students/${studentId}/accommodations`),
+        apiGet(`/api/students/${studentId}/team-meetings`),
       ]);
       setStudent(s);
       setGoals(Array.isArray(g) ? g : []);
@@ -171,12 +163,8 @@ export default function StudentIepPage() {
 
   async function autoCreateGoals() {
     setAutoCreating(true);
-    const res = await fetch(`${API}/students/${studentId}/iep-goals/auto-create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate: new Date().toISOString().split("T")[0] }),
-    });
-    if (res.ok) await loadData();
+    await apiPost(`/api/students/${studentId}/iep-goals/auto-create`, { startDate: new Date().toISOString().split("T")[0] });
+    await loadData();
     setAutoCreating(false);
   }
 
@@ -569,21 +557,16 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
     setSaving(true);
     try {
       const goalNumber = existingGoals.filter(g => g.goalArea === goalArea).length + 1;
-      const res = await fetch(`${API}/students/${studentId}/iep-goals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/students/${studentId}/iep-goals`, {
           goalArea, goalNumber, annualGoal: annualGoal.trim(),
           baseline: baseline || null, targetCriterion: targetCriterion || null,
           measurementMethod: measurementMethod || null, serviceArea: serviceArea || null,
           benchmarks: benchmarks || null,
           programTargetId: linkedType === "program" ? linkedId : null,
           behaviorTargetId: linkedType === "behavior" ? linkedId : null,
-        }),
-      });
-      if (res.ok) { toast.success("IEP goal added"); onSaved(); }
-      else toast.error("Failed to save goal");
-    } catch { toast.error("Network error. Please try again."); }
+        });
+      toast.success("IEP goal added"); onSaved();
+    } catch { toast.error("Failed to save goal"); }
     setSaving(false);
   }
 
@@ -706,15 +689,8 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
 
   async function generate() {
     setGenerating(true);
-    const res = await fetch(`${API}/students/${studentId}/progress-reports/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ periodStart, periodEnd, reportingPeriod }),
-    });
-    if (res.ok) {
-      const report = await res.json();
-      onGenerated(report);
-    }
+    const report = await apiPost(`/api/students/${studentId}/progress-reports/generate`, { periodStart, periodEnd, reportingPeriod });
+    onGenerated(report);
     setGenerating(false);
   }
 
@@ -786,37 +762,27 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
       if (idx >= 0) updatedGoals[idx] = { ...updatedGoals[idx], narrative: narrativeText };
     }
 
-    const res = await fetch(`${API}/progress-reports/${report.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        overallSummary: summaryText,
-        recommendations: recommendationsText,
-        parentNotes: parentNotesText || null,
-        goalProgress: updatedGoals,
-      }),
-    });
-    if (res.ok) {
-      onUpdated({
+    await apiPatch(`/api/progress-reports/${report.id}`, {
         overallSummary: summaryText,
         recommendations: recommendationsText,
         parentNotes: parentNotesText || null,
         goalProgress: updatedGoals,
       });
-      setEditingNarrative(null);
-      setEditingSummary(false);
-    }
+    onUpdated({
+      overallSummary: summaryText,
+      recommendations: recommendationsText,
+      parentNotes: parentNotesText || null,
+      goalProgress: updatedGoals,
+    });
+    setEditingNarrative(null);
+    setEditingSummary(false);
     setSaving(false);
   }
 
   async function finalizeReport() {
     setSaving(true);
-    const res = await fetch(`${API}/progress-reports/${report.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "final" }),
-    });
-    if (res.ok) onUpdated({ status: "final" });
+    await apiPatch(`/api/progress-reports/${report.id}`, { status: "final" });
+    onUpdated({ status: "final" });
     setSaving(false);
   }
 
@@ -1157,11 +1123,7 @@ function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId
     if (!reason.trim()) return;
     setSubmitting(true);
     try {
-      await apiFetch(`${API}/students/${studentId}/iep-documents/${docId}/amend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amendmentReason: reason.trim() }),
-      });
+      await apiPost(`/api/students/${studentId}/iep-documents/${docId}/amend`, { amendmentReason: reason.trim() });
       setShowDialog(false);
       setReason("");
       onAmended();
@@ -1237,17 +1199,9 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
     setSaving(true);
     try {
       if (activeDoc) {
-        await apiFetch(`${API}/iep-documents/${activeDoc.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
+        await apiPatch(`/api/iep-documents/${activeDoc.id}`, form);
       } else {
-        await apiFetch(`${API}/students/${studentId}/iep-documents`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, studentId }),
-        });
+        await apiPost(`/api/students/${studentId}/iep-documents`, { ...form, studentId });
       }
       setEditing(false);
       onSaved();
@@ -1485,14 +1439,10 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
     if (!description.trim()) return;
     setSaving(true);
     try {
-      await apiFetch(`${API}/students/${studentId}/accommodations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/students/${studentId}/accommodations`, {
           category, description: description.trim(),
           setting: setting || null, frequency: frequency || null, provider: provider || null,
-        }),
-      });
+        });
       setDescription(""); setSetting(""); setFrequency(""); setProvider("");
       setShowAdd(false);
       onSaved();
@@ -1503,178 +1453,10 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
   }
 
   async function removeAccommodation(id: number) {
-    await apiFetch(`${API}/accommodations/${id}`, { method: "DELETE" });
-    onSaved();
-  }
-
-  const grouped = accommodations.reduce<Record<string, Accommodation[]>>((acc, a) => {
-    (acc[a.category] = acc[a.category] || []).push(a);
-    return acc;
-  }, {});
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-600">Accommodations & Modifications</h3>
-        <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add
-        </Button>
-      </div>
-
-      {showAdd && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Category *</label>
-                <select value={category} onChange={e => setCategory(e.target.value)}
-                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
-                  {ACCOMMODATION_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Setting</label>
-                <input value={setting} onChange={e => setSetting(e.target.value)} placeholder="Gen ed, special ed, all settings"
-                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
-              </div>
-            </div>
-            <div>
-              <label className="text-[11px] font-medium text-gray-500">Description *</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
-                placeholder="Extended time on tests, preferential seating..."
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200 resize-none" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Frequency</label>
-                <input value={frequency} onChange={e => setFrequency(e.target.value)} placeholder="Daily, as needed, during testing"
-                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Provider</label>
-                <input value={provider} onChange={e => setProvider(e.target.value)} placeholder="Special ed teacher, aide"
-                  className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
-                disabled={!description.trim() || saving} onClick={addAccommodation}>
-                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {accommodations.length === 0 && !showAdd && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No accommodations added yet</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {Object.entries(grouped).map(([cat, items]) => {
-        const catLabel = ACCOMMODATION_CATEGORIES.find(c => c.value === cat)?.label ?? cat;
-        return (
-          <Card key={cat}>
-            <CardContent className="p-4">
-              <h4 className="text-[12px] font-semibold text-emerald-700 uppercase tracking-wider mb-3">{catLabel}</h4>
-              <div className="space-y-2">
-                {items.map(a => (
-                  <div key={a.id} className="flex items-start gap-2 group">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-gray-700">{a.description}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5 flex-wrap">
-                        {a.setting && <span>Setting: {a.setting}</span>}
-                        {a.frequency && <span>Frequency: {a.frequency}</span>}
-                        {a.provider && <span>Provider: {a.provider}</span>}
-                      </div>
-                    </div>
-                    <button onClick={() => removeAccommodation(a.id)}
-                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-
-const MEETING_TYPES = [
-  { value: "annual", label: "Annual IEP Review" },
-  { value: "initial", label: "Initial IEP Meeting" },
-  { value: "amendment", label: "IEP Amendment" },
-  { value: "reeval", label: "Reevaluation" },
-  { value: "transition", label: "Transition Planning" },
-  { value: "manifestation", label: "Manifestation Determination" },
-  { value: "eligibility", label: "Eligibility Determination" },
-  { value: "esy_planning", label: "ESY Planning Meeting" },
-  { value: "parent_conference", label: "Parent Conference" },
-  { value: "phone_conference", label: "Phone/Video Conference" },
-  { value: "problem_solving", label: "Problem Solving Meeting" },
-  { value: "504", label: "504 Meeting" },
-  { value: "home_visit", label: "Home Visit" },
-  { value: "other", label: "Other" },
-];
-
-const MEETING_FORMATS = [
-  { value: "in-person", label: "In-Person", icon: MapPin },
-  { value: "virtual", label: "Virtual", icon: Video },
-  { value: "phone", label: "Phone", icon: Phone },
-  { value: "hybrid", label: "Hybrid", icon: Users },
-];
-
-const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  scheduled:   { bg: "bg-blue-50",    color: "text-blue-700",   label: "Scheduled" },
-  completed:   { bg: "bg-emerald-50", color: "text-emerald-700",label: "Completed" },
-  cancelled:   { bg: "bg-red-50",     color: "text-red-700",    label: "Cancelled" },
-  rescheduled: { bg: "bg-amber-50",   color: "text-amber-700",  label: "Rescheduled" },
-  in_progress: { bg: "bg-purple-50",  color: "text-purple-700", label: "In Progress" },
-};
-
-const SUGGESTED_ATTENDEE_ROLES = [
-  "Parent/Guardian", "Student", "Special Education Teacher", "General Education Teacher",
-  "District Representative", "School Psychologist", "Speech-Language Pathologist",
-  "Occupational Therapist", "Physical Therapist", "School Counselor",
-  "Para-educator", "Transition Coordinator", "Interpreter", "Outside Agency Rep",
-];
-
-function genId() { return Math.random().toString(36).slice(2, 9); }
-
-function MeetingCard({ meeting: initialMeeting, onSaved, onDelete }: {
-  meeting: TeamMeeting; onSaved: () => void; onDelete: () => void;
-}) {
-  const [m, setM] = useState<TeamMeeting>(initialMeeting);
-  const [expanded, setExpanded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [newAgenda, setNewAgenda] = useState("");
-  const [newAttendee, setNewAttendee] = useState({ name: "", role: "" });
-  const [newAction, setNewAction] = useState({ description: "", assignee: "", dueDate: "" });
-  const [showAttendeeSuggestions, setShowAttendeeSuggestions] = useState(false);
-  const [activeTab, setActiveTab] = useState<"agenda" | "attendees" | "notes" | "actions" | "outcome">("notes");
-
-  async function patch(updates: Partial<TeamMeeting>) {
-    setSaving(true);
     try {
-      const res = await apiFetch(`${API}/team-meetings/${m.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      const updated = await res.json();
-      setM(updated);
+      await apiDelete(`/api/accommodations/${id}`);
       onSaved();
-    } catch { toast.error("Failed to save"); }
-    setSaving(false);
+    } catch { toast.error("Failed to remove accommodation"); }
   }
 
   function togglePresent(idx: number) {
@@ -2066,10 +1848,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
     if (!form.scheduledDate) return;
     setSaving(true);
     try {
-      await apiFetch(`${API}/students/${studentId}/team-meetings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/students/${studentId}/team-meetings`, {
           meetingType: form.meetingType,
           scheduledDate: form.scheduledDate,
           scheduledTime: form.scheduledTime || null,
@@ -2078,8 +1857,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
           meetingFormat: form.meetingFormat || null,
           noticeSentDate: form.noticeSentDate || null,
           status: "scheduled",
-        }),
-      });
+        });
       setForm({ meetingType: "annual", scheduledDate: "", scheduledTime: "", duration: "", location: "", meetingFormat: "in-person", noticeSentDate: "" });
       setShowAdd(false);
       onSaved();
@@ -2089,155 +1867,13 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
   }
 
   async function deleteMeeting(id: number) {
-    await apiFetch(`${API}/team-meetings/${id}`, { method: "DELETE" });
-    onSaved();
-    toast.success("Meeting removed");
-  }
-
-  const inp = "w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200";
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700">Meetings & Case Notes</h3>
-          <p className="text-[11px] text-gray-400">{meetings.length} meeting{meetings.length !== 1 ? "s" : ""}  {openActions.length > 0 ? `· ${openActions.length} open action item${openActions.length !== 1 ? "s" : ""}` : ""}</p>
-        </div>
-        <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Schedule Meeting
-        </Button>
-      </div>
-
-      {openActions.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <p className="text-[11px] font-semibold text-amber-700 mb-2">Open Action Items</p>
-          <div className="space-y-1">
-            {openActions.map(a => {
-              const mtLabel = MEETING_TYPES.find(t => t.value === a.meetingType)?.label ?? a.meetingType;
-              return (
-                <div key={a.id} className="flex items-start gap-2">
-                  <Circle className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <p className="text-[12px] text-gray-700">{a.description}</p>
-                    <p className="text-[10px] text-gray-400">{a.assignee && `→ ${a.assignee}`}{a.dueDate && ` · Due ${formatDate(a.dueDate)}`} · from {mtLabel} ({formatDate(a.meetingDate)})</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {showAdd && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <h4 className="text-[13px] font-semibold text-gray-700">Schedule a Meeting</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Meeting Type *</label>
-                <select value={form.meetingType} onChange={e => setForm(p => ({ ...p, meetingType: e.target.value }))} className={`${inp} mt-1`}>
-                  {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Format</label>
-                <select value={form.meetingFormat} onChange={e => setForm(p => ({ ...p, meetingFormat: e.target.value }))} className={`${inp} mt-1`}>
-                  {MEETING_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Date *</label>
-                <input type="date" value={form.scheduledDate} onChange={e => setForm(p => ({ ...p, scheduledDate: e.target.value }))} className={`${inp} mt-1`} />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Time</label>
-                <input type="time" value={form.scheduledTime} onChange={e => setForm(p => ({ ...p, scheduledTime: e.target.value }))} className={`${inp} mt-1`} />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Duration (minutes)</label>
-                <input type="number" value={form.duration} onChange={e => setForm(p => ({ ...p, duration: e.target.value }))} placeholder="60" className={`${inp} mt-1`} />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Location / Link</label>
-                <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="Room 101, Zoom link…" className={`${inp} mt-1`} />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-gray-500">Notice Sent Date <span className="text-gray-400">(10-day rule)</span></label>
-                <input type="date" value={form.noticeSentDate} onChange={e => setForm(p => ({ ...p, noticeSentDate: e.target.value }))} className={`${inp} mt-1`} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" className="text-[12px] h-8" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] h-8"
-                disabled={!form.scheduledDate || saving} onClick={addMeeting}>
-                <Save className="w-3.5 h-3.5 mr-1" /> {saving ? "Saving…" : "Schedule"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {sorted.length === 0 && !showAdd && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 font-medium">No meetings yet</p>
-            <p className="text-[12px] text-gray-400 mt-1">Schedule a meeting to start tracking agenda, notes, attendees, and action items.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-2">
-        {sorted.map(m => (
-          <MeetingCard key={m.id} meeting={m} onSaved={onSaved} onDelete={() => deleteMeeting(m.id)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
-  studentId: number;
-  existingGoals: IepGoal[];
-  onClose: () => void;
-  onGoalAdded: () => void;
-}) {
-  const [goals, setGoals] = useState<GoalBankEntry[]>([]);
-  const [domains, setDomains] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [domainFilter, setDomainFilter] = useState("");
-  const [adding, setAdding] = useState<number | null>(null);
-
-  const loadGoals = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (domainFilter) params.set("domain", domainFilter);
-    const res = await fetch(`${API}/goal-bank?${params}`);
-    const data = await res.json();
-    setGoals(data.goals || []);
-    setDomains(data.domains || []);
-    setLoading(false);
-  }, [search, domainFilter]);
-
-  useEffect(() => { loadGoals(); }, [loadGoals]);
-
-  async function addGoalToStudent(entry: GoalBankEntry) {
-    setAdding(entry.id);
-    try {
-      const goalNumber = existingGoals.filter(g => g.goalArea === entry.goalArea).length + 1;
-      await apiFetch(`${API}/students/${studentId}/iep-goals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+    await apiPost(`/api/team-meetings/${id}`, {
           goalArea: entry.goalArea,
           goalNumber,
           annualGoal: entry.goalText,
           benchmarks: entry.benchmarkText || null,
           serviceArea: entry.domain,
-        }),
-      });
+        });
       onGoalAdded();
     } catch (e) {
       console.error("Failed to add goal:", e);
@@ -2309,9 +1945,7 @@ function IepCompletenessIndicator({ studentId, docId }: { studentId: number; doc
   const [data, setData] = useState<CompletenessData | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/students/${studentId}/iep-documents/${docId}/completeness`)
-      .then(r => r.json())
-      .then(d => setData(d))
+    apiGet(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d))
       .catch(() => {});
   }, [studentId, docId]);
 
@@ -2361,9 +1995,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/students/${studentId}/parent-contacts`)
-      .then(r => r.ok ? r.json() : [])
-      .then(d => setContacts(Array.isArray(d) ? d : []))
+    apiGet(`/api/students/${studentId}/parent-contacts`).catch(() => []).then(d => setContacts(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [studentId]);
@@ -2372,11 +2004,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
     if (!form.subject.trim()) return;
     setSaving(true);
     try {
-      const res = await apiFetch(`${API}/students/${studentId}/parent-contacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await apiPost(`/api/students/${studentId}/parent-contacts`, form);
       setContacts(prev => [res, ...prev]);
       setShowAdd(false);
       setForm({ contactType: "progress_update", contactDate: new Date().toISOString().split("T")[0],

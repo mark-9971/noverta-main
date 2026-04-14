@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, FileText, Bell, Award, ChevronRight, Calendar } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function StudentClassDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,9 +18,9 @@ export default function StudentClassDetail() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      fetch(`${API}/classes/${id}`).then(r => r.json()),
-      fetch(`${API}/students/${studentId}/assignments?classId=${id}`).then(r => r.json()),
-      fetch(`${API}/classes/${id}/announcements`).then(r => r.json()),
+      apiGet(`/api/classes/${id}`),
+      apiGet(`/api/students/${studentId}/assignments?classId=${id}`),
+      apiGet(`/api/classes/${id}/announcements`),
     ]).then(([c, a, ann]) => {
       setCls(c);
       setAssignments(a);

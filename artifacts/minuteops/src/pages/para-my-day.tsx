@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 
-const API = "/api";
 
 interface ScheduleBlock {
   id: number;
@@ -219,9 +219,7 @@ export default function ParaMyDayPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/para/my-day?staffId=${staffId}&date=${date}`);
-      if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
+      const data = await apiGet(`/api/para/my-day?staffId=${staffId}&date=${date}`);
       setBlocks(data.blocks || []);
     } catch {
       toast.error("Failed to load schedule");
@@ -269,15 +267,11 @@ export default function ParaMyDayPage() {
     setView("session");
 
     try {
-      const qsRes = await fetch(`${API}/para/sessions/quick-start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const qsRes = await apiPost(`/api/para/sessions/quick-start`, {
           scheduleBlockId: block.id,
           sessionDate: date,
           startTime,
-        }),
-      });
+        });
       if (qsRes.ok) {
         const qsData = await qsRes.json() as { session: { id: number } };
         setActiveSession(prev => prev ? { ...prev, serverSessionId: qsData.session.id } : prev);
@@ -288,11 +282,9 @@ export default function ParaMyDayPage() {
 
     try {
       const stUrl = block.serviceTypeId
-        ? `${API}/para/student-targets/${block.studentId}?serviceTypeId=${block.serviceTypeId}`
-        : `${API}/para/student-targets/${block.studentId}`;
-      const res = await fetch(stUrl);
-      if (!res.ok) throw new Error("Failed to load targets");
-      const data = await res.json();
+        ? `/api/para/student-targets/${block.studentId}?serviceTypeId=${block.serviceTypeId}`
+        : `/api/para/student-targets/${block.studentId}`;
+      const data = await apiGet(stUrl);
       setStudentTargets(data);
       setTallies(data.behaviors.map((b: BehaviorTarget) => ({ behaviorTargetId: b.id, count: 0 })));
     } catch {
@@ -349,17 +341,13 @@ export default function ParaMyDayPage() {
       let saveOk = false;
 
       if (activeSession.serverSessionId) {
-        const stopRes = await fetch(`${API}/para/sessions/${activeSession.serverSessionId}/stop`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const stopRes = await apiPatch(`/api/para/sessions/${activeSession.serverSessionId}/stop`, {
             endTime: endTimeStr,
             durationMinutes,
             notes: sessionNotes || null,
             status: "completed",
             goalData: goalData.length > 0 ? goalData : undefined,
-          }),
-        });
+          });
         saveOk = stopRes.ok;
       }
 
@@ -379,12 +367,7 @@ export default function ParaMyDayPage() {
         };
         if (goalData.length > 0) body.goalData = goalData;
 
-        const res = await fetch(`${API}/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("Save failed");
+        await apiPost(`/api/sessions`, body);
       }
 
       toast.success("Session saved!");

@@ -8,8 +8,8 @@ import {
   Mail, FilePenLine, Printer
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 
-const API = import.meta.env.VITE_API_URL || "";
 
 type Incident = {
   id: number;
@@ -224,13 +224,13 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
       const params = new URLSearchParams();
       if (filterType !== "all") params.set("incidentType", filterType);
       if (filterStatus !== "all") params.set("status", filterStatus);
-      return fetch(`${API}/api/protective-measures/incidents?${params}`).then(r => r.json());
+      return apiGet(`/api/protective-measures/incidents?${params}`);
     },
   });
 
   const { data: summary } = useQuery<Summary>({
     queryKey: ["protective-summary"],
-    queryFn: () => fetch(`${API}/api/protective-measures/summary`).then(r => r.json()),
+    queryFn: () => apiGet(`/api/protective-measures/summary`),
   });
 
   const filtered = useMemo(() => {
@@ -243,7 +243,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
   }, [incidents, searchTerm]);
 
   const handleDeseExport = () => {
-    window.open(`${API}/api/protective-measures/dese-export?schoolYear=${exportYear}`, "_blank");
+    window.open(`/api/protective-measures/dese-export?schoolYear=${exportYear}`, "_blank");
   };
 
   return (
@@ -497,12 +497,12 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
 
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
-    queryFn: () => fetch(`${API}/api/students`).then(r => r.json()),
+    queryFn: () => apiGet(`/api/students`),
   });
 
   const { data: staff = [] } = useQuery<Staff[]>({
     queryKey: ["staff-list"],
-    queryFn: () => fetch(`${API}/api/staff`).then(r => r.json()),
+    queryFn: () => apiGet(`/api/staff`),
   });
 
   const mutation = useMutation({
@@ -513,10 +513,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
         return (eh * 60 + em) - (sh * 60 + sm);
       })() : null;
 
-      const res = await fetch(`${API}/api/protective-measures/incidents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await apiPost(`/api/protective-measures/incidents`, {
           ...form,
           studentId: Number(form.studentId),
           primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
@@ -527,10 +524,8 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           timeToCalm: form.timeToCalm ? Number(form.timeToCalm) : null,
           proceduresUsed: form.proceduresUsed.length > 0 ? form.proceduresUsed : null,
           deescalationStrategies: form.deescalationStrategies.length > 0 ? form.deescalationStrategies : null,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to create incident");
-      return res.json();
+        });
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["protective-incidents"] });
@@ -1044,12 +1039,12 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
 
   const { data: incident, isLoading } = useQuery<IncidentDetail>({
     queryKey: ["protective-incident", id],
-    queryFn: () => fetch(`${API}/api/protective-measures/incidents/${id}`).then(r => r.json()),
+    queryFn: () => apiGet(`/api/protective-measures/incidents/${id}`),
   });
 
   const { data: staff = [] } = useQuery<Staff[]>({
     queryKey: ["staff-list"],
-    queryFn: () => fetch(`${API}/api/staff`).then(r => r.json()),
+    queryFn: () => apiGet(`/api/staff`),
   });
 
   const invalidateAll = () => {
@@ -1060,92 +1055,56 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
 
   const reviewMutation = useMutation({
     mutationFn: async (data: { adminStaffId: number; notes: string; signature: string }) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/admin-review`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/admin-review`, data);
     },
     onSuccess: invalidateAll,
   });
 
   const notifyMutation = useMutation({
     mutationFn: async (data: { notifiedById: number; method: string; verbal?: boolean }) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/parent-notification`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/parent-notification`, data);
     },
     onSuccess: invalidateAll,
   });
 
   const writtenReportMutation = useMutation({
     mutationFn: async (method: string) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/written-report`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/written-report`, { method });
     },
     onSuccess: invalidateAll,
   });
 
   const deseMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/dese-report`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thirtyDayLogSent: true }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/dese-report`, { thirtyDayLogSent: true });
     },
     onSuccess: invalidateAll,
   });
 
   const signMutation = useMutation({
     mutationFn: async (data: { sigId: number; signatureName: string; notes?: string }) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/signatures/${data.sigId}/sign`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureName: data.signatureName, notes: data.notes }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/signatures/${data.sigId}/sign`, { signatureName: data.signatureName, notes: data.notes });
     },
     onSuccess: invalidateAll,
   });
 
   const commentMutation = useMutation({
     mutationFn: async (data: { parentComment?: string; studentComment?: string }) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, parentCommentOpportunityGiven: true }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPatch(`/api/protective-measures/incidents/${id}`, { ...data, parentCommentOpportunityGiven: true });
     },
     onSuccess: invalidateAll,
   });
 
   const saveDraftMutation = useMutation({
     mutationFn: async (draft: string) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/parent-notification-draft`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/parent-notification-draft`, { draft });
     },
     onSuccess: invalidateAll,
   });
 
   const sendNotificationMutation = useMutation({
     mutationFn: async (data: { senderId: number; draft: string; method: string }) => {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${id}/send-parent-notification`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-      });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Failed"); }
-      return res.json();
+      return apiPost(`/api/protective-measures/incidents/${id}/send-parent-notification`, data);
     },
     onSuccess: () => { invalidateAll(); toast.success("Parent notification sent successfully"); },
     onError: (err: Error) => { toast.error(err.message); },
@@ -1562,9 +1521,7 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
   const generateDraft = async () => {
     setLoadingDraft(true);
     try {
-      const res = await fetch(`${API}/api/protective-measures/incidents/${incidentId}/generate-draft`);
-      if (!res.ok) throw new Error("Failed to generate draft");
-      const data = await res.json();
+      const data = await apiGet<{ draft: string; caseManager?: { id: number } }>(`/api/protective-measures/incidents/${incidentId}/generate-draft`);
       setDraftText(data.draft);
       if (data.caseManager && !senderId) {
         setSenderId(String(data.caseManager.id));
@@ -1580,7 +1537,7 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
   }, [isAdminReviewed, alreadySent]);
 
   const handleDownloadPdf = () => {
-    window.open(`${API}/api/protective-measures/incidents/${incidentId}/report-pdf`, "_blank");
+    window.open(`/api/protective-measures/incidents/${incidentId}/report-pdf`, "_blank");
   };
 
   const handleSaveDraft = () => {

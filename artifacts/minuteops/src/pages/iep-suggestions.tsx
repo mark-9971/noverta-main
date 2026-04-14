@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { apiGet, apiPost } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,6 @@ import {
   Target, ListChecks, BookOpen, Stethoscope, Check, Loader2,
   AlertTriangle, ArrowLeft, Zap, TrendingUp
 } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 interface StudentSummary {
   id: number; firstName: string; lastName: string; grade: string;
@@ -69,8 +68,7 @@ export default function IepSuggestions() {
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/iep-suggestions/all-students`)
-      .then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+    apiGet(`/api/iep-suggestions/all-students`)
       .then(d => { setStudents(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => { toast.error("Failed to load suggestions"); setLoading(false); });
   }, []);
@@ -78,8 +76,7 @@ export default function IepSuggestions() {
   const loadDetail = useCallback((studentId: number) => {
     setDetailLoading(true);
     setSelected({ behaviors: new Set(), programs: new Set() });
-    fetch(`${API}/students/${studentId}/iep-suggestions`)
-      .then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+    apiGet(`/api/students/${studentId}/iep-suggestions`)
       .then(d => { setDetail(d); setView("detail"); setDetailLoading(false); })
       .catch(() => { toast.error("Failed to load student suggestions"); setDetailLoading(false); });
   }, []);
@@ -124,14 +121,10 @@ export default function IepSuggestions() {
     if (totalSelected === 0) { toast.error("Select at least one suggestion to apply"); return; }
     setApplying(true);
     try {
-      const resp = await fetch(`${API}/students/${detail.student.id}/apply-suggestions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const resp = await apiPost(`/api/students/${detail.student.id}/apply-suggestions`, {
           behaviors: [...selected.behaviors].map(name => ({ name })),
           programs: [...selected.programs].map(name => ({ name })),
-        }),
-      });
+        });
       const result = await resp.json();
       toast.success(`Created ${result.behaviorsCreated} behavior targets and ${result.programsCreated} programs`);
       loadDetail(detail.student.id);

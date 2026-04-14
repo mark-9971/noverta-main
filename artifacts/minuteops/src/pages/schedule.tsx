@@ -12,8 +12,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
 import { Settings, RotateCcw, Calendar } from "lucide-react";
-
-const API = "/api";
+import { apiGet, apiPatch } from "@/lib/api";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const WEEKDAY_LABELS: Record<string, string> = {
@@ -128,17 +127,11 @@ function ScheduleSettingsDialog({
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch(`${API}/schools/${school.id}/schedule-settings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const updated = await apiPatch(`/api/schools/${school.id}/schedule-settings`, {
           scheduleType,
           rotationStartDate: rotationStartDate || null,
           scheduleNotes: scheduleNotes || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      const updated = await res.json();
+        });
       onSaved(updated);
       toast.success("Schedule settings saved");
       onClose();
@@ -238,9 +231,7 @@ export default function Schedule() {
 
   // Load school schedule configuration
   useEffect(() => {
-    fetch(`${API}/schools`)
-      .then(r => r.json())
-      .then((schools: SchoolScheduleConfig[]) => {
+    apiGet(`/api/schools`).then((schools: SchoolScheduleConfig[]) => {
         if (!schools?.length) return;
         // Use the selected school if one is chosen; otherwise pick the first
         const target = selectedSchoolId

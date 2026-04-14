@@ -13,8 +13,7 @@ import {
   Filter, Eye, TrendingUp
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-const API = "/api";
+import { apiGet, apiPost, apiPatch, apiDelete, customFetch } from "@/lib/api";
 
 interface SupervisionSession {
   id: number;
@@ -113,10 +112,10 @@ export default function Supervision() {
     const roleHeaders: HeadersInit = { "x-demo-role": role };
 
     Promise.all([
-      fetch(`${API}/supervision-sessions?${params}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []),
-      isAdminOrTeacher ? fetch(`${API}/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
-      fetch(`${API}/staff?status=active${selectedSchoolId ? `&schoolId=${selectedSchoolId}` : ""}`).then(r => r.ok ? r.json() : []),
-      isAdminOrTeacher ? fetch(`${API}/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`, { headers: roleHeaders }).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
+      apiGet(`/api/supervision-sessions?${params}`).catch(() => []),
+      isAdminOrTeacher ? apiGet(`/api/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).catch(() => []) : Promise.resolve([]),
+      apiGet(`/api/staff?status=active${selectedSchoolId ? `&schoolId=${selectedSchoolId}` : ""}`).catch(() => []),
+      isAdminOrTeacher ? apiGet(`/api/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).catch(() => []) : Promise.resolve([]),
     ]).then(([s, c, st, tr]) => {
       setSessions(s);
       setCompliance(c);
@@ -157,19 +156,10 @@ export default function Supervision() {
         durationMinutes: Number(formData.durationMinutes),
       };
 
-      const url = editingId ? `${API}/supervision-sessions/${editingId}` : `${API}/supervision-sessions`;
-      const method = editingId ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", "x-demo-role": role },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Failed to save session");
-        return;
+      if (editingId) {
+        await apiPatch(`/api/supervision-sessions/${editingId}`, body);
+      } else {
+        await apiPost(`/api/supervision-sessions`, body);
       }
 
       toast.success(editingId ? "Session updated" : "Supervision session logged");
@@ -184,8 +174,7 @@ export default function Supervision() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this supervision session?")) return;
     try {
-      const res = await fetch(`${API}/supervision-sessions/${id}`, { method: "DELETE", headers: { "x-demo-role": role } });
-      if (!res.ok) throw new Error();
+      await apiDelete(`/api/supervision-sessions/${id}`);
       toast.success("Session deleted");
       fetchAll();
     } catch {
@@ -214,11 +203,9 @@ export default function Supervision() {
     if (filterSupervisee) params.set("superviseeId", filterSupervisee);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
     try {
-      const res = await fetch(`${API}/supervision-sessions/export/csv?${params}`, {
-        headers: { "x-demo-role": role },
+      const blob = await customFetch<Blob>(`/api/supervision-sessions/export/csv?${params}`, {
+        responseType: "blob",
       });
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

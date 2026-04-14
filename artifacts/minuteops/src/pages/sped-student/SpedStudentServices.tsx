@@ -3,8 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClipboardList, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 function serviceColor(name: string) {
   const n = (name || "").toLowerCase();
@@ -26,8 +25,8 @@ export default function SpedStudentServices() {
   useEffect(() => {
     if (!studentId) return;
     Promise.all([
-      fetch(`${API}/students/${studentId}`).then(r => r.json()),
-      fetch(`${API}/students/${studentId}/sessions?limit=100`).then(r => r.json()),
+      apiGet(`/api/students/${studentId}`),
+      apiGet(`/api/students/${studentId}/sessions?limit=100`),
     ]).then(([s, sess]) => {
       setStudent(s);
       setSessions(Array.isArray(sess) ? sess : []);

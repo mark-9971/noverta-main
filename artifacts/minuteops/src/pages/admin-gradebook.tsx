@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Award, BookOpen, TrendingUp, Users } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function AdminGradebook() {
   const [classes, setClasses] = useState<any[]>([]);
@@ -13,13 +12,13 @@ export default function AdminGradebook() {
   const [gbLoading, setGbLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/classes`).then(r => r.json()).then(d => { setClasses(d); setLoading(false); });
+    apiGet(`/api/classes`).then(d => { setClasses(d); setLoading(false); });
   }, []);
 
   useEffect(() => {
     if (!selected) return;
     setGbLoading(true);
-    fetch(`${API}/classes/${selected}/gradebook`).then(r => r.json()).then(d => {
+    apiGet(`/api/classes/${selected}/gradebook`).then(d => {
       setGradebook(d);
       setGbLoading(false);
     });

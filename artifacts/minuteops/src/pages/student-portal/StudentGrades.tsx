@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, TrendingUp, BookOpen, BarChart3 } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function StudentGrades() {
   const { studentId } = useRole();
@@ -12,7 +11,7 @@ export default function StudentGrades() {
 
   useEffect(() => {
     if (!studentId) return;
-    fetch(`${API}/students/${studentId}/grades-summary`).then(r => r.json()).then(d => {
+    apiGet(`/api/students/${studentId}/grades-summary`).then(d => {
       setGrades(d);
       setLoading(false);
     });

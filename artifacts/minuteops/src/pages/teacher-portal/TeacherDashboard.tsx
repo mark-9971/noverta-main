@@ -4,8 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Inbox, Users, Award, ChevronRight, Clock } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function TeacherDashboard() {
   const { teacherId } = useRole();
@@ -14,7 +13,7 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     if (!teacherId) return;
-    fetch(`${API}/teacher/${teacherId}/dashboard`).then(r => r.json()).then(d => {
+    apiGet(`/api/teacher/${teacherId}/dashboard`).then(d => {
       setData(d);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -133,7 +132,7 @@ function SelectTeacherPrompt() {
   const [staff, setStaff] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/teachers-with-classes`).then(r => r.json()).then(setStaff);
+    apiGet(`/api/teachers-with-classes`).then(setStaff);
   }, []);
 
   return (

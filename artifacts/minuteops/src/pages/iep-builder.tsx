@@ -11,8 +11,7 @@ import {
   Home, Building2, Star, RefreshCw, Info
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -198,28 +197,20 @@ export default function IepBuilderPage() {
   });
 
   useEffect(() => {
-    fetch(`${API}/students/${studentId}/iep-builder/context`)
-      .then(r => r.json())
-      .then(data => { setContext(data); setLoading(false); })
+    apiGet(`/api/students/${studentId}/iep-builder/context`).then(data => { setContext(data); setLoading(false); })
       .catch(() => { toast.error("Failed to load student context"); setLoading(false); });
   }, [studentId]);
 
   async function generate() {
     setGenerating(true);
     try {
-      const res = await fetch(`${API}/students/${studentId}/iep-builder/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await apiPost(`/api/students/${studentId}/iep-builder/generate`, {
           parentQuestionnaire: parent,
           teacherQuestionnaire: teacher,
           transitionInput: transition,
           includeTransition: context?.needsTransition || false,
-        }),
-      });
-      if (!res.ok) throw new Error("Generation failed");
-      const data = await res.json();
-      setDraft(data);
+        });
+      setDraft(res);
       setStep(5);
     } catch {
       toast.error("Failed to generate draft. Please try again.");

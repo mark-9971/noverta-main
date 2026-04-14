@@ -4,8 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Clock, CheckCircle, CalendarDays, ChevronRight, Star, User, BookOpen } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 function subjectColor(name: string) {
   const n = name.toLowerCase();
@@ -28,8 +27,8 @@ export default function SpedStudentDashboard() {
     if (!studentId) return;
     setLoading(true);
     Promise.all([
-      fetch(`${API}/students/${studentId}`).then(r => r.json()),
-      fetch(`${API}/students/${studentId}/sessions?limit=5`).then(r => r.json()),
+      apiGet(`/api/students/${studentId}`),
+      apiGet(`/api/students/${studentId}/sessions?limit=5`),
     ]).then(([s, sess]) => {
       setStudent(s);
       setSessions(Array.isArray(sess) ? sess : []);
@@ -173,7 +172,7 @@ function SelectSpedStudentPrompt() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/sped-students`).then(r => r.json()).then(d => {
+    apiGet(`/api/sped-students`).then(d => {
       setStudents(Array.isArray(d) ? d : []);
     }).catch(() => {});
   }, []);

@@ -3,8 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, Brain, TrendingUp, CheckCircle } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 function serviceColor(name: string) {
   const n = (name || "").toLowerCase();
@@ -66,9 +65,7 @@ export default function SpedStudentGoals() {
 
   useEffect(() => {
     if (!studentId) return;
-    fetch(`${API}/students/${studentId}`)
-      .then(r => r.json())
-      .then(d => { setStudent(d); setLoading(false); })
+    apiGet(`/api/students/${studentId}`).then(d => { setStudent(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [studentId]);
 

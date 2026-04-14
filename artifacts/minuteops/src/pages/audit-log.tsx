@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { authFetch } from "@/lib/auth-fetch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,8 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, customFetch } from "@/lib/api";
 const PAGE_SIZE = 50;
 
 interface AuditLogEntry {
@@ -147,9 +145,7 @@ export default function AuditLogPage() {
       studentIdFilter,
     ],
     queryFn: async () => {
-      const res = await authFetch(`${API}/audit-logs?${buildParams()}`);
-      if (!res.ok) throw new Error("Failed to fetch audit logs");
-      return res.json();
+      return apiGet<AuditLogsResponse>(`/api/audit-logs?${buildParams()}`);
     },
   });
 
@@ -159,11 +155,7 @@ export default function AuditLogPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      const res = await authFetch(
-        `${API}/audit-logs/stats?${params.toString()}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch stats");
-      return res.json();
+      return apiGet(`/api/audit-logs/stats?${params.toString()}`);
     },
   });
 
@@ -182,12 +174,10 @@ export default function AuditLogPage() {
       if (actorFilter) params.set("actorUserId", actorFilter);
       if (studentIdFilter) params.set("studentId", studentIdFilter);
 
-      const res = await authFetch(
-        `${API}/audit-logs/export?${params.toString()}`
+      const blob = await customFetch<Blob>(
+        `/api/audit-logs/export?${params.toString()}`,
+        { responseType: "blob" }
       );
-      if (!res.ok) throw new Error("Export failed");
-
-      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

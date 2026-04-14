@@ -10,8 +10,7 @@ import { Search, ChevronRight, GraduationCap, BookOpen } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 type TypeFilter = "all" | "sped" | "gen_ed";
 
@@ -27,7 +26,7 @@ export default function Students() {
 
   useEffect(() => {
     const params = new URLSearchParams(filterParams);
-    fetch(`${API}/sped-students?${params}`).then(r => r.json()).then(sped => {
+    apiGet(`/api/sped-students?${params}`).then(sped => {
       setSpedIds(new Set((Array.isArray(sped) ? sped : []).map((s: any) => s.id)));
     }).catch(() => {});
   }, [filterParams]);

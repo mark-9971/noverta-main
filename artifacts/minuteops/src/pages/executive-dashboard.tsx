@@ -9,8 +9,8 @@ import {
   Users, AlertTriangle, ShieldAlert, TrendingDown,
   ArrowRight, Calendar, BarChart3, Clock
 } from "lucide-react";
+import { apiGet } from "@/lib/api";
 
-const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 interface ExecutiveData {
   complianceScore: number;
@@ -78,8 +78,8 @@ export default function ExecutiveDashboard() {
   useEffect(() => {
     const qs = new URLSearchParams(filterParams).toString();
     Promise.all([
-      fetch(`${API}/dashboard/executive${qs ? `?${qs}` : ""}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/dashboard/staff-coverage${qs ? `?${qs}` : ""}`).then(r => r.ok ? r.json() : null),
+      apiGet(`/api/dashboard/executive${qs ? `?${qs}` : ""}`).catch(() => null),
+      apiGet(`/api/dashboard/staff-coverage${qs ? `?${qs}` : ""}`).catch(() => null),
     ]).then(([exec, cov]) => {
       setData(exec);
       setCoverage(cov);

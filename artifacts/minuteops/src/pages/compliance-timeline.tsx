@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +9,6 @@ import {
   ChevronRight, Filter, Users
 } from "lucide-react";
 
-const API = "/api";
 
 interface ComplianceEvent {
   id: number;
@@ -53,8 +53,7 @@ export default function ComplianceTimelinePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/compliance-timeline?status=${filter}`);
-      const data = await res.json();
+      const data = await apiGet(`/api/compliance-timeline?status=${filter}`);
       setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to load compliance timeline:", e);
@@ -67,7 +66,7 @@ export default function ComplianceTimelinePage() {
   async function recalculate() {
     setRecalculating(true);
     try {
-      await fetch(`${API}/compliance-events/recalculate`, { method: "POST" });
+      await apiPost(`/api/compliance-events/recalculate`);
       await loadData();
     } catch (e) {
       console.error("Failed to recalculate:", e);
@@ -77,11 +76,7 @@ export default function ComplianceTimelinePage() {
 
   async function markCompleted(eventId: number) {
     const today = new Date().toISOString().split("T")[0];
-    await fetch(`${API}/compliance-events/${eventId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "completed", completedDate: today }),
-    });
+    await apiPatch(`/api/compliance-events/${eventId}`, { status: "completed", completedDate: today });
     loadData();
   }
 

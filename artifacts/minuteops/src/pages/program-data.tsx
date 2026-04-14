@@ -17,8 +17,7 @@ import {
   ReferenceLine, BarChart, Bar
 } from "recharts";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
 
 interface BehaviorTarget {
   id: number; studentId: number; name: string; description: string;
@@ -108,8 +107,8 @@ export default function ProgramDataPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/students`).then(r => r.json()),
-      fetch(`${API}/program-templates`).then(r => r.json()),
+      apiGet(`/api/students`),
+      apiGet(`/api/program-templates`),
     ]).then(([data, tmpl]) => {
       const withData = data.filter((s: any) => s.status === "active");
       setStudents(withData);
@@ -121,11 +120,11 @@ export default function ProgramDataPage() {
 
   const loadStudentData = useCallback(async (sid: number) => {
     const [bt, pt, ds, btrend, ptrend] = await Promise.all([
-      fetch(`${API}/students/${sid}/behavior-targets`).then(r => r.json()),
-      fetch(`${API}/students/${sid}/program-targets`).then(r => r.json()),
-      fetch(`${API}/students/${sid}/data-sessions?limit=30`).then(r => r.json()),
-      fetch(`${API}/students/${sid}/behavior-data/trends`).then(r => r.json()),
-      fetch(`${API}/students/${sid}/program-data/trends`).then(r => r.json()),
+      apiGet(`/api/students/${sid}/behavior-targets`),
+      apiGet(`/api/students/${sid}/program-targets`),
+      apiGet(`/api/students/${sid}/data-sessions?limit=30`),
+      apiGet(`/api/students/${sid}/behavior-data/trends`),
+      apiGet(`/api/students/${sid}/program-data/trends`),
     ]);
     setBehaviorTargets(bt);
     setProgramTargets(pt);
@@ -417,7 +416,7 @@ export default function ProgramDataPage() {
                           <p className="text-[11px] text-gray-400">{data.length} data points</p>
                           <div className="flex gap-1">
                             <button onClick={() => {
-                              fetch(`${API}/program-targets/${pt.id}/steps`).then(r => r.json()).then(s => {
+                              apiGet(`/api/program-targets/${pt.id}/steps`).then(s => {
                                 setBuilderEditProgram(pt); setBuilderEditSteps(s);
                               });
                             }} className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium px-1.5 py-0.5 rounded hover:bg-emerald-50">
@@ -451,7 +450,7 @@ export default function ProgramDataPage() {
             <TemplateManager
               studentId={selectedStudent}
               onCloned={() => loadStudentData(selectedStudent)}
-              onTemplateUpdated={() => fetch(`${API}/program-templates`).then(r => r.json()).then(t => setTemplates(t))}
+              onTemplateUpdated={() => apiGet(`/api/program-templates`).then(t => setTemplates(t))}
             />
           )}
         </>
@@ -511,7 +510,7 @@ export default function ProgramDataPage() {
           programId={saveAsTemplateProgram.id}
           programName={saveAsTemplateProgram.name}
           onClose={() => setSaveAsTemplateProgram(null)}
-          onSaved={() => { setSaveAsTemplateProgram(null); fetch(`${API}/program-templates`).then(r => r.json()).then(t => setTemplates(t)); }}
+          onSaved={() => { setSaveAsTemplateProgram(null); apiGet(`/api/program-templates`).then(t => setTemplates(t)); }}
         />
       )}
     </div>
@@ -603,25 +602,19 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         promptLevelUsed: programResults[pt.id].promptLevel,
       }));
 
-    const res = await fetch(`${API}/students/${studentId}/data-sessions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const res = await apiPost(`/api/students/${studentId}/data-sessions`, {
         sessionDate,
         startTime: startTimeRef.current,
         endTime,
         behaviorData,
         programData,
-      }),
-    });
+      });
 
-    if (res.ok) {
-      setSaved(true);
-      if (isIoaSession && ioaSessId) {
-        toast.success(`IOA session saved. Session ID: ${ioaSessId} — share this with Observer ${ioaObserverNumber === 1 ? "2" : "1"}`);
-      }
-      onSessionSaved();
+    setSaved(true);
+    if (isIoaSession && ioaSessId) {
+      toast.success(`IOA session saved. Session ID: ${ioaSessId} — share this with Observer ${ioaObserverNumber === 1 ? "2" : "1"}`);
     }
+    onSessionSaved();
     setSaving(false);
   }
 
@@ -1008,12 +1001,8 @@ function TemplateLibrary({ templates, studentId, onCloned, onTemplateCreated }: 
 
   async function cloneToStudent(templateId: number) {
     setCloning(templateId);
-    const res = await fetch(`${API}/program-templates/${templateId}/clone-to-student`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId }),
-    });
-    if (res.ok) onCloned();
+    await apiPost(`/api/program-templates/${templateId}/clone-to-student`, { studentId });
+    onCloned();
     setCloning(null);
   }
 
@@ -1074,15 +1063,12 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
   const [newStepResponse, setNewStepResponse] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/program-targets/${program.id}/steps`).then(r => r.json()).then(s => { setSteps(s); setLoading(false); }).catch(() => setLoading(false));
+    apiGet(`/api/program-targets/${program.id}/steps`).then(s => { setSteps(s); setLoading(false); }).catch(() => setLoading(false));
   }, [program.id]);
 
   async function saveSettings() {
     setSaving(true);
-    const res = await fetch(`${API}/program-targets/${program.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const res = await apiPatch(`/api/program-targets/${program.id}`, {
         name: form.name,
         description: form.description,
         tutorInstructions: form.tutorInstructions,
@@ -1095,24 +1081,16 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
         regressionSessions: form.regressionSessions,
         reinforcementSchedule: form.reinforcementSchedule,
         reinforcementType: form.reinforcementType,
-      }),
-    });
-    if (res.ok) { onSaved(); }
+      });
+    onSaved();
     setSaving(false);
   }
 
   async function addStep() {
     if (!newStepName.trim()) return;
-    const res = await fetch(`${API}/program-targets/${program.id}/steps`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null }),
-    });
-    if (res.ok) {
-      const step = await res.json();
-      setSteps(prev => [...prev, step]);
-      setNewStepName(""); setNewStepSd(""); setNewStepResponse("");
-    }
+    const step = await apiPost(`/api/program-targets/${program.id}/steps`, { name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null });
+    setSteps(prev => [...prev, step]);
+    setNewStepName(""); setNewStepSd(""); setNewStepResponse("");
   }
 
   const allPrompts = ["full_physical","partial_physical","model","gestural","verbal","independent"];
@@ -1308,20 +1286,15 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
     if (!name.trim()) { toast.error("Please enter a target name"); return; }
     setSaving(true);
     try {
-      const res = await fetch(`${API}/students/${studentId}/behavior-targets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/students/${studentId}/behavior-targets`, {
           name: name.trim(), description: description || null, measurementType, targetDirection,
           baselineValue: baselineValue ? parseFloat(baselineValue) : null,
           goalValue: goalValue ? parseFloat(goalValue) : null,
           enableHourlyTracking: enableHourly,
           intervalLengthSeconds: intervalLen ? parseInt(intervalLen) : null,
-        }),
-      });
-      if (res.ok) { toast.success("Behavior target added"); onSaved(); }
-      else toast.error("Failed to save behavior target");
-    } catch { toast.error("Network error. Please try again."); }
+        });
+      toast.success("Behavior target added"); onSaved();
+    } catch { toast.error("Failed to save behavior target"); }
     setSaving(false);
   }
 
@@ -1415,31 +1388,22 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
     if (!name.trim()) { toast.error("Please enter a program name"); return; }
     setSaving(true);
     try {
-      const res = await fetch(`${API}/students/${studentId}/program-targets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/students/${studentId}/program-targets`, {
           name: name.trim(), description: description || null, programType,
           domain: domain || null, tutorInstructions: tutorInstructions || null,
           masteryCriterionPercent: parseInt(masteryPct) || 80,
           masteryCriterionSessions: parseInt(masterySessions) || 3,
           targetCriterion: `${masteryPct}% across ${masterySessions} sessions`,
-        }),
-      });
-      if (res.ok) { toast.success("Program target added"); onSaved(); }
-      else toast.error("Failed to save program target");
-    } catch { toast.error("Network error. Please try again."); }
+        });
+      toast.success("Program target added"); onSaved();
+    } catch { toast.error("Failed to save program target"); }
     setSaving(false);
   }
 
   async function cloneTemplate(templateId: number) {
     setSaving(true);
-    const res = await fetch(`${API}/program-templates/${templateId}/clone-to-student`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId }),
-    });
-    if (res.ok) onSaved();
+    await apiPost(`/api/program-templates/${templateId}/clone-to-student`, { studentId });
+    onSaved();
     setSaving(false);
   }
 
@@ -1575,12 +1539,8 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
         promptLevelUsed: programValues[pt.id].promptLevel,
       }));
 
-    const res = await fetch(`${API}/students/${studentId}/data-sessions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionDate, startTime, endTime, notes: notes || null, behaviorData, programData }),
-    });
-    if (res.ok) onSaved();
+    await apiPost(`/api/students/${studentId}/data-sessions`, { sessionDate, startTime, endTime, notes: notes || null, behaviorData, programData });
+    onSaved();
     setSaving(false);
   }
 
@@ -1709,12 +1669,8 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
     setExpandedId(id);
     setExpandLoading(true);
     try {
-      const res = await fetch(`${API}/data-sessions/${id}`);
-      if (res.ok) {
-        setExpandedData(await res.json());
-      } else {
-        setExpandedData(null);
-      }
+      const data = await apiGet(`/api/data-sessions/${id}`);
+      setExpandedData(data);
     } catch {
       setExpandedData(null);
     }

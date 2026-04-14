@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,8 +9,6 @@ import {
   Calendar, ChevronLeft, ChevronRight,
   AlertTriangle, Clock, CheckCircle2, ArrowRight
 } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
 
 interface CalendarEvent {
   id: number | string;
@@ -93,9 +92,7 @@ export default function IepCalendar() {
     if (filterType !== "all") params.set("eventType", filterType);
 
     setLoading(true);
-    fetch(`${API}/dashboard/iep-calendar?${params}`)
-      .then(r => r.ok ? r.json() : { events: [], summary: {} })
-      .then(d => {
+    apiGet(`/api/dashboard/iep-calendar?${params}`).catch(() => ({ events: [], summary: {} })).then(d => {
         setEvents(d.events ?? []);
         setSummary(d.summary ?? null);
       })

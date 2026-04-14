@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Calendar, Award, Clock, CheckCircle, Upload, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet, apiPut } from "@/lib/api";
 
 export default function StudentAssignmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,8 +20,8 @@ export default function StudentAssignmentDetail() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      fetch(`${API}/assignments/${id}`).then(r => r.json()),
-      fetch(`${API}/students/${studentId}/assignments?classId=`).then(r => r.json()),
+      apiGet(`/api/assignments/${id}`),
+      apiGet(`/api/students/${studentId}/assignments?classId=`),
     ]).then(([a, subs]) => {
       setAssignment(a);
       const mySub = subs.find((s: any) => s.assignmentId === Number(id));
@@ -37,13 +36,9 @@ export default function StudentAssignmentDetail() {
     if (!sub) return;
     setSubmitting(true);
     try {
-      await fetch(`${API}/submissions/${sub.submissionId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, status: "submitted" }),
-      });
+      await apiPut(`/api/submissions/${sub.submissionId}`, { content, status: "submitted" });
       toast.success("Assignment submitted!");
-      const updated = await fetch(`${API}/students/${studentId}/assignments`).then(r => r.json());
+      const updated = await apiGet(`/api/students/${studentId}/assignments`);
       const mySub = updated.find((s: any) => s.assignmentId === Number(id));
       if (mySub) setSubmissions([mySub]);
     } catch {

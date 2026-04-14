@@ -11,8 +11,7 @@ import {
   ResponsiveContainer, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis
 } from "recharts";
 import { toast } from "sonner";
-
-const API = "/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface FbaRecord {
@@ -121,36 +120,34 @@ export default function BehaviorAssessmentPage() {
   const [editingBip, setEditingBip] = useState<Partial<BipRecord> | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/students?limit=200`).then(r => r.json()).then(d => {
+    apiGet(`/api/students?limit=200`).then(d => {
       const list = Array.isArray(d) ? d : d.students || [];
       setStudents(list);
     }).catch(() => {});
   }, []);
 
   const loadFbas = useCallback(async (sid: number) => {
-    const r = await fetch(`${API}/students/${sid}/fbas`);
-    const data = await r.json();
+    const data = await apiGet(`/api/students/${sid}/fbas`);
     setFbas(data);
   }, []);
 
   const loadBips = useCallback(async (sid: number) => {
-    const r = await fetch(`${API}/students/${sid}/bips`);
-    const data = await r.json();
+    const data = await apiGet(`/api/students/${sid}/bips`);
     setBips(data);
   }, []);
 
   const loadObservations = useCallback(async (fbaId: number) => {
     const [obsR, sumR] = await Promise.all([
-      fetch(`${API}/fbas/${fbaId}/observations`),
-      fetch(`${API}/fbas/${fbaId}/observations/summary`),
+      apiGet(`/api/fbas/${fbaId}/observations`),
+      apiGet(`/api/fbas/${fbaId}/observations/summary`),
     ]);
-    setObservations(await obsR.json());
-    setObsSummary(await sumR.json());
+    setObservations(obsR);
+    setObsSummary(sumR);
   }, []);
 
   const loadFaSessions = useCallback(async (fbaId: number) => {
-    const r = await fetch(`${API}/fbas/${fbaId}/fa-sessions`);
-    setFaSessions(await r.json());
+    const data = await apiGet(`/api/fbas/${fbaId}/fa-sessions`);
+    setFaSessions(data);
   }, []);
 
   const selectStudent = (s: Student) => {
@@ -346,11 +343,7 @@ function FbaListPanel({ fbas, selectedFba, student, onSelect, showNew, onShowNew
     }
     setSaving(true);
     try {
-      const r = await fetch(`${API}/students/${student.id}/fbas`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, status: "draft" }),
-      });
-      if (!r.ok) throw new Error();
+      await apiPost(`/api/students/${student.id}/fbas`, { ...form, status: "draft" });
       toast.success("FBA created");
       setForm({ targetBehavior: "", operationalDefinition: "", referralReason: "", settingDescription: "" });
       onCreated();
@@ -360,20 +353,14 @@ function FbaListPanel({ fbas, selectedFba, student, onSelect, showNew, onShowNew
 
   const updateFbaField = async (fbaId: number, field: string, value: string) => {
     try {
-      await fetch(`${API}/fbas/${fbaId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
-      });
+      await apiPatch(`/api/fbas/${fbaId}`, { [field]: value });
     } catch { toast.error("Failed to update"); }
   };
 
   const updateFbaStatus = async (fbaId: number, status: string) => {
     try {
-      const r = await fetch(`${API}/fbas/${fbaId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (r.ok) { toast.success(`Status updated to ${status}`); onCreated(); }
+      await apiPatch(`/api/fbas/${fbaId}`, { status });
+      toast.success(`Status updated to ${status}`); onCreated();
     } catch { toast.error("Failed to update status"); }
   };
 
@@ -559,14 +546,10 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
     }
     setSaving(true);
     try {
-      const r = await fetch(`${API}/fbas/${fba.id}/observations`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/fbas/${fba.id}/observations`, {
           ...form,
           behaviorDurationSeconds: form.behaviorDurationSeconds ? parseInt(form.behaviorDurationSeconds) : null,
-        }),
-      });
-      if (!r.ok) throw new Error();
+        });
       toast.success("ABC observation recorded");
       setForm(prev => ({
         ...prev, antecedent: "", antecedentCategory: "", behavior: "",
@@ -580,7 +563,7 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
 
   const handleDelete = async (id: number) => {
     try {
-      await fetch(`${API}/observations/${id}`, { method: "DELETE" });
+      await apiDelete(`/api/observations/${id}`);
       toast.success("Observation deleted");
       onDeleted();
     } catch { toast.error("Failed to delete"); }
@@ -882,9 +865,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const r = await fetch(`${API}/fbas/${fba.id}/fa-sessions`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPost(`/api/fbas/${fba.id}/fa-sessions`, {
           sessionNumber: nextSessionNum,
           condition: form.condition,
           sessionDate: form.sessionDate,
@@ -894,9 +875,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
             ? String(((parseInt(form.responseCount) || 0) / (parseInt(form.durationMinutes) || 10)).toFixed(2))
             : null,
           notes: form.notes || null,
-        }),
-      });
-      if (!r.ok) throw new Error();
+        });
       toast.success("FA session recorded");
       setForm(prev => ({ ...prev, responseCount: "0", notes: "" }));
       onCreated();
@@ -906,7 +885,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
 
   const handleDelete = async (id: number) => {
     try {
-      await fetch(`${API}/fa-sessions/${id}`, { method: "DELETE" });
+      await apiDelete(`/api/fa-sessions/${id}`);
       toast.success("Session deleted");
       onDeleted();
     } catch { toast.error("Failed to delete"); }
@@ -1083,8 +1062,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     if (!selectedFba) { toast.error("Select an FBA first"); return; }
     setGenerating(true);
     try {
-      const r = await fetch(`${API}/fbas/${selectedFba.id}/generate-bip`, { method: "POST" });
-      if (!r.ok) throw new Error();
+      await apiPost(`/api/fbas/${selectedFba.id}/generate-bip`);
       toast.success("BIP generated from FBA data");
       onRefresh();
     } catch { toast.error("Failed to generate BIP"); }
@@ -1094,11 +1072,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const saveBipEdits = async () => {
     if (!selectedBip || !editingBip) return;
     try {
-      const r = await fetch(`${API}/bips/${selectedBip.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingBip),
-      });
-      if (!r.ok) throw new Error();
+      await apiPatch(`/api/bips/${selectedBip.id}`, editingBip);
       toast.success("BIP updated");
       onEdit(null);
       onRefresh();
@@ -1107,10 +1081,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
 
   const updateBipStatus = async (id: number, status: string) => {
     try {
-      await fetch(`${API}/bips/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      await apiPatch(`/api/bips/${id}`, { status });
       toast.success(`BIP ${status}`);
       onRefresh();
     } catch { toast.error("Failed to update status"); }

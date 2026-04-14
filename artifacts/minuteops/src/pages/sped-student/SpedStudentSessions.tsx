@@ -3,8 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 const SERVICE_COLORS: Record<string, string> = {
   "Speech-Language Therapy": "bg-gray-100 text-gray-700",
@@ -37,9 +36,7 @@ export default function SpedStudentSessions() {
 
   useEffect(() => {
     if (!studentId) return;
-    fetch(`${API}/students/${studentId}/sessions?limit=60`)
-      .then(r => r.json())
-      .then(d => { setSessions(Array.isArray(d) ? d : []); setLoading(false); })
+    apiGet(`/api/students/${studentId}/sessions?limit=60`).then(d => { setSessions(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [studentId]);
 

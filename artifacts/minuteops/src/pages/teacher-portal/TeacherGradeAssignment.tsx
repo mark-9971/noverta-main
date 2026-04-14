@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, FileText, Save } from "lucide-react";
 import { toast } from "sonner";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet, apiPut } from "@/lib/api";
 
 export default function TeacherGradeAssignment() {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +19,8 @@ export default function TeacherGradeAssignment() {
   const reload = () => {
     if (!id) return;
     Promise.all([
-      fetch(`${API}/assignments/${id}`).then(r => r.json()),
-      fetch(`${API}/assignments/${id}/submissions`).then(r => r.json()),
+      apiGet(`/api/assignments/${id}`),
+      apiGet(`/api/assignments/${id}/submissions`),
     ]).then(([a, s]) => {
       setAssignment(a);
       setSubmissions(s);
@@ -40,16 +39,12 @@ export default function TeacherGradeAssignment() {
     const g = grades[subId];
     if (!g?.points) { toast.error("Enter points"); return; }
     try {
-      await fetch(`${API}/submissions/${subId}/grade`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiPut(`/api/submissions/${subId}/grade`, {
           pointsEarned: parseFloat(g.points),
           letterGrade: pctToLetter((parseFloat(g.points) / parseFloat(assignment.pointsPossible)) * 100),
           feedback: g.feedback,
           gradedBy: teacherId,
-        }),
-      });
+        });
       toast.success("Grade saved!");
       reload();
     } catch { toast.error("Failed to save grade"); }

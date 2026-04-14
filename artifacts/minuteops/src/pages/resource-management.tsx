@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { apiGet, apiPatch } from "@/lib/api";
 import { useSchoolContext } from "@/lib/school-context";
 import { toast } from "sonner";
 import {
@@ -7,7 +8,6 @@ import {
   ChevronUp, Pencil, Check, X,
 } from "lucide-react";
 
-const API = "/api";
 
 type Tab = "caseload" | "utilization" | "budget";
 
@@ -161,10 +161,10 @@ export default function ResourceManagement() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API}/resource-management/caseload${qs}`).then(r => r.json()),
-      fetch(`${API}/resource-management/provider-utilization${qs}`).then(r => r.json()),
-      fetch(`${API}/resource-management/budget${qs}`).then(r => r.json()),
-      fetch(`${API}/resource-management/rebalancing${qs}`).then(r => r.json()),
+      apiGet(`/api/resource-management/caseload${qs}`),
+      apiGet(`/api/resource-management/provider-utilization${qs}`),
+      apiGet(`/api/resource-management/budget${qs}`),
+      apiGet(`/api/resource-management/rebalancing${qs}`),
     ]).then(([cl, ut, bg, sg]) => {
       setCaseloadData(cl);
       setUtilData(ut);
@@ -363,12 +363,7 @@ function UtilizationTab({ data, onRateUpdate }: { data: ProviderUtil[]; onRateUp
 
     setSaving(true);
     try {
-      const res = await fetch(`${API}/staff/${staffId}/rates`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hourlyRate: finalRate, annualSalary: finalSalary }),
-      });
-      if (!res.ok) throw new Error("Failed to save");
+      await apiPatch(`/api/staff/${staffId}/rates`, { hourlyRate: finalRate, annualSalary: finalSalary });
       toast.success("Rate updated");
       onRateUpdate(staffId, finalRate, finalSalary);
       setEditingId(null);

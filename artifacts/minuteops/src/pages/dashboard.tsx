@@ -9,8 +9,7 @@ import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -54,15 +53,13 @@ export default function Dashboard() {
   const [academics, setAcademics] = useState<any>(null);
 
   useEffect(() => {
-    fetch(`${API}/academics/overview`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setAcademics(d))
+    apiGet(`/api/academics/overview`).catch(() => null).then(d => setAcademics(d))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("/api/dashboard/compliance-deadlines")
-      .then(r => r.ok ? r.json() : { events: [] })
+    apiGet("/api/dashboard/compliance-deadlines")
+      .catch(() => ({ events: [] }))
       .then(d => {
         const items = Array.isArray(d) ? d : (d.events ?? []);
         setDeadlines(items.slice(0, 6).map((e: any) => ({

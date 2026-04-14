@@ -6,8 +6,7 @@ import {
   Upload, FileSpreadsheet, Users, Clock, ClipboardList,
   CheckCircle, XCircle, AlertTriangle, Download, RefreshCw
 } from "lucide-react";
-
-const API_BASE = import.meta.env.DEV ? "/api" : "/api";
+import { apiGet, apiPost } from "@/lib/api";
 
 type ImportType = "students" | "service-requirements" | "sessions";
 
@@ -48,8 +47,8 @@ export default function ImportData() {
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
-      const res = await fetch(`${API_BASE}/imports`);
-      if (res.ok) setHistory(await res.json());
+      const data = await apiGet(`/api/imports`);
+      setHistory(data);
     } catch (_) {}
     setLoadingHistory(false);
   }, []);
@@ -105,16 +104,12 @@ export default function ImportData() {
     setResult(null);
     try {
       const csvData = await file.text();
-      const res = await fetch(`${API_BASE}/imports/${selectedType}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csvData, fileName: file.name }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setResult({ id: 0, importType: selectedType, fileName: file.name, status: "failed", rowsProcessed: 0, rowsImported: 0, rowsErrored: 0, errors: [data.error || "Import failed"], createdAt: new Date().toISOString() });
-      } else {
+      try {
+        const data = await apiPost(`/api/imports/${selectedType}`, { csvData, fileName: file.name });
         setResult(data);
+      } catch (apiErr: any) {
+        const errMsg = apiErr?.data?.error || apiErr?.message || "Import failed";
+        setResult({ id: 0, importType: selectedType, fileName: file.name, status: "failed", rowsProcessed: 0, rowsImported: 0, rowsErrored: 0, errors: [errMsg], createdAt: new Date().toISOString() });
       }
       loadHistory();
     } catch (e: any) {
@@ -124,7 +119,7 @@ export default function ImportData() {
   }
 
   function downloadTemplate(templateKey: string) {
-    window.open(`${API_BASE}/imports/templates/${templateKey}`, "_blank");
+    window.open(`/api/imports/templates/${templateKey}`, "_blank");
   }
 
   function resetForm() {

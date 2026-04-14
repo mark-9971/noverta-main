@@ -4,8 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Clock, Award, AlertCircle, ChevronRight, Calendar, TrendingUp } from "lucide-react";
-
-const API = (import.meta as any).env.VITE_API_URL || "/api";
+import { apiGet } from "@/lib/api";
 
 export default function StudentDashboard() {
   const { studentId } = useRole();
@@ -16,8 +15,8 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (!studentId) return;
     Promise.all([
-      fetch(`${API}/student/${studentId}/dashboard`).then(r => r.json()),
-      fetch(`${API}/students/${studentId}/grades-summary`).then(r => r.json()),
+      apiGet(`/api/student/${studentId}/dashboard`),
+      apiGet(`/api/students/${studentId}/grades-summary`),
     ]).then(([d, g]) => {
       setData(d);
       setGrades(g);
@@ -185,7 +184,7 @@ function SelectStudentPrompt() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/students-with-enrollments`).then(r => r.json()).then(setStudents);
+    apiGet(`/api/students-with-enrollments`).then(setStudents);
   }, []);
 
   const filtered = students.filter(s =>
