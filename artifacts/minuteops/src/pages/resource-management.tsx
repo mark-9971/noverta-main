@@ -125,7 +125,7 @@ function fmtMin(mins: number) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function downloadCsv(rows: Record<string, any>[], filename: string) {
+function downloadCsv(rows: Record<string, string | number | boolean | null | undefined>[], filename: string) {
   if (rows.length === 0) return;
   const headers = Object.keys(rows[0]);
   const csvContent = [
@@ -172,7 +172,7 @@ export default function ResourceManagement() {
     }).finally(() => setLoading(false));
   }, [selectedSchoolId]);
 
-  const tabs: { id: Tab; label: string; icon: any }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "caseload", label: "Caseload Balance", icon: Scale },
     { id: "utilization", label: "Provider Utilization", icon: Users },
     { id: "budget", label: "Budget & Cost", icon: DollarSign },
@@ -542,7 +542,7 @@ function BudgetTab({ data }: { data: BudgetData }) {
           </div>
           <button
             onClick={() => {
-              let rows: Record<string, any>[] = [];
+              let rows: Record<string, string | number | boolean | null | undefined>[] = [];
               if (view === "student") {
                 rows = data.costByStudent.map(s => ({
                   Name: s.name, School: s.schoolName, "Total Cost": s.totalCost, "Total Minutes": s.totalMinutes,

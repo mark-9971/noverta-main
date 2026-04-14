@@ -337,7 +337,11 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
   }).from(studentsTable).where(eq(studentsTable.status, "active"));
   const studentMap = new Map(students.map(s => [s.id, s]));
 
-  const staffRateMap = new Map(allStaff.map(s => [s.id, s.hourlyRate ? parseFloat(s.hourlyRate) : 0]));
+  const staffRateMap = new Map(allStaff.map(s => {
+    const hourly = s.hourlyRate ? parseFloat(s.hourlyRate) : 0;
+    const fromSalary = s.annualSalary ? parseFloat(s.annualSalary) / 2080 : 0;
+    return [s.id, hourly > 0 ? hourly : fromSalary];
+  }));
 
   // Cost by student
   const studentCosts: Record<number, { name: string; schoolId: number | null; totalCost: number; totalMinutes: number; services: Record<string, { minutes: number; cost: number }> }> = {};
