@@ -5,6 +5,7 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BudgetStudentService } from "./budgetStudentService";
 
 export interface BudgetCostByStudent {
   studentId: number;
@@ -12,4 +13,5 @@ export interface BudgetCostByStudent {
   schoolName: string;
   totalCost: number;
   totalMinutes: number;
+  services: BudgetStudentService[];
 }

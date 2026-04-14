@@ -1766,7 +1766,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StaffMember"
+                $ref: "#/components/schemas/Staff"
 
 components:
   schemas:
@@ -3553,6 +3553,17 @@ components:
           type: number
       required: [totalDeliveredMinutes, totalServiceCost, totalAnnualSalary, totalStaff, totalStudentsServed, avgCostPerStudent]
 
+    BudgetStudentService:
+      type: object
+      properties:
+        serviceType:
+          type: string
+        minutes:
+          type: integer
+        cost:
+          type: number
+      required: [serviceType, minutes, cost]
+
     BudgetCostByStudent:
       type: object
       properties:
@@ -3566,7 +3577,11 @@ components:
           type: number
         totalMinutes:
           type: integer
-      required: [studentId, name, schoolName, totalCost, totalMinutes]
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetStudentService"
+      required: [studentId, name, schoolName, totalCost, totalMinutes, services]
 
     BudgetCostByService:
       type: object

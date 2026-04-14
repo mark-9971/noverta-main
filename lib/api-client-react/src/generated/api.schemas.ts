@@ -1126,12 +1126,19 @@ export interface BudgetSummary {
   avgCostPerStudent: number;
 }
 
+export interface BudgetStudentService {
+  serviceType: string;
+  minutes: number;
+  cost: number;
+}
+
 export interface BudgetCostByStudent {
   studentId: number;
   name: string;
   schoolName: string;
   totalCost: number;
   totalMinutes: number;
+  services: BudgetStudentService[];
 }
 
 export interface BudgetCostByService {

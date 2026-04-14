@@ -4,11 +4,11 @@ import {
   staffTable, studentsTable, serviceRequirementsTable,
   sessionLogsTable, serviceTypesTable, schoolsTable,
 } from "@workspace/db";
-import { eq, and, sql, gte, lte, count, sum } from "drizzle-orm";
+import { eq, and, sql, gte, lte, count, sum, type SQL } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-function parseSchoolDistrictFilters(query: any) {
+function parseSchoolDistrictFilters(query: Record<string, unknown>) {
   return {
     schoolId: query.schoolId ? Number(query.schoolId) : undefined,
     districtId: query.districtId ? Number(query.districtId) : undefined,
@@ -18,7 +18,7 @@ function parseSchoolDistrictFilters(query: any) {
 router.get("/resource-management/caseload", async (req, res): Promise<void> => {
   const filters = parseSchoolDistrictFilters(req.query);
 
-  const schoolConditions: any[] = [];
+  const schoolConditions: ReturnType<typeof eq>[] = [];
   if (filters.schoolId) schoolConditions.push(eq(schoolsTable.id, filters.schoolId));
   if (filters.districtId) schoolConditions.push(eq(schoolsTable.districtId, filters.districtId));
 
@@ -123,7 +123,7 @@ router.get("/resource-management/caseload", async (req, res): Promise<void> => {
 router.get("/resource-management/provider-utilization", async (req, res): Promise<void> => {
   const filters = parseSchoolDistrictFilters(req.query);
 
-  const staffConditions: any[] = [eq(staffTable.status, "active")];
+  const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
   if (filters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
 
@@ -193,7 +193,7 @@ router.get("/resource-management/provider-utilization", async (req, res): Promis
 router.get("/resource-management/rebalancing", async (req, res): Promise<void> => {
   const filters = parseSchoolDistrictFilters(req.query);
 
-  const staffConditions: any[] = [eq(staffTable.status, "active")];
+  const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
   if (filters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
 
@@ -282,7 +282,7 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
 router.get("/resource-management/budget", async (req, res): Promise<void> => {
   const filters = parseSchoolDistrictFilters(req.query);
 
-  const staffConditions: any[] = [eq(staffTable.status, "active")];
+  const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
   if (filters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${filters.districtId})`);
 
@@ -306,7 +306,7 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
   const today = new Date().toISOString().substring(0, 10);
   const yearStart = `${new Date().getFullYear() - 1}-09-01`;
 
-  let sessionConditions: any[] = [
+  let sessionConditions: (SQL | ReturnType<typeof eq>)[] = [
     eq(sessionLogsTable.status, "completed"),
     gte(sessionLogsTable.sessionDate, yearStart),
     lte(sessionLogsTable.sessionDate, today),
@@ -448,7 +448,7 @@ router.patch("/staff/:id/rates", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { hourlyRate, annualSalary } = req.body || {};
-  const updates: any = {};
+  const updates: { hourlyRate?: string; annualSalary?: string } = {};
   if (hourlyRate !== undefined) updates.hourlyRate = String(hourlyRate);
   if (annualSalary !== undefined) updates.annualSalary = String(annualSalary);
 

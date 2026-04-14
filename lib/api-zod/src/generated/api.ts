@@ -1952,6 +1952,13 @@ export const GetResourceBudgetResponse = zod.object({
       schoolName: zod.string(),
       totalCost: zod.number(),
       totalMinutes: zod.number(),
+      services: zod.array(
+        zod.object({
+          serviceType: zod.string(),
+          minutes: zod.number(),
+          cost: zod.number(),
+        }),
+      ),
     }),
   ),
   costByServiceType: zod.array(
@@ -2009,4 +2016,17 @@ export const UpdateStaffRatesBody = zod.object({
   annualSalary: zod.number().optional(),
 });
 
-export const UpdateStaffRatesResponse = zod.unknown();
+export const UpdateStaffRatesResponse = zod.object({
+  id: zod.number(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  email: zod.string().nullish(),
+  role: zod.string(),
+  title: zod.string().nullish(),
+  schoolId: zod.number().nullish(),
+  status: zod.string(),
+  qualifications: zod.string().nullish(),
+  hourlyRate: zod.string().nullish(),
+  annualSalary: zod.string().nullish(),
+  createdAt: zod.string(),
+});

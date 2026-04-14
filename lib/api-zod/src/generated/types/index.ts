@@ -22,6 +22,7 @@ export * from "./budgetCostBySchool";
 export * from "./budgetCostByService";
 export * from "./budgetCostByStudent";
 export * from "./budgetResponse";
+export * from "./budgetStudentService";
 export * from "./budgetSummary";
 export * from "./bulkCreateSessionsBody";
 export * from "./caseloadResponse";

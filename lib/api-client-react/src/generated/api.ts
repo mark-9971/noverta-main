@@ -104,7 +104,6 @@ import type {
   StaffAssignment,
   StaffCoverageResponse,
   StaffDetail,
-  StaffMember,
   StaffRateUpdate,
   Student,
   StudentDetail,
@@ -6881,8 +6880,8 @@ export const updateStaffRates = async (
   id: number,
   staffRateUpdate: StaffRateUpdate,
   options?: RequestInit,
-): Promise<StaffMember> => {
-  return customFetch<StaffMember>(getUpdateStaffRatesUrl(id), {
+): Promise<Staff> => {
+  return customFetch<Staff>(getUpdateStaffRatesUrl(id), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
