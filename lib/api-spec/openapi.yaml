@@ -42,6 +42,24 @@ tags:
     description: Behavior Intervention Plan management with versioning
   - name: para
     description: Paraprofessional mobile data collection endpoints
+  - name: analytics
+    description: Analytics and reporting dashboards
+  - name: program-data
+    description: Behavior and program data targets, templates, and sessions
+  - name: iep
+    description: IEP goals, documents, accommodations, progress reports, and team meetings
+  - name: protective-measures
+    description: Protective measures incident tracking and DESE reporting
+  - name: academics
+    description: Classes, assignments, gradebook, and teacher/student dashboards
+  - name: compliance
+    description: Compliance timeline and event tracking
+  - name: classroom
+    description: Teacher observations and progress note contributions
+  - name: fba
+    description: Functional Behavior Assessment management
+  - name: audit
+    description: FERPA audit logging and export
 
 paths:
   /healthz:
@@ -2829,6 +2847,3157 @@ paths:
           description: Access denied
         "404":
           description: Session not found
+
+
+  # ─── Search ──────────────────────────────────────────────────────
+  /search:
+    get:
+      operationId: globalSearch
+      tags: [students]
+      summary: Global search across students and staff
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /search/iep:
+    get:
+      operationId: searchIep
+      tags: [students]
+      summary: Search IEP data
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: IEP search results
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Quick Session ──────────────────────────────────────────────
+  /sessions/quick:
+    post:
+      operationId: createQuickSession
+      tags: [sessions]
+      summary: Quick session creation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Analytics ──────────────────────────────────────────────────
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Get analytics overview
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/behavior-summary:
+    get:
+      operationId: getAnalyticsBehaviorSummary
+      tags: [analytics]
+      summary: Get behavior analytics summary
+      responses:
+        "200":
+          description: Behavior summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/program-summary:
+    get:
+      operationId: getAnalyticsProgramSummary
+      tags: [analytics]
+      summary: Get program analytics summary
+      responses:
+        "200":
+          description: Program summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/minutes-summary:
+    get:
+      operationId: getAnalyticsMinutesSummary
+      tags: [analytics]
+      summary: Get minutes analytics summary
+      responses:
+        "200":
+          description: Minutes summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/delivery-heatmap:
+    get:
+      operationId: getAnalyticsDeliveryHeatmap
+      tags: [analytics]
+      summary: Get delivery heatmap data
+      responses:
+        "200":
+          description: Heatmap
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/student/{studentId}:
+    get:
+      operationId: getAnalyticsStudent
+      tags: [analytics]
+      summary: Get student analytics detail
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student analytics
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Program Data ───────────────────────────────────────────────
+  /students/{studentId}/behavior-targets:
+    get:
+      operationId: listBehaviorTargets
+      tags: [program-data]
+      summary: List behavior targets for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: active
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Behavior targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createBehaviorTarget
+      tags: [program-data]
+      summary: Create behavior target
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /behavior-targets/{id}:
+    patch:
+      operationId: updateBehaviorTarget
+      tags: [program-data]
+      summary: Update behavior target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/program-targets:
+    get:
+      operationId: listProgramTargets
+      tags: [program-data]
+      summary: List program targets for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: active
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Program targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createProgramTarget
+      tags: [program-data]
+      summary: Create program target
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-targets/{id}:
+    patch:
+      operationId: updateProgramTarget
+      tags: [program-data]
+      summary: Update program target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-targets/{id}/steps:
+    get:
+      operationId: listProgramSteps
+      tags: [program-data]
+      summary: List steps for program target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createProgramStep
+      tags: [program-data]
+      summary: Create step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-steps/{id}:
+    patch:
+      operationId: updateProgramStep
+      tags: [program-data]
+      summary: Update program step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteProgramStep
+      tags: [program-data]
+      summary: Delete program step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-templates:
+    get:
+      operationId: listProgramTemplates
+      tags: [program-data]
+      summary: List program templates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: tier
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: scope
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createProgramTemplate
+      tags: [program-data]
+      summary: Create template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-templates/{id}:
+    put:
+      operationId: updateProgramTemplate
+      tags: [program-data]
+      summary: Update template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteProgramTemplate
+      tags: [program-data]
+      summary: Delete template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-templates/{id}/duplicate:
+    post:
+      operationId: duplicateProgramTemplate
+      tags: [program-data]
+      summary: Duplicate template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-targets/{id}/save-as-template:
+    post:
+      operationId: saveTargetAsTemplate
+      tags: [program-data]
+      summary: Save target as template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /program-templates/{id}/clone-to-student:
+    post:
+      operationId: cloneTemplateToStudent
+      tags: [program-data]
+      summary: Clone template to student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Cloned
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/data-sessions:
+    get:
+      operationId: listDataSessions
+      tags: [program-data]
+      summary: List data sessions for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: to
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Data sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createDataSession
+      tags: [program-data]
+      summary: Create data session with behavior/program data
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /data-sessions/{id}:
+    get:
+      operationId: getDataSession
+      tags: [program-data]
+      summary: Get data session detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Data session detail
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/behavior-data/trends:
+    get:
+      operationId: getBehaviorDataTrends
+      tags: [program-data]
+      summary: Get behavior data trends
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: to
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: behaviorTargetId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Behavior trends
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/program-data/trends:
+    get:
+      operationId: getProgramDataTrends
+      tags: [program-data]
+      summary: Get program data trends
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: to
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: programTargetId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Program trends
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── IEP Management ────────────────────────────────────────────
+  /students/{studentId}/iep-goals:
+    get:
+      operationId: listIepGoals
+      tags: [iep]
+      summary: List IEP goals for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: active
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: IEP goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createIepGoal
+      tags: [iep]
+      summary: Create IEP goal
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /iep-goals/{id}:
+    patch:
+      operationId: updateIepGoal
+      tags: [iep]
+      summary: Update IEP goal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteIepGoal
+      tags: [iep]
+      summary: Delete IEP goal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/iep-goals/auto-create:
+    post:
+      operationId: autoCreateIepGoals
+      tags: [iep]
+      summary: Auto-create IEP goals from targets
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created goals
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/progress-reports:
+    get:
+      operationId: listProgressReports
+      tags: [iep]
+      summary: List progress reports for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Progress reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /progress-reports/{id}:
+    get:
+      operationId: getProgressReport
+      tags: [iep]
+      summary: Get progress report detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema:
+                type: object
+    patch:
+      operationId: updateProgressReport
+      tags: [iep]
+      summary: Update progress report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/progress-reports/generate:
+    post:
+      operationId: generateProgressReport
+      tags: [iep]
+      summary: Generate progress report
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Generated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/iep-documents:
+    get:
+      operationId: listIepDocuments
+      tags: [iep]
+      summary: List IEP documents
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createIepDocument
+      tags: [iep]
+      summary: Create IEP document
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /iep-documents/{id}:
+    get:
+      operationId: getIepDocument
+      tags: [iep]
+      summary: Get IEP document detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema:
+                type: object
+    patch:
+      operationId: updateIepDocument
+      tags: [iep]
+      summary: Update IEP document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteIepDocument
+      tags: [iep]
+      summary: Delete IEP document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/iep-documents/{docId}/amend:
+    post:
+      operationId: amendIepDocument
+      tags: [iep]
+      summary: Amend an IEP document
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Amendment created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/accommodations:
+    get:
+      operationId: listAccommodations
+      tags: [iep]
+      summary: List accommodations for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Accommodations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createAccommodation
+      tags: [iep]
+      summary: Create accommodation
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /accommodations/{id}:
+    patch:
+      operationId: updateAccommodation
+      tags: [iep]
+      summary: Update accommodation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteAccommodation
+      tags: [iep]
+      summary: Delete accommodation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── IEP Builder ────────────────────────────────────────────────
+  /students/{studentId}/iep-builder/generate:
+    post:
+      operationId: generateIepBuilder
+      tags: [iep]
+      summary: Generate IEP document from builder
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Generated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Protective Measures ────────────────────────────────────────
+  /protective-measures/incidents:
+    get:
+      operationId: listProtectiveIncidents
+      tags: [protective-measures]
+      summary: List protective measure incidents
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: incidentType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createProtectiveIncident
+      tags: [protective-measures]
+      summary: Create incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}:
+    get:
+      operationId: getProtectiveIncident
+      tags: [protective-measures]
+      summary: Get incident detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Incident detail
+          content:
+            application/json:
+              schema:
+                type: object
+    patch:
+      operationId: updateProtectiveIncident
+      tags: [protective-measures]
+      summary: Update incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteProtectiveIncident
+      tags: [protective-measures]
+      summary: Delete incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/admin-review:
+    post:
+      operationId: adminReviewIncident
+      tags: [protective-measures]
+      summary: Admin review of incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Reviewed
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/parent-notification:
+    post:
+      operationId: parentNotifyIncident
+      tags: [protective-measures]
+      summary: Record parent notification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Notified
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/written-report:
+    post:
+      operationId: writtenReportIncident
+      tags: [protective-measures]
+      summary: Send written report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/dese-report:
+    post:
+      operationId: deseReportIncident
+      tags: [protective-measures]
+      summary: File DESE report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Filed
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/signature:
+    post:
+      operationId: signIncident
+      tags: [protective-measures]
+      summary: Add signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Signed
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/signatures:
+    get:
+      operationId: listIncidentSignatures
+      tags: [protective-measures]
+      summary: List incident signatures
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signatures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /protective-measures/incidents/{id}/signatures/request:
+    post:
+      operationId: requestIncidentSignature
+      tags: [protective-measures]
+      summary: Request signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Requested
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/signatures/{sigId}/sign:
+    post:
+      operationId: signIncidentSignature
+      tags: [protective-measures]
+      summary: Sign specific signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sigId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Signed
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/summary:
+    get:
+      operationId: getProtectiveSummary
+      tags: [protective-measures]
+      summary: Get protective measures summary
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/dese-report:
+    get:
+      operationId: getDeseReport
+      tags: [protective-measures]
+      summary: Get DESE report data
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: DESE report
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/dese-export:
+    get:
+      operationId: getDeseExport
+      tags: [protective-measures]
+      summary: Export DESE data
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Export data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /protective-measures/dese-30day-log/{incidentId}:
+    get:
+      operationId: getDese30DayLog
+      tags: [protective-measures]
+      summary: Get 30-day DESE log for incident
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Log data
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/generate-draft:
+    get:
+      operationId: generateIncidentDraft
+      tags: [protective-measures]
+      summary: Generate incident draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/report-pdf:
+    get:
+      operationId: getIncidentReportPdf
+      tags: [protective-measures]
+      summary: Download incident report PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /protective-measures/incidents/{id}/parent-notification-draft:
+    post:
+      operationId: parentNotificationDraftIncident
+      tags: [protective-measures]
+      summary: Generate parent notification draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/incidents/{id}/send-parent-notification:
+    post:
+      operationId: sendParentNotificationIncident
+      tags: [protective-measures]
+      summary: Send parent notification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /protective-measures/pending-signatures:
+    get:
+      operationId: getPendingSignatures
+      tags: [protective-measures]
+      summary: Get pending signatures
+      parameters:
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Pending signatures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/protective-measures:
+    get:
+      operationId: getStudentProtectiveMeasures
+      tags: [protective-measures]
+      summary: Get student protective measures
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student protective measures
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Classes & Academics ────────────────────────────────────────
+  /classes:
+    get:
+      operationId: listClasses
+      tags: [academics]
+      summary: List classes
+      parameters:
+        - name: teacherId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Classes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createClass
+      tags: [academics]
+      summary: Create class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{id}:
+    get:
+      operationId: getClass
+      tags: [academics]
+      summary: Get class detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Class
+          content:
+            application/json:
+              schema:
+                type: object
+    put:
+      operationId: updateClass
+      tags: [academics]
+      summary: Update class
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{id}/roster:
+    get:
+      operationId: getClassRoster
+      tags: [academics]
+      summary: Get class roster
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roster
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /classes/{id}/enroll:
+    post:
+      operationId: enrollStudent
+      tags: [academics]
+      summary: Enroll student in class
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{classId}/enroll/{studentId}:
+    delete:
+      operationId: unenrollStudent
+      tags: [academics]
+      summary: Unenroll student from class
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unenrolled
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{id}/categories:
+    get:
+      operationId: listGradeCategories
+      tags: [academics]
+      summary: List grade categories
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createGradeCategory
+      tags: [academics]
+      summary: Create grade category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{id}/announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [academics]
+      summary: List class announcements
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createAnnouncement
+      tags: [academics]
+      summary: Create class announcement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{id}/classes:
+    get:
+      operationId: listStudentClasses
+      tags: [academics]
+      summary: List classes for student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Classes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students-with-enrollments:
+    get:
+      operationId: listStudentsWithEnrollments
+      tags: [academics]
+      summary: List students with class enrollments
+      responses:
+        "200":
+          description: Students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /teachers-with-classes:
+    get:
+      operationId: listTeachersWithClasses
+      tags: [academics]
+      summary: List teachers who have classes
+      responses:
+        "200":
+          description: Teachers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Assignments & Gradebook ────────────────────────────────────
+  /classes/{id}/assignments:
+    get:
+      operationId: listClassAssignments
+      tags: [academics]
+      summary: List assignments for class
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createAssignment
+      tags: [academics]
+      summary: Create assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /assignments/{id}:
+    get:
+      operationId: getAssignment
+      tags: [academics]
+      summary: Get assignment detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignment
+          content:
+            application/json:
+              schema:
+                type: object
+    put:
+      operationId: updateAssignment
+      tags: [academics]
+      summary: Update assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteAssignment
+      tags: [academics]
+      summary: Delete assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /assignments/{id}/submissions:
+    get:
+      operationId: listSubmissions
+      tags: [academics]
+      summary: List submissions for assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{id}/assignments:
+    get:
+      operationId: listStudentAssignments
+      tags: [academics]
+      summary: List assignments for student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: classId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /submissions/{id}:
+    put:
+      operationId: updateSubmission
+      tags: [academics]
+      summary: Update submission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /submissions/{id}/grade:
+    put:
+      operationId: gradeSubmission
+      tags: [academics]
+      summary: Grade submission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{id}/grades-summary:
+    get:
+      operationId: getStudentGradesSummary
+      tags: [academics]
+      summary: Get student grades summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grades summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /classes/{id}/gradebook:
+    get:
+      operationId: getGradebook
+      tags: [academics]
+      summary: Get class gradebook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Gradebook
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /teacher/{id}/dashboard:
+    get:
+      operationId: getTeacherDashboard
+      tags: [academics]
+      summary: Get teacher dashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /student/{id}/dashboard:
+    get:
+      operationId: getStudentDashboard
+      tags: [academics]
+      summary: Get student dashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /academics/overview:
+    get:
+      operationId: getAcademicsOverview
+      tags: [academics]
+      summary: Get academics overview
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Compliance Timeline ────────────────────────────────────────
+  /compliance-timeline:
+    get:
+      operationId: getComplianceTimeline
+      tags: [compliance]
+      summary: Get compliance timeline
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Timeline
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/compliance-events:
+    get:
+      operationId: listComplianceEvents
+      tags: [compliance]
+      summary: List compliance events for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createComplianceEvent
+      tags: [compliance]
+      summary: Create compliance event
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /compliance-events/{id}:
+    patch:
+      operationId: updateComplianceEvent
+      tags: [compliance]
+      summary: Update compliance event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /compliance-events/recalculate:
+    post:
+      operationId: recalculateComplianceEvents
+      tags: [compliance]
+      summary: Recalculate compliance events
+      responses:
+        "200":
+          description: Recalculated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /goal-bank:
+    get:
+      operationId: listGoalBank
+      tags: [iep]
+      summary: List goal bank entries
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Goal bank
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/iep-goals-summary:
+    get:
+      operationId: getIepGoalsSummary
+      tags: [iep]
+      summary: Get IEP goals summary
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Team Meetings ─────────────────────────────────────────────
+  /students/{studentId}/team-meetings:
+    get:
+      operationId: listTeamMeetings
+      tags: [iep]
+      summary: List team meetings for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createTeamMeeting
+      tags: [iep]
+      summary: Create team meeting
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /team-meetings/{id}:
+    patch:
+      operationId: updateTeamMeeting
+      tags: [iep]
+      summary: Update team meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      operationId: deleteTeamMeeting
+      tags: [iep]
+      summary: Delete team meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Classroom / Teacher Observations ──────────────────────────
+  /staff/{staffId}/classroom:
+    get:
+      operationId: getStaffClassroom
+      tags: [classroom]
+      summary: Get staff classroom data
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Classroom data
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /teacher-observations:
+    get:
+      operationId: listTeacherObservations
+      tags: [classroom]
+      summary: List teacher observations
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: staffId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createTeacherObservation
+      tags: [classroom]
+      summary: Create teacher observation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /progress-note-contributions:
+    get:
+      operationId: listProgressNoteContributions
+      tags: [classroom]
+      summary: List progress note contributions
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Contributions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createProgressNoteContribution
+      tags: [classroom]
+      summary: Create progress note contribution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/classroom-observations:
+    get:
+      operationId: getStudentClassroomObservations
+      tags: [classroom]
+      summary: Get student classroom observations
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/progress-note-history:
+    get:
+      operationId: getStudentProgressNoteHistory
+      tags: [classroom]
+      summary: Get student progress note history
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: History
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── IEP Suggestions ───────────────────────────────────────────
+  /iep-suggestions/all-students:
+    get:
+      operationId: getIepSuggestionsAllStudents
+      tags: [iep]
+      summary: Get IEP suggestions for all students
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /students/{studentId}/apply-suggestions:
+    post:
+      operationId: applyIepSuggestions
+      tags: [iep]
+      summary: Apply IEP suggestions
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Additional Features ───────────────────────────────────────
+  /staff/{staffId}/caseload-summary:
+    get:
+      operationId: getStaffCaseloadSummary
+      tags: [staff]
+      summary: Get staff caseload summary
+      parameters:
+        - name: staffId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /students/{studentId}/iep-summary:
+    get:
+      operationId: getStudentIepSummary
+      tags: [students]
+      summary: Get student IEP summary
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── SPED Students ─────────────────────────────────────────────
+  /sped-students:
+    get:
+      operationId: listSpedStudents
+      tags: [students]
+      summary: List SPED students
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: SPED students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Dashboard extras ──────────────────────────────────────────
+  /dashboard/compliance-deadlines:
+    get:
+      operationId: getComplianceDeadlines
+      tags: [dashboard]
+      summary: Get compliance deadlines
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Deadlines
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Schools extras ────────────────────────────────────────────
+  /schools/{id}:
+    get:
+      operationId: getSchool
+      tags: [students]
+      summary: Get school detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: School
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /schools/{id}/schedule-settings:
+    patch:
+      operationId: updateSchoolScheduleSettings
+      tags: [schedules]
+      summary: Update school schedule settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Minutes Trend ─────────────────────────────────────────────
+  /students/{studentId}/minutes-trend:
+    get:
+      operationId: getStudentMinutesTrend
+      tags: [sessions]
+      summary: Get student minutes trend
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Import Templates ──────────────────────────────────────────
+  /imports/templates/{type}:
+    get:
+      operationId: getImportTemplate
+      tags: [imports]
+      summary: Get import template
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Template
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  # ─── FBA ────────────────────────────────────────────────────────
+  /students/{studentId}/fbas:
+    get:
+      operationId: listFbas
+      tags: [fba]
+      summary: List FBAs for student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: FBAs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createFba
+      tags: [fba]
+      summary: Create FBA
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /fbas/{id}:
+    get:
+      operationId: getFba
+      tags: [fba]
+      summary: Get FBA detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: FBA
+          content:
+            application/json:
+              schema:
+                type: object
+    patch:
+      operationId: updateFba
+      tags: [fba]
+      summary: Update FBA
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /fbas/{fbaId}/observations:
+    get:
+      operationId: listFbaObservations
+      tags: [fba]
+      summary: List FBA observations
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createFbaObservation
+      tags: [fba]
+      summary: Create FBA observation
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /observations/{id}:
+    delete:
+      operationId: deleteFbaObservation
+      tags: [fba]
+      summary: Delete FBA observation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /fbas/{fbaId}/observations/summary:
+    get:
+      operationId: getFbaObservationsSummary
+      tags: [fba]
+      summary: Get FBA observations summary
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /fbas/{fbaId}/fa-sessions:
+    get:
+      operationId: listFaSessions
+      tags: [fba]
+      summary: List FA sessions
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      operationId: createFaSession
+      tags: [fba]
+      summary: Create FA session
+      parameters:
+        - name: fbaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /fa-sessions/{id}:
+    delete:
+      operationId: deleteFaSession
+      tags: [fba]
+      summary: Delete FA session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Audit Logs ─────────────────────────────────────────────────
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List audit logs (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: action
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: targetTable
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: actorUserId
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: studentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /audit-logs/export:
+    get:
+      operationId: exportAuditLogs
+      tags: [audit]
+      summary: Export audit logs CSV
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: targetTable
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: CSV export
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /audit-logs/stats:
+    get:
+      operationId: getAuditLogStats
+      tags: [audit]
+      summary: Get audit log statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
   schemas:

@@ -3562,3 +3562,1451 @@ export const ParaStopSessionBody = zod.object({
 export const ParaStopSessionResponse = zod.object({
   session: zod.object({}).passthrough(),
 });
+
+/**
+ * @summary Global search across students and staff
+ */
+export const GlobalSearchQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+});
+
+export const GlobalSearchResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Search IEP data
+ */
+export const SearchIepQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const SearchIepResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Quick session creation
+ */
+export const CreateQuickSessionBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get analytics overview
+ */
+export const GetAnalyticsOverviewResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get behavior analytics summary
+ */
+export const GetAnalyticsBehaviorSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get program analytics summary
+ */
+export const GetAnalyticsProgramSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get minutes analytics summary
+ */
+export const GetAnalyticsMinutesSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get delivery heatmap data
+ */
+export const GetAnalyticsDeliveryHeatmapResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get student analytics detail
+ */
+export const GetAnalyticsStudentParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetAnalyticsStudentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List behavior targets for student
+ */
+export const ListBehaviorTargetsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListBehaviorTargetsQueryParams = zod.object({
+  active: zod.coerce.string().nullish(),
+});
+
+export const ListBehaviorTargetsResponseItem = zod.object({}).passthrough();
+export const ListBehaviorTargetsResponse = zod.array(
+  ListBehaviorTargetsResponseItem,
+);
+
+/**
+ * @summary Create behavior target
+ */
+export const CreateBehaviorTargetParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateBehaviorTargetBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update behavior target
+ */
+export const UpdateBehaviorTargetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateBehaviorTargetBody = zod.object({}).passthrough();
+
+export const UpdateBehaviorTargetResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List program targets for student
+ */
+export const ListProgramTargetsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListProgramTargetsQueryParams = zod.object({
+  active: zod.coerce.string().nullish(),
+});
+
+export const ListProgramTargetsResponseItem = zod.object({}).passthrough();
+export const ListProgramTargetsResponse = zod.array(
+  ListProgramTargetsResponseItem,
+);
+
+/**
+ * @summary Create program target
+ */
+export const CreateProgramTargetParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateProgramTargetBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update program target
+ */
+export const UpdateProgramTargetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProgramTargetBody = zod.object({}).passthrough();
+
+export const UpdateProgramTargetResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List steps for program target
+ */
+export const ListProgramStepsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListProgramStepsResponseItem = zod.object({}).passthrough();
+export const ListProgramStepsResponse = zod.array(ListProgramStepsResponseItem);
+
+/**
+ * @summary Create step
+ */
+export const CreateProgramStepParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateProgramStepBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update program step
+ */
+export const UpdateProgramStepParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProgramStepBody = zod.object({}).passthrough();
+
+export const UpdateProgramStepResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete program step
+ */
+export const DeleteProgramStepParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteProgramStepResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List program templates
+ */
+export const ListProgramTemplatesQueryParams = zod.object({
+  category: zod.coerce.string().nullish(),
+  tier: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  scope: zod.coerce.string().nullish(),
+  search: zod.coerce.string().nullish(),
+});
+
+export const ListProgramTemplatesResponseItem = zod.object({}).passthrough();
+export const ListProgramTemplatesResponse = zod.array(
+  ListProgramTemplatesResponseItem,
+);
+
+/**
+ * @summary Create template
+ */
+export const CreateProgramTemplateBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update template
+ */
+export const UpdateProgramTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProgramTemplateBody = zod.object({}).passthrough();
+
+export const UpdateProgramTemplateResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete template
+ */
+export const DeleteProgramTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteProgramTemplateResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Duplicate template
+ */
+export const DuplicateProgramTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Save target as template
+ */
+export const SaveTargetAsTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SaveTargetAsTemplateBody = zod.object({}).passthrough();
+
+/**
+ * @summary Clone template to student
+ */
+export const CloneTemplateToStudentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CloneTemplateToStudentBody = zod.object({}).passthrough();
+
+/**
+ * @summary List data sessions for student
+ */
+export const ListDataSessionsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListDataSessionsQueryParams = zod.object({
+  from: zod.coerce.string().nullish(),
+  to: zod.coerce.string().nullish(),
+  limit: zod.coerce.number().nullish(),
+});
+
+export const ListDataSessionsResponseItem = zod.object({}).passthrough();
+export const ListDataSessionsResponse = zod.array(ListDataSessionsResponseItem);
+
+/**
+ * @summary Create data session with behavior/program data
+ */
+export const CreateDataSessionParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateDataSessionBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get data session detail
+ */
+export const GetDataSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDataSessionResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get behavior data trends
+ */
+export const GetBehaviorDataTrendsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetBehaviorDataTrendsQueryParams = zod.object({
+  from: zod.coerce.string().nullish(),
+  to: zod.coerce.string().nullish(),
+  behaviorTargetId: zod.coerce.number().nullish(),
+});
+
+export const GetBehaviorDataTrendsResponseItem = zod.object({}).passthrough();
+export const GetBehaviorDataTrendsResponse = zod.array(
+  GetBehaviorDataTrendsResponseItem,
+);
+
+/**
+ * @summary Get program data trends
+ */
+export const GetProgramDataTrendsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetProgramDataTrendsQueryParams = zod.object({
+  from: zod.coerce.string().nullish(),
+  to: zod.coerce.string().nullish(),
+  programTargetId: zod.coerce.number().nullish(),
+});
+
+export const GetProgramDataTrendsResponseItem = zod.object({}).passthrough();
+export const GetProgramDataTrendsResponse = zod.array(
+  GetProgramDataTrendsResponseItem,
+);
+
+/**
+ * @summary List IEP goals for student
+ */
+export const ListIepGoalsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListIepGoalsQueryParams = zod.object({
+  active: zod.coerce.string().nullish(),
+});
+
+export const ListIepGoalsResponseItem = zod.object({}).passthrough();
+export const ListIepGoalsResponse = zod.array(ListIepGoalsResponseItem);
+
+/**
+ * @summary Create IEP goal
+ */
+export const CreateIepGoalParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateIepGoalBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update IEP goal
+ */
+export const UpdateIepGoalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateIepGoalBody = zod.object({}).passthrough();
+
+export const UpdateIepGoalResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete IEP goal
+ */
+export const DeleteIepGoalParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteIepGoalResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Auto-create IEP goals from targets
+ */
+export const AutoCreateIepGoalsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const AutoCreateIepGoalsBody = zod.object({}).passthrough();
+
+/**
+ * @summary List progress reports for student
+ */
+export const ListProgressReportsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListProgressReportsResponseItem = zod.object({}).passthrough();
+export const ListProgressReportsResponse = zod.array(
+  ListProgressReportsResponseItem,
+);
+
+/**
+ * @summary Get progress report detail
+ */
+export const GetProgressReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetProgressReportResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update progress report
+ */
+export const UpdateProgressReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProgressReportBody = zod.object({}).passthrough();
+
+export const UpdateProgressReportResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Generate progress report
+ */
+export const GenerateProgressReportParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GenerateProgressReportBody = zod.object({}).passthrough();
+
+/**
+ * @summary List IEP documents
+ */
+export const ListIepDocumentsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListIepDocumentsResponseItem = zod.object({}).passthrough();
+export const ListIepDocumentsResponse = zod.array(ListIepDocumentsResponseItem);
+
+/**
+ * @summary Create IEP document
+ */
+export const CreateIepDocumentParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateIepDocumentBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get IEP document detail
+ */
+export const GetIepDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetIepDocumentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update IEP document
+ */
+export const UpdateIepDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateIepDocumentBody = zod.object({}).passthrough();
+
+export const UpdateIepDocumentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete IEP document
+ */
+export const DeleteIepDocumentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteIepDocumentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Amend an IEP document
+ */
+export const AmendIepDocumentParams = zod.object({
+  studentId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const AmendIepDocumentBody = zod.object({}).passthrough();
+
+/**
+ * @summary List accommodations for student
+ */
+export const ListAccommodationsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListAccommodationsResponseItem = zod.object({}).passthrough();
+export const ListAccommodationsResponse = zod.array(
+  ListAccommodationsResponseItem,
+);
+
+/**
+ * @summary Create accommodation
+ */
+export const CreateAccommodationParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateAccommodationBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update accommodation
+ */
+export const UpdateAccommodationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAccommodationBody = zod.object({}).passthrough();
+
+export const UpdateAccommodationResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete accommodation
+ */
+export const DeleteAccommodationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAccommodationResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Generate IEP document from builder
+ */
+export const GenerateIepBuilderParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GenerateIepBuilderBody = zod.object({}).passthrough();
+
+export const GenerateIepBuilderResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List protective measure incidents
+ */
+export const ListProtectiveIncidentsQueryParams = zod.object({
+  studentId: zod.coerce.number().nullish(),
+  status: zod.coerce.string().nullish(),
+  incidentType: zod.coerce.string().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});
+
+export const ListProtectiveIncidentsResponseItem = zod.object({}).passthrough();
+export const ListProtectiveIncidentsResponse = zod.array(
+  ListProtectiveIncidentsResponseItem,
+);
+
+/**
+ * @summary Create incident
+ */
+export const CreateProtectiveIncidentBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get incident detail
+ */
+export const GetProtectiveIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetProtectiveIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update incident
+ */
+export const UpdateProtectiveIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateProtectiveIncidentBody = zod.object({}).passthrough();
+
+export const UpdateProtectiveIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete incident
+ */
+export const DeleteProtectiveIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteProtectiveIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Admin review of incident
+ */
+export const AdminReviewIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminReviewIncidentBody = zod.object({}).passthrough();
+
+export const AdminReviewIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Record parent notification
+ */
+export const ParentNotifyIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ParentNotifyIncidentBody = zod.object({}).passthrough();
+
+export const ParentNotifyIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Send written report
+ */
+export const WrittenReportIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const WrittenReportIncidentBody = zod.object({}).passthrough();
+
+export const WrittenReportIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary File DESE report
+ */
+export const DeseReportIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeseReportIncidentBody = zod.object({}).passthrough();
+
+export const DeseReportIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Add signature
+ */
+export const SignIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SignIncidentBody = zod.object({}).passthrough();
+
+export const SignIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List incident signatures
+ */
+export const ListIncidentSignaturesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListIncidentSignaturesResponseItem = zod.object({}).passthrough();
+export const ListIncidentSignaturesResponse = zod.array(
+  ListIncidentSignaturesResponseItem,
+);
+
+/**
+ * @summary Request signature
+ */
+export const RequestIncidentSignatureParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RequestIncidentSignatureBody = zod.object({}).passthrough();
+
+export const RequestIncidentSignatureResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Sign specific signature
+ */
+export const SignIncidentSignatureParams = zod.object({
+  id: zod.coerce.number(),
+  sigId: zod.coerce.number(),
+});
+
+export const SignIncidentSignatureBody = zod.object({}).passthrough();
+
+export const SignIncidentSignatureResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get protective measures summary
+ */
+export const GetProtectiveSummaryQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const GetProtectiveSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get DESE report data
+ */
+export const GetDeseReportQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});
+
+export const GetDeseReportResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Export DESE data
+ */
+export const GetDeseExportQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});
+
+export const GetDeseExportResponseItem = zod.object({}).passthrough();
+export const GetDeseExportResponse = zod.array(GetDeseExportResponseItem);
+
+/**
+ * @summary Get 30-day DESE log for incident
+ */
+export const GetDese30DayLogParams = zod.object({
+  incidentId: zod.coerce.number(),
+});
+
+export const GetDese30DayLogResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Generate incident draft
+ */
+export const GenerateIncidentDraftParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateIncidentDraftResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Download incident report PDF
+ */
+export const GetIncidentReportPdfParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Generate parent notification draft
+ */
+export const ParentNotificationDraftIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ParentNotificationDraftIncidentBody = zod.object({}).passthrough();
+
+export const ParentNotificationDraftIncidentResponse = zod
+  .object({})
+  .passthrough();
+
+/**
+ * @summary Send parent notification
+ */
+export const SendParentNotificationIncidentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendParentNotificationIncidentBody = zod.object({}).passthrough();
+
+export const SendParentNotificationIncidentResponse = zod
+  .object({})
+  .passthrough();
+
+/**
+ * @summary Get pending signatures
+ */
+export const GetPendingSignaturesQueryParams = zod.object({
+  staffId: zod.coerce.number().nullish(),
+});
+
+export const GetPendingSignaturesResponseItem = zod.object({}).passthrough();
+export const GetPendingSignaturesResponse = zod.array(
+  GetPendingSignaturesResponseItem,
+);
+
+/**
+ * @summary Get student protective measures
+ */
+export const GetStudentProtectiveMeasuresParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentProtectiveMeasuresResponse = zod
+  .object({})
+  .passthrough();
+
+/**
+ * @summary List classes
+ */
+export const ListClassesQueryParams = zod.object({
+  teacherId: zod.coerce.number().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const ListClassesResponseItem = zod.object({}).passthrough();
+export const ListClassesResponse = zod.array(ListClassesResponseItem);
+
+/**
+ * @summary Create class
+ */
+export const CreateClassBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get class detail
+ */
+export const GetClassParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetClassResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update class
+ */
+export const UpdateClassParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateClassBody = zod.object({}).passthrough();
+
+export const UpdateClassResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get class roster
+ */
+export const GetClassRosterParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetClassRosterResponseItem = zod.object({}).passthrough();
+export const GetClassRosterResponse = zod.array(GetClassRosterResponseItem);
+
+/**
+ * @summary Enroll student in class
+ */
+export const EnrollStudentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EnrollStudentBody = zod.object({}).passthrough();
+
+/**
+ * @summary Unenroll student from class
+ */
+export const UnenrollStudentParams = zod.object({
+  classId: zod.coerce.number(),
+  studentId: zod.coerce.number(),
+});
+
+export const UnenrollStudentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List grade categories
+ */
+export const ListGradeCategoriesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListGradeCategoriesResponseItem = zod.object({}).passthrough();
+export const ListGradeCategoriesResponse = zod.array(
+  ListGradeCategoriesResponseItem,
+);
+
+/**
+ * @summary Create grade category
+ */
+export const CreateGradeCategoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateGradeCategoryBody = zod.object({}).passthrough();
+
+/**
+ * @summary List class announcements
+ */
+export const ListAnnouncementsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAnnouncementsResponseItem = zod.object({}).passthrough();
+export const ListAnnouncementsResponse = zod.array(
+  ListAnnouncementsResponseItem,
+);
+
+/**
+ * @summary Create class announcement
+ */
+export const CreateAnnouncementParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateAnnouncementBody = zod.object({}).passthrough();
+
+/**
+ * @summary List classes for student
+ */
+export const ListStudentClassesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListStudentClassesResponseItem = zod.object({}).passthrough();
+export const ListStudentClassesResponse = zod.array(
+  ListStudentClassesResponseItem,
+);
+
+/**
+ * @summary List students with class enrollments
+ */
+export const ListStudentsWithEnrollmentsResponseItem = zod
+  .object({})
+  .passthrough();
+export const ListStudentsWithEnrollmentsResponse = zod.array(
+  ListStudentsWithEnrollmentsResponseItem,
+);
+
+/**
+ * @summary List teachers who have classes
+ */
+export const ListTeachersWithClassesResponseItem = zod.object({}).passthrough();
+export const ListTeachersWithClassesResponse = zod.array(
+  ListTeachersWithClassesResponseItem,
+);
+
+/**
+ * @summary List assignments for class
+ */
+export const ListClassAssignmentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListClassAssignmentsResponseItem = zod.object({}).passthrough();
+export const ListClassAssignmentsResponse = zod.array(
+  ListClassAssignmentsResponseItem,
+);
+
+/**
+ * @summary Create assignment
+ */
+export const CreateAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateAssignmentBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get assignment detail
+ */
+export const GetAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAssignmentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update assignment
+ */
+export const UpdateAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAssignmentBody = zod.object({}).passthrough();
+
+export const UpdateAssignmentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete assignment
+ */
+export const DeleteAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAssignmentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List submissions for assignment
+ */
+export const ListSubmissionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListSubmissionsResponseItem = zod.object({}).passthrough();
+export const ListSubmissionsResponse = zod.array(ListSubmissionsResponseItem);
+
+/**
+ * @summary List assignments for student
+ */
+export const ListStudentAssignmentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListStudentAssignmentsQueryParams = zod.object({
+  classId: zod.coerce.number().nullish(),
+  status: zod.coerce.string().nullish(),
+});
+
+export const ListStudentAssignmentsResponseItem = zod.object({}).passthrough();
+export const ListStudentAssignmentsResponse = zod.array(
+  ListStudentAssignmentsResponseItem,
+);
+
+/**
+ * @summary Update submission
+ */
+export const UpdateSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSubmissionBody = zod.object({}).passthrough();
+
+export const UpdateSubmissionResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Grade submission
+ */
+export const GradeSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GradeSubmissionBody = zod.object({}).passthrough();
+
+export const GradeSubmissionResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get student grades summary
+ */
+export const GetStudentGradesSummaryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetStudentGradesSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get class gradebook
+ */
+export const GetGradebookParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetGradebookResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get teacher dashboard
+ */
+export const GetTeacherDashboardParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTeacherDashboardResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get student dashboard
+ */
+export const GetStudentDashboardParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetStudentDashboardResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get academics overview
+ */
+export const GetAcademicsOverviewResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get compliance timeline
+ */
+export const GetComplianceTimelineQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const GetComplianceTimelineResponseItem = zod.object({}).passthrough();
+export const GetComplianceTimelineResponse = zod.array(
+  GetComplianceTimelineResponseItem,
+);
+
+/**
+ * @summary List compliance events for student
+ */
+export const ListComplianceEventsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListComplianceEventsResponseItem = zod.object({}).passthrough();
+export const ListComplianceEventsResponse = zod.array(
+  ListComplianceEventsResponseItem,
+);
+
+/**
+ * @summary Create compliance event
+ */
+export const CreateComplianceEventParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateComplianceEventBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update compliance event
+ */
+export const UpdateComplianceEventParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateComplianceEventBody = zod.object({}).passthrough();
+
+export const UpdateComplianceEventResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Recalculate compliance events
+ */
+export const RecalculateComplianceEventsResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List goal bank entries
+ */
+export const ListGoalBankQueryParams = zod.object({
+  category: zod.coerce.string().nullish(),
+  search: zod.coerce.string().nullish(),
+});
+
+export const ListGoalBankResponseItem = zod.object({}).passthrough();
+export const ListGoalBankResponse = zod.array(ListGoalBankResponseItem);
+
+/**
+ * @summary Get IEP goals summary
+ */
+export const GetIepGoalsSummaryParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetIepGoalsSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List team meetings for student
+ */
+export const ListTeamMeetingsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListTeamMeetingsResponseItem = zod.object({}).passthrough();
+export const ListTeamMeetingsResponse = zod.array(ListTeamMeetingsResponseItem);
+
+/**
+ * @summary Create team meeting
+ */
+export const CreateTeamMeetingParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateTeamMeetingBody = zod.object({}).passthrough();
+
+/**
+ * @summary Update team meeting
+ */
+export const UpdateTeamMeetingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTeamMeetingBody = zod.object({}).passthrough();
+
+export const UpdateTeamMeetingResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Delete team meeting
+ */
+export const DeleteTeamMeetingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteTeamMeetingResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get staff classroom data
+ */
+export const GetStaffClassroomParams = zod.object({
+  staffId: zod.coerce.number(),
+});
+
+export const GetStaffClassroomResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List teacher observations
+ */
+export const ListTeacherObservationsQueryParams = zod.object({
+  studentId: zod.coerce.number().nullish(),
+  staffId: zod.coerce.number().nullish(),
+});
+
+export const ListTeacherObservationsResponseItem = zod.object({}).passthrough();
+export const ListTeacherObservationsResponse = zod.array(
+  ListTeacherObservationsResponseItem,
+);
+
+/**
+ * @summary Create teacher observation
+ */
+export const CreateTeacherObservationBody = zod.object({}).passthrough();
+
+/**
+ * @summary List progress note contributions
+ */
+export const ListProgressNoteContributionsQueryParams = zod.object({
+  studentId: zod.coerce.number().nullish(),
+});
+
+export const ListProgressNoteContributionsResponseItem = zod
+  .object({})
+  .passthrough();
+export const ListProgressNoteContributionsResponse = zod.array(
+  ListProgressNoteContributionsResponseItem,
+);
+
+/**
+ * @summary Create progress note contribution
+ */
+export const CreateProgressNoteContributionBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get student classroom observations
+ */
+export const GetStudentClassroomObservationsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentClassroomObservationsResponseItem = zod
+  .object({})
+  .passthrough();
+export const GetStudentClassroomObservationsResponse = zod.array(
+  GetStudentClassroomObservationsResponseItem,
+);
+
+/**
+ * @summary Get student progress note history
+ */
+export const GetStudentProgressNoteHistoryParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentProgressNoteHistoryResponseItem = zod
+  .object({})
+  .passthrough();
+export const GetStudentProgressNoteHistoryResponse = zod.array(
+  GetStudentProgressNoteHistoryResponseItem,
+);
+
+/**
+ * @summary Get IEP suggestions for all students
+ */
+export const GetIepSuggestionsAllStudentsResponseItem = zod
+  .object({})
+  .passthrough();
+export const GetIepSuggestionsAllStudentsResponse = zod.array(
+  GetIepSuggestionsAllStudentsResponseItem,
+);
+
+/**
+ * @summary Apply IEP suggestions
+ */
+export const ApplyIepSuggestionsParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ApplyIepSuggestionsBody = zod.object({}).passthrough();
+
+export const ApplyIepSuggestionsResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get staff caseload summary
+ */
+export const GetStaffCaseloadSummaryParams = zod.object({
+  staffId: zod.coerce.number(),
+});
+
+export const GetStaffCaseloadSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get student IEP summary
+ */
+export const GetStudentIepSummaryParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentIepSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List SPED students
+ */
+export const ListSpedStudentsQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const ListSpedStudentsResponseItem = zod.object({}).passthrough();
+export const ListSpedStudentsResponse = zod.array(ListSpedStudentsResponseItem);
+
+/**
+ * @summary Get compliance deadlines
+ */
+export const GetComplianceDeadlinesQueryParams = zod.object({
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const GetComplianceDeadlinesResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get school detail
+ */
+export const GetSchoolParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSchoolResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update school schedule settings
+ */
+export const UpdateSchoolScheduleSettingsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSchoolScheduleSettingsBody = zod.object({}).passthrough();
+
+export const UpdateSchoolScheduleSettingsResponse = zod
+  .object({})
+  .passthrough();
+
+/**
+ * @summary Get student minutes trend
+ */
+export const GetStudentMinutesTrendParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const GetStudentMinutesTrendResponseItem = zod.object({}).passthrough();
+export const GetStudentMinutesTrendResponse = zod.array(
+  GetStudentMinutesTrendResponseItem,
+);
+
+/**
+ * @summary Get import template
+ */
+export const GetImportTemplateParams = zod.object({
+  type: zod.coerce.string(),
+});
+
+/**
+ * @summary List FBAs for student
+ */
+export const ListFbasParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const ListFbasResponseItem = zod.object({}).passthrough();
+export const ListFbasResponse = zod.array(ListFbasResponseItem);
+
+/**
+ * @summary Create FBA
+ */
+export const CreateFbaParams = zod.object({
+  studentId: zod.coerce.number(),
+});
+
+export const CreateFbaBody = zod.object({}).passthrough();
+
+/**
+ * @summary Get FBA detail
+ */
+export const GetFbaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFbaResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Update FBA
+ */
+export const UpdateFbaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateFbaBody = zod.object({}).passthrough();
+
+export const UpdateFbaResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List FBA observations
+ */
+export const ListFbaObservationsParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
+
+export const ListFbaObservationsResponseItem = zod.object({}).passthrough();
+export const ListFbaObservationsResponse = zod.array(
+  ListFbaObservationsResponseItem,
+);
+
+/**
+ * @summary Create FBA observation
+ */
+export const CreateFbaObservationParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
+
+export const CreateFbaObservationBody = zod.object({}).passthrough();
+
+/**
+ * @summary Delete FBA observation
+ */
+export const DeleteFbaObservationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteFbaObservationResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Get FBA observations summary
+ */
+export const GetFbaObservationsSummaryParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
+
+export const GetFbaObservationsSummaryResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List FA sessions
+ */
+export const ListFaSessionsParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
+
+export const ListFaSessionsResponseItem = zod.object({}).passthrough();
+export const ListFaSessionsResponse = zod.array(ListFaSessionsResponseItem);
+
+/**
+ * @summary Create FA session
+ */
+export const CreateFaSessionParams = zod.object({
+  fbaId: zod.coerce.number(),
+});
+
+export const CreateFaSessionBody = zod.object({}).passthrough();
+
+/**
+ * @summary Delete FA session
+ */
+export const DeleteFaSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteFaSessionResponse = zod.object({}).passthrough();
+
+/**
+ * @summary List audit logs (admin only)
+ */
+export const ListAuditLogsQueryParams = zod.object({
+  page: zod.coerce.number().nullish(),
+  limit: zod.coerce.number().nullish(),
+  action: zod.coerce.string().nullish(),
+  targetTable: zod.coerce.string().nullish(),
+  actorUserId: zod.coerce.string().nullish(),
+  studentId: zod.coerce.number().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  search: zod.coerce.string().nullish(),
+});
+
+export const ListAuditLogsResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Export audit logs CSV
+ */
+export const ExportAuditLogsQueryParams = zod.object({
+  action: zod.coerce.string().nullish(),
+  targetTable: zod.coerce.string().nullish(),
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});
+
+/**
+ * @summary Get audit log statistics
+ */
+export const GetAuditLogStatsResponse = zod.object({}).passthrough();

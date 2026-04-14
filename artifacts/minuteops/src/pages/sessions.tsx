@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements } from "@workspace/api-client-react";
+import { useListSessions, useListStudents, useListStaff, useListMissedReasons, useCreateSession, useListServiceRequirements, useUpdateSession, useDeleteSession, listIepGoals, getSession } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
-
-const API = import.meta.env.VITE_API_URL || "";
 
 const INITIAL_FORM = {
   studentId: "",
@@ -95,6 +93,8 @@ export default function Sessions() {
   const { data: staffData } = useListStaff({ ...filterParams } as any);
   const { data: missedReasonsData } = useListMissedReasons();
   const { mutateAsync: createSession } = useCreateSession();
+  const updateSessionMutation = useUpdateSession();
+  const deleteSessionMutation = useDeleteSession();
 
   const sessionList = (sessions as any[]) ?? [];
   const studentList = (students as any[]) ?? [];
@@ -124,8 +124,7 @@ export default function Sessions() {
       return;
     }
     setGoalsLoading(true);
-    fetch(`${API}/api/students/${form.studentId}/iep-goals?active=true`)
-      .then(r => r.json())
+    listIepGoals(Number(form.studentId), { active: "true" })
       .then((goals: any[]) => {
         setGoalEntries(goals.map(g => ({
           iepGoalId: g.id,
@@ -256,8 +255,8 @@ export default function Sessions() {
     if (session.studentId) {
       setEditGoalsLoading(true);
       Promise.all([
-        fetch(`${API}/api/students/${session.studentId}/iep-goals?active=true`).then(r => r.json()),
-        fetch(`${API}/api/sessions/${session.id}`).then(r => r.json()),
+        listIepGoals(session.studentId, { active: "true" }),
+        getSession(session.id),
       ]).then(([goals, detail]: [any[], any]) => {
         const linked = detail.linkedGoals || [];
         const linkedMap = new Map<number, any>();
@@ -317,12 +316,7 @@ export default function Sessions() {
           return entry;
         });
       }
-      const res = await fetch(`${API}/api/sessions/${editingSession.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
+      await updateSessionMutation.mutateAsync({ id: editingSession.id, data: body });
       toast.success("Session updated");
       setEditingSession(null);
       refetch();
@@ -337,8 +331,7 @@ export default function Sessions() {
     if (deleteConfirmId == null) return;
     setDeleteLoading(true);
     try {
-      const res = await fetch(`${API}/api/sessions/${deleteConfirmId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await deleteSessionMutation.mutateAsync({ id: deleteConfirmId });
       toast.success("Session deleted");
       setDeleteConfirmId(null);
       if (expandedId === deleteConfirmId) { setExpandedId(null); setExpandedData(null); }
@@ -372,12 +365,8 @@ export default function Sessions() {
     setExpandedId(session.id);
     setExpandLoading(true);
     try {
-      const res = await fetch(`${API}/api/sessions/${session.id}`);
-      if (res.ok) {
-        setExpandedData(await res.json());
-      } else {
-        setExpandedData(session);
-      }
+      const detail = await getSession(session.id);
+      setExpandedData(detail);
     } catch {
       setExpandedData(session);
     }

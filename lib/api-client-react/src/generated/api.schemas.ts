@@ -2793,3 +2793,685 @@ export type ParaStopSession200Session = { [key: string]: unknown };
 export type ParaStopSession200 = {
   session: ParaStopSession200Session;
 };
+
+export type GlobalSearchParams = {
+  q?: string;
+};
+
+export type GlobalSearch200 = { [key: string]: unknown };
+
+export type SearchIepParams = {
+  q?: string;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type SearchIep200 = { [key: string]: unknown };
+
+export type CreateQuickSessionBody = { [key: string]: unknown };
+
+export type CreateQuickSession201 = { [key: string]: unknown };
+
+export type GetAnalyticsOverview200 = { [key: string]: unknown };
+
+export type GetAnalyticsBehaviorSummary200 = { [key: string]: unknown };
+
+export type GetAnalyticsProgramSummary200 = { [key: string]: unknown };
+
+export type GetAnalyticsMinutesSummary200 = { [key: string]: unknown };
+
+export type GetAnalyticsDeliveryHeatmap200 = { [key: string]: unknown };
+
+export type GetAnalyticsStudent200 = { [key: string]: unknown };
+
+export type ListBehaviorTargetsParams = {
+  /**
+   * @nullable
+   */
+  active?: string | null;
+};
+
+export type ListBehaviorTargets200Item = { [key: string]: unknown };
+
+export type CreateBehaviorTargetBody = { [key: string]: unknown };
+
+export type CreateBehaviorTarget201 = { [key: string]: unknown };
+
+export type UpdateBehaviorTargetBody = { [key: string]: unknown };
+
+export type UpdateBehaviorTarget200 = { [key: string]: unknown };
+
+export type ListProgramTargetsParams = {
+  /**
+   * @nullable
+   */
+  active?: string | null;
+};
+
+export type ListProgramTargets200Item = { [key: string]: unknown };
+
+export type CreateProgramTargetBody = { [key: string]: unknown };
+
+export type CreateProgramTarget201 = { [key: string]: unknown };
+
+export type UpdateProgramTargetBody = { [key: string]: unknown };
+
+export type UpdateProgramTarget200 = { [key: string]: unknown };
+
+export type ListProgramSteps200Item = { [key: string]: unknown };
+
+export type CreateProgramStepBody = { [key: string]: unknown };
+
+export type CreateProgramStep201 = { [key: string]: unknown };
+
+export type UpdateProgramStepBody = { [key: string]: unknown };
+
+export type UpdateProgramStep200 = { [key: string]: unknown };
+
+export type DeleteProgramStep200 = { [key: string]: unknown };
+
+export type ListProgramTemplatesParams = {
+  /**
+   * @nullable
+   */
+  category?: string | null;
+  /**
+   * @nullable
+   */
+  tier?: string | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  scope?: string | null;
+  /**
+   * @nullable
+   */
+  search?: string | null;
+};
+
+export type ListProgramTemplates200Item = { [key: string]: unknown };
+
+export type CreateProgramTemplateBody = { [key: string]: unknown };
+
+export type CreateProgramTemplate201 = { [key: string]: unknown };
+
+export type UpdateProgramTemplateBody = { [key: string]: unknown };
+
+export type UpdateProgramTemplate200 = { [key: string]: unknown };
+
+export type DeleteProgramTemplate200 = { [key: string]: unknown };
+
+export type DuplicateProgramTemplate201 = { [key: string]: unknown };
+
+export type SaveTargetAsTemplateBody = { [key: string]: unknown };
+
+export type SaveTargetAsTemplate201 = { [key: string]: unknown };
+
+export type CloneTemplateToStudentBody = { [key: string]: unknown };
+
+export type CloneTemplateToStudent201 = { [key: string]: unknown };
+
+export type ListDataSessionsParams = {
+  /**
+   * @nullable
+   */
+  from?: string | null;
+  /**
+   * @nullable
+   */
+  to?: string | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+};
+
+export type ListDataSessions200Item = { [key: string]: unknown };
+
+export type CreateDataSessionBody = { [key: string]: unknown };
+
+export type CreateDataSession201 = { [key: string]: unknown };
+
+export type GetDataSession200 = { [key: string]: unknown };
+
+export type GetBehaviorDataTrendsParams = {
+  /**
+   * @nullable
+   */
+  from?: string | null;
+  /**
+   * @nullable
+   */
+  to?: string | null;
+  /**
+   * @nullable
+   */
+  behaviorTargetId?: number | null;
+};
+
+export type GetBehaviorDataTrends200Item = { [key: string]: unknown };
+
+export type GetProgramDataTrendsParams = {
+  /**
+   * @nullable
+   */
+  from?: string | null;
+  /**
+   * @nullable
+   */
+  to?: string | null;
+  /**
+   * @nullable
+   */
+  programTargetId?: number | null;
+};
+
+export type GetProgramDataTrends200Item = { [key: string]: unknown };
+
+export type ListIepGoalsParams = {
+  /**
+   * @nullable
+   */
+  active?: string | null;
+};
+
+export type ListIepGoals200Item = { [key: string]: unknown };
+
+export type CreateIepGoalBody = { [key: string]: unknown };
+
+export type CreateIepGoal201 = { [key: string]: unknown };
+
+export type UpdateIepGoalBody = { [key: string]: unknown };
+
+export type UpdateIepGoal200 = { [key: string]: unknown };
+
+export type DeleteIepGoal200 = { [key: string]: unknown };
+
+export type AutoCreateIepGoalsBody = { [key: string]: unknown };
+
+export type AutoCreateIepGoals201 = { [key: string]: unknown };
+
+export type ListProgressReports200Item = { [key: string]: unknown };
+
+export type GetProgressReport200 = { [key: string]: unknown };
+
+export type UpdateProgressReportBody = { [key: string]: unknown };
+
+export type UpdateProgressReport200 = { [key: string]: unknown };
+
+export type GenerateProgressReportBody = { [key: string]: unknown };
+
+export type GenerateProgressReport201 = { [key: string]: unknown };
+
+export type ListIepDocuments200Item = { [key: string]: unknown };
+
+export type CreateIepDocumentBody = { [key: string]: unknown };
+
+export type CreateIepDocument201 = { [key: string]: unknown };
+
+export type GetIepDocument200 = { [key: string]: unknown };
+
+export type UpdateIepDocumentBody = { [key: string]: unknown };
+
+export type UpdateIepDocument200 = { [key: string]: unknown };
+
+export type DeleteIepDocument200 = { [key: string]: unknown };
+
+export type AmendIepDocumentBody = { [key: string]: unknown };
+
+export type AmendIepDocument201 = { [key: string]: unknown };
+
+export type ListAccommodations200Item = { [key: string]: unknown };
+
+export type CreateAccommodationBody = { [key: string]: unknown };
+
+export type CreateAccommodation201 = { [key: string]: unknown };
+
+export type UpdateAccommodationBody = { [key: string]: unknown };
+
+export type UpdateAccommodation200 = { [key: string]: unknown };
+
+export type DeleteAccommodation200 = { [key: string]: unknown };
+
+export type GenerateIepBuilderBody = { [key: string]: unknown };
+
+export type GenerateIepBuilder200 = { [key: string]: unknown };
+
+export type ListProtectiveIncidentsParams = {
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+  /**
+   * @nullable
+   */
+  status?: string | null;
+  /**
+   * @nullable
+   */
+  incidentType?: string | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type ListProtectiveIncidents200Item = { [key: string]: unknown };
+
+export type CreateProtectiveIncidentBody = { [key: string]: unknown };
+
+export type CreateProtectiveIncident201 = { [key: string]: unknown };
+
+export type GetProtectiveIncident200 = { [key: string]: unknown };
+
+export type UpdateProtectiveIncidentBody = { [key: string]: unknown };
+
+export type UpdateProtectiveIncident200 = { [key: string]: unknown };
+
+export type DeleteProtectiveIncident200 = { [key: string]: unknown };
+
+export type AdminReviewIncidentBody = { [key: string]: unknown };
+
+export type AdminReviewIncident200 = { [key: string]: unknown };
+
+export type ParentNotifyIncidentBody = { [key: string]: unknown };
+
+export type ParentNotifyIncident200 = { [key: string]: unknown };
+
+export type WrittenReportIncidentBody = { [key: string]: unknown };
+
+export type WrittenReportIncident200 = { [key: string]: unknown };
+
+export type DeseReportIncidentBody = { [key: string]: unknown };
+
+export type DeseReportIncident200 = { [key: string]: unknown };
+
+export type SignIncidentBody = { [key: string]: unknown };
+
+export type SignIncident200 = { [key: string]: unknown };
+
+export type ListIncidentSignatures200Item = { [key: string]: unknown };
+
+export type RequestIncidentSignatureBody = { [key: string]: unknown };
+
+export type RequestIncidentSignature200 = { [key: string]: unknown };
+
+export type SignIncidentSignatureBody = { [key: string]: unknown };
+
+export type SignIncidentSignature200 = { [key: string]: unknown };
+
+export type GetProtectiveSummaryParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type GetProtectiveSummary200 = { [key: string]: unknown };
+
+export type GetDeseReportParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type GetDeseReport200 = { [key: string]: unknown };
+
+export type GetDeseExportParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type GetDeseExport200Item = { [key: string]: unknown };
+
+export type GetDese30DayLog200 = { [key: string]: unknown };
+
+export type GenerateIncidentDraft200 = { [key: string]: unknown };
+
+export type ParentNotificationDraftIncidentBody = { [key: string]: unknown };
+
+export type ParentNotificationDraftIncident200 = { [key: string]: unknown };
+
+export type SendParentNotificationIncidentBody = { [key: string]: unknown };
+
+export type SendParentNotificationIncident200 = { [key: string]: unknown };
+
+export type GetPendingSignaturesParams = {
+  /**
+   * @nullable
+   */
+  staffId?: number | null;
+};
+
+export type GetPendingSignatures200Item = { [key: string]: unknown };
+
+export type GetStudentProtectiveMeasures200 = { [key: string]: unknown };
+
+export type ListClassesParams = {
+  /**
+   * @nullable
+   */
+  teacherId?: number | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type ListClasses200Item = { [key: string]: unknown };
+
+export type CreateClassBody = { [key: string]: unknown };
+
+export type CreateClass201 = { [key: string]: unknown };
+
+export type GetClass200 = { [key: string]: unknown };
+
+export type UpdateClassBody = { [key: string]: unknown };
+
+export type UpdateClass200 = { [key: string]: unknown };
+
+export type GetClassRoster200Item = { [key: string]: unknown };
+
+export type EnrollStudentBody = { [key: string]: unknown };
+
+export type EnrollStudent201 = { [key: string]: unknown };
+
+export type UnenrollStudent200 = { [key: string]: unknown };
+
+export type ListGradeCategories200Item = { [key: string]: unknown };
+
+export type CreateGradeCategoryBody = { [key: string]: unknown };
+
+export type CreateGradeCategory201 = { [key: string]: unknown };
+
+export type ListAnnouncements200Item = { [key: string]: unknown };
+
+export type CreateAnnouncementBody = { [key: string]: unknown };
+
+export type CreateAnnouncement201 = { [key: string]: unknown };
+
+export type ListStudentClasses200Item = { [key: string]: unknown };
+
+export type ListStudentsWithEnrollments200Item = { [key: string]: unknown };
+
+export type ListTeachersWithClasses200Item = { [key: string]: unknown };
+
+export type ListClassAssignments200Item = { [key: string]: unknown };
+
+export type CreateAssignmentBody = { [key: string]: unknown };
+
+export type CreateAssignment201 = { [key: string]: unknown };
+
+export type GetAssignment200 = { [key: string]: unknown };
+
+export type UpdateAssignmentBody = { [key: string]: unknown };
+
+export type UpdateAssignment200 = { [key: string]: unknown };
+
+export type DeleteAssignment200 = { [key: string]: unknown };
+
+export type ListSubmissions200Item = { [key: string]: unknown };
+
+export type ListStudentAssignmentsParams = {
+  /**
+   * @nullable
+   */
+  classId?: number | null;
+  /**
+   * @nullable
+   */
+  status?: string | null;
+};
+
+export type ListStudentAssignments200Item = { [key: string]: unknown };
+
+export type UpdateSubmissionBody = { [key: string]: unknown };
+
+export type UpdateSubmission200 = { [key: string]: unknown };
+
+export type GradeSubmissionBody = { [key: string]: unknown };
+
+export type GradeSubmission200 = { [key: string]: unknown };
+
+export type GetStudentGradesSummary200 = { [key: string]: unknown };
+
+export type GetGradebook200 = { [key: string]: unknown };
+
+export type GetTeacherDashboard200 = { [key: string]: unknown };
+
+export type GetStudentDashboard200 = { [key: string]: unknown };
+
+export type GetAcademicsOverview200 = { [key: string]: unknown };
+
+export type GetComplianceTimelineParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type GetComplianceTimeline200Item = { [key: string]: unknown };
+
+export type ListComplianceEvents200Item = { [key: string]: unknown };
+
+export type CreateComplianceEventBody = { [key: string]: unknown };
+
+export type CreateComplianceEvent201 = { [key: string]: unknown };
+
+export type UpdateComplianceEventBody = { [key: string]: unknown };
+
+export type UpdateComplianceEvent200 = { [key: string]: unknown };
+
+export type RecalculateComplianceEvents200 = { [key: string]: unknown };
+
+export type ListGoalBankParams = {
+  /**
+   * @nullable
+   */
+  category?: string | null;
+  /**
+   * @nullable
+   */
+  search?: string | null;
+};
+
+export type ListGoalBank200Item = { [key: string]: unknown };
+
+export type GetIepGoalsSummary200 = { [key: string]: unknown };
+
+export type ListTeamMeetings200Item = { [key: string]: unknown };
+
+export type CreateTeamMeetingBody = { [key: string]: unknown };
+
+export type CreateTeamMeeting201 = { [key: string]: unknown };
+
+export type UpdateTeamMeetingBody = { [key: string]: unknown };
+
+export type UpdateTeamMeeting200 = { [key: string]: unknown };
+
+export type DeleteTeamMeeting200 = { [key: string]: unknown };
+
+export type GetStaffClassroom200 = { [key: string]: unknown };
+
+export type ListTeacherObservationsParams = {
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+  /**
+   * @nullable
+   */
+  staffId?: number | null;
+};
+
+export type ListTeacherObservations200Item = { [key: string]: unknown };
+
+export type CreateTeacherObservationBody = { [key: string]: unknown };
+
+export type CreateTeacherObservation201 = { [key: string]: unknown };
+
+export type ListProgressNoteContributionsParams = {
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+};
+
+export type ListProgressNoteContributions200Item = { [key: string]: unknown };
+
+export type CreateProgressNoteContributionBody = { [key: string]: unknown };
+
+export type CreateProgressNoteContribution201 = { [key: string]: unknown };
+
+export type GetStudentClassroomObservations200Item = { [key: string]: unknown };
+
+export type GetStudentProgressNoteHistory200Item = { [key: string]: unknown };
+
+export type GetIepSuggestionsAllStudents200Item = { [key: string]: unknown };
+
+export type ApplyIepSuggestionsBody = { [key: string]: unknown };
+
+export type ApplyIepSuggestions200 = { [key: string]: unknown };
+
+export type GetStaffCaseloadSummary200 = { [key: string]: unknown };
+
+export type GetStudentIepSummary200 = { [key: string]: unknown };
+
+export type ListSpedStudentsParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type ListSpedStudents200Item = { [key: string]: unknown };
+
+export type GetComplianceDeadlinesParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+};
+
+export type GetComplianceDeadlines200 = { [key: string]: unknown };
+
+export type GetSchool200 = { [key: string]: unknown };
+
+export type UpdateSchoolScheduleSettingsBody = { [key: string]: unknown };
+
+export type UpdateSchoolScheduleSettings200 = { [key: string]: unknown };
+
+export type GetStudentMinutesTrend200Item = { [key: string]: unknown };
+
+export type ListFbas200Item = { [key: string]: unknown };
+
+export type CreateFbaBody = { [key: string]: unknown };
+
+export type CreateFba201 = { [key: string]: unknown };
+
+export type GetFba200 = { [key: string]: unknown };
+
+export type UpdateFbaBody = { [key: string]: unknown };
+
+export type UpdateFba200 = { [key: string]: unknown };
+
+export type ListFbaObservations200Item = { [key: string]: unknown };
+
+export type CreateFbaObservationBody = { [key: string]: unknown };
+
+export type CreateFbaObservation201 = { [key: string]: unknown };
+
+export type DeleteFbaObservation200 = { [key: string]: unknown };
+
+export type GetFbaObservationsSummary200 = { [key: string]: unknown };
+
+export type ListFaSessions200Item = { [key: string]: unknown };
+
+export type CreateFaSessionBody = { [key: string]: unknown };
+
+export type CreateFaSession201 = { [key: string]: unknown };
+
+export type DeleteFaSession200 = { [key: string]: unknown };
+
+export type ListAuditLogsParams = {
+  /**
+   * @nullable
+   */
+  page?: number | null;
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+  /**
+   * @nullable
+   */
+  action?: string | null;
+  /**
+   * @nullable
+   */
+  targetTable?: string | null;
+  /**
+   * @nullable
+   */
+  actorUserId?: string | null;
+  /**
+   * @nullable
+   */
+  studentId?: number | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+  /**
+   * @nullable
+   */
+  search?: string | null;
+};
+
+export type ListAuditLogs200 = { [key: string]: unknown };
+
+export type ExportAuditLogsParams = {
+  /**
+   * @nullable
+   */
+  action?: string | null;
+  /**
+   * @nullable
+   */
+  targetTable?: string | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type GetAuditLogStats200 = { [key: string]: unknown };
