@@ -9,7 +9,7 @@ import {
   Users, AlertTriangle, ShieldAlert, TrendingDown,
   ArrowRight, Calendar, BarChart3, Clock
 } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getExecutiveDashboard, getStaffCoverage } from "@workspace/api-client-react";
 
 
 interface ExecutiveData {
@@ -76,10 +76,9 @@ export default function ExecutiveDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const qs = new URLSearchParams(filterParams).toString();
     Promise.all([
-      apiGet(`/api/dashboard/executive${qs ? `?${qs}` : ""}`).catch(() => null),
-      apiGet(`/api/dashboard/staff-coverage${qs ? `?${qs}` : ""}`).catch(() => null),
+      getExecutiveDashboard(filterParams as any).catch(() => null),
+      getStaffCoverage(filterParams as any).catch(() => null),
     ]).then(([exec, cov]) => {
       setData(exec);
       setCoverage(cov);

@@ -4,7 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Inbox, ChevronRight } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getTeacherDashboard } from "@workspace/api-client-react";
 
 export default function TeacherSubmissions() {
   const { teacherId } = useRole();
@@ -13,7 +13,7 @@ export default function TeacherSubmissions() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/teacher/${teacherId}/dashboard`).then(d => {
+    getTeacherDashboard(teacherId).then(d => {
       setData(d);
       setLoading(false);
     });

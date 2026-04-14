@@ -13,7 +13,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
-import { apiGet, apiPost } from "@/lib/api";
+import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink } from "@workspace/api-client-react";
 
 const DIRECTION_COLORS = {
   decrease: { good: "#10b981", bad: "#ef4444", bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -62,22 +62,22 @@ export default function StudentDetail() {
   const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
 
   function loadPhaseChanges() {
-    apiGet(`/api/students/${studentId}/phase-changes`).catch(() => {}).then(setPhaseChangesByTarget).catch(() => {});
+    getStudentPhaseChanges(studentId).catch(() => {}).then(setPhaseChangesByTarget as any).catch(() => {});
   }
 
   useEffect(() => {
     if (isNaN(studentId)) return;
     setDataLoading(true);
     Promise.all([
-      apiGet(`/api/students/${studentId}/behavior-targets`).catch(() => []),
-      apiGet(`/api/students/${studentId}/program-targets`).catch(() => []),
-      apiGet(`/api/students/${studentId}/behavior-data/trends`).catch(() => []),
-      apiGet(`/api/students/${studentId}/program-data/trends`).catch(() => []),
-      apiGet(`/api/students/${studentId}/data-sessions?limit=10`).catch(() => []),
-      apiGet(`/api/students/${studentId}/protective-measures`).catch(() => null),
-      apiGet(`/api/students/${studentId}/minutes-trend`).catch(() => []),
-      apiGet(`/api/compensatory-obligations/summary/by-student/${studentId}`).catch(() => null),
-      apiGet(`/api/students/${studentId}/phase-changes`).catch(() => {}),
+      listBehaviorTargets(studentId).catch(() => []),
+      listProgramTargets(studentId).catch(() => []),
+      getBehaviorDataTrends(studentId).catch(() => []),
+      getProgramDataTrends(studentId).catch(() => []),
+      listDataSessions(studentId, { limit: 10 } as any).catch(() => []),
+      getStudentProtectiveMeasures(studentId).catch(() => null),
+      getStudentMinutesTrend(studentId).catch(() => []),
+      getCompensatorySummaryByStudent(studentId).catch(() => null),
+      getStudentPhaseChanges(studentId).catch(() => {}),
     ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
@@ -186,7 +186,7 @@ export default function StudentDetail() {
     setExpandedDataSessionId(id);
     setExpandedDataLoading(true);
     try {
-      const data = await apiGet(`/api/data-sessions/${id}`);
+      const data = await getDataSession(id);
       setExpandedDataDetail(data);
     } catch { setExpandedDataDetail(null); }
     setExpandedDataLoading(false);
@@ -201,7 +201,7 @@ export default function StudentDetail() {
     setExpandedServiceSessionId(id);
     setExpandedServiceLoading(true);
     try {
-      const data = await apiGet(`/api/sessions/${id}`);
+      const data = await getSession(id);
       setExpandedServiceDetail(data);
     } catch { setExpandedServiceDetail(null); }
     setExpandedServiceLoading(false);
@@ -213,7 +213,7 @@ export default function StudentDetail() {
     setShareLink(null);
     setShareSummary(null);
     try {
-      const data = await apiGet(`/api/students/${studentId}/progress-summary?days=${shareDays}`);
+      const data = await getStudentProgressSummary(studentId, { days: shareDays } as any);
       setShareSummary(data);
     } catch {}
     setShareLoading(false);
@@ -221,7 +221,7 @@ export default function StudentDetail() {
 
   async function generateShareLink() {
     try {
-      const data = await apiPost<{ url: string }>(`/api/students/${studentId}/progress-summary/share-link`, { days: shareDays, expiresInHours: 72 });
+      const data = await createProgressShareLink(studentId, { days: shareDays, expiresInHours: 72 } as any);
       const fullUrl = `${window.location.origin}${data.url}`;
       setShareLink(fullUrl);
       toast.success("Share link generated (expires in 72 hours)");

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Award, BookOpen, TrendingUp, Users } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses, getGradebook } from "@workspace/api-client-react";
 
 export default function AdminGradebook() {
   const [classes, setClasses] = useState<any[]>([]);
@@ -12,13 +12,13 @@ export default function AdminGradebook() {
   const [gbLoading, setGbLoading] = useState(false);
 
   useEffect(() => {
-    apiGet(`/api/classes`).then(d => { setClasses(d); setLoading(false); });
+    listClasses().then(d => { setClasses(Array.isArray(d) ? d : []); setLoading(false); });
   }, []);
 
   useEffect(() => {
     if (!selected) return;
     setGbLoading(true);
-    apiGet(`/api/classes/${selected}/gradebook`).then(d => {
+    getGradebook(selected).then(d => {
       setGradebook(d);
       setGbLoading(false);
     });

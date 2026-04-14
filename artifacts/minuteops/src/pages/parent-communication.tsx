@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { listSpedStudents, listParentContacts, getOverdueFollowups, getNotificationNeeded, updateParentContact, createParentContact, deleteParentContact } from "@workspace/api-client-react";
 
 
 type Contact = {
@@ -102,8 +102,8 @@ export default function ParentCommunication() {
   const [students, setStudents] = useState<{ id: number; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
-    apiGet(`/api/sped-students${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`)
-      .then(setStudents)
+    listSpedStudents(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined)
+      .then(setStudents as any)
       .catch(() => {});
   }, [selectedSchool]);
 
@@ -118,9 +118,9 @@ export default function ParentCommunication() {
     if (selectedSchool?.id) params.set("schoolId", String(selectedSchool.id));
 
     Promise.all([
-      apiGet(`/api/parent-contacts?${params}`).catch(() => ({ data: [], page: 1, limit: 100 })),
-      apiGet(`/api/parent-contacts/overdue-followups${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).catch(() => []),
-      apiGet(`/api/parent-contacts/notification-needed${selectedSchool?.id ? `?schoolId=${selectedSchool.id}` : ""}`).catch(() => []),
+      listParentContacts(Object.fromEntries(params) as any).catch(() => ({ data: [], page: 1, limit: 100 })),
+      getOverdueFollowups(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined).catch(() => []),
+      getNotificationNeeded(selectedSchool?.id ? { schoolId: selectedSchool.id } as any : undefined).catch(() => []),
     ]).then(([cRes, o, n]) => {
       setContacts(cRes.data || []);
       setOverdueFollowups(o);
@@ -164,10 +164,10 @@ export default function ParentCommunication() {
       };
 
       if (editingContact) {
-        await apiPatch(`/api/parent-contacts/${editingContact.id}`, body);
+        await updateParentContact(editingContact.id, body as any);
         toast.success("Contact updated");
       } else {
-        await apiPost(`/api/parent-contacts`, body);
+        await createParentContact(body as any);
         toast.success("Contact logged");
       }
 
@@ -182,7 +182,7 @@ export default function ParentCommunication() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this contact log?")) return;
     try {
-      await apiDelete(`/api/parent-contacts/${id}`);
+      await deleteParentContact(id);
       toast.success("Contact deleted");
       fetchAll();
     } catch {

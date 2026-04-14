@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, TrendingUp, BookOpen, BarChart3 } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getStudentGradesSummary } from "@workspace/api-client-react";
 
 export default function StudentGrades() {
   const { studentId } = useRole();
@@ -11,7 +11,7 @@ export default function StudentGrades() {
 
   useEffect(() => {
     if (!studentId) return;
-    apiGet(`/api/students/${studentId}/grades-summary`).then(d => {
+    getStudentGradesSummary(studentId).then(d => {
       setGrades(d);
       setLoading(false);
     });

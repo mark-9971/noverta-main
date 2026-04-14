@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { apiGet } from "@/lib/api";
+import { getIepCalendar } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,7 +92,7 @@ export default function IepCalendar() {
     if (filterType !== "all") params.set("eventType", filterType);
 
     setLoading(true);
-    apiGet(`/api/dashboard/iep-calendar?${params}`).catch(() => ({ events: [], summary: {} })).then(d => {
+    getIepCalendar(Object.fromEntries(params) as any).catch(() => ({ events: [], summary: {} })).then(d => {
         setEvents(d.events ?? []);
         setSummary(d.summary ?? null);
       })

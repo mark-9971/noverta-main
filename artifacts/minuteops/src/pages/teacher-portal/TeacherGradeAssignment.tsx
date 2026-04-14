@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, FileText, Save } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPut } from "@/lib/api";
+import { getAssignment, listSubmissions, gradeSubmission } from "@workspace/api-client-react";
 
 export default function TeacherGradeAssignment() {
   const { id } = useParams<{ id: string }>();
@@ -19,8 +19,8 @@ export default function TeacherGradeAssignment() {
   const reload = () => {
     if (!id) return;
     Promise.all([
-      apiGet(`/api/assignments/${id}`),
-      apiGet(`/api/assignments/${id}/submissions`),
+      getAssignment(Number(id)),
+      listSubmissions(Number(id)),
     ]).then(([a, s]) => {
       setAssignment(a);
       setSubmissions(s);
@@ -39,7 +39,7 @@ export default function TeacherGradeAssignment() {
     const g = grades[subId];
     if (!g?.points) { toast.error("Enter points"); return; }
     try {
-      await apiPut(`/api/submissions/${subId}/grade`, {
+      await gradeSubmission(subId, {
           pointsEarned: parseFloat(g.points),
           letterGrade: pctToLetter((parseFloat(g.points) / parseFloat(assignment.pointsPossible)) * 100),
           feedback: g.feedback,

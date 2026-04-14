@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { getParaMyDay, paraQuickStartSession, paraStopSession, createSession, getParaStudentTargets } from "@workspace/api-client-react";
 
 
 interface ScheduleBlock {
@@ -219,7 +219,7 @@ export default function ParaMyDayPage() {
     }
     setLoading(true);
     try {
-      const data = await apiGet(`/api/para/my-day?staffId=${staffId}&date=${date}`);
+      const data = await getParaMyDay({ staffId, date } as any);
       setBlocks(data.blocks || []);
     } catch {
       toast.error("Failed to load schedule");
@@ -267,21 +267,21 @@ export default function ParaMyDayPage() {
     setView("session");
 
     try {
-      const qsData = await apiPost(`/api/para/sessions/quick-start`, {
+      const qsData = await paraQuickStartSession({
           scheduleBlockId: block.id,
           sessionDate: date,
           startTime,
-        }) as { session: { id: number } };
+        } as any) as { session: { id: number } };
       setActiveSession(prev => prev ? { ...prev, serverSessionId: qsData.session.id } : prev);
     } catch {
       // Session creation on stop will serve as fallback
     }
 
     try {
-      const stUrl = block.serviceTypeId
-        ? `/api/para/student-targets/${block.studentId}?serviceTypeId=${block.serviceTypeId}`
-        : `/api/para/student-targets/${block.studentId}`;
-      const data = await apiGet(stUrl);
+      const data = await getParaStudentTargets(
+          block.studentId,
+          block.serviceTypeId ? { serviceTypeId: block.serviceTypeId } as any : undefined
+        );
       setStudentTargets(data);
       setTallies(data.behaviors.map((b: BehaviorTarget) => ({ behaviorTargetId: b.id, count: 0 })));
     } catch {
@@ -339,13 +339,13 @@ export default function ParaMyDayPage() {
 
       if (activeSession.serverSessionId) {
         try {
-          await apiPatch(`/api/para/sessions/${activeSession.serverSessionId}/stop`, {
+          await paraStopSession(activeSession.serverSessionId, {
               endTime: endTimeStr,
               durationMinutes,
               notes: sessionNotes || null,
               status: "completed",
               goalData: goalData.length > 0 ? goalData : undefined,
-            });
+            } as any);
           saveOk = true;
         } catch {
           saveOk = false;
@@ -368,7 +368,7 @@ export default function ParaMyDayPage() {
         };
         if (goalData.length > 0) body.goalData = goalData;
 
-        await apiPost(`/api/sessions`, body);
+        await createSession(body as any);
       }
 
       toast.success("Session saved!");

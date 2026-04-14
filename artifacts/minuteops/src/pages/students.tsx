@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useListStudents, useListMinuteProgress } from "@workspace/api-client-react";
+import { useState, useMemo } from "react";
+import { useListStudents, useListMinuteProgress, useListSpedStudents } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,6 @@ import { Search, ChevronRight, GraduationCap, BookOpen } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
-import { apiGet } from "@/lib/api";
 
 type TypeFilter = "all" | "sped" | "gen_ed";
 
@@ -18,18 +17,13 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [spedIds, setSpedIds] = useState<Set<number>>(new Set());
 
   const { filterParams } = useSchoolContext();
   const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500 } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
+  const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
 
-  useEffect(() => {
-    const params = new URLSearchParams(filterParams);
-    apiGet(`/api/sped-students?${params}`).then(sped => {
-      setSpedIds(new Set((Array.isArray(sped) ? sped : []).map((s: any) => s.id)));
-    }).catch(() => {});
-  }, [filterParams]);
+  const spedIds = new Set<number>((Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []).map((s: any) => s.id));
 
   const studentList = (students as any[]) ?? [];
   const progressList = (progress as any[]) ?? [];

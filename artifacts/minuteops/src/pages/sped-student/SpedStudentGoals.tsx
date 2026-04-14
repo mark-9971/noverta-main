@@ -3,7 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, Brain, TrendingUp, CheckCircle } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getStudent } from "@workspace/api-client-react";
 
 function serviceColor(name: string) {
   const n = (name || "").toLowerCase();
@@ -65,7 +65,7 @@ export default function SpedStudentGoals() {
 
   useEffect(() => {
     if (!studentId) return;
-    apiGet(`/api/students/${studentId}`).then(d => { setStudent(d); setLoading(false); })
+    getStudent(studentId).then(d => { setStudent(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [studentId]);
 

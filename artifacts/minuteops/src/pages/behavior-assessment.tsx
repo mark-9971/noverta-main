@@ -11,7 +11,7 @@ import {
   ResponsiveContainer, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis
 } from "recharts";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, customFetch } from "@workspace/api-client-react";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface FbaRecord {
@@ -120,33 +120,33 @@ export default function BehaviorAssessmentPage() {
   const [editingBip, setEditingBip] = useState<Partial<BipRecord> | null>(null);
 
   useEffect(() => {
-    apiGet(`/api/students?limit=200`).then(d => {
+    listStudents({ limit: 200 } as any).then(d => {
       const list = Array.isArray(d) ? d : d.students || [];
       setStudents(list);
     }).catch(() => {});
   }, []);
 
   const loadFbas = useCallback(async (sid: number) => {
-    const data = await apiGet(`/api/students/${sid}/fbas`);
+    const data = await listFbas(sid);
     setFbas(data);
   }, []);
 
   const loadBips = useCallback(async (sid: number) => {
-    const data = await apiGet(`/api/students/${sid}/bips`);
+    const data = await getStudentBips(sid);
     setBips(data);
   }, []);
 
   const loadObservations = useCallback(async (fbaId: number) => {
     const [obsR, sumR] = await Promise.all([
-      apiGet(`/api/fbas/${fbaId}/observations`),
-      apiGet(`/api/fbas/${fbaId}/observations/summary`),
+      listFbaObservations(fbaId),
+      getFbaObservationsSummary(fbaId),
     ]);
     setObservations(obsR);
     setObsSummary(sumR);
   }, []);
 
   const loadFaSessions = useCallback(async (fbaId: number) => {
-    const data = await apiGet(`/api/fbas/${fbaId}/fa-sessions`);
+    const data = await listFaSessions(fbaId);
     setFaSessions(data);
   }, []);
 
@@ -343,7 +343,7 @@ function FbaListPanel({ fbas, selectedFba, student, onSelect, showNew, onShowNew
     }
     setSaving(true);
     try {
-      await apiPost(`/api/students/${student.id}/fbas`, { ...form, status: "draft" });
+      await createFba(student.id, { ...form, status: "draft" });
       toast.success("FBA created");
       setForm({ targetBehavior: "", operationalDefinition: "", referralReason: "", settingDescription: "" });
       onCreated();
@@ -353,13 +353,13 @@ function FbaListPanel({ fbas, selectedFba, student, onSelect, showNew, onShowNew
 
   const updateFbaField = async (fbaId: number, field: string, value: string) => {
     try {
-      await apiPatch(`/api/fbas/${fbaId}`, { [field]: value });
+      await updateFba(fbaId, { [field]: value } as any);
     } catch { toast.error("Failed to update"); }
   };
 
   const updateFbaStatus = async (fbaId: number, status: string) => {
     try {
-      await apiPatch(`/api/fbas/${fbaId}`, { status });
+      await updateFba(fbaId, { status } as any);
       toast.success(`Status updated to ${status}`); onCreated();
     } catch { toast.error("Failed to update status"); }
   };
@@ -546,10 +546,10 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
     }
     setSaving(true);
     try {
-      await apiPost(`/api/fbas/${fba.id}/observations`, {
+      await createFbaObservation(fba.id, {
           ...form,
           behaviorDurationSeconds: form.behaviorDurationSeconds ? parseInt(form.behaviorDurationSeconds) : null,
-        });
+        } as any);
       toast.success("ABC observation recorded");
       setForm(prev => ({
         ...prev, antecedent: "", antecedentCategory: "", behavior: "",
@@ -563,7 +563,7 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
 
   const handleDelete = async (id: number) => {
     try {
-      await apiDelete(`/api/observations/${id}`);
+      await deleteFbaObservation(id);
       toast.success("Observation deleted");
       onDeleted();
     } catch { toast.error("Failed to delete"); }
@@ -865,7 +865,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiPost(`/api/fbas/${fba.id}/fa-sessions`, {
+      await createFaSession(fba.id, {
           sessionNumber: nextSessionNum,
           condition: form.condition,
           sessionDate: form.sessionDate,
@@ -875,7 +875,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
             ? String(((parseInt(form.responseCount) || 0) / (parseInt(form.durationMinutes) || 10)).toFixed(2))
             : null,
           notes: form.notes || null,
-        });
+        } as any);
       toast.success("FA session recorded");
       setForm(prev => ({ ...prev, responseCount: "0", notes: "" }));
       onCreated();
@@ -885,7 +885,7 @@ function FaPanel({ fba, sessions, showNew, onShowNew, onCreated, onDeleted }: {
 
   const handleDelete = async (id: number) => {
     try {
-      await apiDelete(`/api/fa-sessions/${id}`);
+      await deleteFaSession(id);
       toast.success("Session deleted");
       onDeleted();
     } catch { toast.error("Failed to delete"); }
@@ -1062,7 +1062,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     if (!selectedFba) { toast.error("Select an FBA first"); return; }
     setGenerating(true);
     try {
-      await apiPost(`/api/fbas/${selectedFba.id}/generate-bip`);
+      await customFetch(`/api/fbas/${selectedFba.id}/generate-bip`, { method: "POST" });
       toast.success("BIP generated from FBA data");
       onRefresh();
     } catch { toast.error("Failed to generate BIP"); }
@@ -1072,7 +1072,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const saveBipEdits = async () => {
     if (!selectedBip || !editingBip) return;
     try {
-      await apiPatch(`/api/bips/${selectedBip.id}`, editingBip);
+      await updateBip(selectedBip.id, editingBip as any);
       toast.success("BIP updated");
       onEdit(null);
       onRefresh();
@@ -1081,7 +1081,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
 
   const updateBipStatus = async (id: number, status: string) => {
     try {
-      await apiPatch(`/api/bips/${id}`, { status });
+      await updateBip(id, { status } as any);
       toast.success(`BIP ${status}`);
       onRefresh();
     } catch { toast.error("Failed to update status"); }

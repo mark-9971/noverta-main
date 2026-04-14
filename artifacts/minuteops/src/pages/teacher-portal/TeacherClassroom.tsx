@@ -6,7 +6,7 @@ import {
   Plus, Calendar, MapPin, Send, Users, ShieldCheck, X
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost } from "@/lib/api";
+import { customFetch, createTeacherObservation } from "@workspace/api-client-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -73,7 +73,7 @@ export default function TeacherClassroom() {
   useEffect(() => {
     if (!teacherId) return;
     setLoading(true);
-    apiGet(`/api/staff/${teacherId}/classroom`).then(d => {
+    customFetch<any>(`/api/staff/${teacherId}/classroom`).then(d => {
         setStudents(d.students || []);
         setLoading(false);
       })
@@ -360,7 +360,7 @@ function ObservationModal({ student, staffId, onClose, onSaved }: {
     if (!description.trim()) { toast.error("Please enter an observation"); return; }
     setSaving(true);
     try {
-      const res = await apiPost(`/api/teacher-observations`, {
+      const res = await createTeacherObservation({
           studentId: student.id,
           staffId,
           observationDate: today,

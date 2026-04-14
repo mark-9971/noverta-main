@@ -1,6 +1,14 @@
 import { useState, useMemo, Fragment, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  listProtectiveIncidents, getProtectiveSummary,
+  listStudents, listStaff, getProtectiveIncident,
+  createProtectiveIncident, adminReviewIncident, parentNotifyIncident,
+  writtenReportIncident, deseReportIncident, signIncidentSignature,
+  updateProtectiveIncident, parentNotificationDraftIncident,
+  sendParentNotificationIncident, generateIncidentDraft,
+} from "@workspace/api-client-react";
+import {
   Shield, Plus, AlertTriangle, Clock, User, Search,
   ChevronRight, FileText, Bell, CheckCircle, XCircle,
   Filter, Calendar, Eye, ChevronDown, ChevronUp,
@@ -8,7 +16,6 @@ import {
   Mail, FilePenLine, Printer
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
 
 
 type Incident = {
@@ -220,17 +227,15 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
 
   const { data: incidents = [], isLoading } = useQuery<Incident[]>({
     queryKey: ["protective-incidents", filterType, filterStatus],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (filterType !== "all") params.set("incidentType", filterType);
-      if (filterStatus !== "all") params.set("status", filterStatus);
-      return apiGet(`/api/protective-measures/incidents?${params}`);
-    },
+    queryFn: ({ signal }) => listProtectiveIncidents({
+      ...(filterType !== "all" ? { incidentType: filterType } : {}),
+      ...(filterStatus !== "all" ? { status: filterStatus } : {}),
+    }, { signal }),
   });
 
   const { data: summary } = useQuery<Summary>({
     queryKey: ["protective-summary"],
-    queryFn: () => apiGet(`/api/protective-measures/summary`),
+    queryFn: ({ signal }) => getProtectiveSummary(undefined, { signal }),
   });
 
   const filtered = useMemo(() => {
@@ -497,12 +502,12 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
 
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
-    queryFn: () => apiGet(`/api/students`),
+    queryFn: ({ signal }) => listStudents(undefined, { signal }),
   });
 
   const { data: staff = [] } = useQuery<Staff[]>({
     queryKey: ["staff-list"],
-    queryFn: () => apiGet(`/api/staff`),
+    queryFn: ({ signal }) => listStaff(undefined, { signal }),
   });
 
   const mutation = useMutation({
@@ -513,7 +518,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
         return (eh * 60 + em) - (sh * 60 + sm);
       })() : null;
 
-      const res = await apiPost(`/api/protective-measures/incidents`, {
+      const res = await createProtectiveIncident({
           ...form,
           studentId: Number(form.studentId),
           primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
@@ -1039,12 +1044,12 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
 
   const { data: incident, isLoading } = useQuery<IncidentDetail>({
     queryKey: ["protective-incident", id],
-    queryFn: () => apiGet(`/api/protective-measures/incidents/${id}`),
+    queryFn: ({ signal }) => getProtectiveIncident(id, { signal }),
   });
 
   const { data: staff = [] } = useQuery<Staff[]>({
     queryKey: ["staff-list"],
-    queryFn: () => apiGet(`/api/staff`),
+    queryFn: ({ signal }) => listStaff(undefined, { signal }),
   });
 
   const invalidateAll = () => {
@@ -1054,58 +1059,47 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   };
 
   const reviewMutation = useMutation({
-    mutationFn: async (data: { adminStaffId: number; notes: string; signature: string }) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/admin-review`, data);
-    },
+    mutationFn: (data: { adminStaffId: number; notes: string; signature: string }) =>
+      adminReviewIncident(id, data),
     onSuccess: invalidateAll,
   });
 
   const notifyMutation = useMutation({
-    mutationFn: async (data: { notifiedById: number; method: string; verbal?: boolean }) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/parent-notification`, data);
-    },
+    mutationFn: (data: { notifiedById: number; method: string; verbal?: boolean }) =>
+      parentNotifyIncident(id, data),
     onSuccess: invalidateAll,
   });
 
   const writtenReportMutation = useMutation({
-    mutationFn: async (method: string) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/written-report`, { method });
-    },
+    mutationFn: (method: string) => writtenReportIncident(id, { method }),
     onSuccess: invalidateAll,
   });
 
   const deseMutation = useMutation({
-    mutationFn: async () => {
-      return apiPost(`/api/protective-measures/incidents/${id}/dese-report`, { thirtyDayLogSent: true });
-    },
+    mutationFn: () => deseReportIncident(id, { thirtyDayLogSent: true }),
     onSuccess: invalidateAll,
   });
 
   const signMutation = useMutation({
-    mutationFn: async (data: { sigId: number; signatureName: string; notes?: string }) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/signatures/${data.sigId}/sign`, { signatureName: data.signatureName, notes: data.notes });
-    },
+    mutationFn: (data: { sigId: number; signatureName: string; notes?: string }) =>
+      signIncidentSignature(id, data.sigId, { signatureName: data.signatureName, notes: data.notes }),
     onSuccess: invalidateAll,
   });
 
   const commentMutation = useMutation({
-    mutationFn: async (data: { parentComment?: string; studentComment?: string }) => {
-      return apiPatch(`/api/protective-measures/incidents/${id}`, { ...data, parentCommentOpportunityGiven: true });
-    },
+    mutationFn: (data: { parentComment?: string; studentComment?: string }) =>
+      updateProtectiveIncident(id, { ...data, parentCommentOpportunityGiven: true }),
     onSuccess: invalidateAll,
   });
 
   const saveDraftMutation = useMutation({
-    mutationFn: async (draft: string) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/parent-notification-draft`, { draft });
-    },
+    mutationFn: (draft: string) => parentNotificationDraftIncident(id, { draft }),
     onSuccess: invalidateAll,
   });
 
   const sendNotificationMutation = useMutation({
-    mutationFn: async (data: { senderId: number; draft: string; method: string }) => {
-      return apiPost(`/api/protective-measures/incidents/${id}/send-parent-notification`, data);
-    },
+    mutationFn: (data: { senderId: number; draft: string; method: string }) =>
+      sendParentNotificationIncident(id, data),
     onSuccess: () => { invalidateAll(); toast.success("Parent notification sent successfully"); },
     onError: (err: Error) => { toast.error(err.message); },
   });
@@ -1521,7 +1515,7 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
   const generateDraft = async () => {
     setLoadingDraft(true);
     try {
-      const data = await apiGet<{ draft: string; caseManager?: { id: number } }>(`/api/protective-measures/incidents/${incidentId}/generate-draft`);
+      const data = await generateIncidentDraft(incidentId) as { draft: string; caseManager?: { id: number } };
       setDraftText(data.draft);
       if (data.caseManager && !senderId) {
         setSenderId(String(data.caseManager.id));

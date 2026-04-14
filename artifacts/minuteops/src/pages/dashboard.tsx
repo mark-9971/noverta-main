@@ -1,4 +1,8 @@
-import { useGetDashboardSummary, useGetDashboardRiskOverview, useGetMissedSessionsTrend, useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary, useGetDashboardRiskOverview, useGetMissedSessionsTrend,
+  useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts,
+  useGetAcademicsOverview, useGetComplianceDeadlines,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -6,10 +10,8 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays, BookOpen, GraduationCap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
-import { useState, useEffect } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
-import { apiGet } from "@/lib/api";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -49,27 +51,17 @@ export default function Dashboard() {
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
-  const [deadlines, setDeadlines] = useState<any[]>([]);
-  const [academics, setAcademics] = useState<any>(null);
+  const { data: academics } = useGetAcademicsOverview();
+  const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
-  useEffect(() => {
-    apiGet(`/api/academics/overview`).catch(() => null).then(d => setAcademics(d))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    apiGet("/api/dashboard/compliance-deadlines")
-      .catch(() => ({ events: [] }))
-      .then(d => {
-        const items = Array.isArray(d) ? d : (d.events ?? []);
-        setDeadlines(items.slice(0, 6).map((e: any) => ({
-          studentName: e.student ? `${e.student.firstName} ${e.student.lastName}` : "Student",
-          eventType: e.eventType,
-          daysUntilDue: e.daysRemaining,
-        })));
-      })
-      .catch(() => setDeadlines([]));
-  }, []);
+  const deadlines = (() => {
+    const items: any[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : (deadlinesRaw as any)?.events ?? [];
+    return items.slice(0, 6).map((e: any) => ({
+      studentName: e.student ? `${e.student.firstName} ${e.student.lastName}` : "Student",
+      eventType: e.eventType,
+      daysUntilDue: e.daysRemaining,
+    }));
+  })();
 
   const s = summary as any;
   const ro = riskOverview as any;

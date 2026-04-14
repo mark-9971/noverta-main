@@ -4,7 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, User, Clock, MapPin, ChevronRight } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listStudentClasses, getStudentGradesSummary } from "@workspace/api-client-react";
 
 export default function StudentClasses() {
   const { studentId } = useRole();
@@ -15,8 +15,8 @@ export default function StudentClasses() {
   useEffect(() => {
     if (!studentId) return;
     Promise.all([
-      apiGet(`/api/students/${studentId}/classes`),
-      apiGet(`/api/students/${studentId}/grades-summary`),
+      listStudentClasses(studentId),
+      getStudentGradesSummary(studentId),
     ]).then(([c, g]) => {
       setClasses(c);
       setGrades(g);

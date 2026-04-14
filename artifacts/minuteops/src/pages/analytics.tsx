@@ -1,4 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import {
+  useGetAnalyticsOverview,
+  useGetAnalyticsDeliveryHeatmap,
+  useGetAnalyticsBehaviorSummary,
+  useGetAnalyticsProgramSummary,
+  useGetAnalyticsMinutesSummary,
+  useGetAnalyticsStudent,
+  useListStudents,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,24 +25,6 @@ import {
   User, ChevronRight, Search, Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
-import { apiGet } from "@/lib/api";
-
-function useAnalytics(endpoint: string) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  const refetch = () => {
-    setLoading(true);
-    setError(false);
-    apiGet(`/api/analytics/${endpoint}`)
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => { setError(true); setLoading(false); });
-  };
-
-  useEffect(() => { refetch(); }, [endpoint]);
-  return { data, loading, error, refetch };
-}
 
 const COLORS = {
   indigo: "#059669",
@@ -127,8 +118,8 @@ function formatWeek(w: string) {
 }
 
 function OverviewTab() {
-  const { data, loading, error, refetch } = useAnalytics("overview");
-  const { data: heatmap, loading: heatLoading } = useAnalytics("delivery-heatmap");
+  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsOverview();
+  const { data: heatmap, isLoading: heatLoading } = useGetAnalyticsDeliveryHeatmap();
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load overview" onRetry={refetch} />;
@@ -296,7 +287,7 @@ function OverviewTab() {
 }
 
 function BehaviorTab() {
-  const { data, loading, error, refetch } = useAnalytics("behavior-summary");
+  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsBehaviorSummary();
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load behavior data" onRetry={refetch} />;
@@ -466,7 +457,7 @@ function BehaviorTab() {
 }
 
 function AcademicTab() {
-  const { data, loading, error, refetch } = useAnalytics("program-summary");
+  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsProgramSummary();
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load academic data" onRetry={refetch} />;
@@ -725,7 +716,7 @@ function AcademicTab() {
 }
 
 function MinutesTab() {
-  const { data, loading, error, refetch } = useAnalytics("minutes-summary");
+  const { data, isLoading: loading, isError: error, refetch } = useGetAnalyticsMinutesSummary();
 
   if (loading) return <SectionSkeleton />;
   if (error) return <ErrorBanner message="Failed to load minutes data" onRetry={refetch} />;
@@ -891,25 +882,16 @@ function MinutesTab() {
 }
 
 function StudentTab() {
-  const [students, setStudents] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [studentData, setStudentData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [listLoading, setListLoading] = useState(true);
 
-  useEffect(() => {
-    apiGet(`/api/students`).catch(() => []).then(d => { setStudents(Array.isArray(d) ? d : d.students || []); setListLoading(false); })
-      .catch(() => setListLoading(false));
-  }, []);
+  const { data: studentsRaw, isLoading: listLoading } = useListStudents({ limit: 500 } as any);
+  const { data: studentData, isLoading: loading } = useGetAnalyticsStudent(
+    selectedId as number,
+    { query: { enabled: !!selectedId } },
+  );
 
-  useEffect(() => {
-    if (!selectedId) return;
-    setLoading(true);
-    apiGet(`/api/analytics/student/${selectedId}`)
-      .then(d => { setStudentData(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [selectedId]);
+  const students: any[] = Array.isArray(studentsRaw) ? studentsRaw : (studentsRaw as any)?.students ?? [];
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -979,7 +961,7 @@ function StudentTab() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 flex-wrap">
-        <button onClick={() => { setSelectedId(null); setStudentData(null); }}
+        <button onClick={() => { setSelectedId(null); }}
           className="text-emerald-700 text-sm font-medium hover:text-emerald-800 flex items-center gap-1">
           <ChevronRight className="w-4 h-4 rotate-180" /> All Students
         </button>

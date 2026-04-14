@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { apiGet, apiPost } from "@/lib/api";
+import { getIepSuggestionsAllStudents, customFetch, applyIepSuggestions } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export default function IepSuggestions() {
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
-    apiGet(`/api/iep-suggestions/all-students`)
+    getIepSuggestionsAllStudents()
       .then(d => { setStudents(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => { toast.error("Failed to load suggestions"); setLoading(false); });
   }, []);
@@ -76,7 +76,7 @@ export default function IepSuggestions() {
   const loadDetail = useCallback((studentId: number) => {
     setDetailLoading(true);
     setSelected({ behaviors: new Set(), programs: new Set() });
-    apiGet(`/api/students/${studentId}/iep-suggestions`)
+    customFetch<any>(`/api/students/${studentId}/iep-suggestions`)
       .then(d => { setDetail(d); setView("detail"); setDetailLoading(false); })
       .catch(() => { toast.error("Failed to load student suggestions"); setDetailLoading(false); });
   }, []);
@@ -121,7 +121,7 @@ export default function IepSuggestions() {
     if (totalSelected === 0) { toast.error("Select at least one suggestion to apply"); return; }
     setApplying(true);
     try {
-      const result = await apiPost(`/api/students/${detail.student.id}/apply-suggestions`, {
+      const result = await applyIepSuggestions(detail.student.id, {
           behaviors: [...selected.behaviors].map(name => ({ name })),
           programs: [...selected.programs].map(name => ({ name })),
         });

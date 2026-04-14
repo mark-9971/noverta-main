@@ -4,7 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Inbox, Users, Award, ChevronRight, Clock } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getTeacherDashboard, listTeachersWithClasses } from "@workspace/api-client-react";
 
 export default function TeacherDashboard() {
   const { teacherId } = useRole();
@@ -13,7 +13,7 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/teacher/${teacherId}/dashboard`).then(d => {
+    getTeacherDashboard(teacherId).then(d => {
       setData(d);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -132,7 +132,7 @@ function SelectTeacherPrompt() {
   const [staff, setStaff] = useState<any[]>([]);
 
   useEffect(() => {
-    apiGet(`/api/teachers-with-classes`).then(setStaff);
+    listTeachersWithClasses().then(setStaff);
   }, []);
 
   return (

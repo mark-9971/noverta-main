@@ -4,7 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Clock, MapPin, ChevronRight, Plus } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses } from "@workspace/api-client-react";
 
 export default function TeacherClasses() {
   const { teacherId } = useRole();
@@ -13,7 +13,7 @@ export default function TeacherClasses() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/classes?teacherId=${teacherId}`).then(d => {
+    listClasses({ teacherId: String(teacherId) } as any).then(d => {
       setClasses(d);
       setLoading(false);
     });

@@ -13,7 +13,7 @@ import {
 
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
-import { apiGet } from "@/lib/api";
+import { getStaff, getStaffCaseloadSummary, getStaffCaseload, getStaffSupervisionSummary } from "@workspace/api-client-react";
 
 export default function StaffDetail() {
   const { id } = useParams<{ id: string }>();
@@ -30,10 +30,10 @@ export default function StaffDetail() {
     setLoading(true);
     setLoadError(false);
     Promise.all([
-      apiGet(`/api/staff/${staffId}`).catch(() => null),
-      apiGet(`/api/staff/${staffId}/caseload-summary`).catch(() => ({ students: [], summary: {} })),
-      apiGet(`/api/staff/${staffId}/caseload`).catch(() => []),
-      apiGet(`/api/supervision/staff/${staffId}/summary`).catch(() => null),
+      getStaff(staffId).catch(() => null),
+      getStaffCaseloadSummary(staffId).catch(() => ({ students: [], summary: {} })),
+      getStaffCaseload(staffId).catch(() => []),
+      getStaffSupervisionSummary(staffId).catch(() => null),
     ]).then(([s, cs, cl, sup]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });

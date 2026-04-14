@@ -35,7 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, customFetch } from "@/lib/api";
+import { listAuditLogs, getAuditLogStats, customFetch } from "@workspace/api-client-react";
 const PAGE_SIZE = 50;
 
 interface AuditLogEntry {
@@ -145,7 +145,7 @@ export default function AuditLogPage() {
       studentIdFilter,
     ],
     queryFn: async () => {
-      return apiGet<AuditLogsResponse>(`/api/audit-logs?${buildParams()}`);
+      return listAuditLogs(Object.fromEntries(new URLSearchParams(buildParams())) as any) as Promise<AuditLogsResponse>;
     },
   });
 
@@ -155,7 +155,7 @@ export default function AuditLogPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
-      return apiGet(`/api/audit-logs/stats?${params.toString()}`);
+      return getAuditLogStats(Object.fromEntries(params) as any);
     },
   });
 

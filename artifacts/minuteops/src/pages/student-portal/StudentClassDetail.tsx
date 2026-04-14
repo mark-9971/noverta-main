@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, FileText, Bell, Award, ChevronRight, Calendar } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getClass, listStudentAssignments, listAnnouncements } from "@workspace/api-client-react";
 
 export default function StudentClassDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,9 +18,9 @@ export default function StudentClassDetail() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      apiGet(`/api/classes/${id}`),
-      apiGet(`/api/students/${studentId}/assignments?classId=${id}`),
-      apiGet(`/api/classes/${id}/announcements`),
+      getClass(Number(id)),
+      listStudentAssignments(studentId, { classId: Number(id) } as any),
+      listAnnouncements(Number(id)),
     ]).then(([c, a, ann]) => {
       setCls(c);
       setAssignments(a);

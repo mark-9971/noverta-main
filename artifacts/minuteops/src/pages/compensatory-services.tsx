@@ -7,7 +7,7 @@ import { Link } from "wouter";
 import { Gift, Plus, Clock, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, X, Calculator, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { listCompensatoryObligations, getCompensatoryObligation, updateCompensatoryObligation, calculateShortfalls, generateFromShortfalls, createCompensatoryObligation, logCompensatorySession, listStudents, listServiceRequirements } from "@workspace/api-client-react";
 
 type Obligation = {
   id: number;
@@ -68,7 +68,7 @@ export default function CompensatoryServices() {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
-    apiGet(`/api/compensatory-obligations?${params}`).catch(() => []).then(setObligations)
+    listCompensatoryObligations(Object.fromEntries(new URLSearchParams(params)) as any).catch(() => []).then(setObligations as any)
       .catch(() => setObligations([]))
       .finally(() => setLoading(false));
   }
@@ -76,8 +76,8 @@ export default function CompensatoryServices() {
   useEffect(() => { fetchObligations(); }, [statusFilter, selectedSchoolId]);
 
   useEffect(() => {
-    apiGet(`/api/students?limit=200`).catch(() => []).then(setStudents).catch(() => {});
-    apiGet(`/api/service-requirements?active=true`).catch(() => []).then(setServiceRequirements).catch(() => {});
+    listStudents({ limit: 200 } as any).catch(() => []).then(setStudents as any).catch(() => {});
+    listServiceRequirements({ active: true } as any).catch(() => []).then(setServiceRequirements as any).catch(() => {});
   }, []);
 
   const totalOwed = obligations.reduce((s, o) => s + o.minutesOwed, 0);
@@ -90,7 +90,7 @@ export default function CompensatoryServices() {
     setExpandedId(id);
     setExpandedLoading(true);
     try {
-      const detail = await apiGet(`/api/compensatory-obligations/${id}`);
+      const detail = await getCompensatoryObligation(id);
       setExpandedDetail(detail);
     } catch { setExpandedDetail(null); }
     setExpandedLoading(false);
@@ -98,11 +98,11 @@ export default function CompensatoryServices() {
 
   async function updateStatus(id: number, status: string) {
     try {
-      await apiPatch(`/api/compensatory-obligations/${id}`, { status });
+      await updateCompensatoryObligation(id, { status } as any);
       toast.success(`Status updated to ${status}`);
       fetchObligations();
       if (expandedId === id) {
-        const detail = await apiGet(`/api/compensatory-obligations/${id}`);
+        const detail = await getCompensatoryObligation(id);
         setExpandedDetail(detail);
       }
     } catch {
@@ -110,10 +110,10 @@ export default function CompensatoryServices() {
     }
   }
 
-  async function calculateShortfalls(periodStart: string, periodEnd: string) {
+  async function runCalculateShortfalls(periodStart: string, periodEnd: string) {
     setCalcLoading(true);
     try {
-      const data = await apiPost<Shortfall[]>(`/api/compensatory-obligations/calculate-shortfalls`, { periodStart, periodEnd, schoolId: selectedSchoolId || undefined });
+      const data = await calculateShortfalls({ periodStart, periodEnd, schoolId: selectedSchoolId || undefined } as any);
       setShortfalls(data);
       if (data.length === 0) toast.info("No shortfalls found for this period");
     } catch { toast.error("Error calculating shortfalls"); }
@@ -122,7 +122,7 @@ export default function CompensatoryServices() {
 
   async function generateObligations(selected: Shortfall[]) {
     try {
-      const created = await apiPost<Shortfall[]>(`/api/compensatory-obligations/generate-from-shortfalls`, { shortfalls: selected });
+      const created = await generateFromShortfalls({ shortfalls: selected } as any);
       toast.success(`Created ${created.length} compensatory obligation(s)`);
       setShortfalls([]);
       setShowCalculator(false);
@@ -188,7 +188,7 @@ export default function CompensatoryServices() {
       {showCalculator && (
         <ShortfallCalculator
           onClose={() => { setShowCalculator(false); setShortfalls([]); }}
-          onCalculate={calculateShortfalls}
+          onCalculate={runCalculateShortfalls}
           shortfalls={shortfalls}
           loading={calcLoading}
           onGenerate={generateObligations}
@@ -483,7 +483,7 @@ function CreateObligationForm({ students, serviceRequirements, onClose, onCreate
     }
     setSubmitting(true);
     try {
-      await apiPost(`/api/compensatory-obligations`, {
+      await createCompensatoryObligation({
           studentId: Number(studentId),
           serviceRequirementId: serviceRequirementId ? Number(serviceRequirementId) : null,
           periodStart,
@@ -492,7 +492,7 @@ function CreateObligationForm({ students, serviceRequirements, onClose, onCreate
           agreedDate: agreedDate || null,
           agreedWith: agreedWith || null,
           notes: notes || null,
-        });
+        } as any);
       toast.success("Compensatory obligation created");
       onCreated();
     } catch {
@@ -589,13 +589,13 @@ function LogCompSessionForm({ obligationId, onClose, onLogged }: {
     }
     setSubmitting(true);
     try {
-      await apiPost(`/api/compensatory-obligations/${obligationId}/sessions`, {
+      await logCompensatorySession(obligationId, {
           sessionDate,
           durationMinutes: Number(durationMinutes),
           startTime: startTime || null,
           endTime: endTime || null,
           notes: notes || null,
-        });
+        } as any);
       toast.success("Comp session logged");
       onLogged();
     } catch {

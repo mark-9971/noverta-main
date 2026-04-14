@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Calendar, Award, Clock, CheckCircle, Upload, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPut } from "@/lib/api";
+import { getAssignment, listStudentAssignments, updateSubmission } from "@workspace/api-client-react";
 
 export default function StudentAssignmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +20,8 @@ export default function StudentAssignmentDetail() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      apiGet(`/api/assignments/${id}`),
-      apiGet(`/api/students/${studentId}/assignments?classId=`),
+      getAssignment(Number(id)),
+      listStudentAssignments(studentId),
     ]).then(([a, subs]) => {
       setAssignment(a);
       const mySub = subs.find((s: any) => s.assignmentId === Number(id));
@@ -36,9 +36,9 @@ export default function StudentAssignmentDetail() {
     if (!sub) return;
     setSubmitting(true);
     try {
-      await apiPut(`/api/submissions/${sub.submissionId}`, { content, status: "submitted" });
+      await updateSubmission(sub.submissionId, { content, status: "submitted" });
       toast.success("Assignment submitted!");
-      const updated = await apiGet(`/api/students/${studentId}/assignments`);
+      const updated = await listStudentAssignments(studentId);
       const mySub = updated.find((s: any) => s.assignmentId === Number(id));
       if (mySub) setSubmissions([mySub]);
     } catch {

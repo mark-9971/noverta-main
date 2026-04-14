@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, ChevronRight } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses } from "@workspace/api-client-react";
 
 export default function TeacherGradebook() {
   const { teacherId } = useRole();
@@ -12,7 +12,7 @@ export default function TeacherGradebook() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/classes?teacherId=${teacherId}`).then(d => {
+    listClasses({ teacherId: String(teacherId) } as any).then(d => {
       setClasses(d);
       setLoading(false);
     });

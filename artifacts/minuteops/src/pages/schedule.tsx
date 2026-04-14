@@ -12,7 +12,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
 import { Settings, RotateCcw, Calendar } from "lucide-react";
-import { apiGet, apiPatch } from "@/lib/api";
+import { updateSchoolScheduleSettings, listSchools } from "@workspace/api-client-react";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const WEEKDAY_LABELS: Record<string, string> = {
@@ -127,7 +127,7 @@ function ScheduleSettingsDialog({
   async function handleSave() {
     setSaving(true);
     try {
-      const updated = await apiPatch(`/api/schools/${school.id}/schedule-settings`, {
+      const updated = await updateSchoolScheduleSettings(school.id, {
           scheduleType,
           rotationStartDate: rotationStartDate || null,
           scheduleNotes: scheduleNotes || null,
@@ -231,7 +231,7 @@ export default function Schedule() {
 
   // Load school schedule configuration
   useEffect(() => {
-    apiGet(`/api/schools`).then((schools: SchoolScheduleConfig[]) => {
+    listSchools().then((schools: SchoolScheduleConfig[]) => {
         if (!schools?.length) return;
         // Use the selected school if one is chosen; otherwise pick the first
         const target = selectedSchoolId

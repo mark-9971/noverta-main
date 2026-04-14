@@ -3,7 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { getStudentSessions } from "@workspace/api-client-react";
 
 const SERVICE_COLORS: Record<string, string> = {
   "Speech-Language Therapy": "bg-gray-100 text-gray-700",
@@ -36,7 +36,7 @@ export default function SpedStudentSessions() {
 
   useEffect(() => {
     if (!studentId) return;
-    apiGet(`/api/students/${studentId}/sessions?limit=60`).then(d => { setSessions(Array.isArray(d) ? d : []); setLoading(false); })
+    getStudentSessions(studentId, { limit: 60 }).then(d => { setSessions(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [studentId]);
 

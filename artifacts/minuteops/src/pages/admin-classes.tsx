@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, Clock, MapPin, ChevronRight, Search } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses } from "@workspace/api-client-react";
 
 export default function AdminClasses() {
   const [classes, setClasses] = useState<any[]>([]);
@@ -11,7 +11,7 @@ export default function AdminClasses() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet(`/api/classes`).then(d => { setClasses(d); setLoading(false); });
+    listClasses().then(d => { setClasses(Array.isArray(d) ? d : []); setLoading(false); });
   }, []);
 
   const filtered = classes.filter(c =>

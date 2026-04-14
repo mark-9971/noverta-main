@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { apiGet, apiPatch } from "@/lib/api";
+import { getResourceCaseload, getProviderUtilization, getResourceBudget, getRebalancingSuggestions, updateStaffRates } from "@workspace/api-client-react";
 import { useSchoolContext } from "@/lib/school-context";
 import { toast } from "sonner";
 import {
@@ -161,10 +161,10 @@ export default function ResourceManagement() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      apiGet(`/api/resource-management/caseload${qs}`),
-      apiGet(`/api/resource-management/provider-utilization${qs}`),
-      apiGet(`/api/resource-management/budget${qs}`),
-      apiGet(`/api/resource-management/rebalancing${qs}`),
+      getResourceCaseload(qs ? Object.fromEntries(new URLSearchParams(qs.slice(1))) as any : undefined),
+      getProviderUtilization(qs ? Object.fromEntries(new URLSearchParams(qs.slice(1))) as any : undefined),
+      getResourceBudget(qs ? Object.fromEntries(new URLSearchParams(qs.slice(1))) as any : undefined),
+      getRebalancingSuggestions(qs ? Object.fromEntries(new URLSearchParams(qs.slice(1))) as any : undefined),
     ]).then(([cl, ut, bg, sg]) => {
       setCaseloadData(cl);
       setUtilData(ut);
@@ -363,7 +363,7 @@ function UtilizationTab({ data, onRateUpdate }: { data: ProviderUtil[]; onRateUp
 
     setSaving(true);
     try {
-      await apiPatch(`/api/staff/${staffId}/rates`, { hourlyRate: finalRate, annualSalary: finalSalary });
+      await updateStaffRates(staffId, { hourlyRate: finalRate, annualSalary: finalSalary } as any);
       toast.success("Rate updated");
       onRateUpdate(staffId, finalRate, finalSalary);
       setEditingId(null);

@@ -4,7 +4,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ChevronRight } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses, listClassAssignments } from "@workspace/api-client-react";
 
 export default function TeacherAssignments() {
   const { teacherId } = useRole();
@@ -14,11 +14,11 @@ export default function TeacherAssignments() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/classes?teacherId=${teacherId}`).then(async (clsList) => {
+    listClasses({ teacherId: String(teacherId) } as any).then(async (clsList) => {
       setClasses(clsList);
       const all: any[] = [];
       for (const c of clsList) {
-        const asgns = await apiGet(`/api/classes/${c.id}/assignments`);
+        const asgns = await listClassAssignments(c.id);
         all.push(...asgns.map((a: any) => ({ ...a, className: c.name, classSubject: c.subject })));
       }
       all.sort((a, b) => (b.dueDate || "").localeCompare(a.dueDate || ""));

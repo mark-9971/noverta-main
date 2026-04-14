@@ -17,7 +17,13 @@ import {
   ReferenceLine, BarChart, Bar
 } from "recharts";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import {
+  listStudents, listProgramTemplates, listBehaviorTargets, listProgramTargets,
+  listDataSessions, getBehaviorDataTrends, getProgramDataTrends,
+  listProgramSteps, createDataSession, cloneTemplateToStudent,
+  updateProgramTarget, createProgramStep, createBehaviorTarget,
+  createProgramTarget, getDataSession,
+} from "@workspace/api-client-react";
 
 interface BehaviorTarget {
   id: number; studentId: number; name: string; description: string;
@@ -107,12 +113,12 @@ export default function ProgramDataPage() {
 
   useEffect(() => {
     Promise.all([
-      apiGet(`/api/students`),
-      apiGet(`/api/program-templates`),
+      listStudents(),
+      listProgramTemplates(),
     ]).then(([data, tmpl]) => {
-      const withData = data.filter((s: any) => s.status === "active");
+      const withData = (data as any[]).filter((s: any) => s.status === "active");
       setStudents(withData);
-      setTemplates(tmpl);
+      setTemplates(tmpl as any[]);
       if (withData.length > 0) setSelectedStudent(withData[0].id);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -120,11 +126,11 @@ export default function ProgramDataPage() {
 
   const loadStudentData = useCallback(async (sid: number) => {
     const [bt, pt, ds, btrend, ptrend] = await Promise.all([
-      apiGet(`/api/students/${sid}/behavior-targets`),
-      apiGet(`/api/students/${sid}/program-targets`),
-      apiGet(`/api/students/${sid}/data-sessions?limit=30`),
-      apiGet(`/api/students/${sid}/behavior-data/trends`),
-      apiGet(`/api/students/${sid}/program-data/trends`),
+      listBehaviorTargets(sid),
+      listProgramTargets(sid),
+      listDataSessions(sid, { limit: 30 }),
+      getBehaviorDataTrends(sid),
+      getProgramDataTrends(sid),
     ]);
     setBehaviorTargets(bt);
     setProgramTargets(pt);
@@ -416,8 +422,8 @@ export default function ProgramDataPage() {
                           <p className="text-[11px] text-gray-400">{data.length} data points</p>
                           <div className="flex gap-1">
                             <button onClick={() => {
-                              apiGet(`/api/program-targets/${pt.id}/steps`).then(s => {
-                                setBuilderEditProgram(pt); setBuilderEditSteps(s);
+                              listProgramSteps(pt.id).then(s => {
+                                setBuilderEditProgram(pt); setBuilderEditSteps(s as any[]);
                               });
                             }} className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium px-1.5 py-0.5 rounded hover:bg-emerald-50">
                               <Wand2 className="w-3 h-3 inline mr-0.5" /> Builder
@@ -450,7 +456,7 @@ export default function ProgramDataPage() {
             <TemplateManager
               studentId={selectedStudent}
               onCloned={() => loadStudentData(selectedStudent)}
-              onTemplateUpdated={() => apiGet(`/api/program-templates`).then(t => setTemplates(t))}
+              onTemplateUpdated={() => listProgramTemplates().then(t => setTemplates(t as any[]))}
             />
           )}
         </>
@@ -510,7 +516,7 @@ export default function ProgramDataPage() {
           programId={saveAsTemplateProgram.id}
           programName={saveAsTemplateProgram.name}
           onClose={() => setSaveAsTemplateProgram(null)}
-          onSaved={() => { setSaveAsTemplateProgram(null); apiGet(`/api/program-templates`).then(t => setTemplates(t)); }}
+          onSaved={() => { setSaveAsTemplateProgram(null); listProgramTemplates().then(t => setTemplates(t as any[])); }}
         />
       )}
     </div>
@@ -602,7 +608,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         promptLevelUsed: programResults[pt.id].promptLevel,
       }));
 
-    const res = await apiPost(`/api/students/${studentId}/data-sessions`, {
+    const res = await createDataSession(studentId, {
         sessionDate,
         startTime: startTimeRef.current,
         endTime,
@@ -1001,7 +1007,7 @@ function TemplateLibrary({ templates, studentId, onCloned, onTemplateCreated }: 
 
   async function cloneToStudent(templateId: number) {
     setCloning(templateId);
-    await apiPost(`/api/program-templates/${templateId}/clone-to-student`, { studentId });
+    await cloneTemplateToStudent(templateId, { studentId });
     onCloned();
     setCloning(null);
   }
@@ -1063,12 +1069,12 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
   const [newStepResponse, setNewStepResponse] = useState("");
 
   useEffect(() => {
-    apiGet(`/api/program-targets/${program.id}/steps`).then(s => { setSteps(s); setLoading(false); }).catch(() => setLoading(false));
+    listProgramSteps(program.id).then(s => { setSteps(s as any[]); setLoading(false); }).catch(() => setLoading(false));
   }, [program.id]);
 
   async function saveSettings() {
     setSaving(true);
-    const res = await apiPatch(`/api/program-targets/${program.id}`, {
+    const res = await updateProgramTarget(program.id, {
         name: form.name,
         description: form.description,
         tutorInstructions: form.tutorInstructions,
@@ -1088,7 +1094,7 @@ function ProgramDetailModal({ program, onClose, onSaved }: { program: ProgramTar
 
   async function addStep() {
     if (!newStepName.trim()) return;
-    const step = await apiPost(`/api/program-targets/${program.id}/steps`, { name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null });
+    const step = await createProgramStep(program.id, { name: newStepName.trim(), sdInstruction: newStepSd || null, targetResponse: newStepResponse || null });
     setSteps(prev => [...prev, step]);
     setNewStepName(""); setNewStepSd(""); setNewStepResponse("");
   }
@@ -1286,7 +1292,7 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
     if (!name.trim()) { toast.error("Please enter a target name"); return; }
     setSaving(true);
     try {
-      await apiPost(`/api/students/${studentId}/behavior-targets`, {
+      await createBehaviorTarget(studentId, {
           name: name.trim(), description: description || null, measurementType, targetDirection,
           baselineValue: baselineValue ? parseFloat(baselineValue) : null,
           goalValue: goalValue ? parseFloat(goalValue) : null,
@@ -1388,7 +1394,7 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
     if (!name.trim()) { toast.error("Please enter a program name"); return; }
     setSaving(true);
     try {
-      await apiPost(`/api/students/${studentId}/program-targets`, {
+      await createProgramTarget(studentId, {
           name: name.trim(), description: description || null, programType,
           domain: domain || null, tutorInstructions: tutorInstructions || null,
           masteryCriterionPercent: parseInt(masteryPct) || 80,
@@ -1402,7 +1408,7 @@ function AddProgramModal({ studentId, templates, onClose, onSaved }: {
 
   async function cloneTemplate(templateId: number) {
     setSaving(true);
-    await apiPost(`/api/program-templates/${templateId}/clone-to-student`, { studentId });
+    await cloneTemplateToStudent(templateId, { studentId });
     onSaved();
     setSaving(false);
   }
@@ -1539,7 +1545,7 @@ function LogDataSessionModal({ studentId, behaviorTargets, programTargets, onClo
         promptLevelUsed: programValues[pt.id].promptLevel,
       }));
 
-    await apiPost(`/api/students/${studentId}/data-sessions`, { sessionDate, startTime, endTime, notes: notes || null, behaviorData, programData });
+    await createDataSession(studentId, { sessionDate, startTime, endTime, notes: notes || null, behaviorData, programData });
     onSaved();
     setSaving(false);
   }
@@ -1669,7 +1675,7 @@ function DataSessionsTab({ dataSessions, onLogSession }: { dataSessions: DataSes
     setExpandedId(id);
     setExpandLoading(true);
     try {
-      const data = await apiGet(`/api/data-sessions/${id}`);
+      const data = await getDataSession(id);
       setExpandedData(data);
     } catch {
       setExpandedData(null);

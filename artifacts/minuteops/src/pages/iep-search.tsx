@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Search, Target, BookOpen, Users, ChevronRight, Filter } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { searchIep } from "@workspace/api-client-react";
 
 
 export default function IepSearch() {
@@ -16,7 +16,7 @@ export default function IepSearch() {
     if (query.trim().length < 2) return;
     setSearching(true);
     try {
-      const data = await apiGet(`/api/search/iep?q=${encodeURIComponent(query.trim())}&type=${searchType}`);
+      const data = await searchIep({ q: query.trim(), type: searchType } as any);
       setResults(data);
     } catch (e) {
       console.error("Search failed:", e);

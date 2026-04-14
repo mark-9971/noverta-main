@@ -13,7 +13,7 @@ import {
   Filter, Eye, TrendingUp
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { apiGet, apiPost, apiPatch, apiDelete, customFetch } from "@/lib/api";
+import { listSupervisionSessions, getSupervisionComplianceSummary, listStaff, getSupervisionTrend, updateSupervisionSession, createSupervisionSession, deleteSupervisionSession, customFetch } from "@workspace/api-client-react";
 
 interface SupervisionSession {
   id: number;
@@ -110,10 +110,10 @@ export default function Supervision() {
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
 
     Promise.all([
-      apiGet(`/api/supervision-sessions?${params}`).catch(() => []),
-      isAdminOrTeacher ? apiGet(`/api/supervision/compliance-summary${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).catch(() => []) : Promise.resolve([]),
-      apiGet(`/api/staff?status=active${selectedSchoolId ? `&schoolId=${selectedSchoolId}` : ""}`).catch(() => []),
-      isAdminOrTeacher ? apiGet(`/api/supervision/trend${selectedSchoolId ? `?schoolId=${selectedSchoolId}` : ""}`).catch(() => []) : Promise.resolve([]),
+      listSupervisionSessions(Object.fromEntries(params) as any).catch(() => []),
+      isAdminOrTeacher ? getSupervisionComplianceSummary(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined).catch(() => []) : Promise.resolve([]),
+      listStaff({ status: "active", ...(selectedSchoolId ? { schoolId: selectedSchoolId } : {}) } as any).catch(() => []),
+      isAdminOrTeacher ? getSupervisionTrend(selectedSchoolId ? { schoolId: selectedSchoolId } as any : undefined).catch(() => []) : Promise.resolve([]),
     ]).then(([s, c, st, tr]) => {
       setSessions(s);
       setCompliance(c);
@@ -155,9 +155,9 @@ export default function Supervision() {
       };
 
       if (editingId) {
-        await apiPatch(`/api/supervision-sessions/${editingId}`, body);
+        await updateSupervisionSession(editingId, body as any);
       } else {
-        await apiPost(`/api/supervision-sessions`, body);
+        await createSupervisionSession(body as any);
       }
 
       toast.success(editingId ? "Session updated" : "Supervision session logged");
@@ -172,7 +172,7 @@ export default function Supervision() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this supervision session?")) return;
     try {
-      await apiDelete(`/api/supervision-sessions/${id}`);
+      await deleteSupervisionSession(id);
       toast.success("Session deleted");
       fetchAll();
     } catch {

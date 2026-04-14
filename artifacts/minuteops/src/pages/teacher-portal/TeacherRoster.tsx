@@ -3,7 +3,7 @@ import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Search } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { listClasses, getClassRoster } from "@workspace/api-client-react";
 
 export default function TeacherRoster() {
   const { teacherId } = useRole();
@@ -14,12 +14,12 @@ export default function TeacherRoster() {
 
   useEffect(() => {
     if (!teacherId) return;
-    apiGet(`/api/classes?teacherId=${teacherId}`).then(async (clsList) => {
+    listClasses({ teacherId: String(teacherId) } as any).then(async (clsList) => {
       setClasses(clsList);
       const students: any[] = [];
       const seen = new Set<number>();
       for (const c of clsList) {
-        const roster = await apiGet(`/api/classes/${c.id}/roster`);
+        const roster = await getClassRoster(c.id);
         for (const s of roster) {
           if (!seen.has(s.studentId)) {
             seen.add(s.studentId);

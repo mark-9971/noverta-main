@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { getComplianceTimeline, recalculateComplianceEvents, updateComplianceEvent } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,7 +53,7 @@ export default function ComplianceTimelinePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const data = await apiGet(`/api/compliance-timeline?status=${filter}`);
+      const data = await getComplianceTimeline({ status: filter } as any);
       setEvents(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to load compliance timeline:", e);
@@ -66,7 +66,7 @@ export default function ComplianceTimelinePage() {
   async function recalculate() {
     setRecalculating(true);
     try {
-      await apiPost(`/api/compliance-events/recalculate`);
+      await recalculateComplianceEvents();
       await loadData();
     } catch (e) {
       console.error("Failed to recalculate:", e);
@@ -76,7 +76,7 @@ export default function ComplianceTimelinePage() {
 
   async function markCompleted(eventId: number) {
     const today = new Date().toISOString().split("T")[0];
-    await apiPatch(`/api/compliance-events/${eventId}`, { status: "completed", completedDate: today });
+    await updateComplianceEvent(eventId, { status: "completed", completedDate: today } as any);
     loadData();
   }
 

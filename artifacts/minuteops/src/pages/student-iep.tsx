@@ -12,7 +12,15 @@ import {
   Circle, Printer, UserPlus, ClipboardList as ClipboardListIcon, Video, MapPin
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import {
+  getStudent, listIepGoals, listProgressReports, listProgramTargets,
+  listBehaviorTargets, listIepDocuments, listAccommodations, listTeamMeetings,
+  autoCreateIepGoals, createIepGoal, generateProgressReport, updateProgressReport,
+  amendIepDocument, updateIepDocument, createIepDocument,
+  createAccommodation, deleteAccommodation, updateTeamMeeting, createTeamMeeting,
+  deleteTeamMeeting, listGoalBank, listParentContacts, createParentContact,
+  customFetch,
+} from "@workspace/api-client-react";
 
 
 
@@ -182,14 +190,14 @@ export default function StudentIepPage() {
   const loadData = useCallback(async () => {
     try {
       const [s, g, r, pt, bt, docs, accs, mtgs] = await Promise.all([
-        apiGet(`/api/students/${studentId}`).catch(() => null),
-        apiGet(`/api/students/${studentId}/iep-goals`),
-        apiGet(`/api/students/${studentId}/progress-reports`),
-        apiGet(`/api/students/${studentId}/program-targets`),
-        apiGet(`/api/students/${studentId}/behavior-targets`),
-        apiGet(`/api/students/${studentId}/iep-documents`),
-        apiGet(`/api/students/${studentId}/accommodations`),
-        apiGet(`/api/students/${studentId}/team-meetings`),
+        getStudent(studentId).catch(() => null),
+        listIepGoals(studentId),
+        listProgressReports(studentId),
+        listProgramTargets(studentId),
+        listBehaviorTargets(studentId),
+        listIepDocuments(studentId),
+        listAccommodations(studentId),
+        listTeamMeetings(studentId),
       ]);
       setStudent(s as Student | null);
       setGoals(Array.isArray(g) ? g : []);
@@ -209,7 +217,7 @@ export default function StudentIepPage() {
 
   async function autoCreateGoals() {
     setAutoCreating(true);
-    await apiPost(`/api/students/${studentId}/iep-goals/auto-create`, { startDate: new Date().toISOString().split("T")[0] });
+    await autoCreateIepGoals(studentId, { startDate: new Date().toISOString().split("T")[0] });
     await loadData();
     setAutoCreating(false);
   }
@@ -603,7 +611,7 @@ function AddGoalModal({ studentId, programTargets, behaviorTargets, existingGoal
     setSaving(true);
     try {
       const goalNumber = existingGoals.filter(g => g.goalArea === goalArea).length + 1;
-      await apiPost(`/api/students/${studentId}/iep-goals`, {
+      await createIepGoal(studentId, {
           goalArea, goalNumber, annualGoal: annualGoal.trim(),
           baseline: baseline || null, targetCriterion: targetCriterion || null,
           measurementMethod: measurementMethod || null, serviceArea: serviceArea || null,
@@ -735,7 +743,7 @@ function GenerateReportModal({ studentId, onClose, onGenerated }: {
 
   async function generate() {
     setGenerating(true);
-    const report = await apiPost(`/api/students/${studentId}/progress-reports/generate`, { periodStart, periodEnd, reportingPeriod });
+    const report = await generateProgressReport(studentId, { periodStart, periodEnd, reportingPeriod });
     onGenerated(report as ProgressReport);
     setGenerating(false);
   }
@@ -808,7 +816,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
       if (idx >= 0) updatedGoals[idx] = { ...updatedGoals[idx], narrative: narrativeText };
     }
 
-    await apiPatch(`/api/progress-reports/${report.id}`, {
+    await updateProgressReport(report.id, {
         overallSummary: summaryText,
         recommendations: recommendationsText,
         parentNotes: parentNotesText || null,
@@ -827,7 +835,7 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
 
   async function finalizeReport() {
     setSaving(true);
-    await apiPatch(`/api/progress-reports/${report.id}`, { status: "final" });
+    await updateProgressReport(report.id, { status: "final" });
     onUpdated({ status: "final" });
     setSaving(false);
   }
@@ -1160,7 +1168,7 @@ function AmendButton({ studentId, docId, onAmended }: { studentId: number; docId
     if (!reason.trim()) return;
     setSubmitting(true);
     try {
-      await apiPost(`/api/students/${studentId}/iep-documents/${docId}/amend`, { amendmentReason: reason.trim() });
+      await amendIepDocument(studentId, docId, { amendmentReason: reason.trim() });
       setShowDialog(false);
       setReason("");
       onAmended();
@@ -1236,9 +1244,9 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
     setSaving(true);
     try {
       if (activeDoc) {
-        await apiPatch(`/api/iep-documents/${activeDoc.id}`, form);
+        await updateIepDocument(activeDoc.id, form);
       } else {
-        await apiPost(`/api/students/${studentId}/iep-documents`, { ...form, studentId });
+        await createIepDocument(studentId, { ...form, studentId });
       }
       setEditing(false);
       onSaved();
@@ -1476,7 +1484,7 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
     if (!description.trim()) return;
     setSaving(true);
     try {
-      await apiPost(`/api/students/${studentId}/accommodations`, {
+      await createAccommodation(studentId, {
           category, description: description.trim(),
           setting: setting || null, frequency: frequency || null, provider: provider || null,
         });
@@ -1491,7 +1499,7 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
 
   async function removeAccommodation(id: number) {
     try {
-      await apiDelete(`/api/accommodations/${id}`);
+      await deleteAccommodation(id);
       onSaved();
     } catch { toast.error("Failed to remove accommodation"); }
   }
@@ -1607,7 +1615,7 @@ function MeetingCard({ meeting, onSaved, onDelete }: {
   async function patch(updates: Partial<TeamMeeting>) {
     setSaving(true);
     try {
-      const updated = await apiPatch(`/api/team-meetings/${m.id}`, updates);
+      const updated = await updateTeamMeeting(m.id, updates);
       setM(prev => ({ ...prev, ...(updated as Partial<TeamMeeting>) }));
       onSaved();
     } catch { toast.error("Failed to save changes"); }
@@ -2003,7 +2011,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
     if (!form.scheduledDate) return;
     setSaving(true);
     try {
-      await apiPost(`/api/students/${studentId}/team-meetings`, {
+      await createTeamMeeting(studentId, {
           meetingType: form.meetingType,
           scheduledDate: form.scheduledDate,
           scheduledTime: form.scheduledTime || null,
@@ -2023,7 +2031,7 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
 
   async function deleteMeeting(id: number) {
     try {
-      await apiDelete(`/api/team-meetings/${id}`);
+      await deleteTeamMeeting(id);
       onSaved();
       toast.success("Meeting deleted");
     } catch {
@@ -2144,7 +2152,7 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
   const [adding, setAdding] = useState<number | null>(null);
 
   useEffect(() => {
-    apiGet("/api/goal-bank").then(d => {
+    listGoalBank().then(d => {
       setAllGoals(Array.isArray(d) ? d : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -2163,7 +2171,7 @@ function GoalBankModal({ studentId, existingGoals, onClose, onGoalAdded }: {
   async function addGoalToStudent(g: GoalBankEntry) {
     setAdding(g.id);
     try {
-      await apiPost(`/api/students/${studentId}/iep-goals`, {
+      await createIepGoal(studentId, {
         goalArea: g.goalArea,
         annualGoal: g.goalText,
         benchmarks: g.benchmarkText || null,
@@ -2240,7 +2248,7 @@ function IepCompletenessIndicator({ studentId, docId }: { studentId: number; doc
   const [data, setData] = useState<CompletenessData | null>(null);
 
   useEffect(() => {
-    apiGet(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d as CompletenessData))
+    customFetch<CompletenessData>(`/api/students/${studentId}/iep-documents/${docId}/completeness`).then(d => setData(d))
       .catch(() => {});
   }, [studentId, docId]);
 
@@ -2290,7 +2298,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiGet(`/api/students/${studentId}/parent-contacts`).catch(() => []).then(d => setContacts(Array.isArray(d) ? d : []))
+    listParentContacts(studentId).catch(() => []).then(d => setContacts(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [studentId]);
@@ -2299,7 +2307,7 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
     if (!form.subject.trim()) return;
     setSaving(true);
     try {
-      const res = await apiPost(`/api/students/${studentId}/parent-contacts`, form);
+      const res = await createParentContact(studentId, form);
       setContacts(prev => [res, ...prev]);
       setShowAdd(false);
       setForm({ contactType: "progress_update", contactDate: new Date().toISOString().split("T")[0],

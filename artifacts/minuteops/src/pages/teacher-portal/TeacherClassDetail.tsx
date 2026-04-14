@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, Award, Bell, Plus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost } from "@/lib/api";
+import { getClass, getClassRoster, listClassAssignments, listAnnouncements, createAssignment, getGradebook } from "@workspace/api-client-react";
 
 export default function TeacherClassDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,10 +21,10 @@ export default function TeacherClassDetail() {
   const reload = () => {
     if (!id) return;
     Promise.all([
-      apiGet(`/api/classes/${id}`),
-      apiGet(`/api/classes/${id}/roster`),
-      apiGet(`/api/classes/${id}/assignments`),
-      apiGet(`/api/classes/${id}/announcements`),
+      getClass(Number(id)),
+      getClassRoster(Number(id)),
+      listClassAssignments(Number(id)),
+      listAnnouncements(Number(id)),
     ]).then(([c, r, a, ann]) => {
       setCls(c);
       setRoster(r);
@@ -166,7 +166,7 @@ function CreateAssignmentForm({ classId, teacherId, onCreated }: { classId: numb
     if (!title.trim()) { toast.error("Title required"); return; }
     setCreating(true);
     try {
-      await apiPost(`/api/classes/${classId}/assignments`, { title, assignmentType: type, pointsPossible: Number(points), dueDate, assignedDate: new Date().toISOString().split("T")[0] });
+      await createAssignment(classId, { title, assignmentType: type, pointsPossible: Number(points), dueDate, assignedDate: new Date().toISOString().split("T")[0] });
       toast.success("Assignment created!");
       setTitle(""); setDueDate(""); setOpen(false);
       onCreated();
@@ -208,7 +208,7 @@ function GradebookView({ classId }: { classId: number }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet(`/api/classes/${classId}/gradebook`).then(d => {
+    getGradebook(classId).then(d => {
       setData(d);
       setLoading(false);
     });
