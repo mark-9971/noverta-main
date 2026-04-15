@@ -102,8 +102,21 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
       res.status(403).json({ error: "Only platform administrators can change subscription tier" });
       return;
     }
-    if (req.body.tier !== undefined) updateData.tier = req.body.tier;
-    if (req.body.tierOverride !== undefined) updateData.tierOverride = req.body.tierOverride;
+    const VALID_TIERS = ["essentials", "professional", "enterprise"] as const;
+    if (req.body.tier !== undefined) {
+      if (!VALID_TIERS.includes(req.body.tier)) {
+        res.status(400).json({ error: `Invalid tier value. Must be one of: ${VALID_TIERS.join(", ")}` });
+        return;
+      }
+      updateData.tier = req.body.tier;
+    }
+    if (req.body.tierOverride !== undefined) {
+      if (req.body.tierOverride !== null && !VALID_TIERS.includes(req.body.tierOverride)) {
+        res.status(400).json({ error: `Invalid tierOverride value. Must be null or one of: ${VALID_TIERS.join(", ")}` });
+        return;
+      }
+      updateData.tierOverride = req.body.tierOverride;
+    }
   }
 
   const [district] = await db.update(districtsTable).set(updateData).where(eq(districtsTable.id, id)).returning();

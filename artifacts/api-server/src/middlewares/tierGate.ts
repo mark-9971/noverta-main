@@ -55,7 +55,7 @@ export function requireTierAccess(featureKey: FeatureKey) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const auth = getAuth(req);
     if (!auth?.userId) {
-      next();
+      res.status(401).json({ error: "Unauthenticated", code: "UNAUTHENTICATED" });
       return;
     }
 

@@ -411,7 +411,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { role, user, isDevMode, isPlatformAdmin } = useRole();
   const { typedFilter } = useSchoolContext();
   const { theme } = useTheme();
-  const { hasAccess, getFeatureInfo } = useTier();
+  const { hasAccess, getFeatureInfo, loading: tierLoading } = useTier();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
   const config = roleConfig[role] ?? roleConfig["sped_teacher"];
@@ -576,7 +576,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
                       const fk = item.featureKey;
-                      const isItemLocked = fk ? !hasAccess(fk) : false;
+                      const isItemLocked = fk && !tierLoading ? !hasAccess(fk) : false;
                       const tierInfo = fk && isItemLocked ? getFeatureInfo(fk) : null;
                       return (
                         <NavItemRow
