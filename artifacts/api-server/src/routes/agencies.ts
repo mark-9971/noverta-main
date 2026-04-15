@@ -243,9 +243,28 @@ router.post("/agencies/:id/staff", adminOnly, async (req: Request, res: Response
     const agencyAccess = await assertAgencyAccess(req, res, agencyId);
     if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
+    const districtId = agencyAccess.districtId;
+    if (districtId) {
+      const [staffMember] = await db.select({ id: staffTable.id })
+        .from(staffTable)
+        .innerJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+        .where(and(eq(staffTable.id, staffId), eq(schoolsTable.districtId, districtId)))
+        .limit(1);
+      if (!staffMember) {
+        res.status(403).json({ error: "Staff member does not belong to this district" });
+        return;
+      }
+    }
+
     const [link] = await db.insert(agencyStaffTable)
       .values({ agencyId, staffId })
+      .onConflictDoNothing()
       .returning();
+
+    if (!link) {
+      res.status(200).json({ message: "Staff already linked to agency" });
+      return;
+    }
 
     logAudit(req, {
       action: "create",
@@ -468,7 +487,7 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
   }
 });
 
-async function attributeUnlinkedSessions(): Promise<number> {
+async function attributeUnlinkedSessions(districtId: number): Promise<number> {
   const activeContracts = await db.select({
     id: agencyContractsTable.id,
     agencyId: agencyContractsTable.agencyId,
@@ -477,9 +496,11 @@ async function attributeUnlinkedSessions(): Promise<number> {
     endDate: agencyContractsTable.endDate,
   })
     .from(agencyContractsTable)
+    .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
     .where(and(
       eq(agencyContractsTable.status, "active"),
       isNull(agencyContractsTable.deletedAt),
+      eq(agenciesTable.districtId, districtId),
     ));
 
   if (activeContracts.length === 0) return 0;
@@ -543,7 +564,9 @@ async function attributeUnlinkedSessions(): Promise<number> {
 
 router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const attributed = await attributeUnlinkedSessions();
+    const districtId = await requireDistrictId(req, res);
+    if (!districtId) return;
+    const attributed = await attributeUnlinkedSessions(districtId);
     res.json({ attributed, message: `Attributed ${attributed} session(s) to contracts` });
   } catch (err) {
     console.error("Error reconciling sessions:", err);
@@ -555,7 +578,7 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
   try {
     const districtId = await requireDistrictId(req, res);
     if (!districtId) return;
-    await attributeUnlinkedSessions();
+    await attributeUnlinkedSessions(districtId);
 
     const conditions = [
       isNull(agencyContractsTable.deletedAt),
@@ -688,7 +711,7 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
       .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, agencyContractsTable.serviceTypeId))
       .where(and(...alertConditions));
 
-    await attributeUnlinkedSessions();
+    await attributeUnlinkedSessions(districtId);
 
     const contractIds = contracts.map(c => c.id);
     const linkageTotals = contractIds.length > 0

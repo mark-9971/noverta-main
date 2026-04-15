@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { agenciesTable } from "./agencies";
@@ -12,6 +12,7 @@ export const agencyStaffTable = pgTable("agency_staff", {
 }, (table) => [
   index("as_agency_idx").on(table.agencyId),
   index("as_staff_idx").on(table.staffId),
+  uniqueIndex("as_agency_staff_uniq").on(table.agencyId, table.staffId),
 ]);
 
 export const insertAgencyStaffSchema = createInsertSchema(agencyStaffTable).omit({ id: true, createdAt: true });
