@@ -29,6 +29,7 @@ interface QueryParams {
   schoolId?: number;
   dateFrom?: string;
   dateTo?: string;
+  spedOnly?: boolean;
 }
 
 interface StudentRow {
@@ -109,6 +110,21 @@ interface SimsExportRow {
   serviceCategories: string;
   totalMonthlyMinutes: number;
   esyEligible: string;
+}
+
+interface SimsServiceRow {
+  id: number;
+  studentExternalId: string;
+  studentLastName: string;
+  studentFirstName: string;
+  schoolCode: string;
+  serviceName: string;
+  serviceCategory: string;
+  deliveryType: string;
+  setting: string;
+  requiredMinutes: number;
+  intervalType: string;
+  monthlyMinutes: number;
 }
 
 interface ColumnDef {
@@ -280,11 +296,16 @@ async function fetchStudentsWithIep(params: QueryParams): Promise<EnrichedStuden
     serviceMap.get(s.studentId)!.push(s);
   }
 
-  return students.map((s) => ({
+  const enriched = students.map((s) => ({
     ...s,
     iep: iepMap.get(s.id) ?? null,
     services: serviceMap.get(s.id) ?? [],
   }));
+
+  if (params.spedOnly) {
+    return enriched.filter((s) => s.iep !== null);
+  }
+  return enriched;
 }
 
 const ideaChildCountTemplate: ReportTemplate<IdeaExportRow> = {
@@ -325,7 +346,7 @@ const ideaChildCountTemplate: ReportTemplate<IdeaExportRow> = {
     return warnings;
   },
   async query(params: QueryParams): Promise<IdeaExportRow[]> {
-    const data = await fetchStudentsWithIep(params);
+    const data = await fetchStudentsWithIep({ ...params, spedOnly: true });
     const refDate = new Date().toISOString().slice(0, 10);
     return data.map((s) => {
       const weeklyMinutes = s.services.reduce((total: number, svc) => {
@@ -399,7 +420,7 @@ const maSimsTemplate: ReportTemplate<SimsExportRow> = {
     return warnings;
   },
   async query(params: QueryParams): Promise<SimsExportRow[]> {
-    const data = await fetchStudentsWithIep(params);
+    const data = await fetchStudentsWithIep({ ...params, spedOnly: true });
     return data.map((s) => {
       const monthlyMinutes = s.services.reduce((total: number, svc) => {
         if (svc.intervalType === "monthly") return total + svc.requiredMinutes;
@@ -437,11 +458,72 @@ const maSimsTemplate: ReportTemplate<SimsExportRow> = {
   },
 };
 
-type AnyReportTemplate = ReportTemplate<IdeaExportRow> | ReportTemplate<SimsExportRow>;
+const maSimsServiceTemplate: ReportTemplate<SimsServiceRow> = {
+  key: "ma_sims_services",
+  label: "MA SIMS Service Delivery Export",
+  description: "Massachusetts SIMS service delivery file — one row per student per service requirement, for state service reporting.",
+  columns: [
+    { header: "SASID", field: "studentExternalId" },
+    { header: "Student Last Name", field: "studentLastName" },
+    { header: "Student First Name", field: "studentFirstName" },
+    { header: "School Code", field: "schoolCode" },
+    { header: "Service Name", field: "serviceName" },
+    { header: "Service Category", field: "serviceCategory" },
+    { header: "Delivery Type", field: "deliveryType" },
+    { header: "Setting", field: "setting" },
+    { header: "Required Minutes", field: "requiredMinutes" },
+    { header: "Interval", field: "intervalType" },
+    { header: "Monthly Minutes", field: "monthlyMinutes" },
+  ],
+  validate(rows: SimsServiceRow[]): ValidationWarning[] {
+    const warnings: ValidationWarning[] = [];
+    const seen = new Set<string>();
+    for (const r of rows) {
+      const studentKey = `${r.studentFirstName} ${r.studentLastName}`;
+      if (!r.studentExternalId && !seen.has(studentKey)) {
+        seen.add(studentKey);
+        warnings.push({ studentId: r.id, studentName: studentKey, field: "SASID", message: "Missing SASID — required for SIMS service file", severity: "error" });
+      }
+      if (!r.serviceName) {
+        warnings.push({ studentId: r.id, studentName: studentKey, field: "Service", message: "Service name is blank", severity: "warning" });
+      }
+    }
+    return warnings;
+  },
+  async query(params: QueryParams): Promise<SimsServiceRow[]> {
+    const data = await fetchStudentsWithIep({ ...params, spedOnly: true });
+    const rows: SimsServiceRow[] = [];
+    for (const s of data) {
+      for (const svc of s.services) {
+        let monthlyMinutes = svc.requiredMinutes;
+        if (svc.intervalType === "weekly") monthlyMinutes = svc.requiredMinutes * 4;
+        else if (svc.intervalType === "daily") monthlyMinutes = svc.requiredMinutes * 20;
+        rows.push({
+          id: s.id,
+          studentExternalId: s.externalId ?? "",
+          studentLastName: s.lastName,
+          studentFirstName: s.firstName,
+          schoolCode: s.schoolId ? String(s.schoolId) : "",
+          serviceName: svc.serviceName,
+          serviceCategory: svc.serviceCategory,
+          deliveryType: svc.deliveryType,
+          setting: svc.setting ?? "",
+          requiredMinutes: svc.requiredMinutes,
+          intervalType: svc.intervalType,
+          monthlyMinutes,
+        });
+      }
+    }
+    return rows;
+  },
+};
+
+type AnyReportTemplate = ReportTemplate<IdeaExportRow> | ReportTemplate<SimsExportRow> | ReportTemplate<SimsServiceRow>;
 
 const TEMPLATES: Record<string, AnyReportTemplate> = {
   idea_child_count: ideaChildCountTemplate,
   ma_sims: maSimsTemplate,
+  ma_sims_services: maSimsServiceTemplate,
 };
 
 router.get("/state-reports/templates", requireRoles(...ADMIN_ROLES), async (_req, res): Promise<void> => {
@@ -490,9 +572,10 @@ router.post("/state-reports/validate", requireRoles(...ADMIN_ROLES), async (req,
 
 router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
-    const { reportType, schoolId, dateFrom, dateTo } = req.body as {
+    const { reportType, schoolId, dateFrom, dateTo, forceExport } = req.body as {
       reportType: string;
       schoolId?: number;
+      forceExport?: boolean;
       dateFrom?: string;
       dateTo?: string;
     };
@@ -511,6 +594,17 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
     const allIssues = template.validate(rows);
     const errorCount = allIssues.filter((w) => w.severity === "error").length;
     const warnCount = allIssues.filter((w) => w.severity === "warning").length;
+
+    if (errorCount > 0 && !forceExport) {
+      res.status(422).json({
+        error: "Export blocked — validation errors found",
+        errorCount,
+        warningCount: warnCount,
+        message: `${errorCount} required field error${errorCount !== 1 ? "s" : ""} must be resolved before export. Use "Force Export" to override.`,
+      });
+      return;
+    }
+
     const csv = buildCsv(template.columns, rows);
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const fileName = `${template.key}_${timestamp}.csv`;

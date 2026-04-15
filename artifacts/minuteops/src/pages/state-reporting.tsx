@@ -144,6 +144,7 @@ export default function StateReporting() {
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportBlocked, setExportBlocked] = useState<{ errorCount: number; message: string } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
   const { data: templates, isLoading: templatesLoading } = useQuery<ReportTemplateMeta[]>({
@@ -192,14 +193,22 @@ export default function StateReporting() {
     }
   }, [selectedReport, selectedSchool, dateFrom, dateTo]);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (force = false) => {
     setExporting(true);
+    setExportBlocked(null);
     try {
+      const body = buildRequestBody();
+      if (force) (body as Record<string, unknown>).forceExport = true;
       const res = await authFetch("/api/state-reports/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildRequestBody()),
+        body: JSON.stringify(body),
       });
+      if (res.status === 422) {
+        const data = await res.json() as { errorCount: number; message: string };
+        setExportBlocked(data);
+        return;
+      }
       if (res.ok) {
         const blob = await res.blob();
         const disposition = res.headers.get("Content-Disposition") ?? "";
@@ -301,7 +310,7 @@ export default function StateReporting() {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {templatesLoading ? (
               [...Array(2)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
             ) : templates?.map((t) => (
@@ -371,7 +380,7 @@ export default function StateReporting() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={handleExport}
+                    onClick={() => handleExport(false)}
                     disabled={exporting}
                     className="text-[12px] gap-1.5 h-9 flex-1 bg-emerald-600 hover:bg-emerald-700"
                   >
@@ -396,6 +405,31 @@ export default function StateReporting() {
               )}
             </CardContent>
           </Card>
+
+          {exportBlocked && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-[13px] font-semibold text-red-800">Export Blocked</p>
+                  <p className="text-[12px] text-red-600 mt-0.5">{exportBlocked.message}</p>
+                  <p className="text-[11px] text-red-400 mt-1">
+                    Resolve the errors above, or force-export with incomplete data.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleExport(true)}
+                disabled={exporting}
+                className="text-[12px] gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {exporting ? "Exporting…" : "Force Export (with errors)"}
+              </Button>
+            </div>
+          )}
 
           {validationResult && <ValidationPanel result={validationResult} />}
         </>
