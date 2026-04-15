@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Mail, Globe, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail, Globe, Users, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Guardian {
