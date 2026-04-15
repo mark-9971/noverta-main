@@ -538,10 +538,11 @@ router.delete("/students/:id", async (req, res): Promise<void> => {
 // ─── Enrollment Events ────────────────────────────────────────────────────────
 
 const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
+const ENROLLMENT_READ_ROLES = ["admin", "case_manager", "sped_teacher", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
   const { role: authRole } = getPublicMeta(req);
-  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(authRole ?? "")) {
+  if (!(ENROLLMENT_READ_ROLES as readonly string[]).includes(authRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
