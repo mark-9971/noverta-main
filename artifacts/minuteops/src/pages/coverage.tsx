@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { Redirect } from "wouter";
+import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -588,10 +590,15 @@ function WorkloadTab({ schoolId }: { schoolId?: number | null }) {
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────
+const COVERAGE_ROLES = ["admin", "coordinator", "case_manager"];
+
 export default function CoveragePage() {
+  const { role } = useRole();
   const [tab, setTab] = useState<Tab>("uncovered");
   const { typedFilter } = useSchoolContext();
   const schoolId = (typedFilter as any)?.schoolId ? Number((typedFilter as any).schoolId) : null;
+
+  if (!COVERAGE_ROLES.includes(role)) return <Redirect to="/" />;
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: "uncovered", label: "Uncovered Sessions", icon: AlertTriangle },

@@ -75,28 +75,31 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
     ? params.data.thresholdHours * 60
     : 25 * 60;
 
-  const conditions: any[] = [
-    eq(scheduleBlocksTable.isRecurring, true),
-    isNull(scheduleBlocksTable.deletedAt),
-    // Only count blocks currently in their effective date window
-    sql`(${scheduleBlocksTable.effectiveFrom} IS NULL OR ${scheduleBlocksTable.effectiveFrom} <= CURRENT_DATE)`,
-    sql`(${scheduleBlocksTable.effectiveTo} IS NULL OR ${scheduleBlocksTable.effectiveTo} >= CURRENT_DATE)`,
-  ];
+  // Staff-level conditions (scope to school or district)
+  const staffConditions: any[] = [isNull(staffTable.deletedAt)];
   if (params.success && params.data.schoolId) {
-    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
+    staffConditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
   }
   if (params.success && params.data.districtId) {
-    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+    staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
   }
 
   const activeYearId = await resolveWorkloadYearId(req, params.success ? (params.data.districtId ?? null) : null);
-  if (activeYearId != null) {
-    conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
-  }
 
+  // Block-level join conditions (only active recurring blocks in effective window)
+  const blockJoinConditions = and(
+    eq(scheduleBlocksTable.staffId, staffTable.id),
+    eq(scheduleBlocksTable.isRecurring, true),
+    isNull(scheduleBlocksTable.deletedAt),
+    ...(activeYearId != null ? [eq(scheduleBlocksTable.schoolYearId, activeYearId)] : []),
+    sql`(${scheduleBlocksTable.effectiveFrom} IS NULL OR ${scheduleBlocksTable.effectiveFrom} <= CURRENT_DATE)`,
+    sql`(${scheduleBlocksTable.effectiveTo} IS NULL OR ${scheduleBlocksTable.effectiveTo} >= CURRENT_DATE)`,
+  );
+
+  // LEFT JOIN ensures staff with zero scheduled blocks still appear in the result
   const rows = await db
     .select({
-      staffId: scheduleBlocksTable.staffId,
+      staffId: staffTable.id,
       staffFirst: staffTable.firstName,
       staffLast: staffTable.lastName,
       staffRole: staffTable.role,
@@ -104,9 +107,9 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
       endTime: scheduleBlocksTable.endTime,
       recurrenceType: scheduleBlocksTable.recurrenceType,
     })
-    .from(scheduleBlocksTable)
-    .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
-    .where(and(...conditions));
+    .from(staffTable)
+    .leftJoin(scheduleBlocksTable, blockJoinConditions)
+    .where(and(...staffConditions));
 
   const staffMap = new Map<number, { staffId: number; firstName: string; lastName: string; role: string; totalMinutes: number; blockCount: number }>();
   for (const row of rows) {
@@ -120,6 +123,8 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
         blockCount: 0,
       });
     }
+    // startTime/endTime are null for staff who have no matching blocks (LEFT JOIN null row)
+    if (!row.startTime || !row.endTime) continue;
     const entry = staffMap.get(row.staffId)!;
     const [sh, sm] = row.startTime.split(":").map(Number);
     const [eh, em] = row.endTime.split(":").map(Number);
