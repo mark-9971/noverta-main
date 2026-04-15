@@ -6,11 +6,12 @@ import {
   Clock, MapPin, Play, Square, User, ChevronRight,
   Plus, Minus, Check, X, ArrowLeft, Target, BookOpen,
   AlertTriangle, Hand, Eye, Mic, Sparkles, Save,
-  FileText, Activity, GraduationCap, Shield
+  FileText, Activity, GraduationCap, Shield, Pencil, XCircle, PlusCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { getParaMyDay, paraQuickStartSession, paraStopSession, createSession, getParaStudentTargets } from "@workspace/api-client-react";
+import { QuickLogSheet } from "@/components/quick-log-sheet";
 
 
 interface ScheduleBlock {
@@ -186,6 +187,13 @@ function isUpcoming(block: ScheduleBlock): boolean {
   return now.getHours() * 60 + now.getMinutes() < sh * 60 + sm;
 }
 
+interface QuickLogPrefill {
+  studentId?: number;
+  studentName?: string;
+  serviceTypeId?: number;
+  serviceTypeName?: string;
+}
+
 export default function ParaMyDayPage() {
   const { teacherId } = useRole();
   const [loading, setLoading] = useState(true);
@@ -195,6 +203,10 @@ export default function ParaMyDayPage() {
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [sessionNotes, setSessionNotes] = useState("");
+
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [quickLogPrefill, setQuickLogPrefill] = useState<QuickLogPrefill>({});
+  const [quickLogSkipToMissed, setQuickLogSkipToMissed] = useState(false);
 
   const [studentTargets, setStudentTargets] = useState<{
     goals: IepGoal[];
@@ -393,6 +405,12 @@ export default function ParaMyDayPage() {
     setView("agenda");
   };
 
+  const openQuickLog = (prefill: QuickLogPrefill = {}, skipToMissed = false) => {
+    setQuickLogPrefill(prefill);
+    setQuickLogSkipToMissed(skipToMissed);
+    setQuickLogOpen(true);
+  };
+
   const addTrial = (programTargetId: number, correct: boolean, promptLevel: string) => {
     setTrials(prev => [...prev, { programTargetId, correct, promptLevel }]);
   };
@@ -461,97 +479,186 @@ export default function ParaMyDayPage() {
     );
   }
 
+  const pastUnloggedBlocks = blocks.filter(b => !isCurrentBlock(b) && !isUpcoming(b) && b.studentId);
+
   return (
-    <div className="p-4 max-w-lg mx-auto space-y-4 pb-24">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">My Day</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-          </p>
+    <>
+      <div className="p-4 max-w-lg mx-auto space-y-4 pb-28">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-gray-800">My Day</h1>
+            <p className="text-sm text-gray-400 mt-0.5 truncate">
+              {new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+          </div>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-h-[44px] flex-shrink-0"
+          />
         </div>
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-h-[44px]"
-        />
-      </div>
 
-      {blocks.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-400 text-sm">No sessions scheduled for today.</p>
-            <p className="text-gray-300 text-xs mt-1">Check another day or contact your supervisor.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {blocks.map(block => {
-            const current = isCurrentBlock(block);
-            const upcoming = isUpcoming(block);
-            const isPast = !current && !upcoming;
+        {pastUnloggedBlocks.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-amber-800">
+                {pastUnloggedBlocks.length} earlier session{pastUnloggedBlocks.length > 1 ? "s" : ""} need logging
+              </p>
+              <p className="text-[12px] text-amber-600 mt-0.5">Use the Log or Missed buttons below.</p>
+            </div>
+          </div>
+        )}
 
-            return (
-              <Card
-                key={block.id}
-                className={`transition-all ${current ? "ring-2 ring-emerald-600 shadow-md" : ""} ${isPast ? "opacity-60" : ""}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {current && (
-                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse" />
-                            NOW
-                          </span>
-                        )}
-                        {upcoming && (
-                          <span className="text-[11px] font-medium text-gray-400">UPCOMING</span>
-                        )}
-                      </div>
+        {blocks.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Clock className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-400 text-sm">No sessions scheduled for today.</p>
+              <p className="text-gray-300 text-xs mt-1">Check another day or contact your supervisor.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {blocks.map(block => {
+              const current = isCurrentBlock(block);
+              const upcoming = isUpcoming(block);
+              const isPast = !current && !upcoming;
 
-                      <p className="text-[16px] font-semibold text-gray-800 truncate">
-                        {block.studentName || "Unassigned"}
-                      </p>
-                      <p className="text-[13px] text-gray-500 mt-0.5">
-                        {block.serviceTypeName || block.blockLabel || "Session"}
-                      </p>
+              return (
+                <Card
+                  key={block.id}
+                  className={`transition-all ${current ? "ring-2 ring-emerald-600 shadow-md" : ""} ${isPast && !block.studentId ? "opacity-50" : ""}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          {current && (
+                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse" />
+                              NOW
+                            </span>
+                          )}
+                          {upcoming && (
+                            <span className="text-[11px] font-medium text-gray-400">UPCOMING</span>
+                          )}
+                          {isPast && block.studentId && (
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" />
+                              Needs log
+                            </span>
+                          )}
+                        </div>
 
-                      <div className="flex items-center gap-4 mt-2 text-[12px] text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {formatTime(block.startTime)} – {formatTime(block.endTime)}
-                        </span>
-                        {block.location && (
+                        <p className="text-[16px] font-semibold text-gray-800 truncate">
+                          {block.studentName || "Unassigned"}
+                        </p>
+                        <p className="text-[13px] text-gray-500 mt-0.5">
+                          {block.serviceTypeName || block.blockLabel || "Session"}
+                        </p>
+
+                        <div className="flex items-center gap-4 mt-2 text-[12px] text-gray-400 flex-wrap">
                           <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5" />
-                            {block.location}
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatTime(block.startTime)} – {formatTime(block.endTime)}
                           </span>
-                        )}
+                          {block.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              {block.location}
+                            </span>
+                          )}
+                        </div>
                       </div>
+
+                      {block.studentId && (current || upcoming) && (
+                        <Button
+                          size="lg"
+                          className="bg-emerald-600 hover:bg-emerald-600/90 text-white min-h-[48px] min-w-[48px] px-5 text-[14px] font-semibold rounded-xl shadow-sm flex-shrink-0"
+                          onClick={() => startSession(block)}
+                        >
+                          <Play className="w-4 h-4 mr-1.5" />
+                          Start
+                        </Button>
+                      )}
                     </div>
 
-                    {block.studentId && !isPast && (
-                      <Button
-                        size="lg"
-                        className="bg-emerald-600 hover:bg-emerald-600/90 text-white min-h-[48px] min-w-[48px] px-5 text-[14px] font-semibold rounded-xl shadow-sm flex-shrink-0"
-                        onClick={() => startSession(block)}
-                      >
-                        <Play className="w-5 h-5 mr-1.5" />
-                        Start
-                      </Button>
+                    {block.studentId && isPast && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => openQuickLog({
+                            studentId: block.studentId!,
+                            studentName: block.studentName ?? undefined,
+                            serviceTypeId: block.serviceTypeId ?? undefined,
+                            serviceTypeName: block.serviceTypeName ?? undefined,
+                          })}
+                          className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 active:bg-emerald-700 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Log Session
+                        </button>
+                        <button
+                          onClick={() => openQuickLog({
+                            studentId: block.studentId!,
+                            studentName: block.studentName ?? undefined,
+                            serviceTypeId: block.serviceTypeId ?? undefined,
+                            serviceTypeName: block.serviceTypeName ?? undefined,
+                          }, true)}
+                          className="flex-1 h-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-[13px] font-semibold flex items-center justify-center gap-1.5 active:bg-amber-100 transition-colors"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Missed
+                        </button>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+
+                    {block.studentId && (current || upcoming) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => openQuickLog({
+                            studentId: block.studentId!,
+                            studentName: block.studentName ?? undefined,
+                            serviceTypeId: block.serviceTypeId ?? undefined,
+                            serviceTypeName: block.serviceTypeName ?? undefined,
+                          })}
+                          className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 text-[13px] font-medium flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Quick Log instead
+                        </button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={() => openQuickLog()}
+        className="fixed bottom-6 right-5 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform hover:bg-emerald-700"
+        aria-label="Quick Log session"
+      >
+        <PlusCircle className="w-6 h-6" />
+      </button>
+
+      <QuickLogSheet
+        isOpen={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onSuccess={loadDay}
+        staffId={staffId}
+        prefillStudentId={quickLogPrefill.studentId}
+        prefillStudentName={quickLogPrefill.studentName}
+        prefillServiceTypeId={quickLogPrefill.serviceTypeId}
+        prefillServiceTypeName={quickLogPrefill.serviceTypeName}
+        sessionDate={date}
+        skipToMissed={quickLogSkipToMissed}
+      />
+    </>
   );
 }
 
