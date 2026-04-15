@@ -16,6 +16,11 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /**
+   * Student ID to scope the upload to a specific student's tenant bucket.
+   * Required by the backend in production; omit only in dev/testing contexts.
+   */
+  studentId?: number;
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -55,6 +60,7 @@ interface UseUploadOptions {
  */
 export function useUpload(options: UseUploadOptions = {}) {
   const basePath = options.basePath ?? "/api/storage";
+  const { studentId } = options;
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [progress, setProgress] = useState(0);
@@ -70,6 +76,7 @@ export function useUpload(options: UseUploadOptions = {}) {
           name: file.name,
           size: file.size,
           contentType: file.type || "application/octet-stream",
+          ...(studentId !== undefined ? { studentId } : {}),
         }),
       });
 
@@ -80,7 +87,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [basePath, studentId]
   );
 
   const uploadToPresignedUrl = useCallback(
@@ -145,6 +152,7 @@ export function useUpload(options: UseUploadOptions = {}) {
           name: file.name,
           size: file.size,
           contentType: file.type || "application/octet-stream",
+          ...(studentId !== undefined ? { studentId } : {}),
         }),
       });
 
@@ -159,7 +167,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       };
     },
-    []
+    [basePath, studentId]
   );
 
   return {
