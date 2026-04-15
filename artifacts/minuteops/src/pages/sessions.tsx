@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
+import { QuickLogSheet } from "@/components/quick-log-sheet";
 
 const INITIAL_FORM = {
   studentId: "",
@@ -58,11 +60,13 @@ type GoalFormEntry = {
 };
 
 export default function Sessions() {
+  const { teacherId } = useRole();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 30;
   const [form, setForm] = useState(INITIAL_FORM);
@@ -604,9 +608,19 @@ export default function Sessions() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Session Log</h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
         </div>
-        <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px] flex-shrink-0" onClick={() => setShowAddModal(true)}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-[13px] border-emerald-200 text-emerald-700 hover:bg-emerald-50 hidden sm:flex"
+            onClick={() => setQuickLogOpen(true)}
+          >
+            <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
+          </Button>
+          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -1199,6 +1213,13 @@ export default function Sessions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QuickLogSheet
+        isOpen={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onSuccess={() => refetch()}
+        staffId={teacherId}
+      />
     </div>
   );
 }

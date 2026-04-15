@@ -3,25 +3,27 @@ import { ArrowLeft, X, Search, Check, Clock, AlertTriangle, Zap } from "lucide-r
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 
-const STORAGE_KEY = "trellis_quicklog_v1";
-
 interface QuickLogDefaults {
   recentStudentIds: number[];
   recentServiceTypeIds: number[];
   lastDurationMinutes: number;
 }
 
-function loadDefaults(): QuickLogDefaults {
+function storageKey(staffId: number | null) {
+  return `trellis_quicklog_v1_${staffId ?? "anon"}`;
+}
+
+function loadDefaults(staffId: number | null): QuickLogDefaults {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(staffId));
     if (raw) return JSON.parse(raw) as QuickLogDefaults;
   } catch {}
   return { recentStudentIds: [], recentServiceTypeIds: [], lastDurationMinutes: 30 };
 }
 
-function saveDefaults(defaults: QuickLogDefaults) {
+function saveDefaults(staffId: number | null, defaults: QuickLogDefaults) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+    localStorage.setItem(storageKey(staffId), JSON.stringify(defaults));
   } catch {}
 }
 
@@ -73,6 +75,7 @@ export function QuickLogSheet({
   const [customDuration, setCustomDuration] = useState("");
   const [outcome, setOutcome] = useState<"completed" | "missed" | null>(null);
   const [missedReasonId, setMissedReasonId] = useState<number | null>(null);
+  const [missedReasonLabel, setMissedReasonLabel] = useState<string | null>(null);
   const [makeupNeeded, setMakeupNeeded] = useState(false);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +84,7 @@ export function QuickLogSheet({
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [missedReasons, setMissedReasons] = useState<MissedReason[]>([]);
   const [search, setSearch] = useState("");
-  const [defaults, setDefaults] = useState<QuickLogDefaults>(loadDefaults);
+  const [defaults, setDefaults] = useState<QuickLogDefaults>(() => loadDefaults(staffId));
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +92,7 @@ export function QuickLogSheet({
 
   useEffect(() => {
     if (!isOpen) return;
-    setDefaults(loadDefaults());
+    setDefaults(loadDefaults(staffId));
 
     authFetch("/api/students?limit=500")
       .then((r) => r.json())
@@ -112,10 +115,11 @@ export function QuickLogSheet({
 
   useEffect(() => {
     if (!isOpen) return;
-    const d = loadDefaults();
+    const d = loadDefaults(staffId);
     setDefaults(d);
     setDurationMinutes(d.lastDurationMinutes || 30);
     setMissedReasonId(null);
+    setMissedReasonLabel(null);
     setMakeupNeeded(false);
     setNote("");
     setSearch("");
@@ -151,6 +155,7 @@ export function QuickLogSheet({
     setCustomDuration("");
     setOutcome(null);
     setMissedReasonId(null);
+    setMissedReasonLabel(null);
     setMakeupNeeded(false);
     setNote("");
     setSearch("");
@@ -197,8 +202,9 @@ export function QuickLogSheet({
     else setStep("note");
   };
 
-  const selectReason = (id: number | null) => {
+  const selectReason = (id: number | null, label?: string) => {
     setMissedReasonId(id);
+    setMissedReasonLabel(label ?? null);
     setStep("note");
   };
 
@@ -222,7 +228,14 @@ export function QuickLogSheet({
       serviceTypeId: serviceTypeId ?? null,
       missedReasonId: outcome === "missed" ? (missedReasonId ?? null) : null,
       isMakeup: outcome === "missed" ? makeupNeeded : false,
-      notes: note.trim() || null,
+      notes: (() => {
+        const parts: string[] = [];
+        if (outcome === "missed" && !missedReasonId && missedReasonLabel) {
+          parts.push(`Missed reason: ${missedReasonLabel}`);
+        }
+        if (note.trim()) parts.push(note.trim());
+        return parts.length > 0 ? parts.join(" — ") : null;
+      })(),
       location: null,
     };
 
@@ -241,7 +254,7 @@ export function QuickLogSheet({
           : defaults.recentServiceTypeIds,
         lastDurationMinutes: durationMinutes,
       };
-      saveDefaults(newDefaults);
+      saveDefaults(staffId, newDefaults);
 
       toast.success(outcome === "completed" ? "Session logged!" : "Missed session recorded.");
       reset();
@@ -349,7 +362,6 @@ export function QuickLogSheet({
         {step === "reason" && (
           <ReasonStep
             dbReasons={missedReasons}
-            selectedId={missedReasonId}
             makeupNeeded={makeupNeeded}
             onToggleMakeup={() => setMakeupNeeded((v) => !v)}
             onSelect={selectReason}
@@ -613,14 +625,24 @@ function OutcomeStep({ studentName, durationMinutes, onSelect }: {
   );
 }
 
-function ReasonStep({ dbReasons, selectedId, makeupNeeded, onToggleMakeup, onSelect }: {
+function ReasonStep({ dbReasons, makeupNeeded, onToggleMakeup, onSelect }: {
   dbReasons: MissedReason[];
-  selectedId: number | null;
   makeupNeeded: boolean;
   onToggleMakeup: () => void;
-  onSelect: (id: number | null) => void;
+  onSelect: (id: number | null, label?: string) => void;
 }) {
-  const reasons = dbReasons.length > 0 ? dbReasons : MISSED_QUICK_REASONS.map((r, i) => ({ id: -(i + 1), label: r.label, category: r.category }));
+  const reasons = dbReasons.length > 0
+    ? dbReasons
+    : MISSED_QUICK_REASONS.map((r, i) => ({ id: -(i + 1), label: r.label, category: r.category }));
+  const [localSelectedId, setLocalSelectedId] = useState<number | null>(null);
+  const [localSelectedLabel, setLocalSelectedLabel] = useState<string | null>(null);
+
+  const selectReason = (id: number, label: string) => {
+    const resolvedId = id > 0 ? id : null;
+    setLocalSelectedId(id);
+    setLocalSelectedLabel(label);
+    onSelect(resolvedId, label);
+  };
 
   return (
     <div className="px-4 pt-5 pb-6">
@@ -631,9 +653,9 @@ function ReasonStep({ dbReasons, selectedId, makeupNeeded, onToggleMakeup, onSel
         {reasons.map((r) => (
           <button
             key={r.id}
-            onClick={() => onSelect(r.id > 0 ? r.id : null)}
+            onClick={() => selectReason(r.id, r.label)}
             className={`h-14 rounded-xl px-3 text-[14px] font-medium text-left transition-all active:scale-[0.97] border-2 ${
-              selectedId === r.id || (r.id < 0 && selectedId === null && r.label === "Other")
+              localSelectedId === r.id
                 ? "border-amber-500 bg-amber-50 text-amber-800"
                 : "border-gray-200 bg-gray-50 text-gray-800"
             }`}
@@ -660,7 +682,7 @@ function ReasonStep({ dbReasons, selectedId, makeupNeeded, onToggleMakeup, onSel
       </button>
 
       <button
-        onClick={() => onSelect(selectedId)}
+        onClick={() => onSelect(localSelectedId && localSelectedId > 0 ? localSelectedId : null, localSelectedLabel ?? undefined)}
         className="mt-5 w-full h-14 rounded-xl bg-emerald-600 text-white text-[16px] font-semibold active:bg-emerald-700 transition-colors"
       >
         Continue
