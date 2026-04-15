@@ -189,88 +189,28 @@ const adminNav: NavSection[] = [
   },
 ];
 
-const spedTeacherNav: NavSection[] = [
-  {
-    label: "Overview",
-    icon: LayoutDashboard,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
-      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
-    ],
-  },
-  {
-    label: "My Students",
-    icon: GraduationCap,
-    collapsible: true,
-    items: [
-      { href: "/students", label: "My Students", icon: Users, primary: true },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/evaluations", label: "Evaluations", icon: FileText },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Compliance",
-    icon: ListChecks,
-    collapsible: true,
-    items: [
-      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
-      { href: "/compliance", label: "Service Minutes", icon: Timer },
-    ],
-  },
-  {
-    label: "Service Delivery",
-    icon: Calendar,
-    collapsible: true,
-    items: [
-      { href: "/sessions", label: "My Sessions", icon: Clipboard },
-      { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-    ],
-  },
-  {
-    label: "Clinical",
-    icon: Stethoscope,
-    collapsible: true,
-    items: [
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
-      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
-    ],
-  },
-  {
-    label: "People",
-    icon: Contact,
-    collapsible: true,
-    items: [
-      { href: "/staff", label: "Staff Directory", icon: UserCheck },
-      { href: "/credentialing", label: "Credentialing", icon: GraduationCap, comingSoon: true },
-    ],
-  },
-  {
-    label: "Communication",
-    icon: MessageSquare,
-    collapsible: true,
-    items: [
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
-      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true },
-    ],
-  },
-  {
-    label: "Reports",
-    icon: BarChart3,
-    collapsible: true,
-    items: [
-      { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/analytics", label: "Analytics", icon: PieChart },
-    ],
-  },
-];
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["District", "Admin"]);
+const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
+  "Students": "My Students",
+};
+const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
+  "Student List": "My Students",
+  "Sessions": "My Sessions",
+};
+
+const spedTeacherNav: NavSection[] = adminNav
+  .filter(s => !s.label || !SPED_TEACHER_EXCLUDED_GROUPS.has(s.label))
+  .map(s => {
+    const label = s.label && SPED_TEACHER_LABEL_MAP[s.label] ? SPED_TEACHER_LABEL_MAP[s.label] : s.label;
+    let items = s.items.map(item => ({
+      ...item,
+      label: SPED_TEACHER_ITEM_LABEL_MAP[item.label] ?? item.label,
+    }));
+    if (s.label === "Overview") {
+      items = [...items, { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase }];
+    }
+    return { ...s, label, items };
+  });
 
 const paraNav: NavSection[] = [
   {
