@@ -166,6 +166,7 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
         .returning();
 
       let flaggedIeps = 0;
+      let complianceEventsSeeded = 0;
       if (studentIds.length > 0) {
         // Flag expired IEPs for this district's students only
         const updated = await tx
@@ -179,9 +180,55 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
           ))
           .returning({ id: iepDocumentsTable.id });
         flaggedIeps = updated.length;
+
+        // Seed fresh compliance events for the new year (annual review + 3yr reeval)
+        const activeDocs = await tx
+          .select({
+            studentId: iepDocumentsTable.studentId,
+            iepEndDate: iepDocumentsTable.iepEndDate,
+            iepStartDate: iepDocumentsTable.iepStartDate,
+          })
+          .from(iepDocumentsTable)
+          .where(and(
+            inArray(iepDocumentsTable.studentId, studentIds),
+            eq(iepDocumentsTable.active, true),
+          ));
+
+        const newComplianceEvents: {
+          studentId: number;
+          eventType: string;
+          title: string;
+          dueDate: string;
+          status: string;
+          schoolYearId: number;
+        }[] = [];
+        for (const doc of activeDocs) {
+          newComplianceEvents.push({
+            studentId: doc.studentId,
+            eventType: "annual_review",
+            title: `Annual IEP Review`,
+            dueDate: doc.iepEndDate,
+            status: "upcoming",
+            schoolYearId: newYear.id,
+          });
+          const reevalDate = new Date(doc.iepStartDate);
+          reevalDate.setFullYear(reevalDate.getFullYear() + 3);
+          newComplianceEvents.push({
+            studentId: doc.studentId,
+            eventType: "reeval_3yr",
+            title: `3-Year Reevaluation`,
+            dueDate: reevalDate.toISOString().split("T")[0],
+            status: "upcoming",
+            schoolYearId: newYear.id,
+          });
+        }
+        if (newComplianceEvents.length > 0) {
+          await tx.insert(complianceEventsTable).values(newComplianceEvents);
+          complianceEventsSeeded = newComplianceEvents.length;
+        }
       }
 
-      return { newYear, flaggedIeps };
+      return { newYear, flaggedIeps, complianceEventsSeeded };
     });
 
     invalidateActiveYearCache(districtId);
@@ -190,13 +237,14 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
       action: "create",
       targetTable: "school_years",
       targetId: result.newYear.id,
-      summary: `School year rolled over to ${newLabel}; ${result.flaggedIeps} IEP(s) flagged for annual review`,
+      summary: `School year rolled over to ${newLabel}; ${result.flaggedIeps} IEP(s) flagged; ${result.complianceEventsSeeded} compliance events seeded`,
       newValues: { newLabel, newStartDate, newEndDate },
     });
 
     res.status(201).json({
       newYear: result.newYear,
       flaggedIeps: result.flaggedIeps,
+      complianceEventsSeeded: result.complianceEventsSeeded,
       message: `Rollover to ${newLabel} completed successfully`,
     });
   } catch (err) {

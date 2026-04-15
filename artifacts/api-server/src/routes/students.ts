@@ -81,13 +81,21 @@ router.get("/students", async (req, res): Promise<void> => {
     }
   }
 
-  // schoolYearId is not in the zod schema — read directly from query params
+  // schoolYearId filter: students with an active IEP or any sessions in the given year
+  // (not in zod schema — read directly from query params)
   const rawSchoolYearId = req.query.schoolYearId;
   if (rawSchoolYearId) {
-    conditions.push(sql`EXISTS (
-      SELECT 1 FROM session_logs
-      WHERE student_id = ${studentsTable.id}
-        AND school_year_id = ${Number(rawSchoolYearId)}
+    conditions.push(sql`(
+      EXISTS (
+        SELECT 1 FROM iep_documents
+        WHERE student_id = ${studentsTable.id}
+          AND school_year_id = ${Number(rawSchoolYearId)}
+      )
+      OR EXISTS (
+        SELECT 1 FROM session_logs
+        WHERE student_id = ${studentsTable.id}
+          AND school_year_id = ${Number(rawSchoolYearId)}
+      )
     )`);
   }
 

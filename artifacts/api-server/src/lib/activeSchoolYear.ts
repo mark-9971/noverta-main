@@ -6,6 +6,9 @@ import { sql } from "drizzle-orm";
 const cache = new Map<number, { id: number; expiresAt: number }>();
 const CACHE_TTL = 60_000;
 
+// These queries mirror lib/db/src/migrations/001_backfill_school_year_ids.sql
+// and run idempotently (WHERE school_year_id IS NULL) on each server start
+// to catch any records created before FK propagation was active.
 const BACKFILL_QUERIES = [
   `UPDATE session_logs sl
    SET school_year_id = sy.id
