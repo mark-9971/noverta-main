@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, districtSubscriptionsTable, districtsTable, staffTable } from "@workspace/db";
+import { db, districtSubscriptionsTable, districtsTable, staffTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireMinRole, requirePlatformAdmin } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
@@ -17,24 +17,6 @@ interface StaffCountRow {
   cnt: string | number;
 }
 
-interface StripeProductPriceRow {
-  product_id: string;
-  product_name: string;
-  product_description: string | null;
-  product_metadata: Record<string, string> | string | null;
-  price_id: string;
-  unit_amount: number;
-  currency: string;
-  recurring: { interval: string; interval_count: number } | null;
-}
-
-interface StripeSubscriptionRow {
-  id: string;
-  status: string;
-  current_period_end: number;
-  cancel_at_period_end: boolean;
-  items: unknown;
-}
 
 async function resolveCallerDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
@@ -91,13 +73,13 @@ router.get("/billing/subscription", adminOnly, async (req: Request, res: Respons
 
     const seatsUsed = await countDistrictStaff(districtId);
 
-    let stripeSubscription: StripeSubscriptionRow | null = null;
+    let stripeSubscription: Record<string, unknown> | null = null;
     if (subscription.stripeSubscriptionId) {
       try {
         const result = await db.execute(
           sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscription.stripeSubscriptionId} LIMIT 1`
         );
-        stripeSubscription = (result.rows[0] as StripeSubscriptionRow) || null;
+        stripeSubscription = (result.rows[0] as Record<string, unknown>) || null;
       } catch {
         // stripe schema may not exist yet
       }
@@ -216,58 +198,37 @@ router.post("/billing/portal", adminOnly, async (req: Request, res: Response): P
 
 router.get("/billing/plans", async (_req: Request, res: Response): Promise<void> => {
   try {
-    const result = await db.execute(sql`
-      SELECT
-        p.id as product_id,
-        p.name as product_name,
-        p.description as product_description,
-        p.metadata as product_metadata,
-        pr.id as price_id,
-        pr.unit_amount,
-        pr.currency,
-        pr.recurring
-      FROM stripe.products p
-      JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-      WHERE p.active = true
-      ORDER BY pr.unit_amount ASC
-    `);
+    const plans = await db
+      .select()
+      .from(subscriptionPlansTable)
+      .where(eq(subscriptionPlansTable.isActive, true))
+      .orderBy(subscriptionPlansTable.sortOrder);
 
-    interface PlanOutput {
-      id: string;
-      name: string;
-      description: string | null;
-      metadata: Record<string, string> | null;
-      prices: Array<{
-        id: string;
-        unitAmount: number;
-        currency: string;
-        recurring: { interval: string; interval_count: number } | null;
-      }>;
-    }
+    const formatted = plans.map((plan) => ({
+      id: plan.stripeProductId ?? `plan_${plan.id}`,
+      name: plan.name,
+      description: plan.description,
+      metadata: {
+        tier: plan.tier,
+        seatLimit: String(plan.seatLimit),
+      },
+      prices: [
+        {
+          id: plan.monthlyPriceId ?? "",
+          unitAmount: plan.monthlyPriceCents,
+          currency: "usd",
+          recurring: { interval: "month", interval_count: 1 },
+        },
+        {
+          id: plan.yearlyPriceId ?? "",
+          unitAmount: plan.yearlyPriceCents,
+          currency: "usd",
+          recurring: { interval: "year", interval_count: 1 },
+        },
+      ].filter((p) => p.id),
+    }));
 
-    const productsMap = new Map<string, PlanOutput>();
-    for (const row of result.rows as StripeProductPriceRow[]) {
-      if (!productsMap.has(row.product_id)) {
-        const meta = typeof row.product_metadata === "string"
-          ? JSON.parse(row.product_metadata) as Record<string, string>
-          : (row.product_metadata ?? null);
-        productsMap.set(row.product_id, {
-          id: row.product_id,
-          name: row.product_name,
-          description: row.product_description,
-          metadata: meta,
-          prices: [],
-        });
-      }
-      productsMap.get(row.product_id)!.prices.push({
-        id: row.price_id,
-        unitAmount: row.unit_amount,
-        currency: row.currency,
-        recurring: row.recurring,
-      });
-    }
-
-    res.json({ plans: Array.from(productsMap.values()) });
+    res.json({ plans: formatted });
   } catch (err) {
     console.error("Error fetching plans:", err);
     res.json({ plans: [] });

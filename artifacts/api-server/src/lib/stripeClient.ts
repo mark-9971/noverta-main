@@ -76,8 +76,8 @@ export async function getStripeSecretKey(): Promise<string> {
 
 interface StripeSyncInstance {
   processWebhook(payload: Buffer, signature: string): Promise<void>;
-  backfill(): Promise<void>;
-  setupWebhook(): Promise<void>;
+  findOrCreateManagedWebhook(url: string): Promise<void>;
+  syncBackfill(): Promise<void>;
 }
 
 let stripeSync: StripeSyncInstance | null = null;

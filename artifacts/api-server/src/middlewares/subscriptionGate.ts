@@ -5,8 +5,7 @@ import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
 
 const GATED_STATUSES = ["canceled", "unpaid"];
-const GRACE_STATUSES = ["past_due"];
-const ALLOWED_STATUSES = ["active", "trialing"];
+const ALLOWED_STATUSES = ["active", "trialing", "past_due"];
 
 const EXEMPT_PATHS = [
   "/billing/subscription",
@@ -65,14 +64,17 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
   resolveDistrictId(req)
     .then((districtId) => {
       if (!districtId) {
-        next();
+        res.status(403).json({
+          error: "Subscription check failed",
+          code: "DISTRICT_UNRESOLVABLE",
+          message: "Unable to determine your district. Contact your administrator.",
+        });
         return;
       }
 
       return db
         .select({
           status: districtSubscriptionsTable.status,
-          currentPeriodEnd: districtSubscriptionsTable.currentPeriodEnd,
         })
         .from(districtSubscriptionsTable)
         .where(eq(districtSubscriptionsTable.districtId, districtId))
@@ -84,11 +86,6 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
           }
 
           if (ALLOWED_STATUSES.includes(sub.status)) {
-            next();
-            return;
-          }
-
-          if (GRACE_STATUSES.includes(sub.status)) {
             next();
             return;
           }
@@ -106,10 +103,20 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
             return;
           }
 
-          next();
+          res.status(403).json({
+            error: "Subscription status invalid",
+            code: "SUBSCRIPTION_INVALID",
+            status: sub.status,
+            message: "Your subscription is in an invalid state. Please contact support.",
+          });
         });
     })
-    .catch(() => {
-      next();
+    .catch((err) => {
+      console.error("Subscription gate error:", err);
+      res.status(503).json({
+        error: "Service temporarily unavailable",
+        code: "SUBSCRIPTION_CHECK_FAILED",
+        message: "Unable to verify subscription status. Please try again.",
+      });
     });
 }
