@@ -473,6 +473,11 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
   const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
+  if (existing.status !== "open") {
+    res.status(400).json({ error: `Admin review requires incident to be in 'open' status. Current status: '${existing.status}'.` });
+    return;
+  }
+
   const now = new Date().toISOString();
   const [updated] = await db.update(restraintIncidentsTable).set({
     adminReviewedBy: Number(actorStaffId),
@@ -482,6 +487,14 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
     adminSignedAt: signature ? now : null,
     status: "under_review",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  await db.insert(incidentStatusHistoryTable).values({
+    incidentId: id,
+    fromStatus: existing.status,
+    toStatus: "under_review",
+    note: String(notes).trim(),
+    actorStaffId: Number(actorStaffId),
+  });
 
   logAudit(req, {
     action: "update",
@@ -1158,7 +1171,6 @@ router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (
         adminSignedAt: now,
         adminReviewedBy: existing.staffId,
         adminReviewedAt: now.split("T")[0],
-        status: "under_review",
       }).where(eq(restraintIncidentsTable.id, incidentId));
     }
   }

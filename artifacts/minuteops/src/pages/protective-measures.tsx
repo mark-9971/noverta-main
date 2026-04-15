@@ -21,6 +21,7 @@ import {
 } from "recharts";
 import { Link, useSearch } from "wouter";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/auth-fetch";
 
 
 type Incident = {
@@ -1227,7 +1228,7 @@ function IncidentTransitionDialog({
     if (!toStatus) { toast.error("Select a target status"); return; }
     setSaving(true);
     try {
-      const res = await fetch(`/api/protective-measures/incidents/${incident.id}/transition`, {
+      const res = await authFetch(`/api/protective-measures/incidents/${incident.id}/transition`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ toStatus, note: note.trim() }),
