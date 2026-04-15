@@ -60,9 +60,8 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
     let archiveSessionLogs = 0;
     let archiveTeamMeetings = 0;
 
-    let iepsCarryForward = 0;
     if (studentIds.length > 0) {
-      const [[stuCnt], [assignCnt], [iepTotalCnt], [iepExpiredCnt], [iepCarryCnt]] = await Promise.all([
+      const [[stuCnt], [assignCnt], [iepTotalCnt], [iepExpiredCnt]] = await Promise.all([
         db.select({ count: count() }).from(studentsTable)
           .where(and(inArray(studentsTable.id, studentIds), eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt))),
         db.select({ count: count() }).from(staffAssignmentsTable)
@@ -75,17 +74,11 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
             eq(iepDocumentsTable.active, true),
             lte(iepDocumentsTable.iepEndDate, today),
           )),
-        db.select({ count: count() }).from(iepDocumentsTable)
-          .where(and(
-            inArray(iepDocumentsTable.studentId, studentIds),
-            eq(iepDocumentsTable.active, true),
-          )),
       ]);
       activeStudents = stuCnt.count;
       activeAssignments = assignCnt.count;
       iepsTotal = iepTotalCnt.count;
       iepsExpired = iepExpiredCnt.count;
-      iepsCarryForward = iepCarryCnt.count;
 
       if (activeYear) {
         const [[ceCnt], [sbCnt], [slCnt], [tmCnt]] = await Promise.all([
@@ -117,7 +110,6 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
       activeStaffAssignments: activeAssignments,
       iepsTotal,
       iepsExpired,
-      iepsCarryForward,
       archiveComplianceEvents,
       archiveScheduleBlocks,
       archiveSessionLogs,
@@ -174,7 +166,6 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
         .returning();
 
       let flaggedIeps = 0;
-      let iepsCarriedForward = 0;
       let complianceEventsSeeded = 0;
       if (studentIds.length > 0) {
         // Flag expired IEPs for this district's students only
@@ -190,18 +181,9 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
           .returning({ id: iepDocumentsTable.id });
         flaggedIeps = updated.length;
 
-        // Carry forward ALL active IEPs (expired or not) into the new school year.
-        // Expired ones are also moved so admins can see and action them in the
-        // new year's default view (student list filters by iep_documents.school_year_id).
-        const carriedForward = await tx
-          .update(iepDocumentsTable)
-          .set({ schoolYearId: newYear.id })
-          .where(and(
-            inArray(iepDocumentsTable.studentId, studentIds),
-            eq(iepDocumentsTable.active, true),
-          ))
-          .returning({ id: iepDocumentsTable.id });
-        iepsCarriedForward = carriedForward.length;
+        // Note: IEP carry-forward is handled at query time — the student list filters
+        // by iep_end_date >= year.start_date (date-range overlap), so active IEPs are
+        // automatically visible in the new year without mutating historical records.
 
         // Seed fresh compliance events for the new year (annual review + 3yr reeval)
         const activeDocs = await tx
@@ -250,7 +232,7 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
         }
       }
 
-      return { newYear, flaggedIeps, iepsCarriedForward, complianceEventsSeeded };
+      return { newYear, flaggedIeps, complianceEventsSeeded };
     });
 
     invalidateActiveYearCache(districtId);
@@ -259,14 +241,13 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
       action: "create",
       targetTable: "school_years",
       targetId: result.newYear.id,
-      summary: `School year rolled over to ${newLabel}; ${result.flaggedIeps} IEP(s) flagged; ${result.iepsCarriedForward} IEP(s) carried forward; ${result.complianceEventsSeeded} compliance events seeded`,
+      summary: `School year rolled over to ${newLabel}; ${result.flaggedIeps} IEP(s) flagged for review; ${result.complianceEventsSeeded} compliance events seeded`,
       newValues: { newLabel, newStartDate, newEndDate },
     });
 
     res.status(201).json({
       newYear: result.newYear,
       flaggedIeps: result.flaggedIeps,
-      iepsCarriedForward: result.iepsCarriedForward,
       complianceEventsSeeded: result.complianceEventsSeeded,
       message: `Rollover to ${newLabel} completed successfully`,
     });

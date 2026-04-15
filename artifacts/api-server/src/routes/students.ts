@@ -81,15 +81,18 @@ router.get("/students", async (req, res): Promise<void> => {
     }
   }
 
-  // schoolYearId filter: students with an active IEP or any sessions in the given year
-  // (not in zod schema — read directly from query params)
+  // schoolYearId filter: students who had an active IEP overlapping the year OR any
+  // sessions in that year. IEP membership uses date-range overlap (iep_end_date >=
+  // year start_date) rather than iep_documents.school_year_id so that IEP records
+  // never need to be mutated during rollover.
   const rawSchoolYearId = req.query.schoolYearId;
   if (rawSchoolYearId) {
     conditions.push(sql`(
       EXISTS (
         SELECT 1 FROM iep_documents
         WHERE student_id = ${studentsTable.id}
-          AND school_year_id = ${Number(rawSchoolYearId)}
+          AND active = true
+          AND iep_end_date >= (SELECT start_date FROM school_years WHERE id = ${Number(rawSchoolYearId)})
       )
       OR EXISTS (
         SELECT 1 FROM session_logs
