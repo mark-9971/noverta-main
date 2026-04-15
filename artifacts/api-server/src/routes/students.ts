@@ -697,11 +697,47 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
 
-  const [updated] = await db
-    .update(enrollmentEventsTable)
-    .set(updates)
-    .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)))
-    .returning();
+  const LIFECYCLE_STATUS_PATCH: Record<string, string> = {
+    enrolled: "active",
+    reactivated: "active",
+    transferred_in: "active",
+    withdrawn: "inactive",
+    suspended: "inactive",
+    leave_of_absence: "inactive",
+    transferred_out: "transferred",
+    graduated: "graduated",
+  };
+
+  const updated = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ eventType: enrollmentEventsTable.eventType, eventDate: enrollmentEventsTable.eventDate })
+      .from(enrollmentEventsTable)
+      .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)));
+    if (!current) return null;
+
+    const [ev] = await tx
+      .update(enrollmentEventsTable)
+      .set(updates)
+      .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)))
+      .returning();
+
+    const effectiveType = updates.eventType ?? current.eventType;
+    const effectiveDate = updates.eventDate ?? current.eventDate;
+    const newStatus = LIFECYCLE_STATUS_PATCH[effectiveType];
+    if (newStatus && (updates.eventType !== undefined || updates.eventDate !== undefined)) {
+      if (newStatus === "active") {
+        await tx.update(studentsTable)
+          .set({ status: "active", enrolledAt: effectiveDate, withdrawnAt: null })
+          .where(and(eq(studentsTable.id, studentId), isNull(studentsTable.deletedAt)));
+      } else {
+        await tx.update(studentsTable)
+          .set({ status: newStatus, withdrawnAt: effectiveDate })
+          .where(and(eq(studentsTable.id, studentId), isNull(studentsTable.deletedAt)));
+      }
+    }
+
+    return ev;
+  });
 
   if (!updated) { res.status(404).json({ error: "Event not found" }); return; }
 
