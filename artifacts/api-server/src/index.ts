@@ -1,6 +1,26 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
+import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
+
+async function backfillDistrictSubscriptions() {
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO district_subscriptions (district_id, plan_tier, seat_limit, billing_cycle, status)
+      SELECT d.id, 'trial', 10, 'monthly', 'trialing'
+      FROM districts d
+      LEFT JOIN district_subscriptions ds ON ds.district_id = d.id
+      WHERE ds.id IS NULL
+    `);
+    const count = (result as { rowCount?: number }).rowCount ?? 0;
+    if (count > 0) {
+      logger.info({ count }, 'Backfilled district subscriptions');
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Failed to backfill district subscriptions (non-fatal)');
+  }
+}
 
 async function initStripe() {
   try {
@@ -58,4 +78,5 @@ app.listen(port, (err) => {
 
   startSisScheduler();
   initStripe();
+  backfillDistrictSubscriptions();
 });

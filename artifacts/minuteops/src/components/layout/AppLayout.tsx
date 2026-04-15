@@ -17,6 +17,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
+import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
@@ -90,7 +91,6 @@ const adminNav: NavSection[] = [
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
       { href: "/setup", label: "Setup Wizard", icon: Rocket },
       { href: "/billing", label: "Billing", icon: CreditCard },
-      { href: "/tenants", label: "Tenant Management", icon: Building2 },
     ],
   },
 ];
@@ -451,7 +451,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <SubscriptionBanner />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">
-          {children}
+          <SubscriptionGate>{children}</SubscriptionGate>
         </main>
 
         {/* Mobile bottom tab bar */}

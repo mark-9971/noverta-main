@@ -23,11 +23,14 @@ export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     apiGet<{ tenants: Tenant[] }>("/billing/tenants")
       .then((res) => setTenants(res.tenants))
-      .catch(() => {})
+      .catch((err: { status?: number }) => {
+        if (err.status === 403) setAccessDenied(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -67,6 +70,19 @@ export default function TenantsPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <Building2 className="h-12 w-12 text-gray-300 mb-4" />
+        <h2 className="text-lg font-semibold text-gray-900">Access Restricted</h2>
+        <p className="text-sm text-gray-500 mt-2 max-w-md">
+          Tenant Management is only available to Trellis platform administrators.
+          Contact Trellis support if you believe you should have access.
+        </p>
       </div>
     );
   }
