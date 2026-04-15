@@ -87,7 +87,6 @@ async function archiveMissingStudents(
   connectionId: number,
   counters: SyncCounters,
 ): Promise<void> {
-  if (seenExternalIds.size === 0) return;
 
   const sisStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
     .from(studentsTable)
@@ -124,6 +123,7 @@ async function upsertStaff(
       ? await db.select({ id: staffTable.id })
           .from(staffTable)
           .where(and(
+            eq(staffTable.externalId, rec.externalId),
             eq(staffTable.sisConnectionId, connectionId),
             isNull(staffTable.deletedAt),
           ))
@@ -151,6 +151,7 @@ async function upsertStaff(
       counters.staffUpdated++;
     } else {
       await db.insert(staffTable).values({
+        externalId: rec.externalId,
         firstName: rec.firstName,
         lastName: rec.lastName,
         email: rec.email,
@@ -218,8 +219,12 @@ export async function runSync(
         counters.errors.push(...studentResult.errors);
         const seenIds = await upsertStudents(studentResult.records, connection.schoolId, connectionId, counters);
 
-        if (syncType === "full" && studentResult.records.length > 0) {
-          await archiveMissingStudents(seenIds, connectionId, counters);
+        if (syncType === "full") {
+          if (studentResult.records.length === 0 && studentResult.errors.length === 0) {
+            counters.warnings.push("SIS returned 0 students — skipping archival as safety guard. If enrollment is truly empty, archive manually.");
+          } else if (studentResult.errors.length === 0) {
+            await archiveMissingStudents(seenIds, connectionId, counters);
+          }
         }
       }
 

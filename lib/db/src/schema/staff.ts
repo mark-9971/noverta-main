@@ -7,6 +7,7 @@ export const staffTable = pgTable("staff", {
   id: serial("id").primaryKey(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  externalId: text("external_id"),
   email: text("email"),
   role: text("role").notNull(), // admin | bcba | provider | para | coordinator | case_manager | teacher
   title: text("title"),

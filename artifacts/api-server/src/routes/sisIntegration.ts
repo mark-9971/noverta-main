@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { sisConnectionsTable, sisSyncLogsTable, districtsTable } from "@workspace/db";
+import { sisConnectionsTable, sisSyncLogsTable, districtsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
+import { getPublicMeta } from "../lib/clerkClaims";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
 import { runSync } from "../lib/sis/syncEngine";
 import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
@@ -13,11 +14,32 @@ const router: IRouter = Router();
 const ADMIN_ROLES = ["admin"] as const;
 const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv", "sftp"]);
 
-async function getAdminDistrictId(): Promise<number | null> {
-  const [district] = await db.select({ id: districtsTable.id })
+async function getDistrictIdForUser(req: Request): Promise<number | null> {
+  const meta = getPublicMeta(req);
+
+  if (meta.staffId) {
+    const [staff] = await db.select({ schoolId: staffTable.schoolId })
+      .from(staffTable)
+      .where(eq(staffTable.id, meta.staffId))
+      .limit(1);
+
+    if (staff?.schoolId) {
+      const [school] = await db.select({ districtId: schoolsTable.districtId })
+        .from(schoolsTable)
+        .where(eq(schoolsTable.id, staff.schoolId))
+        .limit(1);
+
+      if (school?.districtId) return school.districtId;
+    }
+  }
+
+  const districts = await db.select({ id: districtsTable.id })
     .from(districtsTable)
-    .limit(1);
-  return district?.id ?? null;
+    .limit(2);
+
+  if (districts.length === 1) return districts[0].id;
+
+  return null;
 }
 
 async function assertConnectionOwnership(connectionId: number, districtId: number): Promise<typeof sisConnectionsTable.$inferSelect | null> {
@@ -32,9 +54,9 @@ router.get("/sis/providers", requireRoles(...ADMIN_ROLES), async (_req: Request,
   res.json(SUPPORTED_PROVIDERS);
 });
 
-router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
+router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.json([]);
       return;
@@ -66,7 +88,7 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Reques
 router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(400).json({ error: "No district configured. Complete onboarding first." });
       return;
@@ -118,7 +140,7 @@ router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Reques
 router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(403).json({ error: "No district configured" });
       return;
@@ -171,7 +193,7 @@ router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Req
 router.delete("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(403).json({ error: "No district configured" });
       return;
@@ -202,7 +224,7 @@ router.delete("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: 
 router.post("/sis/connections/:id/test", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(403).json({ error: "No district configured" });
       return;
@@ -237,7 +259,7 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
   try {
     const authed = req as AuthedRequest;
     const id = Number(req.params.id);
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(403).json({ error: "No district configured" });
       return;
@@ -276,7 +298,7 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
   try {
     const authed = req as AuthedRequest;
     const id = Number(req.params.id);
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(403).json({ error: "No district configured" });
       return;
@@ -317,7 +339,7 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
 
 router.get("/sis/sync-logs", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getAdminDistrictId();
+    const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.json([]);
       return;
