@@ -34,6 +34,7 @@ import auditLogRouter from "./auditLog";
 import recentlyDeletedRouter from "./recentlyDeleted";
 import onboardingRouter from "./onboarding";
 import evaluationsRouter from "./evaluations";
+import transitionsRouter from "./transitions";
 
 const router: IRouter = Router();
 
@@ -74,5 +75,6 @@ router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
 router.use(evaluationsRouter);
+router.use(transitionsRouter);
 
 export default router;

@@ -40,6 +40,7 @@ const adminNav: NavSection[] = [
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
     ],
   },
   {
@@ -102,6 +103,7 @@ const spedTeacherNav: NavSection[] = [
       { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
     ],
   },
   {

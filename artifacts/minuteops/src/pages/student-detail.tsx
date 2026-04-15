@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout } from "lucide-react";
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
@@ -47,6 +47,7 @@ export default function StudentDetail() {
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
   const [compSummary, setCompSummary] = useState<any>(null);
   const [reEvalStatus, setReEvalStatus] = useState<{ hasEligibility: boolean; reEvalStatus: { nextReEvalDate: string | null; daysUntilReEval: number | null; urgency: string; primaryDisability: string | null; reEvalCycleMonths: number } | null } | null>(null);
+  const [transitionData, setTransitionData] = useState<{ isTransitionAge: boolean; age: number | null; plans: { id: number; planDate: string; status: string; goals?: { id: number; domain: string; goalStatement: string; status: string }[]; agencyReferrals?: { id: number; agencyName: string; status: string }[] }[] } | null>(null);
 
   const [expandedDataSessionId, setExpandedDataSessionId] = useState<number | null>(null);
   const [expandedDataDetail, setExpandedDataDetail] = useState<any>(null);
@@ -89,6 +90,9 @@ export default function StudentDetail() {
     if (studentId) {
       authFetch(`/api/evaluations/student/${studentId}/re-eval-status`)
         .then((d: unknown) => setReEvalStatus(d as typeof reEvalStatus))
+        .catch(() => {});
+      authFetch(`/api/transitions/student/${studentId}`)
+        .then((d: unknown) => setTransitionData(d as typeof transitionData))
         .catch(() => {});
     }
   }, [studentId]);
@@ -1257,6 +1261,55 @@ export default function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      {transitionData?.isTransitionAge && (
+        <Card className="border-gray-200/60">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Sprout className="w-4 h-4 text-emerald-600" /> Transition Planning
+                <span className="text-[10px] font-normal text-gray-400 ml-1">Age {transitionData.age}+</span>
+              </CardTitle>
+              <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800">
+                Manage Transitions →
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {transitionData.plans.length === 0 ? (
+              <div className="py-4 text-center">
+                <p className="text-[12px] text-amber-600 font-medium">No transition plan on file</p>
+                <p className="text-[11px] text-gray-400 mt-1">IDEA requires transition planning for students aged 14+</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transitionData.plans.slice(0, 2).map(plan => (
+                  <div key={plan.id} className="border border-gray-100 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[12px] font-medium text-gray-800">Plan dated {plan.planDate}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${plan.status === "active" ? "bg-emerald-50 text-emerald-700" : plan.status === "draft" ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"}`}>{plan.status}</span>
+                    </div>
+                    {plan.goals && plan.goals.length > 0 && (
+                      <div className="space-y-1">
+                        {plan.goals.slice(0, 3).map(g => (
+                          <div key={g.id} className="flex items-center gap-2 text-[11px]">
+                            <span className={`w-1.5 h-1.5 rounded-full ${g.domain === "education" ? "bg-emerald-400" : g.domain === "employment" ? "bg-blue-400" : "bg-purple-400"}`} />
+                            <span className="text-gray-600 truncate">{g.goalStatement}</span>
+                          </div>
+                        ))}
+                        {plan.goals.length > 3 && <p className="text-[10px] text-gray-400 ml-3.5">+{plan.goals.length - 3} more</p>}
+                      </div>
+                    )}
+                    {plan.agencyReferrals && plan.agencyReferrals.length > 0 && (
+                      <p className="text-[11px] text-gray-400 mt-1">{plan.agencyReferrals.length} agency referral{plan.agencyReferrals.length !== 1 ? "s" : ""}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <BipManagement studentId={studentId} readOnly={bipReadOnly} />
 

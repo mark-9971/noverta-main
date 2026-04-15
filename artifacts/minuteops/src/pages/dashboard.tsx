@@ -16,7 +16,7 @@ import { useRole } from "@/lib/role-context";
 import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
 import { useState, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
-import { FileSearch } from "lucide-react";
+import { FileSearch, Sprout } from "lucide-react";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -69,9 +69,19 @@ export default function Dashboard() {
     overdueReEvaluations: number;
   }
   const [evalDash, setEvalDash] = useState<EvalDashboardSummary | null>(null);
+  interface TransitionDashboardSummary {
+    totalTransitionAge: number;
+    missingPlan: number;
+    approachingTransitionAge: number;
+    overdueFollowups: number;
+  }
+  const [transitionDash, setTransitionDash] = useState<TransitionDashboardSummary | null>(null);
   useEffect(() => {
     authFetch("/api/evaluations/dashboard")
       .then((d: unknown) => setEvalDash(d as EvalDashboardSummary))
+      .catch(() => {});
+    authFetch("/api/transitions/dashboard")
+      .then((d: unknown) => setTransitionDash(d as TransitionDashboardSummary))
       .catch(() => {});
   }, []);
 
@@ -147,6 +157,22 @@ export default function Dashboard() {
             </div>
             <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
               View Evaluations →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0) && (
+        <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
+          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+            <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+              {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+              {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
+              {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
+            </div>
+            <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+              Transition Planning →
             </Link>
           </CardContent>
         </Card>

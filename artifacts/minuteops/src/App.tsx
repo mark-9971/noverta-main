@@ -49,6 +49,7 @@ import RecentlyDeletedPage from "@/pages/recently-deleted";
 import SetupPage from "@/pages/setup";
 import MyCaseloadPage from "@/pages/my-caseload";
 import EvaluationsPage from "@/pages/evaluations";
+import TransitionsPage from "@/pages/transitions";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -124,6 +125,7 @@ function StaffRouter() {
       <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" />
+      <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" />
       <Route component={NotFound} />
     </Switch>
   );
