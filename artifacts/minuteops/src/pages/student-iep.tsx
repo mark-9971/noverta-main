@@ -164,6 +164,43 @@ const ACCOMMODATION_CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
+const ACCOMMODATION_TEMPLATES: Array<{ category: string; description: string; setting?: string; frequency?: string }> = [
+  { category: "instruction", description: "Extended time (1.5×) for assignments and tests", setting: "All settings", frequency: "As needed" },
+  { category: "instruction", description: "Directions repeated or re-read as needed", setting: "All settings", frequency: "As needed" },
+  { category: "instruction", description: "Preferential seating near the teacher or board", setting: "Classroom", frequency: "Daily" },
+  { category: "instruction", description: "Chunked assignments into smaller steps", setting: "All settings", frequency: "Daily" },
+  { category: "instruction", description: "Check-ins for comprehension during instruction", setting: "Classroom", frequency: "Daily" },
+  { category: "instruction", description: "Use of visual supports and graphic organizers", setting: "Classroom", frequency: "Daily" },
+  { category: "instruction", description: "Verbal rather than written responses allowed", setting: "All settings", frequency: "As needed" },
+  { category: "instruction", description: "Reduced assignment length (same learning objectives)", setting: "Classroom", frequency: "Daily" },
+  { category: "assessment", description: "Extended time (1.5×) on all assessments", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "Extended time (2×) on all assessments", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "Separate, distraction-reduced testing environment", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "Test questions read aloud by adult or text-to-speech", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "Scribe — adult records student's oral responses", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "Calculator permitted for computation sections", setting: "Testing", frequency: "As specified" },
+  { category: "assessment", description: "Breaks during assessments as needed", setting: "Testing", frequency: "All assessments" },
+  { category: "assessment", description: "MCAS: approved accessibility and accommodation features per DESE guidelines", setting: "MCAS only", frequency: "MCAS testing" },
+  { category: "environment", description: "Access to quiet work area to reduce distractions", setting: "School building", frequency: "As needed" },
+  { category: "environment", description: "Flexible seating (wobble chair, standing desk)", setting: "Classroom", frequency: "Daily" },
+  { category: "environment", description: "Movement breaks scheduled throughout the day", setting: "All settings", frequency: "Daily" },
+  { category: "environment", description: "Noise-canceling headphones available for use", setting: "All settings", frequency: "As needed" },
+  { category: "materials", description: "Printed copy of notes or teacher slides provided in advance", setting: "Classroom", frequency: "Daily" },
+  { category: "materials", description: "Text-to-speech software (e.g., Read&Write, Kurzweil)", setting: "All settings", frequency: "As needed" },
+  { category: "materials", description: "Word processing with spell-check for written work", setting: "All settings", frequency: "As needed" },
+  { category: "materials", description: "Graphic organizers and visual aids provided", setting: "Classroom", frequency: "Daily" },
+  { category: "materials", description: "Highlighted or color-coded reading materials", setting: "Classroom", frequency: "As needed" },
+  { category: "behavioral", description: "Behavior intervention plan (BIP) in effect — see attached", setting: "All settings", frequency: "Daily" },
+  { category: "behavioral", description: "Positive reinforcement system aligned with BIP goals", setting: "All settings", frequency: "Daily" },
+  { category: "behavioral", description: "Check-in/check-out (CICO) daily self-monitoring", setting: "All settings", frequency: "Daily" },
+  { category: "behavioral", description: "Designated quiet space for emotional regulation breaks", setting: "School building", frequency: "As needed" },
+  { category: "behavioral", description: "Advance notice of transitions and schedule changes", setting: "All settings", frequency: "As needed" },
+  { category: "communication", description: "Augmentative and Alternative Communication (AAC) device access", setting: "All settings", frequency: "Daily" },
+  { category: "communication", description: "Speech-language supports embedded into instruction", setting: "Classroom", frequency: "Daily" },
+  { category: "communication", description: "Visual schedule provided and reviewed at start of day", setting: "All settings", frequency: "Daily" },
+  { category: "communication", description: "Use of picture symbols or communication boards", setting: "All settings", frequency: "As needed" },
+];
+
 function genId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -328,7 +365,10 @@ export default function StudentIepPage() {
       )}
 
       {tab === "meetings" && (
-        <TeamMeetingsSection studentId={studentId} meetings={teamMeetings} onSaved={loadData} />
+        <TeamMeetingsSection
+          studentId={studentId} meetings={teamMeetings} onSaved={loadData}
+          student={student} goals={goals} accommodations={accommodations} iepDocs={iepDocs}
+        />
       )}
 
       {tab === "contacts" && (
@@ -1473,12 +1513,28 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
   studentId: number; accommodations: Accommodation[]; onSaved: () => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateFilter, setTemplateFilter] = useState("all");
   const [saving, setSaving] = useState(false);
   const [category, setCategory] = useState("instruction");
   const [description, setDescription] = useState("");
   const [setting, setSetting] = useState("");
   const [frequency, setFrequency] = useState("");
   const [provider, setProvider] = useState("");
+
+  function applyTemplate(t: typeof ACCOMMODATION_TEMPLATES[0]) {
+    setCategory(t.category);
+    setDescription(t.description);
+    setSetting(t.setting ?? "");
+    setFrequency(t.frequency ?? "");
+    setProvider("");
+    setShowTemplates(false);
+    setShowAdd(true);
+  }
+
+  const filteredTemplates = templateFilter === "all"
+    ? ACCOMMODATION_TEMPLATES
+    : ACCOMMODATION_TEMPLATES.filter(t => t.category === templateFilter);
 
   async function addAccommodation() {
     if (!description.trim()) return;
@@ -1506,19 +1562,66 @@ function AccommodationsSection({ studentId, accommodations, onSaved }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-gray-700">Accommodations & Modifications</h3>
-        <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-3 h-3 mr-1" /> Add Accommodation
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1" onClick={() => { setShowTemplates(!showTemplates); setShowAdd(false); }}>
+            <Sparkles className="w-3 h-3" /> From Template
+          </Button>
+          <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => { setShowAdd(!showAdd); setShowTemplates(false); }}>
+            <Plus className="w-3 h-3 mr-1" /> Add Custom
+          </Button>
+        </div>
       </div>
 
-      {accommodations.length === 0 && !showAdd && (
+      {showTemplates && (
+        <div className="border border-emerald-200 rounded-xl bg-emerald-50/30 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">603 CMR 28 Accommodation Templates</p>
+            <button onClick={() => setShowTemplates(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {[{ value: "all", label: "All" }, ...ACCOMMODATION_CATEGORIES].map(c => (
+              <button key={c.value} onClick={() => setTemplateFilter(c.value)}
+                className={`px-2.5 py-1 text-[11px] rounded-full font-medium border transition-colors ${templateFilter === c.value ? "bg-emerald-700 text-white border-emerald-700" : "bg-white text-gray-600 border-gray-200 hover:border-emerald-300"}`}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {filteredTemplates.map((t, i) => {
+              const alreadyAdded = accommodations.some(a => a.description === t.description && a.active);
+              return (
+                <div key={i} className={`flex items-start justify-between gap-3 p-2.5 rounded-lg bg-white border ${alreadyAdded ? "border-gray-100 opacity-50" : "border-gray-200 hover:border-emerald-200 cursor-pointer"}`}
+                  onClick={() => !alreadyAdded && applyTemplate(t)}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] text-gray-800">{t.description}</p>
+                    <div className="flex gap-3 mt-0.5 text-[10px] text-gray-400">
+                      {t.setting && <span>{t.setting}</span>}
+                      {t.frequency && <span>{t.frequency}</span>}
+                    </div>
+                  </div>
+                  {alreadyAdded
+                    ? <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    : <Plus className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {accommodations.length === 0 && !showAdd && !showTemplates && (
         <div className="text-center py-10 border border-dashed border-gray-200 rounded-lg">
           <p className="text-sm text-gray-400">No accommodations recorded.</p>
-          <Button size="sm" variant="outline" className="mt-3 text-[12px]" onClick={() => setShowAdd(true)}>
-            <Plus className="w-3 h-3 mr-1" /> Add First Accommodation
-          </Button>
+          <div className="flex gap-2 justify-center mt-3">
+            <Button size="sm" variant="outline" className="text-[12px] gap-1" onClick={() => setShowTemplates(true)}>
+              <Sparkles className="w-3 h-3" /> From Template
+            </Button>
+            <Button size="sm" variant="outline" className="text-[12px]" onClick={() => setShowAdd(true)}>
+              <Plus className="w-3 h-3 mr-1" /> Add Custom
+            </Button>
+          </div>
         </div>
       )}
 
@@ -1989,8 +2092,132 @@ function MeetingCard({ meeting, onSaved, onDelete }: {
   );
 }
 
-function TeamMeetingsSection({ studentId, meetings, onSaved }: {
+function generateMeetingPrepPacket(
+  student: Student | null,
+  meetings: TeamMeeting[],
+  goals: IepGoal[],
+  accommodations: Accommodation[],
+  iepDocs: IepDocument[]
+) {
+  const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const name = student ? `${student.firstName} ${student.lastName}` : "Student";
+  const doc = iepDocs.find(d => d.active) ?? iepDocs[0] ?? null;
+  const nextMeeting = [...meetings].filter(m => m.status === "scheduled").sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))[0] ?? null;
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const activeGoals = goals.filter(g => g.active !== false);
+  const activeAccs = accommodations.filter(a => a.active !== false);
+  const RATING_LABELS: Record<string, string> = {
+    mastered: "Mastered", sufficient_progress: "On Track", some_progress: "Making Progress",
+    insufficient_progress: "Needs Support", regression: "Concern", not_addressed: "Not Yet Measured",
+  };
+
+  const html = `<!DOCTYPE html><html lang="en">
+<head><meta charset="UTF-8"><title>Meeting Prep Packet — ${esc(name)}</title>
+<style>
+  body { font-family: Georgia, serif; color: #1a1a1a; max-width: 800px; margin: 0 auto; padding: 40px 32px; font-size: 13px; }
+  h1 { font-size: 22px; font-weight: bold; margin: 0 0 4px; }
+  h2 { font-size: 14px; font-weight: bold; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d1d5db; color: #1a1a1a; }
+  h3 { font-size: 12px; font-weight: bold; margin: 12px 0 4px; color: #374151; }
+  .meta { color: #6b7280; font-size: 12px; margin-bottom: 20px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 8px; }
+  .info-item label { display: block; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; margin-bottom: 2px; letter-spacing: 0.05em; }
+  .info-item span { font-size: 13px; color: #111827; }
+  .goal-box { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin-bottom: 8px; page-break-inside: avoid; }
+  .goal-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .goal-num { font-size: 10px; font-weight: bold; background: #e5e7eb; color: #374151; padding: 2px 6px; border-radius: 4px; }
+  .rating { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+  .rating-ok { background: #d1fae5; color: #065f46; }
+  .rating-progress { background: #dbeafe; color: #1e40af; }
+  .rating-warn { background: #fef3c7; color: #92400e; }
+  .rating-concern { background: #fee2e2; color: #991b1b; }
+  .rating-gray { background: #f3f4f6; color: #4b5563; }
+  .acc-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 12px; }
+  .acc-cat { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; min-width: 90px; margin-top: 1px; }
+  .section-empty { font-size: 12px; color: #9ca3af; font-style: italic; padding: 8px 0; }
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; display: flex; justify-content: space-between; }
+  @media print { body { padding: 20px; } }
+</style></head>
+<body>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+  <div>
+    <h1>${esc(name)}</h1>
+    <p class="meta">IEP Team Meeting Prep Packet · Prepared ${esc(today)}</p>
+  </div>
+  <div style="text-align:right;font-size:11px;color:#9ca3af">
+    <p style="margin:0;font-weight:bold;color:#374151">Trellis</p>
+    <p style="margin:0">CONFIDENTIAL — Team Use Only</p>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-item"><label>Student</label><span>${esc(name)}</span></div>
+  <div class="info-item"><label>Grade</label><span>${esc(student?.grade ?? "—")}</span></div>
+  <div class="info-item"><label>DOB</label><span>${esc(student?.dob ?? "—")}</span></div>
+  ${doc ? `
+  <div class="info-item"><label>IEP Start</label><span>${esc(doc.startDate ?? "—")}</span></div>
+  <div class="info-item"><label>IEP End</label><span>${esc(doc.endDate ?? "—")}</span></div>
+  <div class="info-item"><label>IEP Type</label><span>${esc(doc.iepType ?? "Initial")}</span></div>
+  ` : ""}
+  ${nextMeeting ? `
+  <div class="info-item"><label>Meeting Date</label><span>${esc(nextMeeting.scheduledDate)}</span></div>
+  <div class="info-item"><label>Meeting Type</label><span>${esc(nextMeeting.meetingType.replace(/_/g, " "))}</span></div>
+  <div class="info-item"><label>Format</label><span>${esc(nextMeeting.meetingFormat ?? "—")}</span></div>
+  ` : ""}
+</div>
+
+<h2>Annual IEP Goals (${activeGoals.length})</h2>
+${activeGoals.length === 0 ? `<p class="section-empty">No active goals on record.</p>` : activeGoals.map((g, i) => {
+  const ratingClass = (["mastered", "sufficient_progress"].includes(g.progressRating ?? "") ? "rating-ok"
+    : g.progressRating === "some_progress" ? "rating-progress"
+    : g.progressRating === "insufficient_progress" ? "rating-warn"
+    : g.progressRating === "regression" ? "rating-concern"
+    : "rating-gray");
+  return `<div class="goal-box">
+    <div class="goal-header">
+      <span class="goal-num">Goal ${g.goalNumber ?? i + 1}</span>
+      <strong style="font-size:12px">${esc(g.goalArea ?? "")}</strong>
+      ${g.progressRating ? `<span class="rating ${ratingClass}">${esc(RATING_LABELS[g.progressRating] ?? g.progressRating)}</span>` : ""}
+    </div>
+    <p style="margin:0 0 6px;font-size:12px;color:#374151">${esc(g.annualGoal)}</p>
+    ${g.baseline ? `<p style="margin:0;font-size:11px;color:#6b7280"><strong>Baseline:</strong> ${esc(g.baseline)}</p>` : ""}
+    ${g.targetCriterion ? `<p style="margin:0;font-size:11px;color:#6b7280"><strong>Target:</strong> ${esc(g.targetCriterion)}</p>` : ""}
+    ${g.currentPerformance ? `<p style="margin:0;font-size:11px;color:#059669"><strong>Current Performance:</strong> ${esc(g.currentPerformance)}</p>` : ""}
+  </div>`;
+}).join("")}
+
+<h2>Accommodations & Modifications (${activeAccs.length})</h2>
+${activeAccs.length === 0 ? `<p class="section-empty">No accommodations on record.</p>` : activeAccs.map(a =>
+  `<div class="acc-row"><span class="acc-cat">${esc(a.category)}</span><div><span>${esc(a.description)}</span>${a.setting || a.frequency ? `<span style="color:#9ca3af;font-size:11px"> — ${[a.setting, a.frequency].filter(Boolean).join(", ")}</span>` : ""}</div></div>`
+).join("")}
+
+<h2>Team Notes & Discussion Topics</h2>
+<div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px;min-height:100px;background:#fafafa">
+  <p style="margin:0;font-size:11px;color:#d1d5db;font-style:italic">Use this space to add notes before or during the meeting.</p>
+</div>
+
+<h2>Action Items from This Meeting</h2>
+<div style="border:1px solid #e5e7eb;border-radius:6px;padding:12px;min-height:80px;background:#fafafa">
+  <p style="margin:0;font-size:11px;color:#d1d5db;font-style:italic">Record action items, owners, and due dates.</p>
+</div>
+
+<div class="footer">
+  <span>Generated by Trellis · ${esc(today)}</span>
+  <span>CONFIDENTIAL — For IEP Team Use Only</span>
+</div>
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  }
+}
+
+function TeamMeetingsSection({ studentId, meetings, onSaved, student, goals, accommodations, iepDocs }: {
   studentId: number; meetings: TeamMeeting[]; onSaved: () => void;
+  student?: Student | null; goals?: IepGoal[]; accommodations?: Accommodation[]; iepDocs?: IepDocument[];
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -2041,11 +2268,17 @@ function TeamMeetingsSection({ studentId, meetings, onSaved }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-gray-700">Team Meetings</h3>
-        <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-3 h-3 mr-1" /> Schedule Meeting
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1"
+            onClick={() => generateMeetingPrepPacket(student ?? null, meetings, goals ?? [], accommodations ?? [], iepDocs ?? [])}>
+            <Printer className="w-3 h-3" /> Prep Packet
+          </Button>
+          <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => setShowAdd(!showAdd)}>
+            <Plus className="w-3 h-3 mr-1" /> Schedule Meeting
+          </Button>
+        </div>
       </div>
 
       {openActions.length > 0 && (

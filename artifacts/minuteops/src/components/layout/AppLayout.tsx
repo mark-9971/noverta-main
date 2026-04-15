@@ -8,7 +8,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -96,6 +96,7 @@ const spedTeacherNav: NavSection[] = [
   {
     label: "My Caseload",
     items: [
+      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase, primary: true },
       { href: "/students", label: "My Students", icon: Users, primary: true },
       { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
