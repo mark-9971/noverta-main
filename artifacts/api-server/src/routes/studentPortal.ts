@@ -7,33 +7,83 @@ import {
   scheduleBlocksTable,
   serviceTypesTable,
   staffTable,
+  staffAssignmentsTable,
   studentCheckInsTable,
   studentWinsTable,
   studentsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, gte, isNull } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, type AuthedRequest } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { type TrellisRole } from "../lib/permissions";
 
 const router: IRouter = Router();
 
-function getStudentIdFromRequest(req: Request): number | null {
+const STAFF_ROLES: TrellisRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
+
+async function resolveAuthorizedStudentId(req: Request, res: Response): Promise<number | null> {
   const meta = getPublicMeta(req);
-  if (meta.role === "sped_student" && meta.studentId) {
+  const authed = req as AuthedRequest;
+
+  if (meta.role === "sped_student") {
+    if (!meta.studentId) {
+      res.status(400).json({ error: "No student ID associated with your account" });
+      return null;
+    }
     return meta.studentId;
   }
+
+  if (!STAFF_ROLES.includes(authed.trellisRole)) {
+    res.status(403).json({ error: "Access denied" });
+    return null;
+  }
+
   const idParam = req.query.studentId || req.params.studentId;
-  if (idParam) return Number(idParam);
+  if (!idParam) {
+    res.status(400).json({ error: "Student ID required" });
+    return null;
+  }
+
+  const studentId = Number(idParam);
+  if (isNaN(studentId) || studentId <= 0) {
+    res.status(400).json({ error: "Invalid student ID" });
+    return null;
+  }
+
+  if (authed.trellisRole === "admin" || authed.trellisRole === "coordinator") {
+    return studentId;
+  }
+
+  if (meta.staffId) {
+    const [student] = await db.select({ caseManagerId: studentsTable.caseManagerId })
+      .from(studentsTable)
+      .where(eq(studentsTable.id, studentId))
+      .limit(1);
+
+    if (student?.caseManagerId === meta.staffId) return studentId;
+
+    const [assignment] = await db.select({ id: staffAssignmentsTable.id })
+      .from(staffAssignmentsTable)
+      .where(and(
+        eq(staffAssignmentsTable.staffId, meta.staffId),
+        eq(staffAssignmentsTable.studentId, studentId),
+      ))
+      .limit(1);
+
+    if (assignment) return studentId;
+  }
+
+  res.status(403).json({ error: "You are not authorized to view this student's data" });
   return null;
 }
 
+const VALID_CHECK_IN_TYPES = new Set(["mood", "focus", "behavior", "energy", "self_regulation"]);
+const VALID_WIN_TYPES = new Set(["encouragement", "milestone", "streak", "session_complete"]);
+
 router.get("/student-portal/goals", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const goals = await db.select({
       id: iepGoalsTable.id,
@@ -105,11 +155,8 @@ router.get("/student-portal/goals", async (req: Request, res: Response): Promise
 
 router.get("/student-portal/check-ins", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const limit = Math.min(Number(req.query.limit) || 30, 100);
 
@@ -128,11 +175,8 @@ router.get("/student-portal/check-ins", async (req: Request, res: Response): Pro
 
 router.post("/student-portal/check-ins", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const { checkInType, value, label, note, goalId } = req.body;
 
@@ -141,15 +185,27 @@ router.post("/student-portal/check-ins", async (req: Request, res: Response): Pr
       return;
     }
 
+    const resolvedType = checkInType || "mood";
+    if (!VALID_CHECK_IN_TYPES.has(resolvedType)) {
+      res.status(400).json({ error: `Invalid check-in type. Must be one of: ${[...VALID_CHECK_IN_TYPES].join(", ")}` });
+      return;
+    }
+
+    const numValue = Number(value);
+    if (!Number.isInteger(numValue) || numValue < 1 || numValue > 5) {
+      res.status(400).json({ error: "Value must be an integer between 1 and 5" });
+      return;
+    }
+
     const today = new Date().toISOString().split("T")[0];
 
     const [checkIn] = await db.insert(studentCheckInsTable).values({
       studentId,
-      goalId: goalId || null,
-      checkInType: checkInType || "mood",
-      value: Number(value),
-      label: label || null,
-      note: note || null,
+      goalId: goalId ? Number(goalId) : null,
+      checkInType: resolvedType,
+      value: numValue,
+      label: typeof label === "string" ? label.slice(0, 100) : null,
+      note: typeof note === "string" ? note.slice(0, 500) : null,
       checkInDate: today,
     }).returning();
 
@@ -162,11 +218,8 @@ router.post("/student-portal/check-ins", async (req: Request, res: Response): Pr
 
 router.get("/student-portal/wins", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const limit = Math.min(Number(req.query.limit) || 20, 50);
 
@@ -195,20 +248,40 @@ router.get("/student-portal/wins", async (req: Request, res: Response): Promise<
 
 router.post("/student-portal/wins", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { studentId, title, message, goalArea, type } = req.body;
+    const authed = req as AuthedRequest;
+    const meta = getPublicMeta(req);
 
-    if (!studentId || !title) {
+    if (!STAFF_ROLES.includes(authed.trellisRole)) {
+      res.status(403).json({ error: "Only staff can create wins" });
+      return;
+    }
+
+    if (!meta.staffId) {
+      res.status(400).json({ error: "Staff ID not found in your account" });
+      return;
+    }
+
+    const { studentId: rawStudentId, title, message, goalArea, type } = req.body;
+
+    if (!rawStudentId || !title) {
       res.status(400).json({ error: "studentId and title are required" });
       return;
     }
 
-    const meta = getPublicMeta(req);
-    const staffId = meta.staffId || null;
+    (req.query as Record<string, string>).studentId = String(rawStudentId);
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
+
+    const resolvedType = type || "encouragement";
+    if (!VALID_WIN_TYPES.has(resolvedType)) {
+      res.status(400).json({ error: `Invalid win type. Must be one of: ${[...VALID_WIN_TYPES].join(", ")}` });
+      return;
+    }
 
     const [win] = await db.insert(studentWinsTable).values({
-      studentId: Number(studentId),
-      staffId,
-      type: type || "encouragement",
+      studentId,
+      staffId: meta.staffId,
+      type: resolvedType,
       title,
       message: message || null,
       goalArea: goalArea || null,
@@ -223,11 +296,8 @@ router.post("/student-portal/wins", async (req: Request, res: Response): Promise
 
 router.get("/student-portal/schedule", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const schedule = await db.select({
       id: scheduleBlocksTable.id,
@@ -266,11 +336,8 @@ router.get("/student-portal/schedule", async (req: Request, res: Response): Prom
 
 router.get("/student-portal/streak", async (req: Request, res: Response): Promise<void> => {
   try {
-    const studentId = getStudentIdFromRequest(req);
-    if (!studentId) {
-      res.status(400).json({ error: "Student ID required" });
-      return;
-    }
+    const studentId = await resolveAuthorizedStudentId(req, res);
+    if (!studentId) return;
 
     const recentCheckIns = await db.select({
       checkInDate: studentCheckInsTable.checkInDate,
