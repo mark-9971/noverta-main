@@ -67,12 +67,22 @@ export default function SchoolYearPage() {
   useEffect(() => { loadPreview(); }, []);
 
   function openRolloverDialog() {
-    if (!preview?.currentYear) return;
-    const [currYear] = preview.currentYear.endDate.split("-");
-    const nextYear = String(parseInt(currYear) + 1);
-    setNewLabel(`${parseInt(currYear) + 1}\u2013${String(parseInt(nextYear) + 1).slice(2)}`);
-    setNewStartDate(`${nextYear}-09-01`);
-    setNewEndDate(`${parseInt(nextYear) + 1}-08-31`);
+    if (preview?.currentYear) {
+      // Derive next year from start date of current year (not end) to avoid skipping a year
+      const [currStartYear] = preview.currentYear.startDate.split("-");
+      const nextStart = parseInt(currStartYear) + 1;
+      const nextEnd = nextStart + 1;
+      setNewLabel(`${nextStart}\u2013${String(nextEnd).slice(2)}`);
+      setNewStartDate(`${nextStart}-09-01`);
+      setNewEndDate(`${nextEnd}-08-31`);
+    } else {
+      // Bootstrap: no year exists yet — default to current calendar year's school year
+      const now = new Date();
+      const schoolYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      setNewLabel(`${schoolYearStart}\u2013${String(schoolYearStart + 1).slice(2)}`);
+      setNewStartDate(`${schoolYearStart}-09-01`);
+      setNewEndDate(`${schoolYearStart + 1}-08-31`);
+    }
     setConfirmation("");
     setDialogOpen(true);
   }
@@ -235,9 +245,9 @@ export default function SchoolYearPage() {
         <Button
           onClick={openRolloverDialog}
           className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-          disabled={!preview?.currentYear}
         >
-          <RefreshCw className="w-4 h-4" /> Initiate Rollover
+          <RefreshCw className="w-4 h-4" />
+          {preview?.currentYear ? "Initiate Rollover" : "Create First School Year"}
         </Button>
       </div>
 
@@ -274,13 +284,20 @@ export default function SchoolYearPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-emerald-600" /> Initiate School Year Rollover
+              <RefreshCw className="w-4 h-4 text-emerald-600" />
+              {preview?.currentYear ? "Initiate School Year Rollover" : "Create First School Year"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-              <strong>This action cannot be undone.</strong> The current year will be archived and a new year will become active.
-            </div>
+            {preview?.currentYear ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                <strong>This action cannot be undone.</strong> The current year will be archived and a new year will become active.
+              </div>
+            ) : (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                No school year exists yet. Set the dates below to create the first active year for your district.
+              </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs text-gray-600">New Year Label</Label>
               <Input
