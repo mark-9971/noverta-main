@@ -216,7 +216,7 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     if (students.length === 0) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="Service_Minutes_${start}_${end}.csv"`);
-      res.send(buildCSV(["Student", "Grade", "School", "Service Type", "Mandated Minutes/Week", "Sessions Completed", "Delivered Minutes", "Missed Sessions", "Compliance %"], []));
+      res.send(buildCSV([...SERVICE_MINUTES_HEADERS], []));
       return;
     }
 
@@ -429,7 +429,7 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       res.status(403).json({ error: "Access denied: your account is not assigned to a district" });
       return;
     }
-    if (studentDistrictId !== null && Number(callerDistrictId) !== Number(studentDistrictId)) {
+    if (studentDistrictId === null || Number(callerDistrictId) !== Number(studentDistrictId)) {
       res.status(403).json({ error: "Access denied: student is outside your district" });
       return;
     }

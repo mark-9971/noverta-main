@@ -880,14 +880,16 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
         label: latestReport.reportingPeriod,
         start: latestReport.periodStart,
         end: latestReport.periodEnd,
-        status: latestReport.status,
+        status: parentSafe ? undefined : latestReport.status,
       } : null,
       overallSummary: latestReport?.overallSummary ?? null,
       parentNotes: latestReport?.parentNotes ?? null,
       recommendations: parentSafe ? undefined : latestReport?.recommendations ?? null,
       goalSummaries,
-      servicesSummary,
-      availableReports: reports.map(r => ({
+      servicesSummary: parentSafe
+        ? servicesSummary.map(({ parentFriendly, serviceType }) => ({ serviceType, parentFriendly }))
+        : servicesSummary,
+      availableReports: parentSafe ? undefined : reports.map(r => ({
         id: r.id,
         reportingPeriod: r.reportingPeriod,
         periodStart: r.periodStart,
