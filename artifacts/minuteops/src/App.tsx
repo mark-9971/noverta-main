@@ -48,6 +48,7 @@ import AuditLogPage from "@/pages/audit-log";
 import RecentlyDeletedPage from "@/pages/recently-deleted";
 import SetupPage from "@/pages/setup";
 import MyCaseloadPage from "@/pages/my-caseload";
+import EvaluationsPage from "@/pages/evaluations";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -122,6 +123,7 @@ function StaffRouter() {
       <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
       <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
+      <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" />
       <Route component={NotFound} />
     </Switch>
   );

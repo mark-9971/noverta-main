@@ -33,6 +33,7 @@ import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
 import recentlyDeletedRouter from "./recentlyDeleted";
 import onboardingRouter from "./onboarding";
+import evaluationsRouter from "./evaluations";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(paraRouter);
 router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
+router.use(evaluationsRouter);
 
 export default router;
