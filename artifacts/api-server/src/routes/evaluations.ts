@@ -12,9 +12,27 @@ const router: IRouter = Router();
 
 const evalAccess = requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba");
 
-function calcDeadline(consentDate: string, schoolDays: number = 30): string {
+interface TimelineRule {
+  state: string;
+  schoolDays: number;
+  calendarMultiplier: number;
+  label: string;
+}
+
+const TIMELINE_RULES: Record<string, TimelineRule> = {
+  MA: { state: "Massachusetts", schoolDays: 30, calendarMultiplier: 1.5, label: "603 CMR 28.04 — 30 school days" },
+  IDEA_FEDERAL: { state: "Federal (IDEA)", schoolDays: 60, calendarMultiplier: 1.0, label: "IDEA — 60 calendar days" },
+  CA: { state: "California", schoolDays: 60, calendarMultiplier: 1.0, label: "CA Ed Code — 60 calendar days" },
+  NY: { state: "New York", schoolDays: 60, calendarMultiplier: 1.0, label: "NY — 60 calendar days" },
+  TX: { state: "Texas", schoolDays: 45, calendarMultiplier: 1.0, label: "TX — 45 calendar days" },
+};
+
+const DEFAULT_RULE_KEY = "MA";
+
+function calcDeadline(consentDate: string, ruleKey?: string): string {
+  const rule = TIMELINE_RULES[ruleKey ?? DEFAULT_RULE_KEY] ?? TIMELINE_RULES[DEFAULT_RULE_KEY];
   const d = new Date(consentDate + "T12:00:00");
-  const calendarDays = Math.ceil(schoolDays * 1.5);
+  const calendarDays = Math.ceil(rule.schoolDays * rule.calendarMultiplier);
   d.setDate(d.getDate() + calendarDays);
   return d.toISOString().slice(0, 10);
 }
@@ -26,7 +44,46 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-router.get("/evaluations/referrals", evalAccess, async (req, res): Promise<void> => {
+function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (key in obj) result[key] = obj[key];
+  }
+  return result as Partial<T>;
+}
+
+const REFERRAL_PATCH_FIELDS = [
+  "referralDate", "referralSource", "referralSourceName", "reason",
+  "areasOfConcern", "parentNotifiedDate", "consentRequestedDate",
+  "consentReceivedDate", "consentStatus", "evaluationDeadline",
+  "assignedEvaluatorId", "schoolId", "status", "notes",
+];
+
+const EVALUATION_PATCH_FIELDS = [
+  "evaluationType", "evaluationAreas", "teamMembers", "leadEvaluatorId",
+  "startDate", "dueDate", "completionDate", "meetingDate",
+  "reportSummary", "status", "notes",
+];
+
+const ELIGIBILITY_PATCH_FIELDS = [
+  "meetingDate", "teamMembers", "primaryDisability", "secondaryDisability",
+  "eligible", "determinationBasis", "determinationNotes", "iepRequired",
+  "nextReEvalDate", "reEvalCycleMonths", "status",
+];
+
+router.get("/evaluations/timeline-rules", evalAccess, async (_req, res): Promise<void> => {
+  res.json({
+    rules: Object.entries(TIMELINE_RULES).map(([key, rule]) => ({
+      key,
+      state: rule.state,
+      schoolDays: rule.schoolDays,
+      label: rule.label,
+    })),
+    defaultRule: DEFAULT_RULE_KEY,
+  });
+});
+
+router.get("/evaluations/referrals", evalAccess, async (_req, res): Promise<void> => {
   try {
     const rows = await db.select({
       referral: evaluationReferralsTable,
@@ -54,8 +111,8 @@ router.get("/evaluations/referrals", evalAccess, async (req, res): Promise<void>
       updatedAt: r.referral.updatedAt.toISOString(),
     }));
     res.json(result);
-  } catch (e: any) {
-    console.error("GET /evaluations/referrals error:", e);
+  } catch (err) {
+    console.error("GET /evaluations/referrals error:", err);
     res.status(500).json({ error: "Failed to list referrals" });
   }
 });
@@ -65,7 +122,7 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
     const body = req.body;
     let evaluationDeadline = body.evaluationDeadline ?? null;
     if (body.consentReceivedDate && !evaluationDeadline) {
-      evaluationDeadline = calcDeadline(body.consentReceivedDate, 30);
+      evaluationDeadline = calcDeadline(body.consentReceivedDate, body.timelineRule ?? undefined);
     }
 
     const [row] = await db.insert(evaluationReferralsTable).values({
@@ -88,8 +145,8 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
 
     logAudit(req, { action: "create", targetTable: "evaluation_referrals", targetId: row.id, studentId: body.studentId, summary: `Created referral for student #${body.studentId}` });
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("POST /evaluations/referrals error:", e);
+  } catch (err) {
+    console.error("POST /evaluations/referrals error:", err);
     res.status(500).json({ error: "Failed to create referral" });
   }
 });
@@ -97,25 +154,33 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
 router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const body = req.body;
+    const updates = pick(req.body, REFERRAL_PATCH_FIELDS);
 
-    if (body.consentReceivedDate && !body.evaluationDeadline) {
-      body.evaluationDeadline = calcDeadline(body.consentReceivedDate, 30);
-      if (body.consentStatus === "pending") body.consentStatus = "obtained";
+    if (updates.consentReceivedDate && !updates.evaluationDeadline) {
+      updates.evaluationDeadline = calcDeadline(
+        updates.consentReceivedDate as string,
+        req.body.timelineRule ?? undefined,
+      );
+      if (updates.consentStatus === "pending" || !updates.consentStatus) {
+        updates.consentStatus = "obtained";
+      }
     }
 
-    const [row] = await db.update(evaluationReferralsTable).set(body).where(eq(evaluationReferralsTable.id, id)).returning();
+    const [row] = await db.update(evaluationReferralsTable)
+      .set(updates)
+      .where(eq(evaluationReferralsTable.id, id))
+      .returning();
     if (!row) { res.status(404).json({ error: "Referral not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluation_referrals", targetId: id, studentId: row.studentId, summary: `Updated referral #${id}` });
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("PATCH /evaluations/referrals error:", e);
+  } catch (err) {
+    console.error("PATCH /evaluations/referrals error:", err);
     res.status(500).json({ error: "Failed to update referral" });
   }
 });
 
-router.get("/evaluations", evalAccess, async (req, res): Promise<void> => {
+router.get("/evaluations", evalAccess, async (_req, res): Promise<void> => {
   try {
     const rows = await db.select({
       evaluation: evaluationsTable,
@@ -140,8 +205,8 @@ router.get("/evaluations", evalAccess, async (req, res): Promise<void> => {
       updatedAt: r.evaluation.updatedAt.toISOString(),
     }));
     res.json(result);
-  } catch (e: any) {
-    console.error("GET /evaluations error:", e);
+  } catch (err) {
+    console.error("GET /evaluations error:", err);
     res.status(500).json({ error: "Failed to list evaluations" });
   }
 });
@@ -166,13 +231,15 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
     }).returning();
 
     if (body.referralId) {
-      await db.update(evaluationReferralsTable).set({ status: "evaluation_in_progress" }).where(eq(evaluationReferralsTable.id, body.referralId));
+      await db.update(evaluationReferralsTable)
+        .set({ status: "evaluation_in_progress" })
+        .where(eq(evaluationReferralsTable.id, body.referralId));
     }
 
     logAudit(req, { action: "create", targetTable: "evaluations", targetId: row.id, studentId: body.studentId, summary: `Created evaluation for student #${body.studentId}` });
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("POST /evaluations error:", e);
+  } catch (err) {
+    console.error("POST /evaluations error:", err);
     res.status(500).json({ error: "Failed to create evaluation" });
   }
 });
@@ -180,18 +247,23 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
 router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const [row] = await db.update(evaluationsTable).set(req.body).where(eq(evaluationsTable.id, id)).returning();
+    const updates = pick(req.body, EVALUATION_PATCH_FIELDS);
+
+    const [row] = await db.update(evaluationsTable)
+      .set(updates)
+      .where(eq(evaluationsTable.id, id))
+      .returning();
     if (!row) { res.status(404).json({ error: "Evaluation not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluations", targetId: id, studentId: row.studentId, summary: `Updated evaluation #${id}` });
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("PATCH /evaluations error:", e);
+  } catch (err) {
+    console.error("PATCH /evaluations error:", err);
     res.status(500).json({ error: "Failed to update evaluation" });
   }
 });
 
-router.get("/evaluations/eligibility", evalAccess, async (req, res): Promise<void> => {
+router.get("/evaluations/eligibility", evalAccess, async (_req, res): Promise<void> => {
   try {
     const rows = await db.select({
       determination: eligibilityDeterminationsTable,
@@ -212,8 +284,8 @@ router.get("/evaluations/eligibility", evalAccess, async (req, res): Promise<voi
       updatedAt: r.determination.updatedAt.toISOString(),
     }));
     res.json(result);
-  } catch (e: any) {
-    console.error("GET /evaluations/eligibility error:", e);
+  } catch (err) {
+    console.error("GET /evaluations/eligibility error:", err);
     res.status(500).json({ error: "Failed to list eligibility determinations" });
   }
 });
@@ -245,13 +317,15 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
     }).returning();
 
     if (body.evaluationId) {
-      await db.update(evaluationsTable).set({ status: "completed" }).where(eq(evaluationsTable.id, body.evaluationId));
+      await db.update(evaluationsTable)
+        .set({ status: "completed" })
+        .where(eq(evaluationsTable.id, body.evaluationId));
     }
 
     logAudit(req, { action: "create", targetTable: "eligibility_determinations", targetId: row.id, studentId: body.studentId, summary: `Created eligibility determination for student #${body.studentId}` });
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("POST /evaluations/eligibility error:", e);
+  } catch (err) {
+    console.error("POST /evaluations/eligibility error:", err);
     res.status(500).json({ error: "Failed to create eligibility determination" });
   }
 });
@@ -259,21 +333,71 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
 router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const [row] = await db.update(eligibilityDeterminationsTable).set(req.body).where(eq(eligibilityDeterminationsTable.id, id)).returning();
+    const updates = pick(req.body, ELIGIBILITY_PATCH_FIELDS);
+
+    const [row] = await db.update(eligibilityDeterminationsTable)
+      .set(updates)
+      .where(eq(eligibilityDeterminationsTable.id, id))
+      .returning();
     if (!row) { res.status(404).json({ error: "Eligibility determination not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "eligibility_determinations", targetId: id, studentId: row.studentId, summary: `Updated eligibility determination #${id}` });
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
-  } catch (e: any) {
-    console.error("PATCH /evaluations/eligibility error:", e);
+  } catch (err) {
+    console.error("PATCH /evaluations/eligibility error:", err);
     res.status(500).json({ error: "Failed to update eligibility determination" });
   }
 });
 
-router.get("/evaluations/dashboard", evalAccess, async (req, res): Promise<void> => {
+router.get("/evaluations/student/:studentId/re-eval-status", evalAccess, async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const rows = await db.select()
+      .from(eligibilityDeterminationsTable)
+      .where(and(
+        isNull(eligibilityDeterminationsTable.deletedAt),
+        eq(eligibilityDeterminationsTable.studentId, studentId),
+        eq(eligibilityDeterminationsTable.eligible, true),
+      ))
+      .orderBy(desc(eligibilityDeterminationsTable.meetingDate))
+      .limit(1);
+
+    if (rows.length === 0) {
+      res.json({ hasEligibility: false, reEvalStatus: null });
+      return;
+    }
+
+    const latest = rows[0];
+    const reEvalDaysLeft = latest.nextReEvalDate ? daysUntil(latest.nextReEvalDate) : null;
+    let reEvalUrgency: "ok" | "upcoming" | "overdue" = "ok";
+    if (reEvalDaysLeft !== null) {
+      if (reEvalDaysLeft < 0) reEvalUrgency = "overdue";
+      else if (reEvalDaysLeft <= 90) reEvalUrgency = "upcoming";
+    }
+
+    res.json({
+      hasEligibility: true,
+      reEvalStatus: {
+        determinationId: latest.id,
+        meetingDate: latest.meetingDate,
+        primaryDisability: latest.primaryDisability,
+        nextReEvalDate: latest.nextReEvalDate,
+        reEvalCycleMonths: latest.reEvalCycleMonths,
+        daysUntilReEval: reEvalDaysLeft,
+        urgency: reEvalUrgency,
+      },
+    });
+  } catch (err) {
+    console.error("GET /evaluations/student/:studentId/re-eval-status error:", err);
+    res.status(500).json({ error: "Failed to get re-eval status" });
+  }
+});
+
+router.get("/evaluations/dashboard", evalAccess, async (_req, res): Promise<void> => {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const thirtyDaysOut = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const ninetyDaysOut = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
 
     const [openReferrals] = await db.select({ count: sql<number>`count(*)::int` }).from(evaluationReferralsTable)
       .where(and(isNull(evaluationReferralsTable.deletedAt), eq(evaluationReferralsTable.status, "open")));
@@ -297,7 +421,7 @@ router.get("/evaluations/dashboard", evalAccess, async (req, res): Promise<void>
     const [upcomingReEvals] = await db.select({ count: sql<number>`count(*)::int` }).from(eligibilityDeterminationsTable)
       .where(and(
         isNull(eligibilityDeterminationsTable.deletedAt),
-        lte(eligibilityDeterminationsTable.nextReEvalDate, thirtyDaysOut)
+        lte(eligibilityDeterminationsTable.nextReEvalDate, ninetyDaysOut)
       ));
 
     const [overdueReEvals] = await db.select({ count: sql<number>`count(*)::int` }).from(eligibilityDeterminationsTable)
@@ -320,6 +444,22 @@ router.get("/evaluations/dashboard", evalAccess, async (req, res): Promise<void>
       .orderBy(asc(evaluationReferralsTable.evaluationDeadline))
       .limit(10);
 
+    const upcomingReEvalList = await db.select({
+      determination: eligibilityDeterminationsTable,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+    }).from(eligibilityDeterminationsTable)
+      .leftJoin(studentsTable, eq(studentsTable.id, eligibilityDeterminationsTable.studentId))
+      .where(and(
+        isNull(eligibilityDeterminationsTable.deletedAt),
+        lte(eligibilityDeterminationsTable.nextReEvalDate, ninetyDaysOut),
+        eq(eligibilityDeterminationsTable.eligible, true),
+      ))
+      .orderBy(asc(eligibilityDeterminationsTable.nextReEvalDate))
+      .limit(10);
+
+    const activeTimelineRule = TIMELINE_RULES[DEFAULT_RULE_KEY];
+
     res.json({
       openReferrals: openReferrals.count,
       pendingConsent: pendingConsent.count,
@@ -327,6 +467,11 @@ router.get("/evaluations/dashboard", evalAccess, async (req, res): Promise<void>
       activeEvaluations: activeEvals.count,
       upcomingReEvaluations: upcomingReEvals.count,
       overdueReEvaluations: overdueReEvals.count,
+      timelineRule: {
+        key: DEFAULT_RULE_KEY,
+        label: activeTimelineRule.label,
+        schoolDays: activeTimelineRule.schoolDays,
+      },
       overdueReferralDeadlines: overdueReferralDeadlines.map(r => ({
         id: r.referral.id,
         studentName: r.studentFirstName ? `${r.studentFirstName} ${r.studentLastName}` : "—",
@@ -334,9 +479,16 @@ router.get("/evaluations/dashboard", evalAccess, async (req, res): Promise<void>
         daysOverdue: -daysUntil(r.referral.evaluationDeadline!),
         status: r.referral.status,
       })),
+      upcomingReEvalList: upcomingReEvalList.map(r => ({
+        id: r.determination.id,
+        studentName: r.studentFirstName ? `${r.studentFirstName} ${r.studentLastName}` : "—",
+        nextReEvalDate: r.determination.nextReEvalDate,
+        daysUntilReEval: r.determination.nextReEvalDate ? daysUntil(r.determination.nextReEvalDate) : null,
+        primaryDisability: r.determination.primaryDisability,
+      })),
     });
-  } catch (e: any) {
-    console.error("GET /evaluations/dashboard error:", e);
+  } catch (err) {
+    console.error("GET /evaluations/dashboard error:", err);
     res.status(500).json({ error: "Failed to generate evaluations dashboard" });
   }
 });

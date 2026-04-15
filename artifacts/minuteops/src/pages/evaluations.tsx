@@ -5,14 +5,122 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authFetch } from "@/lib/auth-fetch";
-import { listStudents, listStaff } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/formatters";
 import {
   FileSearch, ClipboardList, Users, Calendar, AlertTriangle,
-  Plus, Save, X, Loader2, ChevronDown, CheckCircle2, Clock,
-  Timer, FileText, Shield, ArrowRight,
+  Plus, Save, Loader2, CheckCircle2, Clock,
+  Timer, Shield,
 } from "lucide-react";
+
+interface StudentOption {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+interface StaffOption {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+interface ReferralRecord {
+  id: number;
+  studentId: number;
+  referralDate: string;
+  referralSource: string;
+  referralSourceName: string | null;
+  reason: string;
+  areasOfConcern: string[];
+  consentRequestedDate: string | null;
+  consentReceivedDate: string | null;
+  consentStatus: string;
+  evaluationDeadline: string | null;
+  assignedEvaluatorId: number | null;
+  status: string;
+  notes: string | null;
+  studentName: string | null;
+  studentGrade: string | null;
+  evaluatorName: string | null;
+  schoolName: string | null;
+  daysUntilDeadline: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EvaluationArea {
+  area: string;
+  status: string;
+}
+
+interface EvaluationRecord {
+  id: number;
+  studentId: number;
+  referralId: number | null;
+  evaluationType: string;
+  evaluationAreas: EvaluationArea[];
+  teamMembers: string[];
+  leadEvaluatorId: number | null;
+  startDate: string | null;
+  dueDate: string | null;
+  completionDate: string | null;
+  meetingDate: string | null;
+  status: string;
+  notes: string | null;
+  studentName: string | null;
+  studentGrade: string | null;
+  leadEvaluatorName: string | null;
+  daysUntilDue: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EligibilityRecord {
+  id: number;
+  studentId: number;
+  evaluationId: number | null;
+  meetingDate: string;
+  teamMembers: string[];
+  primaryDisability: string | null;
+  secondaryDisability: string | null;
+  eligible: boolean | null;
+  determinationBasis: string | null;
+  determinationNotes: string | null;
+  iepRequired: boolean;
+  nextReEvalDate: string | null;
+  reEvalCycleMonths: number;
+  status: string;
+  studentName: string | null;
+  studentGrade: string | null;
+  daysUntilReEval: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DashboardData {
+  openReferrals: number;
+  pendingConsent: number;
+  overdueEvaluations: number;
+  activeEvaluations: number;
+  upcomingReEvaluations: number;
+  overdueReEvaluations: number;
+  timelineRule: { key: string; label: string; schoolDays: number };
+  overdueReferralDeadlines: Array<{
+    id: number;
+    studentName: string;
+    deadline: string;
+    daysOverdue: number;
+    status: string;
+  }>;
+  upcomingReEvalList: Array<{
+    id: number;
+    studentName: string;
+    nextReEvalDate: string | null;
+    daysUntilReEval: number | null;
+    primaryDisability: string | null;
+  }>;
+}
 
 const REFERRAL_SOURCES = [
   { value: "teacher", label: "Teacher" },
@@ -48,7 +156,15 @@ const EVAL_AREAS = [
   "Functional Behavioral Assessment", "Neuropsychological Evaluation",
 ];
 
+const TEAM_ROLES = [
+  "Parent / Guardian", "Special Education Teacher", "General Education Teacher",
+  "School Psychologist", "Speech-Language Pathologist", "Occupational Therapist",
+  "Physical Therapist", "BCBA", "School Administrator", "School Nurse",
+  "Social Worker", "Transition Specialist", "Student (age 14+)",
+];
+
 type StatusColor = "emerald" | "amber" | "red" | "blue" | "gray";
+
 function statusBadge(label: string, color: StatusColor) {
   const styles: Record<StatusColor, string> = {
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -97,6 +213,16 @@ function evalStatusBadge(status: string) {
   return statusBadge(label, color);
 }
 
+async function fetchStudents(): Promise<StudentOption[]> {
+  const res = await authFetch("/api/students?limit=500");
+  return (res as StudentOption[]) ?? [];
+}
+
+async function fetchStaff(): Promise<StaffOption[]> {
+  const res = await authFetch("/api/staff");
+  return (res as StaffOption[]) ?? [];
+}
+
 export default function EvaluationsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
@@ -122,12 +248,12 @@ export default function EvaluationsPage() {
 }
 
 function EvalDashboard() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     authFetch("/api/evaluations/dashboard")
-      .then(d => { setData(d); setLoading(false); })
+      .then(d => { setData(d as DashboardData); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
@@ -141,11 +267,11 @@ function EvalDashboard() {
         <MetricCard label="Pending Consent" value={data.pendingConsent} icon={Clock} color="amber" />
         <MetricCard label="Active Evaluations" value={data.activeEvaluations} icon={ClipboardList} color="blue" />
         <MetricCard label="Overdue Evaluations" value={data.overdueEvaluations} icon={AlertTriangle} color={data.overdueEvaluations > 0 ? "red" : "emerald"} />
-        <MetricCard label="Re-Evals Due (30d)" value={data.upcomingReEvaluations} icon={Calendar} color="amber" />
+        <MetricCard label="Re-Evals Due (90d)" value={data.upcomingReEvaluations} icon={Calendar} color="amber" />
         <MetricCard label="Overdue Re-Evals" value={data.overdueReEvaluations} icon={Timer} color={data.overdueReEvaluations > 0 ? "red" : "emerald"} />
       </div>
 
-      {data.overdueReferralDeadlines?.length > 0 && (
+      {data.overdueReferralDeadlines.length > 0 && (
         <Card className="border-red-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-[13px] font-semibold text-red-700 flex items-center gap-2">
@@ -153,7 +279,7 @@ function EvalDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {data.overdueReferralDeadlines.map((r: any) => (
+            {data.overdueReferralDeadlines.map(r => (
               <div key={r.id} className="flex items-center justify-between text-[12px] py-1.5 border-b border-gray-50 last:border-0">
                 <span className="font-medium text-gray-700">{r.studentName}</span>
                 <div className="flex items-center gap-3">
@@ -166,13 +292,42 @@ function EvalDashboard() {
         </Card>
       )}
 
+      {data.upcomingReEvalList.length > 0 && (
+        <Card className="border-amber-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[13px] font-semibold text-amber-700 flex items-center gap-2">
+              <Calendar className="w-4 h-4" /> Upcoming Re-Evaluations (within 90 days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.upcomingReEvalList.map(r => (
+              <div key={r.id} className="flex items-center justify-between text-[12px] py-1.5 border-b border-amber-100 last:border-0">
+                <div>
+                  <span className="font-medium text-gray-700">{r.studentName}</span>
+                  {r.primaryDisability && <span className="text-gray-400 ml-2">{r.primaryDisability}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  {r.nextReEvalDate && <span className="text-gray-400">Due: {formatDate(r.nextReEvalDate)}</span>}
+                  {deadlineBadge(r.daysUntilReEval)}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="bg-emerald-50/30 border-emerald-100">
         <CardContent className="py-4 px-5">
-          <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide mb-1">Massachusetts 603 CMR 28.04 Timeline</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
+              Active Timeline Rule: {data.timelineRule.label}
+            </p>
+            <span className="text-[10px] text-gray-400">{data.timelineRule.schoolDays} school days from consent</span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
             <TimelineStep step="1" label="Referral Received" desc="Parent/teacher/team submits referral" />
             <TimelineStep step="2" label="Consent Obtained" desc="Written parental consent for evaluation" />
-            <TimelineStep step="3" label="Evaluation (30 school days)" desc="Assessments completed within deadline" />
+            <TimelineStep step="3" label={`Evaluation (${data.timelineRule.schoolDays} school days)`} desc="Assessments completed within deadline" />
             <TimelineStep step="4" label="Eligibility Meeting" desc="Team determines eligibility & disability" />
           </div>
         </CardContent>
@@ -193,7 +348,7 @@ function TimelineStep({ step, label, desc }: { step: string; label: string; desc
   );
 }
 
-function MetricCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: any; color: string }) {
+function MetricCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
   const colors: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600",
     blue: "bg-blue-50 text-blue-600",
@@ -218,10 +373,50 @@ function MetricCard({ label, value, icon: Icon, color }: { label: string; value:
   );
 }
 
+function TeamMemberPicker({ selected, onChange }: { selected: string[]; onChange: (members: string[]) => void }) {
+  const [custom, setCustom] = useState("");
+
+  function addCustom() {
+    const trimmed = custom.trim();
+    if (trimmed && !selected.includes(trimmed)) {
+      onChange([...selected, trimmed]);
+    }
+    setCustom("");
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {TEAM_ROLES.map(role => (
+          <button key={role} onClick={() => onChange(selected.includes(role) ? selected.filter(r => r !== role) : [...selected, role])}
+            className={`px-2.5 py-1 text-[11px] rounded-full border font-medium transition-colors ${selected.includes(role) ? "bg-emerald-700 text-white border-emerald-700" : "bg-white text-gray-600 border-gray-200 hover:border-emerald-300"}`}>
+            {role}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={custom} onChange={e => setCustom(e.target.value)} onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addCustom())}
+          placeholder="Add custom team member…" className="form-input flex-1" />
+        <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={addCustom} disabled={!custom.trim()}>Add</Button>
+      </div>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selected.map(m => (
+            <span key={m} className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+              {m}
+              <button onClick={() => onChange(selected.filter(r => r !== m))} className="text-emerald-400 hover:text-emerald-700">&times;</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReferralsTab() {
-  const [referrals, setReferrals] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [staff, setStaff] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -235,13 +430,13 @@ function ReferralsTab() {
   const load = useCallback(async () => {
     try {
       const [refs, stu, stf] = await Promise.all([
-        authFetch("/api/evaluations/referrals"),
-        listStudents({ limit: 500 } as any),
-        listStaff({} as any),
+        authFetch("/api/evaluations/referrals") as Promise<ReferralRecord[]>,
+        fetchStudents(),
+        fetchStaff(),
       ]);
-      setReferrals(refs as any[]);
-      setStudents(stu as any[]);
-      setStaff(stf as any[]);
+      setReferrals(refs);
+      setStudents(stu);
+      setStaff(stf);
     } catch { toast.error("Failed to load referrals"); }
     setLoading(false);
   }, []);
@@ -302,7 +497,7 @@ function ReferralsTab() {
               <FormField label="Student *">
                 <select value={form.studentId} onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))} className="form-select">
                   <option value="">Select student…</option>
-                  {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </FormField>
               <FormField label="Referral Date *">
@@ -319,7 +514,7 @@ function ReferralsTab() {
               <FormField label="Assigned Evaluator">
                 <select value={form.assignedEvaluatorId} onChange={e => setForm(f => ({ ...f, assignedEvaluatorId: e.target.value }))} className="form-select">
                   <option value="">Unassigned</option>
-                  {staff.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </FormField>
               <FormField label="Consent Status">
@@ -374,7 +569,7 @@ function ReferralsTab() {
         </CardContent></Card>
       )}
 
-      {referrals.map((ref: any) => (
+      {referrals.map(ref => (
         <Card key={ref.id} className="hover:border-gray-300 transition-colors">
           <CardContent className="py-3 px-5">
             <div className="flex items-center gap-4 flex-wrap">
@@ -392,7 +587,7 @@ function ReferralsTab() {
                 {ref.reason && <p className="text-[12px] text-gray-600 mt-1 line-clamp-2">{ref.reason}</p>}
                 {ref.areasOfConcern?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
-                    {ref.areasOfConcern.map((a: string) => (
+                    {ref.areasOfConcern.map(a => (
                       <span key={a} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{a}</span>
                     ))}
                   </div>
@@ -422,33 +617,51 @@ function ReferralsTab() {
 }
 
 function EvaluationsTab() {
-  const [evaluations, setEvaluations] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [staff, setStaff] = useState<any[]>([]);
+  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    studentId: "", evaluationType: "initial", startDate: new Date().toISOString().slice(0, 10),
+    studentId: "", referralId: "", evaluationType: "initial",
+    startDate: new Date().toISOString().slice(0, 10),
     dueDate: "", meetingDate: "", leadEvaluatorId: "",
-    evaluationAreas: [] as string[], notes: "",
+    evaluationAreas: [] as string[], teamMembers: [] as string[], notes: "",
   });
 
   const load = useCallback(async () => {
     try {
-      const [evals, stu, stf] = await Promise.all([
-        authFetch("/api/evaluations"),
-        listStudents({ limit: 500 } as any),
-        listStaff({} as any),
+      const [evals, refs, stu, stf] = await Promise.all([
+        authFetch("/api/evaluations") as Promise<EvaluationRecord[]>,
+        authFetch("/api/evaluations/referrals") as Promise<ReferralRecord[]>,
+        fetchStudents(),
+        fetchStaff(),
       ]);
-      setEvaluations(evals as any[]);
-      setStudents(stu as any[]);
-      setStaff(stf as any[]);
+      setEvaluations(evals);
+      setReferrals(refs.filter(r => r.status === "open" || r.status === "evaluation_in_progress"));
+      setStudents(stu);
+      setStaff(stf);
     } catch { toast.error("Failed to load evaluations"); }
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  function handleReferralSelect(referralId: string) {
+    const ref = referrals.find(r => r.id === parseInt(referralId));
+    if (ref) {
+      setForm(f => ({
+        ...f,
+        referralId,
+        studentId: String(ref.studentId),
+        dueDate: ref.evaluationDeadline ?? f.dueDate,
+      }));
+    } else {
+      setForm(f => ({ ...f, referralId }));
+    }
+  }
 
   async function submit() {
     if (!form.studentId) { toast.error("Student is required"); return; }
@@ -458,18 +671,22 @@ function EvaluationsTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
           studentId: parseInt(form.studentId),
-          leadEvaluatorId: form.leadEvaluatorId ? parseInt(form.leadEvaluatorId) : null,
-          evaluationAreas: form.evaluationAreas.map(a => ({ area: a, status: "pending" })),
+          referralId: form.referralId ? parseInt(form.referralId) : null,
+          evaluationType: form.evaluationType,
+          startDate: form.startDate || null,
           dueDate: form.dueDate || null,
           meetingDate: form.meetingDate || null,
+          leadEvaluatorId: form.leadEvaluatorId ? parseInt(form.leadEvaluatorId) : null,
+          evaluationAreas: form.evaluationAreas.map(a => ({ area: a, status: "pending" })),
+          teamMembers: form.teamMembers,
+          notes: form.notes || null,
           status: "in_progress",
         }),
       });
       toast.success("Evaluation created");
       setShowAdd(false);
-      setForm({ studentId: "", evaluationType: "initial", startDate: new Date().toISOString().slice(0, 10), dueDate: "", meetingDate: "", leadEvaluatorId: "", evaluationAreas: [], notes: "" });
+      setForm({ studentId: "", referralId: "", evaluationType: "initial", startDate: new Date().toISOString().slice(0, 10), dueDate: "", meetingDate: "", leadEvaluatorId: "", evaluationAreas: [], teamMembers: [], notes: "" });
       load();
     } catch { toast.error("Failed to create evaluation"); }
     setSaving(false);
@@ -477,7 +694,7 @@ function EvaluationsTab() {
 
   async function updateStatus(id: number, status: string) {
     try {
-      const body: any = { status };
+      const body: Record<string, string> = { status };
       if (status === "completed") body.completionDate = new Date().toISOString().slice(0, 10);
       await authFetch(`/api/evaluations/${id}`, {
         method: "PATCH",
@@ -504,11 +721,19 @@ function EvaluationsTab() {
         <Card className="border-emerald-200">
           <CardContent className="py-4 px-5 space-y-3">
             <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">New Evaluation</p>
+            {referrals.length > 0 && (
+              <FormField label="Link to Referral (optional)">
+                <select value={form.referralId} onChange={e => handleReferralSelect(e.target.value)} className="form-select">
+                  <option value="">No linked referral</option>
+                  {referrals.map(r => <option key={r.id} value={r.id}>{r.studentName ?? `Student #${r.studentId}`} — {formatDate(r.referralDate)}</option>)}
+                </select>
+              </FormField>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <FormField label="Student *">
                 <select value={form.studentId} onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))} className="form-select">
                   <option value="">Select student…</option>
-                  {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </FormField>
               <FormField label="Evaluation Type">
@@ -521,7 +746,7 @@ function EvaluationsTab() {
               <FormField label="Lead Evaluator">
                 <select value={form.leadEvaluatorId} onChange={e => setForm(f => ({ ...f, leadEvaluatorId: e.target.value }))} className="form-select">
                   <option value="">Unassigned</option>
-                  {staff.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {staff.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </FormField>
               <FormField label="Start Date">
@@ -544,6 +769,9 @@ function EvaluationsTab() {
                 ))}
               </div>
             </FormField>
+            <FormField label="Team Members">
+              <TeamMemberPicker selected={form.teamMembers} onChange={members => setForm(f => ({ ...f, teamMembers: members }))} />
+            </FormField>
             <FormField label="Notes">
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Additional notes…" className="form-textarea" />
             </FormField>
@@ -564,7 +792,7 @@ function EvaluationsTab() {
         </CardContent></Card>
       )}
 
-      {evaluations.map((ev: any) => (
+      {evaluations.map(ev => (
         <Card key={ev.id} className="hover:border-gray-300 transition-colors">
           <CardContent className="py-3 px-5">
             <div className="flex items-center gap-4 flex-wrap">
@@ -573,6 +801,7 @@ function EvaluationsTab() {
                   <span className="text-[13px] font-semibold text-gray-800">{ev.studentName ?? "—"}</span>
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 capitalize">{ev.evaluationType.replace(/_/g, " ")}</Badge>
                   {evalStatusBadge(ev.status)}
+                  {ev.referralId && statusBadge("From Referral", "blue")}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Started {ev.startDate ? formatDate(ev.startDate) : "—"}
@@ -581,12 +810,15 @@ function EvaluationsTab() {
                 </p>
                 {ev.evaluationAreas?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
-                    {ev.evaluationAreas.map((a: any, i: number) => (
+                    {ev.evaluationAreas.map((a, i) => (
                       <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${a.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
                         {a.area}
                       </span>
                     ))}
                   </div>
+                )}
+                {ev.teamMembers?.length > 0 && (
+                  <p className="text-[10px] text-gray-400 mt-1">Team: {ev.teamMembers.join(", ")}</p>
                 )}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
@@ -613,8 +845,8 @@ function EvaluationsTab() {
 }
 
 function EligibilityTab() {
-  const [determinations, setDeterminations] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [determinations, setDeterminations] = useState<EligibilityRecord[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -623,17 +855,17 @@ function EligibilityTab() {
     primaryDisability: "", secondaryDisability: "",
     eligible: "" as string, determinationBasis: "",
     determinationNotes: "", iepRequired: false,
-    reEvalCycleMonths: "36",
+    reEvalCycleMonths: "36", teamMembers: [] as string[],
   });
 
   const load = useCallback(async () => {
     try {
       const [dets, stu] = await Promise.all([
-        authFetch("/api/evaluations/eligibility"),
-        listStudents({ limit: 500 } as any),
+        authFetch("/api/evaluations/eligibility") as Promise<EligibilityRecord[]>,
+        fetchStudents(),
       ]);
-      setDeterminations(dets as any[]);
-      setStudents(stu as any[]);
+      setDeterminations(dets);
+      setStudents(stu);
     } catch { toast.error("Failed to load eligibility records"); }
     setLoading(false);
   }, []);
@@ -648,8 +880,9 @@ function EligibilityTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
           studentId: parseInt(form.studentId),
+          meetingDate: form.meetingDate,
+          teamMembers: form.teamMembers,
           eligible: form.eligible === "true" ? true : form.eligible === "false" ? false : null,
           iepRequired: form.iepRequired,
           reEvalCycleMonths: parseInt(form.reEvalCycleMonths) || 36,
@@ -662,7 +895,7 @@ function EligibilityTab() {
       });
       toast.success("Eligibility determination saved");
       setShowAdd(false);
-      setForm({ studentId: "", meetingDate: new Date().toISOString().slice(0, 10), primaryDisability: "", secondaryDisability: "", eligible: "", determinationBasis: "", determinationNotes: "", iepRequired: false, reEvalCycleMonths: "36" });
+      setForm({ studentId: "", meetingDate: new Date().toISOString().slice(0, 10), primaryDisability: "", secondaryDisability: "", eligible: "", determinationBasis: "", determinationNotes: "", iepRequired: false, reEvalCycleMonths: "36", teamMembers: [] });
       load();
     } catch { toast.error("Failed to save determination"); }
     setSaving(false);
@@ -670,7 +903,9 @@ function EligibilityTab() {
 
   if (loading) return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>;
 
-  const upcomingReEvals = determinations.filter(d => d.nextReEvalDate && d.daysUntilReEval !== null && d.daysUntilReEval <= 90).sort((a: any, b: any) => (a.daysUntilReEval ?? 999) - (b.daysUntilReEval ?? 999));
+  const upcomingReEvals = determinations
+    .filter(d => d.nextReEvalDate && d.daysUntilReEval !== null && d.daysUntilReEval <= 90)
+    .sort((a, b) => (a.daysUntilReEval ?? 999) - (b.daysUntilReEval ?? 999));
 
   return (
     <div className="space-y-4">
@@ -682,14 +917,14 @@ function EligibilityTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {upcomingReEvals.map((d: any) => (
+            {upcomingReEvals.map(d => (
               <div key={d.id} className="flex items-center justify-between text-[12px] py-1.5 border-b border-amber-100 last:border-0">
                 <div>
                   <span className="font-medium text-gray-700">{d.studentName ?? "—"}</span>
                   <span className="text-gray-400 ml-2">{d.primaryDisability ?? "—"}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-gray-400">Re-eval by: {formatDate(d.nextReEvalDate)}</span>
+                  <span className="text-gray-400">Re-eval by: {d.nextReEvalDate ? formatDate(d.nextReEvalDate) : "—"}</span>
                   {deadlineBadge(d.daysUntilReEval)}
                 </div>
               </div>
@@ -713,7 +948,7 @@ function EligibilityTab() {
               <FormField label="Student *">
                 <select value={form.studentId} onChange={e => setForm(f => ({ ...f, studentId: e.target.value }))} className="form-select">
                   <option value="">Select student…</option>
-                  {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </FormField>
               <FormField label="Meeting Date *">
@@ -746,6 +981,9 @@ function EligibilityTab() {
                 </select>
               </FormField>
             </div>
+            <FormField label="Team Members">
+              <TeamMemberPicker selected={form.teamMembers} onChange={members => setForm(f => ({ ...f, teamMembers: members }))} />
+            </FormField>
             <FormField label="Determination Basis">
               <textarea value={form.determinationBasis} onChange={e => setForm(f => ({ ...f, determinationBasis: e.target.value }))} rows={2} placeholder="Basis for the eligibility decision…" className="form-textarea" />
             </FormField>
@@ -773,7 +1011,7 @@ function EligibilityTab() {
         </CardContent></Card>
       )}
 
-      {determinations.map((det: any) => (
+      {determinations.map(det => (
         <Card key={det.id} className="hover:border-gray-300 transition-colors">
           <CardContent className="py-3 px-5">
             <div className="flex items-center gap-4 flex-wrap">
@@ -790,6 +1028,9 @@ function EligibilityTab() {
                   {det.primaryDisability ? ` · ${det.primaryDisability}` : ""}
                   {det.secondaryDisability ? ` / ${det.secondaryDisability}` : ""}
                 </p>
+                {det.teamMembers?.length > 0 && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">Team: {det.teamMembers.join(", ")}</p>
+                )}
                 {det.determinationBasis && (
                   <p className="text-[12px] text-gray-600 mt-1 line-clamp-2">{det.determinationBasis}</p>
                 )}

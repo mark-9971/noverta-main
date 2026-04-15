@@ -14,6 +14,9 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
+import { useState, useEffect } from "react";
+import { authFetch } from "@/lib/auth-fetch";
+import { FileSearch } from "lucide-react";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -58,6 +61,19 @@ export default function Dashboard() {
   const { data: _academicsData } = useGetAcademicsOverview();
   const academics = _academicsData as any;
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
+
+  interface EvalDashboardSummary {
+    overdueEvaluations: number;
+    upcomingReEvaluations: number;
+    openReferrals: number;
+    overdueReEvaluations: number;
+  }
+  const [evalDash, setEvalDash] = useState<EvalDashboardSummary | null>(null);
+  useEffect(() => {
+    authFetch("/api/evaluations/dashboard")
+      .then((d: unknown) => setEvalDash(d as EvalDashboardSummary))
+      .catch(() => {});
+  }, []);
 
   const deadlines = (() => {
     const items: any[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : (deadlinesRaw as any)?.events ?? [];
@@ -118,6 +134,23 @@ export default function Dashboard() {
         <MetricCard title="Makeup Needed" value={s?.openMakeupObligations} icon={Clock} accent="amber" subtitle="sessions" href="/sessions" />
         <MetricCard title="Out of Compliance" value={s?.outOfComplianceStudents} icon={AlertTriangle} accent="red" subtitle="students" href="/compliance" />
       </div>
+
+      {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
+        <Card className={evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
+          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+            <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
+            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+              {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
+              {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
+              {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
+              {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
+            </div>
+            <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+              View Evaluations →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-4 border-gray-200/60">

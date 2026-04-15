@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { useState, useEffect, Fragment } from "react";
+import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import { useRole } from "@/lib/role-context";
@@ -45,6 +46,7 @@ export default function StudentDetail() {
   const [dataLoading, setDataLoading] = useState(true);
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
   const [compSummary, setCompSummary] = useState<any>(null);
+  const [reEvalStatus, setReEvalStatus] = useState<{ hasEligibility: boolean; reEvalStatus: { nextReEvalDate: string | null; daysUntilReEval: number | null; urgency: string; primaryDisability: string | null; reEvalCycleMonths: number } | null } | null>(null);
 
   const [expandedDataSessionId, setExpandedDataSessionId] = useState<number | null>(null);
   const [expandedDataDetail, setExpandedDataDetail] = useState<any>(null);
@@ -82,6 +84,14 @@ export default function StudentDetail() {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
     listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (studentId) {
+      authFetch(`/api/evaluations/student/${studentId}/re-eval-status`)
+        .then((d: unknown) => setReEvalStatus(d as typeof reEvalStatus))
+        .catch(() => {});
+    }
+  }, [studentId]);
 
   function openAddSvc() {
     setEditingSvc(null);
@@ -439,6 +449,32 @@ export default function StudentDetail() {
           </div>
         )}
       </div>
+
+      {reEvalStatus?.hasEligibility && reEvalStatus.reEvalStatus && (reEvalStatus.reEvalStatus.urgency === "overdue" || reEvalStatus.reEvalStatus.urgency === "upcoming") && (
+        <Card className={reEvalStatus.reEvalStatus.urgency === "overdue" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
+          <CardContent className="py-3 px-5 flex items-center gap-3">
+            {reEvalStatus.reEvalStatus.urgency === "overdue" ? <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" /> : <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <p className={`text-[13px] font-semibold ${reEvalStatus.reEvalStatus.urgency === "overdue" ? "text-red-700" : "text-amber-700"}`}>
+                {reEvalStatus.reEvalStatus.urgency === "overdue" ? "Re-Evaluation Overdue" : "Re-Evaluation Coming Up"}
+              </p>
+              <p className="text-[11px] text-gray-500">
+                {reEvalStatus.reEvalStatus.primaryDisability ? `${reEvalStatus.reEvalStatus.primaryDisability} · ` : ""}
+                Next re-eval due: {reEvalStatus.reEvalStatus.nextReEvalDate ?? "—"}
+                {reEvalStatus.reEvalStatus.daysUntilReEval !== null && (
+                  reEvalStatus.reEvalStatus.daysUntilReEval < 0
+                    ? ` (${Math.abs(reEvalStatus.reEvalStatus.daysUntilReEval)} days overdue)`
+                    : ` (${reEvalStatus.reEvalStatus.daysUntilReEval} days remaining)`
+                )}
+                {` · ${reEvalStatus.reEvalStatus.reEvalCycleMonths}-month cycle`}
+              </p>
+            </div>
+            <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+              View Evaluations →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
