@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
+import { invalidateSchoolYearsCache } from "@/lib/use-school-years";
 import { CalendarDays, CheckCircle2, AlertTriangle, Users, BookOpen, UserCheck, History, ArrowRight, RefreshCw } from "lucide-react";
 
 interface SchoolYear {
@@ -107,6 +108,7 @@ export default function SchoolYearPage() {
       if (!r.ok) throw new Error(data.error ?? "Rollover failed");
       toast.success(data.message ?? `Rolled over to ${newLabel}`);
       setDialogOpen(false);
+      invalidateSchoolYearsCache();
       await loadPreview();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Rollover failed");
