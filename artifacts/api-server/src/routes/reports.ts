@@ -791,6 +791,8 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
+    const parentSafe = req.query.parentSafe === "true" || req.query.parentSafe === "1";
+
     const [student] = await db.select({
       id: studentsTable.id,
       firstName: studentsTable.firstName,
@@ -812,7 +814,7 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
 
     const latestReport = reports[0] || null;
 
-    const providers = await db.select({
+    const providerQuery = await db.select({
       id: staffTable.id,
       firstName: staffTable.firstName,
       lastName: staffTable.lastName,
@@ -822,6 +824,10 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
       .innerJoin(staffTable, eq(staffTable.id, serviceRequirementsTable.providerId))
       .where(eq(serviceRequirementsTable.studentId, studentId))
       .groupBy(staffTable.id, staffTable.firstName, staffTable.lastName, staffTable.role, staffTable.email);
+
+    const providers = parentSafe
+      ? providerQuery.map(p => ({ name: `${p.firstName} ${p.lastName}`, role: p.role, email: null }))
+      : providerQuery.map(p => ({ name: `${p.firstName} ${p.lastName}`, role: p.role, email: p.email }));
 
     const RATING_LABELS: Record<string, { label: string; color: string }> = {
       mastered: { label: "Mastered", color: "emerald" },
@@ -841,17 +847,17 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
       trendDirection: g.trendDirection,
       parentFriendlyNarrative: g.narrative,
       dataPoints: g.dataPoints,
-      currentPerformance: g.currentPerformance,
-      targetCriterion: g.targetCriterion,
+      currentPerformance: parentSafe ? undefined : g.currentPerformance,
+      targetCriterion: parentSafe ? undefined : g.targetCriterion,
     }));
 
     const servicesSummary = (latestReport?.serviceBreakdown ?? []).map((s: any) => {
       const pct = s.compliancePercent ?? 0;
       return {
         serviceType: s.serviceType,
-        requiredMinutes: s.requiredMinutes,
-        deliveredMinutes: s.deliveredMinutes,
-        compliancePercent: pct,
+        requiredMinutes: parentSafe ? undefined : s.requiredMinutes,
+        deliveredMinutes: parentSafe ? undefined : s.deliveredMinutes,
+        compliancePercent: parentSafe ? undefined : pct,
         sessionsSummary: `${s.completedSessions ?? "—"} of ${(s.completedSessions ?? 0) + (s.missedSessions ?? 0)} sessions attended`,
         parentFriendly: pct >= 95 ? "All services provided on schedule."
           : pct >= 80 ? "Most services provided as planned."
@@ -861,6 +867,7 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
     });
 
     res.json({
+      parentSafe,
       student: {
         id: student.id,
         firstName: student.firstName,
@@ -868,11 +875,7 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
         grade: student.grade,
         schoolName: student.schoolName,
       },
-      providers: providers.map(p => ({
-        name: `${p.firstName} ${p.lastName}`,
-        role: p.role,
-        email: p.email,
-      })),
+      providers,
       reportingPeriod: latestReport ? {
         label: latestReport.reportingPeriod,
         start: latestReport.periodStart,
@@ -881,7 +884,7 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
       } : null,
       overallSummary: latestReport?.overallSummary ?? null,
       parentNotes: latestReport?.parentNotes ?? null,
-      recommendations: latestReport?.recommendations ?? null,
+      recommendations: parentSafe ? undefined : latestReport?.recommendations ?? null,
       goalSummaries,
       servicesSummary,
       availableReports: reports.map(r => ({

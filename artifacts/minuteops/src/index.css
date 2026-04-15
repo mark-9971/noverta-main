@@ -404,3 +404,69 @@
   resize: vertical;
   min-height: 3rem;
 }
+
+@media print {
+  aside,
+  nav,
+  [data-sidebar],
+  .print\\:hidden,
+  .print-hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: #111 !important;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  .flex.h-screen {
+    display: block !important;
+  }
+
+  main,
+  [data-main-content] {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .card,
+  [class*="rounded"] {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+  }
+
+  button,
+  [role="button"],
+  .no-print {
+    display: none !important;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: #111 !important;
+  }
+
+  @page {
+    margin: 0.75in 0.75in 0.75in 0.75in;
+    size: letter;
+  }
+}

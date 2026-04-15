@@ -12,6 +12,7 @@ import {
   Circle, Printer, UserPlus, ClipboardList as ClipboardListIcon, Video, MapPin
 } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   getStudent, listIepGoals, listProgressReports, listProgramTargets,
   listBehaviorTargets, listIepDocuments, listAccommodations, listTeamMeetings,
@@ -223,6 +224,26 @@ export default function StudentIepPage() {
   const [showGenerateReport, setShowGenerateReport] = useState(false);
   const [viewingReport, setViewingReport] = useState<ProgressReport | null>(null);
   const [autoCreating, setAutoCreating] = useState(false);
+  const [exportingRecord, setExportingRecord] = useState(false);
+
+  async function exportFullRecord() {
+    setExportingRecord(true);
+    try {
+      const res = await authFetch(`/api/reports/exports/student/${studentId}/full-record.pdf`);
+      if (!res.ok) { toast.error(`Export failed: ${res.statusText}`); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const name = student ? `${student.firstName}_${student.lastName}_Full_Record.pdf` : `Student_${studentId}_Full_Record.pdf`;
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Full record PDF downloaded");
+    } catch (e: any) {
+      toast.error(`Export failed: ${e.message}`);
+    } finally {
+      setExportingRecord(false);
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -296,11 +317,23 @@ export default function StudentIepPage() {
                 <p className="text-xs md:text-sm text-gray-400">IEP — 603 CMR 28.00 · Grade {student.grade}</p>
               </div>
             </div>
-            <Link href={`/students/${studentId}/iep-builder`}>
-              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5">
-                <Wand2 className="w-4 h-4" /> Annual Review Assistant
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-[12px]"
+                onClick={exportFullRecord}
+                disabled={exportingRecord}
+              >
+                {exportingRecord ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                {exportingRecord ? "Exporting…" : "Export Full Record"}
               </Button>
-            </Link>
+              <Link href={`/students/${studentId}/iep-builder`}>
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5">
+                  <Wand2 className="w-4 h-4" /> Annual Review Assistant
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </div>

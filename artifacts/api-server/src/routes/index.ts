@@ -46,6 +46,7 @@ import agenciesRouter from "./agencies";
 import billingRouter from "./billing";
 import demoRequestsRouter from "./demoRequests";
 import guardiansRouter from "./guardians";
+import reportExportsRouter from "./reportExports";
 
 const router: IRouter = Router();
 
@@ -99,5 +100,6 @@ router.use(studentPortalRouter);
 router.use(agenciesRouter);
 router.use(billingRouter);
 router.use(guardiansRouter);
+router.use(reportExportsRouter);
 
 export default router;

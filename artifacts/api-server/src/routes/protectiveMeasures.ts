@@ -1358,7 +1358,14 @@ router.get("/protective-measures/incidents/:id/report-pdf", async (req: Request,
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const data = await getFullIncidentData(id);
+  let data: Awaited<ReturnType<typeof getFullIncidentData>>;
+  try {
+    data = await getFullIncidentData(id);
+  } catch (e: any) {
+    console.error("PDF: getFullIncidentData error:", e);
+    res.status(500).json({ error: "Failed to load incident data" });
+    return;
+  }
   if (!data) { res.status(404).json({ error: "Incident not found" }); return; }
 
   const { incident, student, school, primaryStaff, adminReviewer, additionalStaff, observerStaff, caseManager } = data;
@@ -1477,10 +1484,14 @@ router.get("/protective-measures/incidents/:id/report-pdf", async (req: Request,
   if (adminReviewer) field("Reviewed By", `${adminReviewer.firstName} ${adminReviewer.lastName}`);
   if (incident.adminReviewNotes) field("Admin Review Notes", incident.adminReviewNotes);
 
-  doc.moveDown(1);
-  doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor("#cccccc").stroke();
-  doc.moveDown(0.5);
-  doc.fontSize(8).fillColor("#999999").text(`Report generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} — Incident #${id}`, { align: "center" });
+  try {
+    doc.moveDown(1);
+    doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor("#cccccc").stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor("#999999").text(`Report generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} — Incident #${id}`, { align: "center" });
+  } catch (e: any) {
+    console.error("PDF footer render error:", e);
+  }
 
   doc.end();
 });

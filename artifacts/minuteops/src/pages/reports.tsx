@@ -18,7 +18,7 @@ import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Link } from "wouter";
-import { Download, Printer, FileText, TrendingUp, Shield, BarChart3, Calendar, Users, AlertTriangle, Heart, CheckCircle2, Clock, TrendingDown, Minus } from "lucide-react";
+import { Download, Printer, FileText, TrendingUp, Shield, BarChart3, Calendar, Users, AlertTriangle, Heart, CheckCircle2, Clock, TrendingDown, Minus, FileDown } from "lucide-react";
 import { RISK_CONFIG } from "@/lib/constants";
 import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
@@ -66,6 +66,7 @@ export default function Reports() {
           <TabsTrigger value="missed">Missed</TabsTrigger>
           <TabsTrigger value="risk">At-Risk</TabsTrigger>
           <TabsTrigger value="parent" className="gap-1.5"><Heart className="w-3.5 h-3.5" /> Parent Summary</TabsTrigger>
+          <TabsTrigger value="exports" className="gap-1.5"><FileDown className="w-3.5 h-3.5" /> Exports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="executive" className="mt-4"><ExecutiveSummaryTab /></TabsContent>
@@ -75,7 +76,134 @@ export default function Reports() {
         <TabsContent value="missed" className="mt-4"><MissedSessionsTab /></TabsContent>
         <TabsContent value="risk" className="mt-4"><RiskTab /></TabsContent>
         <TabsContent value="parent" className="mt-4"><ParentSummaryTab /></TabsContent>
+        <TabsContent value="exports" className="mt-4"><ComplianceExportsTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ComplianceExportsTab() {
+  const { filterParams } = useSchoolContext();
+  const now = new Date();
+  const [startDate, setStartDate] = useState(() => new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => now.toISOString().split("T")[0]);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  async function downloadAuthFile(url: string, filename: string) {
+    setDownloading(filename);
+    try {
+      const res = await authFetch(url);
+      if (!res.ok) { toast.error(`Export failed: ${res.statusText}`); return; }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl; a.download = filename; a.click();
+      URL.revokeObjectURL(objectUrl);
+      toast.success(`Downloaded ${filename}`);
+    } catch (e: any) {
+      toast.error(`Download failed: ${e.message}`);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
+  const schoolParam = filterParams.schoolId ? `&schoolId=${filterParams.schoolId}` : "";
+  const districtParam = filterParams.districtId ? `&districtId=${filterParams.districtId}` : "";
+  const scopeParams = `${schoolParam}${districtParam}`;
+
+  const exports = [
+    {
+      key: "active-ieps",
+      label: "Active IEPs — Annual Review Timeline",
+      description: "All active students with IEP start/end dates, days until annual review, and review status. Ideal for compliance calendar planning.",
+      filename: `Active_IEPs_${now.toISOString().split("T")[0]}.csv`,
+      url: `/api/reports/exports/active-ieps.csv?${scopeParams.slice(1)}`,
+      badge: "CSV",
+    },
+    {
+      key: "service-minutes",
+      label: "Service Minutes — Mandated vs. Delivered",
+      description: "Per-student, per-service breakdown of required minutes, sessions completed, sessions missed, and compliance percentage.",
+      filename: `Service_Minutes_${startDate}_${endDate}.csv`,
+      url: `/api/reports/exports/service-minutes.csv?startDate=${startDate}&endDate=${endDate}${scopeParams}`,
+      badge: "CSV",
+    },
+    {
+      key: "incidents",
+      label: "Restraint & Seclusion Incidents",
+      description: "All incidents in the selected date range with DESE-required fields: type, duration, injuries, notifications, debrief, and status.",
+      filename: `Incidents_${startDate}_${endDate}.csv`,
+      url: `/api/reports/exports/incidents.csv?startDate=${startDate}&endDate=${endDate}${schoolParam}`,
+      badge: "CSV",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700">Compliance Summary Exports</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Admin-only CSV and PDF exports for DESE audits, due process, and district reporting.</p>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div>
+          <label className="text-[11px] text-gray-500 font-medium block mb-1">Start Date</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="form-input text-xs h-8 w-36" />
+        </div>
+        <div>
+          <label className="text-[11px] text-gray-500 font-medium block mb-1">End Date</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="form-input text-xs h-8 w-36" />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {exports.map(exp => (
+          <Card key={exp.key}>
+            <CardContent className="p-4 flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[13px] font-semibold text-gray-800">{exp.label}</p>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">{exp.badge}</span>
+                </div>
+                <p className="text-[12px] text-gray-500 leading-relaxed">{exp.description}</p>
+                <p className="text-[11px] text-gray-400 mt-1 font-mono">{exp.filename}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-[12px] shrink-0"
+                onClick={() => downloadAuthFile(exp.url, exp.filename)}
+                disabled={downloading === exp.filename}
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloading === exp.filename ? "Downloading…" : "Download"}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-3">Student Full-Record Export (PDF)</p>
+        <Card className="border-dashed">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <FileText className="w-8 h-8 text-gray-300 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-gray-700">Individual Student Record</p>
+                <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
+                  Generates a comprehensive PDF for a single student, including their IEP document, goals, accommodations, progress reports, team meetings, incident history, and parent contact log. For use in DESE audits and due process hearings.
+                </p>
+                <p className="text-[12px] text-emerald-700 mt-2">
+                  Access this export from the student's IEP page — use the "Export Full Record" button on their profile.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
