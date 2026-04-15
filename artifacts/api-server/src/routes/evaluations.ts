@@ -120,6 +120,10 @@ router.get("/evaluations/referrals", evalAccess, async (_req, res): Promise<void
 router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void> => {
   try {
     const body = req.body;
+    if (!body.studentId || !body.referralDate || !body.reason) {
+      res.status(400).json({ error: "studentId, referralDate, and reason are required" });
+      return;
+    }
     let evaluationDeadline = body.evaluationDeadline ?? null;
     if (body.consentReceivedDate && !evaluationDeadline) {
       evaluationDeadline = calcDeadline(body.consentReceivedDate, body.timelineRule ?? undefined);
@@ -214,6 +218,15 @@ router.get("/evaluations", evalAccess, async (_req, res): Promise<void> => {
 router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
   try {
     const body = req.body;
+    if (!body.studentId) {
+      res.status(400).json({ error: "studentId is required" });
+      return;
+    }
+    const validEvalTypes = ["initial", "reevaluation", "independent"];
+    if (body.evaluationType && !validEvalTypes.includes(body.evaluationType)) {
+      res.status(400).json({ error: `evaluationType must be one of: ${validEvalTypes.join(", ")}` });
+      return;
+    }
     const [row] = await db.insert(evaluationsTable).values({
       studentId: body.studentId,
       referralId: body.referralId ?? null,
@@ -293,6 +306,10 @@ router.get("/evaluations/eligibility", evalAccess, async (_req, res): Promise<vo
 router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<void> => {
   try {
     const body = req.body;
+    if (!body.studentId || !body.meetingDate) {
+      res.status(400).json({ error: "studentId and meetingDate are required" });
+      return;
+    }
     let nextReEvalDate = body.nextReEvalDate ?? null;
     if (body.eligible && body.meetingDate && !nextReEvalDate) {
       const d = new Date(body.meetingDate + "T12:00:00");
