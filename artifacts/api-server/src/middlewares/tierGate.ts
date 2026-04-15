@@ -9,7 +9,7 @@ import {
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
 
-async function resolveDistrictTier(req: Request): Promise<DistrictTier | null> {
+async function resolveDistrictTier(req: Request): Promise<DistrictTier> {
   const meta = getPublicMeta(req);
 
   let districtId: number | null = meta.districtId ?? null;
@@ -38,7 +38,9 @@ async function resolveDistrictTier(req: Request): Promise<DistrictTier | null> {
     }
   }
 
-  if (!districtId) return null;
+  if (!districtId) {
+    return "essentials";
+  }
 
   const [district] = await db
     .select({ tier: districtsTable.tier, tierOverride: districtsTable.tierOverride })
@@ -46,7 +48,7 @@ async function resolveDistrictTier(req: Request): Promise<DistrictTier | null> {
     .where(eq(districtsTable.id, districtId))
     .limit(1);
 
-  if (!district) return null;
+  if (!district) return "essentials";
   return (district.tierOverride || district.tier || "essentials") as DistrictTier;
 }
 
@@ -66,10 +68,6 @@ export function requireTierAccess(featureKey: FeatureKey) {
 
     try {
       const tier = await resolveDistrictTier(req);
-      if (!tier) {
-        next();
-        return;
-      }
 
       if (isTierFeatureAccessible(tier, featureKey)) {
         next();
@@ -88,7 +86,10 @@ export function requireTierAccess(featureKey: FeatureKey) {
       });
     } catch (err) {
       console.error("Tier gate error:", err);
-      next();
+      res.status(503).json({
+        error: "Unable to verify subscription tier",
+        code: "TIER_CHECK_FAILED",
+      });
     }
   };
 }
@@ -122,11 +123,6 @@ export function tierGateByRoute(req: Request, res: Response, next: NextFunction)
 
   resolveDistrictTier(req)
     .then((tier) => {
-      if (!tier) {
-        next();
-        return;
-      }
-
       if (isTierFeatureAccessible(tier, featureKey!)) {
         next();
         return;
@@ -145,6 +141,9 @@ export function tierGateByRoute(req: Request, res: Response, next: NextFunction)
     })
     .catch((err) => {
       console.error("Tier gate error:", err);
-      next();
+      res.status(503).json({
+        error: "Unable to verify subscription tier",
+        code: "TIER_CHECK_FAILED",
+      });
     });
 }

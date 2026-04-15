@@ -1,14 +1,16 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export const districtTierEnum = pgEnum("district_tier", ["essentials", "professional", "enterprise"]);
 
 export const districtsTable = pgTable("districts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   state: text("state").default("MA"),
   region: text("region"),
-  tier: text("tier").notNull().default("essentials"),
-  tierOverride: text("tier_override"),
+  tier: districtTierEnum("tier").notNull().default("essentials"),
+  tierOverride: districtTierEnum("tier_override"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
