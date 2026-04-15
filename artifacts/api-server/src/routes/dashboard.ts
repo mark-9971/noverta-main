@@ -5,10 +5,27 @@ import {
   scheduleBlocksTable, staffTable, staffAssignmentsTable,
   serviceRequirementsTable, serviceTypesTable,
   complianceEventsTable, iepDocumentsTable, teamMeetingsTable,
-  agencyContractsTable, agenciesTable,
+  agencyContractsTable, agenciesTable, districtsTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, count, sql, asc, desc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { getPublicMeta } from "../lib/clerkClaims";
+
+async function resolveCallerDistrictId(req: import("express").Request): Promise<number | null> {
+  const meta = getPublicMeta(req);
+  if (meta.staffId) {
+    const [staff] = await db.select({ schoolId: staffTable.schoolId })
+      .from(staffTable).where(eq(staffTable.id, meta.staffId)).limit(1);
+    if (staff?.schoolId) {
+      const [school] = await db.select({ districtId: schoolsTable.districtId })
+        .from(schoolsTable).where(eq(schoolsTable.id, staff.schoolId)).limit(1);
+      if (school?.districtId) return school.districtId;
+    }
+  }
+  const districts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
+  if (districts.length === 1) return districts[0].id;
+  return null;
+}
 
 const router: IRouter = Router();
 
@@ -127,6 +144,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   // trackedStudents = students with at least one active service requirement (correct compliance denominator)
   const trackedStudents = studentRisk.size;
 
+  const callerDistrictId = await resolveCallerDistrictId(req);
   const renewalConditions = [
     eq(agencyContractsTable.status, "active"),
     isNull(agencyContractsTable.deletedAt),
@@ -134,7 +152,11 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     sql`${agencyContractsTable.endDate}::date <= CURRENT_DATE + INTERVAL '30 days'`,
     sql`${agencyContractsTable.endDate}::date >= CURRENT_DATE`,
   ];
-  if (sdFilters.districtId) renewalConditions.push(eq(agenciesTable.districtId, sdFilters.districtId));
+  if (callerDistrictId) {
+    renewalConditions.push(eq(agenciesTable.districtId, callerDistrictId));
+  } else {
+    renewalConditions.push(sql`false`);
+  }
 
   const renewingContracts = await db.select({
     id: agencyContractsTable.id,
