@@ -39,10 +39,10 @@ function NeedsAttentionPanel() {
   if (!data || data.total === 0) return null;
 
   const items = [
-    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures", color: "text-red-700", bg: "bg-red-50" },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Notifications pending", count: data.pendingNotifications, href: "/protective-measures", color: "text-red-600", bg: "bg-red-50" },
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50" },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Notifications pending", count: data.pendingNotifications, href: "/protective-measures?status=pending_review&tab=notifications", color: "text-red-600", bg: "bg-red-50" },
   ].filter(i => i.count > 0);
 
   return (

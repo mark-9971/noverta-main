@@ -125,8 +125,22 @@ export const incidentSignaturesTable = pgTable("incident_signatures", {
   index("is_status_idx").on(table.status),
 ]);
 
+export const incidentStatusHistoryTable = pgTable("incident_status_history", {
+  id: serial("id").primaryKey(),
+  incidentId: integer("incident_id").references(() => restraintIncidentsTable.id, { onDelete: "cascade" }).notNull(),
+  fromStatus: text("from_status").notNull(),
+  toStatus: text("to_status").notNull(),
+  note: text("note").notNull(),
+  actorStaffId: integer("actor_staff_id").references(() => staffTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("ish_incident_idx").on(table.incidentId),
+  index("ish_actor_idx").on(table.actorStaffId),
+]);
+
 export const insertRestraintIncidentSchema = createInsertSchema(restraintIncidentsTable).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 export type InsertRestraintIncident = z.infer<typeof insertRestraintIncidentSchema>;
 export type RestraintIncident = typeof restraintIncidentsTable.$inferSelect;
+export type IncidentStatusHistory = typeof incidentStatusHistoryTable.$inferSelect;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -23,7 +23,7 @@ export const sessionLogsTable = pgTable("session_logs", {
   status: text("status").notNull().default("completed"),
   missedReasonId: integer("missed_reason_id").references(() => missedReasonsTable.id),
   isMakeup: boolean("is_makeup").notNull().default(false),
-  makeupForId: integer("makeup_for_id"),
+  makeupForId: integer("makeup_for_id").references((): AnyPgColumn => sessionLogsTable.id),
   isCompensatory: boolean("is_compensatory").notNull().default(false),
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),

@@ -1,9 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
+import { db, restraintIncidentsTable, incidentSignaturesTable, incidentStatusHistoryTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { logAudit } from "../lib/auditLog";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { getPublicMeta } from "../lib/clerkClaims";
 
 const router = Router();
 router.use(requireTierAccess("clinical.protective_measures"));
@@ -354,11 +355,13 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { toStatus, note, staffId } = req.body;
+  const { toStatus, note } = req.body;
   if (!toStatus || !note?.trim()) {
     res.status(400).json({ error: "toStatus and note are required" });
     return;
   }
+
+  const actorStaffId = getPublicMeta(req).staffId ?? null;
 
   const VALID_TRANSITIONS: Record<string, string[]> = {
     pending_review: ["reviewed", "open"],
@@ -380,20 +383,28 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
   }
 
   const now = new Date().toISOString();
-  const updateData: Record<string, any> = { status: toStatus };
+  const updateData: Record<string, unknown> = { status: toStatus };
 
   if (toStatus === "resolved" || toStatus === "dese_reported") {
-    updateData.resolutionNote = note;
+    updateData.resolutionNote = note.trim();
     updateData.resolvedAt = now;
-    if (staffId) updateData.resolvedBy = Number(staffId);
+    if (actorStaffId) updateData.resolvedBy = actorStaffId;
   }
   if (toStatus === "reviewed" && !existing.adminReviewedAt) {
-    updateData.adminReviewNotes = note;
+    updateData.adminReviewNotes = note.trim();
     updateData.adminReviewedAt = now.split("T")[0];
-    if (staffId) updateData.adminReviewedBy = Number(staffId);
+    if (actorStaffId) updateData.adminReviewedBy = actorStaffId;
   }
 
   const [updated] = await db.update(restraintIncidentsTable).set(updateData).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  await db.insert(incidentStatusHistoryTable).values({
+    incidentId: id,
+    fromStatus: existing.status,
+    toStatus,
+    note: note.trim(),
+    actorStaffId: actorStaffId ?? undefined,
+  });
 
   logAudit(req, {
     action: "update",
@@ -402,10 +413,34 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
     studentId: existing.studentId,
     summary: `Status transition: ${existing.status} → ${toStatus} on incident #${id}`,
     oldValues: { status: existing.status } as Record<string, unknown>,
-    newValues: { status: toStatus, note } as Record<string, unknown>,
+    newValues: { status: toStatus, note: note.trim() } as Record<string, unknown>,
   });
 
   res.json(updated);
+});
+
+router.get("/protective-measures/incidents/:id/status-history", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const history = await db
+    .select({
+      id: incidentStatusHistoryTable.id,
+      incidentId: incidentStatusHistoryTable.incidentId,
+      fromStatus: incidentStatusHistoryTable.fromStatus,
+      toStatus: incidentStatusHistoryTable.toStatus,
+      note: incidentStatusHistoryTable.note,
+      actorStaffId: incidentStatusHistoryTable.actorStaffId,
+      actorFirst: staffTable.firstName,
+      actorLast: staffTable.lastName,
+      createdAt: incidentStatusHistoryTable.createdAt,
+    })
+    .from(incidentStatusHistoryTable)
+    .leftJoin(staffTable, eq(incidentStatusHistoryTable.actorStaffId, staffTable.id))
+    .where(eq(incidentStatusHistoryTable.incidentId, id))
+    .orderBy(desc(incidentStatusHistoryTable.createdAt));
+
+  res.json(history);
 });
 
 router.post("/protective-measures/incidents/:id/admin-review", async (req: Request, res: Response) => {

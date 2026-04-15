@@ -14,7 +14,7 @@ import {
   ChevronRight, FileText, Bell, CheckCircle, XCircle,
   Filter, Calendar, Eye, ChevronDown, ChevronUp,
   ArrowLeft, TrendingUp, Download, PenLine, Send, UserCheck, Users,
-  Mail, FilePenLine, Printer, BarChart2, Flame,
+  Mail, FilePenLine, Printer, BarChart2, Flame, History,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
@@ -69,6 +69,17 @@ type Summary = {
 
 type IncidentDetail = any;
 type Staff = { id: number; firstName: string; lastName: string; role: string; title: string };
+type StatusHistoryEntry = {
+  id: number;
+  incidentId: number;
+  fromStatus: string;
+  toStatus: string;
+  note: string;
+  actorStaffId: number | null;
+  actorFirst: string | null;
+  actorLast: string | null;
+  createdAt: string;
+};
 type Signature = {
   id: number;
   incidentId: number;
@@ -1368,6 +1379,14 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
     onError: (err: Error) => { toast.error(err.message); },
   });
 
+  const { data: statusHistory = [] } = useQuery<StatusHistoryEntry[]>({
+    queryKey: ["incident-status-history", id],
+    queryFn: ({ signal }) =>
+      authFetch(`/api/protective-measures/incidents/${id}/status-history`, { signal })
+        .then(r => r.json()),
+    enabled: !!id,
+  });
+
   const [showNotify, setShowNotify] = useState(false);
   const [showWritten, setShowWritten] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -1778,6 +1797,30 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
               <h3 className="text-sm font-semibold text-gray-800 mb-2">Admin Review Notes</h3>
               <p className="text-sm text-gray-600">{incident.adminReviewNotes}</p>
+            </div>
+          )}
+
+          {statusHistory.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <History className="w-4 h-4 text-gray-400" />
+                Status History
+              </h3>
+              <div className="space-y-3">
+                {statusHistory.map(entry => (
+                  <div key={entry.id} className="relative pl-4 border-l-2 border-gray-200">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[entry.fromStatus] ?? "bg-gray-100 text-gray-600"}`}>{STATUS_LABELS[entry.fromStatus] ?? entry.fromStatus}</span>
+                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[entry.toStatus] ?? "bg-gray-100 text-gray-600"}`}>{STATUS_LABELS[entry.toStatus] ?? entry.toStatus}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 italic mt-0.5">"{entry.note}"</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {entry.actorFirst ? `${entry.actorFirst} ${entry.actorLast} · ` : ""}{new Date(entry.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
