@@ -29,6 +29,7 @@ import StaffDetailPage from "@/pages/staff-detail";
 import IepSearchPage from "@/pages/iep-search";
 import ProtectiveMeasuresPage from "@/pages/protective-measures";
 import AnalyticsPage from "@/pages/analytics";
+import StateReportingPage from "@/pages/state-reporting";
 
 import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
 import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
@@ -110,6 +111,7 @@ function StaffRouter() {
       <BoundedRoute path="/compliance/checklist" component={ComplianceChecklist} fallbackTitle="Compliance checklist error" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
+      <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" />

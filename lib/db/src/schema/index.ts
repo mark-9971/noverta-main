@@ -57,3 +57,4 @@ export * from "./priorWrittenNotices";
 export * from "./meetingConsentRecords";
 export * from "./documents";
 export * from "./signatureRequests";
+export * from "./exportHistory";

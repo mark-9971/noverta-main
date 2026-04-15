@@ -39,6 +39,7 @@ import iepMeetingsRouter from "./iepMeetings";
 import storageRouter from "./storage";
 import documentsRouter from "./documents";
 import complianceChecklistRouter from "./complianceChecklist";
+import { stateReportingRouter } from "./stateReporting";
 
 const router: IRouter = Router();
 
@@ -85,5 +86,6 @@ router.use(evaluationsRouter);
 router.use(transitionsRouter);
 router.use(iepMeetingsRouter);
 router.use(complianceChecklistRouter);
+router.use(stateReportingRouter);
 
 export default router;

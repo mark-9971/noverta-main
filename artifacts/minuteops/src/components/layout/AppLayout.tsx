@@ -67,6 +67,7 @@ const adminNav: NavSection[] = [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge },
       { href: "/district", label: "District Overview", icon: Building2 },
       { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/state-reporting", label: "State Reporting", icon: FileText },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/resource-management", label: "Resource Management", icon: Scale },
       { href: "/compensatory-services", label: "Comp Services", icon: Gift },
