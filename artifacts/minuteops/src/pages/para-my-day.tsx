@@ -29,6 +29,7 @@ interface ScheduleBlock {
   notes: string | null;
   studentName: string | null;
   serviceTypeName: string | null;
+  sessionLogged: boolean;
 }
 
 interface IepGoal {
@@ -209,7 +210,8 @@ export default function ParaMyDayPage() {
   const [quickLogPrefill, setQuickLogPrefill] = useState<QuickLogPrefill>({});
   const [quickLogSkipToMissed, setQuickLogSkipToMissed] = useState(false);
 
-  const [alerts, setAlerts] = useState<{ id: number; severity: string; message: string; suggestedAction: string | null; studentName: string | null }[]>([]);
+  type StaffAlert = { id: number; severity: string; message: string; suggestedAction: string | null; studentName: string | null };
+  const [alerts, setAlerts] = useState<StaffAlert[]>([]);
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
 
   const [studentTargets, setStudentTargets] = useState<{
@@ -239,7 +241,20 @@ export default function ParaMyDayPage() {
         getParaMyDay({ staffId, date } as any),
         authFetch(`/api/alerts?staffId=${staffId}&resolved=false`)
           .then(r => r.ok ? r.json() : [])
-          .then((data: unknown) => setAlerts(Array.isArray(data) ? data as any[] : []))
+          .then((data: unknown) => {
+            if (!Array.isArray(data)) return;
+            setAlerts(
+              (data as Record<string, unknown>[])
+                .filter(a => typeof a === "object" && a !== null && typeof a["id"] === "number")
+                .map(a => ({
+                  id: a["id"] as number,
+                  severity: typeof a["severity"] === "string" ? a["severity"] : "info",
+                  message: typeof a["message"] === "string" ? a["message"] : "",
+                  suggestedAction: typeof a["suggestedAction"] === "string" ? a["suggestedAction"] : null,
+                  studentName: typeof a["studentName"] === "string" ? a["studentName"] : null,
+                }))
+            );
+          })
           .catch(() => {}),
       ]);
       setBlocks((dayData as any).blocks || []);
@@ -504,7 +519,7 @@ export default function ParaMyDayPage() {
     );
   }
 
-  const pastUnloggedBlocks = blocks.filter(b => !isCurrentBlock(b) && !isUpcoming(b) && b.studentId);
+  const pastUnloggedBlocks = blocks.filter(b => !isCurrentBlock(b) && !isUpcoming(b) && b.studentId && !b.sessionLogged);
 
   return (
     <>

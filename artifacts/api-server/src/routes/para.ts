@@ -116,32 +116,55 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
 
     const dayOfWeek = dayOfWeekFromDate(date);
 
-    const blocks: ScheduleBlockRow[] = await db
-      .select({
-        id: scheduleBlocksTable.id,
-        staffId: scheduleBlocksTable.staffId,
-        studentId: scheduleBlocksTable.studentId,
-        serviceTypeId: scheduleBlocksTable.serviceTypeId,
-        dayOfWeek: scheduleBlocksTable.dayOfWeek,
-        startTime: scheduleBlocksTable.startTime,
-        endTime: scheduleBlocksTable.endTime,
-        location: scheduleBlocksTable.location,
-        blockLabel: scheduleBlocksTable.blockLabel,
-        blockType: scheduleBlocksTable.blockType,
-        notes: scheduleBlocksTable.notes,
-        studentFirst: studentsTable.firstName,
-        studentLast: studentsTable.lastName,
-        serviceTypeName: serviceTypesTable.name,
-      })
-      .from(scheduleBlocksTable)
-      .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
-      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
-      .where(and(
-        eq(scheduleBlocksTable.staffId, staffId),
-        eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
-        eq(scheduleBlocksTable.isRecurring, true),
-      ))
-      .orderBy(scheduleBlocksTable.startTime);
+    const [blocks, todaySessions] = await Promise.all([
+      db
+        .select({
+          id: scheduleBlocksTable.id,
+          staffId: scheduleBlocksTable.staffId,
+          studentId: scheduleBlocksTable.studentId,
+          serviceTypeId: scheduleBlocksTable.serviceTypeId,
+          dayOfWeek: scheduleBlocksTable.dayOfWeek,
+          startTime: scheduleBlocksTable.startTime,
+          endTime: scheduleBlocksTable.endTime,
+          location: scheduleBlocksTable.location,
+          blockLabel: scheduleBlocksTable.blockLabel,
+          blockType: scheduleBlocksTable.blockType,
+          notes: scheduleBlocksTable.notes,
+          studentFirst: studentsTable.firstName,
+          studentLast: studentsTable.lastName,
+          serviceTypeName: serviceTypesTable.name,
+        })
+        .from(scheduleBlocksTable)
+        .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
+        .where(and(
+          eq(scheduleBlocksTable.staffId, staffId),
+          eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
+          eq(scheduleBlocksTable.isRecurring, true),
+        ))
+        .orderBy(scheduleBlocksTable.startTime),
+      db
+        .select({
+          studentId: sessionLogsTable.studentId,
+          serviceTypeId: sessionLogsTable.serviceTypeId,
+        })
+        .from(sessionLogsTable)
+        .where(and(
+          eq(sessionLogsTable.staffId, staffId),
+          eq(sessionLogsTable.sessionDate, date),
+          sql`${sessionLogsTable.deletedAt} IS NULL`,
+        )),
+    ]);
+
+    const loggedKeys = new Set(
+      todaySessions.map(s => `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`)
+    );
+
+    const isBlockLogged = (b: typeof blocks[number]): boolean => {
+      const key = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
+      const keyNoSvc = `${b.studentId ?? ""}:`;
+      return loggedKeys.has(key) || (b.serviceTypeId == null && loggedKeys.has(keyNoSvc));
+    };
 
     res.json({
       date,
@@ -160,6 +183,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         notes: b.notes,
         studentName: b.studentFirst ? `${b.studentFirst} ${b.studentLast}` : null,
         serviceTypeName: b.serviceTypeName,
+        sessionLogged: isBlockLogged(b),
       })),
     });
   } catch (e: unknown) {
