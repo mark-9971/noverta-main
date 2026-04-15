@@ -69,7 +69,11 @@ async function assertStudentAccess(req: Request, studentId: number): Promise<boo
   const authed = req as AuthedRequest;
   if (authed.trellisRole === "admin") return true;
   const requesterSchoolId = await getRequesterSchoolId(req);
-  if (requesterSchoolId === null) return true;
+  if (requesterSchoolId === null) {
+    // In production, fail closed when school context cannot be resolved for non-admins.
+    // In dev mode, fall through to allow access without full Clerk metadata configured.
+    return process.env.NODE_ENV !== "production";
+  }
   const rows = await db.select({ schoolId: studentsTable.schoolId })
     .from(studentsTable)
     .where(eq(studentsTable.id, studentId))
@@ -237,6 +241,11 @@ router.patch("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: Re
       return;
     }
 
+    if (!await assertStudentAccess(req, existing.studentId)) {
+      res.status(403).json({ error: "You don't have access to this student's records" });
+      return;
+    }
+
     const [updated] = await db
       .update(documentsTable)
       .set({ ...parsed.data, updatedAt: new Date() })
@@ -265,6 +274,11 @@ router.delete("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: R
     const [existing] = await db.select().from(documentsTable).where(eq(documentsTable.id, id));
     if (!existing || existing.deletedAt) {
       res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    if (!await assertStudentAccess(req, existing.studentId)) {
+      res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
 
@@ -300,6 +314,11 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
     const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, documentId));
     if (!doc || doc.deletedAt) {
       res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    if (!await assertStudentAccess(req, doc.studentId)) {
+      res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
 
