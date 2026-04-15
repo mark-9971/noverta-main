@@ -331,6 +331,11 @@ router.post("/agencies/:id/contracts", adminOnly, async (req: Request, res: Resp
       return;
     }
 
+    if (startDate > endDate) {
+      res.status(400).json({ error: "startDate must be on or before endDate" });
+      return;
+    }
+
     const overlapping = await db.select({ id: agencyContractsTable.id })
       .from(agencyContractsTable)
       .where(and(
@@ -408,6 +413,11 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     const effectiveStartDate = (updates.startDate as string) ?? existing.startDate;
     const effectiveEndDate = (updates.endDate as string) ?? existing.endDate;
     const effectiveStatus = (updates.status as string) ?? existing.status;
+
+    if (effectiveStartDate > effectiveEndDate) {
+      res.status(400).json({ error: "startDate must be on or before endDate" });
+      return;
+    }
 
     if (effectiveStatus === "active" &&
         (updates.status !== undefined || updates.serviceTypeId !== undefined || updates.startDate !== undefined || updates.endDate !== undefined)) {
@@ -488,6 +498,17 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
 });
 
 async function reconcileContractSessionLinks(districtId: number): Promise<number> {
+  const allDistrictContracts = await db.select({ id: agencyContractsTable.id })
+    .from(agencyContractsTable)
+    .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
+    .where(eq(agenciesTable.districtId, districtId));
+
+  const allContractIds = allDistrictContracts.map(c => c.id);
+  if (allContractIds.length > 0) {
+    await db.delete(contractSessionLinksTable)
+      .where(inArray(contractSessionLinksTable.contractId, allContractIds));
+  }
+
   const activeContracts = await db.select({
     id: agencyContractsTable.id,
     agencyId: agencyContractsTable.agencyId,
@@ -502,13 +523,6 @@ async function reconcileContractSessionLinks(districtId: number): Promise<number
       isNull(agencyContractsTable.deletedAt),
       eq(agenciesTable.districtId, districtId),
     ));
-
-  const contractIds = activeContracts.map(c => c.id);
-
-  if (contractIds.length > 0) {
-    await db.delete(contractSessionLinksTable)
-      .where(inArray(contractSessionLinksTable.contractId, contractIds));
-  }
 
   if (activeContracts.length === 0) return 0;
 
