@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,8 @@ import {
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
-  Heart, Trophy, CreditCard, Crown
+  Heart, Trophy, CreditCard, Crown, ChevronRight,
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -23,131 +24,230 @@ import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
 import { useTheme } from "@/lib/theme-context";
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; primary?: boolean; alertBadge?: boolean };
-type NavSection = { label?: string; items: NavItem[] };
+type IconComponent = React.ComponentType<{ className?: string }>;
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconComponent;
+  primary?: boolean;
+  alertBadge?: boolean;
+  comingSoon?: boolean;
+};
+
+type NavSection = {
+  label?: string;
+  icon?: IconComponent;
+  items: NavItem[];
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+};
+
+const LS_PREFIX = "trellis_nav_";
+
+function useCollapsedSections(sections: NavSection[]) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const s of sections) {
+      if (s.label && s.collapsible) {
+        const stored = localStorage.getItem(`${LS_PREFIX}${s.label}`);
+        initial[s.label] = stored !== null ? stored === "collapsed" : !(s.defaultOpen ?? true);
+      }
+    }
+    return initial;
+  });
+
+  const toggle = useCallback((label: string) => {
+    setCollapsed(prev => {
+      const next = !prev[label];
+      localStorage.setItem(`${LS_PREFIX}${label}`, next ? "collapsed" : "open");
+      return { ...prev, [label]: next };
+    });
+  }, []);
+
+  return { collapsed, toggle };
+}
 
 const platformAdminSection: NavSection = {
   label: "Platform",
+  icon: Crown,
+  collapsible: true,
   items: [
     { href: "/tenants", label: "Tenant Management", icon: Crown },
   ],
 };
 
-// ADMIN — SPED Director / Administrator
-// Workflow: triage alerts → student compliance overview → IEP deadlines →
-//           session oversight → clinical review → district reporting → admin tools
 const adminNav: NavSection[] = [
   {
+    label: "Overview",
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
   {
-    label: "Students & Compliance",
+    label: "Students",
+    icon: GraduationCap,
+    collapsible: true,
     items: [
-      { href: "/students", label: "Students", icon: Users, primary: true },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
-      { href: "/compliance", label: "Service Minutes", icon: Timer },
+      { href: "/students", label: "Student List", icon: Users, primary: true },
+      { href: "/search", label: "IEP Search", icon: Search },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
     ],
   },
   {
-    label: "Sessions & Schedule",
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
     items: [
+      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
+      { href: "/compliance", label: "Service Minutes", icon: Timer },
+      { href: "/compensatory-services", label: "Compensatory Services", icon: Gift },
+      { href: "/state-reporting", label: "State Reports", icon: FileText },
+      { href: "/attendance", label: "Attendance", icon: ClipboardCheck, comingSoon: true },
+    ],
+  },
+  {
+    label: "Service Delivery",
+    icon: Calendar,
+    collapsible: true,
+    items: [
+      { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/sessions", label: "Session Log", icon: Clipboard },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
     ],
   },
   {
     label: "Clinical",
+    icon: Stethoscope,
+    collapsible: true,
     items: [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
-      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
+      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
+      { href: "/aba-graphing", label: "ABA Graphing", icon: BarChart3, comingSoon: true },
     ],
   },
   {
-    label: "District & Reports",
+    label: "District",
+    icon: Building2,
+    collapsible: true,
     items: [
-      { href: "/executive", label: "Executive Dashboard", icon: Gauge },
       { href: "/district", label: "District Overview", icon: Building2 },
-      { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/state-reporting", label: "State Reporting", icon: FileText },
-      { href: "/analytics", label: "Analytics", icon: PieChart },
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge },
       { href: "/resource-management", label: "Resource Management", icon: Scale },
-      { href: "/compensatory-services", label: "Comp Services", icon: Gift },
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, comingSoon: true },
+      { href: "/budget", label: "Budget", icon: CreditCard, comingSoon: true },
     ],
   },
   {
-    label: "Admin Tools",
+    label: "People",
+    icon: Contact,
+    collapsible: true,
     items: [
       { href: "/staff", label: "Staff Directory", icon: UserCheck },
-      { href: "/agencies", label: "Agencies", icon: Building2 },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/agencies", label: "Agencies", icon: Truck },
+      { href: "/credentialing", label: "Credentialing", icon: GraduationCap, comingSoon: true },
+    ],
+  },
+  {
+    label: "Communication",
+    icon: MessageSquare,
+    collapsible: true,
+    items: [
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true },
+      { href: "/translation", label: "Translation", icon: Languages, comingSoon: true },
+    ],
+  },
+  {
+    label: "Admin",
+    icon: Settings,
+    collapsible: true,
+    items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/sis-settings", label: "SIS Integration", icon: Database },
+      { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
       { href: "/setup", label: "Setup Wizard", icon: Rocket },
-      { href: "/billing", label: "Billing", icon: CreditCard },
     ],
   },
 ];
 
-// SPED TEACHER / PROVIDER — Case Manager, BCBA, Therapist
-// Workflow: see today's schedule → log sessions → track student minutes →
-//           collect clinical data → IEP documentation → check reports
 const spedTeacherNav: NavSection[] = [
   {
+    label: "Overview",
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase, primary: true },
     ],
   },
   {
-    label: "My Caseload",
+    label: "My Students",
+    icon: GraduationCap,
+    collapsible: true,
     items: [
-      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase, primary: true },
       { href: "/students", label: "My Students", icon: Users, primary: true },
-      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
-      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
-      { href: "/compliance", label: "Service Minutes", icon: Timer },
+      { href: "/search", label: "IEP Search", icon: Search },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
-    ],
-  },
-  {
-    label: "Session Work",
-    items: [
-      { href: "/sessions", label: "Session Log", icon: Clipboard },
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
-    ],
-  },
-  {
-    label: "IEP & Clinical",
-    items: [
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
+    items: [
+      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
+      { href: "/compliance", label: "Service Minutes", icon: Timer },
+    ],
+  },
+  {
+    label: "Service Delivery",
+    icon: Calendar,
+    collapsible: true,
+    items: [
+      { href: "/sessions", label: "My Sessions", icon: Clipboard },
+      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+    ],
+  },
+  {
+    label: "Clinical",
+    icon: Stethoscope,
+    collapsible: true,
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
-      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Communication",
+    icon: MessageSquare,
+    collapsible: true,
+    items: [
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
     ],
   },
   {
     label: "Reports",
+    icon: BarChart3,
+    collapsible: true,
     items: [
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
     ],
   },
 ];
@@ -169,8 +269,6 @@ const paraNav: NavSection[] = [
   },
 ];
 
-// SPED STUDENT — student-facing portal
-// Simple: overview → goals (what I'm working toward) → services (what I'm entitled to) → sessions (history)
 const spedStudentNav: NavSection[] = [
   {
     items: [
@@ -236,6 +334,81 @@ const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
   },
 };
 
+function NavItemRow({
+  item,
+  active,
+  theme,
+  config,
+  openAlerts,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  theme: string;
+  config: typeof STAFF_NAV_CONFIG.admin;
+  openAlerts: number;
+  onNavigate?: () => void;
+}) {
+  const content = (
+    <>
+      {theme === "open-air" && active && !item.comingSoon && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
+      )}
+      <item.icon className={cn(
+        "w-[17px] h-[17px] flex-shrink-0",
+        item.comingSoon
+          ? "text-gray-300"
+          : theme === "open-air"
+            ? active ? "text-gray-900" : "text-gray-300"
+            : active ? config.iconActive : "text-gray-400"
+      )} />
+      <span className="flex-1 truncate">{item.label}</span>
+      {item.comingSoon && (
+        <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 leading-none whitespace-nowrap">
+          Soon
+        </span>
+      )}
+      {item.alertBadge && openAlerts > 0 && (
+        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+          {openAlerts > 99 ? "99+" : openAlerts}
+        </span>
+      )}
+    </>
+  );
+
+  const baseClasses = "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100";
+
+  if (item.comingSoon) {
+    return (
+      <span
+        className={cn(baseClasses, "cursor-default text-gray-300")}
+        title={`${item.label} — Coming Soon`}
+      >
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        baseClasses,
+        theme === "open-air"
+          ? active
+            ? "text-gray-900 font-semibold"
+            : "text-gray-400 hover:text-gray-700"
+          : active
+            ? config.bgActive
+            : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+      )}
+      onClick={onNavigate}
+    >
+      {content}
+    </Link>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { signOut } = useClerk();
@@ -246,10 +419,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { typedFilter } = useSchoolContext();
   const { theme } = useTheme();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
-  const openAlerts = (alertsSummary as any)?.total ?? 0;
+  const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
   const config = roleConfig[role] ?? roleConfig["sped_teacher"];
 
-  // Global Cmd+K / Ctrl+K shortcut
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -262,9 +434,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const navSections = isPlatformAdmin ? [...config.nav, platformAdminSection] : config.nav;
+  const { collapsed, toggle } = useCollapsedSections(navSections);
   const navItems = navSections.flatMap(s => s.items);
-  const primaryItems = navItems.filter(i => i.primary);
-  const secondaryItems = navItems.filter(i => !i.primary);
+  const primaryItems = navItems.filter(i => i.primary && !i.comingSoon);
+  const secondaryItems = navItems.filter(i => !i.primary && !i.comingSoon);
 
   const homeHref = config.homeHref;
 
@@ -275,9 +448,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const initials = user.initials || user.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "T";
 
   function isActive(item: NavItem) {
+    if (item.comingSoon) return false;
     return item.href === homeHref
       ? location === item.href
       : location.startsWith(item.href);
+  }
+
+  function sectionHasActiveItem(section: NavSection) {
+    return section.items.some(i => isActive(i));
   }
 
   return (
@@ -296,7 +474,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         "fixed inset-y-0 left-0 w-[220px] transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        {/* Logo & role switcher */}
         <div className={cn(
           "px-4 pt-5 pb-3",
           theme === "open-air" ? "border-b border-transparent" : "border-b border-sidebar-border"
@@ -335,7 +512,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Search trigger */}
         <div className="px-2.5 pt-2.5 pb-1">
           <button
             onClick={() => setSearchOpen(true)}
@@ -354,58 +530,69 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
-          {navSections.map((section, si) => (
-            <div key={si} className={si > 0 ? "mt-4" : ""}>
-              {section.label && (
-                <p className="px-2.5 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                  {section.label}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const active = isActive(item);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
+          {navSections.map((section, si) => {
+            const isCollapsible = section.collapsible && !!section.label;
+            const isCollapsed = isCollapsible && !!collapsed[section.label!];
+            const hasActive = sectionHasActiveItem(section);
+
+            return (
+              <div key={section.label ?? si} className={si > 0 ? "mt-3" : ""}>
+                {section.label && (
+                  isCollapsible ? (
+                    <button
+                      onClick={() => toggle(section.label!)}
                       className={cn(
-                        "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100",
-                        theme === "open-air"
-                          ? active
-                            ? "text-gray-900 font-semibold"
-                            : "text-gray-400 hover:text-gray-700"
-                          : active
-                            ? config.bgActive
-                            : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        "w-full flex items-center gap-1.5 px-2.5 mb-0.5 py-1 rounded-md transition-colors group",
+                        "hover:bg-gray-50"
                       )}
-                      onClick={() => setSidebarOpen(false)}
                     >
-                      {theme === "open-air" && active && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
-                      )}
-                      <item.icon className={cn(
-                        "w-[17px] h-[17px] flex-shrink-0",
-                        theme === "open-air"
-                          ? active ? "text-gray-900" : "text-gray-300"
-                          : active ? config.iconActive : "text-gray-400"
+                      <ChevronRight className={cn(
+                        "w-3 h-3 text-gray-400 transition-transform duration-150 flex-shrink-0",
+                        !isCollapsed && "rotate-90"
                       )} />
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.alertBadge && openAlerts > 0 && (
-                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
-                          {openAlerts > 99 ? "99+" : openAlerts}
-                        </span>
+                      {section.icon && (
+                        <section.icon className={cn(
+                          "w-3.5 h-3.5 flex-shrink-0",
+                          hasActive && !isCollapsed ? "text-emerald-600" : "text-gray-400"
+                        )} />
                       )}
-                    </Link>
-                  );
-                })}
+                      <span className={cn(
+                        "text-[10px] font-semibold uppercase tracking-widest flex-1 text-left",
+                        hasActive && !isCollapsed ? "text-emerald-600" : "text-gray-400"
+                      )}>
+                        {section.label}
+                      </span>
+                      {isCollapsed && hasActive && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                      )}
+                    </button>
+                  ) : (
+                    <p className="px-2.5 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                      {section.label}
+                    </p>
+                  )
+                )}
+                {!isCollapsed && (
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <NavItemRow
+                        key={item.href}
+                        item={item}
+                        active={isActive(item)}
+                        theme={theme}
+                        config={config}
+                        openAlerts={openAlerts}
+                        onNavigate={() => setSidebarOpen(false)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
-        {/* User identity */}
         <div className={cn(
           "px-3 py-3",
           theme === "open-air" ? "border-t border-transparent" : "border-t border-sidebar-border"
@@ -438,9 +625,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile top bar */}
         <header className="lg:hidden bg-sidebar border-b border-sidebar-border px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <button
             className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600"
@@ -461,7 +646,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SubscriptionGate>{children}</SubscriptionGate>
         </main>
 
-        {/* Mobile bottom tab bar */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border flex items-stretch z-30 safe-area-bottom">
           {primaryItems.map((item) => {
             const active = isActive(item);
@@ -501,10 +685,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
                   <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-gray-200 py-2 w-56 z-50 max-h-[70vh] overflow-y-auto">
                     {navSections.map((section, si) => {
-                      const secItems = section.items.filter(i => !i.primary);
+                      const secItems = section.items.filter(i => !i.primary && !i.comingSoon);
                       if (secItems.length === 0) return null;
                       return (
-                        <div key={si}>
+                        <div key={section.label ?? si}>
                           {section.label && (
                             <p className="px-4 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
                               {section.label}
