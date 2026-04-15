@@ -78,6 +78,9 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
   const conditions: any[] = [
     eq(scheduleBlocksTable.isRecurring, true),
     isNull(scheduleBlocksTable.deletedAt),
+    // Only count blocks currently in their effective date window
+    sql`(${scheduleBlocksTable.effectiveFrom} IS NULL OR ${scheduleBlocksTable.effectiveFrom} <= CURRENT_DATE)`,
+    sql`(${scheduleBlocksTable.effectiveTo} IS NULL OR ${scheduleBlocksTable.effectiveTo} >= CURRENT_DATE)`,
   ];
   if (params.success && params.data.schoolId) {
     conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
@@ -272,15 +275,15 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const dayOfWeek = dayNames[absenceDay.getDay()];
 
-  // Candidate recurring blocks for this staff on that weekday
-  const blockConditions: any[] = [
-    eq(scheduleBlocksTable.staffId, staffId),
-    eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
-    eq(scheduleBlocksTable.isRecurring, true),
-    isNull(scheduleBlocksTable.deletedAt),
-  ];
+  // Compute the Monday (ISO week start) of the absence date for weekOf matching
+  const absenceDayNum = absenceDay.getDay(); // 0=Sun ... 6=Sat
+  const daysToMonday = absenceDayNum === 0 ? 6 : absenceDayNum - 1;
+  const mondayOfAbsenceWeek = new Date(absenceDay);
+  mondayOfAbsenceWeek.setDate(absenceDay.getDate() - daysToMonday);
+  const weekOfStr = mondayOfAbsenceWeek.toISOString().slice(0, 10);
 
-  const candidateBlocks = await db
+  // Query 1: recurring blocks on this weekday (within effective date range)
+  const recurringBlocks = await db
     .select({
       id: scheduleBlocksTable.id,
       startTime: scheduleBlocksTable.startTime,
@@ -290,7 +293,33 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
       recurrenceType: scheduleBlocksTable.recurrenceType,
     })
     .from(scheduleBlocksTable)
-    .where(and(...blockConditions));
+    .where(and(
+      eq(scheduleBlocksTable.staffId, staffId),
+      eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
+      eq(scheduleBlocksTable.isRecurring, true),
+      isNull(scheduleBlocksTable.deletedAt),
+    ));
+
+  // Query 2: non-recurring (date-specific) blocks for this staff on the specific absence week+day
+  const nonRecurringBlocks = await db
+    .select({
+      id: scheduleBlocksTable.id,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+      effectiveFrom: scheduleBlocksTable.effectiveFrom,
+      effectiveTo: scheduleBlocksTable.effectiveTo,
+      recurrenceType: scheduleBlocksTable.recurrenceType,
+    })
+    .from(scheduleBlocksTable)
+    .where(and(
+      eq(scheduleBlocksTable.staffId, staffId),
+      eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
+      eq(scheduleBlocksTable.isRecurring, false),
+      eq(scheduleBlocksTable.weekOf, weekOfStr),
+      isNull(scheduleBlocksTable.deletedAt),
+    ));
+
+  const candidateBlocks = [...recurringBlocks, ...nonRecurringBlocks];
 
   // If absence has a time range, only flag blocks that overlap with it
   const absenceStart = parsed.data.startTime ?? null;
