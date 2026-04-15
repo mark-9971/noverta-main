@@ -7,8 +7,13 @@
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "pg": "^8.16.0",
+    "stripe": "20.0.0"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.15.4",
     "tsx": "catalog:"
   }
 }

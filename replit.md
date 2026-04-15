@@ -75,5 +75,5 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   Zod
 -   Orval
 -   Clerk (for authentication)
--   Stripe (payment processing via Replit integration)
--   stripe-replit-sync (webhook processing and data sync)
+-   Stripe (payment processing via Replit integration, in @workspace/api-server + @workspace/scripts)
+-   stripe-replit-sync (webhook processing and data sync, in @workspace/api-server)
