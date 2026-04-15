@@ -541,7 +541,9 @@ const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
 
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
   const { role: authRole } = getPublicMeta(req);
-  if (!authRole) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(authRole ?? "")) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
 
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }

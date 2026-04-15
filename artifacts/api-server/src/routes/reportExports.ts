@@ -192,13 +192,17 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, startDate, endDate } = req.query;
+    const { schoolId, startDate, endDate, status: statusParam2 } = req.query;
+    const statusFilter2 = typeof statusParam2 === "string" ? statusParam2 : "active";
     const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const studentConditions: ReturnType<typeof eq>[] = [eq(studentsTable.status, "active")];
+    const studentConditions: ReturnType<typeof eq>[] = [];
+    if (statusFilter2 !== "all") {
+      studentConditions.push(eq(studentsTable.status, statusFilter2) as ReturnType<typeof eq>);
+    }
     if (schoolId) studentConditions.push(eq(studentsTable.schoolId, Number(schoolId)));
     if (effectiveDistrictId !== null) {
       studentConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId})` as ReturnType<typeof eq>);
@@ -213,7 +217,7 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     })
       .from(studentsTable)
       .leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
-      .where(and(...studentConditions))
+      .where(studentConditions.length > 0 ? and(...studentConditions) : undefined)
       .orderBy(asc(studentsTable.lastName), asc(studentsTable.firstName));
 
     if (students.length === 0) {
