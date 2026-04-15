@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
-import { Sprout, CheckCircle, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { Sprout, CheckCircle, FileText, Loader2, AlertTriangle, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -8,8 +8,29 @@ interface SignatureInfo {
   id: number;
   status: string;
   recipientName: string;
-  document: { id: number; title: string; category: string; fileName: string } | null;
+  document: {
+    id: number;
+    title: string;
+    category: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+  } | null;
   signedAt: string | null;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isPdfContentType(contentType: string): boolean {
+  return contentType === "application/pdf";
+}
+
+function isImageContentType(contentType: string): boolean {
+  return contentType.startsWith("image/");
 }
 
 export default function SignDocumentPage() {
@@ -24,6 +45,7 @@ export default function SignDocumentPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [showDocument, setShowDocument] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -51,7 +73,7 @@ export default function SignDocumentPage() {
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-  }, [loading, signed]);
+  }, [loading, signed, showDocument]);
 
   const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -110,12 +132,17 @@ export default function SignDocumentPage() {
         throw new Error(data.error || "Failed to submit signature");
       }
       setSigned(true);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit signature");
     } finally {
       setSubmitting(false);
     }
   };
+
+  const documentViewUrl = token ? `/api/signature-requests/${token}/document` : null;
+  const canPreviewInline = info?.document?.contentType
+    ? isPdfContentType(info.document.contentType) || isImageContentType(info.document.contentType)
+    : false;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
@@ -129,7 +156,7 @@ export default function SignDocumentPage() {
         </div>
       </div>
 
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-2xl">
         <CardContent className="pt-6">
           {loading ? (
             <div className="flex flex-col items-center py-12">
@@ -158,20 +185,64 @@ export default function SignDocumentPage() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">E-Signature Request</h2>
-                <p className="text-sm text-gray-500 mt-1">Please review and sign the document below.</p>
+                <p className="text-sm text-gray-500 mt-1">Please review the document below, then provide your signature.</p>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-gray-500" />
                   <span className="text-sm font-medium text-gray-800">{info.document?.title || "Document"}</span>
                 </div>
                 <div className="text-xs text-gray-500 space-y-0.5">
-                  <p>File: {info.document?.fileName}</p>
+                  <p>File: {info.document?.fileName}{info.document?.fileSize ? ` (${formatFileSize(info.document.fileSize)})` : ""}</p>
                   <p>Category: {info.document?.category?.replace(/_/g, " ")}</p>
-                  <p>Signing as: {info.recipientName}</p>
+                  <p>Signing as: <span className="font-medium text-gray-700">{info.recipientName}</span></p>
                 </div>
+
+                {documentViewUrl && (
+                  <div className="flex items-center gap-2 pt-1">
+                    {canPreviewInline && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => setShowDocument(!showDocument)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        {showDocument ? "Hide Document" : "View Document"}
+                      </Button>
+                    )}
+                    <a
+                      href={documentViewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download
+                    </a>
+                  </div>
+                )}
               </div>
+
+              {showDocument && documentViewUrl && canPreviewInline && (
+                <div className="border rounded-lg overflow-hidden bg-white">
+                  {info.document?.contentType && isImageContentType(info.document.contentType) ? (
+                    <img
+                      src={documentViewUrl}
+                      alt={info.document?.title || "Document"}
+                      className="w-full max-h-[500px] object-contain"
+                    />
+                  ) : (
+                    <iframe
+                      src={documentViewUrl}
+                      className="w-full border-0"
+                      style={{ height: 500 }}
+                      title="Document preview"
+                    />
+                  )}
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">

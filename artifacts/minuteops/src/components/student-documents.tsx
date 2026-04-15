@@ -161,7 +161,7 @@ export default function StudentDocuments({ studentId }: { studentId: number }) {
 
   const handleDownload = async (doc: DocumentRecord) => {
     try {
-      const res = await authFetch(`/api/storage${doc.objectPath}`);
+      const res = await authFetch(`/api/documents/${doc.id}/download`);
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

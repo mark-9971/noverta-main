@@ -1,11 +1,15 @@
 import { Router, type Request, type Response } from "express";
+import { Readable } from "stream";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { db, documentsTable, signatureRequestsTable } from "@workspace/db";
+import type { Document } from "@workspace/db";
+import type { SignatureRequest } from "@workspace/db";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
 
@@ -47,6 +51,7 @@ const CreateSignatureRequestBody = z.object({
 });
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
   const studentId = Number(req.query.studentId);
@@ -63,7 +68,7 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
       .orderBy(desc(documentsTable.createdAt));
 
     const docIds = docs.map((d) => d.id);
-    let sigRequests: any[] = [];
+    let sigRequests: SignatureRequest[] = [];
     if (docIds.length > 0) {
       sigRequests = await db
         .select()
@@ -77,6 +82,14 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
         .filter((sr) => sr.documentId === doc.id)
         .map(({ token, signatureData, ...rest }) => rest),
     }));
+
+    logAudit(req, {
+      action: "read",
+      targetTable: "documents",
+      targetId: studentId,
+      studentId,
+      summary: `Listed ${docs.length} documents for student ${studentId}`,
+    });
 
     res.json(docsWithSigs);
   } catch (error) {
@@ -114,6 +127,51 @@ router.post("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request
   } catch (error) {
     console.error("Error creating document:", error);
     res.status(500).json({ error: "Failed to create document" });
+  }
+});
+
+router.get("/documents/:id/download", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  try {
+    const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, id));
+    if (!doc || doc.deletedAt) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
+    const response = await objectStorageService.downloadObject(objectFile);
+
+    logAudit(req, {
+      action: "read",
+      targetTable: "documents",
+      targetId: id,
+      studentId: doc.studentId,
+      summary: `Downloaded document "${doc.title}"`,
+    });
+
+    res.status(response.status);
+    if (doc.contentType) res.setHeader("Content-Type", doc.contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(doc.fileName)}"`);
+    response.headers.forEach((value: string, key: string) => {
+      if (key.toLowerCase() !== "content-type" && key.toLowerCase() !== "content-disposition") {
+        res.setHeader(key, value);
+      }
+    });
+
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Document file not found in storage" });
+      return;
+    }
+    console.error("Error downloading document:", error);
+    res.status(500).json({ error: "Failed to download document" });
   }
 });
 
@@ -248,12 +306,76 @@ router.get("/signature-requests/:token", async (req: Request, res: Response) => 
       id: sigReq.id,
       status: sigReq.status,
       recipientName: sigReq.recipientName,
-      document: doc ? { id: doc.id, title: doc.title, category: doc.category, fileName: doc.fileName } : null,
+      document: doc ? {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        fileName: doc.fileName,
+        contentType: doc.contentType,
+        fileSize: doc.fileSize,
+      } : null,
       signedAt: sigReq.signedAt,
     });
   } catch (error) {
     console.error("Error fetching signature request:", error);
     res.status(500).json({ error: "Failed to fetch signature request" });
+  }
+});
+
+router.get("/signature-requests/:token/document", async (req: Request, res: Response) => {
+  try {
+    const [sigReq] = await db
+      .select()
+      .from(signatureRequestsTable)
+      .where(eq(signatureRequestsTable.token, req.params.token));
+
+    if (!sigReq) {
+      res.status(404).json({ error: "Signature request not found" });
+      return;
+    }
+
+    if (sigReq.status === "signed") {
+      res.status(403).json({ error: "This document has already been signed" });
+      return;
+    }
+
+    const ageMs = Date.now() - new Date(sigReq.createdAt).getTime();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    if (ageMs > thirtyDaysMs) {
+      res.status(410).json({ error: "This signature request has expired" });
+      return;
+    }
+
+    const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, sigReq.documentId));
+    if (!doc || doc.deletedAt) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
+    const response = await objectStorageService.downloadObject(objectFile);
+
+    if (doc.contentType) res.setHeader("Content-Type", doc.contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(doc.fileName)}"`);
+    response.headers.forEach((value: string, key: string) => {
+      if (key.toLowerCase() !== "content-type" && key.toLowerCase() !== "content-disposition") {
+        res.setHeader(key, value);
+      }
+    });
+
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Document file not found" });
+      return;
+    }
+    console.error("Error serving document for signing:", error);
+    res.status(500).json({ error: "Failed to load document" });
   }
 });
 
@@ -310,6 +432,16 @@ router.post("/signature-requests/:token/sign", async (req: Request, res: Respons
       })
       .where(eq(signatureRequestsTable.id, sigReq.id))
       .returning();
+
+    const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, sigReq.documentId));
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "signature_requests",
+      targetId: sigReq.id,
+      studentId: doc?.studentId ?? null,
+      summary: `E-signature completed by "${sigReq.recipientName}" (${sigReq.recipientEmail}) for document "${doc?.title || sigReq.documentId}" from IP ${ipAddress}`,
+    });
 
     res.json({ success: true, signedAt: updated.signedAt });
   } catch (error) {
