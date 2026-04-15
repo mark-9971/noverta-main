@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
-  BarChart3, UserCheck, Upload, Activity,
+  BarChart3, UserCheck, UserX, Upload, Activity,
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
@@ -124,6 +124,7 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/coverage", label: "Coverage", icon: UserX },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
     ],
   },

@@ -65,6 +65,7 @@ import BillingPage from "@/pages/billing";
 import TenantsPage from "@/pages/tenants";
 import SystemStatusPage from "@/pages/system-status";
 
+import CoveragePage from "@/pages/coverage";
 import SchoolYearPage from "@/pages/school-year";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -122,6 +123,7 @@ function StaffRouter() {
       <BoundedRoute path="/students" component={Students} fallbackTitle="Students page error" />
       <BoundedRoute path="/sessions" component={Sessions} fallbackTitle="Sessions error" />
       <BoundedRoute path="/schedule" component={Schedule} fallbackTitle="Schedule error" />
+      <BoundedRoute path="/coverage" component={CoveragePage} fallbackTitle="Coverage error" />
       <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />

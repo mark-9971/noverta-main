@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
-  staffAssignmentsTable, serviceRequirementsTable
+  staffAssignmentsTable, serviceRequirementsTable, staffAbsencesTable
 } from "@workspace/db";
 import {
   ListScheduleBlocksQueryParams,
@@ -16,8 +16,12 @@ import {
   ListStaffAssignmentsQueryParams,
   CreateStaffAssignmentBody,
   DeleteStaffAssignmentParams,
+  AssignSubstituteParams,
+  AssignSubstituteBody,
+  ListUncoveredSessionsQueryParams,
+  WorkloadSummaryQueryParams,
 } from "@workspace/api-zod";
-import { eq, and, sql, isNull } from "drizzle-orm";
+import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getActiveSchoolYearId, getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
@@ -146,9 +150,11 @@ router.patch("/schedule-blocks/:id", async (req, res): Promise<void> => {
   }
   const updateData: Partial<typeof scheduleBlocksTable.$inferInsert> = {};
   if (parsed.data.studentId !== undefined) updateData.studentId = parsed.data.studentId;
+  if (parsed.data.dayOfWeek != null) updateData.dayOfWeek = parsed.data.dayOfWeek;
   if (parsed.data.startTime != null) updateData.startTime = parsed.data.startTime;
   if (parsed.data.endTime != null) updateData.endTime = parsed.data.endTime;
   if (parsed.data.location !== undefined) updateData.location = parsed.data.location;
+  if (parsed.data.blockLabel !== undefined) updateData.blockLabel = parsed.data.blockLabel;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
 
   const [block] = await db.update(scheduleBlocksTable).set(updateData).where(eq(scheduleBlocksTable.id, params.data.id)).returning();
@@ -496,6 +502,174 @@ router.delete("/staff-assignments/:id", async (req, res): Promise<void> => {
   }
   await db.delete(staffAssignmentsTable).where(eq(staffAssignmentsTable.id, params.data.id));
   res.sendStatus(204);
+});
+
+// Uncovered sessions — blocks where isUncovered=true with absence/staff context
+router.get("/schedule-blocks/uncovered", async (req, res): Promise<void> => {
+  const params = ListUncoveredSessionsQueryParams.safeParse(req.query);
+  const { pool } = await import("@workspace/db");
+
+  const whereClauses = ["sb.is_uncovered = true", "sb.deleted_at IS NULL"];
+  const queryParams: any[] = [];
+
+  if (params.success && params.data.schoolId) {
+    queryParams.push(Number(params.data.schoolId));
+    whereClauses.push(`sb.staff_id IN (SELECT id FROM staff WHERE school_id = $${queryParams.length})`);
+  }
+  if (params.success && params.data.startDate) {
+    queryParams.push(params.data.startDate);
+    whereClauses.push(`(sa.absence_date IS NULL OR sa.absence_date >= $${queryParams.length})`);
+  }
+  if (params.success && params.data.endDate) {
+    queryParams.push(params.data.endDate);
+    whereClauses.push(`(sa.absence_date IS NULL OR sa.absence_date <= $${queryParams.length})`);
+  }
+
+  const q = `
+    SELECT
+      sb.id,
+      sa.absence_date AS absence_date,
+      sb.day_of_week,
+      sb.start_time,
+      sb.end_time,
+      sb.student_id,
+      stu.first_name AS student_first,
+      stu.last_name AS student_last,
+      st.name AS service_type_name,
+      sb.original_staff_id,
+      orig.first_name AS original_staff_first,
+      orig.last_name AS original_staff_last,
+      sb.substitute_staff_id,
+      sub.first_name AS sub_staff_first,
+      sub.last_name AS sub_staff_last,
+      sb.absence_id,
+      sb.location
+    FROM schedule_blocks sb
+    LEFT JOIN students stu ON stu.id = sb.student_id
+    LEFT JOIN service_types st ON st.id = sb.service_type_id
+    LEFT JOIN staff orig ON orig.id = sb.original_staff_id
+    LEFT JOIN staff sub ON sub.id = sb.substitute_staff_id
+    LEFT JOIN staff_absences sa ON sa.id = sb.absence_id
+    WHERE ${whereClauses.join(" AND ")}
+    ORDER BY sa.absence_date ASC NULLS LAST, sb.start_time ASC
+  `;
+
+  const result = await pool.query(q, queryParams);
+  res.json(result.rows.map((b: any) => ({
+    id: b.id,
+    absenceDate: b.absence_date ?? null,
+    dayOfWeek: b.day_of_week,
+    startTime: b.start_time,
+    endTime: b.end_time,
+    studentId: b.student_id,
+    studentName: b.student_first ? `${b.student_first} ${b.student_last}` : null,
+    serviceTypeName: b.service_type_name ?? null,
+    originalStaffId: b.original_staff_id,
+    originalStaffName: b.original_staff_first ? `${b.original_staff_first} ${b.original_staff_last}` : null,
+    substituteStaffId: b.substitute_staff_id ?? null,
+    substituteStaffName: b.sub_staff_first ? `${b.sub_staff_first} ${b.sub_staff_last}` : null,
+    absenceId: b.absence_id ?? null,
+    location: b.location ?? null,
+  })));
+});
+
+// Assign substitute to a schedule block
+router.post("/schedule-blocks/:id/assign-substitute", async (req, res): Promise<void> => {
+  const params = AssignSubstituteParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+  const parsed = AssignSubstituteBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [sub] = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
+    .from(staffTable).where(eq(staffTable.id, parsed.data.substituteStaffId));
+  if (!sub) { res.status(404).json({ error: "Substitute staff not found" }); return; }
+
+  const [block] = await db
+    .update(scheduleBlocksTable)
+    .set({
+      substituteStaffId: parsed.data.substituteStaffId,
+      isUncovered: false,
+    })
+    .where(eq(scheduleBlocksTable.id, params.data.id))
+    .returning();
+  if (!block) { res.status(404).json({ error: "Schedule block not found" }); return; }
+
+  res.json({
+    id: block.id,
+    substituteStaffId: sub.id,
+    substituteStaffName: `${sub.firstName} ${sub.lastName}`,
+    isUncovered: false,
+    message: `${sub.firstName} ${sub.lastName} assigned as substitute`,
+  });
+});
+
+// Workload summary — total scheduled minutes per provider per week
+router.get("/staff/workload-summary", async (req, res): Promise<void> => {
+  const params = WorkloadSummaryQueryParams.safeParse(req.query);
+  const thresholdMinutes = (params.success && params.data.thresholdHours)
+    ? params.data.thresholdHours * 60
+    : 25 * 60;
+
+  const conditions: any[] = [
+    eq(scheduleBlocksTable.isRecurring, true),
+    isNull(scheduleBlocksTable.deletedAt),
+  ];
+  if (params.success && params.data.schoolId) {
+    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
+  }
+  if (params.success && params.data.districtId) {
+    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+  }
+
+  const activeYearId = await resolveActiveYearId(req, params.success ? (params.data.districtId ?? null) : null);
+  if (activeYearId != null) {
+    conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
+  }
+
+  const rows = await db
+    .select({
+      staffId: scheduleBlocksTable.staffId,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
+      staffRole: staffTable.role,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+    })
+    .from(scheduleBlocksTable)
+    .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
+    .where(and(...conditions));
+
+  const staffMap = new Map<number, { staffId: number; firstName: string; lastName: string; role: string; totalMinutes: number; blockCount: number }>();
+  for (const row of rows) {
+    if (!staffMap.has(row.staffId)) {
+      staffMap.set(row.staffId, {
+        staffId: row.staffId,
+        firstName: row.staffFirst ?? "",
+        lastName: row.staffLast ?? "",
+        role: row.staffRole ?? "",
+        totalMinutes: 0,
+        blockCount: 0,
+      });
+    }
+    const entry = staffMap.get(row.staffId)!;
+    const [sh, sm] = row.startTime.split(":").map(Number);
+    const [eh, em] = row.endTime.split(":").map(Number);
+    const blockMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    if (blockMinutes > 0) entry.totalMinutes += blockMinutes;
+    entry.blockCount++;
+  }
+
+  const summary = Array.from(staffMap.values()).map(s => ({
+    staffId: s.staffId,
+    staffName: `${s.firstName} ${s.lastName}`,
+    role: s.role,
+    scheduledMinutesPerWeek: s.totalMinutes,
+    scheduledHoursPerWeek: Math.round(s.totalMinutes / 60 * 10) / 10,
+    blockCount: s.blockCount,
+    isOverloaded: s.totalMinutes > thresholdMinutes,
+  })).sort((a, b) => b.scheduledMinutesPerWeek - a.scheduledMinutesPerWeek);
+
+  res.json({ thresholdMinutes, thresholdHours: thresholdMinutes / 60, staff: summary });
 });
 
 export default router;

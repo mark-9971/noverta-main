@@ -230,7 +230,7 @@ export default function Schedule() {
   const [deletingBlock, setDeletingBlock] = useState<any>(null);
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
-  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", notes: "", blockType: "service", isRecurring: true, rotationDay: "" });
+  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", blockLabel: "", notes: "", blockType: "service", isRecurring: true, rotationDay: "" });
 
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
@@ -272,6 +272,7 @@ export default function Schedule() {
       startTime: block.startTime?.substring(0, 5) || "09:00",
       endTime: block.endTime?.substring(0, 5) || "10:00",
       location: block.location || "",
+      blockLabel: block.blockLabel || "",
       notes: block.notes || "",
       blockType: block.blockType || "service",
       isRecurring: block.isRecurring ?? true,
@@ -287,9 +288,11 @@ export default function Schedule() {
       if (editingBlock) {
         await updateScheduleBlock(editingBlock.id, {
           studentId: blockForm.studentId && blockForm.studentId !== "__none" ? Number(blockForm.studentId) : null,
+          dayOfWeek: blockForm.dayOfWeek,
           startTime: blockForm.startTime,
           endTime: blockForm.endTime,
           location: blockForm.location || null,
+          blockLabel: blockForm.blockLabel || null,
           notes: blockForm.notes || null,
         });
         toast.success("Schedule block updated");
@@ -651,8 +654,11 @@ export default function Schedule() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-gray-600">Day</Label>
-                <Select value={blockForm.dayOfWeek} onValueChange={v => setBlockForm(f => ({ ...f, dayOfWeek: v }))} disabled={!!editingBlock}>
+                <Label className="text-[12px] font-medium text-gray-600">
+                  Day
+                  {editingBlock && <span className="text-[10px] text-emerald-600 ml-1 font-normal">editable</span>}
+                </Label>
+                <Select value={blockForm.dayOfWeek} onValueChange={v => setBlockForm(f => ({ ...f, dayOfWeek: v }))}>
                   <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {WEEKDAYS.map(d => (
@@ -676,10 +682,21 @@ export default function Schedule() {
                 <Input value={blockForm.location} onChange={e => setBlockForm(f => ({ ...f, location: e.target.value }))} className="h-9 text-[13px]" placeholder="Room 101" />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-600">Notes</Label>
-              <Textarea value={blockForm.notes} onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))} className="text-[13px] min-h-[60px] resize-none" placeholder="Optional notes..." />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Block Label <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Input value={blockForm.blockLabel} onChange={e => setBlockForm(f => ({ ...f, blockLabel: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. Speech pullout" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Notes</Label>
+                <Input value={blockForm.notes} onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional notes..." />
+              </div>
             </div>
+            {editingBlock && editingBlock.dayOfWeek !== blockForm.dayOfWeek && (
+              <div className="flex items-start gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg text-[12px] text-emerald-700">
+                <span className="font-medium">Day change:</span> This recurring block will move from <span className="font-semibold">{WEEKDAY_LABELS[editingBlock.dayOfWeek] ?? editingBlock.dayOfWeek}</span> to <span className="font-semibold">{WEEKDAY_LABELS[blockForm.dayOfWeek] ?? blockForm.dayOfWeek}</span>. The change applies going forward.
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setBlockDialogOpen(false)} disabled={blockSaving}>Cancel</Button>

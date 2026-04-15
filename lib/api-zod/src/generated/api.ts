@@ -1618,9 +1618,11 @@ export const UpdateScheduleBlockParams = zod.object({
 
 export const UpdateScheduleBlockBody = zod.object({
   studentId: zod.number().nullish(),
+  dayOfWeek: zod.string().nullish(),
   startTime: zod.string().nullish(),
   endTime: zod.string().nullish(),
   location: zod.string().nullish(),
+  blockLabel: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -5149,3 +5151,108 @@ export const ExportAuditLogsQueryParams = zod.object({
  * @summary Get audit log statistics
  */
 export const GetAuditLogStatsResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Staff absence types
+ */
+export const ABSENCE_TYPES = ["sick", "personal", "professional_development", "emergency", "other"] as const;
+
+export const CreateAbsenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateAbsenceBody = zod.object({
+  absenceDate: zod.string(),
+  absenceType: zod.enum(ABSENCE_TYPES),
+  startTime: zod.string().nullish(),
+  endTime: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  schoolId: zod.number().nullish(),
+  reportedBy: zod.number().nullish(),
+});
+
+export const ListAbsencesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAbsencesQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+});
+
+export const DeleteAbsenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const StaffAbsenceItem = zod.object({
+  id: zod.number(),
+  staffId: zod.number(),
+  staffName: zod.string().nullish(),
+  schoolId: zod.number().nullish(),
+  absenceDate: zod.string(),
+  absenceType: zod.string(),
+  startTime: zod.string().nullish(),
+  endTime: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  reportedBy: zod.number().nullish(),
+  createdAt: zod.string(),
+  uncoveredBlockCount: zod.number(),
+});
+
+/**
+ * @summary Substitute assignment
+ */
+export const AssignSubstituteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AssignSubstituteBody = zod.object({
+  substituteStaffId: zod.number(),
+  absenceDate: zod.string(),
+});
+
+/**
+ * @summary List uncovered sessions
+ */
+export const ListUncoveredSessionsQueryParams = zod.object({
+  startDate: zod.coerce.string().nullish(),
+  endDate: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+});
+
+export const UncoveredSessionItem = zod.object({
+  id: zod.number(),
+  absenceDate: zod.string(),
+  dayOfWeek: zod.string(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  studentId: zod.number().nullish(),
+  studentName: zod.string().nullish(),
+  serviceTypeName: zod.string().nullish(),
+  originalStaffId: zod.number(),
+  originalStaffName: zod.string().nullish(),
+  substituteStaffId: zod.number().nullish(),
+  substituteStaffName: zod.string().nullish(),
+  absenceId: zod.number().nullish(),
+  location: zod.string().nullish(),
+});
+
+/**
+ * @summary Workload summary
+ */
+export const WorkloadSummaryQueryParams = zod.object({
+  weekOf: zod.coerce.string().nullish(),
+  schoolId: zod.coerce.number().nullish(),
+  districtId: zod.coerce.number().nullish(),
+  thresholdHours: zod.coerce.number().nullish(),
+});
+
+export const WorkloadSummaryItem = zod.object({
+  staffId: zod.number(),
+  staffName: zod.string(),
+  role: zod.string().nullish(),
+  scheduledMinutesPerWeek: zod.number(),
+  scheduledHoursPerWeek: zod.number(),
+  blockCount: zod.number(),
+  isOverloaded: zod.boolean(),
+});
