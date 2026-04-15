@@ -19,7 +19,20 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
-import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
+import { getActiveSchoolYearId, getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
+import { getPublicMeta } from "../lib/clerkClaims";
+import type { Request } from "express";
+
+async function resolveActiveYearId(req: Request, districtIdHint?: number | null): Promise<number | null> {
+  const did = districtIdHint ?? getPublicMeta(req).districtId;
+  if (did) return getActiveSchoolYearId(did);
+  if (process.env.NODE_ENV !== "production") {
+    const { pool } = await import("@workspace/db");
+    const result = await pool.query<{ id: number }>("SELECT id FROM school_years WHERE is_active = true ORDER BY id LIMIT 1");
+    return result.rows[0]?.id ?? null;
+  }
+  return null;
+}
 
 const router: IRouter = Router();
 
@@ -58,6 +71,13 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
   }
   if (params.success && params.data.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
   if (params.success && params.data.districtId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+
+  // School year isolation: use explicit schoolYearId if provided, otherwise default to active year
+  const explicitYearId = params.success ? (params.data.schoolYearId ?? null) : null;
+  const activeYearId = explicitYearId ?? await resolveActiveYearId(req, params.success ? (params.data.districtId ?? null) : null);
+  if (activeYearId != null) {
+    conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
+  }
 
   const blocks = await db
     .select({
@@ -151,6 +171,10 @@ router.delete("/schedule-blocks/:id", async (req, res): Promise<void> => {
 
 // Conflicts detection
 router.get("/schedule-blocks/conflicts", async (req, res): Promise<void> => {
+  const conflictYearId = await resolveActiveYearId(req, null);
+  const conflictConditions: any[] = [eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)];
+  if (conflictYearId != null) conflictConditions.push(eq(scheduleBlocksTable.schoolYearId, conflictYearId));
+
   const allBlocks = await db
     .select({
       id: scheduleBlocksTable.id,
@@ -167,7 +191,7 @@ router.get("/schedule-blocks/conflicts", async (req, res): Promise<void> => {
     .from(scheduleBlocksTable)
     .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
-    .where(and(eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)));
+    .where(and(...conflictConditions));
 
   // Group by staff + day
   const grouped = new Map<string, typeof allBlocks>();
@@ -214,7 +238,11 @@ router.get("/schedule-blocks/conflicts", async (req, res): Promise<void> => {
 
 // Coverage gaps
 router.get("/schedule-blocks/coverage-gaps", async (req, res): Promise<void> => {
-  // Find students with active service requirements who have no scheduled blocks
+  // Find students with active service requirements who have no scheduled blocks in the active year
+  const gapYearId = await resolveActiveYearId(req, null);
+  const coveredConditions: any[] = [eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)];
+  if (gapYearId != null) coveredConditions.push(eq(scheduleBlocksTable.schoolYearId, gapYearId));
+
   const reqs = await db
     .select({
       id: serviceRequirementsTable.id,
@@ -237,7 +265,7 @@ router.get("/schedule-blocks/coverage-gaps", async (req, res): Promise<void> => 
       serviceTypeId: scheduleBlocksTable.serviceTypeId,
     })
     .from(scheduleBlocksTable)
-    .where(and(eq(scheduleBlocksTable.isRecurring, true), isNull(scheduleBlocksTable.deletedAt)));
+    .where(and(...coveredConditions));
 
   const coveredSet = new Set(coveredPairs.map(p => `${p.studentId}-${p.serviceTypeId}`));
 

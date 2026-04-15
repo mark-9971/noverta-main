@@ -1563,6 +1563,7 @@ export const ListScheduleBlocksQueryParams = zod.object({
   dayOfWeek: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  schoolYearId: zod.coerce.number().nullish(),
 });
 
 export const ListScheduleBlocksResponseItem = zod.object({

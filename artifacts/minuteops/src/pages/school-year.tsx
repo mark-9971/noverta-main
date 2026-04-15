@@ -262,16 +262,21 @@ export default function SchoolYearPage() {
           <CardContent className="pt-0">
             <div className="space-y-2">
               {[...preview.yearHistory].reverse().map(year => (
-                <div key={year.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div key={year.id} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-800">{year.label}</span>
                     {year.isActive && (
                       <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded uppercase tracking-wide">Active</span>
                     )}
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {formatDate(year.startDate)} — {formatDate(year.endDate)}
-                  </span>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-400">{formatDate(year.startDate)} — {formatDate(year.endDate)}</div>
+                    {!year.isActive && year.createdAt && (
+                      <div className="text-[10px] text-gray-300 mt-0.5">
+                        Rolled over {new Date(year.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
