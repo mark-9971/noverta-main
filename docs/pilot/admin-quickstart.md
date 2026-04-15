@@ -103,15 +103,16 @@ The system will track whether a written report has been sent and whether DESE no
 
 ---
 
-## 7. Invite a Parent
+## 7. Log Parent Communication
 
-Currently, parent communication is handled through the **Parent Contact Log** on each student's record.
+**Note:** The parent-facing portal is in development and is not part of the pilot scope. During the pilot, parent communication is tracked manually through the Parent Contact Log.
 
 1. Open the student's profile.
 2. Click the **Contacts** tab.
-3. Click **Log Contact** to record a phone call, email, or meeting.
+3. Click **Log Contact** to record a phone call, email, or meeting outcome.
+4. Fill in: contact date, contact type (phone/email/meeting), subject, and outcome.
 
-A full parent-facing portal is in development. For now, log all parent contacts manually here.
+This log is the compliance-supported method for documenting parent contact during the pilot. Use it to record any communication required under 603 CMR 28.07 (parent notification, consent confirmation, etc.).
 
 ---
 
@@ -164,7 +165,7 @@ See the full [Support Process](./support-process.md) for response time expectati
 | Start an IEP | Students → [student] → IEP → New IEP Document |
 | Log a session | Sessions → Log Session |
 | Log an incident | Protective Measures → New Incident |
-| Log a parent contact | Students → [student] → Contacts → Log Contact |
+| Log parent communication | Students → [student] → Contacts → Log Contact |
 | View compliance alerts | Alerts (sidebar) |
 | Download compliance CSV | Reports → Exports |
 | Add staff | Staff → Add Staff Member |
