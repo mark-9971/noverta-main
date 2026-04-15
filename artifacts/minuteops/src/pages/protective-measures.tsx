@@ -1875,10 +1875,10 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
 
   const isAdminReviewed = incident.status === "reviewed" || incident.status === "resolved";
   const alreadySent = !!incident.parentNotificationSentAt;
-  const notificationApproved = statusHistory.some(h => h.toStatus === "notification_approved");
-  const lastReviewEntry = [...statusHistory].reverse().find(h =>
+  const lastReviewEntry = statusHistory.find(h =>
     h.toStatus === "notification_approved" || h.toStatus === "notification_returned"
   );
+  const notificationApproved = lastReviewEntry?.toStatus === "notification_approved";
 
   const generateDraft = async () => {
     setLoadingDraft(true);
