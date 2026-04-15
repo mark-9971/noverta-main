@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
@@ -72,9 +71,9 @@ const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher"
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  useEffect(() => {
-    registerTokenProvider(() => getToken());
-  }, [getToken]);
+  // Register synchronously during render so the token is available before
+  // any child component's useQuery fires on first mount (parent renders first).
+  registerTokenProvider(() => getToken());
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <RedirectToSignIn />;
