@@ -131,10 +131,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     eq(agencyContractsTable.status, "active"),
     isNull(agencyContractsTable.deletedAt),
     isNull(agenciesTable.deletedAt),
-    lte(agencyContractsTable.endDate, sql`CURRENT_DATE + INTERVAL '30 days'`),
-    gte(agencyContractsTable.endDate, sql`CURRENT_DATE`),
+    sql`${agencyContractsTable.endDate}::date <= CURRENT_DATE + INTERVAL '30 days'`,
+    sql`${agencyContractsTable.endDate}::date >= CURRENT_DATE`,
   ];
-  if (sdFilters.districtId) renewalConditions.push(sql`${agenciesTable.districtId} = ${sdFilters.districtId}` as any);
+  if (sdFilters.districtId) renewalConditions.push(eq(agenciesTable.districtId, sdFilters.districtId));
 
   const renewingContracts = await db.select({
     id: agencyContractsTable.id,

@@ -425,7 +425,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {(s.contractRenewals as any[]).map((c: any) => {
+              {(s.contractRenewals || []).map((c: { id: number; agencyName: string; endDate: string }) => {
                 const daysLeft = Math.ceil((new Date(c.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                 const isCritical = daysLeft <= 7;
                 return (

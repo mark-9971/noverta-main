@@ -19,7 +19,7 @@ const router: IRouter = Router();
 
 const adminOnly = requireMinRole("coordinator");
 
-async function getDistrictIdForUser(req: Request): Promise<number | null> {
+async function requireDistrictId(req: Request, res: Response): Promise<number | null> {
   const meta = getPublicMeta(req);
 
   if (meta.staffId) {
@@ -43,15 +43,18 @@ async function getDistrictIdForUser(req: Request): Promise<number | null> {
     .limit(2);
 
   if (districts.length === 1) return districts[0].id;
+
+  res.status(403).json({ error: "Unable to determine district scope" });
   return null;
 }
 
 router.get("/agencies", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getDistrictIdForUser(req);
+    const districtId = await requireDistrictId(req, res);
+    if (!districtId) return;
     const includeDeleted = req.query.includeDeleted === "true";
-    const conditions = includeDeleted ? [] : [isNull(agenciesTable.deletedAt)];
-    if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
+    const conditions: ReturnType<typeof eq>[] = includeDeleted ? [] : [isNull(agenciesTable.deletedAt)];
+    conditions.push(eq(agenciesTable.districtId, districtId));
 
     const agencies = await db.select()
       .from(agenciesTable)
@@ -67,7 +70,8 @@ router.get("/agencies", adminOnly, async (req: Request, res: Response): Promise<
 
 router.post("/agencies", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getDistrictIdForUser(req);
+    const districtId = await requireDistrictId(req, res);
+    if (!districtId) return;
     const { name, contactName, contactEmail, contactPhone, address, notes } = req.body;
 
     if (!name?.trim()) {
@@ -100,14 +104,13 @@ router.post("/agencies", adminOnly, async (req: Request, res: Response): Promise
   }
 });
 
-async function assertAgencyAccess(req: Request, agencyId: number): Promise<typeof agenciesTable.$inferSelect | null> {
-  const districtId = await getDistrictIdForUser(req);
-  const conditions = [eq(agenciesTable.id, agencyId)];
-  if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
+async function assertAgencyAccess(req: Request, res: Response, agencyId: number): Promise<typeof agenciesTable.$inferSelect | null> {
+  const districtId = await requireDistrictId(req, res);
+  if (!districtId) return null;
 
   const [agency] = await db.select()
     .from(agenciesTable)
-    .where(and(...conditions))
+    .where(and(eq(agenciesTable.id, agencyId), eq(agenciesTable.districtId, districtId)))
     .limit(1);
 
   return agency || null;
@@ -118,8 +121,8 @@ router.get("/agencies/:id", adminOnly, async (req: Request, res: Response): Prom
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const agency = await assertAgencyAccess(req, id);
-    if (!agency) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agency = await assertAgencyAccess(req, res, id);
+    if (!agency) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const contracts = await db.select({
       id: agencyContractsTable.id,
@@ -163,8 +166,8 @@ router.patch("/agencies/:id", adminOnly, async (req: Request, res: Response): Pr
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const existing = await assertAgencyAccess(req, id);
-    if (!existing) { res.status(404).json({ error: "Agency not found" }); return; }
+    const existing = await assertAgencyAccess(req, res, id);
+    if (!existing) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const updates: Record<string, unknown> = {};
     const fields = ["name", "contactName", "contactEmail", "contactPhone", "address", "notes", "status"] as const;
@@ -206,8 +209,8 @@ router.delete("/agencies/:id", adminOnly, async (req: Request, res: Response): P
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const existing = await assertAgencyAccess(req, id);
-    if (!existing) { res.status(404).json({ error: "Agency not found" }); return; }
+    const existing = await assertAgencyAccess(req, res, id);
+    if (!existing) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const [agency] = await db.update(agenciesTable)
       .set({ deletedAt: new Date() })
@@ -237,8 +240,8 @@ router.post("/agencies/:id/staff", adminOnly, async (req: Request, res: Response
       return;
     }
 
-    const agencyAccess = await assertAgencyAccess(req, agencyId);
-    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agencyAccess = await assertAgencyAccess(req, res, agencyId);
+    if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const [link] = await db.insert(agencyStaffTable)
       .values({ agencyId, staffId })
@@ -263,8 +266,8 @@ router.delete("/agencies/:id/staff/:staffId", adminOnly, async (req: Request, re
     const agencyId = Number(req.params.id);
     const staffId = Number(req.params.staffId);
 
-    const agencyAccess = await assertAgencyAccess(req, agencyId);
-    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agencyAccess = await assertAgencyAccess(req, res, agencyId);
+    if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const deleted = await db.delete(agencyStaffTable)
       .where(and(eq(agencyStaffTable.agencyId, agencyId), eq(agencyStaffTable.staffId, staffId)));
@@ -287,8 +290,8 @@ router.post("/agencies/:id/contracts", adminOnly, async (req: Request, res: Resp
     const agencyId = Number(req.params.id);
     if (isNaN(agencyId)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const agencyAccess = await assertAgencyAccess(req, agencyId);
-    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agencyAccess = await assertAgencyAccess(req, res, agencyId);
+    if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const { serviceTypeId, contractedHours, hourlyRate, startDate, endDate, alertThresholdPct, notes } = req.body;
 
@@ -357,8 +360,8 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     const agencyId = Number(req.params.id);
     const contractId = Number(req.params.contractId);
 
-    const agencyAccess = await assertAgencyAccess(req, agencyId);
-    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agencyAccess = await assertAgencyAccess(req, res, agencyId);
+    if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const [existing] = await db.select()
       .from(agencyContractsTable)
@@ -437,8 +440,8 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
     const agencyId = Number(req.params.id);
     const contractId = Number(req.params.contractId);
 
-    const agencyAccess = await assertAgencyAccess(req, agencyId);
-    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+    const agencyAccess = await assertAgencyAccess(req, res, agencyId);
+    if (!agencyAccess) { if (!res.headersSent) res.status(404).json({ error: "Agency not found" }); return; }
 
     const [contract] = await db.update(agencyContractsTable)
       .set({ deletedAt: new Date() })
@@ -550,14 +553,15 @@ router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Respons
 
 router.get("/contracts/utilization", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getDistrictIdForUser(req);
+    const districtId = await requireDistrictId(req, res);
+    if (!districtId) return;
     await attributeUnlinkedSessions();
 
     const conditions = [
       isNull(agencyContractsTable.deletedAt),
       isNull(agenciesTable.deletedAt),
+      eq(agenciesTable.districtId, districtId),
     ];
-    if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
 
     const contracts = await db.select({
       id: agencyContractsTable.id,
@@ -657,14 +661,15 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
 
 router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = await getDistrictIdForUser(req);
+    const districtId = await requireDistrictId(req, res);
+    if (!districtId) return;
 
     const alertConditions = [
       eq(agencyContractsTable.status, "active"),
       isNull(agencyContractsTable.deletedAt),
       isNull(agenciesTable.deletedAt),
+      eq(agenciesTable.districtId, districtId),
     ];
-    if (districtId) alertConditions.push(eq(agenciesTable.districtId, districtId));
 
     const contracts = await db.select({
       id: agencyContractsTable.id,
