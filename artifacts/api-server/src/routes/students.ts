@@ -23,6 +23,7 @@ import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { logAudit, diffObjects } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { assertStudentAccess } from "../lib/tenantAccess";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -565,7 +566,7 @@ const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
 const ENROLLMENT_READ_ROLES = ["admin", "case_manager", "sped_teacher", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const { role: authRole } = getPublicMeta(req);
+  const authRole = (req as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_READ_ROLES as readonly string[]).includes(authRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -608,7 +609,7 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -688,7 +689,7 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
-  const { role: patchRole } = getPublicMeta(req);
+  const patchRole = (req as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(patchRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -782,7 +783,7 @@ router.post("/students/:id/archive", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { role: archiveRole } = getPublicMeta(req);
+  const archiveRole = (req as AuthedRequest).trellisRole;
   if (archiveRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -824,7 +825,7 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { role: reactivateRole } = getPublicMeta(req);
+  const reactivateRole = (req as AuthedRequest).trellisRole;
   if (reactivateRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -868,7 +869,7 @@ const EC_WRITE_ROLES = ["admin", "case_manager"] as const;
 const EC_READ_ROLES = ["admin", "case_manager", "sped_teacher", "para", "provider", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/emergency-contacts", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_READ_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -886,7 +887,7 @@ router.get("/students/:id/emergency-contacts", async (req, res): Promise<void> =
 });
 
 router.post("/students/:id/emergency-contacts", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -925,7 +926,7 @@ router.post("/students/:id/emergency-contacts", async (req, res): Promise<void> 
 });
 
 router.patch("/emergency-contacts/:id", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -973,7 +974,7 @@ router.patch("/emergency-contacts/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/emergency-contacts/:id", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -1005,7 +1006,7 @@ router.delete("/emergency-contacts/:id", async (req, res): Promise<void> => {
 // ─── Medical Alerts ───────────────────────────────────────────────────────────
 
 router.get("/students/:id/medical-alerts", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_READ_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -1023,7 +1024,7 @@ router.get("/students/:id/medical-alerts", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/medical-alerts", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -1065,7 +1066,7 @@ router.post("/students/:id/medical-alerts", async (req, res): Promise<void> => {
 });
 
 router.patch("/medical-alerts/:id", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -1117,7 +1118,7 @@ router.patch("/medical-alerts/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/medical-alerts/:id", async (req, res): Promise<void> => {
-  const { role } = getPublicMeta(req);
+  const role = (req as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }

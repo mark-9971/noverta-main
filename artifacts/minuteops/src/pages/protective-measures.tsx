@@ -21,6 +21,7 @@ import {
 } from "recharts";
 import { Link, useSearch } from "wouter";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { authFetch } from "@/lib/auth-fetch";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { Phone } from "lucide-react";
@@ -529,11 +530,12 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
         {isLoading ? (
           <div className="p-12 text-center text-sm text-gray-400">Loading incidents...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <Shield className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No incidents recorded</p>
-            <p className="text-xs text-gray-400 mt-1">Use "Report Incident" to document a restraint, seclusion, or time-out event</p>
-          </div>
+          <EmptyState
+            icon={Shield}
+            title="No incidents recorded"
+            description='Use "Report Incident" to document any restraint, seclusion, or time-out event for this student.'
+            compact
+          />
         ) : (
           <div className="divide-y divide-gray-100">
             {filtered.map(inc => (

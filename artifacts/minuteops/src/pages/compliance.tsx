@@ -1,6 +1,8 @@
 import { useListMinuteProgress, useGetComplianceByService, useGetDashboardRiskOverview } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClipboardCheck } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useState } from "react";
@@ -127,7 +129,14 @@ export default function Compliance() {
       <div className="md:hidden space-y-2">
         {isError ? <ErrorBanner message="Failed to load compliance data." onRetry={() => refetch()} /> :
           isLoading ? [...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />) :
-          filtered.length === 0 ? <p className="text-center text-gray-400 text-sm py-12">No requirements found</p> :
+          filtered.length === 0 ? (
+            <EmptyState
+              icon={ClipboardCheck}
+              title="No compliance records found"
+              description="Add students with active IEPs to start tracking service-minute compliance."
+              compact
+            />
+          ) :
           filtered.slice(0, 100).map((p: any, i: number) => {
             const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
             const pct = Math.min(100, p.percentComplete ?? 0);
@@ -172,7 +181,18 @@ export default function Compliance() {
             <tbody className="divide-y divide-gray-50">
               {isLoading ? [...Array(10)].map((_, i) => (
                 <tr key={i}>{[...Array(6)].map((_, j) => <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-full" /></td>)}</tr>
-              )) : filtered.slice(0, 100).map((p: any, i: number) => {
+              )) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={ClipboardCheck}
+                      title="No compliance records found"
+                      description="Add students with active IEPs to start tracking service-minute compliance."
+                      compact
+                    />
+                  </td>
+                </tr>
+              ) : filtered.slice(0, 100).map((p: any, i: number) => {
                 const cfg = RISK_CONFIG[p.riskStatus] ?? RISK_CONFIG.on_track;
                 const pct = Math.min(100, p.percentComplete ?? 0);
                 return (

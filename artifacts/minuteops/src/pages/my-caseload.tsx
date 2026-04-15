@@ -10,6 +10,7 @@ import {
   Users, Timer, ClipboardList, ExternalLink, AlertTriangle,
   CheckCircle2, Clock, Calendar, BookOpen, ChevronRight,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/formatters";
 
 interface ServiceReq {
@@ -100,11 +101,11 @@ export default function MyCaseloadPage() {
   if (!teacherId) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <div className="text-center py-20">
-          <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm font-medium text-gray-600">No staff profile linked to your account.</p>
-          <p className="text-xs text-gray-400 mt-1">Contact your administrator to link your staff record.</p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No staff profile linked"
+          description="Your account isn't linked to a staff record yet. Contact your administrator to set this up."
+        />
       </div>
     );
   }

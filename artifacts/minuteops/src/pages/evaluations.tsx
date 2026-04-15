@@ -12,6 +12,7 @@ import {
   Plus, Save, Loader2, CheckCircle2, Clock,
   Timer, Shield,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface StudentOption {
   id: number;
@@ -560,13 +561,13 @@ function ReferralsTab() {
       )}
 
       {referrals.length === 0 && !showAdd && (
-        <Card><CardContent className="py-16 text-center">
-          <FileSearch className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">No referrals yet.</p>
-          <Button size="sm" className="mt-3 bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" onClick={() => setShowAdd(true)}>
-            <Plus className="w-3 h-3 mr-1" /> Create First Referral
-          </Button>
-        </CardContent></Card>
+        <EmptyState
+          icon={FileSearch}
+          title="No evaluation referrals yet"
+          description="Create a referral to start the IDEA 60-school-day evaluation timeline for a student."
+          action={{ label: "Create First Referral", onClick: () => setShowAdd(true) }}
+          compact
+        />
       )}
 
       {referrals.map(ref => (

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getStudent, listIepGoals, listProgressReports, listProgramTargets,
   listBehaviorTargets, listIepDocuments, listAccommodations, listTeamMeetings,
@@ -1413,10 +1414,14 @@ function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
 
       {!activeDoc && !editing && (
         <Card>
-          <CardContent className="p-8 text-center">
-            <FileCheck className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No IEP document yet</p>
-            <p className="text-xs text-gray-400 mt-1">Create one to track all MA-required IEP sections</p>
+          <CardContent className="p-2">
+            <EmptyState
+              icon={FileCheck}
+              title="No IEP document on file"
+              description="Create a new IEP document to track all Massachusetts-required sections, or use the AI assistant to draft one based on existing goals."
+              action={{ label: "Build IEP Draft with AI", href: `/students/${studentId}/iep-builder` }}
+              secondaryAction={{ label: "Create Blank IEP", onClick: () => setEditing(true), variant: "outline" }}
+            />
           </CardContent>
         </Card>
       )}

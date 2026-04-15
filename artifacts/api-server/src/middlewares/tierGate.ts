@@ -59,6 +59,13 @@ export function requireTierAccess(featureKey: FeatureKey) {
       return;
     }
 
+    // In non-production, always grant enterprise-level access so dev/demo logins
+    // can reach every feature without a real subscription tier in the DB.
+    if (process.env.NODE_ENV !== "production") {
+      next();
+      return;
+    }
+
     const meta = getPublicMeta(req);
     if (meta.platformAdmin) {
       next();

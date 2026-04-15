@@ -15,6 +15,7 @@ import {
   AlertTriangle, ChevronDown, ChevronUp, Pencil, Trash2,
   FileText, ClipboardCheck, UserCheck, Video, MapPin,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Meeting {
   id: number;
@@ -450,7 +451,13 @@ export default function IepMeetings() {
                 {[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />)}
               </div>
             ) : meetings.length === 0 ? (
-              <Card><CardContent className="py-12 text-center text-gray-400">No meetings found</CardContent></Card>
+              <EmptyState
+                icon={CalendarDays}
+                title="No IEP meetings scheduled"
+                description="Schedule an IEP meeting to track team decisions, participants, and required notices."
+                action={{ label: "Schedule Meeting", onClick: () => setShowCreateDialog(true) }}
+                compact
+              />
             ) : (
               <div className="space-y-2">
                 {meetings.map(m => {

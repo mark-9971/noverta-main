@@ -13,6 +13,7 @@ import {
   Calendar, AlertTriangle, ChevronDown, ChevronUp, Phone, Mail,
   Pencil, Trash2, Users, Clock, CheckCircle, XCircle,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface TransitionPlan {
   id: number;
@@ -747,7 +748,14 @@ function PlansTab({ plans, onView, onEdit, onDelete }: {
   onEdit: (p: TransitionPlan) => void;
   onDelete: (id: number) => void;
 }) {
-  if (plans.length === 0) return <div className="text-[13px] text-gray-500 py-12 text-center">No transition plans yet. Click "New Plan" to create one.</div>;
+  if (plans.length === 0) return (
+    <EmptyState
+      icon={GraduationCap}
+      title="No transition plans yet"
+      description="Transition plans document post-secondary goals, services, and agency referrals required by IDEA for students age 14+."
+      compact
+    />
+  );
 
   return (
     <div className="space-y-2">

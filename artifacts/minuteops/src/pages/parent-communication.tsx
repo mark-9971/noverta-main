@@ -7,6 +7,7 @@ import {
   Plus, X, Filter, Bell, Clock, ChevronDown, ChevronUp, CheckCircle,
   Search,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { listSpedStudents, listParentContacts, getOverdueFollowups, getNotificationNeeded, updateParentContact, createParentContact, deleteParentContact } from "@workspace/api-client-react";
@@ -380,9 +381,12 @@ export default function ParentCommunication() {
               {loading ? (
                 <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="w-full h-16" />)}</div>
               ) : contacts.length === 0 ? (
-                <div className="p-8 text-center text-gray-400 text-sm">
-                  No contacts found. Log your first parent communication above.
-                </div>
+                <EmptyState
+                  icon={MessageSquare}
+                  title="No communication logged yet"
+                  description="Log your first contact above to start building a parent communication history."
+                  compact
+                />
               ) : (
                 <div className="divide-y divide-gray-50">
                   {contacts.map(c => {

@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp, Zap, Phone } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp, Zap, Phone, Calendar } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
@@ -796,7 +797,13 @@ export default function Sessions() {
           </Card>
         ))}
         {!isLoading && filtered.length === 0 && (
-          <p className="text-center text-gray-400 text-sm py-12">No sessions found</p>
+          <EmptyState
+            icon={Calendar}
+            title="No sessions found"
+            description="Log a service session to start tracking minutes and progress."
+            action={{ label: "Log Session", onClick: () => setShowAddModal(true) }}
+            compact
+          />
         )}
         <div className="flex items-center justify-between pt-2">
           <p className="text-[11px] text-gray-400">{filtered.length} sessions</p>
@@ -888,7 +895,15 @@ export default function Sessions() {
               ))}
               {!isLoading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-16 text-center text-gray-400 text-sm">No sessions found</td>
+                  <td colSpan={8}>
+                    <EmptyState
+                      icon={Calendar}
+                      title="No sessions found"
+                      description="Log a service session to start tracking minutes and progress."
+                      action={{ label: "Log Session", onClick: () => setShowAddModal(true) }}
+                      compact
+                    />
+                  </td>
                 </tr>
               )}
             </tbody>

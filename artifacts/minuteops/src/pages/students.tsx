@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Link } from "wouter";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
@@ -254,7 +255,13 @@ export default function Students() {
         ) : loading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-gray-400"><p className="font-medium">No students found</p></div>
+          <EmptyState
+            icon={Users}
+            title="No students found"
+            description={role === "admin" ? "Add students to start tracking services and compliance." : "No students match your current filters."}
+            action={role === "admin" ? { label: "Add Student", href: "/students/new" } : undefined}
+            compact
+          />
         ) : filtered.map(s => {
           const isSped = spedIds.has(s.id);
           const risk = studentRisk[s.id] ?? "on_track";

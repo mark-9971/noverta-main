@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, RefreshCw } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 
@@ -107,11 +108,12 @@ export default function Alerts() {
         ) : isLoading ? (
           [...Array(6)].map((_, i) => <Skeleton key={i} className="w-full h-20 rounded-xl" />)
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <CheckCircle className="w-10 h-10 mx-auto mb-3 text-emerald-300" />
-            <p className="font-medium">No alerts found</p>
-            <p className="text-sm mt-1">All compliance checks are passing</p>
-          </div>
+          <EmptyState
+            icon={CheckCircle}
+            title="No active alerts"
+            description="All compliance checks are passing. You'll see alerts here if any students fall behind on services."
+            compact
+          />
         ) : filtered.map((a: any) => {
           const cfg = SEVERITY_CONFIG[a.severity] ?? SEVERITY_CONFIG.low;
           return (
