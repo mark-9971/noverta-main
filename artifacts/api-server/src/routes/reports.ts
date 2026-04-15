@@ -87,6 +87,8 @@ router.get("/reports/missed-sessions", async (req, res): Promise<void> => {
     if (params.data.dateFrom) conditions.push(gte(sessionLogsTable.sessionDate, params.data.dateFrom));
     if (params.data.dateTo) conditions.push(lte(sessionLogsTable.sessionDate, params.data.dateTo));
   }
+  const rawMissedYearId = req.query.schoolYearId;
+  if (rawMissedYearId) conditions.push(eq(sessionLogsTable.schoolYearId, Number(rawMissedYearId)));
 
   const sessions = await db
     .select({
@@ -143,7 +145,7 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
       res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
       return;
     }
-    const { startDate, endDate, granularity, schoolId, districtId } = req.query;
+    const { startDate, endDate, granularity, schoolId, districtId, schoolYearId: trendYearId } = req.query;
     const gran = (granularity as string) || "weekly";
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
@@ -180,7 +182,8 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
       .where(and(
         gte(sessionLogsTable.sessionDate, start),
         lte(sessionLogsTable.sessionDate, end),
-        sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`
+        sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`,
+        ...(trendYearId ? [eq(sessionLogsTable.schoolYearId, Number(trendYearId))] : [])
       ));
 
     const requirements = await db.select({

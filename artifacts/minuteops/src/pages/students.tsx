@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useListStudents, useListMinuteProgress, useListSpedStudents, useListSchools, createStudent } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,20 @@ export default function Students() {
 
   const { filterParams } = useSchoolContext();
   const { role } = useRole();
-  const { activeYear } = useSchoolYears();
-  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500, status: statusFilter } as any);
+  const { years: schoolYears, activeYear } = useSchoolYears();
+  const [selectedYearId, setSelectedYearId] = useState<string>("all");
+
+  // Default to active year once school years are loaded
+  useEffect(() => {
+    if (activeYear && selectedYearId === "all") setSelectedYearId(String(activeYear.id));
+  }, [activeYear]);
+
+  const { data: students, isLoading, isError, refetch } = useListStudents({
+    ...filterParams,
+    limit: 500,
+    status: statusFilter,
+    ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
+  } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
   const { data: schoolsData } = useListSchools();
@@ -216,9 +228,24 @@ export default function Students() {
         })}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student name..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student name..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        {schoolYears.length > 0 && (
+          <Select value={selectedYearId} onValueChange={v => setSelectedYearId(v)}>
+            <SelectTrigger className="h-10 text-[12px] bg-white w-[140px]">
+              <SelectValue placeholder="School Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {[...schoolYears].reverse().map(y => (
+                <SelectItem key={y.id} value={String(y.id)}>{y.label}{y.isActive ? " (Active)" : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-2">
