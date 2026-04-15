@@ -82,6 +82,9 @@ const platformAdminSection: NavSection = {
 const adminNav: NavSection[] = [
   {
     label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
@@ -155,6 +158,7 @@ const adminNav: NavSection[] = [
       { href: "/staff", label: "Staff Directory", icon: UserCheck },
       { href: "/agencies", label: "Agencies", icon: Truck },
       { href: "/credentialing", label: "Credentialing", icon: GraduationCap, comingSoon: true },
+      { href: "/supervision-log", label: "Supervision Log", icon: ClipboardCheck, comingSoon: true },
     ],
   },
   {
@@ -163,6 +167,7 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+      { href: "/parent-portal", label: "Parent Portal", icon: Users, comingSoon: true },
       { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true },
       { href: "/translation", label: "Translation", icon: Languages, comingSoon: true },
     ],
@@ -179,7 +184,7 @@ const adminNav: NavSection[] = [
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
-      { href: "/setup", label: "Setup Wizard", icon: Rocket },
+      { href: "/setup", label: "Settings", icon: Settings },
     ],
   },
 ];
@@ -187,6 +192,9 @@ const adminNav: NavSection[] = [
 const spedTeacherNav: NavSection[] = [
   {
     label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
@@ -236,11 +244,21 @@ const spedTeacherNav: NavSection[] = [
     ],
   },
   {
+    label: "People",
+    icon: Contact,
+    collapsible: true,
+    items: [
+      { href: "/staff", label: "Staff Directory", icon: UserCheck },
+      { href: "/credentialing", label: "Credentialing", icon: GraduationCap, comingSoon: true },
+    ],
+  },
+  {
     label: "Communication",
     icon: MessageSquare,
     collapsible: true,
     items: [
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true },
     ],
   },
   {
