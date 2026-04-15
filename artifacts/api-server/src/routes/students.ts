@@ -22,6 +22,7 @@ import { eq, and, ilike, or, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { logAudit, diffObjects } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { assertStudentAccess } from "../lib/tenantAccess";
 
 const router: IRouter = Router();
 
@@ -852,6 +853,7 @@ router.get("/students/:id/emergency-contacts", async (req, res): Promise<void> =
   }
   const studentId = Number(req.params.id);
   if (!studentId) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await assertStudentAccess(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const contacts = await db
     .select()
@@ -869,6 +871,7 @@ router.post("/students/:id/emergency-contacts", async (req, res): Promise<void> 
   }
   const studentId = Number(req.params.id);
   if (!studentId) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await assertStudentAccess(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const { firstName, lastName, relationship, phone, phoneSecondary, email, isAuthorizedForPickup, priority, notes } = req.body;
   if (!firstName || !lastName || !relationship || !phone) {
@@ -907,6 +910,10 @@ router.patch("/emergency-contacts/:id", async (req, res): Promise<void> => {
   }
   const contactId = Number(req.params.id);
   if (!contactId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db.select({ studentId: emergencyContactsTable.studentId }).from(emergencyContactsTable).where(eq(emergencyContactsTable.id, contactId));
+  if (!existing) { res.status(404).json({ error: "Emergency contact not found" }); return; }
+  if (!await assertStudentAccess(req, existing.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const { firstName, lastName, relationship, phone, phoneSecondary, email, isAuthorizedForPickup, priority, notes } = req.body;
 
@@ -952,6 +959,10 @@ router.delete("/emergency-contacts/:id", async (req, res): Promise<void> => {
   const contactId = Number(req.params.id);
   if (!contactId) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const [existing] = await db.select({ studentId: emergencyContactsTable.studentId }).from(emergencyContactsTable).where(eq(emergencyContactsTable.id, contactId));
+  if (!existing) { res.status(404).json({ error: "Emergency contact not found" }); return; }
+  if (!await assertStudentAccess(req, existing.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+
   const [deleted] = await db
     .delete(emergencyContactsTable)
     .where(eq(emergencyContactsTable.id, contactId))
@@ -979,6 +990,7 @@ router.get("/students/:id/medical-alerts", async (req, res): Promise<void> => {
   }
   const studentId = Number(req.params.id);
   if (!studentId) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await assertStudentAccess(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const alerts = await db
     .select()
@@ -996,6 +1008,7 @@ router.post("/students/:id/medical-alerts", async (req, res): Promise<void> => {
   }
   const studentId = Number(req.params.id);
   if (!studentId) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!await assertStudentAccess(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const { alertType, description, severity, treatmentNotes, epiPenOnFile, notifyAllStaff } = req.body;
   if (!alertType || !description || !severity) {
@@ -1037,6 +1050,10 @@ router.patch("/medical-alerts/:id", async (req, res): Promise<void> => {
   }
   const alertId = Number(req.params.id);
   if (!alertId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existingAlert] = await db.select({ studentId: medicalAlertsTable.studentId }).from(medicalAlertsTable).where(eq(medicalAlertsTable.id, alertId));
+  if (!existingAlert) { res.status(404).json({ error: "Medical alert not found" }); return; }
+  if (!await assertStudentAccess(req, existingAlert.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const { alertType, description, severity, treatmentNotes, epiPenOnFile, notifyAllStaff } = req.body;
 
@@ -1085,6 +1102,10 @@ router.delete("/medical-alerts/:id", async (req, res): Promise<void> => {
   }
   const alertId = Number(req.params.id);
   if (!alertId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existingAlert] = await db.select({ studentId: medicalAlertsTable.studentId }).from(medicalAlertsTable).where(eq(medicalAlertsTable.id, alertId));
+  if (!existingAlert) { res.status(404).json({ error: "Medical alert not found" }); return; }
+  if (!await assertStudentAccess(req, existingAlert.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const [deleted] = await db
     .delete(medicalAlertsTable)
