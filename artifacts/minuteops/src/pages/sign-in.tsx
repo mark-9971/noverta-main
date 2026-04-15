@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Sprout } from "lucide-react";
+import { Sprout, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,30 +23,35 @@ export default function SignInPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState<UserRole>("admin");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSignIn(e: React.FormEvent) {
+  async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError("Please enter your name.");
-      return;
-    }
-    if (!role) {
-      setError("Please select a role.");
-      return;
-    }
+    if (!trimmedName) { setError("Please enter your name."); return; }
 
-    const session = {
-      userId: `dev-${Date.now()}`,
-      name: trimmedName,
-      role,
-    };
-    const token = btoa(JSON.stringify(session));
-    localStorage.setItem("trellis_session", token);
-    localStorage.setItem("trellis_role", role);
-
-    const home = role === "sped_student" ? "/sped-portal" : "/";
-    setLocation(home);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, role }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError((body as { error?: string }).error || "Sign-in failed. Try again.");
+        return;
+      }
+      const { token, role: confirmedRole } = await res.json() as { token: string; role: UserRole; userId: string; name: string };
+      localStorage.setItem("trellis_session", token);
+      localStorage.setItem("trellis_role", confirmedRole);
+      setLocation(confirmedRole === "sped_student" ? "/sped-portal" : "/");
+    } catch {
+      setError("Could not reach the server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -74,12 +79,13 @@ export default function SignInPage() {
               value={name}
               onChange={e => { setName(e.target.value); setError(""); }}
               autoFocus
+              disabled={loading}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="role">Role</Label>
-            <Select value={role} onValueChange={v => setRole(v as UserRole)}>
+            <Select value={role} onValueChange={v => setRole(v as UserRole)} disabled={loading}>
               <SelectTrigger id="role">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
@@ -93,7 +99,8 @@ export default function SignInPage() {
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
             Sign in to Trellis
           </Button>
         </form>

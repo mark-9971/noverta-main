@@ -1,40 +1,26 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { type TrellisRole, isRole } from "../lib/permissions";
+import { verifyToken } from "../routes/auth";
 
 export interface AuthedRequest extends Request {
   userId: string;
   trellisRole: TrellisRole;
 }
 
-interface DevSessionPayload {
-  userId: string;
-  role: string;
-  name?: string;
-}
-
-function parseDevToken(req: Request): { userId: string; role: TrellisRole } | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  try {
-    const token = authHeader.slice(7);
-    const raw = Buffer.from(token, "base64").toString("utf-8");
-    const payload: DevSessionPayload = JSON.parse(raw);
-    if (!payload.userId || !isRole(payload.role)) return null;
-    return { userId: payload.userId, role: payload.role as TrellisRole };
-  } catch {
-    return null;
-  }
-}
-
 function extractAuth(req: Request): { userId: string; role: TrellisRole } | null {
-  const dev = parseDevToken(req);
-  if (dev) return dev;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const parsed = verifyToken(authHeader.slice(7));
+    if (parsed) return { userId: parsed.userId, role: parsed.role };
+  }
 
-  // Header-only fallback for dev convenience (no token set yet)
+  // In non-production, accept an explicit x-demo-role header (must be valid).
+  // There is NO default fallback — an invalid or missing role results in 401.
   if (process.env.NODE_ENV !== "production") {
     const demoRole = req.headers["x-demo-role"];
-    const role = isRole(demoRole) ? (demoRole as TrellisRole) : "admin";
-    return { userId: "dev-user", role };
+    if (isRole(demoRole)) {
+      return { userId: "dev-user", role: demoRole as TrellisRole };
+    }
   }
 
   return null;

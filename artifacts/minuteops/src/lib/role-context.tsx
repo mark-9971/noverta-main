@@ -63,7 +63,11 @@ function parseSession(): DevSession | null {
   try {
     const token = localStorage.getItem("trellis_session");
     if (!token) return null;
-    const payload = JSON.parse(atob(token));
+    // Token format: base64url(payload).base64url(signature)
+    const dotIdx = token.lastIndexOf(".");
+    const b64 = dotIdx >= 0 ? token.slice(0, dotIdx) : token;
+    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(json);
     if (!payload.userId || !isValidRole(payload.role)) return null;
     return { userId: payload.userId, name: payload.name || "User", role: payload.role };
   } catch {
@@ -137,18 +141,25 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   };
 
   function setRole(r: UserRole) {
+    const current = parseSession();
+    const displayName = current?.name || `Demo ${ROLE_SUBTITLES[r]}`;
+
+    // Get a new server-signed token for the new role
+    fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: displayName, role: r }),
+    })
+      .then(res => res.json())
+      .then((data: { token?: string }) => {
+        if (data.token) {
+          localStorage.setItem("trellis_session", data.token);
+        }
+      })
+      .catch(() => {});
+
     setDevRoleState(r);
     lsSet("trellis_role", r);
-
-    // Update the stored session token to reflect the new role
-    const current = parseSession();
-    if (current) {
-      const updated: DevSession = { ...current, role: r };
-      const token = btoa(JSON.stringify(updated));
-      localStorage.setItem("trellis_session", token);
-      setSession(updated);
-    }
-
     setLocation(ROLE_HOME[r]);
   }
 

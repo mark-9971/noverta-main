@@ -36,10 +36,12 @@ import onboardingRouter from "./onboarding";
 import evaluationsRouter from "./evaluations";
 import transitionsRouter from "./transitions";
 import iepMeetingsRouter from "./iepMeetings";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth", authRouter);
 
 router.use(requireAuth);
 

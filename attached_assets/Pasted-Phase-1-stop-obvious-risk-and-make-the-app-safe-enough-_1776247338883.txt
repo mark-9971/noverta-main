@@ -1,0 +1,469 @@
+Phase 1 — stop obvious risk and make the app safe enough to keep building
+
+These come first because they remove avoidable landmines.
+
+1. Remove or fully gate the role switcher
+
+Goal: ensure no user can elevate or simulate roles outside development.
+
+Do:
+	•	hide role switcher entirely in production
+	•	enforce NODE_ENV === "development" check server-side too if relevant
+	•	verify no client-side role state can affect server authorization
+	•	search codebase for any other dev-only shortcuts
+
+Done when:
+	•	production build has no visible role switcher
+	•	changing client state cannot change API access
+
+2. Switch to production auth configuration and environment separation
+
+Goal: stop using dev auth posture.
+
+Do:
+	•	set up separate dev / staging / prod Clerk environments
+	•	rotate keys
+	•	verify callback URLs, allowed origins, and environment configs
+	•	audit all env vars and secrets usage
+
+Done when:
+	•	no dev key warnings anywhere
+	•	staging and prod are independently configured
+
+3. Enforce tenant isolation at the API layer
+
+Goal: every read/write must be scoped to the user’s org/school/district claims.
+
+Do:
+	•	define canonical tenant context from auth
+	•	require school/district/org scoping in middleware
+	•	remove trust in client-passed filter params
+	•	audit all routes for cross-tenant access risk
+
+Done when:
+	•	a user cannot query another org’s records even with manipulated requests
+
+4. Add API rate limiting
+
+Goal: basic abuse protection, especially on exports/auth-sensitive endpoints.
+
+Do:
+	•	add global rate limiting
+	•	stricter limits on exports, search, login-adjacent, and report generation endpoints
+	•	add audit logging for limit hits
+
+Done when:
+	•	bulk scraping/export attempts are slowed or blocked
+
+5. Create a permission test matrix for critical roles
+
+Goal: verify auth and role boundaries before more feature work.
+
+Test at minimum:
+	•	admin
+	•	case_manager
+	•	bcba
+	•	provider
+	•	para
+	•	student
+
+Cover:
+	•	students
+	•	sessions
+	•	incidents
+	•	reports
+	•	exports
+	•	district/admin pages
+
+Done when:
+	•	automated tests prove forbidden actions fail correctly
+
+Phase 2 — make outputs real
+
+This is the biggest product gap.
+
+6. Build a shared document rendering system
+
+Goal: create one reusable document/output pipeline, not one-off hacks.
+
+Choose a path:
+	•	HTML print templates + print CSS for fast iteration
+	•	then optionally Puppeteer / React-PDF for durable exports
+
+Support:
+	•	consistent headers
+	•	student metadata
+	•	dates
+	•	signature blocks
+	•	print-friendly layout
+	•	PDF download
+
+Done when:
+	•	one document type can render consistently in browser and PDF
+
+7. Ship incident / protective-measures printable report
+
+Goal: close the loop on your strongest compliance workflow first.
+
+Include:
+	•	incident details
+	•	staff involved
+	•	injuries/medical attention
+	•	review status
+	•	notification history
+	•	DESE-related fields
+	•	signature/ack lines
+
+Done when:
+	•	an admin can generate and print/download a complete incident packet
+
+8. Ship progress report printable/PDF output
+
+Goal: turn narrative generation into usable output.
+
+Include:
+	•	student info
+	•	reporting period
+	•	goal-by-goal progress
+	•	narrative sections
+	•	related services summary if applicable
+
+Done when:
+	•	a teacher can generate a progress report and actually send/file it
+
+9. Ship IEP Builder print/download output
+
+Goal: make your most differentiated feature materially useful.
+
+Include:
+	•	structured sections from wizard
+	•	recommended goal language
+	•	rationale / data summary
+	•	editable review mode before export
+
+Important:
+This does not have to be a legally final IEP document on day one. It can be:
+	•	draft packet
+	•	team prep document
+	•	draft recommendation set
+
+Done when:
+	•	user can generate, review, and download a usable artifact
+
+10. Add a “document status” model
+
+Goal: track draft/final/archived, rather than random generated text blobs.
+
+For outputs like:
+	•	progress reports
+	•	incident reports
+	•	IEP drafts
+	•	evaluation summaries later
+
+Done when:
+	•	generated documents can be revisited, versioned, and re-downloaded
+
+Phase 3 — make communication real
+
+Logging fake sends is dangerous. Fix that next.
+
+11. Add real email delivery integration
+
+Goal: actual sending with delivery status.
+
+Use:
+	•	Resend, SendGrid, or SES
+
+Support:
+	•	parent notification emails
+	•	alert emails
+	•	follow-up reminders
+	•	failure states and retries
+
+Done when:
+	•	the system sends real emails and records actual delivery attempts
+
+12. Add email event tracking and communication audit trail
+
+Goal: prove what was sent, when, to whom, and whether it failed.
+
+Track:
+	•	drafted
+	•	queued
+	•	sent
+	•	delivered if available
+	•	failed/bounced
+	•	manually printed instead
+
+Done when:
+	•	“sent” only appears after a real send event, not a button click
+
+13. Fix protective-measures parent notification workflow end to end
+
+Goal: make this legally safer and operationally real.
+
+Flow:
+	•	generate draft
+	•	review/edit
+	•	send or print
+	•	record delivery channel
+	•	require confirmation/status update
+
+Done when:
+	•	no incident can misleadingly appear “sent” without real delivery evidence
+
+14. Add templated reminder/alert notifications
+
+Goal: turn passive dashboards into workflow-driving software.
+
+Start with:
+	•	missed session alert
+	•	overdue parent follow-up
+	•	incomplete transition plan
+	•	overdue evaluation task
+
+Done when:
+	•	key alerts can generate targeted reminders
+
+Phase 4 — mobile-first frontline usage
+
+This is probably the highest operational leverage after outputs/communication.
+
+15. Design a dedicated mobile session-entry flow
+
+Goal: let paras/providers log a session in seconds.
+
+Not a shrunk desktop form.
+Build:
+	•	large buttons
+	•	minimal fields
+	•	saved defaults
+	•	recent students/services
+	•	one-thumb flow
+
+Done when:
+	•	common session entry takes under 10–15 seconds
+
+16. Build “quick log session” for frontline staff
+
+Goal: reduce friction dramatically.
+
+Features:
+	•	choose student
+	•	tap service
+	•	tap duration
+	•	tap completed/missed
+	•	optional short note
+	•	submit
+
+Done when:
+	•	para/provider can log multiple sessions fast between classes
+
+17. Add mobile “My Day” workflow refinement
+
+Goal: make the para/provider experience actually useful.
+
+Show:
+	•	today’s assigned students
+	•	pending sessions
+	•	quick action buttons
+	•	missed log follow-ups
+	•	alerts requiring acknowledgment
+
+Done when:
+	•	frontline users can operate mostly from this page
+
+18. Add mobile-friendly missed-session and note capture
+
+Goal: missed minutes are a core value prop, so logging them must be easy.
+
+Support:
+	•	missed reason quick-picks
+	•	make-up needed flag
+	•	follow-up prompt
+
+Done when:
+	•	missed session logging is as easy as completed session logging
+
+Phase 5 — improve navigation and make the product understandable
+
+The product already has enough breadth. Now make it usable.
+
+19. Restructure navigation into clear modules
+
+Goal: reduce overwhelm and clarify product identity.
+
+Suggested groups:
+	•	Dashboard
+	•	Students
+	•	Service Delivery
+	•	IEP & Goals
+	•	Behavior
+	•	Compliance
+	•	Reports
+	•	Admin
+
+Done when:
+	•	nav no longer feels like 20 flat links
+
+20. Surface IEP Builder prominently
+
+Goal: expose your strongest differentiator.
+
+Do:
+	•	add top-level entry or strong contextual CTA in student/IEP areas
+	•	add clear language like “IEP Draft Assistant” or similar if needed
+
+Done when:
+	•	users can find it without hunting in student detail pages
+
+21. Clean dead/orphaned pages and routes
+
+Goal: reduce confusion for users and future development.
+
+Handle:
+	•	unreachable teacher/student portal pages
+	•	gradebook/classes pages if irrelevant
+	•	hidden unfinished routes
+
+Done when:
+	•	no stray dead modules remain in active navigation or codepath planning
+
+22. Add empty states and guided first actions
+
+Goal: help new users know what to do.
+
+Examples:
+	•	no students
+	•	no sessions today
+	•	no assigned caseload
+	•	no active IEP docs
+	•	no incidents logged
+
+Done when:
+	•	each major page gives a sensible next action instead of blank zeros
+
+Phase 6 — implementation basics districts will actually need
+
+This is where product starts becoming pilot-deployable.
+
+23. Add file attachments/document storage
+
+Goal: allow real records to live with the workflow.
+
+Support uploads for:
+	•	signed forms
+	•	evaluation reports
+	•	consent docs
+	•	external PDFs
+	•	incident attachments if appropriate
+
+Done when:
+	•	users can attach and retrieve key documents per student/workflow
+
+24. Add guardian/parent data model and emergency contacts
+
+Goal: fix a core recordkeeping gap.
+
+Add:
+	•	guardian records
+	•	relationship
+	•	preferred contact method
+	•	contact priority
+	•	emergency contacts
+	•	interpreter/language needs if useful
+
+Done when:
+	•	parent communication and records are backed by real contact structure
+
+25. Build a minimal guardian/parent portal v1
+
+Goal: cover a major missing piece without boiling the ocean.
+
+V1 can be narrow:
+	•	view shared documents
+	•	view notices
+	•	acknowledge receipt
+	•	see contact history or meeting info later
+
+Done when:
+	•	parents have some actual system access instead of none
+
+26. Add school-year rollover / archival workflow
+
+Goal: districts cannot operate cleanly without yearly transition support.
+
+Support:
+	•	archive prior-year active caseloads
+	•	carry forward students
+	•	preserve historical sessions
+	•	mark current-year records clearly
+	•	clone recurring services/goals selectively if appropriate
+
+Done when:
+	•	admin can move from one school year to the next without data chaos
+
+27. Build roster import / SIS import v1
+
+Goal: reduce implementation pain.
+
+Start simple:
+	•	CSV import first
+	•	then PowerSchool / Infinite Campus read-only import later
+
+Support:
+	•	student demographics
+	•	staff
+	•	school assignments
+	•	grades
+	•	service roster basics if available
+
+Done when:
+	•	district does not need to hand-enter everything
+
+Phase 7 — harden workflow depth in your strongest areas
+
+Now sharpen the wedge instead of expanding randomly.
+
+28. Strengthen FBA/BIP approval and implementation workflow
+
+Goal: make this module operational, not just documentation-rich.
+
+Add:
+	•	review/approve state
+	•	assigned implementers
+	•	revision history
+	•	implementation start date
+	•	fidelity/implementation check entries
+
+Done when:
+	•	a BIP can move from draft to active plan with accountability
+
+29. Add IEP meeting workflow basics
+
+Goal: support actual team process, not just document fragments.
+
+Start with:
+	•	meeting date/time
+	•	participants/invitees
+	•	notes
+	•	agenda sections
+	•	follow-up tasks
+	•	linked draft documents
+
+Done when:
+	•	the IEP workflow spans more of the real team process
+
+30. Add baseline observability and production monitoring
+
+Goal: know when the app is failing before users tell you.
+
+Add:
+	•	Sentry or equivalent
+	•	structured error capture
+	•	route-level performance tracking
+	•	export/report-generation monitoring
+	•	alerting for failed sends / broken jobs
+
+Done when:
+	•	you can see production errors, not guess
