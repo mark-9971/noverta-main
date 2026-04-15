@@ -12,6 +12,7 @@ import {
   programDataTable,
   dataSessionsTable,
   shareLinksTable,
+  guardiansTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, asc, or, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -20,6 +21,36 @@ import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
 router.use(requireTierAccess("engagement.parent_communication"));
+
+async function resolveGuardianRecipients(studentId: number) {
+  const guardians = await db
+    .select({
+      id: guardiansTable.id,
+      name: guardiansTable.name,
+      relationship: guardiansTable.relationship,
+      email: guardiansTable.email,
+      phone: guardiansTable.phone,
+      preferredContactMethod: guardiansTable.preferredContactMethod,
+      contactPriority: guardiansTable.contactPriority,
+      interpreterNeeded: guardiansTable.interpreterNeeded,
+      language: guardiansTable.language,
+    })
+    .from(guardiansTable)
+    .where(eq(guardiansTable.studentId, studentId))
+    .orderBy(asc(guardiansTable.contactPriority), asc(guardiansTable.id));
+
+  return guardians.map((g) => ({
+    guardianId: g.id,
+    name: g.name,
+    relationship: g.relationship,
+    email: g.email ?? null,
+    phone: g.phone ?? null,
+    preferredContactMethod: g.preferredContactMethod ?? "email",
+    contactPriority: g.contactPriority,
+    interpreterNeeded: g.interpreterNeeded,
+    language: g.language ?? null,
+  }));
+}
 
 function formatContactResponse(c: any) {
   return {
@@ -133,6 +164,12 @@ router.post("/parent-contacts", async (req, res): Promise<void> => {
       return;
     }
 
+    let resolvedParentName = parentName || null;
+    if (!resolvedParentName) {
+      const recipients = await resolveGuardianRecipients(Number(studentId));
+      if (recipients.length > 0) resolvedParentName = recipients[0].name;
+    }
+
     const [contact] = await db.insert(parentContactsTable).values({
       studentId: Number(studentId),
       contactType,
@@ -144,7 +181,7 @@ router.post("/parent-contacts", async (req, res): Promise<void> => {
       followUpNeeded: followUpNeeded || null,
       followUpDate: followUpDate || null,
       contactedBy: contactedBy || null,
-      parentName: parentName || null,
+      parentName: resolvedParentName,
       notificationRequired: notificationRequired ?? false,
       relatedAlertId: relatedAlertId ? Number(relatedAlertId) : null,
     }).returning();
@@ -521,10 +558,13 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
       expiresAt,
     });
 
+    const guardianRecipients = await resolveGuardianRecipients(studentId);
+
     res.status(201).json({
       token,
       expiresAt: expiresAt.toISOString(),
       url: `/api/shared/progress/${token}`,
+      guardianRecipients,
     });
   } catch (e: any) {
     console.error("POST share-link error:", e);

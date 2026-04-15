@@ -6,28 +6,53 @@ import {
   studentsTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
+import { z } from "zod";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
 import { migrateExistingGuardians } from "../lib/migrateGuardians";
 
 const router: IRouter = Router();
 
-async function resolveStudentDistrictId(studentId: number): Promise<number | null> {
+const patchGuardianSchema = insertGuardianSchema
+  .omit({ studentId: true })
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided for update",
+  });
+
+const patchEmergencyContactSchema = insertEmergencyContactSchema
+  .omit({ studentId: true })
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided for update",
+  });
+
+type PatchGuardian = z.infer<typeof patchGuardianSchema>;
+type PatchEmergencyContact = z.infer<typeof patchEmergencyContactSchema>;
+
+async function resolveStudentSchoolAndDistrict(
+  studentId: number
+): Promise<{ schoolId: number; districtId: number } | null> {
   const [result] = await db
-    .select({ districtId: schoolsTable.districtId })
+    .select({ schoolId: studentsTable.schoolId, districtId: schoolsTable.districtId })
     .from(studentsTable)
     .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
     .where(eq(studentsTable.id, studentId))
     .limit(1);
-  return result?.districtId ?? null;
+  return result ?? null;
 }
 
 async function canAccessStudent(req: Request, studentId: number): Promise<boolean> {
   const meta = getPublicMeta(req);
   if (meta.platformAdmin) return true;
-  const districtId = await resolveStudentDistrictId(studentId);
-  if (!districtId) return false;
-  return meta.districtId === districtId;
+
+  const student = await resolveStudentSchoolAndDistrict(studentId);
+  if (!student) return false;
+
+  if (meta.districtId && meta.districtId === student.districtId) return true;
+  if (meta.schoolId && meta.schoolId === student.schoolId) return true;
+
+  return false;
 }
 
 router.get("/students/:studentId/guardians", async (req: Request, res: Response): Promise<void> => {
@@ -46,6 +71,51 @@ router.get("/students/:studentId/guardians", async (req: Request, res: Response)
   } catch (err) {
     console.error("GET /students/:studentId/guardians error:", err);
     res.status(500).json({ error: "Failed to fetch guardians" });
+  }
+});
+
+router.get("/students/:studentId/guardians/contact-recipients", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student id" }); return; }
+    if (!await canAccessStudent(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+
+    const guardians = await db
+      .select({
+        id: guardiansTable.id,
+        name: guardiansTable.name,
+        relationship: guardiansTable.relationship,
+        email: guardiansTable.email,
+        phone: guardiansTable.phone,
+        preferredContactMethod: guardiansTable.preferredContactMethod,
+        contactPriority: guardiansTable.contactPriority,
+        interpreterNeeded: guardiansTable.interpreterNeeded,
+        language: guardiansTable.language,
+      })
+      .from(guardiansTable)
+      .where(eq(guardiansTable.studentId, studentId))
+      .orderBy(asc(guardiansTable.contactPriority), asc(guardiansTable.id));
+
+    const recipients = guardians.map((g) => ({
+      guardianId: g.id,
+      name: g.name,
+      relationship: g.relationship,
+      email: g.email ?? null,
+      phone: g.phone ?? null,
+      preferredContactMethod: g.preferredContactMethod ?? "email",
+      contactPriority: g.contactPriority,
+      interpreterNeeded: g.interpreterNeeded,
+      language: g.language ?? null,
+      deliveryChannels: {
+        email: !!g.email,
+        phone: !!g.phone,
+      },
+    }));
+
+    res.json({ studentId, recipients });
+  } catch (err) {
+    console.error("GET /students/:studentId/guardians/contact-recipients error:", err);
+    res.status(500).json({ error: "Failed to fetch contact recipients" });
   }
 });
 
@@ -76,11 +146,13 @@ router.patch("/students/:studentId/guardians/:id", async (req: Request, res: Res
     if (isNaN(studentId) || isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     if (!await canAccessStudent(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
-    const allowed = ["name", "relationship", "email", "phone", "preferredContactMethod", "contactPriority", "interpreterNeeded", "language", "notes"] as const;
-    const updates: Partial<typeof guardiansTable.$inferInsert> = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) (updates as any)[key] = req.body[key];
+    const parsed = patchGuardianSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid data", details: parsed.error.flatten() });
+      return;
     }
+
+    const updates: PatchGuardian = parsed.data;
 
     const [updated] = await db
       .update(guardiansTable)
@@ -162,11 +234,13 @@ router.patch("/students/:studentId/emergency-contacts/:id", async (req: Request,
     if (isNaN(studentId) || isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     if (!await canAccessStudent(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
-    const allowed = ["name", "relationship", "phone", "notes", "priority"] as const;
-    const updates: Partial<typeof emergencyContactsTable.$inferInsert> = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) (updates as any)[key] = req.body[key];
+    const parsed = patchEmergencyContactSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid data", details: parsed.error.flatten() });
+      return;
     }
+
+    const updates: PatchEmergencyContact = parsed.data;
 
     const [updated] = await db
       .update(emergencyContactsTable)

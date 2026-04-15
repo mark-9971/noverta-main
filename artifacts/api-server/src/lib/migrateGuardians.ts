@@ -1,9 +1,20 @@
 import { db } from "@workspace/db";
 import { studentsTable, guardiansTable } from "@workspace/db";
-import { isNull, isNotNull, and, eq } from "drizzle-orm";
+import { isNull, and, eq, or, isNotNull } from "drizzle-orm";
 
-export async function migrateExistingGuardians(): Promise<{ migrated: number; skipped: number }> {
+interface MigrationResult {
+  migrated: number;
+  updated: number;
+  skipped: number;
+}
+
+function normalizeName(name: string | null | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
+export async function migrateExistingGuardians(): Promise<MigrationResult> {
   let migrated = 0;
+  let updated = 0;
   let skipped = 0;
 
   const students = await db
@@ -17,34 +28,67 @@ export async function migrateExistingGuardians(): Promise<{ migrated: number; sk
     .where(
       and(
         isNull(studentsTable.deletedAt),
-        isNotNull(studentsTable.parentGuardianName),
+        or(
+          isNotNull(studentsTable.parentGuardianName),
+          isNotNull(studentsTable.parentEmail),
+          isNotNull(studentsTable.parentPhone),
+        )
       )
     );
 
   for (const student of students) {
-    if (!student.parentGuardianName?.trim()) {
+    const legacyName = student.parentGuardianName?.trim() || null;
+    const legacyEmail = student.parentEmail?.trim() || null;
+    const legacyPhone = student.parentPhone?.trim() || null;
+
+    if (!legacyName && !legacyEmail && !legacyPhone) {
       skipped++;
       continue;
     }
 
-    const existing = await db
-      .select({ id: guardiansTable.id })
+    const existingGuardians = await db
+      .select()
       .from(guardiansTable)
-      .where(eq(guardiansTable.studentId, student.id))
-      .limit(1);
+      .where(eq(guardiansTable.studentId, student.id));
 
-    if (existing.length > 0) {
-      skipped++;
+    const normalizedLegacy = normalizeName(legacyName);
+
+    const nameMatch = normalizedLegacy
+      ? existingGuardians.find((g) => normalizeName(g.name) === normalizedLegacy)
+      : null;
+
+    const emailMatch = legacyEmail
+      ? existingGuardians.find((g) => g.email?.toLowerCase() === legacyEmail.toLowerCase())
+      : null;
+
+    const matchedGuardian = nameMatch ?? emailMatch ?? null;
+
+    if (matchedGuardian) {
+      const needsEmailUpdate = legacyEmail && !matchedGuardian.email;
+      const needsPhoneUpdate = legacyPhone && !matchedGuardian.phone;
+
+      if (needsEmailUpdate || needsPhoneUpdate) {
+        await db
+          .update(guardiansTable)
+          .set({
+            ...(needsEmailUpdate ? { email: legacyEmail } : {}),
+            ...(needsPhoneUpdate ? { phone: legacyPhone } : {}),
+          })
+          .where(eq(guardiansTable.id, matchedGuardian.id));
+        updated++;
+      } else {
+        skipped++;
+      }
       continue;
     }
 
     await db.insert(guardiansTable).values({
       studentId: student.id,
-      name: student.parentGuardianName.trim(),
+      name: legacyName ?? "Guardian",
       relationship: "Guardian",
-      email: student.parentEmail?.trim() || null,
-      phone: student.parentPhone?.trim() || null,
-      preferredContactMethod: student.parentEmail ? "email" : student.parentPhone ? "phone" : "email",
+      email: legacyEmail,
+      phone: legacyPhone,
+      preferredContactMethod: legacyEmail ? "email" : legacyPhone ? "phone" : "email",
       contactPriority: 1,
       interpreterNeeded: false,
     });
@@ -52,5 +96,5 @@ export async function migrateExistingGuardians(): Promise<{ migrated: number; sk
     migrated++;
   }
 
-  return { migrated, skipped };
+  return { migrated, updated, skipped };
 }
