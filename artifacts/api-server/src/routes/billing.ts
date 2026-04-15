@@ -119,13 +119,12 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
 
     const activeStatuses = ["active", "trialing"];
     const isActive = activeStatuses.includes(sub.status);
-    const isPastDue = sub.status === "past_due";
 
     res.json({
-      active: isActive || isPastDue,
+      active: isActive,
       status: sub.status,
       currentPeriodEnd: sub.currentPeriodEnd,
-      requiresAttention: isPastDue || sub.status === "canceled" || sub.status === "unpaid",
+      requiresAttention: !isActive,
     });
   } catch (err) {
     console.error("Error checking billing status:", err);

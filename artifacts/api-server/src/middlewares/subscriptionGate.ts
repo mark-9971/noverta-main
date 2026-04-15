@@ -4,8 +4,8 @@ import { eq, sql } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
 
-const GATED_STATUSES = ["canceled", "unpaid"];
-const ALLOWED_STATUSES = ["active", "trialing", "past_due"];
+const GATED_STATUSES = ["canceled", "unpaid", "past_due"];
+const ALLOWED_STATUSES = ["active", "trialing"];
 
 const EXEMPT_PATHS = [
   "/billing/subscription",
