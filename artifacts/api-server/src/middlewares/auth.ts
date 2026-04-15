@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
+import { getPublicMeta } from "../lib/clerkClaims";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -11,9 +12,9 @@ export interface AuthedRequest extends Request {
 function extractRole(req: Request): TrellisRole | null {
   const auth = getAuth(req);
   if (!auth?.userId) return null;
-  const meta = (auth.sessionClaims as any)?.publicMetadata;
-  const role = meta?.role;
-  if (isRole(role)) return role;
+
+  const meta = getPublicMeta(req);
+  if (isRole(meta.role)) return meta.role as TrellisRole;
 
   if (process.env.NODE_ENV !== "production") {
     const demoRole = req.headers["x-demo-role"];
@@ -25,9 +26,8 @@ function extractRole(req: Request): TrellisRole | null {
 }
 
 function extractDisplayName(req: Request): string {
-  const auth = getAuth(req);
-  const meta = (auth?.sessionClaims as any)?.publicMetadata;
-  if (meta?.name) return String(meta.name);
+  const meta = getPublicMeta(req);
+  if (meta.name) return meta.name;
   if (process.env.NODE_ENV !== "production") {
     const demoName = req.headers["x-demo-name"];
     if (typeof demoName === "string" && demoName.trim()) return demoName.trim();

@@ -2,13 +2,14 @@ import { Router, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { randomBytes } from "crypto";
 import { z } from "zod";
-import { db, documentsTable, signatureRequestsTable } from "@workspace/db";
+import { db, documentsTable, signatureRequestsTable, staffTable, studentsTable } from "@workspace/db";
 import type { Document } from "@workspace/db";
 import type { SignatureRequest } from "@workspace/db";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
+import { getPublicMeta } from "../lib/clerkClaims";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
@@ -53,10 +54,39 @@ const CreateSignatureRequestBody = z.object({
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
+async function getRequesterSchoolId(req: Request): Promise<number | null> {
+  const meta = getPublicMeta(req);
+  const staffId = meta.staffId;
+  if (!staffId || !Number.isFinite(staffId)) return null;
+  const rows = await db.select({ schoolId: staffTable.schoolId })
+    .from(staffTable)
+    .where(eq(staffTable.id, staffId))
+    .limit(1);
+  return rows[0]?.schoolId ?? null;
+}
+
+async function assertStudentAccess(req: Request, studentId: number): Promise<boolean> {
+  const authed = req as AuthedRequest;
+  if (authed.trellisRole === "admin") return true;
+  const requesterSchoolId = await getRequesterSchoolId(req);
+  if (requesterSchoolId === null) return true;
+  const rows = await db.select({ schoolId: studentsTable.schoolId })
+    .from(studentsTable)
+    .where(eq(studentsTable.id, studentId))
+    .limit(1);
+  const studentSchoolId = rows[0]?.schoolId ?? null;
+  return studentSchoolId === requesterSchoolId;
+}
+
 router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
   const studentId = Number(req.query.studentId);
   if (!studentId) {
     res.status(400).json({ error: "studentId query parameter is required" });
+    return;
+  }
+
+  if (!await assertStudentAccess(req, studentId)) {
+    res.status(403).json({ error: "You don't have access to this student's records" });
     return;
   }
 
@@ -112,6 +142,11 @@ router.post("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request
     return;
   }
 
+  if (!await assertStudentAccess(req, parsed.data.studentId)) {
+    res.status(403).json({ error: "You don't have access to this student's records" });
+    return;
+  }
+
   try {
     const [doc] = await db
       .insert(documentsTable)
@@ -143,6 +178,11 @@ router.get("/documents/:id/download", requireRoles(...PRIVILEGED_ROLES), async (
     const [doc] = await db.select().from(documentsTable).where(eq(documentsTable.id, id));
     if (!doc || doc.deletedAt) {
       res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    if (!await assertStudentAccess(req, doc.studentId)) {
+      res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
 

@@ -1,7 +1,7 @@
 import { db, auditLogsTable } from "@workspace/db";
 import type { Request } from "express";
-import { getAuth } from "@clerk/express";
 import type { AuthedRequest } from "../middlewares/auth";
+import { getClerkUserId, getPublicMeta } from "./clerkClaims";
 import { isRole } from "./permissions";
 
 interface AuditEntry {
@@ -26,17 +26,12 @@ function resolveActor(req: Request): { userId: string; role: string } {
   if (authed.userId && authed.trellisRole) {
     return { userId: authed.userId, role: authed.trellisRole };
   }
-  try {
-    const auth = getAuth(req);
-    if (auth?.userId) {
-      const meta = (auth.sessionClaims as Record<string, unknown>)?.publicMetadata as Record<string, unknown> | undefined;
-      const role = meta?.role;
-      return {
-        userId: auth.userId,
-        role: typeof role === "string" && isRole(role) ? role : "unknown",
-      };
-    }
-  } catch (_e) {}
+  const clerkUserId = getClerkUserId(req);
+  if (clerkUserId) {
+    const meta = getPublicMeta(req);
+    const role = isRole(meta.role) ? meta.role : "unknown";
+    return { userId: clerkUserId, role };
+  }
   return { userId: "anonymous", role: "unknown" };
 }
 
