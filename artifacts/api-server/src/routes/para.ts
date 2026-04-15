@@ -156,14 +156,20 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         )),
     ]);
 
-    const loggedKeys = new Set(
-      todaySessions.map(s => `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`)
-    );
+    const loggedCounts = new Map<string, number>();
+    for (const s of todaySessions) {
+      const key = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`;
+      loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
+    }
 
     const isBlockLogged = (b: typeof blocks[number]): boolean => {
       const key = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
-      const keyNoSvc = `${b.studentId ?? ""}:`;
-      return loggedKeys.has(key) || (b.serviceTypeId == null && loggedKeys.has(keyNoSvc));
+      const count = loggedCounts.get(key) ?? 0;
+      if (count > 0) {
+        loggedCounts.set(key, count - 1);
+        return true;
+      }
+      return false;
     };
 
     res.json({

@@ -633,10 +633,15 @@ export default function ParaMyDayPage() {
                           {upcoming && (
                             <span className="text-[11px] font-medium text-gray-400">UPCOMING</span>
                           )}
-                          {isPast && block.studentId && (
+                          {isPast && block.studentId && !block.sessionLogged && (
                             <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                               <Clock className="w-3 h-3" />
                               Needs log
+                            </span>
+                          )}
+                          {isPast && block.studentId && block.sessionLogged && (
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              Logged
                             </span>
                           )}
                         </div>
@@ -674,7 +679,7 @@ export default function ParaMyDayPage() {
                       )}
                     </div>
 
-                    {block.studentId && isPast && (
+                    {block.studentId && isPast && !block.sessionLogged && (
                       <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                         <button
                           onClick={() => openQuickLog({
