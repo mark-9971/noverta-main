@@ -18,6 +18,7 @@ import Schedule from "@/pages/schedule";
 import StaffPage from "@/pages/staff";
 import AlertsPage from "@/pages/alerts";
 import Compliance from "@/pages/compliance";
+import ComplianceChecklist from "@/pages/compliance-checklist";
 import Reports from "@/pages/reports";
 import StudentDetail from "@/pages/student-detail";
 import ImportData from "@/pages/import-data";
@@ -106,6 +107,7 @@ function StaffRouter() {
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <BoundedRoute path="/compliance/timeline" component={ComplianceTimelinePage} fallbackTitle="Compliance timeline error" />
+      <BoundedRoute path="/compliance/checklist" component={ComplianceChecklist} fallbackTitle="Compliance checklist error" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />

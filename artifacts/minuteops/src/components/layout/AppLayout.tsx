@@ -8,7 +8,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -39,6 +39,7 @@ const adminNav: NavSection[] = [
       { href: "/students", label: "Students", icon: Users, primary: true },
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
@@ -102,6 +103,7 @@ const spedTeacherNav: NavSection[] = [
       { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase, primary: true },
       { href: "/students", label: "My Students", icon: Users, primary: true },
       { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
