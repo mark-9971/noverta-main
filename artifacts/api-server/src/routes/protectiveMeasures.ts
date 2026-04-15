@@ -586,20 +586,55 @@ router.post("/protective-measures/incidents/:id/dese-report", async (req: Reques
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  if (!actorStaffId) {
+    res.status(401).json({ error: "Authenticated actor identity required to file DESE report." });
+    return;
+  }
+
+  const { thirtyDayLogSent, note } = req.body;
+  if (!note || !String(note).trim()) {
+    res.status(400).json({ error: "A note is required when filing a DESE report." });
+    return;
+  }
+
   const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
-  const now = new Date().toISOString().split("T")[0];
-  const updates: any = { deseReportSentAt: now };
-  if (req.body.thirtyDayLogSent) updates.thirtyDayLogSentToDese = true;
+  if (existing.status !== "resolved") {
+    res.status(400).json({ error: `DESE report requires incident to be in 'resolved' status. Current status: '${existing.status}'.` });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const dateOnly = now.split("T")[0];
+  const updates: Record<string, unknown> = {
+    deseReportSentAt: dateOnly,
+    status: "dese_reported",
+    resolutionNote: String(note).trim(),
+    resolvedAt: existing.resolvedAt ?? now,
+    resolvedBy: existing.resolvedBy ?? actorStaffId,
+  };
+  if (thirtyDayLogSent) updates.thirtyDayLogSentToDese = true;
 
   const [updated] = await db.update(restraintIncidentsTable).set(updates).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  await db.insert(incidentStatusHistoryTable).values({
+    incidentId: id,
+    fromStatus: existing.status,
+    toStatus: "dese_reported",
+    note: String(note).trim(),
+    actorStaffId: Number(actorStaffId),
+  });
+
   logAudit(req, {
     action: "update",
     targetTable: "restraint_incidents",
     targetId: id,
     studentId: existing.studentId,
     summary: `DESE report filed for restraint incident #${id}`,
+    oldValues: { status: existing.status } as Record<string, unknown>,
+    newValues: { status: "dese_reported", deseReportSentAt: dateOnly } as Record<string, unknown>,
   });
   res.json(updated);
 });

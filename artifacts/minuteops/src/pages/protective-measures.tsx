@@ -1344,9 +1344,11 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
     onSuccess: invalidateAll,
   });
 
+  const [showDeseDialog, setShowDeseDialog] = useState(false);
+  const [deseNote, setDeseNote] = useState("");
   const deseMutation = useMutation({
-    mutationFn: () => deseReportIncident(id, { thirtyDayLogSent: true }),
-    onSuccess: invalidateAll,
+    mutationFn: (note: string) => deseReportIncident(id, { thirtyDayLogSent: true, note } as Record<string, unknown>),
+    onSuccess: () => { invalidateAll(); setShowDeseDialog(false); setDeseNote(""); },
   });
 
   const signMutation = useMutation({
@@ -1791,10 +1793,40 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
                   urgent={!incident.thirtyDayLogSentToDese && !!incident.deseReportSentAt}
                 />
                 {!incident.deseReportSentAt && (
-                  <button onClick={() => deseMutation.mutate()} disabled={deseMutation.isPending}
+                  <button onClick={() => setShowDeseDialog(true)} disabled={deseMutation.isPending}
                     className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 flex items-center justify-center gap-1.5 disabled:opacity-50">
-                    <Send className="w-3.5 h-3.5" /> {deseMutation.isPending ? "..." : "Mark DESE Report Sent"}
+                    <Send className="w-3.5 h-3.5" /> Mark DESE Report Sent
                   </button>
+                )}
+                {showDeseDialog && (
+                  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 space-y-4">
+                      <h3 className="text-base font-semibold text-gray-800">File DESE Report</h3>
+                      <p className="text-sm text-gray-500">Document the submission of this incident to DESE. A note is required.</p>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Note <span className="text-red-500">*</span></label>
+                        <textarea
+                          value={deseNote}
+                          onChange={e => setDeseNote(e.target.value)}
+                          rows={3}
+                          placeholder="Describe the report submitted, submission method, and any confirmation details…"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => { setShowDeseDialog(false); setDeseNote(""); }}
+                          className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50" disabled={deseMutation.isPending}>
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => { if (!deseNote.trim()) { toast.error("A note is required"); return; } deseMutation.mutate(deseNote.trim()); }}
+                          disabled={deseMutation.isPending || !deseNote.trim()}
+                          className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                          {deseMutation.isPending ? "Filing..." : "File DESE Report"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </>
             )}
