@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useUser } from "@clerk/react";
 import { useLocation } from "wouter";
 import { setExtraHeaders } from "@workspace/api-client-react";
 
@@ -52,27 +53,8 @@ function lsGet(key: string, fallback = ""): string {
 function lsSet(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch {}
 }
-
-interface DevSession {
-  userId: string;
-  name: string;
-  role: UserRole;
-}
-
-function parseSession(): DevSession | null {
-  try {
-    const token = localStorage.getItem("trellis_session");
-    if (!token) return null;
-    // Token format: base64url(payload).base64url(signature)
-    const dotIdx = token.lastIndexOf(".");
-    const b64 = dotIdx >= 0 ? token.slice(0, dotIdx) : token;
-    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
-    const payload = JSON.parse(json);
-    if (!payload.userId || !isValidRole(payload.role)) return null;
-    return { userId: payload.userId, name: payload.name || "User", role: payload.role };
-  } catch {
-    return null;
-  }
+function lsDel(key: string) {
+  try { localStorage.removeItem(key); } catch {}
 }
 
 interface RoleUser {
@@ -99,14 +81,14 @@ function getInitials(name: string): string {
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
+  const { user: clerkUser, isLoaded } = useUser();
   const [, setLocation] = useLocation();
+  const isDevMode = import.meta.env.DEV;
 
-  const [session, setSession] = useState<DevSession | null>(() => parseSession());
-
-  const [devRole, setDevRoleState] = useState<UserRole>(() => {
+  const [devRole, setDevRoleState] = useState<UserRole | null>(() => {
+    if (!import.meta.env.DEV) return null;
     const saved = lsGet("trellis_role");
-    if (isValidRole(saved)) return saved;
-    return session?.role ?? "admin";
+    return isValidRole(saved) ? saved : null;
   });
 
   const [devStudentId, setDevStudentIdState] = useState<number>(() => {
@@ -121,49 +103,46 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return Number(lsGet("trellis_teacher_id")) || 0;
   });
 
-  const role: UserRole = devRole;
-  const studentId = devStudentId;
-  const teacherId = devTeacherId;
+  const clerkRole = isValidRole(clerkUser?.publicMetadata?.role)
+    ? (clerkUser!.publicMetadata!.role as UserRole)
+    : null;
+
+  const clerkStudentId = Number(clerkUser?.publicMetadata?.studentId) || 0;
+  const clerkStaffId = Number(clerkUser?.publicMetadata?.staffId) || 0;
+
+  const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
+  const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
+  const teacherId = (isDevMode && devTeacherId) ? devTeacherId : clerkStaffId;
 
   useEffect(() => {
-    setExtraHeaders({ "x-demo-role": role });
-    return () => { setExtraHeaders(null); };
-  }, [role]);
+    if (isDevMode) {
+      setExtraHeaders({ "x-demo-role": role });
+    }
+    return () => {
+      if (isDevMode) setExtraHeaders(null);
+    };
+  }, [isDevMode, role]);
 
-  const baseName = (role === "sped_student" && devStudentName)
-    ? devStudentName
-    : (session?.name || `Demo ${ROLE_SUBTITLES[role]}`);
+  const clerkName = clerkUser?.fullName || clerkUser?.firstName || "";
+  const userName = (isDevMode && devRole)
+    ? (role === "sped_student" && devStudentName ? devStudentName : `Demo ${ROLE_SUBTITLES[role]}`)
+    : (clerkName || "User");
 
   const user: RoleUser = {
-    name: baseName,
+    name: userName,
     subtitle: ROLE_SUBTITLES[role] || role,
-    initials: getInitials(baseName) || "T",
+    initials: getInitials(userName) || "T",
   };
 
   function setRole(r: UserRole) {
-    const current = parseSession();
-    const displayName = current?.name || `Demo ${ROLE_SUBTITLES[r]}`;
-
-    // Get a new server-signed token for the new role
-    fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: displayName, role: r }),
-    })
-      .then(res => res.json())
-      .then((data: { token?: string }) => {
-        if (data.token) {
-          localStorage.setItem("trellis_session", data.token);
-        }
-      })
-      .catch(() => {});
-
+    if (!isDevMode) return;
     setDevRoleState(r);
     lsSet("trellis_role", r);
     setLocation(ROLE_HOME[r]);
   }
 
   function setStudentId(id: number, name?: string) {
+    if (!isDevMode) return;
     setDevStudentIdState(id);
     lsSet("trellis_sped_student_id", String(id));
     if (name) {
@@ -173,15 +152,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }
 
   function setTeacherId(id: number, _name?: string) {
+    if (!isDevMode) return;
     setDevTeacherIdState(id);
     lsSet("trellis_teacher_id", String(id));
   }
+
+  if (!isLoaded) return null;
 
   return (
     <RoleContext.Provider value={{
       role,
       user,
-      isDevMode: true,
+      isDevMode,
       studentId,
       teacherId,
       setRole,

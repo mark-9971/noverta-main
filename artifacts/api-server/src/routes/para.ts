@@ -19,7 +19,16 @@ function dayOfWeekFromDate(dateStr: string): string {
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 }
 
-async function getStaffIdForUser(_req: AuthedRequest): Promise<number | null> {
+async function getStaffIdForUser(req: AuthedRequest): Promise<number | null> {
+  const { getAuth } = require("@clerk/express");
+  const auth = getAuth(req);
+  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
+  const clerkStaffId = meta?.staffId ? Number(meta.staffId) : null;
+  if (clerkStaffId && Number.isFinite(clerkStaffId)) {
+    const rows = await db.select({ id: staffTable.id }).from(staffTable)
+      .where(eq(staffTable.id, clerkStaffId)).limit(1);
+    if (rows.length > 0) return rows[0].id;
+  }
   return null;
 }
 

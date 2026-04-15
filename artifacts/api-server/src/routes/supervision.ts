@@ -20,8 +20,12 @@ function isPrivileged(req: AuthedRequest): boolean {
   return PRIVILEGED_STAFF_ROLES.includes(req.trellisRole);
 }
 
-function getClerkStaffId(_req: AuthedRequest): number | null {
-  return null;
+function getClerkStaffId(req: AuthedRequest): number | null {
+  const { getAuth } = require("@clerk/express");
+  const auth = getAuth(req);
+  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
+  const id = meta?.staffId ? Number(meta.staffId) : null;
+  return id && Number.isFinite(id) ? id : null;
 }
 
 function sessionToJson(s: Record<string, unknown>) {

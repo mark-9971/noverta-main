@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useClerk } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
@@ -217,18 +218,13 @@ const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
 };
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
+  const { signOut } = useClerk();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { role, user, isDevMode } = useRole();
   const { typedFilter } = useSchoolContext();
-
-  function signOut() {
-    localStorage.removeItem("trellis_session");
-    localStorage.removeItem("trellis_role");
-    setLocation("/sign-in");
-  }
   const { theme } = useTheme();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = (alertsSummary as any)?.total ?? 0;
@@ -413,7 +409,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <ThemePicker />
             <button
-              onClick={signOut}
+              onClick={() => signOut({ redirectUrl: "/sign-in" })}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
               title="Sign out"
             >
