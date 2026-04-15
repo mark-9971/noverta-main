@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   districtsTable, schoolsTable, studentsTable, staffTable,
-  alertsTable, sessionLogsTable, serviceRequirementsTable
+  alertsTable, sessionLogsTable, serviceRequirementsTable,
+  districtSubscriptionsTable
 } from "@workspace/db";
 import { eq, and, count, sql, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -53,6 +54,15 @@ router.post("/districts", async (req, res): Promise<void> => {
     state: state ?? "MA",
     region: region ?? null,
   }).returning();
+
+  await db.insert(districtSubscriptionsTable).values({
+    districtId: district.id,
+    planTier: "trial",
+    seatLimit: 10,
+    billingCycle: "monthly",
+    status: "trialing",
+  });
+
   res.status(201).json({ ...district, createdAt: district.createdAt.toISOString() });
 });
 

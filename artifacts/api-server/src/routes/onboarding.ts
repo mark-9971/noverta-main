@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import {
   db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
   studentsTable, onboardingProgressTable, sisConnectionsTable,
+  districtSubscriptionsTable,
 } from "@workspace/db";
 import { count, isNull, eq, and } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
@@ -23,6 +24,15 @@ async function getOrCreateDistrict(name: string): Promise<{ id: number; name: st
     name,
     state: "MA",
   }).returning();
+
+  await db.insert(districtSubscriptionsTable).values({
+    districtId: inserted.id,
+    planTier: "trial",
+    seatLimit: 10,
+    billingCycle: "monthly",
+    status: "trialing",
+  }).onConflictDoNothing();
+
   return inserted;
 }
 

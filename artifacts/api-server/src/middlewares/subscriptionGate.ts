@@ -81,7 +81,11 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
         .limit(1)
         .then(([sub]) => {
           if (!sub) {
-            next();
+            res.status(403).json({
+              error: "No subscription found",
+              code: "NO_SUBSCRIPTION",
+              message: "Your district does not have an active subscription. Please contact your administrator.",
+            });
             return;
           }
 
