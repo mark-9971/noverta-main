@@ -77,3 +77,14 @@ export function requireMinRole(minRole: TrellisRole) {
     });
   };
 }
+
+export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const meta = getPublicMeta(req);
+    if (!meta.platformAdmin) {
+      res.status(403).json({ error: "Platform admin access required" });
+      return;
+    }
+    next();
+  });
+}

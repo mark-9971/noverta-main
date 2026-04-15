@@ -11,6 +11,7 @@ interface Tenant {
   state: string | null;
   planTier: string | null;
   seatLimit: number | null;
+  billingCycle: string | null;
   seatsUsed: number;
   status: string | null;
   currentPeriodEnd: string | null;

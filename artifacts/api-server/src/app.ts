@@ -7,6 +7,7 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxy
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
+import { requireActiveSubscription } from "./middlewares/subscriptionGate";
 
 const app: Express = express();
 
@@ -87,6 +88,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(clerkMiddleware());
 
+app.use("/api", requireActiveSubscription);
 app.use("/api", router);
 
 app.use((_req: Request, res: Response) => {

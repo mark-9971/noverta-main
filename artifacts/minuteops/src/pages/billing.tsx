@@ -106,7 +106,7 @@ export default function BillingPage() {
     );
   }
 
-  const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
+  const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; label: string }> = {
     active: { icon: CheckCircle, color: "text-emerald-600", label: "Active" },
     trialing: { icon: Crown, color: "text-blue-600", label: "Trial" },
     past_due: { icon: AlertTriangle, color: "text-amber-600", label: "Past Due" },
@@ -261,7 +261,7 @@ export default function BillingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {plans.map((plan) => {
               const price = plan.prices.find(
-                (p) => p.recurring && (p.recurring as any).interval === billingInterval
+                (p) => p.recurring && p.recurring.interval === billingInterval
               );
               if (!price) return null;
 

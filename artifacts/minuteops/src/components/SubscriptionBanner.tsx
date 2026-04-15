@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { apiGet } from "@/lib/api";
-import { AlertTriangle, XCircle, CreditCard, X } from "lucide-react";
+import { AlertTriangle, XCircle, CreditCard, X, ShieldAlert } from "lucide-react";
 import { useRole } from "@/lib/role-context";
 
 interface BillingStatus {
@@ -36,14 +36,14 @@ export function SubscriptionBanner() {
     }`}>
       <div className="flex items-center gap-3">
         {isCanceled ? (
-          <XCircle className="h-5 w-5 text-red-600 shrink-0" />
+          <ShieldAlert className="h-5 w-5 text-red-600 shrink-0" />
         ) : (
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
         )}
         <p className={`text-sm ${isCanceled ? "text-red-800" : "text-amber-800"}`}>
           {isPastDue && "Your payment is past due. Please update your payment method to avoid service interruption."}
-          {status.status === "canceled" && "Your subscription has been canceled. Reactivate to continue using Trellis."}
-          {status.status === "unpaid" && "Your account has an unpaid balance. Please update your payment to continue."}
+          {status.status === "canceled" && "Your subscription has been canceled. Access to most features is restricted. Please reactivate to continue using Trellis."}
+          {status.status === "unpaid" && "Your account has an unpaid balance. Access is restricted until payment is resolved."}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -58,9 +58,11 @@ export function SubscriptionBanner() {
           <CreditCard className="h-3.5 w-3.5" />
           Manage Billing
         </button>
-        <button onClick={() => setDismissed(true)} className="text-gray-400 hover:text-gray-600">
-          <X className="h-4 w-4" />
-        </button>
+        {!isCanceled && (
+          <button onClick={() => setDismissed(true)} className="text-gray-400 hover:text-gray-600">
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );

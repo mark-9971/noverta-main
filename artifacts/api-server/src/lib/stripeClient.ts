@@ -1,8 +1,20 @@
 import Stripe from 'stripe';
 
-let connectionSettings: any;
+interface StripeConnectionSettings {
+  settings: {
+    publishable: string;
+    secret: string;
+  };
+}
 
-async function getCredentials() {
+interface StripeCredentials {
+  publishableKey: string;
+  secretKey: string;
+}
+
+let connectionSettings: StripeConnectionSettings | null = null;
+
+async function getCredentials(): Promise<StripeCredentials> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -30,10 +42,14 @@ async function getCredentials() {
     }
   });
 
-  const data = await response.json();
-  connectionSettings = data.items?.[0];
+  interface ConnectionsResponse {
+    items: StripeConnectionSettings[];
+  }
 
-  if (!connectionSettings || (!connectionSettings.settings.publishable || !connectionSettings.settings.secret)) {
+  const data = await response.json() as ConnectionsResponse;
+  connectionSettings = data.items?.[0] ?? null;
+
+  if (!connectionSettings || !connectionSettings.settings.publishable || !connectionSettings.settings.secret) {
     throw new Error(`Stripe ${targetEnvironment} connection not found`);
   }
 
@@ -43,26 +59,30 @@ async function getCredentials() {
   };
 }
 
-export async function getUncachableStripeClient() {
+export async function getUncachableStripeClient(): Promise<Stripe> {
   const { secretKey } = await getCredentials();
-  return new Stripe(secretKey, {
-    apiVersion: '2025-08-27.basil' as any,
-  });
+  return new Stripe(secretKey);
 }
 
-export async function getStripePublishableKey() {
+export async function getStripePublishableKey(): Promise<string> {
   const { publishableKey } = await getCredentials();
   return publishableKey;
 }
 
-export async function getStripeSecretKey() {
+export async function getStripeSecretKey(): Promise<string> {
   const { secretKey } = await getCredentials();
   return secretKey;
 }
 
-let stripeSync: any = null;
+interface StripeSyncInstance {
+  processWebhook(payload: Buffer, signature: string): Promise<void>;
+  backfill(): Promise<void>;
+  setupWebhook(): Promise<void>;
+}
 
-export async function getStripeSync() {
+let stripeSync: StripeSyncInstance | null = null;
+
+export async function getStripeSync(): Promise<StripeSyncInstance> {
   if (!stripeSync) {
     const { StripeSync } = await import('stripe-replit-sync');
     const secretKey = await getStripeSecretKey();
@@ -73,7 +93,7 @@ export async function getStripeSync() {
         max: 2,
       },
       stripeSecretKey: secretKey,
-    });
+    }) as StripeSyncInstance;
   }
   return stripeSync;
 }

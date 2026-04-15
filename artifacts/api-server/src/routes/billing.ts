@@ -1,12 +1,40 @@
 import { Router, type Request, type Response } from "express";
 import { db, districtSubscriptionsTable, districtsTable, staffTable } from "@workspace/db";
-import { eq, sql, count } from "drizzle-orm";
-import { requireMinRole, type AuthedRequest } from "../middlewares/auth";
+import { eq, sql } from "drizzle-orm";
+import { requireMinRole, requirePlatformAdmin } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getUncachableStripeClient, getStripePublishableKey } from "../lib/stripeClient";
 
 const router = Router();
 const adminOnly = requireMinRole("coordinator");
+
+interface SchoolRow {
+  id: number;
+  district_id: number;
+}
+
+interface StaffCountRow {
+  cnt: string | number;
+}
+
+interface StripeProductPriceRow {
+  product_id: string;
+  product_name: string;
+  product_description: string | null;
+  product_metadata: Record<string, string> | string | null;
+  price_id: string;
+  unit_amount: number;
+  currency: string;
+  recurring: { interval: string; interval_count: number } | null;
+}
+
+interface StripeSubscriptionRow {
+  id: string;
+  status: string;
+  current_period_end: number;
+  cancel_at_period_end: boolean;
+  items: unknown;
+}
 
 async function resolveCallerDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
@@ -20,12 +48,21 @@ async function resolveCallerDistrictId(req: Request): Promise<number | null> {
       const result = await db.execute(
         sql`SELECT district_id FROM schools WHERE id = ${staff.schoolId} LIMIT 1`
       );
-      if (result.rows.length > 0) return Number(result.rows[0].district_id);
+      const rows = result.rows as SchoolRow[];
+      if (rows.length > 0) return Number(rows[0].district_id);
     }
   }
   const allDistricts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
   if (allDistricts.length === 1) return allDistricts[0].id;
   return null;
+}
+
+async function countDistrictStaff(districtId: number): Promise<number> {
+  const result = await db.execute(
+    sql`SELECT COUNT(*)::int AS cnt FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})`
+  );
+  const rows = result.rows as StaffCountRow[];
+  return Number(rows[0]?.cnt ?? 0);
 }
 
 async function getOrCreateSubscription(districtId: number) {
@@ -38,7 +75,7 @@ async function getOrCreateSubscription(districtId: number) {
 
   const [created] = await db
     .insert(districtSubscriptionsTable)
-    .values({ districtId, planTier: "trial", seatLimit: 10, status: "trialing" })
+    .values({ districtId, planTier: "trial", seatLimit: 10, billingCycle: "monthly", status: "trialing" })
     .returning();
   return created;
 }
@@ -52,19 +89,15 @@ router.get("/billing/subscription", adminOnly, async (req: Request, res: Respons
 
     const [district] = await db.select({ name: districtsTable.name }).from(districtsTable).where(eq(districtsTable.id, districtId)).limit(1);
 
-    const seatResult = await db
-      .select({ count: count() })
-      .from(staffTable)
-      .where(eq(staffTable.schoolId, sql`(SELECT id FROM schools WHERE district_id = ${districtId} LIMIT 1)`));
-    const seatsUsed = seatResult[0]?.count ?? 0;
+    const seatsUsed = await countDistrictStaff(districtId);
 
-    let stripeSubscription: any = null;
+    let stripeSubscription: StripeSubscriptionRow | null = null;
     if (subscription.stripeSubscriptionId) {
       try {
         const result = await db.execute(
           sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscription.stripeSubscriptionId} LIMIT 1`
         );
-        stripeSubscription = result.rows[0] || null;
+        stripeSubscription = (result.rows[0] as StripeSubscriptionRow) || null;
       } catch {
         // stripe schema may not exist yet
       }
@@ -74,7 +107,7 @@ router.get("/billing/subscription", adminOnly, async (req: Request, res: Respons
       subscription: {
         ...subscription,
         districtName: district?.name,
-        seatsUsed: Number(seatsUsed),
+        seatsUsed,
         stripeDetails: stripeSubscription,
       },
     });
@@ -118,7 +151,7 @@ router.post("/billing/checkout", adminOnly, async (req: Request, res: Response):
     const districtId = await resolveCallerDistrictId(req);
     if (!districtId) { res.status(403).json({ error: "Unable to determine district" }); return; }
 
-    const { priceId } = req.body;
+    const { priceId } = req.body as { priceId?: string };
     if (!priceId) { res.status(400).json({ error: "priceId is required" }); return; }
 
     const subscription = await getOrCreateSubscription(districtId);
@@ -199,18 +232,34 @@ router.get("/billing/plans", async (_req: Request, res: Response): Promise<void>
       ORDER BY pr.unit_amount ASC
     `);
 
-    const productsMap = new Map<string, any>();
-    for (const row of result.rows as any[]) {
+    interface PlanOutput {
+      id: string;
+      name: string;
+      description: string | null;
+      metadata: Record<string, string> | null;
+      prices: Array<{
+        id: string;
+        unitAmount: number;
+        currency: string;
+        recurring: { interval: string; interval_count: number } | null;
+      }>;
+    }
+
+    const productsMap = new Map<string, PlanOutput>();
+    for (const row of result.rows as StripeProductPriceRow[]) {
       if (!productsMap.has(row.product_id)) {
+        const meta = typeof row.product_metadata === "string"
+          ? JSON.parse(row.product_metadata) as Record<string, string>
+          : (row.product_metadata ?? null);
         productsMap.set(row.product_id, {
           id: row.product_id,
           name: row.product_name,
           description: row.product_description,
-          metadata: row.product_metadata,
+          metadata: meta,
           prices: [],
         });
       }
-      productsMap.get(row.product_id).prices.push({
+      productsMap.get(row.product_id)!.prices.push({
         id: row.price_id,
         unitAmount: row.unit_amount,
         currency: row.currency,
@@ -235,7 +284,7 @@ router.get("/billing/publishable-key", async (_req: Request, res: Response): Pro
   }
 });
 
-router.get("/billing/tenants", requireMinRole("admin"), async (req: Request, res: Response): Promise<void> => {
+router.get("/billing/tenants", requirePlatformAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
     const tenants = await db
       .select({
@@ -244,6 +293,7 @@ router.get("/billing/tenants", requireMinRole("admin"), async (req: Request, res
         state: districtsTable.state,
         planTier: districtSubscriptionsTable.planTier,
         seatLimit: districtSubscriptionsTable.seatLimit,
+        billingCycle: districtSubscriptionsTable.billingCycle,
         status: districtSubscriptionsTable.status,
         currentPeriodEnd: districtSubscriptionsTable.currentPeriodEnd,
         stripeCustomerId: districtSubscriptionsTable.stripeCustomerId,
@@ -255,13 +305,8 @@ router.get("/billing/tenants", requireMinRole("admin"), async (req: Request, res
 
     const tenantsWithSeats = await Promise.all(
       tenants.map(async (t) => {
-        const seatResult = await db.execute(
-          sql`SELECT COUNT(*) as cnt FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${t.districtId})`
-        );
-        return {
-          ...t,
-          seatsUsed: Number((seatResult.rows[0] as any)?.cnt ?? 0),
-        };
+        const seatsUsed = await countDistrictStaff(t.districtId);
+        return { ...t, seatsUsed };
       })
     );
 
@@ -291,32 +336,45 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
     const stripe = await getUncachableStripeClient();
     const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
 
-    const priceId = (stripeSub as any).items?.data?.[0]?.price?.id;
+    const firstItem = stripeSub.items?.data?.[0];
+    const priceId = firstItem?.price?.id;
     let planTier = sub.planTier;
     let seatLimit = sub.seatLimit;
+    let billingCycle = sub.billingCycle;
 
     if (priceId) {
       try {
         const priceResult = await db.execute(
           sql`SELECT p.metadata FROM stripe.products p JOIN stripe.prices pr ON pr.product = p.id WHERE pr.id = ${priceId} LIMIT 1`
         );
-        const metadata = (priceResult.rows[0] as any)?.metadata;
-        if (metadata) {
-          const parsed = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+        interface MetadataRow { metadata: Record<string, string> | string | null }
+        const metaRow = priceResult.rows[0] as MetadataRow | undefined;
+        if (metaRow?.metadata) {
+          const parsed = typeof metaRow.metadata === 'string' ? JSON.parse(metaRow.metadata) as Record<string, string> : metaRow.metadata;
           if (parsed.tier) planTier = parsed.tier;
           if (parsed.seatLimit) seatLimit = Number(parsed.seatLimit);
         }
       } catch { /* ignore stripe schema query errors */ }
+
+      const interval = firstItem?.price?.recurring?.interval;
+      if (interval === "year") billingCycle = "yearly";
+      else if (interval === "month") billingCycle = "monthly";
     }
+
+    const currentPeriodEnd = stripeSub.current_period_end
+      ? new Date(stripeSub.current_period_end * 1000)
+      : null;
 
     await db
       .update(districtSubscriptionsTable)
       .set({
         status: stripeSub.status,
-        currentPeriodEnd: new Date((stripeSub as any).current_period_end * 1000),
-        cancelAtPeriodEnd: String((stripeSub as any).cancel_at_period_end),
+        currentPeriodEnd,
+        cancelAtPeriodEnd: String(stripeSub.cancel_at_period_end ?? false),
         planTier,
         seatLimit,
+        billingCycle,
+        stripePriceId: priceId ?? null,
       })
       .where(eq(districtSubscriptionsTable.id, sub.id));
 
