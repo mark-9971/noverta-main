@@ -367,7 +367,7 @@ router.get("/reports/executive-summary", requireReportExport, async (req, res): 
       res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
       return;
     }
-    const { schoolId, districtId, startDate, endDate } = req.query;
+    const { schoolId, districtId, startDate, endDate, schoolYearId: execYearId } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -420,7 +420,8 @@ router.get("/reports/executive-summary", requireReportExport, async (req, res): 
       .where(and(
         gte(sessionLogsTable.sessionDate, start),
         lte(sessionLogsTable.sessionDate, end),
-        sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`
+        sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`,
+        ...(execYearId ? [eq(sessionLogsTable.schoolYearId, Number(execYearId))] : [])
       ));
 
     function normalizeToRange(requiredMinutes: number, intervalType: string): number {
