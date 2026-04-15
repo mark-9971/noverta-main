@@ -204,11 +204,9 @@ router.post("/sessions", async (req, res): Promise<void> => {
       return;
     }
 
-    // Auto-attach active school year if not provided by the client
-    if (!parsed.data.schoolYearId) {
-      const activeYearId = await getActiveSchoolYearIdForStudent(parsed.data.studentId);
-      if (activeYearId) (parsed.data as any).schoolYearId = activeYearId;
-    }
+    // Resolve active school year — schoolYearId is not in the zod schema so we merge it here
+    const activeYearId = await getActiveSchoolYearIdForStudent(parsed.data.studentId);
+    const sessionInsert = { ...parsed.data, schoolYearId: activeYearId ?? null };
 
     let goalData: GoalEntry[] = [];
     if (rawGoalData && Array.isArray(rawGoalData) && rawGoalData.length > 0) {
@@ -244,7 +242,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
           return;
         }
 
-        const [session] = await txDb.insert(sessionLogsTable).values(parsed.data).returning();
+        const [session] = await txDb.insert(sessionLogsTable).values(sessionInsert).returning();
         const completedStatus = parsed.data.status === "completed" || parsed.data.status === "makeup";
         if (completedStatus) {
           const newDelivered = obligation.minutesDelivered + parsed.data.durationMinutes;
@@ -272,7 +270,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
       }
     } else {
       const result = await db.transaction(async (tx) => {
-        const [session] = await tx.insert(sessionLogsTable).values(parsed.data).returning();
+        const [session] = await tx.insert(sessionLogsTable).values(sessionInsert).returning();
 
         if (goalData.length > 0) {
           const [dataSession] = await tx.insert(dataSessionsTable).values({

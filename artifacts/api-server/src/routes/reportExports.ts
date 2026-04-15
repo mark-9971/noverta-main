@@ -6,6 +6,7 @@ import {
   sessionLogsTable, schoolsTable, iepGoalsTable, progressReportsTable,
   restraintIncidentsTable, teamMeetingsTable, iepAccommodationsTable,
   parentContactsTable, complianceEventsTable, meetingConsentRecordsTable,
+  schoolYearsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
@@ -333,8 +334,15 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
     const { schoolId, startDate, endDate, schoolYearId: incidentYearId } = req.query;
     const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
-    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
-    const end = (endDate as string) || now.toISOString().split("T")[0];
+
+    // If schoolYearId provided, override date range with that year's bounds
+    let start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
+    let end = (endDate as string) || now.toISOString().split("T")[0];
+    if (incidentYearId) {
+      const [yearRow] = await db.select({ startDate: schoolYearsTable.startDate, endDate: schoolYearsTable.endDate })
+        .from(schoolYearsTable).where(eq(schoolYearsTable.id, Number(incidentYearId)));
+      if (yearRow) { start = yearRow.startDate; end = yearRow.endDate; }
+    }
 
     const conditions: ReturnType<typeof gte>[] = [
       gte(restraintIncidentsTable.incidentDate, start),
@@ -345,9 +353,6 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
     }
     if (effectiveDistrictId !== null) {
       conditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId}))` as ReturnType<typeof gte>);
-    }
-    if (incidentYearId) {
-      conditions.push(eq(restraintIncidentsTable.schoolYearId, Number(incidentYearId)) as unknown as ReturnType<typeof gte>);
     }
 
     const incidents = await db.select({
