@@ -8,6 +8,7 @@ import {
 import { eq, and, count, sql, inArray } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
 
@@ -180,7 +181,7 @@ router.get("/district-tier", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/district-overview", async (req, res): Promise<void> => {
+router.get("/district-overview", requireTierAccess("district.overview"), async (req, res): Promise<void> => {
   const rawDistrictId = req.query.districtId;
   let districtId: number | null = null;
   if (rawDistrictId != null && rawDistrictId !== "") {

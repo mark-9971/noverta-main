@@ -14,6 +14,7 @@ import { districtsTable, schoolsTable } from "@workspace/db";
 import { requireMinRole } from "../middlewares/auth";
 import { logAudit, diffObjects } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
 
@@ -598,7 +599,7 @@ async function reconcileContractSessionLinks(districtId: number): Promise<number
   return attributed;
 }
 
-router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Response): Promise<void> => {
+router.post("/contracts/reconcile", adminOnly, requireTierAccess("district.contract_utilization"), async (req: Request, res: Response): Promise<void> => {
   try {
     const districtId = await requireDistrictId(req, res);
     if (!districtId) return;
@@ -610,7 +611,7 @@ router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Respons
   }
 });
 
-router.get("/contracts/utilization", adminOnly, async (req: Request, res: Response): Promise<void> => {
+router.get("/contracts/utilization", adminOnly, requireTierAccess("district.contract_utilization"), async (req: Request, res: Response): Promise<void> => {
   try {
     const districtId = await requireDistrictId(req, res);
     if (!districtId) return;
@@ -718,7 +719,7 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
   }
 });
 
-router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): Promise<void> => {
+router.get("/contracts/alerts", adminOnly, requireTierAccess("district.contract_utilization"), async (req: Request, res: Response): Promise<void> => {
   try {
     const districtId = await requireDistrictId(req, res);
     if (!districtId) return;
