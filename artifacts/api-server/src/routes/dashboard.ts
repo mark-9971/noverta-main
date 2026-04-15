@@ -874,7 +874,7 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
         .from(restraintIncidentsTable)
         .where(
           and(
-            eq(restraintIncidentsTable.status, "reviewed"),
+            inArray(restraintIncidentsTable.status, ["under_review", "resolved"]),
             sql`${restraintIncidentsTable.parentNotificationSentAt} IS NULL`,
           )
         ),

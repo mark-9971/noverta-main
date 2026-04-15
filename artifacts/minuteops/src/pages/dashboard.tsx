@@ -42,7 +42,7 @@ function NeedsAttentionPanel() {
     { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50" },
     { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50" },
     { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=reviewed", color: "text-red-600", bg: "bg-red-50" },
+    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-600", bg: "bg-red-50" },
   ].filter(i => i.count > 0);
 
   return (

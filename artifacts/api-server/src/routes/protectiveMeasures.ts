@@ -14,7 +14,14 @@ router.get("/protective-measures/incidents", async (req: Request, res: Response)
 
   const conditions: any[] = [];
   if (studentId) conditions.push(eq(restraintIncidentsTable.studentId, Number(studentId)));
-  if (status && status !== "all") conditions.push(eq(restraintIncidentsTable.status, String(status)));
+  if (status && status !== "all") {
+    if (String(status) === "notification_pending") {
+      conditions.push(inArray(restraintIncidentsTable.status, ["under_review", "resolved"]));
+      conditions.push(sql`${restraintIncidentsTable.parentNotificationSentAt} IS NULL`);
+    } else {
+      conditions.push(eq(restraintIncidentsTable.status, String(status)));
+    }
+  }
   if (incidentType && incidentType !== "all") conditions.push(eq(restraintIncidentsTable.incidentType, String(incidentType)));
   if (startDate) conditions.push(gte(restraintIncidentsTable.incidentDate, String(startDate)));
   if (endDate) conditions.push(lte(restraintIncidentsTable.incidentDate, String(endDate)));
@@ -363,21 +370,18 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
 
   const actorStaffId = getPublicMeta(req).staffId ?? null;
 
-  const TERMINAL_TRANSITIONS = new Set(["resolved", "dese_reported", "reviewed"]);
+  const TERMINAL_TRANSITIONS = new Set(["under_review", "resolved", "dese_reported"]);
   if (TERMINAL_TRANSITIONS.has(toStatus) && !actorStaffId) {
     res.status(401).json({ error: "Actor identity required for terminal transitions. Ensure your session is authenticated." });
     return;
   }
 
   const VALID_TRANSITIONS: Record<string, string[]> = {
-    draft: ["pending_review"],
-    pending_review: ["reviewed", "open"],
-    open: ["under_review", "reviewed", "pending_review"],
-    reviewed: ["under_review", "resolved", "pending_review"],
-    under_review: ["resolved", "reviewed", "pending_review"],
+    draft: ["open"],
+    open: ["under_review"],
+    under_review: ["resolved", "open"],
     resolved: ["dese_reported"],
     dese_reported: [],
-    closed: ["resolved"],
   };
 
   const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
@@ -397,7 +401,7 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
     updateData.resolvedAt = now;
     updateData.resolvedBy = actorStaffId;
   }
-  if (toStatus === "reviewed" && !existing.adminReviewedAt) {
+  if (toStatus === "under_review" && !existing.adminReviewedAt) {
     updateData.adminReviewNotes = note.trim();
     updateData.adminReviewedAt = now.split("T")[0];
     updateData.adminReviewedBy = actorStaffId;
@@ -476,7 +480,7 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
     adminReviewNotes: String(notes).trim(),
     adminSignature: signature || null,
     adminSignedAt: signature ? now : null,
-    status: "reviewed",
+    status: "under_review",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
   logAudit(req, {
@@ -486,7 +490,7 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
     studentId: existing.studentId,
     summary: `Admin review of restraint incident #${id}`,
     oldValues: { status: existing.status, adminReviewedBy: existing.adminReviewedBy } as Record<string, unknown>,
-    newValues: { status: "reviewed", adminReviewedBy: Number(actorStaffId) } as Record<string, unknown>,
+    newValues: { status: "under_review", adminReviewedBy: Number(actorStaffId) } as Record<string, unknown>,
   });
   res.json(updated);
 });
@@ -636,7 +640,7 @@ router.get("/protective-measures/summary", async (req: Request, res: Response) =
   const restraints = allIncidents.filter(i => i.incidentType === "physical_restraint");
   const seclusions = allIncidents.filter(i => i.incidentType === "seclusion");
   const timeouts = allIncidents.filter(i => i.incidentType === "time_out");
-  const pendingReview = allIncidents.filter(i => i.status === "pending_review");
+  const pendingReview = allIncidents.filter(i => i.status === "open");
   const parentNotificationsPending = allIncidents.filter(i => !i.parentVerbalNotification);
   const writtenReportsPending = allIncidents.filter(i => !i.writtenReportSent);
   const withInjuries = allIncidents.filter(i => i.studentInjury || i.staffInjury);
@@ -1154,7 +1158,7 @@ router.post("/protective-measures/incidents/:id/signatures/:sigId/sign", async (
         adminSignedAt: now,
         adminReviewedBy: existing.staffId,
         adminReviewedAt: now.split("T")[0],
-        status: "reviewed",
+        status: "under_review",
       }).where(eq(restraintIncidentsTable.id, incidentId));
     }
   }
@@ -1247,7 +1251,7 @@ router.get("/students/:id/protective-measures", async (req: Request, res: Respon
   const summary = {
     totalIncidents: incidents.length,
     thisMonth: incidents.filter(i => i.incidentDate >= new Date().toISOString().substring(0, 8) + "01").length,
-    pendingReview: incidents.filter(i => i.status === "pending_review").length,
+    pendingReview: incidents.filter(i => i.status === "open").length,
     withInjuries: incidents.filter(i => i.studentInjury || i.staffInjury).length,
     deseReportsPending: incidents.filter(i => i.deseReportRequired && !i.deseReportSentAt).length,
   };
@@ -1474,7 +1478,7 @@ router.post("/protective-measures/incidents/:id/review-notification", async (req
   const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
 
-  if (incident.status !== "reviewed" && incident.status !== "resolved") {
+  if (incident.status !== "under_review" && incident.status !== "resolved") {
     res.status(400).json({ error: "Incident must be admin-reviewed before notification can be reviewed" });
     return;
   }
@@ -1517,7 +1521,7 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
   const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
 
-  if (incident.status !== "reviewed" && incident.status !== "resolved") {
+  if (incident.status !== "under_review" && incident.status !== "resolved") {
     res.status(400).json({ error: "Incident must be admin-reviewed before sending parent notification" });
     return;
   }
