@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { getComplianceTimeline, recalculateComplianceEvents, updateComplianceEvent } from "@workspace/api-client-react";
+import { getComplianceTimeline, recalculateComplianceEvents } from "@workspace/api-client-react";
+import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,10 +67,15 @@ function ResolveDialog({
     }
     setSaving(true);
     try {
-      await updateComplianceEvent(event.id, {
-        resolve: true,
-        resolutionNote: note.trim(),
-      } as any);
+      const r = await authFetch(`/api/compliance-events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolve: true, resolutionNote: note.trim() }),
+      });
+      if (!r.ok) {
+        const err: { error?: string } = await r.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to resolve event");
+      }
       toast.success("Event marked as resolved");
       onResolved();
     } catch {
@@ -118,8 +124,9 @@ export default function ComplianceTimelinePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const data = await getComplianceTimeline({ status: filter } as any);
-      setEvents(Array.isArray(data) ? data as any : []);
+      const raw = await authFetch(`/api/compliance-timeline${filter && filter !== "all" ? `?status=${filter}` : ""}`)
+        .then(r => r.json()) as unknown;
+      setEvents(Array.isArray(raw) ? (raw as ComplianceEvent[]) : []);
     } catch (e) {
       console.error("Failed to load compliance timeline:", e);
     }

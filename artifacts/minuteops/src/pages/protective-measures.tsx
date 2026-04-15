@@ -107,6 +107,7 @@ const TYPE_COLORS: Record<string, string> = {
   time_out: "bg-amber-100 text-amber-700",
 };
 const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
   pending_review: "Pending Review",
   open: "Open",
   reviewed: "Reviewed",
@@ -116,6 +117,7 @@ const STATUS_LABELS: Record<string, string> = {
   closed: "Closed",
 };
 const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-500",
   pending_review: "bg-amber-100 text-amber-700",
   open: "bg-blue-100 text-blue-700",
   reviewed: "bg-emerald-100 text-emerald-700",
@@ -125,22 +127,28 @@ const STATUS_COLORS: Record<string, string> = {
   closed: "bg-gray-100 text-gray-500",
 };
 
-const VALID_TRANSITIONS: Record<string, { toStatus: string; label: string; color: string }[]> = {
+const VALID_TRANSITIONS: Record<string, { toStatus: string; label: string; color: string; isReturn?: boolean }[]> = {
+  draft: [
+    { toStatus: "pending_review", label: "Submit for Review", color: "bg-amber-600 hover:bg-amber-700 text-white" },
+  ],
   pending_review: [
-    { toStatus: "reviewed", label: "Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
+    { toStatus: "reviewed", label: "Approve & Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
     { toStatus: "open", label: "Open for Review", color: "bg-blue-600 hover:bg-blue-700 text-white" },
   ],
   open: [
-    { toStatus: "reviewed", label: "Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
+    { toStatus: "reviewed", label: "Approve & Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
     { toStatus: "under_review", label: "Send to Admin Review", color: "bg-purple-600 hover:bg-purple-700 text-white" },
+    { toStatus: "pending_review", label: "Return for Correction", color: "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300", isReturn: true },
   ],
   reviewed: [
     { toStatus: "under_review", label: "Send to Admin Review", color: "bg-purple-600 hover:bg-purple-700 text-white" },
-    { toStatus: "resolved", label: "Mark Resolved", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+    { toStatus: "resolved", label: "Approve & Resolve", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+    { toStatus: "pending_review", label: "Return for Correction", color: "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300", isReturn: true },
   ],
   under_review: [
-    { toStatus: "reviewed", label: "Return to Reviewed", color: "bg-amber-600 hover:bg-amber-700 text-white" },
+    { toStatus: "reviewed", label: "Approve & Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
     { toStatus: "resolved", label: "Approve & Resolve", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+    { toStatus: "pending_review", label: "Return for Correction", color: "bg-red-100 hover:bg-red-200 text-red-700 border border-red-300", isReturn: true },
   ],
   resolved: [
     { toStatus: "dese_reported", label: "Mark DESE Reported", color: "bg-gray-600 hover:bg-gray-700 text-white" },
@@ -524,6 +532,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Status</option>
+            <option value="draft">Draft</option>
             <option value="pending_review">Pending Review</option>
             <option value="open">Open</option>
             <option value="reviewed">Reviewed</option>
@@ -1260,7 +1269,9 @@ function IncidentTransitionDialog({
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-800">Advance Incident Status</h3>
+          <h3 className="text-base font-semibold text-gray-800">
+            {toStatus === "pending_review" ? "Return for Correction" : "Update Incident Status"}
+          </h3>
           <p className="text-sm text-gray-500 mt-1">
             {incident.studentFirstName} {incident.studentLastName} — currently{" "}
             <span className={`font-medium px-1.5 py-0.5 rounded text-xs ${STATUS_COLORS[incident.status]}`}>
@@ -1292,6 +1303,7 @@ function IncidentTransitionDialog({
             className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
             rows={3}
             placeholder={toStatus === "resolved" ? "Describe how this incident was resolved and any follow-up taken…" :
+              toStatus === "pending_review" ? "Describe what needs to be corrected or clarified before this can proceed…" :
               toStatus === "under_review" ? "Note the reason for escalation to admin review…" :
               "Add a note for this status change…"}
             value={note}

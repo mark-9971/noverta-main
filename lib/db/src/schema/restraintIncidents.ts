@@ -91,7 +91,7 @@ export const restraintIncidentsTable = pgTable("restraint_incidents", {
   parentNotificationSentBy: integer("parent_notification_sent_by").references(() => staffTable.id),
   parentNotificationPdfGenerated: boolean("parent_notification_pdf_generated").notNull().default(false),
 
-  status: text("status").notNull().default("pending_review"),
+  status: text("status").notNull().default("draft"),
   followUpPlan: text("follow_up_plan"),
   notes: text("notes"),
 

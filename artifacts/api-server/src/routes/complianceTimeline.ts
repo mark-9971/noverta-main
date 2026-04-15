@@ -105,9 +105,15 @@ router.post("/students/:studentId/compliance-events", async (req, res): Promise<
 router.patch("/compliance-events/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+
+    if (req.body.status === "completed" && req.body.resolve !== true) {
+      res.status(400).json({ error: "Cannot set status to completed directly. Use resolve:true with resolutionNote." });
+      return;
+    }
+
     const updates: Record<string, unknown> = {};
     for (const key of ["status", "completedDate", "notes", "title", "dueDate"]) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
+      if (req.body[key] !== undefined && req.body[key] !== "completed") updates[key] = req.body[key];
     }
     if (req.body.resolve === true) {
       const resolutionNote = req.body.resolutionNote?.trim();

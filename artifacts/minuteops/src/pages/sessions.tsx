@@ -83,6 +83,10 @@ export default function Sessions() {
   const [goalsLoading, setGoalsLoading] = useState(false);
   const [editGoalEntries, setEditGoalEntries] = useState<GoalFormEntry[]>([]);
   const [editGoalsLoading, setEditGoalsLoading] = useState(false);
+  const [markMissedTarget, setMarkMissedTarget] = useState<{ id: number; studentName: string; sessionDate: string } | null>(null);
+  const [markMissedReason, setMarkMissedReason] = useState("");
+  const [markMissedSaving, setMarkMissedSaving] = useState(false);
+  const [logMakeupFor, setLogMakeupFor] = useState<{ id: number; studentId: number; studentName: string; serviceRequirementId: number | null; sessionDate: string } | null>(null);
 
   const { typedFilter } = useSchoolContext();
   const sessionParams = {
@@ -233,6 +237,7 @@ export default function Sessions() {
           deliveryMode: form.deliveryMode || null,
           location: form.location || null,
           isMakeup: form.isMakeup,
+          makeupForId: logMakeupFor && form.isMakeup ? logMakeupFor.id : null,
           notes: form.notes || null,
           goalData: goalData.length > 0 ? goalData : undefined,
         },
@@ -241,7 +246,8 @@ export default function Sessions() {
       setShowAddModal(false);
       setForm(INITIAL_FORM);
       setGoalEntries([]);
-      toast.success("Session logged successfully");
+      setLogMakeupFor(null);
+      toast.success(logMakeupFor ? `Makeup session logged for ${logMakeupFor.studentName}` : "Session logged successfully");
       refetch();
     } catch (e) {
       toast.error("Failed to save session. Please try again.");
@@ -379,6 +385,40 @@ export default function Sessions() {
       setExpandedData(session);
     }
     setExpandLoading(false);
+  }
+
+  async function handleMarkMissed() {
+    if (!markMissedTarget || !markMissedReason) { toast.error("Please select a missed reason"); return; }
+    setMarkMissedSaving(true);
+    try {
+      await updateSessionMutation.mutateAsync({ id: markMissedTarget.id, data: { status: "missed", missedReasonId: Number(markMissedReason) } });
+      toast.success("Session marked as missed");
+      setMarkMissedTarget(null);
+      setMarkMissedReason("");
+      refetch();
+    } catch {
+      toast.error("Failed to mark session as missed");
+    }
+    setMarkMissedSaving(false);
+  }
+
+  function openLogMakeup(session: any) {
+    setLogMakeupFor({
+      id: session.id,
+      studentId: session.studentId,
+      studentName: session.studentName ?? `Student ${session.studentId}`,
+      serviceRequirementId: session.serviceRequirementId ?? null,
+      sessionDate: session.sessionDate,
+    });
+    setForm(f => ({
+      ...f,
+      studentId: String(session.studentId),
+      serviceRequirementId: session.serviceRequirementId ? String(session.serviceRequirementId) : "",
+      status: "completed",
+      isMakeup: true,
+      sessionDate: new Date().toISOString().split("T")[0],
+    }));
+    setShowAddModal(true);
   }
 
   function SessionExpandedDetail({ session, detail }: { session: any; detail: any }) {
@@ -587,11 +627,28 @@ export default function Sessions() {
               </div>
             )}
 
-            <div className="flex gap-2 pt-2 border-t border-gray-200">
+            <div className="flex gap-2 pt-2 border-t border-gray-200 flex-wrap">
               <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1" onClick={() => startEdit(session)}>
                 <Pencil className="w-3 h-3" /> Edit
               </Button>
-              <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteConfirmId(session.id)}>
+              {session.status === "completed" && (
+                <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
+                  onClick={() => { setMarkMissedReason(""); setMarkMissedTarget({ id: session.id, studentName: session.studentName ?? "", sessionDate: session.sessionDate }); }}>
+                  <XCircle className="w-3 h-3" /> Mark as Missed
+                </Button>
+              )}
+              {session.status === "missed" && (
+                <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+                  onClick={() => openLogMakeup(session)}>
+                  <RotateCcw className="w-3 h-3" /> Log Makeup Session
+                </Button>
+              )}
+              {session.isMakeup && session.makeupForId && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200">
+                  <RotateCcw className="w-2.5 h-2.5" /> Makeup for session #{session.makeupForId}
+                </span>
+              )}
+              <Button variant="outline" size="sm" className="text-[11px] h-7 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto" onClick={() => setDeleteConfirmId(session.id)}>
                 <Trash2 className="w-3 h-3" /> Delete
               </Button>
             </div>
@@ -796,6 +853,35 @@ export default function Sessions() {
         </div>
       </Card>
 
+      {markMissedTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-gray-800">Mark Session as Missed</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {markMissedTarget.studentName} · {formatDate(markMissedTarget.sessionDate)}
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Missed Reason <span className="text-red-500">*</span></label>
+              <select value={markMissedReason} onChange={e => setMarkMissedReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                <option value="">Select reason...</option>
+                {missedReasonsList.map((r: any) => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setMarkMissedTarget(null)} disabled={markMissedSaving}>Cancel</Button>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleMarkMissed} disabled={markMissedSaving || !markMissedReason}>
+                {markMissedSaving ? "Saving..." : "Mark as Missed"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -900,11 +986,17 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setLogMakeupFor(null); setForm(INITIAL_FORM); setGoalEntries([]); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg">Log Session</DialogTitle>
+            <DialogTitle className="text-lg">{logMakeupFor ? `Log Makeup Session — ${logMakeupFor.studentName}` : "Log Session"}</DialogTitle>
           </DialogHeader>
+          {logMakeupFor && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-[12px] text-indigo-700 flex items-center gap-2">
+              <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" />
+              Making up missed session from {formatDate(logMakeupFor.sessionDate)} — will be automatically linked.
+            </div>
+          )}
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">

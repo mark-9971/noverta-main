@@ -224,7 +224,7 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
     reportingStaffSignedAt: body.reportingStaffSignedAt || null,
     adminSignature: body.adminSignature || null,
     adminSignedAt: body.adminSignedAt || null,
-    status: "pending_review",
+    status: "draft",
     followUpPlan: body.followUpPlan || null,
     notes: body.notes || null,
   }).returning();
@@ -363,11 +363,18 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
 
   const actorStaffId = getPublicMeta(req).staffId ?? null;
 
+  const TERMINAL_TRANSITIONS = new Set(["resolved", "dese_reported", "reviewed"]);
+  if (TERMINAL_TRANSITIONS.has(toStatus) && !actorStaffId) {
+    res.status(401).json({ error: "Actor identity required for terminal transitions. Ensure your session is authenticated." });
+    return;
+  }
+
   const VALID_TRANSITIONS: Record<string, string[]> = {
+    draft: ["pending_review"],
     pending_review: ["reviewed", "open"],
-    open: ["under_review", "reviewed"],
-    reviewed: ["under_review", "resolved"],
-    under_review: ["resolved", "reviewed"],
+    open: ["under_review", "reviewed", "pending_review"],
+    reviewed: ["under_review", "resolved", "pending_review"],
+    under_review: ["resolved", "reviewed", "pending_review"],
     resolved: ["dese_reported"],
     dese_reported: [],
     closed: ["resolved"],
@@ -388,12 +395,12 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
   if (toStatus === "resolved" || toStatus === "dese_reported") {
     updateData.resolutionNote = note.trim();
     updateData.resolvedAt = now;
-    if (actorStaffId) updateData.resolvedBy = actorStaffId;
+    updateData.resolvedBy = actorStaffId;
   }
   if (toStatus === "reviewed" && !existing.adminReviewedAt) {
     updateData.adminReviewNotes = note.trim();
     updateData.adminReviewedAt = now.split("T")[0];
-    if (actorStaffId) updateData.adminReviewedBy = actorStaffId;
+    updateData.adminReviewedBy = actorStaffId;
   }
 
   const [updated] = await db.update(restraintIncidentsTable).set(updateData).where(eq(restraintIncidentsTable.id, id)).returning();
