@@ -32,6 +32,7 @@ import supervisionRouter from "./supervision";
 import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
 import recentlyDeletedRouter from "./recentlyDeleted";
+import onboardingRouter from "./onboarding";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(supervisionRouter);
 router.use(paraRouter);
 router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
+router.use(onboardingRouter);
 
 export default router;

@@ -12,6 +12,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
+import { useRole } from "@/lib/role-context";
+import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -44,6 +46,8 @@ const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
 const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
 
 export default function Dashboard() {
+  const { role } = useRole();
+  const isAdmin = role === "admin" || role === "coordinator";
   const { filterParams, typedFilter } = useSchoolContext();
   const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary(typedFilter);
   const { data: riskOverview } = useGetDashboardRiskOverview(typedFilter);
@@ -105,6 +109,8 @@ export default function Dashboard() {
           <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">Jefferson Unified · Lincoln High School · IEP Year 2025–2026</p>
         </div>
       </div>
+
+      {isAdmin && <SetupChecklist />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard title="Active Students" value={s?.totalActiveStudents} icon={Users} accent="emerald" subtitle="on IEPs" href="/students" />

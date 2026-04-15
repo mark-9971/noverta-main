@@ -46,6 +46,7 @@ import Supervision from "@/pages/supervision";
 import ParaMyDayPage from "@/pages/para-my-day";
 import AuditLogPage from "@/pages/audit-log";
 import RecentlyDeletedPage from "@/pages/recently-deleted";
+import SetupPage from "@/pages/setup";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -118,6 +119,7 @@ function StaffRouter() {
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
       <BoundedRoute path="/audit-log" component={AuditLogPage} fallbackTitle="Audit log error" />
       <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
+      <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
       <Route component={NotFound} />
     </Switch>
   );
