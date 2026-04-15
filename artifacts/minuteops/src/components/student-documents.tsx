@@ -117,6 +117,7 @@ export default function StudentDocuments({ studentId }: { studentId: number }) {
           name: uploadFile.name,
           size: uploadFile.size,
           contentType: uploadFile.type || "application/octet-stream",
+          studentId,
         }),
       });
 

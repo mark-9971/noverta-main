@@ -3,11 +3,13 @@ import { Readable } from "stream";
 import { z } from "zod";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireRoles } from "../middlewares/auth";
+import { assertStudentAccess, getStudentSchoolId, tenantUploadPrefix } from "../lib/tenantAccess";
 
 const RequestUploadUrlBody = z.object({
   name: z.string(),
   size: z.number(),
   contentType: z.string(),
+  studentId: z.number().int().positive(),
 });
 
 const RequestUploadUrlResponse = z.object({
@@ -32,9 +34,17 @@ router.post("/storage/uploads/request-url", requireRoles(...PRIVILEGED_ROLES), a
     return;
   }
 
+  const { name, size, contentType, studentId } = parsed.data;
+
+  if (!await assertStudentAccess(req, studentId)) {
+    res.status(403).json({ error: "You don't have access to this student's records" });
+    return;
+  }
+
   try {
-    const { name, size, contentType } = parsed.data;
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const schoolId = await getStudentSchoolId(studentId);
+    const prefix = schoolId !== null ? tenantUploadPrefix(schoolId, studentId) : undefined;
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(prefix);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
     res.json(
@@ -75,6 +85,5 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
     res.status(500).json({ error: "Failed to serve public object" });
   }
 });
-
 
 export default router;

@@ -2,14 +2,14 @@ import { Router, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { randomBytes } from "crypto";
 import { z } from "zod";
-import { db, documentsTable, signatureRequestsTable, staffTable, studentsTable } from "@workspace/db";
+import { db, documentsTable, signatureRequestsTable } from "@workspace/db";
 import type { Document } from "@workspace/db";
 import type { SignatureRequest } from "@workspace/db";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
-import { getPublicMeta } from "../lib/clerkClaims";
+import { assertStudentAccess, getStudentSchoolId, tenantObjectPrefix } from "../lib/tenantAccess";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
@@ -54,33 +54,6 @@ const CreateSignatureRequestBody = z.object({
 const router = Router();
 const objectStorageService = new ObjectStorageService();
 
-async function getRequesterSchoolId(req: Request): Promise<number | null> {
-  const meta = getPublicMeta(req);
-  const staffId = meta.staffId;
-  if (!staffId || !Number.isFinite(staffId)) return null;
-  const rows = await db.select({ schoolId: staffTable.schoolId })
-    .from(staffTable)
-    .where(eq(staffTable.id, staffId))
-    .limit(1);
-  return rows[0]?.schoolId ?? null;
-}
-
-async function assertStudentAccess(req: Request, studentId: number): Promise<boolean> {
-  const authed = req as AuthedRequest;
-  if (authed.trellisRole === "admin") return true;
-  const requesterSchoolId = await getRequesterSchoolId(req);
-  if (requesterSchoolId === null) {
-    // In production, fail closed when school context cannot be resolved for non-admins.
-    // In dev mode, fall through to allow access without full Clerk metadata configured.
-    return process.env.NODE_ENV !== "production";
-  }
-  const rows = await db.select({ schoolId: studentsTable.schoolId })
-    .from(studentsTable)
-    .where(eq(studentsTable.id, studentId))
-    .limit(1);
-  const studentSchoolId = rows[0]?.schoolId ?? null;
-  return studentSchoolId === requesterSchoolId;
-}
 
 router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
   const studentId = Number(req.query.studentId);
@@ -149,6 +122,20 @@ router.post("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request
   if (!await assertStudentAccess(req, parsed.data.studentId)) {
     res.status(403).json({ error: "You don't have access to this student's records" });
     return;
+  }
+
+  // Enforce tenant-scoped object path: the uploaded file must live under the
+  // path segment that was issued for this exact student (schools/{s}/students/{id}).
+  // Admins (district-wide access) are exempt. In dev mode, skip if schoolId missing.
+  if (authed.trellisRole !== "admin") {
+    const studentSchoolId = await getStudentSchoolId(parsed.data.studentId);
+    if (studentSchoolId !== null) {
+      const expectedPrefix = tenantObjectPrefix(studentSchoolId, parsed.data.studentId);
+      if (!parsed.data.objectPath.startsWith(expectedPrefix + "/")) {
+        res.status(400).json({ error: "Object path does not match expected tenant scope" });
+        return;
+      }
+    }
   }
 
   try {
