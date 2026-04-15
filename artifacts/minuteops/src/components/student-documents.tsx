@@ -49,6 +49,7 @@ interface DocumentRecord {
   status: string;
   notes: string | null;
   uploadedByUserId: string;
+  uploadedByName: string | null;
   createdAt: string;
   signatureRequests: {
     id: number;
@@ -273,7 +274,18 @@ export default function StudentDocuments({ studentId }: { studentId: number }) {
                       <span>{formatFileSize(doc.fileSize)}</span>
                       <span>·</span>
                       <span>{formatDate(doc.createdAt)}</span>
+                      {(doc.uploadedByName || doc.uploadedByUserId) && (
+                        <>
+                          <span>·</span>
+                          <span>by {doc.uploadedByName || "Staff"}</span>
+                        </>
+                      )}
                     </div>
+                    {doc.status !== "active" && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${doc.status === "archived" ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-600"}`}>
+                        {doc.status}
+                      </span>
+                    )}
                     {doc.signatureRequests.length > 0 && (
                       <div className="mt-1.5 space-y-1">
                         {doc.signatureRequests.map((sr) => (

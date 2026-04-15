@@ -106,12 +106,19 @@ router.post("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request
   }
 
   const authed = req as AuthedRequest;
+
+  if (!parsed.data.objectPath.startsWith("/objects/uploads/")) {
+    res.status(400).json({ error: "Invalid object path" });
+    return;
+  }
+
   try {
     const [doc] = await db
       .insert(documentsTable)
       .values({
         ...parsed.data,
         uploadedByUserId: authed.userId,
+        uploadedByName: authed.displayName || null,
       })
       .returning();
 
@@ -354,6 +361,16 @@ router.get("/signature-requests/:token/document", async (req: Request, res: Resp
 
     const objectFile = await objectStorageService.getObjectEntityFile(doc.objectPath);
     const response = await objectStorageService.downloadObject(objectFile);
+
+    const forwarded = req.headers["x-forwarded-for"];
+    const ipAddress = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : req.socket?.remoteAddress || null;
+    logAudit(req, {
+      action: "read",
+      targetTable: "documents",
+      targetId: doc.id,
+      studentId: doc.studentId,
+      summary: `Signer "${sigReq.recipientName}" viewed document "${doc.title}" via signing token from IP ${ipAddress}`,
+    });
 
     if (doc.contentType) res.setHeader("Content-Type", doc.contentType);
     res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(doc.fileName)}"`);

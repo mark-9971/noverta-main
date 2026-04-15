@@ -5,13 +5,14 @@ import { verifyToken } from "../routes/auth";
 export interface AuthedRequest extends Request {
   userId: string;
   trellisRole: TrellisRole;
+  displayName?: string;
 }
 
-function extractAuth(req: Request): { userId: string; role: TrellisRole } | null {
+function extractAuth(req: Request): { userId: string; role: TrellisRole; name?: string } | null {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const parsed = verifyToken(authHeader.slice(7));
-    if (parsed) return { userId: parsed.userId, role: parsed.role };
+    if (parsed) return { userId: parsed.userId, role: parsed.role, name: parsed.name };
   }
 
   // In non-production, accept an explicit x-demo-role header (must be valid).
@@ -34,6 +35,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
   (req as AuthedRequest).userId = auth.userId;
   (req as AuthedRequest).trellisRole = auth.role;
+  (req as AuthedRequest).displayName = auth.name;
   next();
 }
 

@@ -7,6 +7,7 @@ export const documentsTable = pgTable("documents", {
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
   uploadedByStaffId: integer("uploaded_by_staff_id").references(() => staffTable.id),
   uploadedByUserId: text("uploaded_by_user_id").notNull(),
+  uploadedByName: text("uploaded_by_name"),
   category: text("category").notNull(),
   title: text("title").notNull(),
   fileName: text("file_name").notNull(),
