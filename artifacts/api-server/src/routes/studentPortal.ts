@@ -197,11 +197,28 @@ router.post("/student-portal/check-ins", async (req: Request, res: Response): Pr
       return;
     }
 
+    let validatedGoalId: number | null = null;
+    if (goalId) {
+      validatedGoalId = Number(goalId);
+      if (isNaN(validatedGoalId) || validatedGoalId <= 0) {
+        res.status(400).json({ error: "Invalid goal ID" });
+        return;
+      }
+      const [goal] = await db.select({ id: iepGoalsTable.id })
+        .from(iepGoalsTable)
+        .where(and(eq(iepGoalsTable.id, validatedGoalId), eq(iepGoalsTable.studentId, studentId)))
+        .limit(1);
+      if (!goal) {
+        res.status(400).json({ error: "Goal not found or does not belong to this student" });
+        return;
+      }
+    }
+
     const today = new Date().toISOString().split("T")[0];
 
     const [checkIn] = await db.insert(studentCheckInsTable).values({
       studentId,
-      goalId: goalId ? Number(goalId) : null,
+      goalId: validatedGoalId,
       checkInType: resolvedType,
       value: numValue,
       label: typeof label === "string" ? label.slice(0, 100) : null,
