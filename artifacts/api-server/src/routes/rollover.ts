@@ -24,8 +24,9 @@ const requireAdmin = requireRoles("admin");
 async function resolveDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
   if (meta.districtId) return meta.districtId;
-  // Dev/demo fallback: use the first district in the DB
-  if (process.env.NODE_ENV !== "production" && req.headers["x-demo-role"]) {
+  // In non-production, fall back to the first district so dev/demo logins work
+  // without Clerk publicMetadata.districtId being configured.
+  if (process.env.NODE_ENV !== "production") {
     const rows = await db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`);
     const row = rows.rows[0] as Record<string, unknown> | undefined;
     return row ? Number(row.id) : null;
