@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { studentsTable } from "./students";
 import { iepDocumentsTable } from "./iepDocuments";
 import { schoolsTable } from "./schools";
+import { schoolYearsTable } from "./schoolYears";
 
 export const teamMeetingsTable = pgTable("team_meetings", {
   id: serial("id").primaryKey(),
@@ -28,6 +29,7 @@ export const teamMeetingsTable = pgTable("team_meetings", {
   consentStatus: text("consent_status"),
   noticeSentDate: text("notice_sent_date"),
   cancelledReason: text("cancelled_reason"),
+  schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

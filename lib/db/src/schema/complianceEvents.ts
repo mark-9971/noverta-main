@@ -3,10 +3,12 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
 import { staffTable } from "./staff";
+import { schoolYearsTable } from "./schoolYears";
 
 export const complianceEventsTable = pgTable("compliance_events", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
+  schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
   eventType: text("event_type").notNull(),
   title: text("title").notNull(),
   dueDate: text("due_date").notNull(),
@@ -22,6 +24,7 @@ export const complianceEventsTable = pgTable("compliance_events", {
   index("ce_student_idx").on(table.studentId),
   index("ce_due_date_idx").on(table.dueDate),
   index("ce_status_idx").on(table.status),
+  index("ce_school_year_idx").on(table.schoolYearId),
 ]);
 
 export const insertComplianceEventSchema = createInsertSchema(complianceEventsTable).omit({ id: true, createdAt: true, updatedAt: true });

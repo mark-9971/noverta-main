@@ -7,6 +7,7 @@ import { serviceTypesTable } from "./serviceTypes";
 import { staffTable } from "./staff";
 import { missedReasonsTable } from "./missedReasons";
 import { compensatoryObligationsTable } from "./compensatoryObligations";
+import { schoolYearsTable } from "./schoolYears";
 
 export const sessionLogsTable = pgTable("session_logs", {
   id: serial("id").primaryKey(),
@@ -27,6 +28,7 @@ export const sessionLogsTable = pgTable("session_logs", {
   isCompensatory: boolean("is_compensatory").notNull().default(false),
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),
+  schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

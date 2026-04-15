@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
 import { staffTable } from "./staff";
+import { schoolYearsTable } from "./schoolYears";
 
 export const iepDocumentsTable = pgTable("iep_documents", {
   id: serial("id").primaryKey(),
@@ -43,6 +44,7 @@ export const iepDocumentsTable = pgTable("iep_documents", {
   amendmentReason: text("amendment_reason"),
 
   preparedBy: integer("prepared_by").references(() => staffTable.id),
+  schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

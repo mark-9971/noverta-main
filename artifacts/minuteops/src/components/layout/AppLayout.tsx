@@ -184,6 +184,7 @@ const adminNav: NavSection[] = [
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/sis-settings", label: "SIS Integration", icon: Database },
+      { href: "/school-year", label: "School Year", icon: CalendarDays },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },

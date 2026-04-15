@@ -65,6 +65,7 @@ import BillingPage from "@/pages/billing";
 import TenantsPage from "@/pages/tenants";
 import SystemStatusPage from "@/pages/system-status";
 
+import SchoolYearPage from "@/pages/school-year";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import SignDocumentPage from "@/pages/sign-document";
@@ -147,6 +148,7 @@ function StaffRouter() {
       <BoundedRoute path="/audit-log" component={AuditLogPage} fallbackTitle="Audit log error" />
       <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
       <BoundedRoute path="/system-status" component={SystemStatusPage} fallbackTitle="System status error" />
+      <BoundedRoute path="/school-year" component={SchoolYearPage} fallbackTitle="School year error" />
       <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" featureKey="compliance.evaluations" />

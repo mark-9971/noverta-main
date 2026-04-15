@@ -47,6 +47,7 @@ import billingRouter from "./billing";
 import demoRequestsRouter from "./demoRequests";
 import guardiansRouter from "./guardians";
 import reportExportsRouter from "./reportExports";
+import rolloverRouter from "./rollover";
 
 const router: IRouter = Router();
 
@@ -101,5 +102,6 @@ router.use(agenciesRouter);
 router.use(billingRouter);
 router.use(guardiansRouter);
 router.use(reportExportsRouter);
+router.use(rolloverRouter);
 
 export default router;

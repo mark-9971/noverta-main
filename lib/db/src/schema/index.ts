@@ -74,3 +74,4 @@ export * from "./guardians";
 export * from "./emergencyContacts";
 export * from "./medicalAlerts";
 export * from "./enrollmentEvents";
+export * from "./schoolYears";
