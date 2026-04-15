@@ -336,11 +336,16 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
 
 router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
+    const agencyId = Number(req.params.id);
     const contractId = Number(req.params.contractId);
 
     const [contract] = await db.update(agencyContractsTable)
       .set({ deletedAt: new Date() })
-      .where(eq(agencyContractsTable.id, contractId))
+      .where(and(
+        eq(agencyContractsTable.id, contractId),
+        eq(agencyContractsTable.agencyId, agencyId),
+        isNull(agencyContractsTable.deletedAt),
+      ))
       .returning();
 
     if (!contract) { res.status(404).json({ error: "Contract not found" }); return; }
@@ -461,6 +466,7 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
       id: agencyContractsTable.id,
       agencyId: agencyContractsTable.agencyId,
       agencyName: agenciesTable.name,
+      serviceTypeId: agencyContractsTable.serviceTypeId,
       serviceTypeName: serviceTypesTable.name,
       contractedHours: agencyContractsTable.contractedHours,
       startDate: agencyContractsTable.startDate,
@@ -526,6 +532,7 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
           .from(sessionLogsTable)
           .where(and(
             inArray(sessionLogsTable.staffId, agencyStaffIds),
+            eq(sessionLogsTable.serviceTypeId, contract.serviceTypeId),
             gte(sessionLogsTable.sessionDate, contract.startDate),
             lte(sessionLogsTable.sessionDate, contract.endDate),
             isNull(sessionLogsTable.deletedAt),

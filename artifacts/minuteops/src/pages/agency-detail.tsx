@@ -211,7 +211,7 @@ export default function AgencyDetailPage({ id }: { id: string }) {
   if (!agency) return <div className="p-6 text-center text-gray-500">Agency not found</div>;
 
   const existingStaffIds = new Set(agency.staff.map((s) => s.id));
-  const availableStaff = allStaff.filter((s: any) => !existingStaffIds.has(s.id));
+  const availableStaff = allStaff.filter((s: StaffMember) => !existingStaffIds.has(s.id));
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -514,7 +514,7 @@ export default function AgencyDetailPage({ id }: { id: string }) {
                   <SelectValue placeholder="Choose a staff member..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableStaff.map((s: any) => (
+                  {availableStaff.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.firstName} {s.lastName} ({s.role})
                     </SelectItem>
