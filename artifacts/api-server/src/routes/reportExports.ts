@@ -3,18 +3,22 @@ import PDFDocument from "pdfkit";
 import { db } from "@workspace/db";
 import {
   studentsTable, iepDocumentsTable, serviceRequirementsTable, serviceTypesTable,
-  sessionLogsTable, staffTable, schoolsTable, iepGoalsTable, progressReportsTable,
+  sessionLogsTable, schoolsTable, iepGoalsTable, progressReportsTable,
   restraintIncidentsTable, teamMeetingsTable, iepAccommodationsTable,
   parentContactsTable, complianceEventsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
-import { PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
+import { PERMISSIONS } from "../lib/permissions";
 import { logAudit } from "../lib/auditLog";
+import { getPublicMeta } from "../lib/clerkClaims";
+
+interface BufferedPDFDoc {
+  bufferedPageRange(): { start: number; count: number };
+}
 
 const router: IRouter = Router();
-const requirePrivileged = requireRoles(...PRIVILEGED_STAFF_ROLES);
-router.use(requirePrivileged);
+router.use(requireRoles(...PERMISSIONS.reports.export));
 
 function escapeCSV(val: unknown): string {
   const str = String(val ?? "");
@@ -358,6 +362,20 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
   const studentId = parseInt(req.params.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
+  const { districtId: callerDistrictId, platformAdmin } = getPublicMeta(req);
+
+  if (!platformAdmin) {
+    const scopeResult = await db.execute(
+      sql`SELECT sc.district_id FROM students st LEFT JOIN schools sc ON sc.id = st.school_id WHERE st.id = ${studentId} LIMIT 1`
+    );
+    const scopeRow = (scopeResult.rows as Array<{ district_id: number | null }>)[0];
+    const studentDistrictId = scopeRow?.district_id ?? null;
+    if (studentDistrictId !== null && callerDistrictId !== undefined && Number(callerDistrictId) !== Number(studentDistrictId)) {
+      res.status(403).json({ error: "Access denied: student is outside your district" });
+      return;
+    }
+  }
+
   const doc = new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 60, left: 60, right: 60 }, bufferPages: true });
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="student-record-${studentId}.pdf"`);
@@ -659,7 +677,7 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       }
     }
 
-    const pageCount = (doc as any).bufferedPageRange().count;
+    const pageCount = (doc as unknown as BufferedPDFDoc).bufferedPageRange().count;
     for (let i = 0; i < pageCount; i++) {
       doc.switchToPage(i);
       doc.fontSize(8).fillColor(GRAY_MID)

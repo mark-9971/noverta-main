@@ -1493,6 +1493,15 @@ router.get("/protective-measures/incidents/:id/report-pdf", async (req: Request,
     console.error("PDF footer render error:", e);
   }
 
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: incident.studentId ?? undefined,
+    summary: `Exported incident report PDF for incident ${id}`,
+    metadata: { reportType: "incident-report-pdf", incidentId: id },
+  });
+
   doc.end();
 });
 
