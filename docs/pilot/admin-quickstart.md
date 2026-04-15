@@ -103,16 +103,23 @@ The system will track whether a written report has been sent and whether DESE no
 
 ---
 
-## 7. Log Parent Communication
+## 7. Invite a Parent
 
-**Note:** The parent-facing portal is in development and is not part of the pilot scope. During the pilot, parent communication is tracked manually through the Parent Contact Log.
+**During the pilot period**, parents do not have their own login to Trellis. The parent invitation and communication workflow is:
 
-1. Open the student's profile.
-2. Click the **Contacts** tab.
-3. Click **Log Contact** to record a phone call, email, or meeting outcome.
-4. Fill in: contact date, contact type (phone/email/meeting), subject, and outcome.
+**Step 1 — Add the parent's contact information to the student record:**
+1. Open the student's profile → **Edit Student**.
+2. Fill in: Parent/Guardian Name, Parent Email, and Parent Phone.
+3. Save.
 
-This log is the compliance-supported method for documenting parent contact during the pilot. Use it to record any communication required under 603 CMR 28.07 (parent notification, consent confirmation, etc.).
+**Step 2 — Log all parent contacts as they happen:**
+1. Open the student's profile → **Contacts** tab.
+2. Click **Log Contact**.
+3. Fill in: date, contact type (phone call / email / meeting), subject, and outcome.
+
+This manual log is the IDEA/603 CMR 28.07 compliant method for tracking parent notification and consent during the pilot. Use it to document verbal notifications for incidents, IEP meeting notices, and consent confirmations.
+
+**After the pilot:** A parent portal with direct login and document sharing is planned for release. When it becomes available, parents added to student records during the pilot will be the first to receive portal invitations.
 
 ---
 
@@ -165,6 +172,7 @@ See the full [Support Process](./support-process.md) for response time expectati
 | Start an IEP | Students → [student] → IEP → New IEP Document |
 | Log a session | Sessions → Log Session |
 | Log an incident | Protective Measures → New Incident |
+| Add parent contact info | Students → [student] → Edit Student |
 | Log parent communication | Students → [student] → Contacts → Log Contact |
 | View compliance alerts | Alerts (sidebar) |
 | Download compliance CSV | Reports → Exports |
