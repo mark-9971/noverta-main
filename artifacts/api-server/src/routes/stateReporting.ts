@@ -596,11 +596,16 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
     const warnCount = allIssues.filter((w) => w.severity === "warning").length;
 
     if (errorCount > 0 && !forceExport) {
+      const errors = allIssues.filter((w) => w.severity === "error");
+      const warnings = allIssues.filter((w) => w.severity === "warning");
       res.status(422).json({
         error: "Export blocked — validation errors found",
         errorCount,
         warningCount: warnCount,
         message: `${errorCount} required field error${errorCount !== 1 ? "s" : ""} must be resolved before export. Use "Force Export" to override.`,
+        errors,
+        warnings,
+        recordCount: rows.length,
       });
       return;
     }

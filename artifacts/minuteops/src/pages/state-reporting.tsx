@@ -205,8 +205,22 @@ export default function StateReporting() {
         body: JSON.stringify(body),
       });
       if (res.status === 422) {
-        const data = await res.json() as { errorCount: number; message: string };
-        setExportBlocked(data);
+        const data = await res.json() as {
+          errorCount: number;
+          warningCount: number;
+          message: string;
+          errors: ValidationWarning[];
+          warnings: ValidationWarning[];
+          recordCount: number;
+        };
+        setExportBlocked({ errorCount: data.errorCount, message: data.message });
+        setValidationResult({
+          recordCount: data.recordCount,
+          errorCount: data.errorCount,
+          warningCount: data.warningCount,
+          errors: data.errors,
+          warnings: data.warnings,
+        });
         return;
       }
       if (res.ok) {
