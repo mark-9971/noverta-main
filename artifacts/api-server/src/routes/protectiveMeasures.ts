@@ -454,17 +454,26 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { adminStaffId, notes, signature } = req.body;
-  if (!adminStaffId) { res.status(400).json({ error: "adminStaffId is required" }); return; }
+  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  if (!actorStaffId) {
+    res.status(401).json({ error: "Authenticated actor identity required to perform admin review." });
+    return;
+  }
+
+  const { notes, signature } = req.body;
+  if (!notes || !String(notes).trim()) {
+    res.status(400).json({ error: "Review notes are required." });
+    return;
+  }
 
   const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
   const now = new Date().toISOString();
   const [updated] = await db.update(restraintIncidentsTable).set({
-    adminReviewedBy: Number(adminStaffId),
+    adminReviewedBy: Number(actorStaffId),
     adminReviewedAt: now.split("T")[0],
-    adminReviewNotes: notes || null,
+    adminReviewNotes: String(notes).trim(),
     adminSignature: signature || null,
     adminSignedAt: signature ? now : null,
     status: "reviewed",
@@ -477,7 +486,7 @@ router.post("/protective-measures/incidents/:id/admin-review", async (req: Reque
     studentId: existing.studentId,
     summary: `Admin review of restraint incident #${id}`,
     oldValues: { status: existing.status, adminReviewedBy: existing.adminReviewedBy } as Record<string, unknown>,
-    newValues: { status: "reviewed", adminReviewedBy: Number(adminStaffId) } as Record<string, unknown>,
+    newValues: { status: "reviewed", adminReviewedBy: Number(actorStaffId) } as Record<string, unknown>,
   });
   res.json(updated);
 });
@@ -1518,10 +1527,15 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     return;
   }
 
-  const notificationHistory = await db.select().from(incidentStatusHistoryTable)
-    .where(and(eq(incidentStatusHistoryTable.incidentId, id), eq(incidentStatusHistoryTable.toStatus, "notification_approved")));
-  if (notificationHistory.length === 0) {
-    res.status(400).json({ error: "Notification must be explicitly approved before sending. Use the 'Approve' action first." });
+  const [latestReviewEntry] = await db.select().from(incidentStatusHistoryTable)
+    .where(and(
+      eq(incidentStatusHistoryTable.incidentId, id),
+      inArray(incidentStatusHistoryTable.toStatus, ["notification_approved", "notification_returned"])
+    ))
+    .orderBy(desc(incidentStatusHistoryTable.createdAt))
+    .limit(1);
+  if (!latestReviewEntry || latestReviewEntry.toStatus !== "notification_approved") {
+    res.status(400).json({ error: "Notification must be explicitly approved (and not subsequently returned) before sending. Use the 'Approve' action first." });
     return;
   }
 

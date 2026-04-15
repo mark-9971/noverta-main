@@ -8,7 +8,7 @@ import {
   agencyContractsTable, agenciesTable, districtsTable, schoolsTable,
   restraintIncidentsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql, asc, desc, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, desc, isNull, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { requireTierAccess } from "../middlewares/tierGate";
@@ -874,7 +874,7 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
         .from(restraintIncidentsTable)
         .where(
           and(
-            eq(restraintIncidentsTable.status, "reviewed"),
+            inArray(restraintIncidentsTable.status, ["reviewed", "resolved"]),
             sql`${restraintIncidentsTable.parentNotificationSentAt} IS NULL`,
           )
         ),
