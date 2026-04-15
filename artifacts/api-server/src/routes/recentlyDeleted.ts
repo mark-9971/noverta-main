@@ -93,7 +93,7 @@ router.post("/recently-deleted/restore", requireRoles("admin"), async (req, res)
   }
 
   let tableName: string;
-  let rows: any[];
+  let rows: { id: number }[];
   switch (table) {
     case "students":
       rows = await db.update(studentsTable).set({ deletedAt: null }).where(and(eq(studentsTable.id, numId), isNotNull(studentsTable.deletedAt))).returning({ id: studentsTable.id });

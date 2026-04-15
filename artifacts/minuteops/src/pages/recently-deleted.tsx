@@ -63,7 +63,13 @@ export default function RecentlyDeletedPage() {
   async function loadData() {
     try {
       const res = await authFetch("/api/recently-deleted");
-      const json = await res.json();
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error || "Failed to load deleted records");
+        setLoading(false);
+        return;
+      }
+      const json: DeletedData = await res.json();
       setData(json);
     } catch {
       toast.error("Failed to load deleted records");
