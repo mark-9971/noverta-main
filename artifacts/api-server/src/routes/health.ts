@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { getErrorCount1h, sentryInitialized } from "../lib/sentry";
 
 const router: IRouter = Router();
 const startedAt = Date.now();
@@ -27,6 +28,10 @@ router.get("/health", async (_req, res) => {
     uptime,
     version,
     timestamp: new Date().toISOString(),
+    errors: {
+      last1h: getErrorCount1h(),
+    },
+    sentry: sentryInitialized() ? "enabled" : "disabled",
   });
 });
 

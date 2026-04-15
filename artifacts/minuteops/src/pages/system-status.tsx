@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Activity, Database, Server, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Activity, Database, Server, Clock, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,8 @@ interface HealthData {
   uptime: number;
   version: string;
   timestamp: string;
+  errors: { last1h: number };
+  sentry: "enabled" | "disabled";
 }
 
 function formatUptime(seconds: number) {
@@ -39,6 +41,10 @@ function StatusDot({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`bg-gray-100 rounded animate-pulse ${className ?? "h-5 w-24"}`} />;
+}
+
 export default function SystemStatusPage() {
   const { data, isLoading, isError, refetch, isFetching, dataUpdatedAt } = useQuery<HealthData>({
     queryKey: ["system-health"],
@@ -53,7 +59,9 @@ export default function SystemStatusPage() {
 
   const apiOk = !isError && data?.status !== undefined;
   const dbOk = data?.db === "connected";
-  const overallOk = apiOk && dbOk;
+  const errorCount = data?.errors?.last1h ?? 0;
+  const errorRateOk = errorCount === 0;
+  const overallOk = apiOk && dbOk && errorRateOk;
 
   const lastChecked = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString()
@@ -92,7 +100,11 @@ export default function SystemStatusPage() {
             )}
             <div>
               <p className="font-semibold text-gray-900">
-                {isLoading ? "Checking…" : overallOk ? "All systems operational" : "Service degraded"}
+                {isLoading
+                  ? "Checking…"
+                  : overallOk
+                  ? "All systems operational"
+                  : "Service degraded"}
               </p>
               {lastChecked && (
                 <p className="text-xs text-gray-500">Last checked at {lastChecked}</p>
@@ -100,7 +112,10 @@ export default function SystemStatusPage() {
             </div>
           </div>
           {data && (
-            <Badge variant={overallOk ? "default" : "destructive"} className={overallOk ? "bg-emerald-600" : ""}>
+            <Badge
+              variant={overallOk ? "default" : "destructive"}
+              className={overallOk ? "bg-emerald-600" : ""}
+            >
               {data.status.toUpperCase()}
             </Badge>
           )}
@@ -116,7 +131,7 @@ export default function SystemStatusPage() {
           </CardHeader>
           <CardContent className="pt-0 space-y-2">
             {isLoading ? (
-              <div className="h-5 bg-gray-100 rounded animate-pulse w-24" />
+              <Skeleton />
             ) : isError ? (
               <StatusDot ok={false} label="Unreachable" />
             ) : (
@@ -136,7 +151,7 @@ export default function SystemStatusPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {isLoading ? (
-              <div className="h-5 bg-gray-100 rounded animate-pulse w-24" />
+              <Skeleton />
             ) : isError ? (
               <StatusDot ok={false} label="Unknown" />
             ) : (
@@ -153,7 +168,7 @@ export default function SystemStatusPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {isLoading ? (
-              <div className="h-5 bg-gray-100 rounded animate-pulse w-20" />
+              <Skeleton className="h-5 w-20" />
             ) : data?.uptime !== undefined ? (
               <p className="text-sm font-medium text-gray-800">{formatUptime(data.uptime)}</p>
             ) : (
@@ -165,34 +180,66 @@ export default function SystemStatusPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <Activity className="w-4 h-4" /> Error Monitoring
+              <AlertTriangle className="w-4 h-4" /> Server Errors (last 1h)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
-            <p className="text-sm font-medium text-gray-800">
-              {import.meta.env.VITE_SENTRY_DSN ? "Sentry connected" : "Not configured"}
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-12" />
+            ) : (
+              <p
+                className={`text-2xl font-bold ${
+                  errorCount === 0 ? "text-emerald-600" : errorCount < 5 ? "text-amber-600" : "text-red-600"
+                }`}
+              >
+                {errorCount}
+              </p>
+            )}
             <p className="text-xs text-gray-400">
-              {import.meta.env.VITE_SENTRY_DSN
-                ? "Errors are being captured and reported"
-                : "Set VITE_SENTRY_DSN and SENTRY_DSN to enable"}
+              {errorCount === 0
+                ? "No 5xx errors in the last hour"
+                : `5xx errors in the last hour — check server logs`}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              <Activity className="w-4 h-4" /> Error Reporting
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-1">
+            {isLoading ? (
+              <Skeleton />
+            ) : (
+              <StatusDot
+                ok={data?.sentry === "enabled"}
+                label={data?.sentry === "enabled" ? "Sentry enabled" : "Not configured"}
+              />
+            )}
+            <p className="text-xs text-gray-400">
+              {data?.sentry === "enabled"
+                ? "Errors are being captured and reported to Sentry"
+                : "Set SENTRY_DSN and VITE_SENTRY_DSN secrets to enable"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              <Mail className="w-4 h-4" /> Email Delivery
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-1">
+            <StatusDot ok={false} label="Not yet configured" />
+            <p className="text-xs text-gray-400">
+              Real email delivery and failure tracking will be shown here once email sending is enabled.
             </p>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-gray-600">
-            Email Delivery
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <p className="text-sm text-gray-500">
-            Email delivery tracking will be available once the email delivery feature is enabled.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -1,11 +1,26 @@
-import { initSentry } from "./lib/sentry";
-initSentry();
-
+import { initSentry, captureException, recordError5xx } from "./lib/sentry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+
+initSentry();
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception — process will exit");
+  recordError5xx();
+  captureException(err, { source: "uncaughtException" }).finally(() => {
+    process.exit(1);
+  });
+});
+
+process.on("unhandledRejection", (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error({ err }, "Unhandled promise rejection");
+  recordError5xx();
+  captureException(err, { source: "unhandledRejection" });
+});
 
 async function backfillDistrictSubscriptions() {
   try {

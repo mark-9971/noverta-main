@@ -9,7 +9,8 @@ import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
-import { captureException } from "./lib/sentry";
+import { captureException, recordError5xx } from "./lib/sentry";
+import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 
 const app: Express = express();
 
@@ -112,7 +113,15 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   );
 
   if (status >= 500) {
-    captureException(err, { method: req.method, url: req.url, status });
+    recordError5xx();
+    let userId: string | undefined;
+    let districtId: string | undefined;
+    try {
+      userId = getClerkUserId(req) ?? undefined;
+      const meta = getPublicMeta(req);
+      districtId = meta.districtId != null ? String(meta.districtId) : undefined;
+    } catch {}
+    captureException(err, { method: req.method, url: req.url, status, userId, schoolId: districtId });
   }
 
   const isProduction = process.env.NODE_ENV === "production";
