@@ -629,16 +629,15 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
 
     const newStatus = LIFECYCLE_STATUS[eventType];
     if (newStatus) {
-      const studentUpdate: Record<string, unknown> = { status: newStatus };
       if (newStatus === "active") {
-        studentUpdate.enrolledAt = eventDate;
-        studentUpdate.withdrawnAt = null;
+        await tx.update(studentsTable)
+          .set({ status: "active", enrolledAt: eventDate, withdrawnAt: null })
+          .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
       } else {
-        studentUpdate.withdrawnAt = eventDate;
+        await tx.update(studentsTable)
+          .set({ status: newStatus, withdrawnAt: eventDate })
+          .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
       }
-      await tx.update(studentsTable)
-        .set(studentUpdate as any)
-        .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
     }
 
     return [ev];
@@ -668,6 +667,15 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
   if (!studentId || !eventId) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { eventType, eventDate, reasonCode, reason, notes } = req.body;
+
+  const VALID_EVENT_TYPES_PATCH = new Set([
+    "enrolled", "reactivated", "withdrawn", "transferred_in", "transferred_out",
+    "program_change", "graduated", "suspended", "leave_of_absence", "note",
+  ]);
+  if (eventType !== undefined && !VALID_EVENT_TYPES_PATCH.has(eventType)) {
+    res.status(400).json({ error: `Invalid eventType '${eventType}'.` }); return;
+  }
+
   type EventPatch = Partial<Pick<typeof enrollmentEventsTable.$inferInsert, "eventType" | "eventDate" | "reasonCode" | "reason" | "notes">>;
   const updates: EventPatch = {};
   if (eventType !== undefined) updates.eventType = eventType;
@@ -709,22 +717,25 @@ router.post("/students/:id/archive", async (req, res): Promise<void> => {
   const today = new Date().toISOString().slice(0, 10);
   const { reason, notes } = req.body;
 
-  const [updated] = await db
-    .update(studentsTable)
-    .set({ status: "inactive", withdrawnAt: today })
-    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
-    .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+  const { updated, event } = await db.transaction(async (tx) => {
+    const [stu] = await tx
+      .update(studentsTable)
+      .set({ status: "inactive", withdrawnAt: today })
+      .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
+      .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+    if (!stu) return { updated: null, event: null };
+    const [ev] = await tx.insert(enrollmentEventsTable).values({
+      studentId: params.data.id,
+      eventType: "withdrawn",
+      eventDate: today,
+      reason: reason ?? null,
+      notes: notes ?? null,
+      performedById: null,
+    }).returning();
+    return { updated: stu, event: ev };
+  });
 
   if (!updated) { res.status(404).json({ error: "Student not found" }); return; }
-
-  const [event] = await db.insert(enrollmentEventsTable).values({
-    studentId: params.data.id,
-    eventType: "withdrawn",
-    eventDate: today,
-    reason: reason ?? null,
-    notes: notes ?? null,
-    performedById: null,
-  }).returning();
 
   logAudit(req, {
     action: "update",
@@ -735,7 +746,7 @@ router.post("/students/:id/archive", async (req, res): Promise<void> => {
     newValues: { status: "inactive", withdrawnAt: today, reason } as Record<string, unknown>,
   });
 
-  res.json({ success: true, eventId: event.id });
+  res.json({ success: true, eventId: event!.id });
 });
 
 router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
@@ -749,22 +760,25 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
   const today = new Date().toISOString().slice(0, 10);
   const { notes } = req.body;
 
-  const [updated] = await db
-    .update(studentsTable)
-    .set({ status: "active", enrolledAt: today, withdrawnAt: null })
-    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
-    .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+  const { updated, event } = await db.transaction(async (tx) => {
+    const [stu] = await tx
+      .update(studentsTable)
+      .set({ status: "active", enrolledAt: today, withdrawnAt: null })
+      .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
+      .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+    if (!stu) return { updated: null, event: null };
+    const [ev] = await tx.insert(enrollmentEventsTable).values({
+      studentId: params.data.id,
+      eventType: "reactivated",
+      eventDate: today,
+      reason: null,
+      notes: notes ?? null,
+      performedById: null,
+    }).returning();
+    return { updated: stu, event: ev };
+  });
 
   if (!updated) { res.status(404).json({ error: "Student not found" }); return; }
-
-  const [event] = await db.insert(enrollmentEventsTable).values({
-    studentId: params.data.id,
-    eventType: "reactivated",
-    eventDate: today,
-    reason: null,
-    notes: notes ?? null,
-    performedById: null,
-  }).returning();
 
   logAudit(req, {
     action: "update",
@@ -775,7 +789,7 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
     newValues: { status: "active", enrolledAt: today } as Record<string, unknown>,
   });
 
-  res.json({ success: true, eventId: event.id });
+  res.json({ success: true, eventId: event!.id });
 });
 
 export default router;
