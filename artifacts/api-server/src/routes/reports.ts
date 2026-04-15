@@ -826,7 +826,7 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
       .groupBy(staffTable.id, staffTable.firstName, staffTable.lastName, staffTable.role, staffTable.email);
 
     const providers = parentSafe
-      ? providerQuery.map(p => ({ name: `${p.firstName} ${p.lastName}`, role: p.role, email: null }))
+      ? providerQuery.map(p => ({ role: p.role }))
       : providerQuery.map(p => ({ name: `${p.firstName} ${p.lastName}`, role: p.role, email: p.email }));
 
     const RATING_LABELS: Record<string, { label: string; color: string }> = {

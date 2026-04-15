@@ -35,13 +35,51 @@ function buildCSV(headers: string[], rows: unknown[][]): string {
   ].join("\n");
 }
 
-function assertCSVHeaders(actual: string[], expected: string[]): void {
-  if (actual.length !== expected.length) {
-    throw new Error(`CSV header count mismatch: expected ${expected.length}, got ${actual.length}`);
+const ACTIVE_IEPS_HEADERS = [
+  "Student Last Name", "Student First Name", "Grade", "Disability Category", "School",
+  "IEP Start Date", "IEP End Date", "Annual Review Meeting Date", "IEP Type",
+  "IEP Status", "Days Until Annual Review", "Annual Review Status",
+] as const;
+
+const SERVICE_MINUTES_HEADERS = [
+  "Student Last Name", "Student First Name", "Grade", "School",
+  "Service Type", "Mandated Minutes/Week", "Sessions Completed",
+  "Delivered Minutes", "Missed Sessions", "Compliance %",
+  "Reporting Period Start", "Reporting Period End",
+] as const;
+
+const INCIDENTS_HEADERS = [
+  "Incident Date", "Incident Time", "School", "Student Last Name", "Student First Name",
+  "Grade", "Disability Category", "Type of Restraint/Seclusion", "Duration (min)",
+  "Location", "Student Injury", "Staff Injury", "Medical Attention Required",
+  "DESE Report Required", "Parent Verbal Notification", "Written Report Sent",
+  "Debrief Conducted", "Status",
+] as const;
+
+interface ExportScope {
+  enforcedDistrictId: number | null;
+  enforcedSchoolId: number | null;
+  isPlatformAdmin: boolean;
+}
+
+function resolveExportScope(req: Request): ExportScope | { error: string; status: number } {
+  const { districtId, platformAdmin } = getPublicMeta(req);
+  if (platformAdmin) {
+    return { enforcedDistrictId: null, enforcedSchoolId: null, isPlatformAdmin: true };
   }
-  for (let i = 0; i < expected.length; i++) {
-    if (actual[i] !== expected[i]) {
-      throw new Error(`CSV header mismatch at position ${i}: expected "${expected[i]}", got "${actual[i]}"`);
+  if (districtId === undefined) {
+    return { error: "Access denied: your account is not assigned to a district", status: 403 };
+  }
+  return { enforcedDistrictId: Number(districtId), enforcedSchoolId: null, isPlatformAdmin: false };
+}
+
+function assertCSVHeaders(actual: readonly string[], canonical: readonly string[]): void {
+  if (actual.length !== canonical.length) {
+    throw new Error(`CSV header count mismatch: expected ${canonical.length}, got ${actual.length}`);
+  }
+  for (let i = 0; i < canonical.length; i++) {
+    if (actual[i] !== canonical[i]) {
+      throw new Error(`CSV header mismatch at position ${i}: expected "${canonical[i]}", got "${actual[i]}"`);
     }
   }
 }
@@ -66,14 +104,20 @@ function daysUntil(dateStr: string | null | undefined): number | "" {
 
 router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { schoolId, districtId } = req.query;
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const conditions: any[] = [
+    const { schoolId } = req.query;
+    const effectiveDistrictId = scope.enforcedDistrictId;
+
+    const conditions: ReturnType<typeof eq>[] = [
       eq(studentsTable.status, "active"),
       eq(iepDocumentsTable.active, true),
     ];
     if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
-    if (districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(districtId)})`);
+    if (effectiveDistrictId !== null) {
+      conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId})` as ReturnType<typeof eq>);
+    }
 
     const rows = await db.select({
       studentId: studentsTable.id,
@@ -97,16 +141,8 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
       .where(and(...conditions))
       .orderBy(asc(iepDocumentsTable.iepEndDate), asc(studentsTable.lastName));
 
-    const headers = [
-      "Student Last Name", "Student First Name", "Grade", "Disability Category", "School",
-      "IEP Start Date", "IEP End Date", "Annual Review Meeting Date", "IEP Type",
-      "IEP Status", "Days Until Annual Review", "Annual Review Status",
-    ];
-    assertCSVHeaders(headers, [
-      "Student Last Name", "Student First Name", "Grade", "Disability Category", "School",
-      "IEP Start Date", "IEP End Date", "Annual Review Meeting Date", "IEP Type",
-      "IEP Status", "Days Until Annual Review", "Annual Review Status",
-    ]);
+    const headers = [...ACTIVE_IEPS_HEADERS];
+    assertCSVHeaders(headers, ACTIVE_IEPS_HEADERS);
 
     const csvRows = rows.map(r => {
       const days = daysUntil(r.iepEndDate);
@@ -150,14 +186,20 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
 
 router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { schoolId, districtId, startDate, endDate } = req.query;
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId, startDate, endDate } = req.query;
+    const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const studentConditions: any[] = [eq(studentsTable.status, "active")];
+    const studentConditions: ReturnType<typeof eq>[] = [eq(studentsTable.status, "active")];
     if (schoolId) studentConditions.push(eq(studentsTable.schoolId, Number(schoolId)));
-    if (districtId) studentConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(districtId)})`);
+    if (effectiveDistrictId !== null) {
+      studentConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId})` as ReturnType<typeof eq>);
+    }
 
     const students = await db.select({
       id: studentsTable.id,
@@ -225,25 +267,14 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
       }
     }
 
-    const studentMap = new Map(students.map(s => [s.id, s]));
     const reqsByStudent = new Map<number, typeof reqs>();
     for (const r of reqs) {
       if (!reqsByStudent.has(r.studentId)) reqsByStudent.set(r.studentId, []);
       reqsByStudent.get(r.studentId)!.push(r);
     }
 
-    const headers = [
-      "Student Last Name", "Student First Name", "Grade", "School",
-      "Service Type", "Mandated Minutes/Week", "Sessions Completed",
-      "Delivered Minutes", "Missed Sessions", "Compliance %",
-      "Reporting Period Start", "Reporting Period End",
-    ];
-    assertCSVHeaders(headers, [
-      "Student Last Name", "Student First Name", "Grade", "School",
-      "Service Type", "Mandated Minutes/Week", "Sessions Completed",
-      "Delivered Minutes", "Missed Sessions", "Compliance %",
-      "Reporting Period Start", "Reporting Period End",
-    ]);
+    const headers = [...SERVICE_MINUTES_HEADERS];
+    assertCSVHeaders(headers, SERVICE_MINUTES_HEADERS);
 
     const csvRows: unknown[][] = [];
     for (const student of students) {
@@ -288,17 +319,24 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
 
 router.get("/reports/exports/incidents.csv", async (req: Request, res: Response): Promise<void> => {
   try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
     const { schoolId, startDate, endDate } = req.query;
+    const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const conditions: any[] = [
+    const conditions: ReturnType<typeof gte>[] = [
       gte(restraintIncidentsTable.incidentDate, start),
       lte(restraintIncidentsTable.incidentDate, end),
     ];
     if (schoolId) {
-      conditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(schoolId)})`);
+      conditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(schoolId)})` as ReturnType<typeof gte>);
+    }
+    if (effectiveDistrictId !== null) {
+      conditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId}))` as ReturnType<typeof gte>);
     }
 
     const incidents = await db.select({
@@ -335,20 +373,8 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
       physical_escort: "Physical Escort",
     };
 
-    const headers = [
-      "Incident Date", "Incident Time", "School", "Student Last Name", "Student First Name",
-      "Grade", "Disability Category", "Type of Restraint/Seclusion", "Duration (min)",
-      "Location", "Student Injury", "Staff Injury", "Medical Attention Required",
-      "DESE Report Required", "Parent Verbal Notification", "Written Report Sent",
-      "Debrief Conducted", "Status",
-    ];
-    assertCSVHeaders(headers, [
-      "Incident Date", "Incident Time", "School", "Student Last Name", "Student First Name",
-      "Grade", "Disability Category", "Type of Restraint/Seclusion", "Duration (min)",
-      "Location", "Student Injury", "Staff Injury", "Medical Attention Required",
-      "DESE Report Required", "Parent Verbal Notification", "Written Report Sent",
-      "Debrief Conducted", "Status",
-    ]);
+    const headers = [...INCIDENTS_HEADERS];
+    assertCSVHeaders(headers, INCIDENTS_HEADERS);
 
     const csvRows = incidents.map(i => [
       fmtDate(i.incidentDate),
@@ -553,11 +579,6 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       doc.moveTo(60, doc.y + 2).lineTo(552, doc.y + 2).strokeColor("#d1fae5").lineWidth(1).stroke();
       doc.moveDown(0.3);
       doc.fontSize(10).font("Helvetica").fillColor(GRAY_DARK);
-    };
-
-    const field = (label: string, value: string | null | undefined, opts: { continued?: boolean } = {}) => {
-      if (!value) return;
-      doc.font("Helvetica-Bold").text(`${label}: `, { continued: true }).font("Helvetica").text(value, opts);
     };
 
     const row = (label: string, value: string) => {
