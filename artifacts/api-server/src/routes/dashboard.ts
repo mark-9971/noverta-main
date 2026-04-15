@@ -874,8 +874,8 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
         .from(restraintIncidentsTable)
         .where(
           and(
-            eq(restraintIncidentsTable.parentNotified, false),
-            sql`${restraintIncidentsTable.status} NOT IN ('resolved', 'dese_reported', 'closed')`,
+            eq(restraintIncidentsTable.status, "reviewed"),
+            sql`${restraintIncidentsTable.parentNotificationSentAt} IS NULL`,
           )
         ),
     ]);

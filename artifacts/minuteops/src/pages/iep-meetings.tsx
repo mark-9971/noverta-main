@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import {
   CalendarDays, Plus, Users, Clock, CheckCircle, XCircle,
   AlertTriangle, ChevronDown, ChevronUp, Pencil, Trash2,
@@ -159,7 +159,10 @@ const CONSENT_TYPES: Record<string, string> = {
 };
 
 export default function IepMeetings() {
-  const [tab, setTab] = useState<"dashboard" | "meetings">("dashboard");
+  const search = useSearch();
+  const urlParams = new URLSearchParams(search);
+  const urlFilter = urlParams.get("filter");
+  const [tab, setTab] = useState<"dashboard" | "meetings">(urlFilter === "overdue" ? "meetings" : "dashboard");
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
@@ -171,7 +174,7 @@ export default function IepMeetings() {
   const [showPwnDialog, setShowPwnDialog] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [detailTab, setDetailTab] = useState<"overview" | "attendees" | "notices" | "consent">("overview");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(urlFilter === "overdue" ? "overdue" : "all");
   const [typeFilter, setTypeFilter] = useState("all");
 
   async function fetchJson(url: string) {

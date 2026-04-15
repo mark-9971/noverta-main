@@ -19,7 +19,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
 } from "recharts";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { toast } from "sonner";
 
 
@@ -256,10 +256,12 @@ function hoursUntilDeadline(incidentDate: string, incidentTime: string) {
 }
 
 export default function ProtectiveMeasuresPage() {
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
   const [view, setView] = useState<"list" | "new" | "detail">("list");
   const [detailId, setDetailId] = useState<number | null>(null);
   const [filterType, setFilterType] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "all");
   const [searchTerm, setSearchTerm] = useState("");
 
   if (view === "new") return <NewIncidentForm onClose={() => setView("list")} />;

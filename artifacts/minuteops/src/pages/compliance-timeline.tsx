@@ -4,7 +4,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import {
   ArrowLeft, Calendar, AlertTriangle, CheckCircle2, Clock, RefreshCw, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -115,9 +115,11 @@ function ResolveDialog({
 }
 
 export default function ComplianceTimelinePage() {
+  const search = useSearch();
+  const initialFilter = new URLSearchParams(search).get("filter") ?? "all";
   const [events, setEvents] = useState<ComplianceEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<string>(initialFilter);
   const [recalculating, setRecalculating] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<ComplianceEvent | null>(null);
   const [showResolved, setShowResolved] = useState(false);
@@ -152,7 +154,8 @@ export default function ComplianceTimelinePage() {
   const critical = unresolved.filter(e => e.computedStatus === "critical");
   const dueSoon = unresolved.filter(e => e.computedStatus === "due_soon");
 
-  const displayEvents = filter === "all" ? unresolved : filter === "completed" ? resolved : events.filter(e => {
+  const displayEvents = (filter === "all" || filter === "unresolved") ? unresolved : events.filter(e => {
+    if (e.computedStatus === "completed") return false;
     if (filter === "overdue") return e.computedStatus === "overdue" || e.computedStatus === "critical";
     if (filter === "due_soon") return e.computedStatus === "due_soon";
     return true;
@@ -221,14 +224,13 @@ export default function ComplianceTimelinePage() {
 
       <div className="flex items-center gap-1 border-b border-gray-200 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
         {[
-          { key: "all", label: `Open (${unresolved.length})` },
+          { key: "all", label: `All Open (${unresolved.length})` },
           { key: "overdue", label: `Overdue (${overdue.length + critical.length})` },
           { key: "due_soon", label: `Due Soon (${dueSoon.length})` },
-          { key: "completed", label: `Resolved (${resolved.length})` },
         ].map(t => (
           <button key={t.key} onClick={() => setFilter(t.key)}
             className={`px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
-              filter === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-gray-400 hover:text-gray-600"
+              (filter === t.key || (filter === "unresolved" && t.key === "all")) ? "border-emerald-700 text-emerald-800" : "border-transparent text-gray-400 hover:text-gray-600"
             }`}>
             {t.label}
           </button>
@@ -239,10 +241,8 @@ export default function ComplianceTimelinePage() {
         <Card>
           <CardContent className="p-8 text-center">
             <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">
-              {filter === "completed" ? "No resolved events" : "No compliance events found"}
-            </p>
-            {filter === "all" && (
+            <p className="text-sm text-gray-400">No compliance events found</p>
+            {(filter === "all" || filter === "unresolved") && (
               <p className="text-xs text-gray-400 mt-1">Click "Recalculate Deadlines" to auto-generate from IEP documents</p>
             )}
           </CardContent>
@@ -254,7 +254,6 @@ export default function ComplianceTimelinePage() {
           const eventStyle = EVENT_TYPES[event.eventType] || EVENT_TYPES.annual_review;
           const statusStyle = STATUS_STYLES[event.computedStatus] || STATUS_STYLES.upcoming;
           const StatusIcon = statusStyle.icon;
-          const isCompleted = event.computedStatus === "completed";
 
           return (
             <Card key={event.id} className={event.computedStatus === "overdue" ? "border-red-200" : event.computedStatus === "critical" ? "border-amber-200" : ""}>
@@ -273,30 +272,74 @@ export default function ComplianceTimelinePage() {
                       </span>
                     </div>
                     <p className="text-[12px] text-gray-500 mt-0.5">{event.title}</p>
-                    {isCompleted && event.resolutionNote && (
-                      <p className="text-[11px] text-emerald-700 mt-0.5 italic">"{event.resolutionNote}"</p>
-                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-[12px] text-gray-500">{formatDate(event.dueDate)}</p>
                     <p className={`text-[11px] font-medium ${statusStyle.color}`}>
-                      {isCompleted ? `Resolved ${event.resolvedAt ? formatDate(event.resolvedAt.split("T")[0]) : ""}` :
-                       event.daysRemaining < 0 ? `${Math.abs(event.daysRemaining)}d overdue` :
+                      {event.daysRemaining < 0 ? `${Math.abs(event.daysRemaining)}d overdue` :
                        event.daysRemaining === 0 ? "Due today" :
                        `${event.daysRemaining}d remaining`}
                     </p>
                   </div>
-                  {!isCompleted && (
-                    <Button size="sm" variant="outline" className="text-[11px] h-7 px-2 flex-shrink-0" onClick={() => setResolveTarget(event)}>
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> Resolve
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" className="text-[11px] h-7 px-2 flex-shrink-0" onClick={() => setResolveTarget(event)}>
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Resolve
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {resolved.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowResolved(v => !v)}
+            className="flex items-center gap-2 text-[12px] font-medium text-gray-500 hover:text-gray-700 py-2 w-full border-t border-gray-200 mt-2">
+            {showResolved ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            Resolved Archive ({resolved.length})
+          </button>
+          {showResolved && (
+            <div className="space-y-2 mt-2">
+              {resolved.map(event => {
+                const eventStyle = EVENT_TYPES[event.eventType] || EVENT_TYPES.annual_review;
+                return (
+                  <Card key={event.id} className="border-gray-100 bg-gray-50/50 opacity-75">
+                    <CardContent className="p-3 md:p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-emerald-50">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link href={`/students/${event.student.id}/iep`} className="text-[12px] font-medium text-gray-600 hover:text-emerald-700">
+                              {event.student.firstName} {event.student.lastName}
+                            </Link>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${eventStyle.bg} ${eventStyle.color}`}>
+                              {eventStyle.label}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400">{event.title}</p>
+                          {event.resolutionNote && (
+                            <p className="text-[11px] text-emerald-600 italic mt-0.5">"{event.resolutionNote}"</p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[11px] text-gray-400">{formatDate(event.dueDate)}</p>
+                          <p className="text-[10px] font-medium text-emerald-600">
+                            Resolved {event.resolvedAt ? formatDate(event.resolvedAt.split("T")[0]) : ""}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
