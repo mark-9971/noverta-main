@@ -22,7 +22,8 @@ import {
 import { Link, useSearch } from "wouter";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
-
+import { StudentQuickView } from "@/components/student-quick-view";
+import { Phone } from "lucide-react";
 
 type Incident = {
   id: number;
@@ -546,6 +547,16 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-gray-800">{inc.studentFirstName} {inc.studentLastName}</span>
+                    <StudentQuickView
+                      studentId={inc.studentId}
+                      studentName={`${inc.studentFirstName} ${inc.studentLastName}`}
+                      grade={null}
+                      trigger={
+                        <span className="p-1 rounded hover:bg-gray-100 flex-shrink-0 transition-colors" title="Quick view: emergency contacts &amp; alerts">
+                          <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                        </span>
+                      }
+                    />
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[inc.incidentType] || "bg-gray-100 text-gray-600"}`}>
                       {TYPE_LABELS[inc.incidentType] || inc.incidentType}
                     </span>

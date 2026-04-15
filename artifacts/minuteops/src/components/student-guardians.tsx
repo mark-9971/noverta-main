@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Phone, Mail, Globe, AlertCircle, Users, PhoneCall } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail, Globe, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Guardian {
@@ -23,16 +23,6 @@ interface Guardian {
   interpreterNeeded: boolean;
   language: string | null;
   notes: string | null;
-}
-
-interface EmergencyContact {
-  id: number;
-  studentId: number;
-  name: string;
-  relationship: string;
-  phone: string;
-  notes: string | null;
-  priority: number;
 }
 
 const RELATIONSHIP_OPTIONS = [
@@ -60,10 +50,6 @@ const EMPTY_GUARDIAN = {
   interpreterNeeded: false, language: "", notes: "",
 };
 
-const EMPTY_EC = {
-  name: "", relationship: "", phone: "", notes: "", priority: 1,
-};
-
 interface GuardianFormState {
   name: string;
   relationship: string;
@@ -74,14 +60,6 @@ interface GuardianFormState {
   interpreterNeeded: boolean;
   language: string;
   notes: string;
-}
-
-interface EcFormState {
-  name: string;
-  relationship: string;
-  phone: string;
-  notes: string;
-  priority: number;
 }
 
 function GuardianCard({ guardian, isEditable, onEdit, onDelete }: {
@@ -149,49 +127,8 @@ function GuardianCard({ guardian, isEditable, onEdit, onDelete }: {
   );
 }
 
-function EmergencyContactCard({ contact, isEditable, onEdit, onDelete }: {
-  contact: EmergencyContact;
-  isEditable: boolean;
-  onEdit: (c: EmergencyContact) => void;
-  onDelete: (c: EmergencyContact) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0 gap-3">
-      <div className="flex items-start gap-3 flex-1 min-w-0">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-          <span className="text-xs font-semibold text-orange-700">{contact.priority}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm text-gray-900">{contact.name}</span>
-            <Badge variant="outline" className="text-xs py-0 px-1.5">{contact.relationship}</Badge>
-          </div>
-          <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-            <PhoneCall className="w-3 h-3" />
-            {contact.phone}
-          </div>
-          {contact.notes && (
-            <p className="text-xs text-gray-400 mt-1 truncate">{contact.notes}</p>
-          )}
-        </div>
-      </div>
-      {isEditable && (
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(contact)}>
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(contact)}>
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function StudentGuardians({ studentId, isEditable }: { studentId: number; isEditable: boolean }) {
   const [guardians, setGuardians] = useState<Guardian[]>([]);
-  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [guardianDialog, setGuardianDialog] = useState(false);
@@ -200,23 +137,13 @@ export function StudentGuardians({ studentId, isEditable }: { studentId: number;
   const [guardianSaving, setGuardianSaving] = useState(false);
   const [deletingGuardian, setDeletingGuardian] = useState<Guardian | null>(null);
 
-  const [ecDialog, setEcDialog] = useState(false);
-  const [editingEc, setEditingEc] = useState<EmergencyContact | null>(null);
-  const [ecForm, setEcForm] = useState<EcFormState>(EMPTY_EC);
-  const [ecSaving, setEcSaving] = useState(false);
-  const [deletingEc, setDeletingEc] = useState<EmergencyContact | null>(null);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [g, ec] = await Promise.all([
-        authFetch(apiUrl(`/students/${studentId}/guardians`)).then((r) => r.json()),
-        authFetch(apiUrl(`/students/${studentId}/emergency-contacts`)).then((r) => r.json()),
-      ]);
+      const g = await authFetch(apiUrl(`/students/${studentId}/guardians`)).then((r) => r.json());
       setGuardians(Array.isArray(g) ? g : []);
-      setEmergencyContacts(Array.isArray(ec) ? ec : []);
     } catch {
-      toast.error("Failed to load guardians and contacts");
+      toast.error("Failed to load guardians");
     } finally {
       setLoading(false);
     }
@@ -294,72 +221,9 @@ export function StudentGuardians({ studentId, isEditable }: { studentId: number;
     }
   }
 
-  function openAddEc() {
-    setEditingEc(null);
-    setEcForm({ ...EMPTY_EC, priority: emergencyContacts.length + 1 });
-    setEcDialog(true);
-  }
-
-  function openEditEc(c: EmergencyContact) {
-    setEditingEc(c);
-    setEcForm({
-      name: c.name,
-      relationship: c.relationship,
-      phone: c.phone,
-      notes: c.notes ?? "",
-      priority: c.priority,
-    });
-    setEcDialog(true);
-  }
-
-  async function saveEc() {
-    setEcSaving(true);
-    try {
-      const payload = {
-        ...ecForm,
-        priority: Number(ecForm.priority),
-        notes: ecForm.notes || null,
-      };
-
-      if (editingEc) {
-        await authFetch(apiUrl(`/students/${studentId}/emergency-contacts/${editingEc.id}`), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        toast.success("Emergency contact updated");
-      } else {
-        await authFetch(apiUrl(`/students/${studentId}/emergency-contacts`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        toast.success("Emergency contact added");
-      }
-      setEcDialog(false);
-      load();
-    } catch {
-      toast.error("Failed to save emergency contact");
-    } finally {
-      setEcSaving(false);
-    }
-  }
-
-  async function confirmDeleteEc() {
-    if (!deletingEc) return;
-    try {
-      await authFetch(apiUrl(`/students/${studentId}/emergency-contacts/${deletingEc.id}`), { method: "DELETE" });
-      toast.success("Emergency contact removed");
-      setDeletingEc(null);
-      load();
-    } catch {
-      toast.error("Failed to remove emergency contact");
-    }
-  }
-
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -405,50 +269,6 @@ export function StudentGuardians({ studentId, isEditable }: { studentId: number;
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                Emergency Contacts
-              </CardTitle>
-              {isEditable && (
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={openAddEc}>
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
-            ) : emergencyContacts.length === 0 ? (
-              <div className="text-center py-6">
-                <PhoneCall className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">No emergency contacts on record</p>
-                {isEditable && (
-                  <Button variant="ghost" size="sm" className="mt-2 text-xs text-emerald-600" onClick={openAddEc}>
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    Add contact
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div>
-                {emergencyContacts.map((c) => (
-                  <EmergencyContactCard
-                    key={c.id}
-                    contact={c}
-                    isEditable={isEditable}
-                    onEdit={openEditEc}
-                    onDelete={setDeletingEc}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <Dialog open={guardianDialog} onOpenChange={setGuardianDialog}>
@@ -584,93 +404,6 @@ export function StudentGuardians({ studentId, isEditable }: { studentId: number;
         </DialogContent>
       </Dialog>
 
-      <Dialog open={ecDialog} onOpenChange={setEcDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingEc ? "Edit Emergency Contact" : "Add Emergency Contact"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Full name *</Label>
-                <Input
-                  value={ecForm.name}
-                  onChange={(e) => setEcForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="John Doe"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Relationship *</Label>
-                <Select
-                  value={ecForm.relationship}
-                  onValueChange={(v) => setEcForm((p) => ({ ...p, relationship: v }))}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                  <SelectContent>
-                    {RELATIONSHIP_OPTIONS.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Phone *</Label>
-                <Input
-                  type="tel"
-                  value={ecForm.phone}
-                  onChange={(e) => setEcForm((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="(555) 000-0000"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Priority</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={ecForm.priority}
-                  onChange={(e) => setEcForm((p) => ({ ...p, priority: Number(e.target.value) }))}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Notes</Label>
-              <Input
-                value={ecForm.notes}
-                onChange={(e) => setEcForm((p) => ({ ...p, notes: e.target.value }))}
-                placeholder="Optional notes…"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEcDialog(false)}>Cancel</Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={saveEc}
-              disabled={ecSaving || !ecForm.name.trim() || !ecForm.relationship || !ecForm.phone.trim()}
-            >
-              {ecSaving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!deletingEc} onOpenChange={(o) => { if (!o) setDeletingEc(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Remove emergency contact?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-600">
-            Are you sure you want to remove <strong>{deletingEc?.name}</strong> from this student's emergency contacts?
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingEc(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDeleteEc}>Remove</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

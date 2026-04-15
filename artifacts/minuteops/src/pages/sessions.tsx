@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp, Zap } from "lucide-react";
+import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, MapPin, FileText, User, Monitor, Target, Pencil, Trash2, Save, Activity, BookOpen, BarChart3, TrendingUp, Zap, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
+import { StudentQuickView } from "@/components/student-quick-view";
 
 const INITIAL_FORM = {
   studentId: "",
@@ -728,7 +729,19 @@ export default function Sessions() {
             <button className="w-full p-3.5 text-left" onClick={() => toggleExpand(session)}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-800 truncate">{session.studentName ?? `Student ${session.studentId}`}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-gray-800 truncate">{session.studentName ?? `Student ${session.studentId}`}</p>
+                    <StudentQuickView
+                      studentId={session.studentId}
+                      studentName={session.studentName ?? `Student ${session.studentId}`}
+                      grade={null}
+                      trigger={
+                        <span className="p-1 rounded hover:bg-gray-100 flex-shrink-0 transition-colors" title="Quick view: emergency contacts &amp; alerts">
+                          <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                        </span>
+                      }
+                    />
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">{session.serviceTypeName ?? "—"} · {session.staffName ?? "—"}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -802,7 +815,19 @@ export default function Sessions() {
                     </td>
                     <td className="px-4 py-3 text-[13px] text-gray-600 whitespace-nowrap">{formatDate(session.sessionDate)}</td>
                     <td className="px-4 py-3">
-                      <p className="text-[13px] font-medium text-gray-800">{session.studentName ?? `Student ${session.studentId}`}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[13px] font-medium text-gray-800">{session.studentName ?? `Student ${session.studentId}`}</p>
+                        <StudentQuickView
+                          studentId={session.studentId}
+                          studentName={session.studentName ?? `Student ${session.studentId}`}
+                          grade={null}
+                          trigger={
+                            <span className="p-1 rounded hover:bg-gray-100 flex-shrink-0 transition-colors" title="Quick view: emergency contacts &amp; alerts">
+                              <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                            </span>
+                          }
+                        />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-gray-500 max-w-[160px] truncate">{session.serviceTypeName ?? "—"}</td>
                     <td className="px-4 py-3 text-[13px] text-gray-500">{session.staffName ?? "—"}</td>
