@@ -395,14 +395,37 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     if (!existing) { res.status(404).json({ error: "Contract not found" }); return; }
 
     const updates: Record<string, unknown> = {};
-    if (req.body.contractedHours !== undefined) updates.contractedHours = String(Number(req.body.contractedHours));
-    if (req.body.hourlyRate !== undefined) updates.hourlyRate = req.body.hourlyRate ? String(Number(req.body.hourlyRate)) : null;
+    if (req.body.contractedHours !== undefined) {
+      const h = Number(req.body.contractedHours);
+      if (isNaN(h) || h <= 0) { res.status(400).json({ error: "contractedHours must be a positive number" }); return; }
+      updates.contractedHours = String(h);
+    }
+    if (req.body.hourlyRate !== undefined) {
+      if (req.body.hourlyRate) {
+        const r = Number(req.body.hourlyRate);
+        if (isNaN(r) || r < 0) { res.status(400).json({ error: "hourlyRate must be a non-negative number" }); return; }
+        updates.hourlyRate = String(r);
+      } else {
+        updates.hourlyRate = null;
+      }
+    }
     if (req.body.startDate !== undefined) updates.startDate = req.body.startDate;
     if (req.body.endDate !== undefined) updates.endDate = req.body.endDate;
-    if (req.body.alertThresholdPct !== undefined) updates.alertThresholdPct = Number(req.body.alertThresholdPct);
-    if (req.body.status !== undefined) updates.status = req.body.status;
+    if (req.body.alertThresholdPct !== undefined) {
+      const t = Number(req.body.alertThresholdPct);
+      if (isNaN(t) || t < 1 || t > 100) { res.status(400).json({ error: "alertThresholdPct must be between 1 and 100" }); return; }
+      updates.alertThresholdPct = t;
+    }
+    if (req.body.status !== undefined) {
+      if (!["active", "expired", "cancelled"].includes(req.body.status)) { res.status(400).json({ error: "status must be active, expired, or cancelled" }); return; }
+      updates.status = req.body.status;
+    }
     if (req.body.notes !== undefined) updates.notes = req.body.notes;
-    if (req.body.serviceTypeId !== undefined) updates.serviceTypeId = Number(req.body.serviceTypeId);
+    if (req.body.serviceTypeId !== undefined) {
+      const s = Number(req.body.serviceTypeId);
+      if (isNaN(s) || s <= 0) { res.status(400).json({ error: "serviceTypeId must be a positive integer" }); return; }
+      updates.serviceTypeId = s;
+    }
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No fields to update" });
@@ -498,17 +521,6 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
 });
 
 async function reconcileContractSessionLinks(districtId: number): Promise<number> {
-  const allDistrictContracts = await db.select({ id: agencyContractsTable.id })
-    .from(agencyContractsTable)
-    .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
-    .where(eq(agenciesTable.districtId, districtId));
-
-  const allContractIds = allDistrictContracts.map(c => c.id);
-  if (allContractIds.length > 0) {
-    await db.delete(contractSessionLinksTable)
-      .where(inArray(contractSessionLinksTable.contractId, allContractIds));
-  }
-
   const activeContracts = await db.select({
     id: agencyContractsTable.id,
     agencyId: agencyContractsTable.agencyId,
@@ -523,6 +535,12 @@ async function reconcileContractSessionLinks(districtId: number): Promise<number
       isNull(agencyContractsTable.deletedAt),
       eq(agenciesTable.districtId, districtId),
     ));
+
+  const activeContractIds = activeContracts.map(c => c.id);
+  if (activeContractIds.length > 0) {
+    await db.delete(contractSessionLinksTable)
+      .where(inArray(contractSessionLinksTable.contractId, activeContractIds));
+  }
 
   if (activeContracts.length === 0) return 0;
 
