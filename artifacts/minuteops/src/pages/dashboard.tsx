@@ -72,6 +72,7 @@ export default function Dashboard() {
   interface TransitionDashboardSummary {
     totalTransitionAge: number;
     missingPlan: number;
+    incompletePlans: number;
     approachingTransitionAge: number;
     overdueFollowups: number;
   }
@@ -168,6 +169,7 @@ export default function Dashboard() {
             <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
             <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
               {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+              {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
               {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
               {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
             </div>

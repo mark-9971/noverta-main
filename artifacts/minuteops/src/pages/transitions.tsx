@@ -77,7 +77,9 @@ interface DashboardData {
   approachingTransitionAge: number;
   withPlan: number;
   missingPlan: number;
+  incompletePlans: number;
   missingPlanStudents: { id: number; name: string; age: number | null; grade: string | null }[];
+  incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[] }[];
   approachingStudents: { id: number; name: string; age: number | null; grade: string | null }[];
   pendingAgencyReferrals: number;
   overdueFollowups: number;
@@ -641,13 +643,13 @@ function DashboardTab({ dashboard, onCreatePlan }: { dashboard: DashboardData | 
             </div>
           </CardContent>
         </Card>
-        <Card className="border-gray-200/60">
+        <Card className={dashboard.incompletePlans > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
           <CardContent className="py-4 px-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-50"><Clock className="w-5 h-5 text-amber-600" /></div>
+              <div className={`p-2 rounded-lg ${dashboard.incompletePlans > 0 ? "bg-amber-50" : "bg-gray-50"}`}><Clock className={`w-5 h-5 ${dashboard.incompletePlans > 0 ? "text-amber-600" : "text-gray-400"}`} /></div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{dashboard.approachingTransitionAge}</p>
-                <p className="text-[11px] text-gray-500">Approaching age 14</p>
+                <p className="text-2xl font-bold text-gray-900">{dashboard.incompletePlans}</p>
+                <p className="text-[11px] text-gray-500">Incomplete plans</p>
               </div>
             </div>
           </CardContent>
@@ -681,6 +683,31 @@ function DashboardTab({ dashboard, onCreatePlan }: { dashboard: DashboardData | 
                   <Button size="sm" variant="outline" onClick={() => onCreatePlan(s.id)} className="text-[11px] h-7">
                     <Plus className="w-3 h-3 mr-1" /> Create Plan
                   </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {dashboard.incompletePlanStudents.length > 0 && (
+        <Card className="border-gray-200/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" /> Incomplete Transition Plans
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-gray-100">
+              {dashboard.incompletePlanStudents.map(s => (
+                <div key={s.id} className="py-2 flex items-center justify-between">
+                  <div>
+                    <Link href={`/students/${s.id}`} className="text-[13px] font-medium text-emerald-700 hover:text-emerald-800">{s.name}</Link>
+                    <p className="text-[11px] text-gray-500">
+                      Age {s.age ?? "?"} · Grade {s.grade ?? "?"}
+                      {s.missingDomains.length > 0 && ` · Missing: ${s.missingDomains.map(d => d.replace(/_/g, " ")).join(", ")}`}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

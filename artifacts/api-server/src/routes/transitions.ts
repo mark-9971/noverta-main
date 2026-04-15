@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   transitionPlansTable, transitionGoalsTable, transitionAgencyReferralsTable,
-  studentsTable, staffTable,
+  studentsTable, staffTable, iepDocumentsTable,
 } from "@workspace/db";
 import { eq, and, desc, isNull, sql, lte, gte, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
@@ -14,16 +14,16 @@ const transitionAccess = requireRoles("admin", "coordinator", "case_manager", "s
 
 const TRANSITION_AGE_THRESHOLD = 14;
 
-function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
-  const result: Partial<T> = {};
+function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
   for (const k of keys) {
-    if (k in obj) (result as any)[k] = obj[k];
+    if (k in obj) result[k] = obj[k];
   }
   return result;
 }
 
 const PLAN_PATCH_FIELDS = [
-  "planDate", "ageOfMajorityNotified", "ageOfMajorityDate", "graduationPathway",
+  "planDate", "iepDocumentId", "ageOfMajorityNotified", "ageOfMajorityDate", "graduationPathway",
   "expectedGraduationDate", "diplomaType", "creditsEarned", "creditsRequired",
   "assessmentsUsed", "studentVisionStatement", "coordinatorId", "status", "notes",
 ];
@@ -126,8 +126,33 @@ router.post("/transitions/plans", transitionAccess, async (req, res): Promise<vo
       res.status(400).json({ error: "studentId and planDate are required" });
       return;
     }
+
+    const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, body.studentId));
+    if (!student) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+    if (student.dateOfBirth) {
+      const age = computeAge(student.dateOfBirth);
+      if (age < TRANSITION_AGE_THRESHOLD) {
+        res.status(400).json({ error: `Student is ${age} years old. Transition plans require students to be at least ${TRANSITION_AGE_THRESHOLD}.` });
+        return;
+      }
+    }
+
+    let iepDocumentId = body.iepDocumentId ?? null;
+    if (!iepDocumentId) {
+      const [activeIep] = await db.select({ id: iepDocumentsTable.id })
+        .from(iepDocumentsTable)
+        .where(and(eq(iepDocumentsTable.studentId, body.studentId), eq(iepDocumentsTable.active, true)))
+        .orderBy(desc(iepDocumentsTable.updatedAt))
+        .limit(1);
+      if (activeIep) iepDocumentId = activeIep.id;
+    }
+
     const [row] = await db.insert(transitionPlansTable).values({
       studentId: body.studentId,
+      iepDocumentId,
       planDate: body.planDate,
       ageOfMajorityNotified: body.ageOfMajorityNotified ?? false,
       ageOfMajorityDate: body.ageOfMajorityDate ?? null,
@@ -366,14 +391,58 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
     });
 
     const existingPlans = await db.select({
+      id: transitionPlansTable.id,
       studentId: transitionPlansTable.studentId,
+      graduationPathway: transitionPlansTable.graduationPathway,
+      status: transitionPlansTable.status,
     })
       .from(transitionPlansTable)
       .where(isNull(transitionPlansTable.deletedAt));
 
-    const studentIdsWithPlans = new Set(existingPlans.map(p => p.studentId));
+    const plansByStudent = new Map<number, typeof existingPlans>();
+    for (const p of existingPlans) {
+      if (!plansByStudent.has(p.studentId)) plansByStudent.set(p.studentId, []);
+      plansByStudent.get(p.studentId)!.push(p);
+    }
 
-    const missingPlans = transitionAgeStudents.filter(s => !studentIdsWithPlans.has(s.id));
+    const missingPlans = transitionAgeStudents.filter(s => !plansByStudent.has(s.id));
+
+    const allPlanIds = existingPlans.map(p => p.id);
+    let goalsByPlan = new Map<number, string[]>();
+    if (allPlanIds.length > 0) {
+      const goalRows = await db.select({
+        transitionPlanId: transitionGoalsTable.transitionPlanId,
+        domain: transitionGoalsTable.domain,
+      }).from(transitionGoalsTable).where(isNull(transitionGoalsTable.deletedAt));
+      for (const g of goalRows) {
+        if (!goalsByPlan.has(g.transitionPlanId)) goalsByPlan.set(g.transitionPlanId, []);
+        goalsByPlan.get(g.transitionPlanId)!.push(g.domain);
+      }
+    }
+
+    const REQUIRED_DOMAINS = ["education", "employment", "independent_living"];
+    const incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[] }[] = [];
+    for (const s of transitionAgeStudents) {
+      const sPlans = plansByStudent.get(s.id);
+      if (!sPlans) continue;
+      const allDomains = new Set<string>();
+      let hasPathway = false;
+      for (const p of sPlans) {
+        const pGoalDomains = goalsByPlan.get(p.id) ?? [];
+        for (const d of pGoalDomains) allDomains.add(d);
+        if (p.graduationPathway) hasPathway = true;
+      }
+      const missing = REQUIRED_DOMAINS.filter(d => !allDomains.has(d));
+      if (missing.length > 0 || !hasPathway) {
+        incompletePlanStudents.push({
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}`,
+          age: s.dateOfBirth ? computeAge(s.dateOfBirth) : null,
+          grade: s.grade,
+          missingDomains: missing,
+        });
+      }
+    }
 
     const pendingReferrals = await db.select({
       id: transitionAgencyReferralsTable.id,
@@ -396,12 +465,14 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
       approachingTransitionAge: approachingStudents.length,
       withPlan: transitionAgeStudents.length - missingPlans.length,
       missingPlan: missingPlans.length,
+      incompletePlans: incompletePlanStudents.length,
       missingPlanStudents: missingPlans.map(s => ({
         id: s.id,
         name: `${s.firstName} ${s.lastName}`,
         age: s.dateOfBirth ? computeAge(s.dateOfBirth) : null,
         grade: s.grade,
       })),
+      incompletePlanStudents,
       approachingStudents: approachingStudents.map(s => ({
         id: s.id,
         name: `${s.firstName} ${s.lastName}`,

@@ -5,7 +5,8 @@ import {
   programTargetsTable, behaviorTargetsTable, programDataTable,
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, sessionLogsTable, programStepsTable,
-  iepDocumentsTable, iepAccommodationsTable, schoolsTable, districtsTable
+  iepDocumentsTable, iepAccommodationsTable, schoolsTable, districtsTable,
+  transitionPlansTable, transitionGoalsTable, transitionAgencyReferralsTable,
 } from "@workspace/db";
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
@@ -803,6 +804,27 @@ router.get("/iep-documents/:id", async (req, res): Promise<void> => {
     const id = parseInt(req.params.id);
     const [doc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     if (!doc) { res.status(404).json({ error: "Not found" }); return; }
+
+    const linkedPlans = await db.select()
+      .from(transitionPlansTable)
+      .where(and(eq(transitionPlansTable.iepDocumentId, id), isNull(transitionPlansTable.deletedAt)));
+
+    let transitionPlanData = null;
+    if (linkedPlans.length > 0) {
+      const plan = linkedPlans[0];
+      const goals = await db.select().from(transitionGoalsTable)
+        .where(and(eq(transitionGoalsTable.transitionPlanId, plan.id), isNull(transitionGoalsTable.deletedAt)));
+      const refs = await db.select().from(transitionAgencyReferralsTable)
+        .where(and(eq(transitionAgencyReferralsTable.transitionPlanId, plan.id), isNull(transitionAgencyReferralsTable.deletedAt)));
+      transitionPlanData = {
+        ...plan,
+        goals: goals.map(g => ({ ...g, createdAt: g.createdAt.toISOString(), updatedAt: g.updatedAt.toISOString() })),
+        agencyReferrals: refs.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })),
+        createdAt: plan.createdAt.toISOString(),
+        updatedAt: plan.updatedAt.toISOString(),
+      };
+    }
+
     logAudit(req, {
       action: "read",
       targetTable: "iep_documents",
@@ -810,7 +832,7 @@ router.get("/iep-documents/:id", async (req, res): Promise<void> => {
       studentId: doc.studentId,
       summary: `Viewed IEP document #${id} for student #${doc.studentId}`,
     });
-    res.json({ ...doc, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
+    res.json({ ...doc, transitionPlan: transitionPlanData, createdAt: doc.createdAt.toISOString(), updatedAt: doc.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to fetch IEP document" });
   }

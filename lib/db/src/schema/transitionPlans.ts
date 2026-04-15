@@ -3,10 +3,12 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
 import { staffTable } from "./staff";
+import { iepDocumentsTable } from "./iepDocuments";
 
 export const transitionPlansTable = pgTable("transition_plans", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
+  iepDocumentId: integer("iep_document_id").references(() => iepDocumentsTable.id),
   planDate: text("plan_date").notNull(),
   ageOfMajorityNotified: boolean("age_of_majority_notified").default(false),
   ageOfMajorityDate: text("age_of_majority_date"),
