@@ -410,7 +410,7 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     const effectiveStatus = (updates.status as string) ?? existing.status;
 
     if (effectiveStatus === "active" &&
-        (updates.serviceTypeId !== undefined || updates.startDate !== undefined || updates.endDate !== undefined)) {
+        (updates.status !== undefined || updates.serviceTypeId !== undefined || updates.startDate !== undefined || updates.endDate !== undefined)) {
       const overlapping = await db.select({ id: agencyContractsTable.id })
         .from(agencyContractsTable)
         .where(and(
