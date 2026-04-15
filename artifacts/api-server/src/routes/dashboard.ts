@@ -4,9 +4,10 @@ import {
   studentsTable, alertsTable, sessionLogsTable,
   scheduleBlocksTable, staffTable, staffAssignmentsTable,
   serviceRequirementsTable, serviceTypesTable,
-  complianceEventsTable, iepDocumentsTable, teamMeetingsTable
+  complianceEventsTable, iepDocumentsTable, teamMeetingsTable,
+  agencyContractsTable, agenciesTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql, asc, desc } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, desc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -126,6 +127,25 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   // trackedStudents = students with at least one active service requirement (correct compliance denominator)
   const trackedStudents = studentRisk.size;
 
+  const renewalConditions = [
+    eq(agencyContractsTable.status, "active"),
+    isNull(agencyContractsTable.deletedAt),
+    isNull(agenciesTable.deletedAt),
+    lte(agencyContractsTable.endDate, sql`CURRENT_DATE + INTERVAL '30 days'`),
+    gte(agencyContractsTable.endDate, sql`CURRENT_DATE`),
+  ];
+  if (sdFilters.districtId) renewalConditions.push(sql`${agenciesTable.districtId} = ${sdFilters.districtId}` as any);
+
+  const renewingContracts = await db.select({
+    id: agencyContractsTable.id,
+    agencyName: agenciesTable.name,
+    endDate: agencyContractsTable.endDate,
+  })
+    .from(agencyContractsTable)
+    .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
+    .where(and(...renewalConditions))
+    .orderBy(asc(agencyContractsTable.endDate));
+
   res.json({
     totalActiveStudents: activeStudentsResult?.count ?? 0,
     trackedStudents,
@@ -139,6 +159,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     scheduleConflictsToday: conflictsCount,
     openAlerts: alertCounts[0]?.total ?? 0,
     criticalAlerts: alertCounts[0]?.critical ?? 0,
+    contractRenewals: renewingContracts,
   });
 });
 

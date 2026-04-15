@@ -417,6 +417,34 @@ export default function Dashboard() {
         </div>
       )}
 
+      {isAdmin && s?.contractRenewals?.length > 0 && (
+        <Card className="border-gray-200/60">
+          <CardHeader className="pb-0 flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-gray-600">Contract Renewals</CardTitle>
+            <Link href="/contract-utilization" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View utilization</Link>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(s.contractRenewals as any[]).map((c: any) => {
+                const daysLeft = Math.ceil((new Date(c.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const isCritical = daysLeft <= 7;
+                return (
+                  <div key={c.id} className={`flex items-start gap-3 p-3 rounded-lg border ${isCritical ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                    <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isCritical ? "text-red-500" : "text-amber-500"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-gray-800 truncate">{c.agencyName}</p>
+                      <p className={`text-[11px] font-semibold mt-0.5 ${isCritical ? "text-red-600" : "text-amber-600"}`}>
+                        {daysLeft <= 0 ? "Expires today" : `Expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {deadlines.length > 0 && (
         <Card className="border-gray-200/60">
           <CardHeader className="pb-0 flex-row items-center justify-between">

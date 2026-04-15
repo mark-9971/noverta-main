@@ -10,17 +10,48 @@ import {
   sessionLogsTable,
 } from "@workspace/db";
 import { eq, and, desc, isNull, sql, gte, lte, inArray } from "drizzle-orm";
+import { districtsTable, schoolsTable } from "@workspace/db";
 import { requireMinRole } from "../middlewares/auth";
 import { logAudit, diffObjects } from "../lib/auditLog";
+import { getPublicMeta } from "../lib/clerkClaims";
 
 const router: IRouter = Router();
 
 const adminOnly = requireMinRole("coordinator");
 
+async function getDistrictIdForUser(req: Request): Promise<number | null> {
+  const meta = getPublicMeta(req);
+
+  if (meta.staffId) {
+    const [staff] = await db.select({ schoolId: staffTable.schoolId })
+      .from(staffTable)
+      .where(eq(staffTable.id, meta.staffId))
+      .limit(1);
+
+    if (staff?.schoolId) {
+      const [school] = await db.select({ districtId: schoolsTable.districtId })
+        .from(schoolsTable)
+        .where(eq(schoolsTable.id, staff.schoolId))
+        .limit(1);
+
+      if (school?.districtId) return school.districtId;
+    }
+  }
+
+  const districts = await db.select({ id: districtsTable.id })
+    .from(districtsTable)
+    .limit(2);
+
+  if (districts.length === 1) return districts[0].id;
+  return null;
+}
+
 router.get("/agencies", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
+    const districtId = await getDistrictIdForUser(req);
     const includeDeleted = req.query.includeDeleted === "true";
     const conditions = includeDeleted ? [] : [isNull(agenciesTable.deletedAt)];
+    if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
 
     const agencies = await db.select()
       .from(agenciesTable)
@@ -36,7 +67,8 @@ router.get("/agencies", adminOnly, async (req: Request, res: Response): Promise<
 
 router.post("/agencies", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, contactName, contactEmail, contactPhone, address, notes, districtId } = req.body;
+    const districtId = await getDistrictIdForUser(req);
+    const { name, contactName, contactEmail, contactPhone, address, notes } = req.body;
 
     if (!name?.trim()) {
       res.status(400).json({ error: "Agency name is required" });
@@ -50,7 +82,7 @@ router.post("/agencies", adminOnly, async (req: Request, res: Response): Promise
       contactPhone: contactPhone || null,
       address: address || null,
       notes: notes || null,
-      districtId: districtId ? Number(districtId) : null,
+      districtId: districtId,
     }).returning();
 
     logAudit(req, {
@@ -68,16 +100,25 @@ router.post("/agencies", adminOnly, async (req: Request, res: Response): Promise
   }
 });
 
+async function assertAgencyAccess(req: Request, agencyId: number): Promise<typeof agenciesTable.$inferSelect | null> {
+  const districtId = await getDistrictIdForUser(req);
+  const conditions = [eq(agenciesTable.id, agencyId)];
+  if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
+
+  const [agency] = await db.select()
+    .from(agenciesTable)
+    .where(and(...conditions))
+    .limit(1);
+
+  return agency || null;
+}
+
 router.get("/agencies/:id", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const [agency] = await db.select()
-      .from(agenciesTable)
-      .where(eq(agenciesTable.id, id))
-      .limit(1);
-
+    const agency = await assertAgencyAccess(req, id);
     if (!agency) { res.status(404).json({ error: "Agency not found" }); return; }
 
     const contracts = await db.select({
@@ -122,7 +163,7 @@ router.patch("/agencies/:id", adminOnly, async (req: Request, res: Response): Pr
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
-    const [existing] = await db.select().from(agenciesTable).where(eq(agenciesTable.id, id)).limit(1);
+    const existing = await assertAgencyAccess(req, id);
     if (!existing) { res.status(404).json({ error: "Agency not found" }); return; }
 
     const updates: Record<string, unknown> = {};
@@ -165,12 +206,13 @@ router.delete("/agencies/:id", adminOnly, async (req: Request, res: Response): P
     const id = Number(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
+    const existing = await assertAgencyAccess(req, id);
+    if (!existing) { res.status(404).json({ error: "Agency not found" }); return; }
+
     const [agency] = await db.update(agenciesTable)
       .set({ deletedAt: new Date() })
       .where(eq(agenciesTable.id, id))
       .returning();
-
-    if (!agency) { res.status(404).json({ error: "Agency not found" }); return; }
 
     logAudit(req, {
       action: "delete",
@@ -195,6 +237,9 @@ router.post("/agencies/:id/staff", adminOnly, async (req: Request, res: Response
       return;
     }
 
+    const agencyAccess = await assertAgencyAccess(req, agencyId);
+    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+
     const [link] = await db.insert(agencyStaffTable)
       .values({ agencyId, staffId })
       .returning();
@@ -218,6 +263,9 @@ router.delete("/agencies/:id/staff/:staffId", adminOnly, async (req: Request, re
     const agencyId = Number(req.params.id);
     const staffId = Number(req.params.staffId);
 
+    const agencyAccess = await assertAgencyAccess(req, agencyId);
+    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+
     const deleted = await db.delete(agencyStaffTable)
       .where(and(eq(agencyStaffTable.agencyId, agencyId), eq(agencyStaffTable.staffId, staffId)));
 
@@ -239,6 +287,9 @@ router.post("/agencies/:id/contracts", adminOnly, async (req: Request, res: Resp
     const agencyId = Number(req.params.id);
     if (isNaN(agencyId)) { res.status(400).json({ error: "Invalid agency ID" }); return; }
 
+    const agencyAccess = await assertAgencyAccess(req, agencyId);
+    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+
     const { serviceTypeId, contractedHours, hourlyRate, startDate, endDate, alertThresholdPct, notes } = req.body;
 
     if (!serviceTypeId || !contractedHours || !startDate || !endDate) {
@@ -255,6 +306,23 @@ router.post("/agencies/:id/contracts", adminOnly, async (req: Request, res: Resp
     const threshold = alertThresholdPct !== undefined ? Number(alertThresholdPct) : 80;
     if (isNaN(threshold) || threshold < 1 || threshold > 100) {
       res.status(400).json({ error: "alertThresholdPct must be between 1 and 100" });
+      return;
+    }
+
+    const overlapping = await db.select({ id: agencyContractsTable.id })
+      .from(agencyContractsTable)
+      .where(and(
+        eq(agencyContractsTable.agencyId, agencyId),
+        eq(agencyContractsTable.serviceTypeId, Number(serviceTypeId)),
+        eq(agencyContractsTable.status, "active"),
+        isNull(agencyContractsTable.deletedAt),
+        lte(agencyContractsTable.startDate, endDate),
+        gte(agencyContractsTable.endDate, startDate),
+      ))
+      .limit(1);
+
+    if (overlapping.length > 0) {
+      res.status(409).json({ error: "An active contract for this agency and service type already overlaps the specified date range" });
       return;
     }
 
@@ -289,6 +357,9 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     const agencyId = Number(req.params.id);
     const contractId = Number(req.params.contractId);
 
+    const agencyAccess = await assertAgencyAccess(req, agencyId);
+    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
+
     const [existing] = await db.select()
       .from(agencyContractsTable)
       .where(and(eq(agencyContractsTable.id, contractId), eq(agencyContractsTable.agencyId, agencyId)))
@@ -309,6 +380,32 @@ router.patch("/agencies/:id/contracts/:contractId", adminOnly, async (req: Reque
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No fields to update" });
       return;
+    }
+
+    const effectiveServiceTypeId = (updates.serviceTypeId as number) ?? existing.serviceTypeId;
+    const effectiveStartDate = (updates.startDate as string) ?? existing.startDate;
+    const effectiveEndDate = (updates.endDate as string) ?? existing.endDate;
+    const effectiveStatus = (updates.status as string) ?? existing.status;
+
+    if (effectiveStatus === "active" &&
+        (updates.serviceTypeId !== undefined || updates.startDate !== undefined || updates.endDate !== undefined)) {
+      const overlapping = await db.select({ id: agencyContractsTable.id })
+        .from(agencyContractsTable)
+        .where(and(
+          eq(agencyContractsTable.agencyId, agencyId),
+          eq(agencyContractsTable.serviceTypeId, effectiveServiceTypeId),
+          eq(agencyContractsTable.status, "active"),
+          isNull(agencyContractsTable.deletedAt),
+          lte(agencyContractsTable.startDate, effectiveEndDate),
+          gte(agencyContractsTable.endDate, effectiveStartDate),
+          sql`${agencyContractsTable.id} != ${contractId}`,
+        ))
+        .limit(1);
+
+      if (overlapping.length > 0) {
+        res.status(409).json({ error: "An active contract for this agency and service type already overlaps the specified date range" });
+        return;
+      }
     }
 
     const [updated] = await db.update(agencyContractsTable)
@@ -339,6 +436,9 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
   try {
     const agencyId = Number(req.params.id);
     const contractId = Number(req.params.contractId);
+
+    const agencyAccess = await assertAgencyAccess(req, agencyId);
+    if (!agencyAccess) { res.status(404).json({ error: "Agency not found" }); return; }
 
     const [contract] = await db.update(agencyContractsTable)
       .set({ deletedAt: new Date() })
@@ -450,7 +550,14 @@ router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Respons
 
 router.get("/contracts/utilization", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
+    const districtId = await getDistrictIdForUser(req);
     await attributeUnlinkedSessions();
+
+    const conditions = [
+      isNull(agencyContractsTable.deletedAt),
+      isNull(agenciesTable.deletedAt),
+    ];
+    if (districtId) conditions.push(eq(agenciesTable.districtId, districtId));
 
     const contracts = await db.select({
       id: agencyContractsTable.id,
@@ -469,10 +576,7 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
       .from(agencyContractsTable)
       .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
       .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, agencyContractsTable.serviceTypeId))
-      .where(and(
-        isNull(agencyContractsTable.deletedAt),
-        isNull(agenciesTable.deletedAt),
-      ))
+      .where(and(...conditions))
       .orderBy(agenciesTable.name);
 
     if (contracts.length === 0) {
@@ -553,6 +657,15 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
 
 router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
+    const districtId = await getDistrictIdForUser(req);
+
+    const alertConditions = [
+      eq(agencyContractsTable.status, "active"),
+      isNull(agencyContractsTable.deletedAt),
+      isNull(agenciesTable.deletedAt),
+    ];
+    if (districtId) alertConditions.push(eq(agenciesTable.districtId, districtId));
+
     const contracts = await db.select({
       id: agencyContractsTable.id,
       agencyId: agencyContractsTable.agencyId,
@@ -568,11 +681,7 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
       .from(agencyContractsTable)
       .innerJoin(agenciesTable, eq(agenciesTable.id, agencyContractsTable.agencyId))
       .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, agencyContractsTable.serviceTypeId))
-      .where(and(
-        eq(agencyContractsTable.status, "active"),
-        isNull(agencyContractsTable.deletedAt),
-        isNull(agenciesTable.deletedAt),
-      ));
+      .where(and(...alertConditions));
 
     await attributeUnlinkedSessions();
 
