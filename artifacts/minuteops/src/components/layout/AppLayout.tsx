@@ -26,6 +26,8 @@ import { useTheme } from "@/lib/theme-context";
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
+const SHOW_COMING_SOON = true;
+
 type NavItem = {
   href: string;
   label: string;
@@ -188,7 +190,7 @@ const spedTeacherNav: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
-      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase, primary: true },
+      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
     ],
   },
   {
@@ -218,7 +220,7 @@ const spedTeacherNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/sessions", label: "My Sessions", icon: Clipboard },
-      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
     ],
   },
@@ -433,7 +435,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const navSections = isPlatformAdmin ? [...config.nav, platformAdminSection] : config.nav;
+  const rawSections = isPlatformAdmin ? [...config.nav, platformAdminSection] : config.nav;
+  const navSections = SHOW_COMING_SOON
+    ? rawSections
+    : rawSections
+        .map(s => ({ ...s, items: s.items.filter(i => !i.comingSoon) }))
+        .filter(s => s.items.length > 0);
   const { collapsed, toggle } = useCollapsedSections(navSections);
   const navItems = navSections.flatMap(s => s.items);
   const primaryItems = navItems.filter(i => i.primary && !i.comingSoon);
