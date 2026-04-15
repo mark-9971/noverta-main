@@ -62,3 +62,6 @@ export * from "./sisConnections";
 export * from "./sisSyncLogs";
 export * from "./studentCheckIns";
 export * from "./studentWins";
+export * from "./agencies";
+export * from "./agencyContracts";
+export * from "./agencyStaff";

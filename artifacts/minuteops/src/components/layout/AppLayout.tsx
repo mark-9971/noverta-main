@@ -73,12 +73,14 @@ const adminNav: NavSection[] = [
       { href: "/resource-management", label: "Resource Management", icon: Scale },
       { href: "/compensatory-services", label: "Comp Services", icon: Gift },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge },
     ],
   },
   {
     label: "Admin Tools",
     items: [
       { href: "/staff", label: "Staff Directory", icon: UserCheck },
+      { href: "/agencies", label: "Agencies", icon: Building2 },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/search", label: "IEP Search", icon: Search },
       { href: "/import", label: "Data Import", icon: Upload },

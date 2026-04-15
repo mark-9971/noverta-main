@@ -42,6 +42,7 @@ import complianceChecklistRouter from "./complianceChecklist";
 import { stateReportingRouter } from "./stateReporting";
 import sisIntegrationRouter from "./sisIntegration";
 import studentPortalRouter from "./studentPortal";
+import agenciesRouter from "./agencies";
 
 const router: IRouter = Router();
 
@@ -91,5 +92,6 @@ router.use(complianceChecklistRouter);
 router.use(stateReportingRouter);
 router.use(sisIntegrationRouter);
 router.use(studentPortalRouter);
+router.use(agenciesRouter);
 
 export default router;

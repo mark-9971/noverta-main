@@ -55,6 +55,9 @@ import EvaluationsPage from "@/pages/evaluations";
 import TransitionsPage from "@/pages/transitions";
 import IepMeetingsPage from "@/pages/iep-meetings";
 import SisSettingsPage from "@/pages/sis-settings";
+import AgenciesPage from "@/pages/agencies";
+import AgencyDetailPage from "@/pages/agency-detail";
+import ContractUtilizationPage from "@/pages/contract-utilization";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -136,6 +139,9 @@ function StaffRouter() {
       <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" />
       <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
       <BoundedRoute path="/sis-settings" component={SisSettingsPage} fallbackTitle="SIS settings error" />
+      <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" />
+      <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
+      <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" />
       <Route component={NotFound} />
     </Switch>
   );
