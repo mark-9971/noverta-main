@@ -58,3 +58,5 @@ export * from "./meetingConsentRecords";
 export * from "./documents";
 export * from "./signatureRequests";
 export * from "./exportHistory";
+export * from "./sisConnections";
+export * from "./sisSyncLogs";

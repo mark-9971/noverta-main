@@ -8,7 +8,7 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -81,6 +81,7 @@ const adminNav: NavSection[] = [
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
       { href: "/search", label: "IEP Search", icon: Search },
       { href: "/import", label: "Data Import", icon: Upload },
+      { href: "/sis-settings", label: "SIS Integration", icon: Database },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
       { href: "/setup", label: "Setup Wizard", icon: Rocket },

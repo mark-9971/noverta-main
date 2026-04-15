@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import {
   db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
-  studentsTable, onboardingProgressTable
+  studentsTable, onboardingProgressTable, sisConnectionsTable,
 } from "@workspace/db";
 import { count, isNull, eq, and } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -145,6 +146,16 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
 
     await markStepComplete(district.id, "sis_connected", credentialMeta);
 
+    const authed = req as AuthedRequest;
+    await db.insert(sisConnectionsTable).values({
+      provider,
+      label: `${districtName} — ${provider}`,
+      credentials: credentials ?? {},
+      schoolId: resultSchools.length === 1 ? resultSchools[0].id : null,
+      status: "connected",
+      createdBy: authed.auth?.userId ?? "unknown",
+    });
+
     res.json({
       district,
       schools: resultSchools,
@@ -260,6 +271,16 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
       studentsImported,
       staffImported,
     }));
+
+    const authed = req as AuthedRequest;
+    await db.insert(sisConnectionsTable).values({
+      provider: "csv",
+      label: `${districtName} — CSV Import`,
+      credentials: {},
+      schoolId: allSchools.length === 1 ? allSchools[0].id : null,
+      status: "connected",
+      createdBy: authed.auth?.userId ?? "unknown",
+    });
 
     res.json({
       district,
