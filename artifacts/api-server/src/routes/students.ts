@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   studentsTable, schoolsTable, programsTable, staffTable,
   serviceRequirementsTable, serviceTypesTable, sessionLogsTable,
-  alertsTable, staffAssignmentsTable
+  alertsTable, staffAssignmentsTable, enrollmentEventsTable
 } from "@workspace/db";
 import {
   ListStudentsQueryParams,
@@ -527,6 +527,191 @@ router.delete("/students/:id", async (req, res): Promise<void> => {
   });
 
   res.json({ success: true });
+});
+
+// ─── Enrollment Events ────────────────────────────────────────────────────────
+
+router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const events = await db
+    .select({
+      id: enrollmentEventsTable.id,
+      studentId: enrollmentEventsTable.studentId,
+      eventType: enrollmentEventsTable.eventType,
+      eventDate: enrollmentEventsTable.eventDate,
+      reason: enrollmentEventsTable.reason,
+      notes: enrollmentEventsTable.notes,
+      performedById: enrollmentEventsTable.performedById,
+      performedByFirst: staffTable.firstName,
+      performedByLast: staffTable.lastName,
+      createdAt: enrollmentEventsTable.createdAt,
+    })
+    .from(enrollmentEventsTable)
+    .leftJoin(staffTable, eq(staffTable.id, enrollmentEventsTable.performedById))
+    .where(eq(enrollmentEventsTable.studentId, params.data.id))
+    .orderBy(desc(enrollmentEventsTable.eventDate));
+
+  logAudit(req, {
+    action: "read",
+    targetTable: "enrollment_events",
+    studentId: params.data.id,
+    summary: `Viewed enrollment history for student #${params.data.id}`,
+  });
+
+  res.json(events.map(e => ({ ...e, createdAt: e.createdAt.toISOString() })));
+});
+
+router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const meta = (req as any).user ?? {};
+  const role = meta.role ?? "";
+  if (!["admin", "case_manager", "coordinator"].includes(role)) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const { eventType, eventDate, reason, notes, performedById } = req.body;
+  if (!eventType || !eventDate) { res.status(400).json({ error: "eventType and eventDate are required" }); return; }
+
+  const [event] = await db.insert(enrollmentEventsTable).values({
+    studentId: params.data.id,
+    eventType,
+    eventDate,
+    reason: reason ?? null,
+    notes: notes ?? null,
+    performedById: performedById ? Number(performedById) : null,
+  }).returning();
+
+  logAudit(req, {
+    action: "create",
+    targetTable: "enrollment_events",
+    targetId: event.id,
+    studentId: params.data.id,
+    summary: `Logged enrollment event '${eventType}' for student #${params.data.id}`,
+    newValues: { eventType, eventDate, reason, notes } as Record<string, unknown>,
+  });
+
+  res.status(201).json({ ...event, createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString() });
+});
+
+router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
+  const studentId = Number(req.params.id);
+  const eventId = Number(req.params.eventId);
+  if (!studentId || !eventId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const meta = (req as any).user ?? {};
+  const role = meta.role ?? "";
+  if (!["admin", "case_manager", "coordinator"].includes(role)) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const { eventType, eventDate, reason, notes } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (eventType !== undefined) updates.eventType = eventType;
+  if (eventDate !== undefined) updates.eventDate = eventDate;
+  if (reason !== undefined) updates.reason = reason;
+  if (notes !== undefined) updates.notes = notes;
+
+  const [updated] = await db
+    .update(enrollmentEventsTable)
+    .set(updates as any)
+    .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)))
+    .returning();
+
+  if (!updated) { res.status(404).json({ error: "Event not found" }); return; }
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "enrollment_events",
+    targetId: eventId,
+    studentId,
+    summary: `Updated enrollment event #${eventId} for student #${studentId}`,
+  });
+
+  res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+});
+
+router.post("/students/:id/archive", async (req, res): Promise<void> => {
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const meta = (req as any).user ?? {};
+  const role = meta.role ?? "";
+  if (!["admin"].includes(role)) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { reason, notes } = req.body;
+
+  const [updated] = await db
+    .update(studentsTable)
+    .set({ status: "inactive", withdrawnAt: today })
+    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
+    .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+
+  if (!updated) { res.status(404).json({ error: "Student not found" }); return; }
+
+  const [event] = await db.insert(enrollmentEventsTable).values({
+    studentId: params.data.id,
+    eventType: "withdrawn",
+    eventDate: today,
+    reason: reason ?? null,
+    notes: notes ?? null,
+    performedById: null,
+  }).returning();
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "students",
+    targetId: params.data.id,
+    studentId: params.data.id,
+    summary: `Archived student ${updated.firstName} ${updated.lastName} (status → inactive)`,
+    newValues: { status: "inactive", withdrawnAt: today, reason } as Record<string, unknown>,
+  });
+
+  res.json({ success: true, eventId: event.id });
+});
+
+router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const meta = (req as any).user ?? {};
+  const role = meta.role ?? "";
+  if (!["admin"].includes(role)) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { notes } = req.body;
+
+  const [updated] = await db
+    .update(studentsTable)
+    .set({ status: "active", enrolledAt: today, withdrawnAt: null })
+    .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)))
+    .returning({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName });
+
+  if (!updated) { res.status(404).json({ error: "Student not found" }); return; }
+
+  const [event] = await db.insert(enrollmentEventsTable).values({
+    studentId: params.data.id,
+    eventType: "re-enrolled",
+    eventDate: today,
+    reason: null,
+    notes: notes ?? null,
+    performedById: null,
+  }).returning();
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "students",
+    targetId: params.data.id,
+    studentId: params.data.id,
+    summary: `Reactivated student ${updated.firstName} ${updated.lastName} (status → active)`,
+    newValues: { status: "active", enrolledAt: today } as Record<string, unknown>,
+  });
+
+  res.json({ success: true, eventId: event.id });
 });
 
 export default router;

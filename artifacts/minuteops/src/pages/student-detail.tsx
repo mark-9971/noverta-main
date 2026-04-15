@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout, Archive, ArchiveRestore, History } from "lucide-react";
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
@@ -83,6 +83,14 @@ export default function StudentDetail() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignForm, setAssignForm] = useState({ staffId: "", assignmentType: "service_provider", startDate: "", endDate: "", notes: "" });
 
+  const [enrollmentHistory, setEnrollmentHistory] = useState<any[]>([]);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveSaving, setArchiveSaving] = useState(false);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [reactivateSaving, setReactivateSaving] = useState(false);
+
   useEffect(() => {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
     listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
@@ -96,8 +104,43 @@ export default function StudentDetail() {
       authFetch(`/api/transitions/student/${studentId}`)
         .then((d: unknown) => setTransitionData(d as typeof transitionData))
         .catch(() => {});
+      setEnrollmentLoading(true);
+      authFetch(`/api/students/${studentId}/enrollment`)
+        .then((r: any) => r.json())
+        .then((d: any) => setEnrollmentHistory(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setEnrollmentLoading(false));
     }
   }, [studentId]);
+
+  async function handleArchive() {
+    setArchiveSaving(true);
+    try {
+      const r = await authFetch(`/api/students/${studentId}/archive`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: archiveReason || null }) });
+      if (!r.ok) throw new Error();
+      toast.success("Student archived");
+      setArchiveDialogOpen(false);
+      setArchiveReason("");
+      refetchStudent();
+      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
+      setEnrollmentHistory(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to archive student"); }
+    setArchiveSaving(false);
+  }
+
+  async function handleReactivate() {
+    setReactivateSaving(true);
+    try {
+      const r = await authFetch(`/api/students/${studentId}/reactivate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      if (!r.ok) throw new Error();
+      toast.success("Student reactivated");
+      setReactivateDialogOpen(false);
+      refetchStudent();
+      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((r: any) => r.json());
+      setEnrollmentHistory(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to reactivate student"); }
+    setReactivateSaving(false);
+  }
 
   function openAddSvc() {
     setEditingSvc(null);
@@ -430,7 +473,12 @@ export default function StudentDetail() {
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              {s.status === "inactive" && (
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  <Archive className="w-3 h-3" /> Inactive
+                </span>
+              )}
               <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
                 {riskCfg.label}
               </span>
@@ -443,6 +491,23 @@ export default function StudentDetail() {
               >
                 <Share2 className="w-3.5 h-3.5" /> Share Progress
               </button>
+              {role === "admin" && (
+                s.status === "inactive" ? (
+                  <button
+                    onClick={() => setReactivateDialogOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                  >
+                    <ArchiveRestore className="w-3.5 h-3.5" /> Reactivate
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setArchiveDialogOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    <Archive className="w-3.5 h-3.5" /> Archive
+                  </button>
+                )
+              )}
             </div>
           </div>
         ) : (
@@ -1318,6 +1383,112 @@ export default function StudentDetail() {
       <StudentDocuments studentId={studentId} />
 
       <StudentGuardians studentId={studentId} isEditable={isEditable} />
+
+      {/* Enrollment History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-emerald-600" />
+            <CardTitle className="text-sm font-semibold text-gray-600">Enrollment History</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {enrollmentLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : enrollmentHistory.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No enrollment events recorded.</p>
+          ) : (
+            <div className="relative pl-5">
+              <div className="absolute left-2 top-0 bottom-0 w-px bg-gray-100" />
+              <div className="space-y-4">
+                {enrollmentHistory.map((ev: any, idx: number) => {
+                  const typeConfig: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+                    enrolled: { label: "Enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-500" },
+                    "re-enrolled": { label: "Re-enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
+                    withdrawn: { label: "Withdrawn", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-500" },
+                    transferred: { label: "Transferred", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-500" },
+                    graduated: { label: "Graduated", color: "text-purple-700", bg: "bg-purple-50", dot: "bg-purple-500" },
+                    suspended: { label: "Suspended", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-500" },
+                    note: { label: "Note", color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" },
+                  };
+                  const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType, color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
+                  return (
+                    <div key={ev.id ?? idx} className="relative flex items-start gap-3">
+                      <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0`} />
+                      <div className={`flex-1 rounded-lg p-3 ${cfg.bg}`}>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                          <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
+                        </div>
+                        {ev.reason && <p className="text-[12px] text-gray-600 mt-0.5">Reason: {ev.reason}</p>}
+                        {ev.notes && <p className="text-[11px] text-gray-500 mt-0.5">{ev.notes}</p>}
+                        {(ev.performedByFirst || ev.performedByLast) && (
+                          <p className="text-[11px] text-gray-400 mt-0.5">By: {ev.performedByFirst} {ev.performedByLast}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Archive Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={v => { if (!v) { setArchiveDialogOpen(false); setArchiveReason(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-600" /> Archive Student
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-[13px] text-gray-500">
+              Archiving marks this student as inactive. They will no longer appear in the default student list, but their records are preserved.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Reason (optional)</Label>
+              <Input
+                value={archiveReason}
+                onChange={e => setArchiveReason(e.target.value)}
+                placeholder="e.g. Moved districts, graduated early…"
+                className="h-9 text-[13px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setArchiveDialogOpen(false); setArchiveReason(""); }} disabled={archiveSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleArchive} disabled={archiveSaving} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {archiveSaving ? "Archiving…" : "Archive Student"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reactivate Dialog */}
+      <Dialog open={reactivateDialogOpen} onOpenChange={v => { if (!v) setReactivateDialogOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
+              <ArchiveRestore className="w-4 h-4 text-emerald-600" /> Reactivate Student
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-1">
+            <p className="text-[13px] text-gray-500">
+              This will mark the student as active and log a re-enrollment event. Their previous records and service history will be restored to the active view.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setReactivateDialogOpen(false)} disabled={reactivateSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleReactivate} disabled={reactivateSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              {reactivateSaving ? "Reactivating…" : "Reactivate Student"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={svcDialogOpen} onOpenChange={v => { if (!v) setSvcDialogOpen(false); }}>
         <DialogContent className="max-w-lg">

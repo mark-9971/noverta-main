@@ -72,3 +72,4 @@ export * from "./moduleTiers";
 export * from "./demoRequests";
 export * from "./guardians";
 export * from "./emergencyContacts";
+export * from "./enrollmentEvents";

@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive } from "lucide-react";
 import { Link } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
@@ -18,18 +18,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 
 type TypeFilter = "all" | "sped" | "gen_ed";
+type StatusFilter = "active" | "inactive" | "all";
 
 export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" });
 
   const { filterParams } = useSchoolContext();
   const { role } = useRole();
-  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500 } as any);
+  const statusParam = statusFilter !== "all" ? statusFilter : undefined;
+  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500, ...(statusParam ? { status: statusParam } : {}) } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
   const { data: schoolsData } = useListSchools();
@@ -169,6 +172,26 @@ export default function Students() {
           </button>
         ))}
         <div className="w-px bg-gray-200 mx-1 self-stretch" />
+        {([
+          { key: "active" as StatusFilter, label: "Active" },
+          { key: "inactive" as StatusFilter, label: "Inactive", icon: Archive },
+          { key: "all" as StatusFilter, label: "All Statuses" },
+        ]).map(s => (
+          <button
+            key={s.key}
+            aria-pressed={statusFilter === s.key}
+            onClick={() => setStatusFilter(s.key)}
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all flex items-center gap-1.5 ${
+              statusFilter === s.key
+                ? s.key === "inactive" ? "bg-amber-600 text-white" : "bg-gray-700 text-white"
+                : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            {s.key === "inactive" && <Archive className="w-3 h-3" />}
+            {s.label}
+          </button>
+        ))}
+        <div className="w-px bg-gray-200 mx-1 self-stretch" />
         {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
           const cfg = RISK_CONFIG[r];
           return (
@@ -213,13 +236,18 @@ export default function Students() {
                     {s.firstName?.[0]}{s.lastName?.[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[14px] font-semibold text-gray-800">{s.firstName} {s.lastName}</p>
                       <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${
                         isSped ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-500 border-gray-200"
                       }`}>
                         {isSped ? "SPED" : "Gen Ed"}
                       </Badge>
+                      {s.status === "inactive" && (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-50 text-amber-700 border-amber-200">
+                          Inactive
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-[12px] text-gray-400">
                       Grade {s.grade}{s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
