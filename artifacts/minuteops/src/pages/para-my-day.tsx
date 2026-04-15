@@ -267,12 +267,16 @@ export default function ParaMyDayPage() {
   const resolveAlert = async (alertId: number) => {
     setDismissingAlerts(prev => new Set([...prev, alertId]));
     try {
-      await authFetch(`/api/alerts/${alertId}/resolve`, {
+      const res = await authFetch(`/api/alerts/${alertId}/resolve`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resolvedNote: "Acknowledged from My Day" }),
       });
-      setAlerts(prev => prev.filter(a => a.id !== alertId));
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
+      } else {
+        toast.error("Failed to acknowledge alert");
+      }
     } catch {
       toast.error("Failed to acknowledge alert");
     }
