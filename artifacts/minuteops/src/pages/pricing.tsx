@@ -562,6 +562,21 @@ export default function PricingPage() {
           </p>
         </div>
       </footer>
+
+      <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-gray-200 p-3 z-50">
+        <Button
+          className="w-full bg-emerald-600 hover:bg-emerald-700"
+          onClick={() => {
+            setShowDemoForm(true);
+            setSubmitted(false);
+            document.getElementById("demo-form-section")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        >
+          Request a Demo
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+      <div className="h-16 md:hidden" />
     </div>
   );
 }
