@@ -79,7 +79,7 @@ interface DashboardData {
   missingPlan: number;
   incompletePlans: number;
   missingPlanStudents: { id: number; name: string; age: number | null; grade: string | null }[];
-  incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[] }[];
+  incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[]; missingGraduationPathway: boolean }[];
   approachingStudents: { id: number; name: string; age: number | null; grade: string | null }[];
   pendingAgencyReferrals: number;
   overdueFollowups: number;
@@ -706,6 +706,7 @@ function DashboardTab({ dashboard, onCreatePlan }: { dashboard: DashboardData | 
                     <p className="text-[11px] text-gray-500">
                       Age {s.age ?? "?"} · Grade {s.grade ?? "?"}
                       {s.missingDomains.length > 0 && ` · Missing: ${s.missingDomains.map(d => d.replace(/_/g, " ")).join(", ")}`}
+                      {s.missingGraduationPathway && ` · No graduation pathway`}
                     </p>
                   </div>
                 </div>

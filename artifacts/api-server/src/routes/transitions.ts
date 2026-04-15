@@ -141,7 +141,19 @@ router.post("/transitions/plans", transitionAccess, async (req, res): Promise<vo
     }
 
     let iepDocumentId = body.iepDocumentId ?? null;
-    if (!iepDocumentId) {
+    if (iepDocumentId) {
+      const [iepDoc] = await db.select({ id: iepDocumentsTable.id, studentId: iepDocumentsTable.studentId })
+        .from(iepDocumentsTable)
+        .where(eq(iepDocumentsTable.id, iepDocumentId));
+      if (!iepDoc) {
+        res.status(400).json({ error: "IEP document not found" });
+        return;
+      }
+      if (iepDoc.studentId !== body.studentId) {
+        res.status(400).json({ error: "IEP document does not belong to this student" });
+        return;
+      }
+    } else {
       const [activeIep] = await db.select({ id: iepDocumentsTable.id })
         .from(iepDocumentsTable)
         .where(and(eq(iepDocumentsTable.studentId, body.studentId), eq(iepDocumentsTable.active, true)))
@@ -216,6 +228,13 @@ router.post("/transitions/goals", transitionAccess, async (req, res): Promise<vo
       res.status(400).json({ error: `domain must be one of: ${validDomains.join(", ")}` });
       return;
     }
+    const [parentPlan] = await db.select({ id: transitionPlansTable.id })
+      .from(transitionPlansTable)
+      .where(and(eq(transitionPlansTable.id, body.transitionPlanId), isNull(transitionPlansTable.deletedAt)));
+    if (!parentPlan) {
+      res.status(404).json({ error: "Transition plan not found or has been deleted" });
+      return;
+    }
     const [row] = await db.insert(transitionGoalsTable).values({
       transitionPlanId: body.transitionPlanId,
       domain: body.domain,
@@ -269,6 +288,13 @@ router.post("/transitions/agency-referrals", transitionAccess, async (req, res):
     const body = req.body;
     if (!body.transitionPlanId || !body.agencyName || !body.referralDate) {
       res.status(400).json({ error: "transitionPlanId, agencyName, and referralDate are required" });
+      return;
+    }
+    const [parentPlan] = await db.select({ id: transitionPlansTable.id })
+      .from(transitionPlansTable)
+      .where(and(eq(transitionPlansTable.id, body.transitionPlanId), isNull(transitionPlansTable.deletedAt)));
+    if (!parentPlan) {
+      res.status(404).json({ error: "Transition plan not found or has been deleted" });
       return;
     }
     const [row] = await db.insert(transitionAgencyReferralsTable).values({
@@ -421,7 +447,7 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
     }
 
     const REQUIRED_DOMAINS = ["education", "employment", "independent_living"];
-    const incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[] }[] = [];
+    const incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[]; missingGraduationPathway: boolean }[] = [];
     for (const s of transitionAgeStudents) {
       const sPlans = plansByStudent.get(s.id);
       if (!sPlans) continue;
@@ -440,6 +466,7 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
           age: s.dateOfBirth ? computeAge(s.dateOfBirth) : null,
           grade: s.grade,
           missingDomains: missing,
+          missingGraduationPathway: !hasPathway,
         });
       }
     }
