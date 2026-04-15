@@ -99,6 +99,7 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
       staffRole: staffTable.role,
       startTime: scheduleBlocksTable.startTime,
       endTime: scheduleBlocksTable.endTime,
+      recurrenceType: scheduleBlocksTable.recurrenceType,
     })
     .from(scheduleBlocksTable)
     .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
@@ -119,7 +120,10 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
     const entry = staffMap.get(row.staffId)!;
     const [sh, sm] = row.startTime.split(":").map(Number);
     const [eh, em] = row.endTime.split(":").map(Number);
-    const blockMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    const rawMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    // Biweekly blocks contribute half their minutes per average week
+    const weeklyMultiplier = row.recurrenceType === "biweekly" ? 0.5 : 1;
+    const blockMinutes = rawMinutes * weeklyMultiplier;
     if (blockMinutes > 0) entry.totalMinutes += blockMinutes;
     entry.blockCount++;
   }
@@ -283,6 +287,7 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
       endTime: scheduleBlocksTable.endTime,
       effectiveFrom: scheduleBlocksTable.effectiveFrom,
       effectiveTo: scheduleBlocksTable.effectiveTo,
+      recurrenceType: scheduleBlocksTable.recurrenceType,
     })
     .from(scheduleBlocksTable)
     .where(and(...blockConditions));
@@ -301,7 +306,14 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
     // Respect effectiveFrom/effectiveTo range on the block
     if (b.effectiveFrom && absenceDateStr < b.effectiveFrom) return false;
     if (b.effectiveTo && absenceDateStr > b.effectiveTo) return false;
-    // Overlap: block.start < absenceEnd && absenceStart < block.end
+    // Biweekly parity: use effectiveFrom as anchor week to determine on/off weeks
+    if (b.recurrenceType === "biweekly" && b.effectiveFrom) {
+      const anchor = new Date(b.effectiveFrom + "T12:00:00");
+      const target = new Date(absenceDateStr + "T12:00:00");
+      const weeksDiff = Math.round((target.getTime() - anchor.getTime()) / (7 * 24 * 3600 * 1000));
+      if (weeksDiff % 2 !== 0) return false; // off week — skip
+    }
+    // Time-window overlap: block.start < absenceEnd && absenceStart < block.end
     if (!absenceStart || !absenceEnd) return true;
     return timeToMinutes(b.startTime) < timeToMinutes(absenceEnd) &&
            timeToMinutes(absenceStart) < timeToMinutes(b.endTime);
