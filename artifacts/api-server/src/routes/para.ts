@@ -147,6 +147,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         .select({
           studentId: sessionLogsTable.studentId,
           serviceTypeId: sessionLogsTable.serviceTypeId,
+          startTime: sessionLogsTable.startTime,
         })
         .from(sessionLogsTable)
         .where(and(
@@ -156,13 +157,30 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         )),
     ]);
 
+    const exactMatchedSessionIndices = new Set<number>();
+    const exactLoggedKeys = new Set<string>();
+    for (let i = 0; i < todaySessions.length; i++) {
+      const s = todaySessions[i];
+      if (s.startTime) {
+        exactLoggedKeys.add(`${s.studentId ?? ""}:${s.serviceTypeId ?? ""}:${s.startTime}`);
+        exactMatchedSessionIndices.add(i);
+      }
+    }
+
     const loggedCounts = new Map<string, number>();
-    for (const s of todaySessions) {
+    for (let i = 0; i < todaySessions.length; i++) {
+      if (exactMatchedSessionIndices.has(i)) continue;
+      const s = todaySessions[i];
       const key = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`;
       loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
     }
 
     const isBlockLogged = (b: typeof blocks[number]): boolean => {
+      const timeKey = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}:${b.startTime}`;
+      if (exactLoggedKeys.has(timeKey)) {
+        exactLoggedKeys.delete(timeKey);
+        return true;
+      }
       const key = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
       const count = loggedCounts.get(key) ?? 0;
       if (count > 0) {

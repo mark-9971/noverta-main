@@ -712,8 +712,9 @@ function ReasonStep({ dbReasons, makeupNeeded, onToggleMakeup, onSelect, initial
       </button>
 
       <button
+        disabled={localSelectedId === null}
         onClick={() => onSelect(localSelectedId && localSelectedId > 0 ? localSelectedId : null, localSelectedLabel ?? undefined)}
-        className="mt-5 w-full h-14 rounded-xl bg-emerald-600 text-white text-[16px] font-semibold active:bg-emerald-700 transition-colors"
+        className="mt-5 w-full h-14 rounded-xl bg-emerald-600 text-white text-[16px] font-semibold active:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Continue
       </button>
