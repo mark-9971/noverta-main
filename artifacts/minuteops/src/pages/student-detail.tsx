@@ -1516,7 +1516,17 @@ export default function StudentDetail() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px] font-medium text-gray-600">Reason Code <span className="text-gray-400 font-normal">(optional)</span></Label>
-              <Input value={addEventForm.reasonCode} onChange={e => setAddEventForm(f => ({ ...f, reasonCode: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. FAMILY_MOVE, DISTRICT_TRANSFER" />
+              <Select value={addEventForm.reasonCode} onValueChange={v => setAddEventForm(f => ({ ...f, reasonCode: v === "__none__" ? "" : v }))}>
+                <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue placeholder="Select reason…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-[13px] text-gray-400">None</SelectItem>
+                  <SelectItem value="graduation" className="text-[13px]">Graduation</SelectItem>
+                  <SelectItem value="transfer" className="text-[13px]">Transfer</SelectItem>
+                  <SelectItem value="family_move" className="text-[13px]">Family Move</SelectItem>
+                  <SelectItem value="program_completion" className="text-[13px]">Program Completion</SelectItem>
+                  <SelectItem value="other" className="text-[13px]">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px] font-medium text-gray-600">Reason <span className="text-gray-400 font-normal">(optional)</span></Label>

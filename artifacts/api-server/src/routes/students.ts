@@ -19,6 +19,7 @@ import {
 import { eq, and, ilike, or, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { logAudit, diffObjects } from "../lib/auditLog";
+import { getPublicMeta } from "../lib/clerkClaims";
 
 const router: IRouter = Router();
 
@@ -539,8 +540,8 @@ router.delete("/students/:id", async (req, res): Promise<void> => {
 const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
 
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const meta = (req as any).user ?? {};
-  if (!meta.role) { res.status(401).json({ error: "Authentication required" }); return; }
+  const { role: authRole } = getPublicMeta(req);
+  if (!authRole) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -580,9 +581,8 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const meta = (req as any).user ?? {};
-  const role = (meta.role ?? "") as string;
-  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role)) {
+  const { role } = getPublicMeta(req);
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
@@ -598,6 +598,11 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
   ]);
   if (!VALID_EVENT_TYPES.has(eventType)) {
     res.status(400).json({ error: `Invalid eventType '${eventType}'. Must be one of: ${[...VALID_EVENT_TYPES].join(", ")}` }); return;
+  }
+
+  const VALID_REASON_CODES = new Set(["graduation", "transfer", "family_move", "program_completion", "other"]);
+  if (reasonCode !== undefined && reasonCode !== null && reasonCode !== "" && !VALID_REASON_CODES.has(reasonCode)) {
+    res.status(400).json({ error: `Invalid reasonCode '${reasonCode}'. Must be one of: ${[...VALID_REASON_CODES].join(", ")}` }); return;
   }
 
   const LIFECYCLE_STATUS: Record<string, string> = {
@@ -656,9 +661,8 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
-  const meta = (req as any).user ?? {};
-  const role = (meta.role ?? "") as string;
-  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role)) {
+  const { role: patchRole } = getPublicMeta(req);
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(patchRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
@@ -674,6 +678,11 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
   ]);
   if (eventType !== undefined && !VALID_EVENT_TYPES_PATCH.has(eventType)) {
     res.status(400).json({ error: `Invalid eventType '${eventType}'.` }); return;
+  }
+
+  const VALID_REASON_CODES_PATCH = new Set(["graduation", "transfer", "family_move", "program_completion", "other"]);
+  if (reasonCode !== undefined && reasonCode !== null && reasonCode !== "" && !VALID_REASON_CODES_PATCH.has(reasonCode)) {
+    res.status(400).json({ error: `Invalid reasonCode '${reasonCode}'.` }); return;
   }
 
   type EventPatch = Partial<Pick<typeof enrollmentEventsTable.$inferInsert, "eventType" | "eventDate" | "reasonCode" | "reason" | "notes">>;
@@ -710,9 +719,8 @@ router.post("/students/:id/archive", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const meta = (req as any).user ?? {};
-  const role = meta.role ?? "";
-  if (!["admin"].includes(role)) { res.status(403).json({ error: "Forbidden" }); return; }
+  const { role: archiveRole } = getPublicMeta(req);
+  if (archiveRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);
   const { reason, notes } = req.body;
@@ -753,9 +761,8 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const meta = (req as any).user ?? {};
-  const role = meta.role ?? "";
-  if (!["admin"].includes(role)) { res.status(403).json({ error: "Forbidden" }); return; }
+  const { role: reactivateRole } = getPublicMeta(req);
+  if (reactivateRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);
   const { notes } = req.body;

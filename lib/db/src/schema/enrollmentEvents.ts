@@ -6,6 +6,16 @@ import { staffTable } from "./staff";
 import { schoolsTable } from "./schools";
 import { programsTable } from "./programs";
 
+export const ENROLLMENT_REASON_CODES = [
+  "graduation",
+  "transfer",
+  "family_move",
+  "program_completion",
+  "other",
+] as const;
+
+export type EnrollmentReasonCode = typeof ENROLLMENT_REASON_CODES[number];
+
 export const ENROLLMENT_EVENT_TYPES = [
   "enrolled",
   "reactivated",
