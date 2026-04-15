@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
-  staffAssignmentsTable, serviceRequirementsTable, staffAbsencesTable
+  staffAssignmentsTable, serviceRequirementsTable, staffAbsencesTable,
+  coverageInstancesTable
 } from "@workspace/db";
 import {
   ListScheduleBlocksQueryParams,
@@ -21,11 +22,14 @@ import {
   ListUncoveredSessionsQueryParams,
   WorkloadSummaryQueryParams,
 } from "@workspace/api-zod";
-import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
+import { requireRoles } from "../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getActiveSchoolYearId, getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
 import type { Request } from "express";
+
+const requireAdmin = requireRoles("admin", "coordinator");
 
 async function resolveActiveYearId(req: Request, districtIdHint?: number | null): Promise<number | null> {
   const did = districtIdHint ?? getPublicMeta(req).districtId;
@@ -156,6 +160,9 @@ router.patch("/schedule-blocks/:id", async (req, res): Promise<void> => {
   if (parsed.data.location !== undefined) updateData.location = parsed.data.location;
   if (parsed.data.blockLabel !== undefined) updateData.blockLabel = parsed.data.blockLabel;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
+  if (parsed.data.recurrenceType != null) updateData.recurrenceType = parsed.data.recurrenceType;
+  if (parsed.data.effectiveFrom !== undefined) updateData.effectiveFrom = parsed.data.effectiveFrom ?? null;
+  if (parsed.data.effectiveTo !== undefined) updateData.effectiveTo = parsed.data.effectiveTo ?? null;
 
   const [block] = await db.update(scheduleBlocksTable).set(updateData).where(eq(scheduleBlocksTable.id, params.data.id)).returning();
   if (!block) {
@@ -504,12 +511,12 @@ router.delete("/staff-assignments/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-// Uncovered sessions — blocks where isUncovered=true with absence/staff context
-router.get("/schedule-blocks/uncovered", async (req, res): Promise<void> => {
+// Uncovered sessions — instances from coverage_instances where is_covered = false
+router.get("/schedule-blocks/uncovered", requireAdmin, async (req, res): Promise<void> => {
   const params = ListUncoveredSessionsQueryParams.safeParse(req.query);
   const { pool } = await import("@workspace/db");
 
-  const whereClauses = ["sb.is_uncovered = true", "sb.deleted_at IS NULL"];
+  const whereClauses = ["ci.is_covered = false", "sb.deleted_at IS NULL"];
   const queryParams: any[] = [];
 
   if (params.success && params.data.schoolId) {
@@ -518,45 +525,48 @@ router.get("/schedule-blocks/uncovered", async (req, res): Promise<void> => {
   }
   if (params.success && params.data.startDate) {
     queryParams.push(params.data.startDate);
-    whereClauses.push(`(sa.absence_date IS NULL OR sa.absence_date >= $${queryParams.length})`);
+    whereClauses.push(`ci.absence_date >= $${queryParams.length}`);
   }
   if (params.success && params.data.endDate) {
     queryParams.push(params.data.endDate);
-    whereClauses.push(`(sa.absence_date IS NULL OR sa.absence_date <= $${queryParams.length})`);
+    whereClauses.push(`ci.absence_date <= $${queryParams.length}`);
   }
 
   const q = `
     SELECT
-      sb.id,
-      sa.absence_date AS absence_date,
+      ci.id AS instance_id,
+      ci.schedule_block_id,
+      ci.absence_date,
+      ci.absence_id,
+      ci.substitute_staff_id,
+      ci.is_covered,
+      sub.first_name AS sub_staff_first,
+      sub.last_name AS sub_staff_last,
       sb.day_of_week,
       sb.start_time,
       sb.end_time,
       sb.student_id,
+      sb.location,
       stu.first_name AS student_first,
       stu.last_name AS student_last,
       st.name AS service_type_name,
-      sb.original_staff_id,
+      ci.original_staff_id,
       orig.first_name AS original_staff_first,
-      orig.last_name AS original_staff_last,
-      sb.substitute_staff_id,
-      sub.first_name AS sub_staff_first,
-      sub.last_name AS sub_staff_last,
-      sb.absence_id,
-      sb.location
-    FROM schedule_blocks sb
+      orig.last_name AS original_staff_last
+    FROM coverage_instances ci
+    JOIN schedule_blocks sb ON sb.id = ci.schedule_block_id
     LEFT JOIN students stu ON stu.id = sb.student_id
     LEFT JOIN service_types st ON st.id = sb.service_type_id
-    LEFT JOIN staff orig ON orig.id = sb.original_staff_id
-    LEFT JOIN staff sub ON sub.id = sb.substitute_staff_id
-    LEFT JOIN staff_absences sa ON sa.id = sb.absence_id
+    LEFT JOIN staff orig ON orig.id = ci.original_staff_id
+    LEFT JOIN staff sub ON sub.id = ci.substitute_staff_id
     WHERE ${whereClauses.join(" AND ")}
-    ORDER BY sa.absence_date ASC NULLS LAST, sb.start_time ASC
+    ORDER BY ci.absence_date ASC, sb.start_time ASC
   `;
 
   const result = await pool.query(q, queryParams);
   res.json(result.rows.map((b: any) => ({
-    id: b.id,
+    instanceId: b.instance_id,
+    id: b.schedule_block_id,
     absenceDate: b.absence_date ?? null,
     dayOfWeek: b.day_of_week,
     startTime: b.start_time,
@@ -569,12 +579,16 @@ router.get("/schedule-blocks/uncovered", async (req, res): Promise<void> => {
     substituteStaffId: b.substitute_staff_id ?? null,
     substituteStaffName: b.sub_staff_first ? `${b.sub_staff_first} ${b.sub_staff_last}` : null,
     absenceId: b.absence_id ?? null,
+    isCovered: b.is_covered,
     location: b.location ?? null,
   })));
 });
 
-// Assign substitute to a schedule block
-router.post("/schedule-blocks/:id/assign-substitute", async (req, res): Promise<void> => {
+/**
+ * Assign substitute to a coverage instance (not the schedule template).
+ * Requires absenceDate in the request body to identify the correct instance.
+ */
+router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, res): Promise<void> => {
   const params = AssignSubstituteParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = AssignSubstituteBody.safeParse(req.body);
@@ -584,21 +598,27 @@ router.post("/schedule-blocks/:id/assign-substitute", async (req, res): Promise<
     .from(staffTable).where(eq(staffTable.id, parsed.data.substituteStaffId));
   if (!sub) { res.status(404).json({ error: "Substitute staff not found" }); return; }
 
-  const [block] = await db
-    .update(scheduleBlocksTable)
-    .set({
-      substituteStaffId: parsed.data.substituteStaffId,
-      isUncovered: false,
-    })
-    .where(eq(scheduleBlocksTable.id, params.data.id))
+  // Locate the coverage instance for this block + date
+  const conditions: any[] = [eq(coverageInstancesTable.scheduleBlockId, params.data.id)];
+  if (parsed.data.absenceDate) {
+    conditions.push(eq(coverageInstancesTable.absenceDate, parsed.data.absenceDate));
+  }
+
+  const [instance] = await db
+    .update(coverageInstancesTable)
+    .set({ substituteStaffId: parsed.data.substituteStaffId, isCovered: true })
+    .where(and(...conditions))
     .returning();
-  if (!block) { res.status(404).json({ error: "Schedule block not found" }); return; }
+
+  if (!instance) { res.status(404).json({ error: "Coverage instance not found for this block and date" }); return; }
 
   res.json({
-    id: block.id,
+    instanceId: instance.id,
+    scheduleBlockId: instance.scheduleBlockId,
+    absenceDate: instance.absenceDate,
     substituteStaffId: sub.id,
     substituteStaffName: `${sub.firstName} ${sub.lastName}`,
-    isUncovered: false,
+    isCovered: true,
     message: `${sub.firstName} ${sub.lastName} assigned as substitute`,
   });
 });

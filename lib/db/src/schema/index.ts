@@ -9,6 +9,7 @@ export * from "./missedReasons";
 export * from "./sessionLogs";
 export * from "./staffAbsences";
 export * from "./scheduleBlocks";
+export * from "./coverageInstances";
 export * from "./staffAssignments";
 export * from "./alerts";
 export * from "./imports";

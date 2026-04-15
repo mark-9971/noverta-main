@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { staffTable, staffAbsencesTable, staffAssignmentsTable, scheduleBlocksTable, studentsTable, serviceRequirementsTable, serviceTypesTable } from "@workspace/db";
+import { staffTable, staffAbsencesTable, coverageInstancesTable, staffAssignmentsTable, scheduleBlocksTable, studentsTable, serviceRequirementsTable, serviceTypesTable } from "@workspace/db";
 import {
   ListStaffQueryParams,
   CreateStaffBody,
@@ -14,8 +14,11 @@ import {
   ListAbsencesQueryParams,
   DeleteAbsenceParams,
 } from "@workspace/api-zod";
-import { eq, and, sql, isNull, gte, lte, between } from "drizzle-orm";
+import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { requireRoles } from "../middlewares/auth";
+
+const requireAdmin = requireRoles("admin", "coordinator");
 
 const router: IRouter = Router();
 
@@ -155,9 +158,9 @@ router.delete("/staff/:id", async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
-// Staff Absences
+// Staff Absences — admin/coordinator only
 
-router.post("/staff/:id/absences", async (req, res): Promise<void> => {
+router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void> => {
   const params = CreateAbsenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = CreateAbsenceBody.safeParse(req.body);
@@ -175,46 +178,75 @@ router.post("/staff/:id/absences", async (req, res): Promise<void> => {
     reportedBy: parsed.data.reportedBy ?? null,
   }).returning();
 
-  // Determine the day of week for the absence date
+  // Determine day-of-week from absence date
   const absenceDay = new Date(parsed.data.absenceDate + "T12:00:00");
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const dayOfWeek = dayNames[absenceDay.getDay()];
 
-  // Find schedule blocks for this staff on that day of week and flag them uncovered
-  const blocksToFlag = await db
-    .select({ id: scheduleBlocksTable.id })
-    .from(scheduleBlocksTable)
-    .where(and(
-      eq(scheduleBlocksTable.staffId, staffId),
-      eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
-      eq(scheduleBlocksTable.isRecurring, true),
-      isNull(scheduleBlocksTable.deletedAt),
-    ));
+  // Candidate recurring blocks for this staff on that weekday
+  const blockConditions: any[] = [
+    eq(scheduleBlocksTable.staffId, staffId),
+    eq(scheduleBlocksTable.dayOfWeek, dayOfWeek),
+    eq(scheduleBlocksTable.isRecurring, true),
+    isNull(scheduleBlocksTable.deletedAt),
+  ];
 
+  const candidateBlocks = await db
+    .select({
+      id: scheduleBlocksTable.id,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+    })
+    .from(scheduleBlocksTable)
+    .where(and(...blockConditions));
+
+  // If absence has a time range, only flag blocks that overlap with it
+  const absenceStart = parsed.data.startTime ?? null;
+  const absenceEnd = parsed.data.endTime ?? null;
+
+  function timeToMinutes(t: string) {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  const blocksToCreate = candidateBlocks.filter(b => {
+    if (!absenceStart || !absenceEnd) return true;
+    // Overlap: block.start < absenceEnd && absenceStart < block.end
+    return timeToMinutes(b.startTime) < timeToMinutes(absenceEnd) &&
+           timeToMinutes(absenceStart) < timeToMinutes(b.endTime);
+  });
+
+  // Create one coverage_instance per affected block (idempotent: skip if one already exists)
   let uncoveredCount = 0;
-  if (blocksToFlag.length > 0) {
-    for (const block of blocksToFlag) {
-      await db.update(scheduleBlocksTable).set({
-        isUncovered: true,
-        originalStaffId: staffId,
-        absenceId: absence.id,
-      }).where(and(
-        eq(scheduleBlocksTable.id, block.id),
-        eq(scheduleBlocksTable.isUncovered, false),
+  for (const block of blocksToCreate) {
+    const existing = await db
+      .select({ id: coverageInstancesTable.id })
+      .from(coverageInstancesTable)
+      .where(and(
+        eq(coverageInstancesTable.scheduleBlockId, block.id),
+        eq(coverageInstancesTable.absenceDate, parsed.data.absenceDate),
       ));
+    if (existing.length === 0) {
+      await db.insert(coverageInstancesTable).values({
+        scheduleBlockId: block.id,
+        absenceDate: parsed.data.absenceDate,
+        originalStaffId: staffId,
+        substituteStaffId: null,
+        isCovered: false,
+        absenceId: absence.id,
+      });
+      uncoveredCount++;
     }
-    uncoveredCount = blocksToFlag.length;
   }
 
   res.status(201).json({
     ...absence,
-    absenceDate: typeof absence.absenceDate === "string" ? absence.absenceDate : absence.absenceDate,
     createdAt: absence.createdAt.toISOString(),
     uncoveredBlockCount: uncoveredCount,
   });
 });
 
-router.get("/staff/:id/absences", async (req, res): Promise<void> => {
+router.get("/staff/:id/absences", requireAdmin, async (req, res): Promise<void> => {
   const params = ListAbsencesParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const query = ListAbsencesQueryParams.safeParse(req.query);
@@ -242,29 +274,35 @@ router.get("/staff/:id/absences", async (req, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(staffAbsencesTable.absenceDate);
 
+  // Attach uncovered block count per absence from coverage_instances
+  const absenceIds = absences.map(a => a.id);
+  const instanceCounts: Record<number, number> = {};
+  if (absenceIds.length > 0) {
+    const { pool } = await import("@workspace/db");
+    const countsResult = await pool.query<{ absence_id: number; cnt: string }>(
+      `SELECT absence_id, COUNT(*)::text AS cnt FROM coverage_instances WHERE is_covered = false AND absence_id = ANY($1) GROUP BY absence_id`,
+      [absenceIds]
+    );
+    for (const row of countsResult.rows) instanceCounts[row.absence_id] = Number(row.cnt);
+  }
+
   res.json(absences.map(a => ({
     ...a,
     staffName: a.staffFirst ? `${a.staffFirst} ${a.staffLast}` : null,
     createdAt: a.createdAt.toISOString(),
-    uncoveredBlockCount: 0,
+    uncoveredBlockCount: instanceCounts[a.id] ?? 0,
   })));
 });
 
-router.delete("/absences/:id", async (req, res): Promise<void> => {
+router.delete("/absences/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteAbsenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  // Find the absence to know which staff/date to restore
   const [absence] = await db.select().from(staffAbsencesTable).where(eq(staffAbsencesTable.id, params.data.id));
   if (!absence) { res.status(404).json({ error: "Absence not found" }); return; }
 
-  // Clear uncovered flags on blocks linked to this absence
-  await db.update(scheduleBlocksTable).set({
-    isUncovered: false,
-    originalStaffId: null,
-    absenceId: null,
-  }).where(eq(scheduleBlocksTable.absenceId, params.data.id));
-
+  // Delete all coverage instances for this absence (uncovered sessions go away)
+  await db.delete(coverageInstancesTable).where(eq(coverageInstancesTable.absenceId, params.data.id));
   await db.delete(staffAbsencesTable).where(eq(staffAbsencesTable.id, params.data.id));
   res.sendStatus(204);
 });

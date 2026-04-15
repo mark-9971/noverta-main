@@ -230,7 +230,7 @@ export default function Schedule() {
   const [deletingBlock, setDeletingBlock] = useState<any>(null);
   const [blockSaving, setBlockSaving] = useState(false);
   const [serviceTypesList, setServiceTypesList] = useState<any[]>([]);
-  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", blockLabel: "", notes: "", blockType: "service", isRecurring: true, rotationDay: "" });
+  const [blockForm, setBlockForm] = useState({ staffId: "", studentId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "09:00", endTime: "10:00", location: "", blockLabel: "", notes: "", blockType: "service", isRecurring: true, rotationDay: "", recurrenceType: "weekly", effectiveFrom: "", effectiveTo: "" });
 
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
@@ -277,6 +277,9 @@ export default function Schedule() {
       blockType: block.blockType || "service",
       isRecurring: block.isRecurring ?? true,
       rotationDay: block.rotationDay || "",
+      recurrenceType: block.recurrenceType || "weekly",
+      effectiveFrom: block.effectiveFrom || "",
+      effectiveTo: block.effectiveTo || "",
     });
     setBlockDialogOpen(true);
   }
@@ -294,6 +297,9 @@ export default function Schedule() {
           location: blockForm.location || null,
           blockLabel: blockForm.blockLabel || null,
           notes: blockForm.notes || null,
+          recurrenceType: (blockForm.recurrenceType as "weekly" | "biweekly") || "weekly",
+          effectiveFrom: blockForm.effectiveFrom || null,
+          effectiveTo: blockForm.effectiveTo || null,
         });
         toast.success("Schedule block updated");
       } else {
@@ -692,6 +698,31 @@ export default function Schedule() {
                 <Input value={blockForm.notes} onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional notes..." />
               </div>
             </div>
+            {editingBlock && blockForm.isRecurring && (
+              <div className="space-y-2">
+                <Label className="text-[12px] font-medium text-gray-600">Recurrence</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-gray-400">Frequency</Label>
+                    <Select value={blockForm.recurrenceType} onValueChange={v => setBlockForm(f => ({ ...f, recurrenceType: v }))}>
+                      <SelectTrigger className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly" className="text-[13px]">Weekly</SelectItem>
+                        <SelectItem value="biweekly" className="text-[13px]">Biweekly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-gray-400">Effective From</Label>
+                    <Input type="date" value={blockForm.effectiveFrom} onChange={e => setBlockForm(f => ({ ...f, effectiveFrom: e.target.value }))} className="h-8 text-[13px]" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-gray-400">Effective To</Label>
+                    <Input type="date" value={blockForm.effectiveTo} onChange={e => setBlockForm(f => ({ ...f, effectiveTo: e.target.value }))} className="h-8 text-[13px]" />
+                  </div>
+                </div>
+              </div>
+            )}
             {editingBlock && editingBlock.dayOfWeek !== blockForm.dayOfWeek && (
               <div className="flex items-start gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg text-[12px] text-emerald-700">
                 <span className="font-medium">Day change:</span> This recurring block will move from <span className="font-semibold">{WEEKDAY_LABELS[editingBlock.dayOfWeek] ?? editingBlock.dayOfWeek}</span> to <span className="font-semibold">{WEEKDAY_LABELS[blockForm.dayOfWeek] ?? blockForm.dayOfWeek}</span>. The change applies going forward.

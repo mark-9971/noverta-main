@@ -1624,6 +1624,9 @@ export const UpdateScheduleBlockBody = zod.object({
   location: zod.string().nullish(),
   blockLabel: zod.string().nullish(),
   notes: zod.string().nullish(),
+  recurrenceType: zod.enum(["weekly", "biweekly"]).nullish(),
+  effectiveFrom: zod.string().nullish(),
+  effectiveTo: zod.string().nullish(),
 });
 
 export const UpdateScheduleBlockResponse = zod.object({
@@ -5221,6 +5224,7 @@ export const ListUncoveredSessionsQueryParams = zod.object({
 });
 
 export const UncoveredSessionItem = zod.object({
+  instanceId: zod.number(),
   id: zod.number(),
   absenceDate: zod.string(),
   dayOfWeek: zod.string(),
@@ -5234,6 +5238,7 @@ export const UncoveredSessionItem = zod.object({
   substituteStaffId: zod.number().nullish(),
   substituteStaffName: zod.string().nullish(),
   absenceId: zod.number().nullish(),
+  isCovered: zod.boolean(),
   location: zod.string().nullish(),
 });
 

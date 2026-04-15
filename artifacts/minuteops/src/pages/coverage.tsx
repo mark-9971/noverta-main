@@ -57,6 +57,7 @@ function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(today());
+  const [endDate, setEndDate] = useState("");
   const [assignDialog, setAssignDialog] = useState<any | null>(null);
   const [substituteId, setSubstituteId] = useState("");
   const [assigning, setAssigning] = useState(false);
@@ -68,6 +69,7 @@ function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
     setLoading(true);
     try {
       const params = new URLSearchParams({ startDate });
+      if (endDate) params.set("endDate", endDate);
       if (schoolId) params.set("schoolId", String(schoolId));
       const r = await authFetch(`/api/schedule-blocks/uncovered?${params}`);
       const data = await r.json();
@@ -77,7 +79,7 @@ function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
     } finally {
       setLoading(false);
     }
-  }, [startDate, schoolId]);
+  }, [startDate, endDate, schoolId]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
@@ -113,12 +115,22 @@ function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Label className="text-[12px] text-gray-500 whitespace-nowrap">From date</Label>
+          <Label className="text-[12px] text-gray-500 whitespace-nowrap">From</Label>
           <Input
             type="date"
             value={startDate}
             onChange={e => setStartDate(e.target.value)}
-            className="h-8 text-[13px] w-40"
+            className="h-8 text-[13px] w-36"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-[12px] text-gray-500 whitespace-nowrap">To</Label>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            className="h-8 text-[13px] w-36"
+            placeholder="no end"
           />
         </div>
         <Button variant="outline" size="sm" onClick={loadSessions} className="h-8 gap-1.5">
