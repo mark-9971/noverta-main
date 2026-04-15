@@ -126,7 +126,9 @@ export default function ComplianceTimelinePage() {
 
   const loadData = useCallback(async () => {
     try {
-      const raw = await authFetch(`/api/compliance-timeline${filter && filter !== "all" ? `?status=${filter}` : ""}`)
+      const validApiStatuses = new Set(["completed", "upcoming", "due_soon", "critical", "overdue"]);
+      const statusParam = filter && filter !== "all" && filter !== "unresolved" && validApiStatuses.has(filter) ? `?status=${filter}` : "";
+      const raw = await authFetch(`/api/compliance-timeline${statusParam}`)
         .then(r => r.json()) as unknown;
       setEvents(Array.isArray(raw) ? (raw as ComplianceEvent[]) : []);
     } catch (e) {

@@ -85,6 +85,7 @@ export default function Sessions() {
   const [editGoalsLoading, setEditGoalsLoading] = useState(false);
   const [markMissedTarget, setMarkMissedTarget] = useState<{ id: number; studentName: string; sessionDate: string } | null>(null);
   const [markMissedReason, setMarkMissedReason] = useState("");
+  const [markMissedNotes, setMarkMissedNotes] = useState("");
   const [markMissedSaving, setMarkMissedSaving] = useState(false);
   const [logMakeupFor, setLogMakeupFor] = useState<{ id: number; studentId: number; studentName: string; serviceRequirementId: number | null; sessionDate: string } | null>(null);
 
@@ -391,10 +392,13 @@ export default function Sessions() {
     if (!markMissedTarget || !markMissedReason) { toast.error("Please select a missed reason"); return; }
     setMarkMissedSaving(true);
     try {
-      await updateSessionMutation.mutateAsync({ id: markMissedTarget.id, data: { status: "missed", missedReasonId: Number(markMissedReason) } });
+      const missedData: Record<string, unknown> = { status: "missed", missedReasonId: Number(markMissedReason) };
+      if (markMissedNotes.trim()) missedData.notes = markMissedNotes.trim();
+      await updateSessionMutation.mutateAsync({ id: markMissedTarget.id, data: missedData });
       toast.success("Session marked as missed");
       setMarkMissedTarget(null);
       setMarkMissedReason("");
+      setMarkMissedNotes("");
       refetch();
     } catch {
       toast.error("Failed to mark session as missed");
@@ -872,8 +876,18 @@ export default function Sessions() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Notes <span className="text-gray-400">(optional)</span></label>
+              <textarea
+                value={markMissedNotes}
+                onChange={e => setMarkMissedNotes(e.target.value)}
+                rows={2}
+                placeholder="Additional context about why this session was missed..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setMarkMissedTarget(null)} disabled={markMissedSaving}>Cancel</Button>
+              <Button variant="outline" size="sm" onClick={() => { setMarkMissedTarget(null); setMarkMissedNotes(""); setMarkMissedReason(""); }} disabled={markMissedSaving}>Cancel</Button>
               <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleMarkMissed} disabled={markMissedSaving || !markMissedReason}>
                 {markMissedSaving ? "Saving..." : "Mark as Missed"}
               </Button>

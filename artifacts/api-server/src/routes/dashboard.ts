@@ -858,7 +858,7 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
     const [openIncidentsResult, unresolvedAlertsResult, actionItemsResult, pendingNotificationsResult] = await Promise.all([
       db.select({ count: count() })
         .from(restraintIncidentsTable)
-        .where(sql`${restraintIncidentsTable.status} NOT IN ('resolved', 'dese_reported', 'closed')`),
+        .where(eq(restraintIncidentsTable.status, "open")),
       db.select({ count: count() })
         .from(complianceEventsTable)
         .where(sql`${complianceEventsTable.status} NOT IN ('completed') AND ${complianceEventsTable.resolvedAt} IS NULL`),
