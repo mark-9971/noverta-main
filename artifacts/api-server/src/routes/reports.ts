@@ -882,8 +882,8 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
         end: latestReport.periodEnd,
         status: parentSafe ? undefined : latestReport.status,
       } : null,
-      overallSummary: latestReport?.overallSummary ?? null,
-      parentNotes: latestReport?.parentNotes ?? null,
+      overallSummary: latestReport?.overallSummary ?? null, // narrative summary — safe for parents
+      parentNotes: latestReport?.parentNotes ?? null,       // explicitly parent-facing field
       recommendations: parentSafe ? undefined : latestReport?.recommendations ?? null,
       goalSummaries,
       servicesSummary: parentSafe

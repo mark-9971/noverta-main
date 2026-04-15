@@ -44,7 +44,7 @@ const ACTIVE_IEPS_HEADERS = [
 const SERVICE_MINUTES_HEADERS = [
   "Student Last Name", "Student First Name", "Grade", "School",
   "Service Type", "Mandated Minutes/Week", "Sessions Completed",
-  "Delivered Minutes", "Missed Sessions", "Compliance %",
+  "Delivered Minutes", "Missed Sessions", "Session Attendance %",
   "Reporting Period Start", "Reporting Period End",
 ] as const;
 
