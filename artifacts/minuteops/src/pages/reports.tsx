@@ -23,7 +23,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
-import { useRole } from "@/lib/role-context";
+import { useRole, type UserRole } from "@/lib/role-context";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
@@ -49,7 +49,12 @@ function downloadCsv(filename: string, headers: string[], rows: string[][], meta
   toast.success(`Exported ${rows.length} rows to ${filename}`);
 }
 
+const EXPORT_ROLES: UserRole[] = ["admin", "case_manager", "coordinator"];
+
 export default function Reports() {
+  const { user } = useRole();
+  const canExport = EXPORT_ROLES.includes(user.role as UserRole);
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
       <div>
@@ -66,7 +71,7 @@ export default function Reports() {
           <TabsTrigger value="missed">Missed</TabsTrigger>
           <TabsTrigger value="risk">At-Risk</TabsTrigger>
           <TabsTrigger value="parent" className="gap-1.5"><Heart className="w-3.5 h-3.5" /> Parent Summary</TabsTrigger>
-          <TabsTrigger value="exports" className="gap-1.5"><FileDown className="w-3.5 h-3.5" /> Exports</TabsTrigger>
+          {canExport && <TabsTrigger value="exports" className="gap-1.5"><FileDown className="w-3.5 h-3.5" /> Exports</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="executive" className="mt-4"><ExecutiveSummaryTab /></TabsContent>
@@ -76,7 +81,7 @@ export default function Reports() {
         <TabsContent value="missed" className="mt-4"><MissedSessionsTab /></TabsContent>
         <TabsContent value="risk" className="mt-4"><RiskTab /></TabsContent>
         <TabsContent value="parent" className="mt-4"><ParentSummaryTab /></TabsContent>
-        <TabsContent value="exports" className="mt-4"><ComplianceExportsTab /></TabsContent>
+        {canExport && <TabsContent value="exports" className="mt-4"><ComplianceExportsTab /></TabsContent>}
       </Tabs>
     </div>
   );

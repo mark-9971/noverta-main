@@ -5,7 +5,7 @@ import {
   studentsTable, iepDocumentsTable, serviceRequirementsTable, serviceTypesTable,
   sessionLogsTable, schoolsTable, iepGoalsTable, progressReportsTable,
   restraintIncidentsTable, teamMeetingsTable, iepAccommodationsTable,
-  parentContactsTable, complianceEventsTable,
+  parentContactsTable, complianceEventsTable, meetingConsentRecordsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
@@ -459,6 +459,7 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       contacts,
       progressReports,
       complianceEvents,
+      consentRecords,
     ] = await Promise.all([
       db.select({
         id: studentsTable.id,
@@ -560,6 +561,22 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
         .from(complianceEventsTable)
         .where(eq(complianceEventsTable.studentId, studentId))
         .orderBy(asc(complianceEventsTable.dueDate)),
+
+      db.select({
+        consentType: meetingConsentRecordsTable.consentType,
+        decision: meetingConsentRecordsTable.decision,
+        decisionDate: meetingConsentRecordsTable.decisionDate,
+        respondentName: meetingConsentRecordsTable.respondentName,
+        respondentRelationship: meetingConsentRecordsTable.respondentRelationship,
+        notes: meetingConsentRecordsTable.notes,
+        followUpRequired: meetingConsentRecordsTable.followUpRequired,
+        followUpDate: meetingConsentRecordsTable.followUpDate,
+        createdAt: meetingConsentRecordsTable.createdAt,
+      })
+        .from(meetingConsentRecordsTable)
+        .where(eq(meetingConsentRecordsTable.studentId, studentId))
+        .orderBy(desc(meetingConsentRecordsTable.createdAt))
+        .limit(30),
     ]);
 
     if (!student) {
@@ -727,6 +744,33 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
           .text(`${safeStr(e.title)} — Due: ${fmtDateLong(e.dueDate)}`, { indent: 10 });
         doc.font("Helvetica").fontSize(9).fillColor(statusColor)
           .text(`Status: ${safeStr(e.status)}${e.completedDate ? ` (completed ${fmtDateLong(e.completedDate)})` : ""}`, { indent: 20 });
+        doc.moveDown(0.2);
+      }
+    }
+
+    if (consentRecords.length > 0) {
+      sectionTitle("Consent & Acknowledgment History");
+      const CONSENT_LABELS: Record<string, string> = {
+        iep_initial: "Initial IEP Consent",
+        iep_amendment: "IEP Amendment Consent",
+        evaluation: "Evaluation Consent",
+        placement: "Placement Consent",
+        reeval: "Re-evaluation Consent",
+        reevaluation: "Re-evaluation Consent",
+        services: "Services Consent",
+        other: "Other Consent",
+      };
+      for (const cr of consentRecords) {
+        const label = CONSENT_LABELS[cr.consentType] ?? safeStr(cr.consentType);
+        const decisionDate = cr.decisionDate ? fmtDateLong(cr.decisionDate) : fmtDateLong(cr.createdAt?.toISOString());
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(GRAY_DARK)
+          .text(`${label} — ${decisionDate}`, { indent: 10 });
+        doc.font("Helvetica").fontSize(9).fillColor(GRAY_MID)
+          .text(`Decision: ${safeStr(cr.decision)}${cr.respondentName ? ` | Respondent: ${cr.respondentName}${cr.respondentRelationship ? ` (${cr.respondentRelationship})` : ""}` : ""}`, { indent: 20 });
+        if (cr.notes) doc.text(`Notes: ${cr.notes.slice(0, 200)}`, { indent: 20, width: PAGE_W - 20 });
+        if (cr.followUpRequired === "yes" && cr.followUpDate) {
+          doc.text(`Follow-up required by: ${fmtDateLong(cr.followUpDate)}`, { indent: 20 });
+        }
         doc.moveDown(0.2);
       }
     }
