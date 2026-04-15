@@ -45,6 +45,7 @@ import studentPortalRouter from "./studentPortal";
 import agenciesRouter from "./agencies";
 import billingRouter from "./billing";
 import demoRequestsRouter from "./demoRequests";
+import guardiansRouter from "./guardians";
 
 const router: IRouter = Router();
 
@@ -97,5 +98,6 @@ router.use(sisIntegrationRouter);
 router.use(studentPortalRouter);
 router.use(agenciesRouter);
 router.use(billingRouter);
+router.use(guardiansRouter);
 
 export default router;
