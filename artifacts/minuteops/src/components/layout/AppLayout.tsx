@@ -9,13 +9,14 @@ import {
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
-  Heart, Trophy
+  Heart, Trophy, CreditCard
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
+import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
@@ -88,6 +89,8 @@ const adminNav: NavSection[] = [
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
       { href: "/setup", label: "Setup Wizard", icon: Rocket },
+      { href: "/billing", label: "Billing", icon: CreditCard },
+      { href: "/tenants", label: "Tenant Management", icon: Building2 },
     ],
   },
 ];
@@ -446,6 +449,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        <SubscriptionBanner />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">
           {children}
         </main>

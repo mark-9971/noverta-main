@@ -58,6 +58,8 @@ import SisSettingsPage from "@/pages/sis-settings";
 import AgenciesPage from "@/pages/agencies";
 import AgencyDetailPage from "@/pages/agency-detail";
 import ContractUtilizationPage from "@/pages/contract-utilization";
+import BillingPage from "@/pages/billing";
+import TenantsPage from "@/pages/tenants";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -142,6 +144,8 @@ function StaffRouter() {
       <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" />
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" />
+      <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
+      <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <Route component={NotFound} />
     </Switch>
   );
