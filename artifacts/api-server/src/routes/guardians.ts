@@ -3,11 +3,11 @@ import { db } from "@workspace/db";
 import {
   guardiansTable, insertGuardianSchema,
   emergencyContactsTable, insertEmergencyContactSchema,
-  studentsTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { assertStudentAccess } from "../lib/tenantAccess";
 import { getAuth } from "@clerk/express";
 import { migrateExistingGuardians } from "../lib/migrateGuardians";
 
@@ -30,29 +30,10 @@ const patchEmergencyContactSchema = insertEmergencyContactSchema
 type PatchGuardian = z.infer<typeof patchGuardianSchema>;
 type PatchEmergencyContact = z.infer<typeof patchEmergencyContactSchema>;
 
-async function resolveStudentSchoolAndDistrict(
-  studentId: number
-): Promise<{ schoolId: number; districtId: number } | null> {
-  const [result] = await db
-    .select({ schoolId: studentsTable.schoolId, districtId: schoolsTable.districtId })
-    .from(studentsTable)
-    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
-    .where(eq(studentsTable.id, studentId))
-    .limit(1);
-  return result ?? null;
-}
-
 async function canAccessStudent(req: Request, studentId: number): Promise<boolean> {
   const meta = getPublicMeta(req);
   if (meta.platformAdmin) return true;
-
-  const student = await resolveStudentSchoolAndDistrict(studentId);
-  if (!student) return false;
-
-  if (meta.districtId && meta.districtId === student.districtId) return true;
-  if (meta.schoolId && meta.schoolId === student.schoolId) return true;
-
-  return false;
+  return assertStudentAccess(req, studentId);
 }
 
 router.get("/students/:studentId/guardians", async (req: Request, res: Response): Promise<void> => {
