@@ -67,6 +67,7 @@ import TenantsPage from "@/pages/tenants";
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
 import SignDocumentPage from "@/pages/sign-document";
+import PricingPage from "@/pages/pricing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -201,6 +202,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter base={base}>
             <Switch>
+              <Route path="/pricing" component={PricingPage} />
               <Route path="/sign-in" component={SignInPage} />
               <Route path="/sign-in/:rest*" component={SignInPage} />
               <Route path="/sign-up" component={SignUpPage} />

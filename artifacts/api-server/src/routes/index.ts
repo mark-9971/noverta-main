@@ -44,11 +44,13 @@ import sisIntegrationRouter from "./sisIntegration";
 import studentPortalRouter from "./studentPortal";
 import agenciesRouter from "./agencies";
 import billingRouter from "./billing";
+import demoRequestsRouter from "./demoRequests";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(documentsRouter);
+router.use(demoRequestsRouter);
 
 router.use(requireAuth);
 
