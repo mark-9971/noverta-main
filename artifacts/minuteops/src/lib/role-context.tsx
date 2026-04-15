@@ -67,6 +67,7 @@ interface RoleContextType {
   role: UserRole;
   user: RoleUser;
   isDevMode: boolean;
+  isPlatformAdmin: boolean;
   studentId: number;
   teacherId: number;
   setRole: (role: UserRole) => void;
@@ -109,6 +110,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const clerkStudentId = Number(clerkUser?.publicMetadata?.studentId) || 0;
   const clerkStaffId = Number(clerkUser?.publicMetadata?.staffId) || 0;
+  const isPlatformAdmin = clerkUser?.publicMetadata?.platformAdmin === true;
 
   const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
   const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
@@ -164,6 +166,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       role,
       user,
       isDevMode,
+      isPlatformAdmin,
       studentId,
       teacherId,
       setRole,

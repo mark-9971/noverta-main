@@ -7,6 +7,7 @@ const clerkPublicMetaSchema = z.object({
   name: z.string().optional(),
   staffId: z.number().optional(),
   studentId: z.number().optional(),
+  districtId: z.number().optional(),
   platformAdmin: z.boolean().optional(),
 }).catch({});
 
@@ -15,6 +16,7 @@ export interface ClerkPublicMeta {
   name?: string;
   staffId?: number;
   studentId?: number;
+  districtId?: number;
   platformAdmin?: boolean;
 }
 

@@ -8,18 +8,11 @@ import { getUncachableStripeClient, getStripePublishableKey } from "../lib/strip
 const router = Router();
 const adminOnly = requireMinRole("admin");
 
-interface SchoolRow {
-  id: number;
-  district_id: number;
-}
-
-interface StaffCountRow {
-  cnt: string | number;
-}
-
-
 async function resolveCallerDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
+
+  if (meta.districtId) return meta.districtId;
+
   if (meta.staffId) {
     const [staff] = await db
       .select({ schoolId: staffTable.schoolId })
@@ -30,10 +23,14 @@ async function resolveCallerDistrictId(req: Request): Promise<number | null> {
       const result = await db.execute(
         sql`SELECT district_id FROM schools WHERE id = ${staff.schoolId} LIMIT 1`
       );
-      const rows = result.rows as SchoolRow[];
-      if (rows.length > 0) return Number(rows[0].district_id);
+      const rows = result.rows;
+      if (rows && rows.length > 0) {
+        const row = rows[0] as Record<string, unknown>;
+        return Number(row.district_id);
+      }
     }
   }
+
   const allDistricts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
   if (allDistricts.length === 1) return allDistricts[0].id;
   return null;
@@ -43,8 +40,10 @@ async function countDistrictStaff(districtId: number): Promise<number> {
   const result = await db.execute(
     sql`SELECT COUNT(*)::int AS cnt FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})`
   );
-  const rows = result.rows as StaffCountRow[];
-  return Number(rows[0]?.cnt ?? 0);
+  const rows = result.rows;
+  if (!rows || rows.length === 0) return 0;
+  const row = rows[0] as Record<string, unknown>;
+  return Number(row.cnt ?? 0);
 }
 
 async function getOrCreateSubscription(districtId: number) {

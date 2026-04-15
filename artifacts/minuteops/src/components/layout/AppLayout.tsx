@@ -9,7 +9,7 @@ import {
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
-  Heart, Trophy, CreditCard
+  Heart, Trophy, CreditCard, Crown
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -23,8 +23,15 @@ import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
 import { useTheme } from "@/lib/theme-context";
 
-type NavItem = { href: string; label: string; icon: any; primary?: boolean; alertBadge?: boolean };
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; primary?: boolean; alertBadge?: boolean };
 type NavSection = { label?: string; items: NavItem[] };
+
+const platformAdminSection: NavSection = {
+  label: "Platform",
+  items: [
+    { href: "/tenants", label: "Tenant Management", icon: Crown },
+  ],
+};
 
 // ADMIN — SPED Director / Administrator
 // Workflow: triage alerts → student compliance overview → IEP deadlines →
@@ -235,7 +242,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { role, user, isDevMode } = useRole();
+  const { role, user, isDevMode, isPlatformAdmin } = useRole();
   const { typedFilter } = useSchoolContext();
   const { theme } = useTheme();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
@@ -254,7 +261,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const navSections = config.nav;
+  const navSections = isPlatformAdmin ? [...config.nav, platformAdminSection] : config.nav;
   const navItems = navSections.flatMap(s => s.items);
   const primaryItems = navItems.filter(i => i.primary);
   const secondaryItems = navItems.filter(i => !i.primary);

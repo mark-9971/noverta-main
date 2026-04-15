@@ -22,6 +22,9 @@ const EXEMPT_PATHS = [
 
 async function resolveDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
+
+  if (meta.districtId) return meta.districtId;
+
   if (meta.staffId) {
     const [staff] = await db
       .select({ schoolId: staffTable.schoolId })
@@ -32,13 +35,20 @@ async function resolveDistrictId(req: Request): Promise<number | null> {
       const result = await db.execute(
         sql`SELECT district_id FROM schools WHERE id = ${staff.schoolId} LIMIT 1`
       );
-      const rows = result.rows as Array<{ district_id: number }>;
-      if (rows.length > 0) return Number(rows[0].district_id);
+      const rows = result.rows;
+      if (rows && rows.length > 0) {
+        const row = rows[0] as Record<string, unknown>;
+        return Number(row.district_id);
+      }
     }
   }
+
   const allDistricts = await db.execute(sql`SELECT id FROM districts LIMIT 2`);
-  const rows = allDistricts.rows as Array<{ id: number }>;
-  if (rows.length === 1) return Number(rows[0].id);
+  const rows = allDistricts.rows;
+  if (rows && rows.length === 1) {
+    const row = rows[0] as Record<string, unknown>;
+    return Number(row.id);
+  }
   return null;
 }
 
