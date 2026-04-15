@@ -50,7 +50,11 @@ router.get("/students", async (req, res): Promise<void> => {
   const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
   if (params.success) {
     const statusValue = params.data.status ?? "active";
-    conditions[1] = eq(studentsTable.status, statusValue);
+    if (statusValue === "all") {
+      conditions.splice(1, 1);
+    } else {
+      conditions[1] = eq(studentsTable.status, statusValue);
+    }
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)));
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)));
     if (params.data.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
@@ -555,8 +559,8 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
       fromProgramId: enrollmentEventsTable.fromProgramId,
       toProgramId: enrollmentEventsTable.toProgramId,
       performedById: enrollmentEventsTable.performedById,
-      performedByFirst: performer.firstName,
-      performedByLast: performer.lastName,
+      performedByFirst: staffTable.firstName,
+      performedByLast: staffTable.lastName,
       recordedById: enrollmentEventsTable.recordedById,
       createdAt: enrollmentEventsTable.createdAt,
     })
@@ -588,20 +592,37 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
   const { eventType, eventDate, reasonCode, reason, notes, performedById, fromSchoolId, toSchoolId, fromProgramId, toProgramId } = req.body;
   if (!eventType || !eventDate) { res.status(400).json({ error: "eventType and eventDate are required" }); return; }
 
-  const [event] = await db.insert(enrollmentEventsTable).values({
-    studentId: params.data.id,
-    eventType,
-    eventDate,
-    reasonCode: reasonCode ?? null,
-    reason: reason ?? null,
-    notes: notes ?? null,
-    fromSchoolId: fromSchoolId ? Number(fromSchoolId) : null,
-    toSchoolId: toSchoolId ? Number(toSchoolId) : null,
-    fromProgramId: fromProgramId ? Number(fromProgramId) : null,
-    toProgramId: toProgramId ? Number(toProgramId) : null,
-    performedById: performedById ? Number(performedById) : null,
-    recordedById: null,
-  }).returning();
+  const ACTIVE_EVENTS = new Set(["enrolled", "reactivated", "transferred_in"]);
+  const INACTIVE_EVENTS = new Set(["withdrawn", "transferred_out", "graduated", "suspended", "leave_of_absence"]);
+
+  const [event] = await db.transaction(async (tx) => {
+    const [ev] = await tx.insert(enrollmentEventsTable).values({
+      studentId: params.data.id,
+      eventType,
+      eventDate,
+      reasonCode: reasonCode ?? null,
+      reason: reason ?? null,
+      notes: notes ?? null,
+      fromSchoolId: fromSchoolId ? Number(fromSchoolId) : null,
+      toSchoolId: toSchoolId ? Number(toSchoolId) : null,
+      fromProgramId: fromProgramId ? Number(fromProgramId) : null,
+      toProgramId: toProgramId ? Number(toProgramId) : null,
+      performedById: performedById ? Number(performedById) : null,
+      recordedById: null,
+    }).returning();
+
+    if (ACTIVE_EVENTS.has(eventType)) {
+      await tx.update(studentsTable)
+        .set({ status: "active", enrolledAt: eventDate, withdrawnAt: null })
+        .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
+    } else if (INACTIVE_EVENTS.has(eventType)) {
+      await tx.update(studentsTable)
+        .set({ status: "inactive", withdrawnAt: eventDate })
+        .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
+    }
+
+    return [ev];
+  });
 
   logAudit(req, {
     action: "create",

@@ -1446,7 +1446,9 @@ export default function StudentDetail() {
                     enrolled: { label: "Enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-500" },
                     reactivated: { label: "Reactivated", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
                     withdrawn: { label: "Withdrawn", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-500" },
-                    transferred: { label: "Transferred", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-500" },
+                    transferred_in: { label: "Transferred In", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-500" },
+                    transferred_out: { label: "Transferred Out", color: "text-sky-700", bg: "bg-sky-50", dot: "bg-sky-400" },
+                    program_change: { label: "Program Change", color: "text-indigo-700", bg: "bg-indigo-50", dot: "bg-indigo-400" },
                     graduated: { label: "Graduated", color: "text-purple-700", bg: "bg-purple-50", dot: "bg-purple-500" },
                     suspended: { label: "Suspended", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-500" },
                     leave_of_absence: { label: "Leave of Absence", color: "text-orange-700", bg: "bg-orange-50", dot: "bg-orange-400" },
@@ -1494,12 +1496,14 @@ export default function StudentDetail() {
                   <SelectContent>
                     {[
                       { value: "enrolled", label: "Enrolled" },
+                      { value: "reactivated", label: "Reactivated" },
                       { value: "withdrawn", label: "Withdrawn" },
-                      { value: "transferred", label: "Transferred" },
+                      { value: "transferred_in", label: "Transferred In" },
+                      { value: "transferred_out", label: "Transferred Out" },
+                      { value: "program_change", label: "Program Change" },
                       { value: "graduated", label: "Graduated" },
                       { value: "suspended", label: "Suspended" },
                       { value: "leave_of_absence", label: "Leave of Absence" },
-                      { value: "reactivated", label: "Reactivated" },
                       { value: "note", label: "Note" },
                     ].map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
                   </SelectContent>
