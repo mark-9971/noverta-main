@@ -11,10 +11,13 @@ const router: IRouter = Router();
 
 router.get("/compliance-timeline", async (req, res): Promise<void> => {
   try {
-    const { status, limit: limitParam } = req.query;
+    const { status, limit: limitParam, schoolYearId } = req.query;
     const conditions: any[] = [];
     if (status && status !== "all") {
       conditions.push(eq(complianceEventsTable.status, status as string));
+    }
+    if (schoolYearId) {
+      conditions.push(eq(complianceEventsTable.schoolYearId, Number(schoolYearId)));
     }
 
     const events = await db.select({

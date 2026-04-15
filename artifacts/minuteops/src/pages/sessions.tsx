@@ -14,6 +14,7 @@ import { Plus, Search, CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRigh
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
+import { useSchoolYears } from "@/lib/use-school-years";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 import { StudentQuickView } from "@/components/student-quick-view";
 
@@ -66,6 +67,8 @@ export default function Sessions() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const { years: schoolYears, activeYear } = useSchoolYears();
+  const [selectedYearId, setSelectedYearId] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [page, setPage] = useState(0);
@@ -91,6 +94,14 @@ export default function Sessions() {
   const [logMakeupFor, setLogMakeupFor] = useState<{ id: number; studentId: number; studentName: string; serviceRequirementId: number | null; sessionDate: string } | null>(null);
 
   const { typedFilter } = useSchoolContext();
+
+  // Default to active year once loaded
+  useEffect(() => {
+    if (activeYear && selectedYearId === "all") {
+      setSelectedYearId(String(activeYear.id));
+    }
+  }, [activeYear]);
+
   const sessionParams = {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
@@ -98,6 +109,7 @@ export default function Sessions() {
     ...(dateFrom ? { dateFrom } : {}),
     ...(dateTo ? { dateTo } : {}),
     ...(statusFilter !== "all" && statusFilter !== "makeup" ? { status: statusFilter } : {}),
+    ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
   };
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
   const { data: students } = useListStudents(typedFilter);
@@ -709,6 +721,19 @@ export default function Sessions() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input className="pl-10 h-9 text-[13px] bg-white" placeholder="Search sessions..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        {schoolYears.length > 0 && (
+          <Select value={selectedYearId} onValueChange={v => { setSelectedYearId(v); setPage(0); }}>
+            <SelectTrigger className="h-9 text-[12px] bg-white w-[130px]">
+              <SelectValue placeholder="School Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {[...schoolYears].reverse().map(y => (
+                <SelectItem key={y.id} value={String(y.id)}>{y.label}{y.isActive ? " (Active)" : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex items-center gap-1.5">
           <Input type="date" className="h-9 text-[12px] bg-white w-[140px]" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
           <span className="text-[11px] text-gray-400">to</span>

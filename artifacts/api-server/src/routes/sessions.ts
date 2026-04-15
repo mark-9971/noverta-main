@@ -80,6 +80,8 @@ router.get("/sessions", async (req, res): Promise<void> => {
     if (params.data.schoolId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
     if (params.data.districtId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
   }
+  const schoolYearId = req.query.schoolYearId ? Number(req.query.schoolYearId) : null;
+  if (schoolYearId) conditions.push(eq(sessionLogsTable.schoolYearId, schoolYearId));
 
   const limit = params.success && params.data.limit ? Number(params.data.limit) : 100;
   const offset = params.success && params.data.offset ? Number(params.data.offset) : 0;

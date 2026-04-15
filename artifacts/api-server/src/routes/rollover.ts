@@ -217,4 +217,19 @@ router.get("/admin/school-years", requireAdmin, async (req, res): Promise<void> 
   res.json(years);
 });
 
+router.get("/school-years", async (req, res): Promise<void> => {
+  const meta = getPublicMeta(req);
+  const districtId = meta.districtId;
+  if (!districtId) {
+    res.json([]);
+    return;
+  }
+  const years = await db
+    .select()
+    .from(schoolYearsTable)
+    .where(eq(schoolYearsTable.districtId, districtId))
+    .orderBy(schoolYearsTable.startDate);
+  res.json(years);
+});
+
 export default router;

@@ -24,6 +24,8 @@ import { formatDate } from "@/lib/formatters";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole, type UserRole } from "@/lib/role-context";
+import { useSchoolYears } from "@/lib/use-school-years";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
@@ -89,10 +91,18 @@ export default function Reports() {
 
 function ComplianceExportsTab() {
   const { filterParams } = useSchoolContext();
+  const { years: schoolYears, activeYear } = useSchoolYears();
   const now = new Date();
   const [startDate, setStartDate] = useState(() => new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(() => now.toISOString().split("T")[0]);
+  const [selectedYearId, setSelectedYearId] = useState<string>("all");
   const [downloading, setDownloading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeYear && selectedYearId === "all") {
+      setSelectedYearId(String(activeYear.id));
+    }
+  }, [activeYear]);
 
   async function downloadAuthFile(url: string, filename: string) {
     setDownloading(filename);
@@ -115,6 +125,7 @@ function ComplianceExportsTab() {
   const schoolParam = filterParams.schoolId ? `&schoolId=${filterParams.schoolId}` : "";
   const districtParam = filterParams.districtId ? `&districtId=${filterParams.districtId}` : "";
   const scopeParams = `${schoolParam}${districtParam}`;
+  const yearParam = selectedYearId !== "all" ? `&schoolYearId=${selectedYearId}` : "";
 
   const exports = [
     {
@@ -122,7 +133,7 @@ function ComplianceExportsTab() {
       label: "Active IEPs — Annual Review Timeline",
       description: "All active students with IEP start/end dates, days until annual review, and review status. Ideal for compliance calendar planning.",
       filename: `Active_IEPs_${now.toISOString().split("T")[0]}.csv`,
-      url: `/api/reports/exports/active-ieps.csv?${scopeParams.slice(1)}`,
+      url: `/api/reports/exports/active-ieps.csv?${scopeParams.slice(1)}${yearParam}`,
       badge: "CSV",
     },
     {
@@ -130,7 +141,7 @@ function ComplianceExportsTab() {
       label: "Service Minutes — Mandated vs. Delivered",
       description: "Per-student, per-service breakdown of required minutes, sessions completed, sessions missed, and compliance percentage.",
       filename: `Service_Minutes_${startDate}_${endDate}.csv`,
-      url: `/api/reports/exports/service-minutes.csv?startDate=${startDate}&endDate=${endDate}${scopeParams}`,
+      url: `/api/reports/exports/service-minutes.csv?startDate=${startDate}&endDate=${endDate}${scopeParams}${yearParam}`,
       badge: "CSV",
     },
     {
@@ -138,7 +149,7 @@ function ComplianceExportsTab() {
       label: "Restraint & Seclusion Incidents",
       description: "All incidents in the selected date range with DESE-required fields: type, duration, injuries, notifications, debrief, and status.",
       filename: `Incidents_${startDate}_${endDate}.csv`,
-      url: `/api/reports/exports/incidents.csv?startDate=${startDate}&endDate=${endDate}${schoolParam}`,
+      url: `/api/reports/exports/incidents.csv?startDate=${startDate}&endDate=${endDate}${schoolParam}${yearParam}`,
       badge: "CSV",
     },
   ];
@@ -161,6 +172,22 @@ function ComplianceExportsTab() {
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
             className="form-input text-xs h-8 w-36" />
         </div>
+        {schoolYears.length > 0 && (
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium block mb-1">School Year</label>
+            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+              <SelectTrigger className="h-8 text-[12px] bg-white w-[130px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {[...schoolYears].reverse().map(y => (
+                  <SelectItem key={y.id} value={String(y.id)}>{y.label}{y.isActive ? " *" : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

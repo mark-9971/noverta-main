@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { getComplianceTimeline, recalculateComplianceEvents } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { useSchoolYears } from "@/lib/use-school-years";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, useSearch } from "wouter";
 import {
@@ -123,19 +125,30 @@ export default function ComplianceTimelinePage() {
   const [recalculating, setRecalculating] = useState(false);
   const [resolveTarget, setResolveTarget] = useState<ComplianceEvent | null>(null);
   const [showResolved, setShowResolved] = useState(false);
+  const { years: schoolYears, activeYear } = useSchoolYears();
+  const [selectedYearId, setSelectedYearId] = useState<string>("all");
+
+  useEffect(() => {
+    if (activeYear && selectedYearId === "all") {
+      setSelectedYearId(String(activeYear.id));
+    }
+  }, [activeYear]);
 
   const loadData = useCallback(async () => {
     try {
       const validApiStatuses = new Set(["completed", "upcoming", "due_soon", "critical", "overdue"]);
-      const statusParam = filter && filter !== "all" && filter !== "unresolved" && validApiStatuses.has(filter) ? `?status=${filter}` : "";
-      const raw = await authFetch(`/api/compliance-timeline${statusParam}`)
+      const qp = new URLSearchParams();
+      if (filter && filter !== "all" && filter !== "unresolved" && validApiStatuses.has(filter)) qp.set("status", filter);
+      if (selectedYearId !== "all") qp.set("schoolYearId", selectedYearId);
+      const qs = qp.toString() ? `?${qp.toString()}` : "";
+      const raw = await authFetch(`/api/compliance-timeline${qs}`)
         .then(r => r.json()) as unknown;
       setEvents(Array.isArray(raw) ? (raw as ComplianceEvent[]) : []);
     } catch (e) {
       console.error("Failed to load compliance timeline:", e);
     }
     setLoading(false);
-  }, [filter]);
+  }, [filter, selectedYearId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -191,6 +204,19 @@ export default function ComplianceTimelinePage() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compliance Timeline</h1>
           <p className="text-xs md:text-sm text-gray-400">IEP annual reviews, reevaluations, and deadline tracking (IDEA-compliant)</p>
         </div>
+        {schoolYears.length > 0 && (
+          <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+            <SelectTrigger className="h-8 text-[12px] bg-white w-[120px]">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {[...schoolYears].reverse().map(y => (
+                <SelectItem key={y.id} value={String(y.id)}>{y.label}{y.isActive ? " *" : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={recalculate} disabled={recalculating}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${recalculating ? "animate-spin" : ""}`} />
           {recalculating ? "Calculating..." : "Recalculate Deadlines"}

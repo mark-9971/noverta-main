@@ -6,12 +6,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays } from "lucide-react";
 import { Link } from "wouter";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
+import { useSchoolYears } from "@/lib/use-school-years";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ export default function Students() {
 
   const { filterParams } = useSchoolContext();
   const { role } = useRole();
+  const { activeYear } = useSchoolYears();
   const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500, status: statusFilter } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
@@ -117,7 +119,14 @@ export default function Students() {
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Students</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Students</h1>
+            {activeYear && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-medium rounded-full">
+                <CalendarDays className="w-3 h-3" /> {activeYear.label}
+              </span>
+            )}
+          </div>
           <p className="text-xs md:text-sm text-gray-400 mt-1">
             {studentList.length} total students · {spedCount} SPED · {genEdCount} Gen Ed
           </p>
