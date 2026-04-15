@@ -1,9 +1,37 @@
 import { Router, type IRouter } from "express";
-import { db, districtsTable, schoolsTable, serviceTypesTable, staffTable } from "@workspace/db";
+import {
+  db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
+  onboardingProgressTable
+} from "@workspace/db";
 import { count, isNull, eq } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+const STEP_KEYS = ["sis_connected", "district_confirmed", "service_types_configured", "staff_invited"] as const;
+
+async function getStepStatus(stepKey: string): Promise<boolean> {
+  const [row] = await db.select().from(onboardingProgressTable)
+    .where(eq(onboardingProgressTable.stepKey, stepKey));
+  return row?.completed ?? false;
+}
+
+async function markStepComplete(stepKey: string, metadata?: string): Promise<void> {
+  const existing = await db.select().from(onboardingProgressTable)
+    .where(eq(onboardingProgressTable.stepKey, stepKey));
+  if (existing.length > 0) {
+    await db.update(onboardingProgressTable)
+      .set({ completed: true, completedAt: new Date(), metadata: metadata || existing[0].metadata })
+      .where(eq(onboardingProgressTable.stepKey, stepKey));
+  } else {
+    await db.insert(onboardingProgressTable).values({
+      stepKey,
+      completed: true,
+      completedAt: new Date(),
+      metadata: metadata || null,
+    });
+  }
+}
 
 router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_req, res): Promise<void> => {
   try {
@@ -15,19 +43,24 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
     const districts = await db.select({ id: districtsTable.id, name: districtsTable.name }).from(districtsTable).limit(1);
     const schools = await db.select({ id: schoolsTable.id, name: schoolsTable.name }).from(schoolsTable);
 
+    const sisConnected = await getStepStatus("sis_connected");
+    const districtConfirmed = await getStepStatus("district_confirmed");
+    const serviceTypesConfigured = await getStepStatus("service_types_configured");
+    const staffInvited = await getStepStatus("staff_invited");
+
     const steps = {
-      sisConnected: districtCount.value > 0 && schoolCount.value > 0,
-      districtConfirmed: districtCount.value > 0,
+      sisConnected: sisConnected || (districtCount.value > 0 && schoolCount.value > 0),
+      districtConfirmed,
       schoolsConfigured: schoolCount.value > 0,
-      serviceTypesConfigured: serviceTypeCount.value > 0,
-      staffInvited: staffCount.value > 0,
+      serviceTypesConfigured: serviceTypesConfigured || serviceTypeCount.value > 0,
+      staffInvited: staffInvited || staffCount.value > 0,
     };
 
-    const coreComplete = steps.sisConnected && steps.schoolsConfigured && steps.serviceTypesConfigured;
-    const completedCount = [steps.sisConnected, steps.schoolsConfigured, steps.serviceTypesConfigured, steps.staffInvited]
-      .filter(Boolean).length;
+    const coreSteps = [steps.sisConnected, steps.districtConfirmed, steps.serviceTypesConfigured];
+    const allSteps = [...coreSteps, steps.staffInvited];
+    const completedCount = allSteps.filter(Boolean).length;
     const totalSteps = 4;
-    const isComplete = coreComplete;
+    const isComplete = coreSteps.every(Boolean);
 
     res.json({
       ...steps,
@@ -51,7 +84,7 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
 
 router.post("/onboarding/sis-connect", requireRoles("admin"), async (req, res): Promise<void> => {
   try {
-    const { provider, districtName, schools } = req.body;
+    const { provider, districtName, schools, credentials } = req.body;
 
     if (!provider || !districtName) {
       res.status(400).json({ error: "Provider and district name are required" });
@@ -94,6 +127,12 @@ router.post("/onboarding/sis-connect", requireRoles("admin"), async (req, res): 
       ).returning();
     }
 
+    const credentialMeta = credentials
+      ? JSON.stringify({ provider, apiUrl: credentials.apiUrl || null, hasClientId: !!credentials.clientId, hasSecret: !!credentials.clientSecret })
+      : JSON.stringify({ provider, mode: provider === "csv" ? "file_upload" : "manual" });
+
+    await markStepComplete("sis_connected", credentialMeta);
+
     res.json({
       district,
       schools: resultSchools,
@@ -103,6 +142,70 @@ router.post("/onboarding/sis-connect", requireRoles("admin"), async (req, res): 
   } catch (err) {
     console.error("SIS connect error:", err);
     res.status(500).json({ error: "Failed to connect SIS" });
+  }
+});
+
+router.post("/onboarding/sis-upload-csv", requireRoles("admin"), async (req, res): Promise<void> => {
+  try {
+    const { districtName, rows } = req.body;
+
+    if (!districtName) {
+      res.status(400).json({ error: "District name is required" });
+      return;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      res.status(400).json({ error: "No roster data provided" });
+      return;
+    }
+
+    const existingDistricts = await db.select().from(districtsTable);
+    let district;
+
+    if (existingDistricts.length > 0) {
+      const [updated] = await db.update(districtsTable)
+        .set({ name: districtName })
+        .where(eq(districtsTable.id, existingDistricts[0].id))
+        .returning();
+      district = updated;
+    } else {
+      const [inserted] = await db.insert(districtsTable).values({
+        name: districtName,
+        state: "MA",
+      }).returning();
+      district = inserted;
+    }
+
+    const schoolNamesFromCSV = [...new Set(rows.map((r: { school?: string }) => r.school || "Main Campus").filter(Boolean))];
+    const existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, district.id));
+    const existingSchoolNames = new Set(existingSchools.map(s => s.name.toLowerCase()));
+
+    const newSchoolNames = schoolNamesFromCSV.filter((n: string) => !existingSchoolNames.has(n.toLowerCase()));
+
+    let allSchools = [...existingSchools];
+    if (newSchoolNames.length > 0) {
+      const inserted = await db.insert(schoolsTable).values(
+        newSchoolNames.map((name: string) => ({
+          name,
+          districtId: district.id,
+          district: districtName,
+        }))
+      ).returning();
+      allSchools = [...allSchools, ...inserted];
+    }
+
+    await markStepComplete("sis_connected", JSON.stringify({ provider: "csv", rowCount: rows.length }));
+
+    res.json({
+      district,
+      schools: allSchools,
+      provider: "csv",
+      syncStatus: "complete",
+      importedRows: rows.length,
+    });
+  } catch (err) {
+    console.error("CSV upload error:", err);
+    res.status(500).json({ error: "Failed to process CSV upload" });
   }
 });
 
@@ -146,6 +249,8 @@ router.post("/onboarding/district-confirm", requireRoles("admin"), async (req, r
       }
     }
 
+    await markStepComplete("district_confirmed", JSON.stringify({ schoolYear }));
+
     res.json({ district, schoolYear });
   } catch (err) {
     console.error("District confirm error:", err);
@@ -171,6 +276,7 @@ router.post("/onboarding/service-types", requireRoles("admin"), async (req, res)
 
     if (newTypes.length === 0) {
       const allTypes = await db.select().from(serviceTypesTable);
+      await markStepComplete("service_types_configured");
       res.json({ serviceTypes: allTypes, skippedDuplicates: serviceTypes.length });
       return;
     }
@@ -183,6 +289,8 @@ router.post("/onboarding/service-types", requireRoles("admin"), async (req, res)
         defaultBillingRate: st.billingRate || null,
       }))
     ).returning();
+
+    await markStepComplete("service_types_configured");
 
     res.json({ serviceTypes: inserted });
   } catch (err) {
@@ -219,6 +327,7 @@ router.post("/onboarding/invite-staff", requireRoles("admin"), async (req, res):
     );
 
     if (newInvites.length === 0) {
+      await markStepComplete("staff_invited");
       res.json({ staff: [], invitesSent: 0, skippedDuplicates: validInvites.length });
       return;
     }
@@ -233,6 +342,8 @@ router.post("/onboarding/invite-staff", requireRoles("admin"), async (req, res):
         status: "active" as const,
       }))
     ).returning();
+
+    await markStepComplete("staff_invited");
 
     res.json({ staff: inserted, invitesSent: inserted.length });
   } catch (err) {

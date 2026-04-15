@@ -14,11 +14,9 @@ interface OnboardingStatus {
   totalSteps: number;
 }
 
-const CHECKLIST_DISMISSED_KEY = "trellis-setup-checklist-dismissed";
-
 const STEPS = [
   { key: "sisConnected" as const, label: "Connect your SIS", icon: Database, step: 0 },
-  { key: "schoolsConfigured" as const, label: "Confirm district & schools", icon: Building2, step: 1 },
+  { key: "districtConfirmed" as const, label: "Confirm district & schools", icon: Building2, step: 1 },
   { key: "serviceTypesConfigured" as const, label: "Configure service types", icon: Settings2, step: 2 },
   { key: "staffInvited" as const, label: "Invite staff members", icon: UserPlus, step: 3 },
 ];
@@ -27,9 +25,6 @@ export function SetupChecklist() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(CHECKLIST_DISMISSED_KEY) === "true"; } catch { return false; }
-  });
 
   useEffect(() => {
     authFetch("/api/onboarding/status")
@@ -41,7 +36,7 @@ export function SetupChecklist() {
       .catch(() => setFetchError(true));
   }, []);
 
-  if (fetchError || !status || status.isComplete || dismissed) return null;
+  if (fetchError || !status || status.isComplete) return null;
 
   const pct = Math.round((status.completedCount / status.totalSteps) * 100);
 
@@ -91,23 +86,13 @@ export function SetupChecklist() {
               </Link>
             );
           })}
-          <div className="flex items-center justify-between pt-2 px-1">
+          <div className="pt-2 px-1">
             <Link
               href="/setup"
               className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
             >
               Continue setup
             </Link>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                setDismissed(true);
-                try { localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true"); } catch {}
-              }}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Dismiss
-            </button>
           </div>
         </div>
       )}

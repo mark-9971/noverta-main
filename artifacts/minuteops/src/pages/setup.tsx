@@ -91,6 +91,7 @@ export default function SetupPage() {
   const [sisApiUrl, setSisApiUrl] = useState("");
   const [sisClientId, setSisClientId] = useState("");
   const [sisClientSecret, setSisClientSecret] = useState("");
+  const [csvRows, setCsvRows] = useState<{ school: string }[]>([]);
 
   const [schoolYear, setSchoolYear] = useState("2025–2026");
   const [editingSchools, setEditingSchools] = useState<{ id?: number; name: string }[]>([]);
@@ -167,19 +168,24 @@ export default function SetupPage() {
     }, 400);
 
     try {
-      const res = await authFetch("/api/onboarding/sis-connect", {
+      const endpoint = sisProvider === "csv" ? "/api/onboarding/sis-upload-csv" : "/api/onboarding/sis-connect";
+      const payload = sisProvider === "csv"
+        ? { districtName: districtName.trim(), rows: csvRows }
+        : {
+            provider: sisProvider,
+            districtName: districtName.trim(),
+            schools: schoolNames.filter(s => s.trim()),
+            credentials: {
+              apiUrl: sisApiUrl.trim() || undefined,
+              clientId: sisClientId.trim() || undefined,
+              clientSecret: sisClientSecret.trim() || undefined,
+            },
+          };
+
+      const res = await authFetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: sisProvider,
-          districtName: districtName.trim(),
-          schools: schoolNames.filter(s => s.trim()),
-          credentials: sisProvider !== "csv" ? {
-            apiUrl: sisApiUrl.trim() || undefined,
-            clientId: sisClientId.trim() || undefined,
-            clientSecret: sisClientSecret.trim() || undefined,
-          } : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -460,9 +466,44 @@ export default function SetupPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Include columns: student_id, first_name, last_name, grade, school
                 </p>
-                <button className="mt-3 px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors">
+                <input
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  id="csv-upload"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const text = ev.target?.result as string;
+                      if (!text) return;
+                      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+                      if (lines.length < 2) return;
+                      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+                      const schoolIdx = headers.indexOf("school");
+                      const parsed = lines.slice(1).map(line => {
+                        const cols = line.split(",");
+                        return { school: schoolIdx >= 0 ? cols[schoolIdx]?.trim() || "Main Campus" : "Main Campus" };
+                      });
+                      setCsvRows(parsed);
+                      const csvSchools = [...new Set(parsed.map(r => r.school))];
+                      setSchoolNames(csvSchools.length > 0 ? csvSchools : ["Main Campus"]);
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <label
+                  htmlFor="csv-upload"
+                  className="mt-3 inline-block px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                >
                   Choose File
-                </button>
+                </label>
+                {csvRows.length > 0 && (
+                  <p className="mt-2 text-xs text-emerald-600 font-medium">
+                    {csvRows.length} rows loaded from CSV
+                  </p>
+                )}
               </div>
             )}
 

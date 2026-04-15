@@ -45,3 +45,4 @@ export * from "./supervisionSessions";
 export * from "./sessionGoalData";
 export * from "./phaseChanges";
 export * from "./auditLogs";
+export * from "./onboardingProgress";
