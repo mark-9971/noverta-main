@@ -1601,7 +1601,7 @@ export default function StudentDetail() {
             <p className="text-sm text-gray-400 py-4 text-center">No emergency contacts on file.</p>
           ) : (
             <div className="space-y-2">
-              {emergencyContacts.map((contact: any, idx: number) => (
+              {emergencyContacts.map((contact: EmergencyContactRecord, idx: number) => (
                 <div key={contact.id} className={`flex items-start gap-3 p-3 rounded-lg border ${idx === 0 ? "border-emerald-200 bg-emerald-50/50" : "border-gray-100 bg-white"}`}>
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${idx === 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                     <span className="text-[12px] font-bold">{contact.firstName?.[0]}{contact.lastName?.[0]}</span>
@@ -1652,7 +1652,7 @@ export default function StudentDetail() {
             <div className="flex items-center gap-2">
               <Stethoscope className="w-4 h-4 text-red-500" />
               <CardTitle className="text-sm font-semibold text-gray-600">Medical Alerts</CardTitle>
-              {medicalAlerts.some((a: any) => a.severity === "life_threatening") && (
+              {medicalAlerts.some((a: MedicalAlertRecord) => a.severity === "life_threatening") && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-md uppercase tracking-wide">
                   <ShieldAlert className="w-3 h-3" /> Life-Threatening
                 </span>
@@ -1672,7 +1672,7 @@ export default function StudentDetail() {
             <p className="text-sm text-gray-400 py-4 text-center">No medical alerts on file.</p>
           ) : (
             <div className="space-y-2">
-              {medicalAlerts.map((alert: any) => {
+              {medicalAlerts.map((alert: MedicalAlertRecord) => {
                 const severityConfig: Record<string, { bg: string; text: string; border: string; label: string }> = {
                   mild: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-100", label: "Mild" },
                   moderate: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", label: "Moderate" },
