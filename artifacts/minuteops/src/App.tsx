@@ -66,7 +66,11 @@ function isSignedIn(): boolean {
   try {
     const token = localStorage.getItem("trellis_session");
     if (!token) return false;
-    const payload = JSON.parse(atob(token));
+    // Token is base64url(payload).base64url(sig) — extract payload before the last dot
+    const dotIdx = token.lastIndexOf(".");
+    const b64 = dotIdx >= 0 ? token.slice(0, dotIdx) : token;
+    const json = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(json);
     return Boolean(payload.userId && payload.role);
   } catch {
     return false;
