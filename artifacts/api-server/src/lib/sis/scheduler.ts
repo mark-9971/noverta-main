@@ -20,7 +20,7 @@ async function runScheduledSyncs(): Promise<void> {
   try {
     const connections = await db.select()
       .from(sisConnectionsTable)
-      .where(eq(sisConnectionsTable.enabled, true));
+      .where(and(eq(sisConnectionsTable.enabled, true), eq(sisConnectionsTable.status, "connected")));
 
     for (const conn of connections) {
       if (conn.provider === "csv") continue;

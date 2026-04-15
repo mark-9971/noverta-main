@@ -221,7 +221,7 @@ export async function runSync(
 
         if (syncType === "full") {
           if (studentResult.records.length === 0 && studentResult.errors.length === 0) {
-            counters.warnings.push("SIS returned 0 students — skipping archival as safety guard. If enrollment is truly empty, archive manually.");
+            counters.warnings.push({ message: "SIS returned 0 students — skipping archival as safety guard. If enrollment is truly empty, archive manually." });
           } else if (studentResult.errors.length === 0) {
             await archiveMissingStudents(seenIds, connectionId, counters);
           }

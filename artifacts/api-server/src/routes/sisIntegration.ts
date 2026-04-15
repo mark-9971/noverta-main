@@ -271,10 +271,15 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
       return;
     }
 
+    const VALID_SYNC_TYPES = new Set(["full", "students", "staff"]);
     const { syncType } = req.body as { syncType?: string };
-    const type = (syncType || "full") as "full" | "students" | "staff";
+    const type = syncType || "full";
+    if (!VALID_SYNC_TYPES.has(type)) {
+      res.status(400).json({ error: `Invalid syncType. Must be one of: ${[...VALID_SYNC_TYPES].join(", ")}` });
+      return;
+    }
 
-    const result = await runSync(id, type, authed.userId);
+    const result = await runSync(id, type as "full" | "students" | "staff", authed.userId);
 
     res.json({
       studentsAdded: result.studentsAdded,
