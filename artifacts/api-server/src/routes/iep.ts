@@ -11,6 +11,7 @@ import {
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
+import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 
 const router: IRouter = Router();
 
@@ -848,6 +849,7 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
             assessmentParticipation, assessmentAccommodations, alternateAssessmentJustification,
             scheduleModifications, transportationServices, preparedBy } = req.body;
     if (!iepStartDate || !iepEndDate) { res.status(400).json({ error: "iepStartDate and iepEndDate are required" }); return; }
+    const iepSchoolYearId = await getActiveSchoolYearIdForStudent(studentId);
     const [doc] = await db.insert(iepDocumentsTable).values({
       studentId, iepStartDate, iepEndDate, meetingDate,
       studentConcerns, parentConcerns, teamVision,
@@ -856,6 +858,7 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
       esyEligible: esyEligible ?? null, esyServices, esyJustification,
       assessmentParticipation, assessmentAccommodations, alternateAssessmentJustification,
       scheduleModifications, transportationServices, preparedBy: preparedBy || null,
+      ...(iepSchoolYearId != null ? { schoolYearId: iepSchoolYearId } : {}),
     }).returning();
     logAudit(req, {
       action: "create",

@@ -108,7 +108,7 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, status: statusParam } = req.query;
+    const { schoolId, status: statusParam, schoolYearId: iepYearId } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
     const effectiveDistrictId = scope.enforcedDistrictId;
 
@@ -121,6 +121,9 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
     if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
     if (effectiveDistrictId !== null) {
       conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId})` as ReturnType<typeof eq>);
+    }
+    if (iepYearId) {
+      conditions.push(eq(iepDocumentsTable.schoolYearId, Number(iepYearId)) as ReturnType<typeof eq>);
     }
 
     const rows = await db.select({

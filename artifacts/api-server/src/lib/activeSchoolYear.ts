@@ -6,6 +6,43 @@ import { sql } from "drizzle-orm";
 const cache = new Map<number, { id: number; expiresAt: number }>();
 const CACHE_TTL = 60_000;
 
+const BACKFILL_QUERIES = [
+  `UPDATE session_logs sl
+   SET school_year_id = sy.id
+   FROM students st
+   JOIN schools sc ON sc.id = st.school_id
+   JOIN school_years sy ON sy.district_id = sc.district_id AND sy.is_active = true
+   WHERE sl.school_year_id IS NULL AND sl.student_id = st.id`,
+
+  `UPDATE compliance_events ce
+   SET school_year_id = sy.id
+   FROM students st
+   JOIN schools sc ON sc.id = st.school_id
+   JOIN school_years sy ON sy.district_id = sc.district_id AND sy.is_active = true
+   WHERE ce.school_year_id IS NULL AND ce.student_id = st.id`,
+
+  `UPDATE team_meetings tm
+   SET school_year_id = sy.id
+   FROM students st
+   JOIN schools sc ON sc.id = st.school_id
+   JOIN school_years sy ON sy.district_id = sc.district_id AND sy.is_active = true
+   WHERE tm.school_year_id IS NULL AND tm.student_id = st.id`,
+
+  `UPDATE schedule_blocks sb
+   SET school_year_id = sy.id
+   FROM students st
+   JOIN schools sc ON sc.id = st.school_id
+   JOIN school_years sy ON sy.district_id = sc.district_id AND sy.is_active = true
+   WHERE sb.school_year_id IS NULL AND sb.student_id = st.id`,
+
+  `UPDATE iep_documents id_
+   SET school_year_id = sy.id
+   FROM students st
+   JOIN schools sc ON sc.id = st.school_id
+   JOIN school_years sy ON sy.district_id = sc.district_id AND sy.is_active = true
+   WHERE id_.school_year_id IS NULL AND id_.student_id = st.id`,
+];
+
 export async function ensureDbConstraints(): Promise<void> {
   try {
     await pool.query(`
@@ -16,6 +53,14 @@ export async function ensureDbConstraints(): Promise<void> {
   } catch (err: any) {
     if (!err.message?.includes("already exists")) {
       console.warn("ensureDbConstraints: could not create sy_district_active_unique:", err.message);
+    }
+  }
+
+  for (const q of BACKFILL_QUERIES) {
+    try {
+      await pool.query(q);
+    } catch (err: any) {
+      console.warn("ensureDbConstraints: backfill query failed (non-fatal):", err.message);
     }
   }
 }

@@ -81,6 +81,16 @@ router.get("/students", async (req, res): Promise<void> => {
     }
   }
 
+  // schoolYearId is not in the zod schema — read directly from query params
+  const rawSchoolYearId = req.query.schoolYearId;
+  if (rawSchoolYearId) {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM session_logs
+      WHERE student_id = ${studentsTable.id}
+        AND school_year_id = ${Number(rawSchoolYearId)}
+    )`);
+  }
+
   const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
 

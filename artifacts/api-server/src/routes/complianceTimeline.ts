@@ -354,6 +354,7 @@ router.post("/students/:studentId/team-meetings", async (req, res): Promise<void
       res.status(400).json({ error: "meetingType and scheduledDate are required" });
       return;
     }
+    const meetingYearId = await getActiveSchoolYearIdForStudent(studentId);
     const [meeting] = await db.insert(teamMeetingsTable).values({
       studentId, meetingType, scheduledDate,
       scheduledTime: scheduledTime || null,
@@ -363,6 +364,7 @@ router.post("/students/:studentId/team-meetings", async (req, res): Promise<void
       consentStatus: consentStatus || null,
       noticeSentDate: noticeSentDate || null,
       status: "scheduled",
+      ...(meetingYearId != null ? { schoolYearId: meetingYearId } : {}),
     }).returning();
     res.status(201).json({ ...meeting, createdAt: meeting.createdAt.toISOString(), updatedAt: meeting.updatedAt.toISOString() });
   } catch (e: any) {

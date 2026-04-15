@@ -9,6 +9,7 @@ import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
+import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 
 const router: IRouter = Router();
 const meetingAccess = requireRoles(...PRIVILEGED_STAFF_ROLES);
@@ -255,6 +256,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
     if (!student) { res.status(404).json({ error: "Student not found" }); return; }
 
     const schoolId = body.schoolId ?? student.schoolId ?? null;
+    const schoolYearId = await getActiveSchoolYearIdForStudent(body.studentId);
 
     const [row] = await db.insert(teamMeetingsTable).values({
       studentId: body.studentId,
@@ -270,6 +272,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       status: "scheduled",
       agendaItems: body.agendaItems ?? null,
       notes: body.notes ?? null,
+      ...(schoolYearId != null ? { schoolYearId } : {}),
     }).returning();
 
     if (body.invitees && Array.isArray(body.invitees) && body.invitees.length > 0) {
