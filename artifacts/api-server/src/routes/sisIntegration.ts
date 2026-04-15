@@ -11,7 +11,7 @@ import type { SisProvider } from "../lib/sis/types";
 
 const router: IRouter = Router();
 const ADMIN_ROLES = ["admin"] as const;
-const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv"]);
+const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv", "sftp"]);
 
 router.get("/sis/providers", requireRoles(...ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
   res.json(SUPPORTED_PROVIDERS);

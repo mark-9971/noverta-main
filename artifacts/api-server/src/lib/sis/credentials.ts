@@ -6,7 +6,10 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.SESSION_SECRET ?? process.env.DATABASE_URL ?? "trellis-sis-default-key";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET environment variable is required for SIS credential encryption");
+  }
   return scryptSync(secret, "trellis-sis-cred-salt", KEY_LENGTH);
 }
 

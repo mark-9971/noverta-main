@@ -50,4 +50,4 @@ export interface SisConnector {
   fetchAttendance(credentials: Record<string, unknown>, dateFrom: string, dateTo: string): Promise<SisFetchResult<SisAttendanceRecord>>;
 }
 
-export type SisProvider = "powerschool" | "infinite_campus" | "skyward" | "csv";
+export type SisProvider = "powerschool" | "infinite_campus" | "skyward" | "csv" | "sftp";

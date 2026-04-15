@@ -4,34 +4,38 @@ import { eq, and } from "drizzle-orm";
 import { runSync } from "./syncEngine";
 
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
-const NIGHTLY_HOUR = 2;
-const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 15 * 60 * 1000;
+
+const SCHEDULE_CONFIG: Record<string, { intervalHours: number }> = {
+  nightly: { intervalHours: 24 },
+  hourly: { intervalHours: 1 },
+  every_6h: { intervalHours: 6 },
+  every_12h: { intervalHours: 12 },
+  manual: { intervalHours: Infinity },
+};
 
 async function runScheduledSyncs(): Promise<void> {
   const now = new Date();
-  if (now.getHours() !== NIGHTLY_HOUR) return;
 
   try {
     const connections = await db.select()
       .from(sisConnectionsTable)
-      .where(
-        and(
-          eq(sisConnectionsTable.enabled, true),
-          eq(sisConnectionsTable.syncSchedule, "nightly"),
-        ),
-      );
+      .where(eq(sisConnectionsTable.enabled, true));
 
     for (const conn of connections) {
       if (conn.provider === "csv") continue;
 
+      const schedule = SCHEDULE_CONFIG[conn.syncSchedule] ?? SCHEDULE_CONFIG.nightly;
+      if (schedule.intervalHours === Infinity) continue;
+
       const lastSync = conn.lastSyncAt ? new Date(conn.lastSyncAt).getTime() : 0;
       const hoursSinceSync = (now.getTime() - lastSync) / (1000 * 60 * 60);
 
-      if (hoursSinceSync < 20) continue;
+      if (hoursSinceSync < schedule.intervalHours) continue;
 
-      console.log(`[SIS Scheduler] Running nightly sync for connection ${conn.id} (${conn.provider})`);
+      console.log(`[SIS Scheduler] Running scheduled sync for connection ${conn.id} (${conn.provider}, schedule: ${conn.syncSchedule})`);
       try {
-        await runSync(conn.id, "full", "scheduler:nightly");
+        await runSync(conn.id, "full", `scheduler:${conn.syncSchedule}`);
         console.log(`[SIS Scheduler] Completed sync for connection ${conn.id}`);
       } catch (err) {
         console.error(`[SIS Scheduler] Sync failed for connection ${conn.id}:`, err);
@@ -45,10 +49,10 @@ async function runScheduledSyncs(): Promise<void> {
 export function startSisScheduler(): void {
   if (schedulerInterval) return;
 
-  console.log("[SIS Scheduler] Started — nightly syncs at 2:00 AM");
+  console.log("[SIS Scheduler] Started — checking every 15 minutes");
   schedulerInterval = setInterval(runScheduledSyncs, CHECK_INTERVAL_MS);
 
-  runScheduledSyncs();
+  setTimeout(runScheduledSyncs, 5000);
 }
 
 export function stopSisScheduler(): void {
@@ -58,3 +62,5 @@ export function stopSisScheduler(): void {
     console.log("[SIS Scheduler] Stopped");
   }
 }
+
+export const VALID_SCHEDULES = Object.keys(SCHEDULE_CONFIG);

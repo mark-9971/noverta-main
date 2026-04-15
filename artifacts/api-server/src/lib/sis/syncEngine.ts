@@ -2,7 +2,7 @@ import { db } from "@workspace/db";
 import {
   studentsTable, staffTable, sisConnectionsTable, sisSyncLogsTable,
 } from "@workspace/db";
-import { eq, and, isNull, notInArray } from "drizzle-orm";
+import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import type { SisStudentRecord, SisStaffRecord } from "./types";
 import { getConnector, getCsvConnector } from "./index";
 import type { SisProvider } from "./types";
@@ -22,6 +22,7 @@ interface SyncCounters {
 async function upsertStudents(
   records: SisStudentRecord[],
   schoolId: number | null,
+  connectionId: number,
   counters: SyncCounters,
 ): Promise<Set<string>> {
   const seenExternalIds = new Set<string>();
@@ -30,11 +31,12 @@ async function upsertStudents(
     if (!rec.firstName && !rec.lastName) continue;
     seenExternalIds.add(rec.externalId);
 
-    const existing = await db.select({ id: studentsTable.id })
+    const existing = await db.select({ id: studentsTable.id, sisConnectionId: studentsTable.sisConnectionId })
       .from(studentsTable)
       .where(
         and(
           eq(studentsTable.externalId, rec.externalId),
+          eq(studentsTable.sisConnectionId, connectionId),
           isNull(studentsTable.deletedAt),
         ),
       )
@@ -70,6 +72,8 @@ async function upsertStudents(
         parentGuardianName: rec.parentGuardianName,
         parentEmail: rec.parentEmail,
         parentPhone: rec.parentPhone,
+        sisConnectionId: connectionId,
+        sisManaged: "true",
       });
       counters.studentsAdded++;
     }
@@ -80,30 +84,22 @@ async function upsertStudents(
 
 async function archiveMissingStudents(
   seenExternalIds: Set<string>,
-  schoolId: number | null,
+  connectionId: number,
   counters: SyncCounters,
 ): Promise<void> {
   if (seenExternalIds.size === 0) return;
 
-  const externalIdArray = Array.from(seenExternalIds);
+  const sisStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
+    .from(studentsTable)
+    .where(
+      and(
+        eq(studentsTable.sisConnectionId, connectionId),
+        isNull(studentsTable.deletedAt),
+        eq(studentsTable.status, "active"),
+      ),
+    );
 
-  let existingStudents;
-  if (schoolId) {
-    existingStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
-      .from(studentsTable)
-      .where(
-        and(
-          eq(studentsTable.schoolId, schoolId),
-          isNull(studentsTable.deletedAt),
-        ),
-      );
-  } else {
-    existingStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
-      .from(studentsTable)
-      .where(isNull(studentsTable.deletedAt));
-  }
-
-  const toArchive = existingStudents.filter(
+  const toArchive = sisStudents.filter(
     (s) => s.externalId && !seenExternalIds.has(s.externalId),
   );
 
@@ -118,6 +114,7 @@ async function archiveMissingStudents(
 async function upsertStaff(
   records: SisStaffRecord[],
   schoolId: number | null,
+  connectionId: number,
   counters: SyncCounters,
 ): Promise<void> {
   for (const rec of records) {
@@ -192,30 +189,30 @@ export async function runSync(
       const result = csv.parseStudentCsv(csvData.csvText);
       counters.errors.push(...result.errors);
       counters.warnings.push(...result.warnings);
-      await upsertStudents(result.records, connection.schoolId, counters);
+      await upsertStudents(result.records, connection.schoolId, connectionId, counters);
     } else if (syncType === "csv_staff" && csvData) {
       const csv = getCsvConnector();
       const result = csv.parseStaffCsv(csvData.csvText);
       counters.errors.push(...result.errors);
       counters.warnings.push(...result.warnings);
-      await upsertStaff(result.records, connection.schoolId, counters);
+      await upsertStaff(result.records, connection.schoolId, connectionId, counters);
     } else {
       const connector = getConnector(connection.provider as SisProvider);
 
       if (syncType === "full" || syncType === "students") {
         const studentResult = await connector.fetchStudents(credentials);
         counters.errors.push(...studentResult.errors);
-        const seenIds = await upsertStudents(studentResult.records, connection.schoolId, counters);
+        const seenIds = await upsertStudents(studentResult.records, connection.schoolId, connectionId, counters);
 
         if (syncType === "full" && studentResult.records.length > 0) {
-          await archiveMissingStudents(seenIds, connection.schoolId, counters);
+          await archiveMissingStudents(seenIds, connectionId, counters);
         }
       }
 
       if (syncType === "full" || syncType === "staff") {
         const staffResult = await connector.fetchStaff(credentials);
         counters.errors.push(...staffResult.errors);
-        await upsertStaff(staffResult.records, connection.schoolId, counters);
+        await upsertStaff(staffResult.records, connection.schoolId, connectionId, counters);
       }
     }
 

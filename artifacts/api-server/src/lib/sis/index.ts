@@ -3,6 +3,7 @@ import { PowerSchoolConnector } from "./powerschool";
 import { InfiniteCampusConnector } from "./infiniteCampus";
 import { SkywardConnector } from "./skyward";
 import { CsvConnector } from "./csvConnector";
+import { SftpConnector } from "./sftpConnector";
 
 export type { SisConnector, SisProvider, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisSyncResult } from "./types";
 
@@ -11,6 +12,7 @@ const connectors: Record<SisProvider, SisConnector> = {
   infinite_campus: new InfiniteCampusConnector(),
   skyward: new SkywardConnector(),
   csv: new CsvConnector(),
+  sftp: new SftpConnector(),
 };
 
 export function getConnector(provider: SisProvider): SisConnector {
@@ -27,5 +29,6 @@ export const SUPPORTED_PROVIDERS: { key: SisProvider; label: string; description
   { key: "powerschool", label: "PowerSchool", description: "Connect via PowerSchool REST API (OAuth2 client credentials)" },
   { key: "infinite_campus", label: "Infinite Campus", description: "Connect via Infinite Campus REST API" },
   { key: "skyward", label: "Skyward", description: "Connect via Skyward REST API" },
+  { key: "sftp", label: "SFTP File Drop", description: "Auto-import CSV files from an SFTP drop directory" },
   { key: "csv", label: "CSV Upload", description: "Import student and staff rosters from CSV files" },
 ];

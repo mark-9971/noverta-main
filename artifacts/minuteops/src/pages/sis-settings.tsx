@@ -50,6 +50,7 @@ const PROVIDER_ICONS: Record<string, typeof Database> = {
   powerschool: Database,
   infinite_campus: Database,
   skyward: Database,
+  sftp: Upload,
   csv: FileSpreadsheet,
 };
 
@@ -67,6 +68,9 @@ const CREDENTIAL_FIELDS: Record<string, Array<{ key: string; label: string; type
     { key: "baseUrl", label: "Skyward Base URL", type: "url", placeholder: "https://district.skyward.com" },
     { key: "apiKey", label: "API Key", type: "text", placeholder: "API Key" },
     { key: "apiSecret", label: "API Secret", type: "password", placeholder: "API Secret" },
+  ],
+  sftp: [
+    { key: "dropPath", label: "SFTP Drop Directory", type: "text", placeholder: "/data/sftp/sis-drop" },
   ],
   csv: [],
 };
@@ -221,7 +225,7 @@ function ConnectionCard({
                   </Button>
                 </>
               )}
-              {connection.provider === "csv" && (
+              {(connection.provider === "csv" || connection.provider === "sftp") && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -307,10 +311,19 @@ function ConnectionCard({
   );
 }
 
+const SCHEDULE_OPTIONS = [
+  { value: "nightly", label: "Nightly (every 24h)" },
+  { value: "every_12h", label: "Every 12 hours" },
+  { value: "every_6h", label: "Every 6 hours" },
+  { value: "hourly", label: "Hourly" },
+  { value: "manual", label: "Manual only" },
+];
+
 function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [syncSchedule, setSyncSchedule] = useState("nightly");
   const [saving, setSaving] = useState(false);
 
   const { data: providers } = useQuery<SisProvider[]>({
@@ -333,6 +346,7 @@ function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
           provider: selectedProvider,
           label: label.trim(),
           credentials,
+          syncSchedule,
         }),
       });
       if (res.ok) {
@@ -409,6 +423,21 @@ function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
             />
           </div>
         ))}
+
+        {selectedProvider !== "csv" && (
+          <div>
+            <label className="text-[11px] font-medium text-gray-500 block mb-1">Sync Schedule</label>
+            <select
+              value={syncSchedule}
+              onChange={(e) => setSyncSchedule(e.target.value)}
+              className="w-full text-[13px] px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
+            >
+              {SCHEDULE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <Button onClick={handleCreate} disabled={saving || !label.trim()} className="text-[12px] gap-1.5 bg-emerald-600 hover:bg-emerald-700">
           <Plus className="w-3.5 h-3.5" />

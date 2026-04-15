@@ -24,6 +24,8 @@ export const studentsTable = pgTable("students", {
   parentPhone: text("parent_phone"),
   notes: text("notes"),
   tags: text("tags"),
+  sisConnectionId: integer("sis_connection_id"),
+  sisManaged: text("sis_managed"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
