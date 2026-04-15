@@ -5,9 +5,11 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
+import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
+import { captureException } from "./lib/sentry";
 
 const app: Express = express();
 
@@ -88,6 +90,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(clerkMiddleware());
 
+app.use(healthRouter);
 app.use("/api", requireActiveSubscription);
 app.use("/api", router);
 
@@ -96,9 +99,24 @@ app.use((_req: Request, res: Response) => {
 });
 
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-  logger.error({ err, method: req.method, url: req.url }, "Unhandled error");
   const status = (err as any).status || (err as any).statusCode || 500;
-  const message = process.env.NODE_ENV === "production" ? "Internal server error" : err.message;
+
+  logger.error(
+    {
+      err,
+      method: req.method,
+      url: req.url,
+      status,
+    },
+    "Unhandled error",
+  );
+
+  if (status >= 500) {
+    captureException(err, { method: req.method, url: req.url, status });
+  }
+
+  const isProduction = process.env.NODE_ENV === "production";
+  const message = isProduction ? "Internal server error" : err.message;
   res.status(status).json({ error: message });
 });
 

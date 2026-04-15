@@ -1,3 +1,6 @@
+import { initSentry } from "./lib/sentry";
+initSentry();
+
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";

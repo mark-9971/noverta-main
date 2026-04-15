@@ -187,6 +187,7 @@ const adminNav: NavSection[] = [
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/audit-log", label: "Audit Log", icon: FileText },
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
+      { href: "/system-status", label: "System Status", icon: Activity },
       { href: "/setup", label: "Settings", icon: Settings },
     ],
   },

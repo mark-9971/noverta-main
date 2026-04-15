@@ -1,11 +1,37 @@
 import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+const startedAt = Date.now();
 
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
+router.get("/health", async (_req, res) => {
+  const uptime = Math.floor((Date.now() - startedAt) / 1000);
+  const version = process.env.npm_package_version ?? "unknown";
+
+  let dbStatus: "connected" | "error" = "connected";
+  try {
+    await db.execute(sql`SELECT 1`);
+  } catch (err) {
+    logger.error({ err }, "Health check: database error");
+    dbStatus = "error";
+  }
+
+  const status = dbStatus === "connected" ? "ok" : "degraded";
+  const httpStatus = dbStatus === "connected" ? 200 : 503;
+
+  res.status(httpStatus).json({
+    status,
+    db: dbStatus,
+    uptime,
+    version,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/healthz", async (_req, res) => {
+  res.json({ status: "ok" });
 });
 
 export default router;
