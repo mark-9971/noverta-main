@@ -4,6 +4,7 @@ import {
   agenciesTable,
   agencyContractsTable,
   agencyStaffTable,
+  contractSessionLinksTable,
   serviceTypesTable,
   staffTable,
   sessionLogsTable,
@@ -364,8 +365,93 @@ router.delete("/agencies/:id/contracts/:contractId", adminOnly, async (req: Requ
   }
 });
 
+async function attributeUnlinkedSessions(): Promise<number> {
+  const activeContracts = await db.select({
+    id: agencyContractsTable.id,
+    agencyId: agencyContractsTable.agencyId,
+    serviceTypeId: agencyContractsTable.serviceTypeId,
+    startDate: agencyContractsTable.startDate,
+    endDate: agencyContractsTable.endDate,
+  })
+    .from(agencyContractsTable)
+    .where(and(
+      eq(agencyContractsTable.status, "active"),
+      isNull(agencyContractsTable.deletedAt),
+    ));
+
+  if (activeContracts.length === 0) return 0;
+
+  const agencyIds = [...new Set(activeContracts.map(c => c.agencyId))];
+  const staffLinks = await db.select({
+    agencyId: agencyStaffTable.agencyId,
+    staffId: agencyStaffTable.staffId,
+  })
+    .from(agencyStaffTable)
+    .where(inArray(agencyStaffTable.agencyId, agencyIds));
+
+  const staffByAgency = new Map<number, number[]>();
+  for (const link of staffLinks) {
+    const list = staffByAgency.get(link.agencyId) || [];
+    list.push(link.staffId);
+    staffByAgency.set(link.agencyId, list);
+  }
+
+  const alreadyLinked = await db.select({ sessionLogId: contractSessionLinksTable.sessionLogId })
+    .from(contractSessionLinksTable);
+  const linkedSessionIds = new Set(alreadyLinked.map(r => r.sessionLogId));
+
+  let attributed = 0;
+
+  for (const contract of activeContracts) {
+    const agencyStaffIds = staffByAgency.get(contract.agencyId) || [];
+    if (agencyStaffIds.length === 0) continue;
+
+    const sessions = await db.select({
+      id: sessionLogsTable.id,
+      durationMinutes: sessionLogsTable.durationMinutes,
+    })
+      .from(sessionLogsTable)
+      .where(and(
+        inArray(sessionLogsTable.staffId, agencyStaffIds),
+        eq(sessionLogsTable.serviceTypeId, contract.serviceTypeId),
+        gte(sessionLogsTable.sessionDate, contract.startDate),
+        lte(sessionLogsTable.sessionDate, contract.endDate),
+        isNull(sessionLogsTable.deletedAt),
+        eq(sessionLogsTable.status, "completed"),
+      ));
+
+    const unlinked = sessions.filter(s => !linkedSessionIds.has(s.id));
+
+    if (unlinked.length > 0) {
+      await db.insert(contractSessionLinksTable)
+        .values(unlinked.map(s => ({
+          contractId: contract.id,
+          sessionLogId: s.id,
+          attributedMinutes: s.durationMinutes,
+        })))
+        .onConflictDoNothing();
+      attributed += unlinked.length;
+      for (const s of unlinked) linkedSessionIds.add(s.id);
+    }
+  }
+
+  return attributed;
+}
+
+router.post("/contracts/reconcile", adminOnly, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const attributed = await attributeUnlinkedSessions();
+    res.json({ attributed, message: `Attributed ${attributed} session(s) to contracts` });
+  } catch (err) {
+    console.error("Error reconciling sessions:", err);
+    res.status(500).json({ error: "Failed to reconcile sessions" });
+  }
+});
+
 router.get("/contracts/utilization", adminOnly, async (req: Request, res: Response): Promise<void> => {
   try {
+    await attributeUnlinkedSessions();
+
     const contracts = await db.select({
       id: agencyContractsTable.id,
       agencyId: agencyContractsTable.agencyId,
@@ -396,40 +482,44 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
 
     const contractIds = contracts.map(c => c.id);
 
-    const agencyIds = [...new Set(contracts.map(c => c.agencyId))];
-    const staffLinks = await db.select({
-      agencyId: agencyStaffTable.agencyId,
-      staffId: agencyStaffTable.staffId,
-    })
-      .from(agencyStaffTable)
-      .where(inArray(agencyStaffTable.agencyId, agencyIds));
+    const linkageTotals = contractIds.length > 0
+      ? await db.select({
+          contractId: contractSessionLinksTable.contractId,
+          totalMinutes: sql<number>`COALESCE(SUM(${contractSessionLinksTable.attributedMinutes}), 0)`,
+          sessionCount: sql<number>`COUNT(*)`,
+        })
+          .from(contractSessionLinksTable)
+          .where(inArray(contractSessionLinksTable.contractId, contractIds))
+          .groupBy(contractSessionLinksTable.contractId)
+      : [];
 
-    const staffByAgency = new Map<number, number[]>();
-    for (const link of staffLinks) {
-      const list = staffByAgency.get(link.agencyId) || [];
-      list.push(link.staffId);
-      staffByAgency.set(link.agencyId, list);
+    const minutesByContract = new Map<number, { totalMinutes: number; sessionCount: number }>();
+    for (const row of linkageTotals) {
+      minutesByContract.set(row.contractId, {
+        totalMinutes: Number(row.totalMinutes),
+        sessionCount: Number(row.sessionCount),
+      });
     }
 
-    const utilization = await Promise.all(contracts.map(async (contract) => {
-      const agencyStaffIds = staffByAgency.get(contract.agencyId) || [];
-
-      let consumedMinutes = 0;
-      if (agencyStaffIds.length > 0) {
-        const [result] = await db.select({
-          totalMinutes: sql<number>`COALESCE(SUM(${sessionLogsTable.durationMinutes}), 0)`,
+    const agencyIds = [...new Set(contracts.map(c => c.agencyId))];
+    const staffCounts = agencyIds.length > 0
+      ? await db.select({
+          agencyId: agencyStaffTable.agencyId,
+          count: sql<number>`COUNT(*)`,
         })
-          .from(sessionLogsTable)
-          .where(and(
-            inArray(sessionLogsTable.staffId, agencyStaffIds),
-            eq(sessionLogsTable.serviceTypeId, contract.serviceTypeId),
-            gte(sessionLogsTable.sessionDate, contract.startDate),
-            lte(sessionLogsTable.sessionDate, contract.endDate),
-            isNull(sessionLogsTable.deletedAt),
-            eq(sessionLogsTable.status, "completed"),
-          ));
-        consumedMinutes = Number(result?.totalMinutes || 0);
-      }
+          .from(agencyStaffTable)
+          .where(inArray(agencyStaffTable.agencyId, agencyIds))
+          .groupBy(agencyStaffTable.agencyId)
+      : [];
+
+    const staffCountByAgency = new Map<number, number>();
+    for (const row of staffCounts) {
+      staffCountByAgency.set(row.agencyId, Number(row.count));
+    }
+
+    const utilization = contracts.map((contract) => {
+      const linkage = minutesByContract.get(contract.id) || { totalMinutes: 0, sessionCount: 0 };
+      const consumedMinutes = linkage.totalMinutes;
 
       const consumedHours = consumedMinutes / 60;
       const contractedHours = Number(contract.contractedHours);
@@ -449,9 +539,10 @@ router.get("/contracts/utilization", adminOnly, async (req: Request, res: Respon
         daysUntilEnd,
         isExpiringSoon,
         isOverThreshold,
-        staffCount: (staffByAgency.get(contract.agencyId) || []).length,
+        sessionCount: linkage.sessionCount,
+        staffCount: staffCountByAgency.get(contract.agencyId) || 0,
       };
-    }));
+    });
 
     res.json(utilization);
   } catch (err) {
@@ -483,18 +574,22 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
         isNull(agenciesTable.deletedAt),
       ));
 
-    const agencyIds = [...new Set(contracts.map(c => c.agencyId))];
-    const staffLinks = agencyIds.length > 0
-      ? await db.select({ agencyId: agencyStaffTable.agencyId, staffId: agencyStaffTable.staffId })
-          .from(agencyStaffTable)
-          .where(inArray(agencyStaffTable.agencyId, agencyIds))
+    await attributeUnlinkedSessions();
+
+    const contractIds = contracts.map(c => c.id);
+    const linkageTotals = contractIds.length > 0
+      ? await db.select({
+          contractId: contractSessionLinksTable.contractId,
+          totalMinutes: sql<number>`COALESCE(SUM(${contractSessionLinksTable.attributedMinutes}), 0)`,
+        })
+          .from(contractSessionLinksTable)
+          .where(inArray(contractSessionLinksTable.contractId, contractIds))
+          .groupBy(contractSessionLinksTable.contractId)
       : [];
 
-    const staffByAgency = new Map<number, number[]>();
-    for (const link of staffLinks) {
-      const list = staffByAgency.get(link.agencyId) || [];
-      list.push(link.staffId);
-      staffByAgency.set(link.agencyId, list);
+    const minutesByContract = new Map<number, number>();
+    for (const row of linkageTotals) {
+      minutesByContract.set(row.contractId, Number(row.totalMinutes));
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -524,36 +619,21 @@ router.get("/contracts/alerts", adminOnly, async (req: Request, res: Response): 
         });
       }
 
-      const agencyStaffIds = staffByAgency.get(contract.agencyId) || [];
-      if (agencyStaffIds.length > 0) {
-        const [result] = await db.select({
-          totalMinutes: sql<number>`COALESCE(SUM(${sessionLogsTable.durationMinutes}), 0)`,
-        })
-          .from(sessionLogsTable)
-          .where(and(
-            inArray(sessionLogsTable.staffId, agencyStaffIds),
-            eq(sessionLogsTable.serviceTypeId, contract.serviceTypeId),
-            gte(sessionLogsTable.sessionDate, contract.startDate),
-            lte(sessionLogsTable.sessionDate, contract.endDate),
-            isNull(sessionLogsTable.deletedAt),
-            eq(sessionLogsTable.status, "completed"),
-          ));
+      const consumedMinutes = minutesByContract.get(contract.id) || 0;
+      const consumedHours = consumedMinutes / 60;
+      const contractedHours = Number(contract.contractedHours);
+      const utilizationPct = contractedHours > 0 ? Math.round((consumedHours / contractedHours) * 100) : 0;
 
-        const consumedHours = Number(result?.totalMinutes || 0) / 60;
-        const contractedHours = Number(contract.contractedHours);
-        const utilizationPct = contractedHours > 0 ? Math.round((consumedHours / contractedHours) * 100) : 0;
-
-        if (utilizationPct >= contract.alertThresholdPct) {
-          alerts.push({
-            contractId: contract.id,
-            agencyName: contract.agencyName,
-            serviceTypeName: contract.serviceTypeName,
-            alertType: "threshold",
-            message: `${utilizationPct}% of contracted hours consumed (threshold: ${contract.alertThresholdPct}%)`,
-            severity: utilizationPct >= 95 ? "critical" : "warning",
-            utilizationPct,
-          });
-        }
+      if (utilizationPct >= contract.alertThresholdPct) {
+        alerts.push({
+          contractId: contract.id,
+          agencyName: contract.agencyName,
+          serviceTypeName: contract.serviceTypeName,
+          alertType: "threshold",
+          message: `${utilizationPct}% of contracted hours consumed (threshold: ${contract.alertThresholdPct}%)`,
+          severity: utilizationPct >= 95 ? "critical" : "warning",
+          utilizationPct,
+        });
       }
     }
 
