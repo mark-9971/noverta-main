@@ -85,9 +85,9 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
     };
 
     const coreSteps = [steps.sisConnected, steps.schoolsConfigured, steps.serviceTypesConfigured];
-    const allSteps = [...coreSteps, steps.districtConfirmed, steps.staffInvited];
-    const completedCount = allSteps.filter(Boolean).length;
-    const totalSteps = 5;
+    const checklistSteps = [steps.sisConnected, steps.districtConfirmed, steps.serviceTypesConfigured, steps.staffInvited];
+    const completedCount = checklistSteps.filter(Boolean).length;
+    const totalSteps = 4;
     const isComplete = coreSteps.every(Boolean);
 
     res.json({
@@ -110,7 +110,7 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
   }
 });
 
-router.post("/onboarding/sis-connect", requireRoles("admin"), async (req, res): Promise<void> => {
+router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
     const { provider, districtName, schools, credentials } = req.body;
 
@@ -158,7 +158,7 @@ router.post("/onboarding/sis-connect", requireRoles("admin"), async (req, res): 
   }
 });
 
-router.post("/onboarding/sis-upload-csv", requireRoles("admin"), async (req, res): Promise<void> => {
+router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
     const { districtName, rows } = req.body;
 
@@ -276,7 +276,7 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin"), async (req, res
   }
 });
 
-router.post("/onboarding/district-confirm", requireRoles("admin"), async (req, res): Promise<void> => {
+router.post("/onboarding/district-confirm", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
     const { districtName, schoolYear, schools } = req.body;
 
@@ -310,7 +310,7 @@ router.post("/onboarding/district-confirm", requireRoles("admin"), async (req, r
   }
 });
 
-router.post("/onboarding/service-types", requireRoles("admin"), async (req, res): Promise<void> => {
+router.post("/onboarding/service-types", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
     const { serviceTypes } = req.body;
 
@@ -353,7 +353,7 @@ router.post("/onboarding/service-types", requireRoles("admin"), async (req, res)
   }
 });
 
-router.post("/onboarding/invite-staff", requireRoles("admin"), async (req, res): Promise<void> => {
+router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
     const { invites } = req.body;
 
