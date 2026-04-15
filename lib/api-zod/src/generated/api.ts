@@ -1224,6 +1224,7 @@ export const CreateSessionBody = zod.object({
   status: zod.string(),
   missedReasonId: zod.number().nullish(),
   isMakeup: zod.boolean(),
+  makeupForId: zod.number().nullish(),
   isCompensatory: zod.boolean().optional(),
   compensatoryObligationId: zod.number().nullish(),
   notes: zod.string().nullish(),

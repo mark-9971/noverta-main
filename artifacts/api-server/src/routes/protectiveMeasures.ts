@@ -1442,14 +1442,73 @@ router.post("/protective-measures/incidents/:id/parent-notification-draft", asyn
   res.json(updated);
 });
 
-router.post("/protective-measures/incidents/:id/send-parent-notification", async (req: Request, res: Response) => {
+router.post("/protective-measures/incidents/:id/review-notification", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  if (!actorStaffId) {
+    res.status(401).json({ error: "Actor identity required to review a notification. Ensure your session is authenticated." });
+    return;
+  }
+
+  const { action, note } = req.body as { action?: string; note?: string };
+  if (!action || !["approve", "return"].includes(action)) {
+    res.status(400).json({ error: "action must be 'approve' or 'return'" });
+    return;
+  }
+  if (!note || !note.trim()) {
+    res.status(400).json({ error: "note is required for notification review" });
+    return;
+  }
 
   const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
   if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
 
-  if (incident.status !== "reviewed") {
+  if (incident.status !== "reviewed" && incident.status !== "resolved") {
+    res.status(400).json({ error: "Incident must be admin-reviewed before notification can be reviewed" });
+    return;
+  }
+  if (incident.parentNotificationSentAt) {
+    res.status(400).json({ error: "Parent notification has already been sent; no further review is possible" });
+    return;
+  }
+
+  await db.insert(incidentStatusHistoryTable).values({
+    incidentId: id,
+    fromStatus: "notification_draft",
+    toStatus: action === "approve" ? "notification_approved" : "notification_returned",
+    note: note.trim(),
+    actorStaffId,
+  });
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: incident.studentId,
+    summary: `Notification review: ${action} on incident #${id}`,
+    oldValues: {},
+    newValues: { notificationReviewAction: action, note: note.trim() },
+  });
+
+  res.json({ success: true, action, incidentId: id });
+});
+
+router.post("/protective-measures/incidents/:id/send-parent-notification", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  if (!actorStaffId) {
+    res.status(401).json({ error: "Actor identity required to send parent notification. Ensure your session is authenticated." });
+    return;
+  }
+
+  const [incident] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  if (incident.status !== "reviewed" && incident.status !== "resolved") {
     res.status(400).json({ error: "Incident must be admin-reviewed before sending parent notification" });
     return;
   }
@@ -1459,8 +1518,15 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     return;
   }
 
-  const { senderId, draft, method } = req.body;
-  if (!senderId) { res.status(400).json({ error: "senderId required" }); return; }
+  const notificationHistory = await db.select().from(incidentStatusHistoryTable)
+    .where(and(eq(incidentStatusHistoryTable.incidentId, id), eq(incidentStatusHistoryTable.toStatus, "notification_approved")));
+  if (notificationHistory.length === 0) {
+    res.status(400).json({ error: "Notification must be explicitly approved before sending. Use the 'Approve' action first." });
+    return;
+  }
+
+  const { draft, method } = req.body;
+  const senderId = actorStaffId;
 
   const [sender] = await db.select().from(staffTable).where(eq(staffTable.id, Number(senderId)));
   if (!sender) { res.status(404).json({ error: "Sender staff not found" }); return; }

@@ -122,12 +122,16 @@ router.patch("/compliance-events/:id", async (req, res): Promise<void> => {
         return;
       }
       const actorStaffId = getPublicMeta(req).staffId ?? null;
+      if (!actorStaffId) {
+        res.status(401).json({ error: "Actor identity required to resolve a compliance event. Ensure your session is authenticated." });
+        return;
+      }
       const now = new Date().toISOString();
       updates.status = "completed";
       updates.resolvedAt = now;
       updates.completedDate = now.split("T")[0];
       updates.resolutionNote = resolutionNote;
-      if (actorStaffId) updates.resolvedBy = actorStaffId;
+      updates.resolvedBy = actorStaffId;
     }
     const [updated] = await db.update(complianceEventsTable).set(updates).where(eq(complianceEventsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }

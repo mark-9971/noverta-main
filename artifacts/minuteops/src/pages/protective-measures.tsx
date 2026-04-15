@@ -1385,10 +1385,21 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   });
 
   const sendNotificationMutation = useMutation({
-    mutationFn: (data: { senderId: number; draft: string; method: string }) =>
+    mutationFn: (data: { draft: string; method: string }) =>
       sendParentNotificationIncident(id, data),
     onSuccess: () => { invalidateAll(); toast.success("Parent notification sent successfully"); },
-    onError: (err: Error) => { toast.error(err.message); },
+    onError: (err: Error) => { toast.error(err.message || "Failed to send notification"); },
+  });
+
+  const reviewNotificationMutation = useMutation({
+    mutationFn: (data: { action: "approve" | "return"; note: string }) =>
+      authFetch(`/api/protective-measures/incidents/${id}/review-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then(async r => { if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e as { error?: string }).error || "Review failed"); } return r.json(); }),
+    onSuccess: () => { invalidateAll(); queryClient.invalidateQueries({ queryKey: ["incident-status-history", id] }); },
+    onError: (err: Error) => { toast.error(err.message || "Failed to record review"); },
   });
 
   const { data: statusHistory = [] } = useQuery<StatusHistoryEntry[]>({
@@ -1639,6 +1650,8 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             incidentId={id}
             saveDraftMutation={saveDraftMutation}
             sendNotificationMutation={sendNotificationMutation}
+            reviewNotificationMutation={reviewNotificationMutation}
+            statusHistory={statusHistory}
           />
 
           <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
@@ -1841,24 +1854,28 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   );
 }
 
-function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutation, sendNotificationMutation }: {
+function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutation, sendNotificationMutation, reviewNotificationMutation, statusHistory }: {
   incident: any;
   staff: Staff[];
   incidentId: number;
   saveDraftMutation: any;
   sendNotificationMutation: any;
+  reviewNotificationMutation: any;
+  statusHistory: StatusHistoryEntry[];
 }) {
   const [draftText, setDraftText] = useState(incident.parentNotificationDraft || "");
-  const [senderId, setSenderId] = useState("");
   const [sendMethod, setSendMethod] = useState("email");
   const [showConfirm, setShowConfirm] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
+  const [reviewAction, setReviewAction] = useState<"approve" | "return">("approve");
 
-  const isAdminReviewed = incident.status === "reviewed";
+  const isAdminReviewed = incident.status === "reviewed" || incident.status === "resolved";
   const alreadySent = !!incident.parentNotificationSentAt;
-
-  const eligibleSenders = staff.filter(s =>
-    s.role === "case_manager" || s.role === "bcba" || s.role === "coordinator" || s.role === "admin"
+  const notificationApproved = statusHistory.some(h => h.toStatus === "notification_approved");
+  const lastReviewEntry = [...statusHistory].reverse().find(h =>
+    h.toStatus === "notification_approved" || h.toStatus === "notification_returned"
   );
 
   const generateDraft = async () => {
@@ -1866,9 +1883,6 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
     try {
       const data = await generateIncidentDraft(incidentId) as { draft: string; caseManager?: { id: number } };
       setDraftText(data.draft);
-      if (data.caseManager && !senderId) {
-        setSenderId(String(data.caseManager.id));
-      }
     } catch { toast.error("Failed to generate draft"); }
     setLoadingDraft(false);
   };
@@ -1888,9 +1902,19 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
     toast.success("Draft saved");
   };
 
+  const handleReviewSubmit = () => {
+    if (!reviewNote.trim()) { toast.error("A review note is required"); return; }
+    reviewNotificationMutation.mutate({ action: reviewAction, note: reviewNote }, {
+      onSuccess: () => {
+        setShowReviewPanel(false);
+        setReviewNote("");
+        toast.success(reviewAction === "approve" ? "Notification approved for sending" : "Notification returned for correction");
+      },
+    });
+  };
+
   const handleSend = () => {
-    if (!senderId) { toast.error("Select who is authorizing this notification"); return; }
-    sendNotificationMutation.mutate({ senderId: Number(senderId), draft: draftText, method: sendMethod });
+    sendNotificationMutation.mutate({ draft: draftText, method: sendMethod });
     setShowConfirm(false);
   };
 
@@ -1980,42 +2004,79 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
         <Printer className="w-3.5 h-3.5" /> Preview / Download Restraint Report PDF
       </button>
 
-      <div className="border-t border-gray-100 pt-3 space-y-2">
-        <label className="text-xs font-medium text-gray-700">Authorize & Send</label>
-        <p className="text-[11px] text-gray-500">Only the SPED teacher or case manager may authorize sending this notification.</p>
-        <select value={senderId} onChange={e => setSenderId(e.target.value)}
-          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white">
-          <option value="">Select authorizing staff...</option>
-          {eligibleSenders.map(s => (
-            <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.title || s.role}</option>
-          ))}
-        </select>
-        <select value={sendMethod} onChange={e => setSendMethod(e.target.value)}
-          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white">
-          <option value="email">Email</option>
-          <option value="certified_mail">Certified Mail</option>
-          <option value="hand_delivered">Hand Delivered</option>
-        </select>
-
-        {!showConfirm ? (
-          <button onClick={() => setShowConfirm(true)} disabled={!senderId || !draftText}
-            className="w-full px-3 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-            <Send className="w-3.5 h-3.5" /> Send Parent Notification with Report
-          </button>
-        ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-amber-800">Confirm Send</p>
-            <p className="text-[11px] text-amber-700">This will mark the parent notification as sent and attach the restraint report. This action cannot be undone.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowConfirm(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
-              <button onClick={handleSend} disabled={sendNotificationMutation.isPending}
-                className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50 font-medium">
-                {sendNotificationMutation.isPending ? "Sending..." : "Confirm & Send"}
-              </button>
-            </div>
+      {lastReviewEntry && (
+        <div className={`rounded-lg px-3 py-2 text-[11px] flex items-start gap-2 ${lastReviewEntry.toStatus === "notification_approved" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-red-50 border border-red-200 text-red-700"}`}>
+          {lastReviewEntry.toStatus === "notification_approved"
+            ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            : <XCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />}
+          <div>
+            <span className="font-medium">{lastReviewEntry.toStatus === "notification_approved" ? "Approved for sending" : "Returned for correction"}</span>
+            {lastReviewEntry.actorFirst && <span className="text-[10px] opacity-75 ml-1">— {lastReviewEntry.actorFirst} {lastReviewEntry.actorLast}</span>}
+            <p className="mt-0.5 opacity-80">{lastReviewEntry.note}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!showReviewPanel ? (
+        <div className="flex gap-2">
+          <button onClick={() => { setReviewAction("approve"); setShowReviewPanel(true); }}
+            disabled={notificationApproved}
+            className="flex-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+            <CheckCircle className="w-3 h-3" /> {notificationApproved ? "Approved" : "Approve for Sending"}
+          </button>
+          <button onClick={() => { setReviewAction("return"); setShowReviewPanel(true); }}
+            className="flex-1 px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 flex items-center justify-center gap-1.5">
+            <XCircle className="w-3 h-3" /> Return for Correction
+          </button>
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs font-semibold text-gray-700">
+            {reviewAction === "approve" ? "Approve Notification" : "Return for Correction"} — Note Required
+          </p>
+          <textarea value={reviewNote} onChange={e => setReviewNote(e.target.value)} rows={3}
+            placeholder={reviewAction === "approve" ? "Note why this notification is approved..." : "Describe what needs to be corrected..."}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-white focus:ring-1 focus:ring-emerald-300 resize-none" />
+          <div className="flex gap-2">
+            <button onClick={() => setShowReviewPanel(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
+            <button onClick={handleReviewSubmit} disabled={reviewNotificationMutation.isPending || !reviewNote.trim()}
+              className={`flex-1 px-2 py-1.5 text-xs text-white rounded disabled:opacity-50 font-medium ${reviewAction === "approve" ? "bg-emerald-700" : "bg-red-600"}`}>
+              {reviewNotificationMutation.isPending ? "Saving..." : reviewAction === "approve" ? "Confirm Approval" : "Return for Correction"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {notificationApproved && (
+        <div className="border-t border-gray-100 pt-3 space-y-2">
+          <label className="text-xs font-medium text-gray-700">Send Notification</label>
+          <select value={sendMethod} onChange={e => setSendMethod(e.target.value)}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white">
+            <option value="email">Email</option>
+            <option value="certified_mail">Certified Mail</option>
+            <option value="hand_delivered">Hand Delivered</option>
+          </select>
+
+          {!showConfirm ? (
+            <button onClick={() => setShowConfirm(true)} disabled={!draftText}
+              className="w-full px-3 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+              <Send className="w-3.5 h-3.5" /> Send Parent Notification with Report
+            </button>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-800">Confirm Send</p>
+              <p className="text-[11px] text-amber-700">This will mark the parent notification as sent and attach the restraint report. This action cannot be undone.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowConfirm(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
+                <button onClick={handleSend} disabled={sendNotificationMutation.isPending}
+                  className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50 font-medium">
+                  {sendNotificationMutation.isPending ? "Sending..." : "Confirm & Send"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

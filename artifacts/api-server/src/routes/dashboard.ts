@@ -884,10 +884,11 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
     const unresolvedAlerts = unresolvedAlertsResult[0]?.count ?? 0;
     const pendingNotifications = pendingNotificationsResult[0]?.count ?? 0;
 
+    type ActionItem = { status?: string; dueDate?: string };
     let overdueActionItems = 0;
     for (const row of actionItemsResult) {
-      const items = Array.isArray(row.actionItems) ? row.actionItems : [];
-      for (const item of items as any[]) {
+      const items: ActionItem[] = Array.isArray(row.actionItems) ? (row.actionItems as ActionItem[]) : [];
+      for (const item of items) {
         if (item.status === "open" && item.dueDate && item.dueDate < today) {
           overdueActionItems++;
         }
