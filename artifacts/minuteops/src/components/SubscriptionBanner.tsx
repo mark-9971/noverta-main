@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { apiGet } from "@/lib/api";
 import { AlertTriangle, ShieldAlert, CreditCard, X } from "lucide-react";
 import { useRole } from "@/lib/role-context";
+import { DEMO_MODE } from "@/lib/config";
 
 interface BillingStatus {
   active: boolean;
@@ -23,7 +24,7 @@ export function SubscriptionBanner() {
       .catch(() => {});
   }, []);
 
-  if (!status || dismissed) return null;
+  if (DEMO_MODE || !status || dismissed) return null;
 
   const isCanceled = status.status === "canceled" || status.status === "unpaid";
   const isPastDue = status.status === "past_due";

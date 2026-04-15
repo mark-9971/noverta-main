@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { apiGet } from "@/lib/api";
 import { ShieldAlert, CreditCard, Loader2 } from "lucide-react";
 import { useRole } from "@/lib/role-context";
+import { DEMO_MODE } from "@/lib/config";
 
 interface BillingStatus {
   active: boolean;
@@ -26,6 +27,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  if (DEMO_MODE) return <>{children}</>;
   if (loading) return <>{children}</>;
 
   const isExemptPath = EXEMPT_PATHS.some((p) => location.startsWith(p));
