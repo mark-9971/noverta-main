@@ -94,6 +94,11 @@ export const restraintIncidentsTable = pgTable("restraint_incidents", {
   status: text("status").notNull().default("pending_review"),
   followUpPlan: text("follow_up_plan"),
   notes: text("notes"),
+
+  resolutionNote: text("resolution_note"),
+  resolvedAt: text("resolved_at"),
+  resolvedBy: integer("resolved_by").references(() => staffTable.id),
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

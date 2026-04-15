@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays, BookOpen, GraduationCap } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays, BookOpen, GraduationCap, ShieldAlert } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -17,6 +17,57 @@ import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
 import { useState, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { FileSearch, Sprout, CalendarDays as MeetingIcon } from "lucide-react";
+
+interface NeedsAttentionData {
+  total: number;
+  openIncidents: number;
+  unresolvedAlerts: number;
+  overdueActionItems: number;
+  pendingNotifications: number;
+}
+
+function NeedsAttentionPanel() {
+  const [data, setData] = useState<NeedsAttentionData | null>(null);
+
+  useEffect(() => {
+    authFetch("/api/dashboard/needs-attention")
+      .then(r => { if (r.ok) return r.json(); throw new Error(); })
+      .then((d: unknown) => setData(d as NeedsAttentionData))
+      .catch(() => {});
+  }, []);
+
+  if (!data || data.total === 0) return null;
+
+  const items = [
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures", color: "text-red-700", bg: "bg-red-50" },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Notifications pending", count: data.pendingNotifications, href: "/protective-measures", color: "text-red-600", bg: "bg-red-50" },
+  ].filter(i => i.count > 0);
+
+  return (
+    <Card className="border-red-200 bg-red-50/20">
+      <CardContent className="py-3 px-5">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ShieldAlert className="w-5 h-5 text-red-500" />
+            <span className="text-sm font-semibold text-red-800">Needs Attention</span>
+            <span className="text-xs font-bold bg-red-100 text-red-700 rounded-full px-2 py-0.5">{data.total}</span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
+            {items.map(item => (
+              <Link key={item.label} href={item.href}>
+                <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.bg} ${item.color}`}>
+                  <span className="font-bold">{item.count}</span> {item.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -149,6 +200,8 @@ export default function Dashboard() {
       </div>
 
       {isAdmin && <SetupChecklist />}
+
+      {isAdmin && <NeedsAttentionPanel />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard title="Active Students" value={s?.totalActiveStudents} icon={Users} accent="emerald" subtitle="on IEPs" href="/students" />

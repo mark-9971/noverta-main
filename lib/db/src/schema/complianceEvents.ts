@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
+import { staffTable } from "./staff";
 
 export const complianceEventsTable = pgTable("compliance_events", {
   id: serial("id").primaryKey(),
@@ -12,6 +13,9 @@ export const complianceEventsTable = pgTable("compliance_events", {
   completedDate: text("completed_date"),
   status: text("status").notNull().default("upcoming"),
   notes: text("notes"),
+  resolvedAt: text("resolved_at"),
+  resolvedBy: integer("resolved_by").references(() => staffTable.id),
+  resolutionNote: text("resolution_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

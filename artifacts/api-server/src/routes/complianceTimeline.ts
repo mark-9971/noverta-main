@@ -105,8 +105,16 @@ router.patch("/compliance-events/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const updates: any = {};
-    for (const key of ["status", "completedDate", "notes", "title", "dueDate"]) {
+    for (const key of ["status", "completedDate", "notes", "title", "dueDate", "resolvedAt", "resolvedBy", "resolutionNote"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (req.body.resolve === true) {
+      const now = new Date().toISOString();
+      updates.status = "completed";
+      updates.resolvedAt = now;
+      updates.completedDate = now.split("T")[0];
+      if (req.body.resolutionNote) updates.resolutionNote = req.body.resolutionNote;
+      if (req.body.resolvedBy) updates.resolvedBy = Number(req.body.resolvedBy);
     }
     const [updated] = await db.update(complianceEventsTable).set(updates).where(eq(complianceEventsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }

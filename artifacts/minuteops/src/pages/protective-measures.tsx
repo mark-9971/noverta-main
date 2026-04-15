@@ -97,13 +97,47 @@ const TYPE_COLORS: Record<string, string> = {
 };
 const STATUS_LABELS: Record<string, string> = {
   pending_review: "Pending Review",
+  open: "Open",
   reviewed: "Reviewed",
+  under_review: "Under Review",
+  resolved: "Resolved",
+  dese_reported: "DESE Reported",
   closed: "Closed",
 };
 const STATUS_COLORS: Record<string, string> = {
   pending_review: "bg-amber-100 text-amber-700",
+  open: "bg-blue-100 text-blue-700",
   reviewed: "bg-emerald-100 text-emerald-700",
-  closed: "bg-gray-100 text-gray-600",
+  under_review: "bg-purple-100 text-purple-700",
+  resolved: "bg-gray-100 text-gray-600",
+  dese_reported: "bg-gray-200 text-gray-600",
+  closed: "bg-gray-100 text-gray-500",
+};
+
+const VALID_TRANSITIONS: Record<string, { toStatus: string; label: string; color: string }[]> = {
+  pending_review: [
+    { toStatus: "reviewed", label: "Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
+    { toStatus: "open", label: "Open for Review", color: "bg-blue-600 hover:bg-blue-700 text-white" },
+  ],
+  open: [
+    { toStatus: "reviewed", label: "Mark Reviewed", color: "bg-emerald-700 hover:bg-emerald-800 text-white" },
+    { toStatus: "under_review", label: "Send to Admin Review", color: "bg-purple-600 hover:bg-purple-700 text-white" },
+  ],
+  reviewed: [
+    { toStatus: "under_review", label: "Send to Admin Review", color: "bg-purple-600 hover:bg-purple-700 text-white" },
+    { toStatus: "resolved", label: "Mark Resolved", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+  ],
+  under_review: [
+    { toStatus: "reviewed", label: "Return to Reviewed", color: "bg-amber-600 hover:bg-amber-700 text-white" },
+    { toStatus: "resolved", label: "Approve & Resolve", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+  ],
+  resolved: [
+    { toStatus: "dese_reported", label: "Mark DESE Reported", color: "bg-gray-600 hover:bg-gray-700 text-white" },
+  ],
+  dese_reported: [],
+  closed: [
+    { toStatus: "resolved", label: "Re-open as Resolved", color: "bg-gray-700 hover:bg-gray-800 text-white" },
+  ],
 };
 const RESTRAINT_TYPES: Record<string, string> = {
   floor: "Floor Restraint",
@@ -480,7 +514,11 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="all">All Status</option>
             <option value="pending_review">Pending Review</option>
+            <option value="open">Open</option>
             <option value="reviewed">Reviewed</option>
+            <option value="under_review">Under Review</option>
+            <option value="resolved">Resolved</option>
+            <option value="dese_reported">DESE Reported</option>
             <option value="closed">Closed</option>
           </select>
         </div>
@@ -1169,6 +1207,102 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
   );
 }
 
+function IncidentTransitionDialog({
+  incident,
+  onClose,
+  onTransitioned,
+}: {
+  incident: { id: number; status: string; studentFirstName: string; studentLastName: string };
+  onClose: () => void;
+  onTransitioned: () => void;
+}) {
+  const transitions = VALID_TRANSITIONS[incident.status] ?? [];
+  const [toStatus, setToStatus] = useState(transitions[0]?.toStatus ?? "");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    if (!note.trim()) { toast.error("A note is required for this transition"); return; }
+    if (!toStatus) { toast.error("Select a target status"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/protective-measures/incidents/${incident.id}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toStatus, note: note.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || "Failed");
+      }
+      toast.success(`Status updated to "${STATUS_LABELS[toStatus]}"`);
+      onTransitioned();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to transition status");
+    }
+    setSaving(false);
+  }
+
+  if (transitions.length === 0) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-gray-800">Advance Incident Status</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {incident.studentFirstName} {incident.studentLastName} — currently{" "}
+            <span className={`font-medium px-1.5 py-0.5 rounded text-xs ${STATUS_COLORS[incident.status]}`}>
+              {STATUS_LABELS[incident.status]}
+            </span>
+          </p>
+        </div>
+        {transitions.length > 1 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Move to</label>
+            <div className="flex gap-2 flex-wrap">
+              {transitions.map(t => (
+                <button key={t.toStatus} onClick={() => setToStatus(t.toStatus)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border-2 transition-colors ${
+                    toStatus === t.toStatus ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            {toStatus === "resolved" || toStatus === "dese_reported" ? "Resolution Note" : "Transition Note"}{" "}
+            <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 resize-none"
+            rows={3}
+            placeholder={toStatus === "resolved" ? "Describe how this incident was resolved and any follow-up taken…" :
+              toStatus === "under_review" ? "Note the reason for escalation to admin review…" :
+              "Add a note for this status change…"}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" disabled={saving}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit}
+            className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${transitions.find(t => t.toStatus === toStatus)?.color || "bg-emerald-700 text-white"}`}
+            disabled={saving}>
+            {saving ? "Saving…" : (transitions.find(t => t.toStatus === toStatus)?.label ?? "Confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) {
   const queryClient = useQueryClient();
 
@@ -1238,6 +1372,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   const [showWritten, setShowWritten] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showComment, setShowComment] = useState(false);
+  const [showTransition, setShowTransition] = useState(false);
   const [notifyForm, setNotifyForm] = useState({ staffId: "", method: "phone" });
   const [writtenMethod, setWrittenMethod] = useState("email");
   const [reviewForm, setReviewForm] = useState({ adminStaffId: "", notes: "", signature: "" });
@@ -1248,9 +1383,23 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   const signatures: Signature[] = incident.signatures || [];
   const pendingSigs = signatures.filter(s => s.status === "pending");
   const signedSigs = signatures.filter(s => s.status === "signed");
+  const availableTransitions = VALID_TRANSITIONS[incident.status] ?? [];
 
   return (
     <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
+      {showTransition && incident.student && (
+        <IncidentTransitionDialog
+          incident={{
+            id: incident.id,
+            status: incident.status,
+            studentFirstName: incident.student.firstName,
+            studentLastName: incident.student.lastName,
+          }}
+          onClose={() => setShowTransition(false)}
+          onTransitioned={() => { setShowTransition(false); invalidateAll(); }}
+        />
+      )}
+
       <div className="flex items-center gap-3 flex-wrap">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft className="w-5 h-5" />
@@ -1264,6 +1413,21 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
         <span className={`text-xs font-medium px-3 py-1.5 rounded-full ${STATUS_COLORS[incident.status]}`}>
           {STATUS_LABELS[incident.status]}
         </span>
+        {availableTransitions.length > 0 && (
+          <button
+            onClick={() => setShowTransition(true)}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+            Advance Status
+          </button>
+        )}
+        {incident.resolutionNote && (
+          <div className="w-full mt-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <p className="text-[11px] text-gray-500 font-medium">Resolution Note</p>
+            <p className="text-[12px] text-gray-700 mt-0.5 italic">"{incident.resolutionNote}"</p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

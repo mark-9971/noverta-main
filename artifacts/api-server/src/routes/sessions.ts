@@ -100,6 +100,7 @@ router.get("/sessions", async (req, res): Promise<void> => {
       status: sessionLogsTable.status,
       missedReasonId: sessionLogsTable.missedReasonId,
       isMakeup: sessionLogsTable.isMakeup,
+      makeupForId: sessionLogsTable.makeupForId,
       isCompensatory: sessionLogsTable.isCompensatory,
       compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
       notes: sessionLogsTable.notes,
@@ -120,6 +121,7 @@ router.get("/sessions", async (req, res): Promise<void> => {
     .orderBy(desc(sessionLogsTable.sessionDate))
     .limit(limit)
     .offset(offset);
+
 
   const sessionIds = sessions.map(s => s.id);
   let goalCountMap: Record<number, number> = {};

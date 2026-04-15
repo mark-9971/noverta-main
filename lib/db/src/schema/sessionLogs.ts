@@ -23,6 +23,7 @@ export const sessionLogsTable = pgTable("session_logs", {
   status: text("status").notNull().default("completed"),
   missedReasonId: integer("missed_reason_id").references(() => missedReasonsTable.id),
   isMakeup: boolean("is_makeup").notNull().default(false),
+  makeupForId: integer("makeup_for_id"),
   isCompensatory: boolean("is_compensatory").notNull().default(false),
   compensatoryObligationId: integer("compensatory_obligation_id").references(() => compensatoryObligationsTable.id),
   notes: text("notes"),
@@ -35,6 +36,7 @@ export const sessionLogsTable = pgTable("session_logs", {
   index("sl_staff_date_idx").on(table.staffId, table.sessionDate),
   index("sl_status_idx").on(table.status),
   index("sl_date_idx").on(table.sessionDate),
+  index("sl_makeup_for_idx").on(table.makeupForId),
 ]);
 
 export const insertSessionLogSchema = createInsertSchema(sessionLogsTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });

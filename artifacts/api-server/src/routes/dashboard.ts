@@ -6,6 +6,7 @@ import {
   serviceRequirementsTable, serviceTypesTable,
   complianceEventsTable, iepDocumentsTable, teamMeetingsTable,
   agencyContractsTable, agenciesTable, districtsTable, schoolsTable,
+  restraintIncidentsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, count, sql, asc, desc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -847,6 +848,64 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("GET /dashboard/iep-calendar error:", e);
     res.status(500).json({ error: "Failed to fetch IEP calendar" });
+  }
+});
+
+router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+
+    const [openIncidentsResult, unresolvedAlertsResult, actionItemsResult, pendingNotificationsResult] = await Promise.all([
+      db.select({ count: count() })
+        .from(restraintIncidentsTable)
+        .where(sql`${restraintIncidentsTable.status} NOT IN ('resolved', 'dese_reported', 'closed')`),
+      db.select({ count: count() })
+        .from(complianceEventsTable)
+        .where(sql`${complianceEventsTable.status} NOT IN ('completed') AND ${complianceEventsTable.resolvedAt} IS NULL`),
+      db.select({ actionItems: teamMeetingsTable.actionItems })
+        .from(teamMeetingsTable)
+        .where(
+          and(
+            sql`${teamMeetingsTable.actionItems} IS NOT NULL`,
+            sql`jsonb_array_length(${teamMeetingsTable.actionItems}) > 0`,
+          )
+        ),
+      db.select({ count: count() })
+        .from(restraintIncidentsTable)
+        .where(
+          and(
+            eq(restraintIncidentsTable.parentNotified, false),
+            sql`${restraintIncidentsTable.status} NOT IN ('resolved', 'dese_reported', 'closed')`,
+          )
+        ),
+    ]);
+
+    const openIncidents = openIncidentsResult[0]?.count ?? 0;
+    const unresolvedAlerts = unresolvedAlertsResult[0]?.count ?? 0;
+    const pendingNotifications = pendingNotificationsResult[0]?.count ?? 0;
+
+    let overdueActionItems = 0;
+    for (const row of actionItemsResult) {
+      const items = Array.isArray(row.actionItems) ? row.actionItems : [];
+      for (const item of items as any[]) {
+        if (item.status === "open" && item.dueDate && item.dueDate < today) {
+          overdueActionItems++;
+        }
+      }
+    }
+
+    const total = openIncidents + unresolvedAlerts + overdueActionItems + pendingNotifications;
+
+    res.json({
+      total,
+      openIncidents,
+      unresolvedAlerts,
+      overdueActionItems,
+      pendingNotifications,
+    });
+  } catch (e: any) {
+    console.error("GET /dashboard/needs-attention error:", e);
+    res.status(500).json({ error: "Failed to fetch needs-attention data" });
   }
 });
 

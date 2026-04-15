@@ -350,6 +350,64 @@ router.delete("/protective-measures/incidents/:id", async (req: Request, res: Re
   res.json({ success: true });
 });
 
+router.post("/protective-measures/incidents/:id/transition", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { toStatus, note, staffId } = req.body;
+  if (!toStatus || !note?.trim()) {
+    res.status(400).json({ error: "toStatus and note are required" });
+    return;
+  }
+
+  const VALID_TRANSITIONS: Record<string, string[]> = {
+    pending_review: ["reviewed", "open"],
+    open: ["under_review", "reviewed"],
+    reviewed: ["under_review", "resolved"],
+    under_review: ["resolved", "reviewed"],
+    resolved: ["dese_reported"],
+    dese_reported: [],
+    closed: ["resolved"],
+  };
+
+  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const allowedNext = VALID_TRANSITIONS[existing.status] ?? [];
+  if (!allowedNext.includes(toStatus)) {
+    res.status(400).json({ error: `Cannot transition from '${existing.status}' to '${toStatus}'. Allowed: ${allowedNext.join(", ") || "none"}` });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const updateData: Record<string, any> = { status: toStatus };
+
+  if (toStatus === "resolved" || toStatus === "dese_reported") {
+    updateData.resolutionNote = note;
+    updateData.resolvedAt = now;
+    if (staffId) updateData.resolvedBy = Number(staffId);
+  }
+  if (toStatus === "reviewed" && !existing.adminReviewedAt) {
+    updateData.adminReviewNotes = note;
+    updateData.adminReviewedAt = now.split("T")[0];
+    if (staffId) updateData.adminReviewedBy = Number(staffId);
+  }
+
+  const [updated] = await db.update(restraintIncidentsTable).set(updateData).where(eq(restraintIncidentsTable.id, id)).returning();
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: `Status transition: ${existing.status} → ${toStatus} on incident #${id}`,
+    oldValues: { status: existing.status } as Record<string, unknown>,
+    newValues: { status: toStatus, note } as Record<string, unknown>,
+  });
+
+  res.json(updated);
+});
+
 router.post("/protective-measures/incidents/:id/admin-review", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
