@@ -15,6 +15,7 @@ import { eq, and, isNull, count, lte, inArray, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { logAudit } from "../lib/auditLog";
+import { invalidateActiveYearCache } from "../lib/activeSchoolYear";
 
 const router: IRouter = Router();
 const requireAdmin = requireRoles("admin");
@@ -182,6 +183,8 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
 
       return { newYear, flaggedIeps };
     });
+
+    invalidateActiveYearCache(districtId);
 
     logAudit(req, {
       action: "create",

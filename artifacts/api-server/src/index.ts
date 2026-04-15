@@ -4,6 +4,7 @@ import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { ensureDbConstraints } from "./lib/activeSchoolYear";
 
 initSentry();
 
@@ -97,4 +98,5 @@ app.listen(port, (err) => {
   startSisScheduler();
   initStripe();
   backfillDistrictSubscriptions();
+  ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));
 });

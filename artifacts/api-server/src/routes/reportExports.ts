@@ -192,7 +192,7 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, startDate, endDate, status: statusParam2 } = req.query;
+    const { schoolId, startDate, endDate, status: statusParam2, schoolYearId } = req.query;
     const statusFilter2 = typeof statusParam2 === "string" ? statusParam2 : "active";
     const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
@@ -256,7 +256,8 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
         .where(and(
           sql`${sessionLogsTable.studentId} IN (${idList})`,
           gte(sessionLogsTable.sessionDate, start),
-          lte(sessionLogsTable.sessionDate, end)
+          lte(sessionLogsTable.sessionDate, end),
+          ...(schoolYearId ? [eq(sessionLogsTable.schoolYearId, Number(schoolYearId))] : []),
         )),
     ]);
 
@@ -329,7 +330,7 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, startDate, endDate } = req.query;
+    const { schoolId, startDate, endDate, schoolYearId: incidentYearId } = req.query;
     const effectiveDistrictId = scope.enforcedDistrictId;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
@@ -344,6 +345,9 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
     }
     if (effectiveDistrictId !== null) {
       conditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId}))` as ReturnType<typeof gte>);
+    }
+    if (incidentYearId) {
+      conditions.push(eq(restraintIncidentsTable.schoolYearId, Number(incidentYearId)) as unknown as ReturnType<typeof gte>);
     }
 
     const incidents = await db.select({

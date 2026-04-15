@@ -20,6 +20,7 @@ import {
 import { eq, and, gte, lte, desc, asc, sql, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { logAudit } from "../lib/auditLog";
+import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 
 type GoalEntry = {
   iepGoalId: number;
@@ -158,7 +159,24 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const inserted = await db.insert(sessionLogsTable).values(parsed.data.sessions).returning();
+
+  // Auto-assign active schoolYearId for any session that doesn't have one
+  const sessions = parsed.data.sessions as Array<Record<string, unknown>>;
+  const uniqueStudentIds = [...new Set(sessions.filter(s => !s.schoolYearId).map(s => s.studentId as number))];
+  const yearIdByStudent = new Map<number, number>();
+  await Promise.all(uniqueStudentIds.map(async (sid) => {
+    const yearId = await getActiveSchoolYearIdForStudent(sid);
+    if (yearId) yearIdByStudent.set(sid, yearId);
+  }));
+  const enriched = sessions.map(s => {
+    if (!s.schoolYearId) {
+      const yearId = yearIdByStudent.get(s.studentId as number);
+      if (yearId) return { ...s, schoolYearId: yearId };
+    }
+    return s;
+  });
+
+  const inserted = await db.insert(sessionLogsTable).values(enriched as typeof parsed.data.sessions).returning();
   for (const s of inserted) {
     logAudit(req, {
       action: "create",
@@ -184,6 +202,12 @@ router.post("/sessions", async (req, res): Promise<void> => {
     if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
       res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
       return;
+    }
+
+    // Auto-attach active school year if not provided by the client
+    if (!parsed.data.schoolYearId) {
+      const activeYearId = await getActiveSchoolYearIdForStudent(parsed.data.studentId);
+      if (activeYearId) (parsed.data as any).schoolYearId = activeYearId;
     }
 
     let goalData: GoalEntry[] = [];

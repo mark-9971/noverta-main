@@ -6,6 +6,7 @@ import {
 } from "@workspace/db";
 import { eq, desc, asc, and, sql, ilike, or, lte, gte } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 
 const router: IRouter = Router();
 
@@ -90,13 +91,15 @@ router.get("/students/:studentId/compliance-events", async (req, res): Promise<v
 router.post("/students/:studentId/compliance-events", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const { eventType, title, dueDate, notes } = req.body;
+    const { eventType, title, dueDate, notes, schoolYearId: bodyYearId } = req.body;
     if (!eventType || !title || !dueDate) {
       res.status(400).json({ error: "eventType, title, and dueDate are required" });
       return;
     }
+    const schoolYearId = bodyYearId ?? (await getActiveSchoolYearIdForStudent(studentId)) ?? undefined;
     const [event] = await db.insert(complianceEventsTable).values({
       studentId, eventType, title, dueDate, notes: notes || null, status: "upcoming",
+      ...(schoolYearId != null ? { schoolYearId } : {}),
     }).returning();
     res.status(201).json({ ...event, createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString() });
   } catch (e: any) {
