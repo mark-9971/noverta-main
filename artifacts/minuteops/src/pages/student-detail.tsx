@@ -90,6 +90,9 @@ export default function StudentDetail() {
   const [archiveSaving, setArchiveSaving] = useState(false);
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [reactivateSaving, setReactivateSaving] = useState(false);
+  const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
+  const [addEventSaving, setAddEventSaving] = useState(false);
+  const [addEventForm, setAddEventForm] = useState({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
 
   useEffect(() => {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
@@ -140,6 +143,31 @@ export default function StudentDetail() {
       setEnrollmentHistory(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to reactivate student"); }
     setReactivateSaving(false);
+  }
+
+  async function handleAddEvent() {
+    if (!addEventForm.eventType || !addEventForm.eventDate) { toast.error("Event type and date are required"); return; }
+    setAddEventSaving(true);
+    try {
+      const r = await authFetch(`/api/students/${studentId}/enrollment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: addEventForm.eventType,
+          eventDate: addEventForm.eventDate,
+          reasonCode: addEventForm.reasonCode || null,
+          reason: addEventForm.reason || null,
+          notes: addEventForm.notes || null,
+        }),
+      });
+      if (!r.ok) throw new Error();
+      toast.success("Enrollment event logged");
+      setAddEventDialogOpen(false);
+      setAddEventForm({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
+      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((res: any) => res.json());
+      setEnrollmentHistory(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to log event"); }
+    setAddEventSaving(false);
   }
 
   function openAddSvc() {
@@ -1387,9 +1415,19 @@ export default function StudentDetail() {
       {/* Enrollment History */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-emerald-600" />
-            <CardTitle className="text-sm font-semibold text-gray-600">Enrollment History</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-emerald-600" />
+              <CardTitle className="text-sm font-semibold text-gray-600">Enrollment History</CardTitle>
+            </div>
+            {(role === "admin" || role === "case_manager") && (
+              <button
+                onClick={() => { setAddEventForm({ eventType: "note", eventDate: new Date().toISOString().slice(0, 10), reasonCode: "", reason: "", notes: "" }); setAddEventDialogOpen(true); }}
+                className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Event
+              </button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -1406,14 +1444,15 @@ export default function StudentDetail() {
                 {enrollmentHistory.map((ev: any, idx: number) => {
                   const typeConfig: Record<string, { label: string; color: string; bg: string; dot: string }> = {
                     enrolled: { label: "Enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-500" },
-                    "re-enrolled": { label: "Re-enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
+                    reactivated: { label: "Reactivated", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
                     withdrawn: { label: "Withdrawn", color: "text-amber-700", bg: "bg-amber-50", dot: "bg-amber-500" },
                     transferred: { label: "Transferred", color: "text-blue-700", bg: "bg-blue-50", dot: "bg-blue-500" },
                     graduated: { label: "Graduated", color: "text-purple-700", bg: "bg-purple-50", dot: "bg-purple-500" },
                     suspended: { label: "Suspended", color: "text-red-700", bg: "bg-red-50", dot: "bg-red-500" },
+                    leave_of_absence: { label: "Leave of Absence", color: "text-orange-700", bg: "bg-orange-50", dot: "bg-orange-400" },
                     note: { label: "Note", color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" },
                   };
-                  const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType, color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
+                  const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType.replace(/_/g, " "), color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
                   return (
                     <div key={ev.id ?? idx} className="relative flex items-start gap-3">
                       <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0`} />
@@ -1422,7 +1461,8 @@ export default function StudentDetail() {
                           <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
                           <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
                         </div>
-                        {ev.reason && <p className="text-[12px] text-gray-600 mt-0.5">Reason: {ev.reason}</p>}
+                        {ev.reasonCode && <p className="text-[11px] text-gray-500 mt-0.5 uppercase tracking-wide">{ev.reasonCode}</p>}
+                        {ev.reason && <p className="text-[12px] text-gray-600 mt-0.5">{ev.reason}</p>}
                         {ev.notes && <p className="text-[11px] text-gray-500 mt-0.5">{ev.notes}</p>}
                         {(ev.performedByFirst || ev.performedByLast) && (
                           <p className="text-[11px] text-gray-400 mt-0.5">By: {ev.performedByFirst} {ev.performedByLast}</p>
@@ -1436,6 +1476,61 @@ export default function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Enrollment Event Dialog */}
+      <Dialog open={addEventDialogOpen} onOpenChange={v => { if (!v) setAddEventDialogOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
+              <History className="w-4 h-4 text-emerald-600" /> Log Enrollment Event
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Event Type</Label>
+                <Select value={addEventForm.eventType} onValueChange={v => setAddEventForm(f => ({ ...f, eventType: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      { value: "enrolled", label: "Enrolled" },
+                      { value: "withdrawn", label: "Withdrawn" },
+                      { value: "transferred", label: "Transferred" },
+                      { value: "graduated", label: "Graduated" },
+                      { value: "suspended", label: "Suspended" },
+                      { value: "leave_of_absence", label: "Leave of Absence" },
+                      { value: "reactivated", label: "Reactivated" },
+                      { value: "note", label: "Note" },
+                    ].map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Event Date</Label>
+                <Input type="date" value={addEventForm.eventDate} onChange={e => setAddEventForm(f => ({ ...f, eventDate: e.target.value }))} className="h-9 text-[13px]" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Reason Code <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <Input value={addEventForm.reasonCode} onChange={e => setAddEventForm(f => ({ ...f, reasonCode: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. FAMILY_MOVE, DISTRICT_TRANSFER" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Reason <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <Input value={addEventForm.reason} onChange={e => setAddEventForm(f => ({ ...f, reason: e.target.value }))} className="h-9 text-[13px]" placeholder="Brief description of reason" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Notes <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <Input value={addEventForm.notes} onChange={e => setAddEventForm(f => ({ ...f, notes: e.target.value }))} className="h-9 text-[13px]" placeholder="Any additional context" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setAddEventDialogOpen(false)} disabled={addEventSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleAddEvent} disabled={addEventSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              {addEventSaving ? "Saving…" : "Log Event"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Archive Dialog */}
       <Dialog open={archiveDialogOpen} onOpenChange={v => { if (!v) { setArchiveDialogOpen(false); setArchiveReason(""); } }}>

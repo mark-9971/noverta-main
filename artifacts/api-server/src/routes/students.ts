@@ -47,9 +47,10 @@ router.get("/students", async (req, res): Promise<void> => {
     .leftJoin(programsTable, eq(programsTable.id, studentsTable.programId))
     .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId));
 
-  const conditions: any[] = [isNull(studentsTable.deletedAt)];
+  const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
   if (params.success) {
-    if (params.data.status) conditions.push(eq(studentsTable.status, params.data.status));
+    const statusValue = params.data.status ?? "active";
+    conditions[1] = eq(studentsTable.status, statusValue);
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)));
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)));
     if (params.data.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
@@ -531,7 +532,12 @@ router.delete("/students/:id", async (req, res): Promise<void> => {
 
 // ─── Enrollment Events ────────────────────────────────────────────────────────
 
+const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
+
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
+  const meta = (req as any).user ?? {};
+  if (!meta.role) { res.status(401).json({ error: "Authentication required" }); return; }
+
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -541,11 +547,17 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
       studentId: enrollmentEventsTable.studentId,
       eventType: enrollmentEventsTable.eventType,
       eventDate: enrollmentEventsTable.eventDate,
+      reasonCode: enrollmentEventsTable.reasonCode,
       reason: enrollmentEventsTable.reason,
       notes: enrollmentEventsTable.notes,
+      fromSchoolId: enrollmentEventsTable.fromSchoolId,
+      toSchoolId: enrollmentEventsTable.toSchoolId,
+      fromProgramId: enrollmentEventsTable.fromProgramId,
+      toProgramId: enrollmentEventsTable.toProgramId,
       performedById: enrollmentEventsTable.performedById,
-      performedByFirst: staffTable.firstName,
-      performedByLast: staffTable.lastName,
+      performedByFirst: performer.firstName,
+      performedByLast: performer.lastName,
+      recordedById: enrollmentEventsTable.recordedById,
       createdAt: enrollmentEventsTable.createdAt,
     })
     .from(enrollmentEventsTable)
@@ -564,25 +576,31 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const params = GetStudentParams.safeParse(req.params);
-  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-
   const meta = (req as any).user ?? {};
-  const role = meta.role ?? "";
-  if (!["admin", "case_manager", "coordinator"].includes(role)) {
+  const role = (meta.role ?? "") as string;
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role)) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const { eventType, eventDate, reason, notes, performedById } = req.body;
+  const params = GetStudentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { eventType, eventDate, reasonCode, reason, notes, performedById, fromSchoolId, toSchoolId, fromProgramId, toProgramId } = req.body;
   if (!eventType || !eventDate) { res.status(400).json({ error: "eventType and eventDate are required" }); return; }
 
   const [event] = await db.insert(enrollmentEventsTable).values({
     studentId: params.data.id,
     eventType,
     eventDate,
+    reasonCode: reasonCode ?? null,
     reason: reason ?? null,
     notes: notes ?? null,
+    fromSchoolId: fromSchoolId ? Number(fromSchoolId) : null,
+    toSchoolId: toSchoolId ? Number(toSchoolId) : null,
+    fromProgramId: fromProgramId ? Number(fromProgramId) : null,
+    toProgramId: toProgramId ? Number(toProgramId) : null,
     performedById: performedById ? Number(performedById) : null,
+    recordedById: null,
   }).returning();
 
   logAudit(req, {
@@ -591,33 +609,37 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
     targetId: event.id,
     studentId: params.data.id,
     summary: `Logged enrollment event '${eventType}' for student #${params.data.id}`,
-    newValues: { eventType, eventDate, reason, notes } as Record<string, unknown>,
+    newValues: { eventType, eventDate, reasonCode, reason, notes } as Record<string, unknown>,
   });
 
   res.status(201).json({ ...event, createdAt: event.createdAt.toISOString(), updatedAt: event.updatedAt.toISOString() });
 });
 
 router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
+  const meta = (req as any).user ?? {};
+  const role = (meta.role ?? "") as string;
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role)) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
   const studentId = Number(req.params.id);
   const eventId = Number(req.params.eventId);
   if (!studentId || !eventId) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const meta = (req as any).user ?? {};
-  const role = meta.role ?? "";
-  if (!["admin", "case_manager", "coordinator"].includes(role)) {
-    res.status(403).json({ error: "Forbidden" }); return;
-  }
-
-  const { eventType, eventDate, reason, notes } = req.body;
-  const updates: Record<string, unknown> = {};
+  const { eventType, eventDate, reasonCode, reason, notes } = req.body;
+  type EventPatch = Partial<Pick<typeof enrollmentEventsTable.$inferInsert, "eventType" | "eventDate" | "reasonCode" | "reason" | "notes">>;
+  const updates: EventPatch = {};
   if (eventType !== undefined) updates.eventType = eventType;
   if (eventDate !== undefined) updates.eventDate = eventDate;
+  if (reasonCode !== undefined) updates.reasonCode = reasonCode;
   if (reason !== undefined) updates.reason = reason;
   if (notes !== undefined) updates.notes = notes;
 
+  if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+
   const [updated] = await db
     .update(enrollmentEventsTable)
-    .set(updates as any)
+    .set(updates)
     .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)))
     .returning();
 
@@ -629,6 +651,7 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
     targetId: eventId,
     studentId,
     summary: `Updated enrollment event #${eventId} for student #${studentId}`,
+    newValues: updates as Record<string, unknown>,
   });
 
   res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
@@ -695,7 +718,7 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
 
   const [event] = await db.insert(enrollmentEventsTable).values({
     studentId: params.data.id,
-    eventType: "re-enrolled",
+    eventType: "reactivated",
     eventDate: today,
     reason: null,
     notes: notes ?? null,
