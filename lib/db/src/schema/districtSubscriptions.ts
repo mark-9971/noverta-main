@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 
 export const districtSubscriptionsTable = pgTable("district_subscriptions", {
   id: serial("id").primaryKey(),
-  districtId: integer("district_id").notNull().references(() => districtsTable.id),
+  districtId: integer("district_id").notNull().references(() => districtsTable.id).unique(),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   stripePriceId: text("stripe_price_id"),

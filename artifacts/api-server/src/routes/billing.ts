@@ -136,6 +136,18 @@ router.post("/billing/checkout", adminOnly, async (req: Request, res: Response):
     const { priceId } = req.body as { priceId?: string };
     if (!priceId) { res.status(400).json({ error: "priceId is required" }); return; }
 
+    const [validPlan] = await db
+      .select({ id: subscriptionPlansTable.id })
+      .from(subscriptionPlansTable)
+      .where(
+        sql`(${subscriptionPlansTable.monthlyPriceId} = ${priceId} OR ${subscriptionPlansTable.yearlyPriceId} = ${priceId}) AND ${subscriptionPlansTable.isActive} = true`
+      )
+      .limit(1);
+    if (!validPlan) {
+      res.status(400).json({ error: "Invalid or inactive price ID" });
+      return;
+    }
+
     const subscription = await getOrCreateSubscription(districtId);
     const stripe = await getUncachableStripeClient();
 
