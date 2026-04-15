@@ -2,13 +2,15 @@ import { pgTable, text, serial, timestamp, integer, jsonb, boolean } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schoolsTable } from "./schools";
+import { districtsTable } from "./districts";
 
 export const sisConnectionsTable = pgTable("sis_connections", {
   id: serial("id").primaryKey(),
   provider: text("provider").notNull(),
   label: text("label").notNull(),
-  credentials: jsonb("credentials").$type<Record<string, unknown>>().notNull().default({}),
+  credentialsEncrypted: text("credentials_encrypted"),
   schoolId: integer("school_id").references(() => schoolsTable.id),
+  districtId: integer("district_id").references(() => districtsTable.id),
   status: text("status").notNull().default("disconnected"),
   syncSchedule: text("sync_schedule").notNull().default("nightly"),
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),

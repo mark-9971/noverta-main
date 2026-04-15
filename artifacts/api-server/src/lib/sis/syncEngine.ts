@@ -2,10 +2,11 @@ import { db } from "@workspace/db";
 import {
   studentsTable, staffTable, sisConnectionsTable, sisSyncLogsTable,
 } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, notInArray } from "drizzle-orm";
 import type { SisStudentRecord, SisStaffRecord } from "./types";
 import { getConnector, getCsvConnector } from "./index";
 import type { SisProvider } from "./types";
+import { decryptCredentials } from "./credentials";
 
 interface SyncCounters {
   studentsAdded: number;
@@ -22,9 +23,12 @@ async function upsertStudents(
   records: SisStudentRecord[],
   schoolId: number | null,
   counters: SyncCounters,
-): Promise<void> {
+): Promise<Set<string>> {
+  const seenExternalIds = new Set<string>();
+
   for (const rec of records) {
     if (!rec.firstName && !rec.lastName) continue;
+    seenExternalIds.add(rec.externalId);
 
     const existing = await db.select({ id: studentsTable.id })
       .from(studentsTable)
@@ -71,6 +75,44 @@ async function upsertStudents(
     }
   }
   counters.totalRecords += records.length;
+  return seenExternalIds;
+}
+
+async function archiveMissingStudents(
+  seenExternalIds: Set<string>,
+  schoolId: number | null,
+  counters: SyncCounters,
+): Promise<void> {
+  if (seenExternalIds.size === 0) return;
+
+  const externalIdArray = Array.from(seenExternalIds);
+
+  let existingStudents;
+  if (schoolId) {
+    existingStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
+      .from(studentsTable)
+      .where(
+        and(
+          eq(studentsTable.schoolId, schoolId),
+          isNull(studentsTable.deletedAt),
+        ),
+      );
+  } else {
+    existingStudents = await db.select({ id: studentsTable.id, externalId: studentsTable.externalId })
+      .from(studentsTable)
+      .where(isNull(studentsTable.deletedAt));
+  }
+
+  const toArchive = existingStudents.filter(
+    (s) => s.externalId && !seenExternalIds.has(s.externalId),
+  );
+
+  for (const student of toArchive) {
+    await db.update(studentsTable)
+      .set({ status: "inactive" })
+      .where(eq(studentsTable.id, student.id));
+    counters.studentsArchived++;
+  }
 }
 
 async function upsertStaff(
@@ -127,6 +169,10 @@ export async function runSync(
 
   if (!connection) throw new Error("SIS connection not found");
 
+  const credentials = connection.credentialsEncrypted
+    ? decryptCredentials(connection.credentialsEncrypted)
+    : {};
+
   const [logEntry] = await db.insert(sisSyncLogsTable).values({
     connectionId,
     syncType,
@@ -157,13 +203,17 @@ export async function runSync(
       const connector = getConnector(connection.provider as SisProvider);
 
       if (syncType === "full" || syncType === "students") {
-        const studentResult = await connector.fetchStudents(connection.credentials);
+        const studentResult = await connector.fetchStudents(credentials);
         counters.errors.push(...studentResult.errors);
-        await upsertStudents(studentResult.records, connection.schoolId, counters);
+        const seenIds = await upsertStudents(studentResult.records, connection.schoolId, counters);
+
+        if (syncType === "full" && studentResult.records.length > 0) {
+          await archiveMissingStudents(seenIds, connection.schoolId, counters);
+        }
       }
 
       if (syncType === "full" || syncType === "staff") {
-        const staffResult = await connector.fetchStaff(connection.credentials);
+        const staffResult = await connector.fetchStaff(credentials);
         counters.errors.push(...staffResult.errors);
         await upsertStaff(staffResult.records, connection.schoolId, counters);
       }

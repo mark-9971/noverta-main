@@ -1,4 +1,4 @@
-import type { SisConnector, SisStudentRecord, SisStaffRecord } from "./types";
+import type { SisConnector, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisFetchResult } from "./types";
 
 function parseCsvRows(csvText: string): Record<string, string>[] {
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -32,18 +32,16 @@ export class CsvConnector implements SisConnector {
     return { ok: true, message: "CSV import is always available" };
   }
 
-  async fetchStudents(_credentials: Record<string, unknown>): Promise<{
-    records: SisStudentRecord[];
-    errors: Array<{ field?: string; message: string }>;
-  }> {
+  async fetchStudents(_credentials: Record<string, unknown>): Promise<SisFetchResult<SisStudentRecord>> {
     return { records: [], errors: [{ message: "Use the CSV upload endpoint to import students" }] };
   }
 
-  async fetchStaff(_credentials: Record<string, unknown>): Promise<{
-    records: SisStaffRecord[];
-    errors: Array<{ field?: string; message: string }>;
-  }> {
+  async fetchStaff(_credentials: Record<string, unknown>): Promise<SisFetchResult<SisStaffRecord>> {
     return { records: [], errors: [{ message: "Use the CSV upload endpoint to import staff" }] };
+  }
+
+  async fetchAttendance(_credentials: Record<string, unknown>, _dateFrom: string, _dateTo: string): Promise<SisFetchResult<SisAttendanceRecord>> {
+    return { records: [], errors: [{ message: "Use the CSV upload endpoint to import attendance" }] };
   }
 
   parseStudentCsv(csvText: string): {

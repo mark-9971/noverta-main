@@ -6,6 +6,7 @@ import {
 import { count, isNull, eq, and } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
+import { encryptCredentials } from "../lib/sis/credentials";
 
 const router: IRouter = Router();
 
@@ -150,10 +151,11 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
     await db.insert(sisConnectionsTable).values({
       provider,
       label: `${districtName} — ${provider}`,
-      credentials: credentials ?? {},
+      credentialsEncrypted: credentials ? encryptCredentials(credentials) : null,
       schoolId: resultSchools.length === 1 ? resultSchools[0].id : null,
+      districtId: district.id,
       status: "connected",
-      createdBy: authed.auth?.userId ?? "unknown",
+      createdBy: authed.userId,
     });
 
     res.json({
@@ -276,10 +278,11 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
     await db.insert(sisConnectionsTable).values({
       provider: "csv",
       label: `${districtName} — CSV Import`,
-      credentials: {},
+      credentialsEncrypted: null,
       schoolId: allSchools.length === 1 ? allSchools[0].id : null,
+      districtId: district.id,
       status: "connected",
-      createdBy: authed.auth?.userId ?? "unknown",
+      createdBy: authed.userId,
     });
 
     res.json({

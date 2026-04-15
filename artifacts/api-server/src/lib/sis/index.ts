@@ -4,7 +4,7 @@ import { InfiniteCampusConnector } from "./infiniteCampus";
 import { SkywardConnector } from "./skyward";
 import { CsvConnector } from "./csvConnector";
 
-export type { SisConnector, SisProvider, SisStudentRecord, SisStaffRecord, SisSyncResult } from "./types";
+export type { SisConnector, SisProvider, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisSyncResult } from "./types";
 
 const connectors: Record<SisProvider, SisConnector> = {
   powerschool: new PowerSchoolConnector(),

@@ -1,4 +1,4 @@
-import type { SisConnector, SisStudentRecord, SisStaffRecord } from "./types";
+import type { SisConnector, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisFetchResult } from "./types";
 
 export class PowerSchoolConnector implements SisConnector {
   readonly provider = "powerschool";
@@ -160,6 +160,42 @@ export class PowerSchoolConnector implements SisConnector {
       return { records, errors };
     } catch (err: unknown) {
       errors.push({ message: `PowerSchool staff fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
+      return { records: [], errors };
+    }
+  }
+
+  async fetchAttendance(credentials: Record<string, unknown>, dateFrom: string, dateTo: string): Promise<SisFetchResult<SisAttendanceRecord>> {
+    const errors: Array<{ field?: string; message: string }> = [];
+    try {
+      const token = await this.getAccessToken(credentials);
+      const baseUrl = credentials.baseUrl as string;
+
+      const res = await fetch(
+        `${baseUrl}/ws/v1/district/attendance?q=att_date=ge=${dateFrom};att_date=le=${dateTo}`,
+        {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json" },
+          signal: AbortSignal.timeout(30000),
+        },
+      );
+
+      if (!res.ok) {
+        errors.push({ message: `PowerSchool attendance API returned ${res.status}` });
+        return { records: [], errors };
+      }
+
+      const data = await res.json() as {
+        attendance: { record: Array<{ student_id?: number; att_date?: string; attendance_codeid?: number }> };
+      };
+
+      const records: SisAttendanceRecord[] = (data.attendance?.record ?? []).map((a) => ({
+        studentExternalId: String(a.student_id ?? ""),
+        date: a.att_date ?? "",
+        status: a.attendance_codeid === 0 ? "present" as const : "absent" as const,
+      }));
+
+      return { records, errors };
+    } catch (err: unknown) {
+      errors.push({ message: `PowerSchool attendance fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
       return { records: [], errors };
     }
   }

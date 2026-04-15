@@ -1,4 +1,4 @@
-import type { SisConnector, SisStudentRecord, SisStaffRecord } from "./types";
+import type { SisConnector, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisFetchResult } from "./types";
 
 export class SkywardConnector implements SisConnector {
   readonly provider = "skyward";
@@ -136,6 +136,49 @@ export class SkywardConnector implements SisConnector {
       return { records, errors };
     } catch (err: unknown) {
       errors.push({ message: `Skyward staff fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
+      return { records: [], errors };
+    }
+  }
+
+  async fetchAttendance(credentials: Record<string, unknown>, dateFrom: string, dateTo: string): Promise<SisFetchResult<SisAttendanceRecord>> {
+    const errors: Array<{ field?: string; message: string }> = [];
+    try {
+      const { baseUrl, apiKey, apiSecret } = credentials as { baseUrl: string; apiKey: string; apiSecret: string };
+
+      const res = await fetch(`${baseUrl}/api/v1/attendance?startDate=${dateFrom}&endDate=${dateTo}`, {
+        headers: {
+          "X-API-Key": apiKey,
+          "X-API-Secret": apiSecret,
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!res.ok) {
+        errors.push({ message: `Skyward attendance API returned ${res.status}` });
+        return { records: [], errors };
+      }
+
+      const data = await res.json() as Array<{
+        studentID?: string;
+        attendanceDate?: string;
+        attendanceCode?: string;
+      }>;
+
+      const statusMap: Record<string, "present" | "absent" | "tardy" | "excused"> = {
+        p: "present", a: "absent", t: "tardy", e: "excused",
+        present: "present", absent: "absent", tardy: "tardy", excused: "excused",
+      };
+
+      const records: SisAttendanceRecord[] = (data ?? []).map((a) => ({
+        studentExternalId: a.studentID ?? "",
+        date: a.attendanceDate ?? "",
+        status: statusMap[a.attendanceCode?.toLowerCase() ?? ""] ?? "present",
+      }));
+
+      return { records, errors };
+    } catch (err: unknown) {
+      errors.push({ message: `Skyward attendance fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
       return { records: [], errors };
     }
   }

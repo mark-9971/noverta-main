@@ -6,6 +6,7 @@ import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
 import { runSync } from "../lib/sis/syncEngine";
+import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
 import type { SisProvider } from "../lib/sis/types";
 
 const router: IRouter = Router();
@@ -23,6 +24,7 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Reques
       provider: sisConnectionsTable.provider,
       label: sisConnectionsTable.label,
       schoolId: sisConnectionsTable.schoolId,
+      districtId: sisConnectionsTable.districtId,
       status: sisConnectionsTable.status,
       syncSchedule: sisConnectionsTable.syncSchedule,
       lastSyncAt: sisConnectionsTable.lastSyncAt,
@@ -42,11 +44,12 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Reques
 router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
-    const { provider, label, credentials, schoolId, syncSchedule } = req.body as {
+    const { provider, label, credentials, schoolId, districtId, syncSchedule } = req.body as {
       provider: string;
       label: string;
       credentials: Record<string, unknown>;
       schoolId?: number;
+      districtId?: number;
       syncSchedule?: string;
     };
 
@@ -60,14 +63,17 @@ router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Reques
       return;
     }
 
+    const encrypted = credentials ? encryptCredentials(credentials) : null;
+
     const [connection] = await db.insert(sisConnectionsTable).values({
       provider,
       label: label.trim(),
-      credentials: credentials ?? {},
+      credentialsEncrypted: encrypted,
       schoolId: schoolId ?? null,
+      districtId: districtId ?? null,
       syncSchedule: syncSchedule ?? "nightly",
       status: "disconnected",
-      createdBy: authed.auth?.userId ?? "unknown",
+      createdBy: authed.userId,
     }).returning();
 
     res.status(201).json({
@@ -85,18 +91,20 @@ router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Reques
 router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const { label, credentials, schoolId, syncSchedule, enabled } = req.body as {
+    const { label, credentials, schoolId, districtId, syncSchedule, enabled } = req.body as {
       label?: string;
       credentials?: Record<string, unknown>;
       schoolId?: number | null;
+      districtId?: number | null;
       syncSchedule?: string;
       enabled?: boolean;
     };
 
     const updates: Record<string, unknown> = {};
     if (label !== undefined) updates.label = label.trim();
-    if (credentials !== undefined) updates.credentials = credentials;
+    if (credentials !== undefined) updates.credentialsEncrypted = encryptCredentials(credentials);
     if (schoolId !== undefined) updates.schoolId = schoolId;
+    if (districtId !== undefined) updates.districtId = districtId;
     if (syncSchedule !== undefined) updates.syncSchedule = syncSchedule;
     if (enabled !== undefined) updates.enabled = enabled;
 
@@ -155,8 +163,11 @@ router.post("/sis/connections/:id/test", requireRoles(...ADMIN_ROLES), async (re
       return;
     }
 
+    const credentials = connection.credentialsEncrypted
+      ? decryptCredentials(connection.credentialsEncrypted)
+      : {};
     const connector = getConnector(connection.provider as SisProvider);
-    const result = await connector.testConnection(connection.credentials);
+    const result = await connector.testConnection(credentials);
 
     if (result.ok) {
       await db.update(sisConnectionsTable)
@@ -178,8 +189,7 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
     const { syncType } = req.body as { syncType?: string };
     const type = (syncType || "full") as "full" | "students" | "staff";
 
-    const userId = authed.auth?.userId ?? "unknown";
-    const result = await runSync(id, type, userId);
+    const result = await runSync(id, type, authed.userId);
 
     res.json({
       studentsAdded: result.studentsAdded,
@@ -211,8 +221,7 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
     }
 
     const syncType = dataType === "students" ? "csv_students" as const : "csv_staff" as const;
-    const userId = authed.auth?.userId ?? "unknown";
-    const result = await runSync(id, syncType, userId, { csvText });
+    const result = await runSync(id, syncType, authed.userId, { csvText });
 
     res.json({
       studentsAdded: result.studentsAdded,

@@ -1,4 +1,4 @@
-import type { SisConnector, SisStudentRecord, SisStaffRecord } from "./types";
+import type { SisConnector, SisStudentRecord, SisStaffRecord, SisAttendanceRecord, SisFetchResult } from "./types";
 
 export class InfiniteCampusConnector implements SisConnector {
   readonly provider = "infinite_campus";
@@ -116,6 +116,44 @@ export class InfiniteCampusConnector implements SisConnector {
       return { records, errors };
     } catch (err: unknown) {
       errors.push({ message: `Infinite Campus staff fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
+      return { records: [], errors };
+    }
+  }
+
+  async fetchAttendance(credentials: Record<string, unknown>, dateFrom: string, dateTo: string): Promise<SisFetchResult<SisAttendanceRecord>> {
+    const errors: Array<{ field?: string; message: string }> = [];
+    try {
+      const { baseUrl, apiToken } = credentials as { baseUrl: string; apiToken: string };
+
+      const res = await fetch(`${baseUrl}/api/v1/attendance?startDate=${dateFrom}&endDate=${dateTo}`, {
+        headers: { "Authorization": `Bearer ${apiToken}`, "Accept": "application/json" },
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!res.ok) {
+        errors.push({ message: `Infinite Campus attendance API returned ${res.status}` });
+        return { records: [], errors };
+      }
+
+      const data = await res.json() as Array<{
+        studentNumber?: string;
+        date?: string;
+        status?: string;
+      }>;
+
+      const statusMap: Record<string, "present" | "absent" | "tardy" | "excused"> = {
+        present: "present", absent: "absent", tardy: "tardy", excused: "excused",
+      };
+
+      const records: SisAttendanceRecord[] = (data ?? []).map((a) => ({
+        studentExternalId: a.studentNumber ?? "",
+        date: a.date ?? "",
+        status: statusMap[a.status?.toLowerCase() ?? ""] ?? "present",
+      }));
+
+      return { records, errors };
+    } catch (err: unknown) {
+      errors.push({ message: `Infinite Campus attendance fetch failed: ${err instanceof Error ? err.message : "Unknown error"}` });
       return { records: [], errors };
     }
   }
