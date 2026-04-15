@@ -21,21 +21,21 @@ Include:
 
 ## Severity Levels and Response Times
 
-### P1 — System Down or Data Loss Risk
-**Definition:** The system is completely unavailable, or there is an active risk that student data has been lost or corrupted.  
-**Examples:** Cannot log in at all; a submitted incident report disappeared; an IEP record shows incorrect student data.  
+### P1 — System Down
+**Definition:** The application is completely unavailable — no one at the district can log in or access any data.  
+**Examples:** Sign-in page is unreachable; the app returns a 500 error for all users; all sessions are logged out and cannot be restored.  
 **Response time:** Initial response within **4 hours** during business hours (8 AM – 6 PM ET, Mon–Fri). If a P1 occurs outside business hours, response by 9 AM the next business day.  
-**Resolution target:** Best effort within 24 hours. If not resolved, daily status updates provided.
+**Resolution target:** Best effort restoration within 4 hours. If not resolved, status updates every 2 hours.
 
-### P2 — Compliance Workflow Blocked
-**Definition:** A feature in the [Pilot Scope](./scope.md) is broken in a way that prevents a required compliance task from being completed.  
-**Examples:** Cannot save a session log; incident report form won't submit; IEP compliance dates are displaying incorrectly.  
+### P2 — Data Loss Risk
+**Definition:** There is an active risk that student data has been lost, corrupted, or is inaccessible. The system may be partially running.  
+**Examples:** A submitted incident report disappeared after saving; an IEP record shows a different student's data; session logs are missing from a prior date; an export CSV contains corrupted or missing rows.  
 **Response time:** Initial response within **24 hours** on business days.  
-**Resolution target:** Fix or documented workaround within 5 business days.
+**Resolution target:** Confirmed data status (recovered, unrecoverable, or isolated) within 48 hours. Trellis provides a written incident summary within 5 business days.
 
 ### P3 — UX Issue or Non-Blocking Bug
-**Definition:** Something doesn't look right or is inconvenient, but the core workflow can still be completed.  
-**Examples:** Button label is confusing; export file has a formatting issue; alert threshold seems wrong.  
+**Definition:** Something doesn't look right or is inconvenient, but no data is at risk and the core workflow can still be completed.  
+**Examples:** Button label is confusing; export file has a column formatting issue; alert threshold seems incorrect; a page loads slowly.  
 **Response time:** Acknowledged within **1 business week**.  
 **Resolution target:** Addressed in the next scheduled update cycle (2-week sprints).
 
@@ -45,8 +45,8 @@ Include:
 
 | Role | Responsibility |
 |---|---|
-| **Trellis on-call (P1)** | System availability and data integrity |
-| **Trellis support lead** | P2 and P3 responses, feature questions, export help |
+| **Trellis on-call (P1/P2)** | System availability, data integrity, and data loss incidents |
+| **Trellis support lead** | P3 responses, feature questions, workflow support |
 | **District admin** | First line of internal user questions; escalates to Trellis via email |
 
 The district admin is the single point of contact. End users (case managers, teachers) should report issues to the district admin first. The district admin decides whether to escalate to Trellis.
