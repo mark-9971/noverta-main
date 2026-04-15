@@ -157,38 +157,51 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         )),
     ]);
 
-    const exactMatchedSessionIndices = new Set<number>();
-    const exactLoggedKeys = new Set<string>();
+    const consumed = new Set<number>();
+
+    // Pass 1: exact time matching — consume sessions with matching startTime
+    const exactSessionsByKey = new Map<string, number[]>();
     for (let i = 0; i < todaySessions.length; i++) {
       const s = todaySessions[i];
       if (s.startTime) {
-        exactLoggedKeys.add(`${s.studentId ?? ""}:${s.serviceTypeId ?? ""}:${s.startTime}`);
-        exactMatchedSessionIndices.add(i);
+        const k = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}:${s.startTime}`;
+        if (!exactSessionsByKey.has(k)) exactSessionsByKey.set(k, []);
+        exactSessionsByKey.get(k)!.push(i);
+      }
+    }
+    const loggedByExact = new Set<number>();
+    for (const b of blocks) {
+      const k = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}:${b.startTime}`;
+      const candidates = exactSessionsByKey.get(k);
+      if (candidates) {
+        const idx = candidates.find(i => !consumed.has(i));
+        if (idx !== undefined) {
+          consumed.add(idx);
+          loggedByExact.add(b.id);
+        }
       }
     }
 
-    const loggedCounts = new Map<string, number>();
+    // Pass 2: count fallback for remaining sessions (no startTime or time didn't match any block)
+    const fallbackCounts = new Map<string, number>();
     for (let i = 0; i < todaySessions.length; i++) {
-      if (exactMatchedSessionIndices.has(i)) continue;
+      if (consumed.has(i)) continue;
       const s = todaySessions[i];
-      const key = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`;
-      loggedCounts.set(key, (loggedCounts.get(key) ?? 0) + 1);
+      const k = `${s.studentId ?? ""}:${s.serviceTypeId ?? ""}`;
+      fallbackCounts.set(k, (fallbackCounts.get(k) ?? 0) + 1);
+    }
+    const loggedByFallback = new Set<number>();
+    for (const b of blocks) {
+      if (loggedByExact.has(b.id)) continue;
+      const k = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
+      const count = fallbackCounts.get(k) ?? 0;
+      if (count > 0) {
+        fallbackCounts.set(k, count - 1);
+        loggedByFallback.add(b.id);
+      }
     }
 
-    const isBlockLogged = (b: typeof blocks[number]): boolean => {
-      const timeKey = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}:${b.startTime}`;
-      if (exactLoggedKeys.has(timeKey)) {
-        exactLoggedKeys.delete(timeKey);
-        return true;
-      }
-      const key = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
-      const count = loggedCounts.get(key) ?? 0;
-      if (count > 0) {
-        loggedCounts.set(key, count - 1);
-        return true;
-      }
-      return false;
-    };
+    const loggedBlockIds = new Set([...loggedByExact, ...loggedByFallback]);
 
     res.json({
       date,
@@ -207,7 +220,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         notes: b.notes,
         studentName: b.studentFirst ? `${b.studentFirst} ${b.studentLast}` : null,
         serviceTypeName: b.serviceTypeName,
-        sessionLogged: isBlockLogged(b),
+        sessionLogged: loggedBlockIds.has(b.id),
       })),
     });
   } catch (e: unknown) {
