@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, integer, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { agencyContractsTable } from "./agencyContracts";
@@ -12,8 +12,7 @@ export const contractSessionLinksTable = pgTable("contract_session_links", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("csl_contract_idx").on(table.contractId),
-  index("csl_session_idx").on(table.sessionLogId),
-  unique("csl_unique_session_contract").on(table.sessionLogId, table.contractId),
+  uniqueIndex("csl_unique_session").on(table.sessionLogId),
 ]);
 
 export const insertContractSessionLinkSchema = createInsertSchema(contractSessionLinksTable).omit({ id: true, createdAt: true });
