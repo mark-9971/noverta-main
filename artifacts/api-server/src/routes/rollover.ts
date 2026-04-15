@@ -79,7 +79,6 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
           .where(and(
             inArray(iepDocumentsTable.studentId, studentIds),
             eq(iepDocumentsTable.active, true),
-            sql`${iepDocumentsTable.iepEndDate} > ${today}`,
           )),
       ]);
       activeStudents = stuCnt.count;
@@ -191,16 +190,15 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
           .returning({ id: iepDocumentsTable.id });
         flaggedIeps = updated.length;
 
-        // Carry forward active, non-expired IEPs into the new school year.
-        // This ensures the new active year's default view is populated immediately
-        // after rollover (student list filters by iep_documents.school_year_id).
+        // Carry forward ALL active IEPs (expired or not) into the new school year.
+        // Expired ones are also moved so admins can see and action them in the
+        // new year's default view (student list filters by iep_documents.school_year_id).
         const carriedForward = await tx
           .update(iepDocumentsTable)
           .set({ schoolYearId: newYear.id })
           .where(and(
             inArray(iepDocumentsTable.studentId, studentIds),
             eq(iepDocumentsTable.active, true),
-            sql`${iepDocumentsTable.iepEndDate} > ${today}`,
           ))
           .returning({ id: iepDocumentsTable.id });
         iepsCarriedForward = carriedForward.length;
