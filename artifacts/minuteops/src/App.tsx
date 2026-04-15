@@ -50,6 +50,7 @@ import TransitionsPage from "@/pages/transitions";
 import IepMeetingsPage from "@/pages/iep-meetings";
 
 import SignInPage from "@/pages/sign-in";
+import SignDocumentPage from "@/pages/sign-document";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -171,6 +172,7 @@ function App() {
           <Switch>
             <Route path="/sign-in" component={SignInPage} />
             <Route path="/sign-in/:rest*" component={SignInPage} />
+            <Route path="/sign/:token" component={SignDocumentPage} />
             <Route>
               <ProtectedRoutes>
                 <RoleProvider>

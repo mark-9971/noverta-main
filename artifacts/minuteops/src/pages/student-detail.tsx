@@ -12,6 +12,7 @@ import { useState, useEffect, Fragment } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
+import StudentDocuments from "@/components/student-documents";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
 import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink, createServiceRequirement, updateServiceRequirement, deleteServiceRequirement, listServiceTypes, listStaff, createStaffAssignment, deleteStaffAssignment } from "@workspace/api-client-react";
@@ -1312,6 +1313,8 @@ export default function StudentDetail() {
       )}
 
       <BipManagement studentId={studentId} readOnly={bipReadOnly} />
+
+      <StudentDocuments studentId={studentId} />
 
       <Dialog open={svcDialogOpen} onOpenChange={v => { if (!v) setSvcDialogOpen(false); }}>
         <DialogContent className="max-w-lg">
