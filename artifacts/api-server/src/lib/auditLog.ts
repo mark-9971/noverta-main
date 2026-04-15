@@ -1,8 +1,6 @@
 import { db, auditLogsTable } from "@workspace/db";
 import type { Request } from "express";
-import { getAuth } from "@clerk/express";
 import type { AuthedRequest } from "../middlewares/auth";
-import { isRole } from "./permissions";
 
 interface AuditEntry {
   action: "create" | "read" | "update" | "delete";
@@ -26,17 +24,6 @@ function resolveActor(req: Request): { userId: string; role: string } {
   if (authed.userId && authed.trellisRole) {
     return { userId: authed.userId, role: authed.trellisRole };
   }
-  try {
-    const auth = getAuth(req);
-    if (auth?.userId) {
-      const meta = (auth.sessionClaims as Record<string, unknown>)?.publicMetadata as Record<string, unknown> | undefined;
-      const role = meta?.role;
-      return {
-        userId: auth.userId,
-        role: typeof role === "string" && isRole(role) ? role : "unknown",
-      };
-    }
-  } catch (_e) {}
   return { userId: "anonymous", role: "unknown" };
 }
 

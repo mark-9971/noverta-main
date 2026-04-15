@@ -1,10 +1,7 @@
-import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { registerTokenProvider } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { ThemeProvider } from "@/lib/theme-context";
@@ -53,7 +50,6 @@ import TransitionsPage from "@/pages/transitions";
 import IepMeetingsPage from "@/pages/iep-meetings";
 
 import SignInPage from "@/pages/sign-in";
-import SignUpPage from "@/pages/sign-up";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,15 +62,19 @@ const queryClient = new QueryClient({
 
 const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
 
+function isSignedIn(): boolean {
+  try {
+    const token = localStorage.getItem("trellis_session");
+    if (!token) return false;
+    const payload = JSON.parse(atob(token));
+    return Boolean(payload.userId && payload.role);
+  } catch {
+    return false;
+  }
+}
+
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, isLoaded, getToken } = useAuth();
-
-  useEffect(() => {
-    registerTokenProvider(() => getToken());
-  }, [getToken]);
-
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <RedirectToSignIn />;
+  if (!isSignedIn()) return <Redirect to="/sign-in" />;
   return <>{children}</>;
 }
 
@@ -158,41 +158,31 @@ function AppRouter() {
 }
 
 function App() {
-  const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      signInUrl={`${base}/sign-in`}
-      signUpUrl={`${base}/sign-up`}
-      afterSignOutUrl={`${base}/sign-in`}
-    >
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter base={base}>
-            <Switch>
-              <Route path="/sign-in" component={SignInPage} />
-              <Route path="/sign-in/:rest*" component={SignInPage} />
-              <Route path="/sign-up" component={SignUpPage} />
-              <Route path="/sign-up/:rest*" component={SignUpPage} />
-              <Route>
-                <ProtectedRoutes>
-                  <RoleProvider>
-                    <ThemeProvider>
-                      <SchoolProvider>
-                        <AppRouter />
-                      </SchoolProvider>
-                    </ThemeProvider>
-                  </RoleProvider>
-                </ProtectedRoutes>
-              </Route>
-            </Switch>
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ClerkProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={base}>
+          <Switch>
+            <Route path="/sign-in" component={SignInPage} />
+            <Route path="/sign-in/:rest*" component={SignInPage} />
+            <Route>
+              <ProtectedRoutes>
+                <RoleProvider>
+                  <ThemeProvider>
+                    <SchoolProvider>
+                      <AppRouter />
+                    </SchoolProvider>
+                  </ThemeProvider>
+                </RoleProvider>
+              </ProtectedRoutes>
+            </Route>
+          </Switch>
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

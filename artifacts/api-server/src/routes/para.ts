@@ -9,7 +9,6 @@ import {
 import { eq, and, sql, desc } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { STAFF_ROLES } from "../lib/permissions";
-import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -20,15 +19,7 @@ function dayOfWeekFromDate(dateStr: string): string {
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 }
 
-async function getStaffIdForUser(req: AuthedRequest): Promise<number | null> {
-  const auth = getAuth(req);
-  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
-  const clerkStaffId = meta?.staffId ? Number(meta.staffId) : null;
-  if (clerkStaffId) {
-    const rows = await db.select({ id: staffTable.id }).from(staffTable)
-      .where(eq(staffTable.id, clerkStaffId)).limit(1);
-    if (rows.length > 0) return rows[0].id;
-  }
+async function getStaffIdForUser(_req: AuthedRequest): Promise<number | null> {
   return null;
 }
 

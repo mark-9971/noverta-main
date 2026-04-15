@@ -2,8 +2,6 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -28,8 +26,6 @@ app.use(
     },
   }),
 );
-
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 const rawOrigins = process.env.CORS_ALLOWED_ORIGINS;
 const corsOrigin: cors.CorsOptions["origin"] = rawOrigins
@@ -61,8 +57,6 @@ app.use("/api", mutationLimiter);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-app.use(clerkMiddleware());
 
 app.use("/api", router);
 

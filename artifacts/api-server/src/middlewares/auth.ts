@@ -1,5 +1,4 @@
 import { type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
 import { type TrellisRole, isRole } from "../lib/permissions";
 
 export interface AuthedRequest extends Request {
@@ -7,37 +6,48 @@ export interface AuthedRequest extends Request {
   trellisRole: TrellisRole;
 }
 
-function extractRole(req: Request): TrellisRole | null {
-  const auth = getAuth(req);
-  if (!auth?.userId) return null;
-  const meta = (auth.sessionClaims as any)?.publicMetadata;
-  const role = meta?.role;
-  if (isRole(role)) return role;
+interface DevSessionPayload {
+  userId: string;
+  role: string;
+  name?: string;
+}
 
-  // In non-production environments, accept the X-Demo-Role header as a
-  // fallback so that dev/demo users can operate without Clerk metadata.
+function parseDevToken(req: Request): { userId: string; role: TrellisRole } | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  try {
+    const token = authHeader.slice(7);
+    const raw = Buffer.from(token, "base64").toString("utf-8");
+    const payload: DevSessionPayload = JSON.parse(raw);
+    if (!payload.userId || !isRole(payload.role)) return null;
+    return { userId: payload.userId, role: payload.role as TrellisRole };
+  } catch {
+    return null;
+  }
+}
+
+function extractAuth(req: Request): { userId: string; role: TrellisRole } | null {
+  const dev = parseDevToken(req);
+  if (dev) return dev;
+
+  // Header-only fallback for dev convenience (no token set yet)
   if (process.env.NODE_ENV !== "production") {
     const demoRole = req.headers["x-demo-role"];
-    if (isRole(demoRole)) return demoRole as TrellisRole;
-    return "admin"; // default demo role for full access
+    const role = isRole(demoRole) ? (demoRole as TrellisRole) : "admin";
+    return { userId: "dev-user", role };
   }
 
   return null;
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  if (!auth?.userId) {
+  const auth = extractAuth(req);
+  if (!auth) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
   (req as AuthedRequest).userId = auth.userId;
-  const role = extractRole(req);
-  if (!role) {
-    res.status(403).json({ error: "No role assigned. Contact your administrator." });
-    return;
-  }
-  (req as AuthedRequest).trellisRole = role;
+  (req as AuthedRequest).trellisRole = auth.role;
   next();
 }
 
