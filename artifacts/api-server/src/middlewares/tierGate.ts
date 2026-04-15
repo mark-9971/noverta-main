@@ -3,8 +3,7 @@ import { db, districtsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
   type DistrictTier, type FeatureKey,
-  isTierFeatureAccessible, getRequiredTierForFeature,
-  TIER_LABELS, API_ROUTE_FEATURE_MAP,
+  isTierFeatureAccessible, getRequiredTierForFeature, TIER_LABELS,
 } from "@workspace/db";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
@@ -92,58 +91,4 @@ export function requireTierAccess(featureKey: FeatureKey) {
       });
     }
   };
-}
-
-export function tierGateByRoute(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  if (!auth?.userId) {
-    next();
-    return;
-  }
-
-  const meta = getPublicMeta(req);
-  if (meta.platformAdmin) {
-    next();
-    return;
-  }
-
-  const path = req.path;
-  let featureKey: FeatureKey | null = null;
-  for (const [route, fk] of Object.entries(API_ROUTE_FEATURE_MAP)) {
-    if (path.startsWith(route)) {
-      featureKey = fk;
-      break;
-    }
-  }
-
-  if (!featureKey) {
-    next();
-    return;
-  }
-
-  resolveDistrictTier(req)
-    .then((tier) => {
-      if (isTierFeatureAccessible(tier, featureKey!)) {
-        next();
-        return;
-      }
-
-      const requiredTier = getRequiredTierForFeature(featureKey!);
-      res.status(403).json({
-        error: "Feature not available on your current plan",
-        code: "TIER_UPGRADE_REQUIRED",
-        currentTier: tier,
-        requiredTier,
-        requiredTierLabel: TIER_LABELS[requiredTier],
-        featureKey,
-        message: `This feature requires the ${TIER_LABELS[requiredTier]} plan. Please upgrade to access it.`,
-      });
-    })
-    .catch((err) => {
-      console.error("Tier gate error:", err);
-      res.status(503).json({
-        error: "Unable to verify subscription tier",
-        code: "TIER_CHECK_FAILED",
-      });
-    });
 }

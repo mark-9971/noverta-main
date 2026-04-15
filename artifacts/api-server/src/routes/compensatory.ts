@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { pool } from "@workspace/db";
+import { requireTierAccess } from "../middlewares/tierGate";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   ListCompensatoryObligationsQueryParams,
@@ -22,6 +23,7 @@ import {
 const VALID_STATUSES = ["pending", "in_progress", "completed", "waived"];
 
 const router: IRouter = Router();
+router.use(requireTierAccess("compliance.compensatory"));
 
 router.get("/compensatory-obligations", async (req, res): Promise<void> => {
   const queryParsed = ListCompensatoryObligationsQueryParams.safeParse(req.query);

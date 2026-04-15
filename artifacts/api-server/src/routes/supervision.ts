@@ -9,8 +9,10 @@ import { eq, and, desc, gte, lte, sql, asc } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { WRITE_SUPERVISION_ROLES, PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("clinical.supervision"));
 
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];

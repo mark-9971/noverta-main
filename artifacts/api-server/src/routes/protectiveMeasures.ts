@@ -3,8 +3,10 @@ import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, st
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { logAudit } from "../lib/auditLog";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router = Router();
+router.use(requireTierAccess("clinical.protective_measures"));
 
 router.get("/protective-measures/incidents", async (req: Request, res: Response) => {
   const { studentId, status, incidentType, startDate, endDate } = req.query;

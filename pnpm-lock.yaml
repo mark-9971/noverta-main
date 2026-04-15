@@ -375,6 +375,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/tiers':
+        specifier: workspace:*
+        version: link:../../lib/tiers
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -651,6 +654,9 @@ importers:
 
   lib/db:
     dependencies:
+      '@workspace/tiers':
+        specifier: workspace:*
+        version: link:../tiers
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.1(@types/pg@8.18.0)(pg@8.20.0)
@@ -695,6 +701,8 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
+
+  lib/tiers: {}
 
   scripts:
     dependencies:

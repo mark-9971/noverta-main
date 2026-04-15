@@ -7,8 +7,10 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, isNotNull } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("clinical.program_data"));
 
 router.get("/students/:studentId/behavior-targets", async (req, res): Promise<void> => {
   try {

@@ -7,8 +7,10 @@ import {
 import { eq, and, desc, isNull, sql, lte, gte, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { requireRoles } from "../middlewares/auth";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("compliance.transitions"));
 
 const transitionAccess = requireRoles("admin", "coordinator", "case_manager", "sped_teacher");
 

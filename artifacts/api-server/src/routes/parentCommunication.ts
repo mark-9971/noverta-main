@@ -16,8 +16,10 @@ import {
 import { eq, and, desc, gte, lte, sql, asc, or, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import crypto from "crypto";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("engagement.parent_communication"));
 
 function formatContactResponse(c: any) {
   return {

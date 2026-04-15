@@ -13,8 +13,10 @@ import {
 import { eq, and, desc, isNull, sql, gte, lte, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import { getAuth } from "@clerk/express";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("compliance.state_reporting"));
 const ADMIN_ROLES = ["admin"] as const;
 
 interface ValidationWarning {

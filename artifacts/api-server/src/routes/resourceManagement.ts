@@ -5,8 +5,10 @@ import {
   sessionLogsTable, serviceTypesTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, sql, gte, lte, count, sum, type SQL } from "drizzle-orm";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("district.resource_management"));
 
 function parseSchoolDistrictFilters(query: Record<string, unknown>) {
   return {

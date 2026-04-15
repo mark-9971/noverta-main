@@ -5,8 +5,10 @@ import {
   behaviorTargetsTable, programTargetsTable, programStepsTable
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("clinical.iep_suggestions"));
 
 const BEHAVIOR_CATALOG: Array<{
   name: string; measurementType: string; targetDirection: string;

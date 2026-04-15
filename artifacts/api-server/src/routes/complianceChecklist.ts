@@ -8,8 +8,10 @@ import {
 import { eq, and, desc, gte, lte, sql, isNull, ne } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("compliance.checklist"));
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
 

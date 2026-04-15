@@ -6,8 +6,10 @@ import {
   behaviorTargetsTable
 } from "@workspace/db";
 import { eq, desc, and, sql, asc, max } from "drizzle-orm";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
+router.use(requireTierAccess("clinical.fba_bip"));
 
 function isoDate(d: Date) { return d.toISOString(); }
 
