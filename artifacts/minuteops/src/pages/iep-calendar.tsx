@@ -39,6 +39,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   initial_eval: "Initial Evaluation",
   transition_plan: "Transition Plan",
   progress_report: "Progress Report",
+  team_meeting: "Team Meeting",
 };
 
 const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string; badgeCls: string }> = {
@@ -47,6 +48,7 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string;
   initial_eval: { bg: "bg-red-50", text: "text-red-700", dot: "#dc2626", badgeCls: "bg-red-50 text-red-700 border-red-200" },
   transition_plan: { bg: "bg-gray-50", text: "text-gray-600", dot: "#9ca3af", badgeCls: "bg-gray-50 text-gray-600 border-gray-200" },
   progress_report: { bg: "bg-gray-50", text: "text-gray-600", dot: "#6b7280", badgeCls: "bg-gray-50 text-gray-600 border-gray-200" },
+  team_meeting: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "#10b981", badgeCls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 };
 
 const STATUS_CONFIG: Record<string, { icon: any; className: string; label: string }> = {

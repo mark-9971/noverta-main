@@ -52,3 +52,6 @@ export * from "./eligibilityDeterminations";
 export * from "./transitionPlans";
 export * from "./transitionGoals";
 export * from "./transitionAgencyReferrals";
+export * from "./iepMeetingAttendees";
+export * from "./priorWrittenNotices";
+export * from "./meetingConsentRecords";

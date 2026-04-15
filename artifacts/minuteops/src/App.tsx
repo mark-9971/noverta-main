@@ -50,6 +50,7 @@ import SetupPage from "@/pages/setup";
 import MyCaseloadPage from "@/pages/my-caseload";
 import EvaluationsPage from "@/pages/evaluations";
 import TransitionsPage from "@/pages/transitions";
+import IepMeetingsPage from "@/pages/iep-meetings";
 
 import SignInPage from "@/pages/sign-in";
 import SignUpPage from "@/pages/sign-up";
@@ -126,6 +127,7 @@ function StaffRouter() {
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" />
       <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" />
+      <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
       <Route component={NotFound} />
     </Switch>
   );

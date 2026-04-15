@@ -35,6 +35,7 @@ import recentlyDeletedRouter from "./recentlyDeleted";
 import onboardingRouter from "./onboarding";
 import evaluationsRouter from "./evaluations";
 import transitionsRouter from "./transitions";
+import iepMeetingsRouter from "./iepMeetings";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,6 @@ router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
 router.use(evaluationsRouter);
 router.use(transitionsRouter);
+router.use(iepMeetingsRouter);
 
 export default router;

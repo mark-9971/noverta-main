@@ -4,7 +4,7 @@ import {
   studentsTable, alertsTable, sessionLogsTable,
   scheduleBlocksTable, staffTable, staffAssignmentsTable,
   serviceRequirementsTable, serviceTypesTable,
-  complianceEventsTable, iepDocumentsTable
+  complianceEventsTable, iepDocumentsTable, teamMeetingsTable
 } from "@workspace/db";
 import { eq, and, gte, lte, count, sql, asc, desc } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -724,6 +724,67 @@ router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
             }
           }
         }
+      }
+    }
+
+    if (!eventType || eventType === "all" || eventType === "team_meeting") {
+      const tmConditions: any[] = [
+        sql`${teamMeetingsTable.status} IN ('scheduled', 'confirmed', 'completed')`,
+      ];
+      if (startDate) tmConditions.push(gte(teamMeetingsTable.scheduledDate, startDate as string));
+      if (endDate) tmConditions.push(lte(teamMeetingsTable.scheduledDate, endDate as string));
+      if (sdFilters.schoolId) tmConditions.push(eq(teamMeetingsTable.schoolId, sdFilters.schoolId));
+      if (sdFilters.districtId) tmConditions.push(sql`${teamMeetingsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+
+      const tmRows = await db.select({
+        id: teamMeetingsTable.id,
+        studentId: teamMeetingsTable.studentId,
+        meetingType: teamMeetingsTable.meetingType,
+        scheduledDate: teamMeetingsTable.scheduledDate,
+        status: teamMeetingsTable.status,
+        notes: teamMeetingsTable.notes,
+        studentFirstName: studentsTable.firstName,
+        studentLastName: studentsTable.lastName,
+        studentGrade: studentsTable.grade,
+      })
+        .from(teamMeetingsTable)
+        .innerJoin(studentsTable, eq(teamMeetingsTable.studentId, studentsTable.id))
+        .where(and(...tmConditions))
+        .limit(200);
+
+      const mtLabels: Record<string, string> = {
+        annual_review: "Annual Review Meeting",
+        initial_iep: "Initial IEP Meeting",
+        amendment: "IEP Amendment Meeting",
+        reevaluation: "Reevaluation Meeting",
+        transition: "Transition Meeting",
+        manifestation_determination: "Manifestation Determination",
+        eligibility: "Eligibility Meeting",
+        progress_review: "Progress Review Meeting",
+        other: "Team Meeting",
+      };
+
+      for (const m of tmRows) {
+        const daysRemaining = Math.ceil((new Date(m.scheduledDate).getTime() - new Date(today).getTime()) / 86400000);
+        let computedStatus = "upcoming";
+        if (m.status === "completed") computedStatus = "completed";
+        else if (daysRemaining < 0) computedStatus = "overdue";
+        else if (daysRemaining <= 7) computedStatus = "critical";
+        else if (daysRemaining <= 30) computedStatus = "due_soon";
+
+        allEvents.push({
+          id: `meeting-${m.id}`,
+          studentId: m.studentId,
+          studentName: `${m.studentFirstName} ${m.studentLastName}`,
+          grade: m.studentGrade,
+          eventType: "team_meeting",
+          title: `${mtLabels[m.meetingType] ?? "Team Meeting"} — ${m.studentFirstName} ${m.studentLastName}`,
+          dueDate: m.scheduledDate,
+          status: computedStatus,
+          completedDate: m.status === "completed" ? m.scheduledDate : null,
+          notes: m.notes,
+          daysRemaining,
+        });
       }
     }
 

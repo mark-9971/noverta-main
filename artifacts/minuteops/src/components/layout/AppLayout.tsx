@@ -38,6 +38,7 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/students", label: "Students", icon: Users, primary: true },
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
       { href: "/compliance", label: "Service Minutes", icon: Timer },
       { href: "/evaluations", label: "Evaluations", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
@@ -117,6 +118,7 @@ const spedTeacherNav: NavSection[] = [
     label: "IEP & Clinical",
     items: [
       { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
       { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
       { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },

@@ -16,7 +16,7 @@ import { useRole } from "@/lib/role-context";
 import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
 import { useState, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
-import { FileSearch, Sprout } from "lucide-react";
+import { FileSearch, Sprout, CalendarDays as MeetingIcon } from "lucide-react";
 
 function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href }: any) {
   const accents: Record<string, string> = {
@@ -77,12 +77,23 @@ export default function Dashboard() {
     overdueFollowups: number;
   }
   const [transitionDash, setTransitionDash] = useState<TransitionDashboardSummary | null>(null);
+  interface MeetingDashboardSummary {
+    overdueCount: number;
+    thisWeekCount: number;
+    pendingConsentCount: number;
+    overdueAnnualReviews: number;
+  }
+  const [meetingDash, setMeetingDash] = useState<MeetingDashboardSummary | null>(null);
   useEffect(() => {
     authFetch("/api/evaluations/dashboard")
       .then((d: unknown) => setEvalDash(d as EvalDashboardSummary))
       .catch(() => {});
     authFetch("/api/transitions/dashboard")
       .then((d: unknown) => setTransitionDash(d as TransitionDashboardSummary))
+      .catch(() => {});
+    authFetch("/api/iep-meetings/dashboard")
+      .then(r => { if (r.ok) return r.json(); throw new Error(); })
+      .then((d: unknown) => setMeetingDash(d as MeetingDashboardSummary))
       .catch(() => {});
   }, []);
 
@@ -175,6 +186,22 @@ export default function Dashboard() {
             </div>
             <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
               Transition Planning →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) && (
+        <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
+          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+            <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
+            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+              {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
+              {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
+              {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
+            </div>
+            <Link href="/iep-meetings" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+              IEP Meetings →
             </Link>
           </CardContent>
         </Card>
