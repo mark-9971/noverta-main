@@ -10,6 +10,7 @@ import {
 import { eq, and, gte, lte, count, sql, asc, desc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { requireTierAccess } from "../middlewares/tierGate";
 
 async function resolveCallerDistrictId(req: import("express").Request): Promise<number | null> {
   const meta = getPublicMeta(req);
@@ -408,7 +409,7 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
   res.json(weeks);
 });
 
-router.get("/dashboard/executive", async (req, res): Promise<void> => {
+router.get("/dashboard/executive", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
     const sdFilters = parseSchoolDistrictFilters(req.query);
     const studentFilter = buildStudentSubquery(sdFilters);
@@ -531,7 +532,7 @@ router.get("/dashboard/executive", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/dashboard/staff-coverage", async (req, res): Promise<void> => {
+router.get("/dashboard/staff-coverage", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
     const sdFilters = parseSchoolDistrictFilters(req.query);
 
