@@ -7,6 +7,8 @@ export const districtsTable = pgTable("districts", {
   name: text("name").notNull(),
   state: text("state").default("MA"),
   region: text("region"),
+  tier: text("tier").notNull().default("essentials"),
+  tierOverride: text("tier_override"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -8,6 +8,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
+import { tierGateByRoute } from "./middlewares/tierGate";
 
 const app: Express = express();
 
@@ -89,6 +90,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(clerkMiddleware());
 
 app.use("/api", requireActiveSubscription);
+app.use("/api", tierGateByRoute);
 app.use("/api", router);
 
 app.use((_req: Request, res: Response) => {

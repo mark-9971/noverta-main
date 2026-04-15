@@ -10,7 +10,7 @@ import {
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, ChevronRight,
-  GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -23,6 +23,8 @@ import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
 import { useTheme } from "@/lib/theme-context";
+import { useTier } from "@/lib/tier-context";
+import { type FeatureKey } from "@/lib/module-tiers";
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -35,6 +37,7 @@ type NavItem = {
   primary?: boolean;
   alertBadge?: boolean;
   comingSoon?: boolean;
+  featureKey?: FeatureKey;
 };
 
 type NavSection = {
@@ -107,11 +110,11 @@ const adminNav: NavSection[] = [
     icon: ListChecks,
     collapsible: true,
     items: [
-      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks },
-      { href: "/compliance", label: "Service Minutes", icon: Timer },
-      { href: "/compensatory-services", label: "Compensatory Services", icon: Gift },
-      { href: "/state-reporting", label: "State Reports", icon: FileText },
-      { href: "/attendance", label: "Attendance", icon: ClipboardCheck, comingSoon: true },
+      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks, featureKey: "compliance.checklist" as FeatureKey },
+      { href: "/compliance", label: "Service Minutes", icon: Timer, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/compensatory-services", label: "Compensatory Services", icon: Gift, featureKey: "compliance.compensatory" as FeatureKey },
+      { href: "/state-reporting", label: "State Reports", icon: FileText, featureKey: "compliance.state_reporting" as FeatureKey },
+      { href: "/attendance", label: "Attendance", icon: ClipboardCheck, comingSoon: true, featureKey: "compliance.attendance" as FeatureKey },
     ],
   },
   {
@@ -129,12 +132,12 @@ const adminNav: NavSection[] = [
     icon: Stethoscope,
     collapsible: true,
     items: [
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
-      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield },
-      { href: "/supervision", label: "Supervision", icon: ClipboardCheck },
-      { href: "/aba-graphing", label: "ABA Graphing", icon: BarChart3, comingSoon: true },
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: ClipboardCheck, featureKey: "clinical.supervision" as FeatureKey },
+      { href: "/aba-graphing", label: "ABA Graphing", icon: BarChart3, comingSoon: true, featureKey: "clinical.aba_graphing" as FeatureKey },
     ],
   },
   {
@@ -142,12 +145,12 @@ const adminNav: NavSection[] = [
     icon: Building2,
     collapsible: true,
     items: [
-      { href: "/district", label: "District Overview", icon: Building2 },
-      { href: "/executive", label: "Executive Dashboard", icon: Gauge },
-      { href: "/resource-management", label: "Resource Management", icon: Scale },
-      { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, comingSoon: true },
-      { href: "/budget", label: "Budget", icon: CreditCard, comingSoon: true },
+      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
+      { href: "/resource-management", label: "Resource Management", icon: Scale, featureKey: "district.resource_management" as FeatureKey },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, comingSoon: true, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/budget", label: "Budget", icon: CreditCard, comingSoon: true, featureKey: "district.budget" as FeatureKey },
     ],
   },
   {
@@ -166,10 +169,10 @@ const adminNav: NavSection[] = [
     icon: MessageSquare,
     collapsible: true,
     items: [
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare },
-      { href: "/parent-portal", label: "Parent Portal", icon: Users, comingSoon: true },
-      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true },
-      { href: "/translation", label: "Translation", icon: Languages, comingSoon: true },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+      { href: "/parent-portal", label: "Parent Portal", icon: Users, comingSoon: true, featureKey: "engagement.parent_portal" as FeatureKey },
+      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true, featureKey: "engagement.documents" as FeatureKey },
+      { href: "/translation", label: "Translation", icon: Languages, comingSoon: true, featureKey: "engagement.translation" as FeatureKey },
     ],
   },
   {
@@ -301,6 +304,8 @@ function NavItemRow({
   config,
   openAlerts,
   onNavigate,
+  locked,
+  lockedTierLabel,
 }: {
   item: NavItem;
   active: boolean;
@@ -308,27 +313,40 @@ function NavItemRow({
   config: typeof STAFF_NAV_CONFIG.admin;
   openAlerts: number;
   onNavigate?: () => void;
+  locked?: boolean;
+  lockedTierLabel?: string;
 }) {
+  const isLocked = locked && !item.comingSoon;
+
   const content = (
     <>
-      {theme === "open-air" && active && !item.comingSoon && (
+      {theme === "open-air" && active && !item.comingSoon && !isLocked && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
       )}
-      <item.icon className={cn(
-        "w-[17px] h-[17px] flex-shrink-0",
-        item.comingSoon
-          ? "text-gray-300"
-          : theme === "open-air"
-            ? active ? "text-gray-900" : "text-gray-300"
-            : active ? config.iconActive : "text-gray-400"
-      )} />
-      <span className="flex-1 truncate">{item.label}</span>
-      {item.comingSoon && (
+      {isLocked ? (
+        <Lock className="w-[17px] h-[17px] flex-shrink-0 text-gray-300" />
+      ) : (
+        <item.icon className={cn(
+          "w-[17px] h-[17px] flex-shrink-0",
+          item.comingSoon
+            ? "text-gray-300"
+            : theme === "open-air"
+              ? active ? "text-gray-900" : "text-gray-300"
+              : active ? config.iconActive : "text-gray-400"
+        )} />
+      )}
+      <span className={cn("flex-1 truncate", isLocked && "text-gray-300")}>{item.label}</span>
+      {isLocked && lockedTierLabel && (
+        <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 leading-none whitespace-nowrap">
+          {lockedTierLabel}
+        </span>
+      )}
+      {item.comingSoon && !isLocked && (
         <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 leading-none whitespace-nowrap">
           Soon
         </span>
       )}
-      {item.alertBadge && openAlerts > 0 && (
+      {item.alertBadge && openAlerts > 0 && !isLocked && (
         <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
           {openAlerts > 99 ? "99+" : openAlerts}
         </span>
@@ -338,14 +356,16 @@ function NavItemRow({
 
   const baseClasses = "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100";
 
-  if (item.comingSoon) {
+  if (item.comingSoon || isLocked) {
     return (
-      <span
-        className={cn(baseClasses, "cursor-default text-gray-300")}
-        title={`${item.label} — Coming Soon`}
+      <Link
+        href={isLocked ? item.href : "#"}
+        className={cn(baseClasses, isLocked ? "cursor-pointer text-gray-300 hover:bg-gray-50" : "cursor-default text-gray-300")}
+        title={isLocked ? `${item.label} — Upgrade to ${lockedTierLabel}` : `${item.label} — Coming Soon`}
+        onClick={isLocked ? onNavigate : undefined}
       >
         {content}
-      </span>
+      </Link>
     );
   }
 
@@ -378,6 +398,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { role, user, isDevMode, isPlatformAdmin } = useRole();
   const { typedFilter } = useSchoolContext();
   const { theme } = useTheme();
+  const { hasAccess, getFeatureInfo } = useTier();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
   const config = roleConfig[role] ?? roleConfig["sped_teacher"];
@@ -540,17 +561,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
                 {!isCollapsed && (
                   <div className="space-y-0.5">
-                    {section.items.map((item) => (
-                      <NavItemRow
-                        key={item.href}
-                        item={item}
-                        active={isActive(item)}
-                        theme={theme}
-                        config={config}
-                        openAlerts={openAlerts}
-                        onNavigate={() => setSidebarOpen(false)}
-                      />
-                    ))}
+                    {section.items.map((item) => {
+                      const fk = item.featureKey;
+                      const isItemLocked = fk ? !hasAccess(fk) : false;
+                      const tierInfo = fk && isItemLocked ? getFeatureInfo(fk) : null;
+                      return (
+                        <NavItemRow
+                          key={item.href}
+                          item={item}
+                          active={isActive(item)}
+                          theme={theme}
+                          config={config}
+                          openAlerts={openAlerts}
+                          onNavigate={() => setSidebarOpen(false)}
+                          locked={isItemLocked}
+                          lockedTierLabel={tierInfo?.requiredTierLabel}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

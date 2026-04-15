@@ -8,6 +8,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { SchoolProvider } from "@/lib/school-context";
+import { TierProvider } from "@/lib/tier-context";
+import { FeatureGate } from "@/components/FeatureGate";
+import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
@@ -88,12 +91,18 @@ function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function BoundedRoute({ component: Comp, fallbackTitle, ...rest }: { component: React.ComponentType<any>; fallbackTitle?: string; path?: string }) {
+function BoundedRoute({ component: Comp, fallbackTitle, featureKey, ...rest }: { component: React.ComponentType<any>; fallbackTitle?: string; path?: string; featureKey?: FeatureKey }) {
   return (
     <Route {...rest}>
       {(params: any) => (
         <ErrorBoundary fallbackTitle={fallbackTitle}>
-          <Comp {...params} />
+          {featureKey ? (
+            <FeatureGate featureKey={featureKey}>
+              <Comp {...params} />
+            </FeatureGate>
+          ) : (
+            <Comp {...params} />
+          )}
         </ErrorBoundary>
       )}
     </Route>
@@ -115,35 +124,35 @@ function StaffRouter() {
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <BoundedRoute path="/compliance/timeline" component={ComplianceTimelinePage} fallbackTitle="Compliance timeline error" />
-      <BoundedRoute path="/compliance/checklist" component={ComplianceChecklist} fallbackTitle="Compliance checklist error" />
-      <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" />
+      <BoundedRoute path="/compliance/checklist" component={ComplianceChecklist} fallbackTitle="Compliance checklist error" featureKey="compliance.checklist" />
+      <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
-      <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" />
+      <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" featureKey="compliance.state_reporting" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
-      <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" />
-      <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" />
-      <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" />
-      <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" />
+      <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
+      <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
+      <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="clinical.protective_measures" />
+      <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" featureKey="district.executive" />
       <BoundedRoute path="/iep-calendar" component={IepCalendarPage} fallbackTitle="IEP calendar error" />
       <BoundedRoute path="/analytics" component={AnalyticsPage} fallbackTitle="Analytics error" />
-      <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" />
-      <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" />
-      <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" />
-      <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" />
-      <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" />
-      <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" />
+      <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" featureKey="clinical.fba_bip" />
+      <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
+      <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" featureKey="district.resource_management" />
+      <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" featureKey="compliance.compensatory" />
+      <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" featureKey="engagement.parent_communication" />
+      <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
       <BoundedRoute path="/audit-log" component={AuditLogPage} fallbackTitle="Audit log error" />
       <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
       <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
-      <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" />
-      <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" />
+      <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" featureKey="compliance.evaluations" />
+      <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" featureKey="compliance.transitions" />
       <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
       <BoundedRoute path="/sis-settings" component={SisSettingsPage} fallbackTitle="SIS settings error" />
       <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" />
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
-      <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" />
+      <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <Route component={NotFound} />
@@ -202,7 +211,9 @@ function App() {
                   <RoleProvider>
                     <ThemeProvider>
                       <SchoolProvider>
-                        <AppRouter />
+                        <TierProvider>
+                          <AppRouter />
+                        </TierProvider>
                       </SchoolProvider>
                     </ThemeProvider>
                   </RoleProvider>

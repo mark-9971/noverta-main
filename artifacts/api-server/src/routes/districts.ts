@@ -17,6 +17,8 @@ router.get("/districts", async (_req, res): Promise<void> => {
       name: districtsTable.name,
       state: districtsTable.state,
       region: districtsTable.region,
+      tier: districtsTable.tier,
+      tierOverride: districtsTable.tierOverride,
       createdAt: districtsTable.createdAt,
     })
     .from(districtsTable)
@@ -91,6 +93,8 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   if (req.body.name != null) updateData.name = req.body.name;
   if (req.body.state !== undefined) updateData.state = req.body.state;
   if (req.body.region !== undefined) updateData.region = req.body.region;
+  if (req.body.tier !== undefined) updateData.tier = req.body.tier;
+  if (req.body.tierOverride !== undefined) updateData.tierOverride = req.body.tierOverride;
 
   const [district] = await db.update(districtsTable).set(updateData).where(eq(districtsTable.id, id)).returning();
   if (!district) { res.status(404).json({ error: "District not found" }); return; }
@@ -110,6 +114,42 @@ router.delete("/districts/:id", async (req, res): Promise<void> => {
   const [deleted] = await db.delete(districtsTable).where(eq(districtsTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "District not found" }); return; }
   res.json({ success: true });
+});
+
+router.get("/district-tier", async (req, res): Promise<void> => {
+  const rawDistrictId = req.query.districtId;
+  let districtId: number | null = null;
+  if (rawDistrictId != null && rawDistrictId !== "") {
+    districtId = Number(rawDistrictId);
+    if (isNaN(districtId)) { res.status(400).json({ error: "Invalid districtId" }); return; }
+  }
+
+  if (!districtId) {
+    const allDistricts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
+    if (allDistricts.length === 1) districtId = allDistricts[0].id;
+  }
+
+  if (!districtId) {
+    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials" });
+    return;
+  }
+
+  const [district] = await db
+    .select({ tier: districtsTable.tier, tierOverride: districtsTable.tierOverride })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId))
+    .limit(1);
+
+  if (!district) {
+    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials" });
+    return;
+  }
+
+  res.json({
+    tier: district.tier,
+    tierOverride: district.tierOverride,
+    effectiveTier: district.tierOverride || district.tier || "essentials",
+  });
 });
 
 router.get("/district-overview", async (req, res): Promise<void> => {
