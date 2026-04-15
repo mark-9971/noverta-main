@@ -841,12 +841,12 @@ router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void>
     const goalSummaries = (latestReport?.goalProgress ?? []).map((g: any) => ({
       area: g.goalArea || g.serviceArea || "Goal",
       goalNumber: g.goalNumber,
-      progressRating: g.progressRating,
+      progressRating: parentSafe ? undefined : g.progressRating,
       statusLabel: RATING_LABELS[g.progressRating]?.label ?? "In Progress",
-      statusColor: RATING_LABELS[g.progressRating]?.color ?? "gray",
-      trendDirection: g.trendDirection,
+      statusColor: parentSafe ? undefined : (RATING_LABELS[g.progressRating]?.color ?? "gray"),
+      trendDirection: parentSafe ? undefined : g.trendDirection,
       parentFriendlyNarrative: g.narrative,
-      dataPoints: g.dataPoints,
+      dataPoints: parentSafe ? undefined : g.dataPoints,
       currentPerformance: parentSafe ? undefined : g.currentPerformance,
       targetCriterion: parentSafe ? undefined : g.targetCriterion,
     }));

@@ -35,6 +35,17 @@ function buildCSV(headers: string[], rows: unknown[][]): string {
   ].join("\n");
 }
 
+function assertCSVHeaders(actual: string[], expected: string[]): void {
+  if (actual.length !== expected.length) {
+    throw new Error(`CSV header count mismatch: expected ${expected.length}, got ${actual.length}`);
+  }
+  for (let i = 0; i < expected.length; i++) {
+    if (actual[i] !== expected[i]) {
+      throw new Error(`CSV header mismatch at position ${i}: expected "${expected[i]}", got "${actual[i]}"`);
+    }
+  }
+}
+
 function fmtDate(d: string | Date | null | undefined): string {
   if (!d) return "";
   try {
@@ -91,6 +102,11 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
       "IEP Start Date", "IEP End Date", "Annual Review Meeting Date", "IEP Type",
       "IEP Status", "Days Until Annual Review", "Annual Review Status",
     ];
+    assertCSVHeaders(headers, [
+      "Student Last Name", "Student First Name", "Grade", "Disability Category", "School",
+      "IEP Start Date", "IEP End Date", "Annual Review Meeting Date", "IEP Type",
+      "IEP Status", "Days Until Annual Review", "Annual Review Status",
+    ]);
 
     const csvRows = rows.map(r => {
       const days = daysUntil(r.iepEndDate);
@@ -222,6 +238,12 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
       "Delivered Minutes", "Missed Sessions", "Compliance %",
       "Reporting Period Start", "Reporting Period End",
     ];
+    assertCSVHeaders(headers, [
+      "Student Last Name", "Student First Name", "Grade", "School",
+      "Service Type", "Mandated Minutes/Week", "Sessions Completed",
+      "Delivered Minutes", "Missed Sessions", "Compliance %",
+      "Reporting Period Start", "Reporting Period End",
+    ]);
 
     const csvRows: unknown[][] = [];
     for (const student of students) {
@@ -320,6 +342,13 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
       "DESE Report Required", "Parent Verbal Notification", "Written Report Sent",
       "Debrief Conducted", "Status",
     ];
+    assertCSVHeaders(headers, [
+      "Incident Date", "Incident Time", "School", "Student Last Name", "Student First Name",
+      "Grade", "Disability Category", "Type of Restraint/Seclusion", "Duration (min)",
+      "Location", "Student Injury", "Staff Injury", "Medical Attention Required",
+      "DESE Report Required", "Parent Verbal Notification", "Written Report Sent",
+      "Debrief Conducted", "Status",
+    ]);
 
     const csvRows = incidents.map(i => [
       fmtDate(i.incidentDate),
@@ -370,7 +399,11 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
     );
     const scopeRow = (scopeResult.rows as Array<{ district_id: number | null }>)[0];
     const studentDistrictId = scopeRow?.district_id ?? null;
-    if (studentDistrictId !== null && callerDistrictId !== undefined && Number(callerDistrictId) !== Number(studentDistrictId)) {
+    if (callerDistrictId === undefined) {
+      res.status(403).json({ error: "Access denied: your account is not assigned to a district" });
+      return;
+    }
+    if (studentDistrictId !== null && Number(callerDistrictId) !== Number(studentDistrictId)) {
       res.status(403).json({ error: "Access denied: student is outside your district" });
       return;
     }
