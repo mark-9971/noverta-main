@@ -35,18 +35,18 @@ const SIS_PROVIDERS = [
 ];
 
 const DEFAULT_SERVICE_TYPES = [
-  { name: "Speech-Language Therapy", category: "speech", checked: true },
-  { name: "Occupational Therapy", category: "ot", checked: true },
-  { name: "Physical Therapy", category: "pt", checked: true },
-  { name: "Applied Behavior Analysis", category: "aba", checked: true },
-  { name: "Counseling", category: "counseling", checked: true },
-  { name: "Social Skills Group", category: "counseling", checked: false },
-  { name: "Reading Specialist", category: "other", checked: false },
-  { name: "Paraprofessional Support", category: "para_support", checked: true },
-  { name: "Adaptive PE", category: "other", checked: false },
-  { name: "Vision Services", category: "other", checked: false },
-  { name: "Hearing/Audiology", category: "other", checked: false },
-  { name: "Assistive Technology", category: "other", checked: false },
+  { name: "Speech-Language Therapy", category: "speech", cptCode: "92507", billingRate: "85.00", checked: true },
+  { name: "Occupational Therapy", category: "ot", cptCode: "97530", billingRate: "80.00", checked: true },
+  { name: "Physical Therapy", category: "pt", cptCode: "97110", billingRate: "80.00", checked: true },
+  { name: "Applied Behavior Analysis", category: "aba", cptCode: "97153", billingRate: "125.00", checked: true },
+  { name: "Counseling", category: "counseling", cptCode: "90837", billingRate: "90.00", checked: true },
+  { name: "Social Skills Group", category: "counseling", cptCode: "90853", billingRate: "45.00", checked: false },
+  { name: "Reading Specialist", category: "other", cptCode: "", billingRate: "65.00", checked: false },
+  { name: "Paraprofessional Support", category: "para_support", cptCode: "T1019", billingRate: "35.00", checked: true },
+  { name: "Adaptive PE", category: "other", cptCode: "97530", billingRate: "70.00", checked: false },
+  { name: "Vision Services", category: "other", cptCode: "92083", billingRate: "95.00", checked: false },
+  { name: "Hearing/Audiology", category: "other", cptCode: "92557", billingRate: "90.00", checked: false },
+  { name: "Assistive Technology", category: "other", cptCode: "97542", billingRate: "75.00", checked: false },
 ];
 
 const STAFF_ROLES = [
@@ -88,6 +88,9 @@ export default function SetupPage() {
   const [districtName, setDistrictName] = useState("");
   const [schoolNames, setSchoolNames] = useState<string[]>(["Main Campus"]);
   const [syncProgress, setSyncProgress] = useState<number | null>(null);
+  const [sisApiUrl, setSisApiUrl] = useState("");
+  const [sisClientId, setSisClientId] = useState("");
+  const [sisClientSecret, setSisClientSecret] = useState("");
 
   const [schoolYear, setSchoolYear] = useState("2025–2026");
   const [editingSchools, setEditingSchools] = useState<{ id?: number; name: string }[]>([]);
@@ -127,11 +130,11 @@ export default function SetupPage() {
 
       const params = new URLSearchParams(searchString);
       if (params.get("step") === null) {
-        if (data.sisConnected) {
-          if (!data.serviceTypesConfigured) setCurrentStep(2);
-          else if (!data.staffInvited) setCurrentStep(3);
-          else setCurrentStep(0);
-        }
+        if (!data.sisConnected) setCurrentStep(0);
+        else if (!data.districtConfirmed || !data.schoolsConfigured) setCurrentStep(1);
+        else if (!data.serviceTypesConfigured) setCurrentStep(2);
+        else if (!data.staffInvited) setCurrentStep(3);
+        else setCurrentStep(0);
       }
     } catch {
       setError("Could not load setup status");
@@ -171,6 +174,11 @@ export default function SetupPage() {
           provider: sisProvider,
           districtName: districtName.trim(),
           schools: schoolNames.filter(s => s.trim()),
+          credentials: sisProvider !== "csv" ? {
+            apiUrl: sisApiUrl.trim() || undefined,
+            clientId: sisClientId.trim() || undefined,
+            clientSecret: sisClientSecret.trim() || undefined,
+          } : undefined,
         }),
       });
       if (!res.ok) {
@@ -236,7 +244,12 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceTypes: selected.map(st => ({ name: st.name, category: st.category })),
+          serviceTypes: selected.map(st => ({
+            name: st.name,
+            category: st.category,
+            cptCode: st.cptCode || null,
+            billingRate: st.billingRate || null,
+          })),
         }),
       });
       if (!res.ok) {
@@ -407,6 +420,8 @@ export default function SetupPage() {
                     <label className="text-xs text-gray-500 block mb-1">API URL / Base URL</label>
                     <input
                       type="text"
+                      value={sisApiUrl}
+                      onChange={e => setSisApiUrl(e.target.value)}
                       placeholder={`https://${sisProvider}.yourdistrict.com/api`}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     />
@@ -415,6 +430,8 @@ export default function SetupPage() {
                     <label className="text-xs text-gray-500 block mb-1">Client ID</label>
                     <input
                       type="text"
+                      value={sisClientId}
+                      onChange={e => setSisClientId(e.target.value)}
                       placeholder="Client ID"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     />
@@ -423,11 +440,16 @@ export default function SetupPage() {
                     <label className="text-xs text-gray-500 block mb-1">Client Secret</label>
                     <input
                       type="password"
+                      value={sisClientSecret}
+                      onChange={e => setSisClientSecret(e.target.value)}
                       placeholder="••••••••••••"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     />
                   </div>
                 </div>
+                <p className="text-[11px] text-gray-400">
+                  Credentials are stored securely and used only to sync roster data from your SIS.
+                </p>
               </div>
             )}
 
@@ -617,11 +639,45 @@ export default function SetupPage() {
                       updated[i] = { ...st, checked: e.target.checked };
                       setServiceTypes(updated);
                     }}
-                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 mt-0.5"
                   />
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800">{st.name}</p>
                     <p className="text-[11px] text-gray-400 capitalize">{st.category.replace("_", " ")}</p>
+                    {st.checked && (
+                      <div className="flex gap-2 mt-2">
+                        <div>
+                          <label className="text-[10px] text-gray-400 block">CPT Code</label>
+                          <input
+                            type="text"
+                            value={st.cptCode}
+                            onChange={e => {
+                              const updated = [...serviceTypes];
+                              updated[i] = { ...st, cptCode: e.target.value };
+                              setServiceTypes(updated);
+                            }}
+                            placeholder="e.g. 92507"
+                            className="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            onClick={e => e.preventDefault()}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-400 block">Rate ($/hr)</label>
+                          <input
+                            type="text"
+                            value={st.billingRate}
+                            onChange={e => {
+                              const updated = [...serviceTypes];
+                              updated[i] = { ...st, billingRate: e.target.value };
+                              setServiceTypes(updated);
+                            }}
+                            placeholder="e.g. 85.00"
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            onClick={e => e.preventDefault()}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </label>
               ))}

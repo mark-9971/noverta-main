@@ -23,10 +23,11 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
       staffInvited: staffCount.value > 0,
     };
 
+    const coreComplete = steps.sisConnected && steps.schoolsConfigured && steps.serviceTypesConfigured;
     const completedCount = [steps.sisConnected, steps.schoolsConfigured, steps.serviceTypesConfigured, steps.staffInvited]
       .filter(Boolean).length;
     const totalSteps = 4;
-    const isComplete = steps.sisConnected && steps.schoolsConfigured && steps.serviceTypesConfigured && steps.staffInvited;
+    const isComplete = coreComplete;
 
     res.json({
       ...steps,
@@ -175,9 +176,11 @@ router.post("/onboarding/service-types", requireRoles("admin"), async (req, res)
     }
 
     const inserted = await db.insert(serviceTypesTable).values(
-      newTypes.map((st: { name: string; category: string }) => ({
+      newTypes.map((st: { name: string; category: string; cptCode?: string; billingRate?: string }) => ({
         name: st.name,
         category: st.category,
+        cptCode: st.cptCode || null,
+        defaultBillingRate: st.billingRate || null,
       }))
     ).returning();
 
