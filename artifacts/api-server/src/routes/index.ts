@@ -41,6 +41,7 @@ import documentsRouter from "./documents";
 import complianceChecklistRouter from "./complianceChecklist";
 import { stateReportingRouter } from "./stateReporting";
 import sisIntegrationRouter from "./sisIntegration";
+import studentPortalRouter from "./studentPortal";
 
 const router: IRouter = Router();
 
@@ -89,5 +90,6 @@ router.use(iepMeetingsRouter);
 router.use(complianceChecklistRouter);
 router.use(stateReportingRouter);
 router.use(sisIntegrationRouter);
+router.use(studentPortalRouter);
 
 export default router;

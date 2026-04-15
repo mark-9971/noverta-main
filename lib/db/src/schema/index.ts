@@ -60,3 +60,5 @@ export * from "./signatureRequests";
 export * from "./exportHistory";
 export * from "./sisConnections";
 export * from "./sisSyncLogs";
+export * from "./studentCheckIns";
+export * from "./studentWins";

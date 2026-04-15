@@ -34,6 +34,8 @@ import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
 import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
 import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
 import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
+import SpedStudentCheckIn from "@/pages/sped-student/SpedStudentCheckIn";
+import SpedStudentWins from "@/pages/sped-student/SpedStudentWins";
 import IepSuggestions from "@/pages/iep-suggestions";
 import DistrictOverview from "@/pages/district-overview";
 import BehaviorAssessmentPage from "@/pages/behavior-assessment";
@@ -146,6 +148,8 @@ function SpedStudentRouter() {
       <BoundedRoute path="/sped-portal/goals" component={SpedStudentGoals} fallbackTitle="Goals error" />
       <BoundedRoute path="/sped-portal/sessions" component={SpedStudentSessions} fallbackTitle="Sessions error" />
       <BoundedRoute path="/sped-portal/services" component={SpedStudentServices} fallbackTitle="Services error" />
+      <BoundedRoute path="/sped-portal/check-in" component={SpedStudentCheckIn} fallbackTitle="Check-in error" />
+      <BoundedRoute path="/sped-portal/wins" component={SpedStudentWins} fallbackTitle="Wins error" />
       <Route>{() => <Redirect to="/sped-portal" />}</Route>
     </Switch>
   );

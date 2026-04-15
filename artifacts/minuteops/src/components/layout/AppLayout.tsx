@@ -8,7 +8,8 @@ import {
   Menu, X, MoreHorizontal, Search, Shield, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
-  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database
+  BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
+  Heart, Trophy
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster } from "sonner";
@@ -163,7 +164,9 @@ const spedStudentNav: NavSection[] = [
     items: [
       { href: "/sped-portal", label: "My Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/sped-portal/goals", label: "My Goals", icon: Star, primary: true },
-      { href: "/sped-portal/services", label: "My Services", icon: BookOpen, primary: true },
+      { href: "/sped-portal/check-in", label: "Daily Check-In", icon: Heart, primary: true },
+      { href: "/sped-portal/wins", label: "My Wins", icon: Trophy, primary: true },
+      { href: "/sped-portal/services", label: "My Services", icon: BookOpen },
       { href: "/sped-portal/sessions", label: "My Sessions", icon: Clock },
     ],
   },
