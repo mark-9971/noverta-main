@@ -612,10 +612,11 @@ export default function Sessions() {
           <Button
             size="sm"
             variant="outline"
-            className="text-[13px] border-emerald-200 text-emerald-700 hover:bg-emerald-50 hidden sm:flex"
+            className="text-[13px] border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex"
             onClick={() => setQuickLogOpen(true)}
           >
-            <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
+            <Zap className="w-3.5 h-3.5 mr-1.5" />
+            <span className="hidden sm:inline">Quick </span>Log
           </Button>
           <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
             <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session

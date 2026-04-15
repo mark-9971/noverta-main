@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { getParaMyDay, paraQuickStartSession, paraStopSession, createSession, getParaStudentTargets } from "@workspace/api-client-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
+import { authFetch } from "@/lib/auth-fetch";
 
 
 interface ScheduleBlock {
@@ -208,6 +209,9 @@ export default function ParaMyDayPage() {
   const [quickLogPrefill, setQuickLogPrefill] = useState<QuickLogPrefill>({});
   const [quickLogSkipToMissed, setQuickLogSkipToMissed] = useState(false);
 
+  const [alerts, setAlerts] = useState<{ id: number; severity: string; message: string; suggestedAction: string | null; studentName: string | null }[]>([]);
+  const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
+
   const [studentTargets, setStudentTargets] = useState<{
     goals: IepGoal[];
     programs: ProgramTarget[];
@@ -231,13 +235,34 @@ export default function ParaMyDayPage() {
     }
     setLoading(true);
     try {
-      const data = await getParaMyDay({ staffId, date } as any);
-      setBlocks((data as any).blocks || []);
+      const [dayData] = await Promise.all([
+        getParaMyDay({ staffId, date } as any),
+        authFetch(`/api/alerts?staffId=${staffId}&resolved=false`)
+          .then(r => r.ok ? r.json() : [])
+          .then((data: unknown) => setAlerts(Array.isArray(data) ? data as any[] : []))
+          .catch(() => {}),
+      ]);
+      setBlocks((dayData as any).blocks || []);
     } catch {
       toast.error("Failed to load schedule");
     }
     setLoading(false);
   }, [staffId, date]);
+
+  const resolveAlert = async (alertId: number) => {
+    setDismissingAlerts(prev => new Set([...prev, alertId]));
+    try {
+      await authFetch(`/api/alerts/${alertId}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolvedNote: "Acknowledged from My Day" }),
+      });
+      setAlerts(prev => prev.filter(a => a.id !== alertId));
+    } catch {
+      toast.error("Failed to acknowledge alert");
+    }
+    setDismissingAlerts(prev => { const s = new Set(prev); s.delete(alertId); return s; });
+  };
 
   useEffect(() => { loadDay(); }, [loadDay]);
 
@@ -498,6 +523,55 @@ export default function ParaMyDayPage() {
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-h-[44px] flex-shrink-0"
           />
         </div>
+
+        {alerts.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {alerts.map(alert => (
+              <div
+                key={alert.id}
+                className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${
+                  alert.severity === "critical"
+                    ? "bg-red-50 border-red-200"
+                    : alert.severity === "warning"
+                    ? "bg-orange-50 border-orange-200"
+                    : "bg-blue-50 border-blue-200"
+                }`}
+              >
+                <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                  alert.severity === "critical" ? "text-red-500" : alert.severity === "warning" ? "text-orange-500" : "text-blue-500"
+                }`} />
+                <div className="min-w-0 flex-1">
+                  {alert.studentName && (
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide mb-0.5 ${
+                      alert.severity === "critical" ? "text-red-600" : alert.severity === "warning" ? "text-orange-600" : "text-blue-600"
+                    }`}>{alert.studentName}</p>
+                  )}
+                  <p className={`text-[13px] font-medium ${
+                    alert.severity === "critical" ? "text-red-800" : alert.severity === "warning" ? "text-orange-800" : "text-blue-800"
+                  }`}>{alert.message}</p>
+                  {alert.suggestedAction && (
+                    <p className={`text-[12px] mt-0.5 ${
+                      alert.severity === "critical" ? "text-red-600" : alert.severity === "warning" ? "text-orange-600" : "text-blue-600"
+                    }`}>{alert.suggestedAction}</p>
+                  )}
+                </div>
+                <button
+                  disabled={dismissingAlerts.has(alert.id)}
+                  onClick={() => resolveAlert(alert.id)}
+                  className={`text-[12px] font-semibold px-3 py-1.5 rounded-lg flex-shrink-0 min-h-[36px] transition-colors ${
+                    alert.severity === "critical"
+                      ? "bg-red-100 text-red-700 active:bg-red-200"
+                      : alert.severity === "warning"
+                      ? "bg-orange-100 text-orange-700 active:bg-orange-200"
+                      : "bg-blue-100 text-blue-700 active:bg-blue-200"
+                  } disabled:opacity-50`}
+                >
+                  Got it
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {pastUnloggedBlocks.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">

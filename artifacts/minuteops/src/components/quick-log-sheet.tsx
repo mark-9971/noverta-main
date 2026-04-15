@@ -145,6 +145,30 @@ export function QuickLogSheet({
     }
   }, [isOpen, prefillStudentId, skipToMissed]);
 
+  useEffect(() => {
+    if (!isOpen || prefillStudentId) return;
+    if (step !== "student" || students.length === 0) return;
+    const d = loadDefaults(staffId);
+    const lastStudentId = d.recentStudentIds[0];
+    if (!lastStudentId) return;
+    const student = students.find((s) => s.id === lastStudentId);
+    if (!student) return;
+    const name = `${student.firstName} ${student.lastName}`;
+    setStudentId(student.id);
+    setStudentName(name);
+    const lastServiceTypeId = d.recentServiceTypeIds[0];
+    if (lastServiceTypeId && serviceTypes.length > 0) {
+      const svc = serviceTypes.find((s) => s.id === lastServiceTypeId);
+      if (svc) {
+        setServiceTypeId(svc.id);
+        setServiceTypeName(svc.name);
+        setStep("duration");
+        return;
+      }
+    }
+    setStep("service");
+  }, [students, serviceTypes, isOpen]);
+
   const reset = () => {
     setStep("student");
     setStudentId(null);
@@ -181,7 +205,7 @@ export function QuickLogSheet({
     setStep("service");
   };
 
-  const selectService = (id: number, name: string) => {
+  const selectService = (id: number | null, name: string) => {
     setServiceTypeId(id);
     setServiceTypeName(name);
     setStep("duration");
@@ -475,7 +499,7 @@ function ServiceStep({
   serviceTypes: ServiceType[];
   recents: ServiceType[];
   studentName: string;
-  onSelect: (id: number, name: string) => void;
+  onSelect: (id: number | null, name: string) => void;
 }) {
   return (
     <div className="px-4 pt-5 pb-6">
@@ -505,7 +529,7 @@ function ServiceStep({
           ))}
           {serviceTypes.length === 0 && (
             <button
-              onClick={() => onSelect(0, "General")}
+              onClick={() => onSelect(null, "General")}
               className="col-span-2 h-14 rounded-xl bg-gray-50 border border-gray-200 text-[15px] font-medium text-gray-700 active:bg-gray-100"
             >
               General
@@ -638,10 +662,8 @@ function ReasonStep({ dbReasons, makeupNeeded, onToggleMakeup, onSelect }: {
   const [localSelectedLabel, setLocalSelectedLabel] = useState<string | null>(null);
 
   const selectReason = (id: number, label: string) => {
-    const resolvedId = id > 0 ? id : null;
     setLocalSelectedId(id);
     setLocalSelectedLabel(label);
-    onSelect(resolvedId, label);
   };
 
   return (
