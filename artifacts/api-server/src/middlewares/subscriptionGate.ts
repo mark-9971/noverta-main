@@ -65,6 +65,13 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
     return;
   }
 
+  // Bypass subscription gate in dev/demo mode so the demo admin role works without
+  // a real district subscription record in the database.
+  if (process.env.NODE_ENV !== "production" && req.headers["x-demo-role"]) {
+    next();
+    return;
+  }
+
   const meta = getPublicMeta(req);
   if (meta.platformAdmin) {
     next();

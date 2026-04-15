@@ -16,9 +16,22 @@ import { requireRoles } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { logAudit } from "../lib/auditLog";
 import { invalidateActiveYearCache } from "../lib/activeSchoolYear";
+import type { Request } from "express";
 
 const router: IRouter = Router();
 const requireAdmin = requireRoles("admin");
+
+async function resolveDistrictId(req: Request): Promise<number | null> {
+  const meta = getPublicMeta(req);
+  if (meta.districtId) return meta.districtId;
+  // Dev/demo fallback: use the first district in the DB
+  if (process.env.NODE_ENV !== "production" && req.headers["x-demo-role"]) {
+    const rows = await db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`);
+    const row = rows.rows[0] as Record<string, unknown> | undefined;
+    return row ? Number(row.id) : null;
+  }
+  return null;
+}
 
 async function getDistrictStudentIds(districtId: number): Promise<number[]> {
   const schools = await db
@@ -35,8 +48,7 @@ async function getDistrictStudentIds(districtId: number): Promise<number[]> {
 }
 
 router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<void> => {
-  const meta = getPublicMeta(req);
-  const districtId = meta.districtId;
+  const districtId = await resolveDistrictId(req);
   if (!districtId) {
     res.status(400).json({ error: "No district associated with this account" });
     return;
@@ -123,8 +135,7 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
 });
 
 router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<void> => {
-  const meta = getPublicMeta(req);
-  const districtId = meta.districtId;
+  const districtId = await resolveDistrictId(req);
   if (!districtId) {
     res.status(400).json({ error: "No district associated with this account" });
     return;
@@ -258,8 +269,7 @@ router.post("/admin/rollover/execute", requireAdmin, async (req, res): Promise<v
 });
 
 router.get("/admin/school-years", requireAdmin, async (req, res): Promise<void> => {
-  const meta = getPublicMeta(req);
-  const districtId = meta.districtId;
+  const districtId = await resolveDistrictId(req);
   if (!districtId) {
     res.status(400).json({ error: "No district associated with this account" });
     return;
@@ -273,8 +283,7 @@ router.get("/admin/school-years", requireAdmin, async (req, res): Promise<void> 
 });
 
 router.get("/school-years", async (req, res): Promise<void> => {
-  const meta = getPublicMeta(req);
-  const districtId = meta.districtId;
+  const districtId = await resolveDistrictId(req);
   if (!districtId) {
     res.json([]);
     return;

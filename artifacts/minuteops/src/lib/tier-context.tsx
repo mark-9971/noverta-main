@@ -24,10 +24,13 @@ const TierContext = createContext<TierContextType | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
   const { selectedDistrictId } = useSchoolContext();
-  const [tier, setTier] = useState<DistrictTier>("essentials");
-  const [loading, setLoading] = useState(true);
+  // In development/demo mode, grant enterprise tier so every feature is accessible
+  const isDevMode = import.meta.env.DEV;
+  const [tier, setTier] = useState<DistrictTier>(isDevMode ? "enterprise" : "essentials");
+  const [loading, setLoading] = useState(!isDevMode);
 
   useEffect(() => {
+    if (isDevMode) return; // skip tier fetch; demo always gets enterprise
     const params = new URLSearchParams();
     if (selectedDistrictId) params.set("districtId", String(selectedDistrictId));
 
@@ -42,7 +45,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
         setTier("essentials");
         setLoading(false);
       });
-  }, [selectedDistrictId]);
+  }, [selectedDistrictId, isDevMode]);
 
   function hasAccess(featureKey: FeatureKey): boolean {
     return isTierFeatureAccessible(tier, featureKey);
