@@ -13,12 +13,28 @@ import {
   ListAbsencesParams,
   ListAbsencesQueryParams,
   DeleteAbsenceParams,
+  WorkloadSummaryQueryParams,
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireRoles } from "../middlewares/auth";
+import { getActiveSchoolYearId } from "../lib/activeSchoolYear";
+import { getPublicMeta } from "../lib/clerkClaims";
+import type { Request } from "express";
 
 const requireAdmin = requireRoles("admin", "coordinator");
+
+/** Resolve active school-year id for workload queries */
+async function resolveWorkloadYearId(req: Request, districtIdHint?: number | null): Promise<number | null> {
+  const did = districtIdHint ?? getPublicMeta(req).districtId;
+  if (did) return getActiveSchoolYearId(did);
+  if (process.env.NODE_ENV !== "production") {
+    const { pool } = await import("@workspace/db");
+    const result = await pool.query<{ id: number }>("SELECT id FROM school_years WHERE is_active = true ORDER BY id LIMIT 1");
+    return result.rows[0]?.id ?? null;
+  }
+  return null;
+}
 
 const router: IRouter = Router();
 
@@ -50,6 +66,75 @@ router.post("/staff", async (req, res): Promise<void> => {
   }
   const [staff] = await db.insert(staffTable).values(parsed.data).returning();
   res.status(201).json(staffToJson(staff));
+});
+
+// Workload summary — must appear BEFORE /staff/:id to avoid route conflict
+router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<void> => {
+  const params = WorkloadSummaryQueryParams.safeParse(req.query);
+  const thresholdMinutes = (params.success && params.data.thresholdHours)
+    ? params.data.thresholdHours * 60
+    : 25 * 60;
+
+  const conditions: any[] = [
+    eq(scheduleBlocksTable.isRecurring, true),
+    isNull(scheduleBlocksTable.deletedAt),
+  ];
+  if (params.success && params.data.schoolId) {
+    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
+  }
+  if (params.success && params.data.districtId) {
+    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+  }
+
+  const activeYearId = await resolveWorkloadYearId(req, params.success ? (params.data.districtId ?? null) : null);
+  if (activeYearId != null) {
+    conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
+  }
+
+  const rows = await db
+    .select({
+      staffId: scheduleBlocksTable.staffId,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
+      staffRole: staffTable.role,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+    })
+    .from(scheduleBlocksTable)
+    .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
+    .where(and(...conditions));
+
+  const staffMap = new Map<number, { staffId: number; firstName: string; lastName: string; role: string; totalMinutes: number; blockCount: number }>();
+  for (const row of rows) {
+    if (!staffMap.has(row.staffId)) {
+      staffMap.set(row.staffId, {
+        staffId: row.staffId,
+        firstName: row.staffFirst ?? "",
+        lastName: row.staffLast ?? "",
+        role: row.staffRole ?? "",
+        totalMinutes: 0,
+        blockCount: 0,
+      });
+    }
+    const entry = staffMap.get(row.staffId)!;
+    const [sh, sm] = row.startTime.split(":").map(Number);
+    const [eh, em] = row.endTime.split(":").map(Number);
+    const blockMinutes = (eh * 60 + em) - (sh * 60 + sm);
+    if (blockMinutes > 0) entry.totalMinutes += blockMinutes;
+    entry.blockCount++;
+  }
+
+  const summary = Array.from(staffMap.values()).map(s => ({
+    staffId: s.staffId,
+    staffName: `${s.firstName} ${s.lastName}`,
+    role: s.role,
+    scheduledMinutesPerWeek: s.totalMinutes,
+    scheduledHoursPerWeek: Math.round(s.totalMinutes / 60 * 10) / 10,
+    blockCount: s.blockCount,
+    isOverloaded: s.totalMinutes > thresholdMinutes,
+  })).sort((a, b) => b.scheduledMinutesPerWeek - a.scheduledMinutesPerWeek);
+
+  res.json({ thresholdMinutes, thresholdHours: thresholdMinutes / 60, staff: summary });
 });
 
 router.get("/staff/:id", async (req, res): Promise<void> => {
@@ -196,6 +281,8 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
       id: scheduleBlocksTable.id,
       startTime: scheduleBlocksTable.startTime,
       endTime: scheduleBlocksTable.endTime,
+      effectiveFrom: scheduleBlocksTable.effectiveFrom,
+      effectiveTo: scheduleBlocksTable.effectiveTo,
     })
     .from(scheduleBlocksTable)
     .where(and(...blockConditions));
@@ -203,6 +290,7 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
   // If absence has a time range, only flag blocks that overlap with it
   const absenceStart = parsed.data.startTime ?? null;
   const absenceEnd = parsed.data.endTime ?? null;
+  const absenceDateStr = parsed.data.absenceDate;
 
   function timeToMinutes(t: string) {
     const [h, m] = t.split(":").map(Number);
@@ -210,8 +298,11 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
   }
 
   const blocksToCreate = candidateBlocks.filter(b => {
-    if (!absenceStart || !absenceEnd) return true;
+    // Respect effectiveFrom/effectiveTo range on the block
+    if (b.effectiveFrom && absenceDateStr < b.effectiveFrom) return false;
+    if (b.effectiveTo && absenceDateStr > b.effectiveTo) return false;
     // Overlap: block.start < absenceEnd && absenceStart < block.end
+    if (!absenceStart || !absenceEnd) return true;
     return timeToMinutes(b.startTime) < timeToMinutes(absenceEnd) &&
            timeToMinutes(absenceStart) < timeToMinutes(b.endTime);
   });

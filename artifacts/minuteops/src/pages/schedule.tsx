@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useListScheduleBlocks, useListStaff } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -698,31 +698,53 @@ export default function Schedule() {
                 <Input value={blockForm.notes} onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional notes..." />
               </div>
             </div>
-            {editingBlock && blockForm.isRecurring && (
-              <div className="space-y-2">
-                <Label className="text-[12px] font-medium text-gray-600">Recurrence</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] text-gray-400">Frequency</Label>
-                    <Select value={blockForm.recurrenceType} onValueChange={v => setBlockForm(f => ({ ...f, recurrenceType: v }))}>
-                      <SelectTrigger className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly" className="text-[13px]">Weekly</SelectItem>
-                        <SelectItem value="biweekly" className="text-[13px]">Biweekly</SelectItem>
-                      </SelectContent>
-                    </Select>
+            {editingBlock && blockForm.isRecurring && (() => {
+              // Session count preview
+              let sessionPreview = "";
+              if (blockForm.effectiveFrom && blockForm.effectiveTo) {
+                const from = new Date(blockForm.effectiveFrom + "T12:00:00");
+                const to = new Date(blockForm.effectiveTo + "T12:00:00");
+                const weeks = Math.max(0, Math.round((to.getTime() - from.getTime()) / (7 * 24 * 3600 * 1000)));
+                const count = blockForm.recurrenceType === "biweekly" ? Math.ceil(weeks / 2) : weeks;
+                sessionPreview = count > 0 ? `~${count} session${count !== 1 ? "s" : ""} in range` : "No sessions in range";
+              } else if (blockForm.effectiveFrom && !blockForm.effectiveTo) {
+                sessionPreview = `Ongoing from ${blockForm.effectiveFrom}`;
+              } else if (!blockForm.effectiveFrom && blockForm.effectiveTo) {
+                sessionPreview = `Until ${blockForm.effectiveTo}`;
+              }
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[12px] font-medium text-gray-600">Recurrence</Label>
+                    {sessionPreview && (
+                      <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-0.5">
+                        {sessionPreview}
+                      </span>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] text-gray-400">Effective From</Label>
-                    <Input type="date" value={blockForm.effectiveFrom} onChange={e => setBlockForm(f => ({ ...f, effectiveFrom: e.target.value }))} className="h-8 text-[13px]" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] text-gray-400">Effective To</Label>
-                    <Input type="date" value={blockForm.effectiveTo} onChange={e => setBlockForm(f => ({ ...f, effectiveTo: e.target.value }))} className="h-8 text-[13px]" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-gray-400">Frequency</Label>
+                      <Select value={blockForm.recurrenceType} onValueChange={v => setBlockForm(f => ({ ...f, recurrenceType: v }))}>
+                        <SelectTrigger className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly" className="text-[13px]">Weekly</SelectItem>
+                          <SelectItem value="biweekly" className="text-[13px]">Biweekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-gray-400">Effective From</Label>
+                      <Input type="date" value={blockForm.effectiveFrom} onChange={e => setBlockForm(f => ({ ...f, effectiveFrom: e.target.value }))} className="h-8 text-[13px]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-gray-400">Effective To</Label>
+                      <Input type="date" value={blockForm.effectiveTo} onChange={e => setBlockForm(f => ({ ...f, effectiveTo: e.target.value }))} className="h-8 text-[13px]" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {editingBlock && editingBlock.dayOfWeek !== blockForm.dayOfWeek && (
               <div className="flex items-start gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg text-[12px] text-emerald-700">
                 <span className="font-medium">Day change:</span> This recurring block will move from <span className="font-semibold">{WEEKDAY_LABELS[editingBlock.dayOfWeek] ?? editingBlock.dayOfWeek}</span> to <span className="font-semibold">{WEEKDAY_LABELS[blockForm.dayOfWeek] ?? blockForm.dayOfWeek}</span>. The change applies going forward.

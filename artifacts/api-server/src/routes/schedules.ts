@@ -20,7 +20,6 @@ import {
   AssignSubstituteParams,
   AssignSubstituteBody,
   ListUncoveredSessionsQueryParams,
-  WorkloadSummaryQueryParams,
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
@@ -621,75 +620,6 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     isCovered: true,
     message: `${sub.firstName} ${sub.lastName} assigned as substitute`,
   });
-});
-
-// Workload summary — total scheduled minutes per provider per week
-router.get("/staff/workload-summary", async (req, res): Promise<void> => {
-  const params = WorkloadSummaryQueryParams.safeParse(req.query);
-  const thresholdMinutes = (params.success && params.data.thresholdHours)
-    ? params.data.thresholdHours * 60
-    : 25 * 60;
-
-  const conditions: any[] = [
-    eq(scheduleBlocksTable.isRecurring, true),
-    isNull(scheduleBlocksTable.deletedAt),
-  ];
-  if (params.success && params.data.schoolId) {
-    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
-  }
-  if (params.success && params.data.districtId) {
-    conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
-  }
-
-  const activeYearId = await resolveActiveYearId(req, params.success ? (params.data.districtId ?? null) : null);
-  if (activeYearId != null) {
-    conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
-  }
-
-  const rows = await db
-    .select({
-      staffId: scheduleBlocksTable.staffId,
-      staffFirst: staffTable.firstName,
-      staffLast: staffTable.lastName,
-      staffRole: staffTable.role,
-      startTime: scheduleBlocksTable.startTime,
-      endTime: scheduleBlocksTable.endTime,
-    })
-    .from(scheduleBlocksTable)
-    .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
-    .where(and(...conditions));
-
-  const staffMap = new Map<number, { staffId: number; firstName: string; lastName: string; role: string; totalMinutes: number; blockCount: number }>();
-  for (const row of rows) {
-    if (!staffMap.has(row.staffId)) {
-      staffMap.set(row.staffId, {
-        staffId: row.staffId,
-        firstName: row.staffFirst ?? "",
-        lastName: row.staffLast ?? "",
-        role: row.staffRole ?? "",
-        totalMinutes: 0,
-        blockCount: 0,
-      });
-    }
-    const entry = staffMap.get(row.staffId)!;
-    const [sh, sm] = row.startTime.split(":").map(Number);
-    const [eh, em] = row.endTime.split(":").map(Number);
-    const blockMinutes = (eh * 60 + em) - (sh * 60 + sm);
-    if (blockMinutes > 0) entry.totalMinutes += blockMinutes;
-    entry.blockCount++;
-  }
-
-  const summary = Array.from(staffMap.values()).map(s => ({
-    staffId: s.staffId,
-    staffName: `${s.firstName} ${s.lastName}`,
-    role: s.role,
-    scheduledMinutesPerWeek: s.totalMinutes,
-    scheduledHoursPerWeek: Math.round(s.totalMinutes / 60 * 10) / 10,
-    blockCount: s.blockCount,
-    isOverloaded: s.totalMinutes > thresholdMinutes,
-  })).sort((a, b) => b.scheduledMinutesPerWeek - a.scheduledMinutesPerWeek);
-
-  res.json({ thresholdMinutes, thresholdHours: thresholdMinutes / 60, staff: summary });
 });
 
 export default router;
