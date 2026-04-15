@@ -123,7 +123,10 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
       conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${effectiveDistrictId})` as ReturnType<typeof eq>);
     }
     if (iepYearId) {
-      conditions.push(eq(iepDocumentsTable.schoolYearId, Number(iepYearId)) as ReturnType<typeof eq>);
+      // Use date-overlap semantics (same as students.ts) so that IEPs carried forward
+      // from a prior year (active=true, iep_end_date >= new year's start) are included
+      // without needing to mutate iep_documents.school_year_id during rollover.
+      conditions.push(sql`${iepDocumentsTable.iepEndDate} >= (SELECT start_date FROM school_years WHERE id = ${Number(iepYearId)})` as ReturnType<typeof eq>);
     }
 
     const rows = await db.select({
