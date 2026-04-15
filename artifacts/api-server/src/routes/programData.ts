@@ -569,6 +569,7 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
     const progressUpdates: any[] = [];
 
     const result = await db.transaction(async (tx) => {
+      const { sessionType } = req.body;
       const [session] = await tx.insert(dataSessionsTable).values({
         studentId,
         staffId: staffId || null,
@@ -576,6 +577,7 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
         startTime: startTime || null,
         endTime: endTime || null,
         notes: notes || null,
+        sessionType: sessionType || "acquisition",
       }).returning();
 
       if (behaviorData && Array.isArray(behaviorData)) {

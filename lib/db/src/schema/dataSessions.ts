@@ -14,6 +14,7 @@ export const dataSessionsTable = pgTable("data_sessions", {
   startTime: text("start_time"),
   endTime: text("end_time"),
   notes: text("notes"),
+  sessionType: text("session_type").default("acquisition"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

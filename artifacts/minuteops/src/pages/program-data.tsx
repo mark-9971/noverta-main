@@ -62,7 +62,7 @@ interface TrendPoint {
   sessionDate: string; value?: string; targetName?: string; measurementType?: string;
   behaviorTargetId?: number; programTargetId?: number;
   trialsCorrect?: number; trialsTotal?: number; percentCorrect?: string;
-  promptLevelUsed?: string; hourBlock?: string;
+  promptLevelUsed?: string; hourBlock?: string; prompted?: number;
 }
 
 const COLORS = ["#059669", "#f59e0b", "#ef4444", "#10b981", "#6b7280", "#9ca3af", "#374151", "#d1d5db"];
@@ -88,6 +88,7 @@ function measureLabel(t: string) {
   if (t === "frequency") return "Count";
   if (t === "interval") return "% of intervals";
   if (t === "duration") return "Duration (sec)";
+  if (t === "latency") return "Latency (sec)";
   return "Percentage";
 }
 
@@ -370,6 +371,9 @@ export default function ProgramDataPage() {
                   const avgLast3 = last3.length > 0 ? Math.round(last3.reduce((s, d) => s + parseFloat(d.percentCorrect!), 0) / last3.length) : null;
                   const mastered = avgLast3 !== null && avgLast3 >= (pt.masteryCriterionPercent ?? 80);
                   const promptInfo = PROMPT_LABELS[pt.currentPromptLevel ?? "verbal"];
+                  const totalTrials = last3.reduce((s, d) => s + (d.trialsTotal ?? 0), 0);
+                  const promptedTrials = last3.reduce((s, d) => s + (d.prompted ?? 0), 0);
+                  const indPct = totalTrials > 0 ? Math.round(((totalTrials - promptedTrials) / totalTrials) * 100) : null;
 
                   return (
                     <Card key={pt.id} className="hover:shadow-sm transition-shadow">
@@ -394,20 +398,26 @@ export default function ProgramDataPage() {
                             )}
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-3" onClick={() => setEditingProgram(pt)}>
+                        <div className="grid grid-cols-4 gap-1.5 mt-3" onClick={() => setEditingProgram(pt)}>
                           <div className="bg-gray-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-gray-400">Last</p>
-                            <p className="text-[15px] font-bold text-emerald-700">{lastPct != null ? `${lastPct}%` : "—"}</p>
+                            <p className="text-[14px] font-bold text-emerald-700">{lastPct != null ? `${lastPct}%` : "—"}</p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-gray-400">Avg 3</p>
-                            <p className={`text-[15px] font-bold ${(avgLast3 ?? 0) >= (pt.masteryCriterionPercent ?? 80) ? "text-emerald-600" : "text-gray-600"}`}>
+                            <p className={`text-[14px] font-bold ${(avgLast3 ?? 0) >= (pt.masteryCriterionPercent ?? 80) ? "text-emerald-600" : "text-gray-600"}`}>
                               {avgLast3 != null ? `${avgLast3}%` : "—"}
                             </p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2 text-center cursor-pointer">
                             <p className="text-[10px] text-gray-400">Mastery</p>
-                            <p className="text-[15px] font-bold text-gray-600">{pt.masteryCriterionPercent ?? 80}%</p>
+                            <p className="text-[14px] font-bold text-gray-600">{pt.masteryCriterionPercent ?? 80}%</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-2 text-center cursor-pointer" title="Independence % = trials without a prompt (last 3 sessions)">
+                            <p className="text-[10px] text-gray-400">Ind%</p>
+                            <p className={`text-[14px] font-bold ${indPct !== null && indPct >= 80 ? "text-emerald-600" : indPct !== null && indPct >= 50 ? "text-amber-600" : "text-gray-600"}`}>
+                              {indPct !== null ? `${indPct}%` : "—"}
+                            </p>
                           </div>
                         </div>
                         {pt.autoProgressEnabled && (
@@ -541,6 +551,7 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
   const [eventTimestamps, setEventTimestamps] = useState<Record<number, number[]>>({});
   const [ioaObservedTargets, setIoaObservedTargets] = useState<Record<number, boolean>>({});
   const [intervalScoresMap, setIntervalScoresMap] = useState<Record<number, boolean[]>>({});
+  const [sessionType, setSessionType] = useState<"acquisition" | "maintenance_probe" | "generalization_probe">("acquisition");
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
 
@@ -614,7 +625,8 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
         endTime,
         behaviorData,
         programData,
-      });
+        sessionType,
+      } as any);
 
     setSaved(true);
     if (isIoaSession && ioaSessId) {
@@ -721,7 +733,39 @@ function LiveDataCollection({ studentId, student, behaviorTargets, programTarget
       </Card>
 
       <Card>
-        <CardContent className="p-3 md:p-4">
+        <CardContent className="p-3 md:p-4 space-y-3">
+          <div>
+            <p className="text-[11px] font-medium text-gray-500 mb-1.5">Session Type</p>
+            <div className="flex gap-2 flex-wrap">
+              {([
+                { key: "acquisition", label: "Acquisition", color: "emerald" },
+                { key: "maintenance_probe", label: "Maintenance Probe", color: "blue" },
+                { key: "generalization_probe", label: "Generalization Probe", color: "purple" },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setSessionType(opt.key)}
+                  disabled={running || saved}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
+                    sessionType === opt.key
+                      ? opt.color === "emerald" ? "bg-emerald-700 text-white border-emerald-700"
+                        : opt.color === "blue" ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-purple-600 text-white border-purple-600"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {sessionType !== "acquisition" && (
+              <p className="text-[10px] text-gray-400 mt-1">
+                {sessionType === "maintenance_probe"
+                  ? "Testing retention of previously mastered skills."
+                  : "Testing skill performance in a new setting, with new people, or with novel materials."}
+              </p>
+            )}
+          </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -1331,6 +1375,7 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
                 <option value="interval">Interval (%)</option>
                 <option value="percentage">Percentage</option>
                 <option value="duration">Duration (sec)</option>
+                <option value="latency">Latency (sec)</option>
               </select>
             </div>
             <div>
@@ -1359,6 +1404,17 @@ function AddBehaviorModal({ studentId, onClose, onSaved }: { studentId: number; 
               <label className="text-[12px] font-medium text-gray-500">Interval Length (seconds)</label>
               <input type="number" value={intervalLen} onChange={e => setIntervalLen(e.target.value)} placeholder="e.g. 30"
                 className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+            </div>
+          )}
+          {measurementType === "latency" && (
+            <div className="bg-blue-50 rounded-lg p-2.5">
+              <p className="text-[11px] text-blue-700 font-medium">Latency Recording</p>
+              <p className="text-[11px] text-blue-600 mt-0.5">Record time in seconds from SD presentation to student response. Enter baseline and goal in seconds (e.g., baseline: 45, goal: 5).</p>
+            </div>
+          )}
+          {measurementType === "duration" && (
+            <div className="bg-gray-50 rounded-lg p-2.5">
+              <p className="text-[11px] text-gray-600">Duration is recorded in seconds. Use the behavior count field during a session to enter total duration in seconds.</p>
             </div>
           )}
           <label className="flex items-center gap-2 cursor-pointer">

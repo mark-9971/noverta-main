@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, BarChart, Bar, Cell, ScatterChart, Scatter, ZAxis
+  ResponsiveContainer, BarChart, Bar, Cell
 } from "recharts";
 import { toast } from "sonner";
 import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, generateBipFromFba } from "@workspace/api-client-react";
@@ -569,10 +569,6 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
     } catch { toast.error("Failed to delete"); }
   };
 
-  const scatterPlotData = summary ? Object.entries(summary.scatterData)
-    .map(([hour, count]) => ({ hour: parseInt(hour), count, label: `${hour}:00` }))
-    .sort((a, b) => a.hour - b.hour) : [];
-
   const functionChartData = summary ? Object.entries(summary.functionCounts)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count) : [];
@@ -580,6 +576,35 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
   const antecedentChartData = summary ? Object.entries(summary.antecedentCounts)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count) : [];
+
+  const TIME_BLOCKS = [
+    { key: "6", label: "6am" }, { key: "7", label: "7am" }, { key: "8", label: "8am" },
+    { key: "9", label: "9am" }, { key: "10", label: "10am" }, { key: "11", label: "11am" },
+    { key: "12", label: "12pm" }, { key: "13", label: "1pm" }, { key: "14", label: "2pm" },
+    { key: "15", label: "3pm" }, { key: "16", label: "4pm" },
+  ];
+
+  const obsWithTime = observations.filter(o => o.observationTime);
+  const scatterDates = [...new Set(obsWithTime.map(o => o.observationDate))].sort().slice(-10);
+  const scatterGrid: Record<string, Record<string, number>> = {};
+  for (const obs of obsWithTime) {
+    const hour = obs.observationTime!.split(":")[0];
+    if (!scatterGrid[obs.observationDate]) scatterGrid[obs.observationDate] = {};
+    scatterGrid[obs.observationDate][hour] = (scatterGrid[obs.observationDate][hour] || 0) + 1;
+  }
+  const scatterMaxCount = Math.max(1, ...Object.values(scatterGrid).flatMap(d => Object.values(d)));
+
+  const topAntecedents = summary ? Object.entries(summary.antecedentCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(e => e[0]) : [];
+  const topConsequences = summary ? Object.entries(summary.consequenceCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(e => e[0]) : [];
+  const acMatrix: Record<string, Record<string, number>> = {};
+  for (const obs of observations) {
+    const ant = obs.antecedentCategory;
+    const con = obs.consequenceCategory;
+    if (!ant || !con) continue;
+    if (!acMatrix[ant]) acMatrix[ant] = {};
+    acMatrix[ant][con] = (acMatrix[ant][con] || 0) + 1;
+  }
+  const acMaxCount = Math.max(1, ...Object.values(acMatrix).flatMap(row => Object.values(row)));
 
   return (
     <div className="space-y-4">
@@ -724,22 +749,59 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Scatter Plot · Behavior by Time of Day</CardTitle>
+              <CardTitle className="text-sm">Scatterplot · Behavior by Time of Day</CardTitle>
+              <p className="text-[11px] text-gray-400">Each cell = observations at that time block. Darker = more occurrences.</p>
             </CardHeader>
             <CardContent>
-              {scatterPlotData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={scatterPlotData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#6b7280" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <p className="text-sm text-gray-400 text-center py-8">Add observation times for scatter data</p>}
+              {scatterDates.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr>
+                        <th className="text-left py-1 pr-2 text-gray-400 font-normal w-12">Time</th>
+                        {scatterDates.map(d => (
+                          <th key={d} className="text-center py-1 px-0.5 text-gray-400 font-normal whitespace-nowrap min-w-[32px]">
+                            {new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric" })}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TIME_BLOCKS.map(tb => (
+                        <tr key={tb.key}>
+                          <td className="py-0.5 pr-2 text-gray-400 font-normal">{tb.label}</td>
+                          {scatterDates.map(d => {
+                            const count = scatterGrid[d]?.[tb.key] ?? 0;
+                            const opacity = count === 0 ? 0 : 0.15 + (count / scatterMaxCount) * 0.85;
+                            return (
+                              <td key={d} className="py-0.5 px-0.5 text-center">
+                                <div
+                                  className="w-7 h-6 rounded mx-auto flex items-center justify-center text-[9px] font-bold"
+                                  style={{
+                                    backgroundColor: count > 0 ? `rgba(239,68,68,${opacity})` : "transparent",
+                                    color: count > 0 && opacity > 0.5 ? "white" : count > 0 ? "#dc2626" : "transparent",
+                                    border: count === 0 ? "1px solid #f3f4f6" : "none",
+                                  }}
+                                  title={count > 0 ? `${count} observation${count > 1 ? "s" : ""}` : ""}
+                                >
+                                  {count > 0 ? count : ""}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-400">Add observation times to see the scatterplot</p>
+                  <p className="text-xs text-gray-300 mt-1">Record the time when logging each ABC observation</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -788,6 +850,55 @@ function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, onCreate
               </div>
             </CardContent>
           </Card>
+
+          {topAntecedents.length > 0 && topConsequences.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Antecedent → Consequence Pattern Review</CardTitle>
+                <p className="text-[11px] text-gray-400">How often each antecedent is followed by each consequence. Helps identify maintaining variables.</p>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left py-1.5 pr-3 text-gray-400 font-medium">Antecedent ↓ / Consequence →</th>
+                      {topConsequences.map(c => (
+                        <th key={c} className="text-center py-1.5 px-2 text-gray-500 font-medium max-w-[90px] whitespace-normal">{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topAntecedents.map(ant => (
+                      <tr key={ant} className="border-t border-gray-50">
+                        <td className="py-1.5 pr-3 text-gray-600 font-medium">{ant}</td>
+                        {topConsequences.map(con => {
+                          const count = acMatrix[ant]?.[con] ?? 0;
+                          const intensity = count / acMaxCount;
+                          return (
+                            <td key={con} className="py-1.5 px-2 text-center">
+                              {count > 0 ? (
+                                <span
+                                  className="inline-flex items-center justify-center w-8 h-7 rounded text-[10px] font-bold"
+                                  style={{
+                                    backgroundColor: `rgba(234,179,8,${0.15 + intensity * 0.85})`,
+                                    color: intensity > 0.5 ? "#713f12" : "#92400e",
+                                  }}
+                                >
+                                  {count}
+                                </span>
+                              ) : (
+                                <span className="text-gray-200">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
