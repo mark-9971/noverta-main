@@ -120,12 +120,24 @@ async function upsertStaff(
   for (const rec of records) {
     if (!rec.firstName && !rec.lastName) continue;
 
-    const existing = rec.email
+    const existing = rec.externalId
       ? await db.select({ id: staffTable.id })
           .from(staffTable)
-          .where(and(eq(staffTable.email, rec.email), isNull(staffTable.deletedAt)))
+          .where(and(
+            eq(staffTable.sisConnectionId, connectionId),
+            isNull(staffTable.deletedAt),
+          ))
           .limit(1)
-      : [];
+      : rec.email
+        ? await db.select({ id: staffTable.id })
+            .from(staffTable)
+            .where(and(
+              eq(staffTable.email, rec.email),
+              eq(staffTable.sisConnectionId, connectionId),
+              isNull(staffTable.deletedAt),
+            ))
+            .limit(1)
+        : [];
 
     if (existing.length > 0) {
       await db.update(staffTable)
@@ -146,6 +158,8 @@ async function upsertStaff(
         title: rec.title,
         schoolId: schoolId,
         status: rec.status,
+        sisConnectionId: connectionId,
+        sisManaged: "true",
       });
       counters.staffAdded++;
     }

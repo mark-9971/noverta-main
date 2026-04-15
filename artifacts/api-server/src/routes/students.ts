@@ -365,6 +365,28 @@ router.patch("/students/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  const [existingStudent] = await db.select({
+    sisManaged: studentsTable.sisManaged,
+    sisConnectionId: studentsTable.sisConnectionId,
+  }).from(studentsTable).where(eq(studentsTable.id, params.data.id));
+
+  const isSisManaged = existingStudent?.sisManaged === "true";
+
+  const SIS_PROTECTED_FIELDS = ["firstName", "lastName", "externalId", "grade", "dateOfBirth", "disabilityCategory", "primaryLanguage", "parentGuardianName", "parentEmail", "parentPhone", "status"] as const;
+
+  if (isSisManaged) {
+    const attemptedSisFields = SIS_PROTECTED_FIELDS.filter((f) => (parsed.data as Record<string, unknown>)[f] !== undefined);
+    if (attemptedSisFields.length > 0) {
+      res.status(403).json({
+        error: "Cannot edit SIS-managed fields",
+        sisProtectedFields: attemptedSisFields,
+        message: `Fields [${attemptedSisFields.join(", ")}] are managed by SIS and cannot be edited directly. Update them in your Student Information System instead.`,
+      });
+      return;
+    }
+  }
+
   const updateData: Partial<typeof studentsTable.$inferInsert> = {};
   if (parsed.data.firstName != null) updateData.firstName = parsed.data.firstName;
   if (parsed.data.lastName != null) updateData.lastName = parsed.data.lastName;

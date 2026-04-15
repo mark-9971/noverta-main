@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { sisConnectionsTable, sisSyncLogsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { sisConnectionsTable, sisSyncLogsTable, districtsTable } from "@workspace/db";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
@@ -13,12 +13,33 @@ const router: IRouter = Router();
 const ADMIN_ROLES = ["admin"] as const;
 const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv", "sftp"]);
 
+async function getAdminDistrictId(): Promise<number | null> {
+  const [district] = await db.select({ id: districtsTable.id })
+    .from(districtsTable)
+    .limit(1);
+  return district?.id ?? null;
+}
+
+async function assertConnectionOwnership(connectionId: number, districtId: number): Promise<typeof sisConnectionsTable.$inferSelect | null> {
+  const [conn] = await db.select()
+    .from(sisConnectionsTable)
+    .where(and(eq(sisConnectionsTable.id, connectionId), eq(sisConnectionsTable.districtId, districtId)))
+    .limit(1);
+  return conn ?? null;
+}
+
 router.get("/sis/providers", requireRoles(...ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
   res.json(SUPPORTED_PROVIDERS);
 });
 
 router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Request, res: Response): Promise<void> => {
   try {
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.json([]);
+      return;
+    }
+
     const connections = await db.select({
       id: sisConnectionsTable.id,
       provider: sisConnectionsTable.provider,
@@ -32,6 +53,7 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Reques
       createdAt: sisConnectionsTable.createdAt,
     })
       .from(sisConnectionsTable)
+      .where(eq(sisConnectionsTable.districtId, districtId))
       .orderBy(desc(sisConnectionsTable.createdAt));
 
     res.json(connections);
@@ -44,12 +66,17 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (_req: Reques
 router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
-    const { provider, label, credentials, schoolId, districtId, syncSchedule } = req.body as {
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(400).json({ error: "No district configured. Complete onboarding first." });
+      return;
+    }
+
+    const { provider, label, credentials, schoolId, syncSchedule } = req.body as {
       provider: string;
       label: string;
       credentials: Record<string, unknown>;
       schoolId?: number;
-      districtId?: number;
       syncSchedule?: string;
     };
 
@@ -70,7 +97,7 @@ router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Reques
       label: label.trim(),
       credentialsEncrypted: encrypted,
       schoolId: schoolId ?? null,
-      districtId: districtId ?? null,
+      districtId,
       syncSchedule: syncSchedule ?? "nightly",
       status: "disconnected",
       createdBy: authed.userId,
@@ -91,11 +118,22 @@ router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Reques
 router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const { label, credentials, schoolId, districtId, syncSchedule, enabled } = req.body as {
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+
+    const existing = await assertConnectionOwnership(id, districtId);
+    if (!existing) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+
+    const { label, credentials, schoolId, syncSchedule, enabled } = req.body as {
       label?: string;
       credentials?: Record<string, unknown>;
       schoolId?: number | null;
-      districtId?: number | null;
       syncSchedule?: string;
       enabled?: boolean;
     };
@@ -104,13 +142,12 @@ router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Req
     if (label !== undefined) updates.label = label.trim();
     if (credentials !== undefined) updates.credentialsEncrypted = encryptCredentials(credentials);
     if (schoolId !== undefined) updates.schoolId = schoolId;
-    if (districtId !== undefined) updates.districtId = districtId;
     if (syncSchedule !== undefined) updates.syncSchedule = syncSchedule;
     if (enabled !== undefined) updates.enabled = enabled;
 
     const [updated] = await db.update(sisConnectionsTable)
       .set(updates)
-      .where(eq(sisConnectionsTable.id, id))
+      .where(and(eq(sisConnectionsTable.id, id), eq(sisConnectionsTable.districtId, districtId)))
       .returning();
 
     if (!updated) {
@@ -134,8 +171,20 @@ router.put("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Req
 router.delete("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+
+    const existing = await assertConnectionOwnership(id, districtId);
+    if (!existing) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+
     const [deleted] = await db.delete(sisConnectionsTable)
-      .where(eq(sisConnectionsTable.id, id))
+      .where(and(eq(sisConnectionsTable.id, id), eq(sisConnectionsTable.districtId, districtId)))
       .returning({ id: sisConnectionsTable.id });
 
     if (!deleted) {
@@ -153,11 +202,13 @@ router.delete("/sis/connections/:id", requireRoles(...ADMIN_ROLES), async (req: 
 router.post("/sis/connections/:id/test", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const [connection] = await db.select()
-      .from(sisConnectionsTable)
-      .where(eq(sisConnectionsTable.id, id))
-      .limit(1);
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
 
+    const connection = await assertConnectionOwnership(id, districtId);
     if (!connection) {
       res.status(404).json({ error: "Connection not found" });
       return;
@@ -186,6 +237,18 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
   try {
     const authed = req as AuthedRequest;
     const id = Number(req.params.id);
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+
+    const connection = await assertConnectionOwnership(id, districtId);
+    if (!connection) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+
     const { syncType } = req.body as { syncType?: string };
     const type = (syncType || "full") as "full" | "students" | "staff";
 
@@ -213,6 +276,18 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
   try {
     const authed = req as AuthedRequest;
     const id = Number(req.params.id);
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+
+    const connection = await assertConnectionOwnership(id, districtId);
+    if (!connection) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+
     const { csvText, dataType } = req.body as { csvText: string; dataType: "students" | "staff" };
 
     if (!csvText || !dataType) {
@@ -242,19 +317,36 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
 
 router.get("/sis/sync-logs", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
+    const districtId = await getAdminDistrictId();
+    if (!districtId) {
+      res.json([]);
+      return;
+    }
+
+    const districtConnections = await db.select({ id: sisConnectionsTable.id })
+      .from(sisConnectionsTable)
+      .where(eq(sisConnectionsTable.districtId, districtId));
+
+    const connectionIds = districtConnections.map((c) => c.id);
+    if (connectionIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
     const connectionId = req.query.connectionId ? Number(req.query.connectionId) : undefined;
     const limit = Math.min(Number(req.query.limit) || 20, 100);
 
-    let query = db.select()
+    const conditions = [inArray(sisSyncLogsTable.connectionId, connectionIds)];
+    if (connectionId && connectionIds.includes(connectionId)) {
+      conditions.push(eq(sisSyncLogsTable.connectionId, connectionId));
+    }
+
+    const logs = await db.select()
       .from(sisSyncLogsTable)
+      .where(and(...conditions))
       .orderBy(desc(sisSyncLogsTable.startedAt))
       .limit(limit);
 
-    if (connectionId) {
-      query = query.where(eq(sisSyncLogsTable.connectionId, connectionId)) as typeof query;
-    }
-
-    const logs = await query;
     res.json(logs);
   } catch (err) {
     console.error("Failed to fetch sync logs:", err);

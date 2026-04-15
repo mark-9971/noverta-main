@@ -15,6 +15,8 @@ export const staffTable = pgTable("staff", {
   qualifications: text("qualifications"),
   hourlyRate: numeric("hourly_rate"),
   annualSalary: numeric("annual_salary"),
+  sisConnectionId: integer("sis_connection_id"),
+  sisManaged: text("sis_managed"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
