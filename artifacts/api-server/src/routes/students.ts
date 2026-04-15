@@ -592,8 +592,24 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
   const { eventType, eventDate, reasonCode, reason, notes, performedById, fromSchoolId, toSchoolId, fromProgramId, toProgramId } = req.body;
   if (!eventType || !eventDate) { res.status(400).json({ error: "eventType and eventDate are required" }); return; }
 
-  const ACTIVE_EVENTS = new Set(["enrolled", "reactivated", "transferred_in"]);
-  const INACTIVE_EVENTS = new Set(["withdrawn", "transferred_out", "graduated", "suspended", "leave_of_absence"]);
+  const VALID_EVENT_TYPES = new Set([
+    "enrolled", "reactivated", "withdrawn", "transferred_in", "transferred_out",
+    "program_change", "graduated", "suspended", "leave_of_absence", "note",
+  ]);
+  if (!VALID_EVENT_TYPES.has(eventType)) {
+    res.status(400).json({ error: `Invalid eventType '${eventType}'. Must be one of: ${[...VALID_EVENT_TYPES].join(", ")}` }); return;
+  }
+
+  const LIFECYCLE_STATUS: Record<string, string> = {
+    enrolled: "active",
+    reactivated: "active",
+    transferred_in: "active",
+    withdrawn: "inactive",
+    suspended: "inactive",
+    leave_of_absence: "inactive",
+    transferred_out: "transferred",
+    graduated: "graduated",
+  };
 
   const [event] = await db.transaction(async (tx) => {
     const [ev] = await tx.insert(enrollmentEventsTable).values({
@@ -611,13 +627,17 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
       recordedById: null,
     }).returning();
 
-    if (ACTIVE_EVENTS.has(eventType)) {
+    const newStatus = LIFECYCLE_STATUS[eventType];
+    if (newStatus) {
+      const studentUpdate: Record<string, unknown> = { status: newStatus };
+      if (newStatus === "active") {
+        studentUpdate.enrolledAt = eventDate;
+        studentUpdate.withdrawnAt = null;
+      } else {
+        studentUpdate.withdrawnAt = eventDate;
+      }
       await tx.update(studentsTable)
-        .set({ status: "active", enrolledAt: eventDate, withdrawnAt: null })
-        .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
-    } else if (INACTIVE_EVENTS.has(eventType)) {
-      await tx.update(studentsTable)
-        .set({ status: "inactive", withdrawnAt: eventDate })
+        .set(studentUpdate as any)
         .where(and(eq(studentsTable.id, params.data.id), isNull(studentsTable.deletedAt)));
     }
 

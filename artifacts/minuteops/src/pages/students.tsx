@@ -31,8 +31,7 @@ export default function Students() {
 
   const { filterParams } = useSchoolContext();
   const { role } = useRole();
-  const statusParam = statusFilter !== "all" ? statusFilter : undefined;
-  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500, ...(statusParam ? { status: statusParam } : {}) } as any);
+  const { data: students, isLoading, isError, refetch } = useListStudents({ ...filterParams, limit: 500, status: statusFilter } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
   const { data: schoolsData } = useListSchools();
