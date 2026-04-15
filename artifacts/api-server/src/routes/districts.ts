@@ -6,6 +6,7 @@ import {
   districtSubscriptionsTable
 } from "@workspace/db";
 import { eq, and, count, sql, inArray } from "drizzle-orm";
+import { getPublicMeta } from "../lib/clerkClaims";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -89,12 +90,20 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const meta = getPublicMeta(req);
   const updateData: Partial<typeof districtsTable.$inferInsert> = {};
   if (req.body.name != null) updateData.name = req.body.name;
   if (req.body.state !== undefined) updateData.state = req.body.state;
   if (req.body.region !== undefined) updateData.region = req.body.region;
-  if (req.body.tier !== undefined) updateData.tier = req.body.tier;
-  if (req.body.tierOverride !== undefined) updateData.tierOverride = req.body.tierOverride;
+
+  if (req.body.tier !== undefined || req.body.tierOverride !== undefined) {
+    if (!meta.platformAdmin) {
+      res.status(403).json({ error: "Only platform administrators can change subscription tier" });
+      return;
+    }
+    if (req.body.tier !== undefined) updateData.tier = req.body.tier;
+    if (req.body.tierOverride !== undefined) updateData.tierOverride = req.body.tierOverride;
+  }
 
   const [district] = await db.update(districtsTable).set(updateData).where(eq(districtsTable.id, id)).returning();
   if (!district) { res.status(404).json({ error: "District not found" }); return; }
@@ -117,11 +126,30 @@ router.delete("/districts/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/district-tier", async (req, res): Promise<void> => {
-  const rawDistrictId = req.query.districtId;
+  const meta = getPublicMeta(req);
+
   let districtId: number | null = null;
-  if (rawDistrictId != null && rawDistrictId !== "") {
-    districtId = Number(rawDistrictId);
-    if (isNaN(districtId)) { res.status(400).json({ error: "Invalid districtId" }); return; }
+
+  if (meta.platformAdmin) {
+    const rawDistrictId = req.query.districtId;
+    if (rawDistrictId != null && rawDistrictId !== "") {
+      districtId = Number(rawDistrictId);
+      if (isNaN(districtId)) { res.status(400).json({ error: "Invalid districtId" }); return; }
+    }
+  } else {
+    districtId = meta.districtId ?? null;
+
+    if (!districtId && meta.staffId) {
+      const staffResult = await db.execute(
+        sql`SELECT d.id FROM districts d
+            JOIN schools s ON s.district_id = d.id
+            JOIN staff st ON st.school_id = s.id
+            WHERE st.id = ${meta.staffId} LIMIT 1`
+      );
+      if (staffResult.rows.length > 0) {
+        districtId = Number((staffResult.rows[0] as Record<string, unknown>).id);
+      }
+    }
   }
 
   if (!districtId) {

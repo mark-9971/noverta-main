@@ -13,7 +13,7 @@ import {
   GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
@@ -306,6 +306,7 @@ function NavItemRow({
   onNavigate,
   locked,
   lockedTierLabel,
+  onLockedClick,
 }: {
   item: NavItem;
   active: boolean;
@@ -315,6 +316,7 @@ function NavItemRow({
   onNavigate?: () => void;
   locked?: boolean;
   lockedTierLabel?: string;
+  onLockedClick?: () => void;
 }) {
   const isLocked = locked && !item.comingSoon;
 
@@ -357,12 +359,23 @@ function NavItemRow({
   const baseClasses = "relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13px] font-medium transition-all duration-100";
 
   if (item.comingSoon || isLocked) {
+    if (isLocked) {
+      return (
+        <button
+          type="button"
+          className={cn(baseClasses, "w-full cursor-pointer text-gray-300 hover:bg-gray-50")}
+          title={`${item.label} — Upgrade to ${lockedTierLabel}`}
+          onClick={onLockedClick}
+        >
+          {content}
+        </button>
+      );
+    }
     return (
       <Link
-        href={isLocked ? item.href : "#"}
-        className={cn(baseClasses, isLocked ? "cursor-pointer text-gray-300 hover:bg-gray-50" : "cursor-default text-gray-300")}
-        title={isLocked ? `${item.label} — Upgrade to ${lockedTierLabel}` : `${item.label} — Coming Soon`}
-        onClick={isLocked ? onNavigate : undefined}
+        href="#"
+        className={cn(baseClasses, "cursor-default text-gray-300")}
+        title={`${item.label} — Coming Soon`}
       >
         {content}
       </Link>
@@ -576,6 +589,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           onNavigate={() => setSidebarOpen(false)}
                           locked={isItemLocked}
                           lockedTierLabel={tierInfo?.requiredTierLabel}
+                          onLockedClick={() => {
+                            toast.info(`${item.label} requires the ${tierInfo?.requiredTierLabel ?? "higher"} plan`, {
+                              description: "Contact your administrator or visit Billing to upgrade.",
+                              duration: 4000,
+                            });
+                          }}
                         />
                       );
                     })}
