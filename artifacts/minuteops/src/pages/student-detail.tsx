@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout, Archive, ArchiveRestore, History } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout, Archive, ArchiveRestore, History, Phone, Mail, Stethoscope, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
@@ -85,6 +85,23 @@ export default function StudentDetail() {
 
   const [enrollmentHistory, setEnrollmentHistory] = useState<any[]>([]);
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+
+  const [emergencyContacts, setEmergencyContacts] = useState<any[]>([]);
+  const [emergencyContactsLoading, setEmergencyContactsLoading] = useState(false);
+  const [ecDialogOpen, setEcDialogOpen] = useState(false);
+  const [editingEc, setEditingEc] = useState<any>(null);
+  const [ecSaving, setEcSaving] = useState(false);
+  const [deletingEc, setDeletingEc] = useState<any>(null);
+  const [ecForm, setEcForm] = useState({ firstName: "", lastName: "", relationship: "", phone: "", phoneSecondary: "", email: "", isAuthorizedForPickup: false, priority: 1, notes: "" });
+
+  const [medicalAlerts, setMedicalAlerts] = useState<any[]>([]);
+  const [medicalAlertsLoading, setMedicalAlertsLoading] = useState(false);
+  const [maDialogOpen, setMaDialogOpen] = useState(false);
+  const [editingMa, setEditingMa] = useState<any>(null);
+  const [maSaving, setMaSaving] = useState(false);
+  const [deletingMa, setDeletingMa] = useState<any>(null);
+  const [maForm, setMaForm] = useState({ alertType: "allergy", description: "", severity: "mild", treatmentNotes: "", epiPenOnFile: false, notifyAllStaff: false });
+
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
   const [archiveSaving, setArchiveSaving] = useState(false);
@@ -113,6 +130,18 @@ export default function StudentDetail() {
         .then((d: any) => setEnrollmentHistory(Array.isArray(d) ? d : []))
         .catch(() => {})
         .finally(() => setEnrollmentLoading(false));
+      setEmergencyContactsLoading(true);
+      authFetch(`/api/students/${studentId}/emergency-contacts`)
+        .then((r: any) => r.json())
+        .then((d: any) => setEmergencyContacts(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setEmergencyContactsLoading(false));
+      setMedicalAlertsLoading(true);
+      authFetch(`/api/students/${studentId}/medical-alerts`)
+        .then((r: any) => r.json())
+        .then((d: any) => setMedicalAlerts(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setMedicalAlertsLoading(false));
     }
   }, [studentId]);
 
@@ -168,6 +197,115 @@ export default function StudentDetail() {
       setEnrollmentHistory(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to log event"); }
     setAddEventSaving(false);
+  }
+
+  async function handleSaveEc() {
+    if (!ecForm.firstName || !ecForm.lastName || !ecForm.relationship || !ecForm.phone) {
+      toast.error("First name, last name, relationship, and phone are required"); return;
+    }
+    setEcSaving(true);
+    try {
+      if (editingEc) {
+        const r = await authFetch(`/api/emergency-contacts/${editingEc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ecForm) });
+        if (!r.ok) throw new Error();
+        toast.success("Contact updated");
+      } else {
+        const r = await authFetch(`/api/students/${studentId}/emergency-contacts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...ecForm, studentId }) });
+        if (!r.ok) throw new Error();
+        toast.success("Contact added");
+      }
+      setEcDialogOpen(false);
+      setEditingEc(null);
+      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: any) => r.json());
+      setEmergencyContacts(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to save contact"); }
+    setEcSaving(false);
+  }
+
+  async function handleDeleteEc(contact: any) {
+    try {
+      const r = await authFetch(`/api/emergency-contacts/${contact.id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      toast.success("Contact removed");
+      setDeletingEc(null);
+      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: any) => r.json());
+      setEmergencyContacts(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to remove contact"); }
+  }
+
+  function openAddEc() {
+    setEditingEc(null);
+    setEcForm({ firstName: "", lastName: "", relationship: "", phone: "", phoneSecondary: "", email: "", isAuthorizedForPickup: false, priority: 1, notes: "" });
+    setEcDialogOpen(true);
+  }
+
+  function openEditEc(contact: any) {
+    setEditingEc(contact);
+    setEcForm({
+      firstName: contact.firstName ?? "",
+      lastName: contact.lastName ?? "",
+      relationship: contact.relationship ?? "",
+      phone: contact.phone ?? "",
+      phoneSecondary: contact.phoneSecondary ?? "",
+      email: contact.email ?? "",
+      isAuthorizedForPickup: contact.isAuthorizedForPickup ?? false,
+      priority: contact.priority ?? 1,
+      notes: contact.notes ?? "",
+    });
+    setEcDialogOpen(true);
+  }
+
+  async function handleSaveMa() {
+    if (!maForm.description || !maForm.alertType || !maForm.severity) {
+      toast.error("Alert type, description, and severity are required"); return;
+    }
+    setMaSaving(true);
+    try {
+      if (editingMa) {
+        const r = await authFetch(`/api/medical-alerts/${editingMa.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(maForm) });
+        if (!r.ok) throw new Error();
+        toast.success("Alert updated");
+      } else {
+        const r = await authFetch(`/api/students/${studentId}/medical-alerts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...maForm, studentId }) });
+        if (!r.ok) throw new Error();
+        toast.success("Alert added");
+      }
+      setMaDialogOpen(false);
+      setEditingMa(null);
+      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: any) => r.json());
+      setMedicalAlerts(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to save alert"); }
+    setMaSaving(false);
+  }
+
+  async function handleDeleteMa(alert: any) {
+    try {
+      const r = await authFetch(`/api/medical-alerts/${alert.id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      toast.success("Alert removed");
+      setDeletingMa(null);
+      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: any) => r.json());
+      setMedicalAlerts(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to remove alert"); }
+  }
+
+  function openAddMa() {
+    setEditingMa(null);
+    setMaForm({ alertType: "allergy", description: "", severity: "mild", treatmentNotes: "", epiPenOnFile: false, notifyAllStaff: false });
+    setMaDialogOpen(true);
+  }
+
+  function openEditMa(alert: any) {
+    setEditingMa(alert);
+    setMaForm({
+      alertType: alert.alertType ?? "allergy",
+      description: alert.description ?? "",
+      severity: alert.severity ?? "mild",
+      treatmentNotes: alert.treatmentNotes ?? "",
+      epiPenOnFile: alert.epiPenOnFile ?? false,
+      notifyAllStaff: alert.notifyAllStaff ?? false,
+    });
+    setMaDialogOpen(true);
   }
 
   function openAddSvc() {
@@ -1412,6 +1550,138 @@ export default function StudentDetail() {
 
       <StudentGuardians studentId={studentId} isEditable={isEditable} />
 
+      {/* Emergency Contacts */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-emerald-600" />
+              <CardTitle className="text-sm font-semibold text-gray-600">Emergency Contacts</CardTitle>
+            </div>
+            {isEditable && (
+              <button onClick={openAddEc} className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Add Contact
+              </button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {emergencyContactsLoading ? (
+            <div className="space-y-2">{[1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : emergencyContacts.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No emergency contacts on file.</p>
+          ) : (
+            <div className="space-y-2">
+              {emergencyContacts.map((contact: any, idx: number) => (
+                <div key={contact.id} className={`flex items-start gap-3 p-3 rounded-lg border ${idx === 0 ? "border-emerald-200 bg-emerald-50/50" : "border-gray-100 bg-white"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${idx === 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                    <span className="text-[12px] font-bold">{contact.firstName?.[0]}{contact.lastName?.[0]}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-gray-800">{contact.firstName} {contact.lastName}</span>
+                      <span className="text-[11px] text-gray-500 capitalize">{contact.relationship}</span>
+                      {contact.isAuthorizedForPickup && (
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-medium rounded">Authorized Pickup</span>
+                      )}
+                      {idx === 0 && <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded">Primary</span>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-[12px] text-emerald-700 hover:underline">
+                        <Phone className="w-3 h-3" />{contact.phone}
+                      </a>
+                      {contact.phoneSecondary && (
+                        <a href={`tel:${contact.phoneSecondary}`} className="flex items-center gap-1 text-[12px] text-gray-500 hover:underline">
+                          <Phone className="w-3 h-3" />{contact.phoneSecondary}
+                        </a>
+                      )}
+                      {contact.email && (
+                        <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-[12px] text-gray-500 hover:underline">
+                          <Mail className="w-3 h-3" />{contact.email}
+                        </a>
+                      )}
+                    </div>
+                    {contact.notes && <p className="text-[11px] text-gray-400 mt-0.5">{contact.notes}</p>}
+                  </div>
+                  {isEditable && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => openEditEc(contact)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeletingEc(contact)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Medical Alerts */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Stethoscope className="w-4 h-4 text-red-500" />
+              <CardTitle className="text-sm font-semibold text-gray-600">Medical Alerts</CardTitle>
+              {medicalAlerts.some((a: any) => a.severity === "life_threatening") && (
+                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-md uppercase tracking-wide">
+                  <ShieldAlert className="w-3 h-3" /> Life-Threatening
+                </span>
+              )}
+            </div>
+            {isEditable && (
+              <button onClick={openAddMa} className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-md hover:bg-emerald-50 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Add Alert
+              </button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {medicalAlertsLoading ? (
+            <div className="space-y-2">{[1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+          ) : medicalAlerts.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No medical alerts on file.</p>
+          ) : (
+            <div className="space-y-2">
+              {medicalAlerts.map((alert: any) => {
+                const severityConfig: Record<string, { bg: string; text: string; border: string; label: string }> = {
+                  mild: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-100", label: "Mild" },
+                  moderate: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", label: "Moderate" },
+                  severe: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", label: "Severe" },
+                  life_threatening: { bg: "bg-red-50", text: "text-red-700", border: "border-red-300", label: "Life-Threatening" },
+                };
+                const alertTypeLabels: Record<string, string> = {
+                  allergy: "Allergy", medication: "Medication", condition: "Condition", seizure: "Seizure", other: "Other",
+                };
+                const sc = severityConfig[alert.severity] ?? { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-100", label: alert.severity };
+                return (
+                  <div key={alert.id} className={`p-3 rounded-lg border ${sc.border} ${sc.bg}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded uppercase tracking-wide ${sc.bg} ${sc.text} border ${sc.border}`}>{sc.label}</span>
+                          <span className="text-[11px] font-medium text-gray-600">{alertTypeLabels[alert.alertType] ?? alert.alertType}</span>
+                          {alert.epiPenOnFile && <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-medium rounded">EpiPen On File</span>}
+                          {alert.notifyAllStaff && <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded"><ShieldAlert className="w-3 h-3" /> Notify All Staff</span>}
+                        </div>
+                        <p className="text-[13px] font-semibold text-gray-800 mt-1">{alert.description}</p>
+                        {alert.treatmentNotes && <p className="text-[12px] text-gray-600 mt-0.5">{alert.treatmentNotes}</p>}
+                      </div>
+                      {isEditable && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => openEditMa(alert)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white/70 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setDeletingMa(alert)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Enrollment History */}
       <Card>
         <CardHeader className="pb-3">
@@ -1542,6 +1812,162 @@ export default function StudentDetail() {
             <Button size="sm" onClick={handleAddEvent} disabled={addEventSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
               {addEventSaving ? "Saving…" : "Log Event"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Emergency Contact Dialog */}
+      <Dialog open={ecDialogOpen} onOpenChange={v => { if (!v) { setEcDialogOpen(false); setEditingEc(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-emerald-600" />
+              {editingEc ? "Edit Emergency Contact" : "Add Emergency Contact"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">First Name *</Label>
+                <Input value={ecForm.firstName} onChange={e => setEcForm(f => ({ ...f, firstName: e.target.value }))} className="h-9 text-[13px]" placeholder="First name" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Last Name *</Label>
+                <Input value={ecForm.lastName} onChange={e => setEcForm(f => ({ ...f, lastName: e.target.value }))} className="h-9 text-[13px]" placeholder="Last name" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Relationship *</Label>
+                <Input value={ecForm.relationship} onChange={e => setEcForm(f => ({ ...f, relationship: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. Parent, Guardian" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Priority</Label>
+                <Input type="number" min={1} value={ecForm.priority} onChange={e => setEcForm(f => ({ ...f, priority: Number(e.target.value) }))} className="h-9 text-[13px]" placeholder="1 = Primary" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Primary Phone *</Label>
+                <Input value={ecForm.phone} onChange={e => setEcForm(f => ({ ...f, phone: e.target.value }))} className="h-9 text-[13px]" placeholder="(555) 000-0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Secondary Phone</Label>
+                <Input value={ecForm.phoneSecondary} onChange={e => setEcForm(f => ({ ...f, phoneSecondary: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Email</Label>
+              <Input type="email" value={ecForm.email} onChange={e => setEcForm(f => ({ ...f, email: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="ecPickup" checked={ecForm.isAuthorizedForPickup} onChange={e => setEcForm(f => ({ ...f, isAuthorizedForPickup: e.target.checked }))} className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <Label htmlFor="ecPickup" className="text-[13px] font-medium text-gray-700 cursor-pointer">Authorized for student pickup</Label>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Notes</Label>
+              <Input value={ecForm.notes} onChange={e => setEcForm(f => ({ ...f, notes: e.target.value }))} className="h-9 text-[13px]" placeholder="Optional notes" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setEcDialogOpen(false); setEditingEc(null); }} disabled={ecSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveEc} disabled={ecSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              {ecSaving ? "Saving…" : editingEc ? "Save Changes" : "Add Contact"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Emergency Contact Confirm */}
+      <Dialog open={!!deletingEc} onOpenChange={v => { if (!v) setDeletingEc(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Remove Emergency Contact?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-gray-500 py-1">
+            Remove <strong>{deletingEc?.firstName} {deletingEc?.lastName}</strong> from this student's emergency contacts?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingEc(null)}>Cancel</Button>
+            <Button size="sm" onClick={() => deletingEc && handleDeleteEc(deletingEc)} className="bg-red-600 hover:bg-red-700 text-white">Remove</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Medical Alert Dialog */}
+      <Dialog open={maDialogOpen} onOpenChange={v => { if (!v) { setMaDialogOpen(false); setEditingMa(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
+              <Stethoscope className="w-4 h-4 text-red-500" />
+              {editingMa ? "Edit Medical Alert" : "Add Medical Alert"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Alert Type *</Label>
+                <Select value={maForm.alertType} onValueChange={v => setMaForm(f => ({ ...f, alertType: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[{ value: "allergy", label: "Allergy" }, { value: "medication", label: "Medication" }, { value: "condition", label: "Condition" }, { value: "seizure", label: "Seizure" }, { value: "other", label: "Other" }].map(o => (
+                      <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Severity *</Label>
+                <Select value={maForm.severity} onValueChange={v => setMaForm(f => ({ ...f, severity: v }))}>
+                  <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[{ value: "mild", label: "Mild" }, { value: "moderate", label: "Moderate" }, { value: "severe", label: "Severe" }, { value: "life_threatening", label: "Life-Threatening" }].map(o => (
+                      <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Description *</Label>
+              <Input value={maForm.description} onChange={e => setMaForm(f => ({ ...f, description: e.target.value }))} className="h-9 text-[13px]" placeholder="e.g. Severe peanut allergy" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">Treatment Notes</Label>
+              <Input value={maForm.treatmentNotes} onChange={e => setMaForm(f => ({ ...f, treatmentNotes: e.target.value }))} className="h-9 text-[13px]" placeholder="What to do in an emergency" />
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="maEpiPen" checked={maForm.epiPenOnFile} onChange={e => setMaForm(f => ({ ...f, epiPenOnFile: e.target.checked }))} className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                <Label htmlFor="maEpiPen" className="text-[13px] font-medium text-gray-700 cursor-pointer">EpiPen on file</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="maNotify" checked={maForm.notifyAllStaff} onChange={e => setMaForm(f => ({ ...f, notifyAllStaff: e.target.checked }))} className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                <Label htmlFor="maNotify" className="text-[13px] font-medium text-gray-700 cursor-pointer">Notify all staff</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => { setMaDialogOpen(false); setEditingMa(null); }} disabled={maSaving}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveMa} disabled={maSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+              {maSaving ? "Saving…" : editingMa ? "Save Changes" : "Add Alert"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Medical Alert Confirm */}
+      <Dialog open={!!deletingMa} onOpenChange={v => { if (!v) setDeletingMa(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Remove Medical Alert?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-gray-500 py-1">
+            Remove the alert for <strong>{deletingMa?.description}</strong>?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingMa(null)}>Cancel</Button>
+            <Button size="sm" onClick={() => deletingMa && handleDeleteMa(deletingMa)} className="bg-red-600 hover:bg-red-700 text-white">Remove</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

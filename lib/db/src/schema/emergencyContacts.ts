@@ -1,15 +1,20 @@
-import { pgTable, serial, text, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
 import { studentsTable } from "./students";
 
 export const emergencyContactsTable = pgTable("emergency_contacts", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
   relationship: text("relationship").notNull(),
   phone: text("phone").notNull(),
-  notes: text("notes"),
+  phoneSecondary: text("phone_secondary"),
+  email: text("email"),
+  isAuthorizedForPickup: boolean("is_authorized_for_pickup").notNull().default(false),
   priority: integer("priority").notNull().default(1),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => [
@@ -21,4 +26,5 @@ export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts
   createdAt: true,
   updatedAt: true,
 });
+export type InsertEmergencyContact = z.infer<typeof insertEmergencyContactSchema>;
 export type EmergencyContact = typeof emergencyContactsTable.$inferSelect;

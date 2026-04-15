@@ -6,8 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive } from "lucide-react";
+import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone } from "lucide-react";
 import { Link } from "wouter";
+import { StudentQuickView } from "@/components/student-quick-view";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
@@ -237,6 +238,16 @@ export default function Students() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[14px] font-semibold text-gray-800">{s.firstName} {s.lastName}</p>
+                      <StudentQuickView
+                        studentId={s.id}
+                        studentName={`${s.firstName} ${s.lastName}`}
+                        grade={s.grade}
+                        trigger={
+                          <span className="p-1 rounded hover:bg-gray-100 transition-colors" title="Quick view: emergency contacts &amp; alerts">
+                            <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                          </span>
+                        }
+                      />
                       <Badge variant="outline" className={`text-[10px] py-0 px-1.5 ${
                         isSped ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-500 border-gray-200"
                       }`}>

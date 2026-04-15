@@ -72,4 +72,5 @@ export * from "./moduleTiers";
 export * from "./demoRequests";
 export * from "./guardians";
 export * from "./emergencyContacts";
+export * from "./medicalAlerts";
 export * from "./enrollmentEvents";
