@@ -7,13 +7,11 @@ import {
   iepDocumentsTable,
   serviceRequirementsTable,
   serviceTypesTable,
-  iepGoalsTable,
-  iepAccommodationsTable,
   exportHistoryTable,
   staffTable,
 } from "@workspace/db";
 import { eq, and, desc, isNull, sql, gte, lte, inArray } from "drizzle-orm";
-import { requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { requireRoles } from "../middlewares/auth";
 import { getAuth } from "@clerk/express";
 
 const router: IRouter = Router();
@@ -27,16 +25,107 @@ interface ValidationWarning {
   severity: "error" | "warning";
 }
 
-interface ReportTemplate {
+interface QueryParams {
+  schoolId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+interface StudentRow {
+  id: number;
+  firstName: string;
+  lastName: string;
+  externalId: string | null;
+  dateOfBirth: string | null;
+  grade: string | null;
+  disabilityCategory: string | null;
+  primaryLanguage: string | null;
+  placementType: string | null;
+  schoolId: number | null;
+  schoolName: string | null;
+  districtName: string | null;
+  caseManagerFirst: string | null;
+  caseManagerLast: string | null;
+}
+
+interface ServiceReqRow {
+  studentId: number;
+  serviceName: string;
+  serviceCategory: string;
+  requiredMinutes: number;
+  intervalType: string;
+  deliveryType: string;
+  setting: string | null;
+}
+
+type IepRow = typeof iepDocumentsTable.$inferSelect;
+
+interface EnrichedStudent extends StudentRow {
+  iep: IepRow | null;
+  services: ServiceReqRow[];
+}
+
+interface IdeaExportRow {
+  id: number;
+  district: string;
+  school: string;
+  externalId: string;
+  lastName: string;
+  firstName: string;
+  dateOfBirth: string;
+  age: number | null;
+  grade: string;
+  disabilityCode: string;
+  disabilityCategory: string;
+  placementCode: string;
+  placementType: string;
+  iepStartDate: string;
+  iepEndDate: string;
+  primaryLanguage: string;
+  esyEligible: string;
+  serviceList: string;
+  totalWeeklyMinutes: number;
+}
+
+interface SimsExportRow {
+  id: number;
+  externalId: string;
+  lastName: string;
+  firstName: string;
+  dateOfBirth: string;
+  grade: string;
+  schoolCode: string;
+  schoolName: string;
+  district: string;
+  spedStatus: string;
+  disabilityCategory: string;
+  disabilityCode: string;
+  placementType: string;
+  iepStartDate: string;
+  iepEndDate: string;
+  primaryLanguage: string;
+  caseManager: string;
+  serviceList: string;
+  serviceCategories: string;
+  totalMonthlyMinutes: number;
+  esyEligible: string;
+}
+
+interface ColumnDef {
+  header: string;
+  field: string;
+}
+
+interface ReportTemplate<T extends { id: number }> {
   key: string;
   label: string;
   description: string;
-  columns: { header: string; field: string }[];
-  validate: (rows: any[]) => ValidationWarning[];
-  query: (params: { schoolId?: number; dateFrom?: string; dateTo?: string }) => Promise<any[]>;
+  columns: ColumnDef[];
+  validate: (rows: T[]) => ValidationWarning[];
+  query: (params: QueryParams) => Promise<T[]>;
 }
 
-function escCsv(val: any): string {
+function escCsv(val: string | number | boolean | null | undefined): string {
   if (val === null || val === undefined) return "";
   let s = String(val);
   const dangerPrefixes = ["=", "+", "-", "@", "\t", "\r"];
@@ -49,7 +138,7 @@ function escCsv(val: any): string {
   return s;
 }
 
-function buildCsv(columns: { header: string; field: string }[], rows: any[]): string {
+function buildCsv(columns: ColumnDef[], rows: Record<string, string | number | boolean | null | undefined>[]): string {
   const header = columns.map((c) => escCsv(c.header)).join(",");
   const body = rows
     .map((r) => columns.map((c) => escCsv(r[c.field])).join(","))
@@ -106,7 +195,7 @@ function mapPlacement(pt: string | null): string {
   return PLACEMENT_MAP[pt.toLowerCase().trim()] ?? pt;
 }
 
-async function fetchStudentsWithIep(params: { schoolId?: number; dateFrom?: string; dateTo?: string }) {
+async function fetchStudentsWithIep(params: QueryParams): Promise<EnrichedStudent[]> {
   const conditions: ReturnType<typeof eq>[] = [
     eq(studentsTable.status, "active"),
     isNull(studentsTable.deletedAt),
@@ -142,17 +231,23 @@ async function fetchStudentsWithIep(params: { schoolId?: number; dateFrom?: stri
   const studentIds = students.map((s) => s.id);
   if (studentIds.length === 0) return [];
 
+  const iepConditions: ReturnType<typeof eq>[] = [
+    inArray(iepDocumentsTable.studentId, studentIds),
+    eq(iepDocumentsTable.active, true),
+  ];
+  if (params.dateFrom) {
+    iepConditions.push(gte(iepDocumentsTable.iepEndDate, params.dateFrom));
+  }
+  if (params.dateTo) {
+    iepConditions.push(lte(iepDocumentsTable.iepStartDate, params.dateTo));
+  }
+
   const ieps = await db
     .select()
     .from(iepDocumentsTable)
-    .where(
-      and(
-        inArray(iepDocumentsTable.studentId, studentIds),
-        eq(iepDocumentsTable.active, true)
-      )
-    );
+    .where(and(...iepConditions));
 
-  const iepMap = new Map<number, typeof ieps[0]>();
+  const iepMap = new Map<number, IepRow>();
   for (const iep of ieps) {
     const existing = iepMap.get(iep.studentId);
     if (!existing || iep.iepStartDate > existing.iepStartDate) {
@@ -179,7 +274,7 @@ async function fetchStudentsWithIep(params: { schoolId?: number; dateFrom?: stri
       )
     );
 
-  const serviceMap = new Map<number, typeof serviceReqs>();
+  const serviceMap = new Map<number, ServiceReqRow[]>();
   for (const s of serviceReqs) {
     if (!serviceMap.has(s.studentId)) serviceMap.set(s.studentId, []);
     serviceMap.get(s.studentId)!.push(s);
@@ -192,7 +287,7 @@ async function fetchStudentsWithIep(params: { schoolId?: number; dateFrom?: stri
   }));
 }
 
-const ideaChildCountTemplate: ReportTemplate = {
+const ideaChildCountTemplate: ReportTemplate<IdeaExportRow> = {
   key: "idea_child_count",
   label: "IDEA Part B Child Count",
   description: "Federal IDEA child count report — one row per student with disability code, age, placement, and services.",
@@ -216,7 +311,7 @@ const ideaChildCountTemplate: ReportTemplate = {
     { header: "Service Types", field: "serviceList" },
     { header: "Total Weekly Minutes", field: "totalWeeklyMinutes" },
   ],
-  validate(rows) {
+  validate(rows: IdeaExportRow[]): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
     for (const r of rows) {
       const name = `${r.firstName} ${r.lastName}`;
@@ -229,11 +324,11 @@ const ideaChildCountTemplate: ReportTemplate = {
     }
     return warnings;
   },
-  async query(params) {
+  async query(params: QueryParams): Promise<IdeaExportRow[]> {
     const data = await fetchStudentsWithIep(params);
     const refDate = new Date().toISOString().slice(0, 10);
     return data.map((s) => {
-      const weeklyMinutes = s.services.reduce((total, svc) => {
+      const weeklyMinutes = s.services.reduce((total: number, svc) => {
         if (svc.intervalType === "weekly") return total + svc.requiredMinutes;
         if (svc.intervalType === "daily") return total + svc.requiredMinutes * 5;
         if (svc.intervalType === "monthly") return total + Math.round(svc.requiredMinutes / 4);
@@ -264,7 +359,7 @@ const ideaChildCountTemplate: ReportTemplate = {
   },
 };
 
-const maSimsTemplate: ReportTemplate = {
+const maSimsTemplate: ReportTemplate<SimsExportRow> = {
   key: "ma_sims",
   label: "MA SIMS Student Export",
   description: "Massachusetts Student Information Management System (SIMS) export — student demographics and special education data for state submission.",
@@ -290,7 +385,7 @@ const maSimsTemplate: ReportTemplate = {
     { header: "Total Monthly Minutes", field: "totalMonthlyMinutes" },
     { header: "ESY", field: "esyEligible" },
   ],
-  validate(rows) {
+  validate(rows: SimsExportRow[]): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
     for (const r of rows) {
       const name = `${r.firstName} ${r.lastName}`;
@@ -303,10 +398,10 @@ const maSimsTemplate: ReportTemplate = {
     }
     return warnings;
   },
-  async query(params) {
+  async query(params: QueryParams): Promise<SimsExportRow[]> {
     const data = await fetchStudentsWithIep(params);
     return data.map((s) => {
-      const monthlyMinutes = s.services.reduce((total, svc) => {
+      const monthlyMinutes = s.services.reduce((total: number, svc) => {
         if (svc.intervalType === "monthly") return total + svc.requiredMinutes;
         if (svc.intervalType === "weekly") return total + svc.requiredMinutes * 4;
         if (svc.intervalType === "daily") return total + svc.requiredMinutes * 20;
@@ -342,7 +437,9 @@ const maSimsTemplate: ReportTemplate = {
   },
 };
 
-const TEMPLATES: Record<string, ReportTemplate> = {
+type AnyReportTemplate = ReportTemplate<IdeaExportRow> | ReportTemplate<SimsExportRow>;
+
+const TEMPLATES: Record<string, AnyReportTemplate> = {
   idea_child_count: ideaChildCountTemplate,
   ma_sims: maSimsTemplate,
 };
@@ -359,16 +456,25 @@ router.get("/state-reports/templates", requireRoles(...ADMIN_ROLES), async (_req
 
 router.post("/state-reports/validate", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
-    const { reportType, schoolId } = req.body;
+    const { reportType, schoolId, dateFrom, dateTo } = req.body as {
+      reportType: string;
+      schoolId?: number;
+      dateFrom?: string;
+      dateTo?: string;
+    };
     const template = TEMPLATES[reportType];
     if (!template) {
       res.status(400).json({ error: "Unknown report type" });
       return;
     }
-    const rows = await template.query({ schoolId: schoolId ? Number(schoolId) : undefined });
-    const warnings = template.validate(rows);
-    const errors = warnings.filter((w) => w.severity === "error");
-    const warns = warnings.filter((w) => w.severity === "warning");
+    const rows = await template.query({
+      schoolId: schoolId ? Number(schoolId) : undefined,
+      dateFrom,
+      dateTo,
+    });
+    const allIssues = template.validate(rows);
+    const errors = allIssues.filter((w) => w.severity === "error");
+    const warns = allIssues.filter((w) => w.severity === "warning");
     res.json({
       recordCount: rows.length,
       errorCount: errors.length,
@@ -376,7 +482,7 @@ router.post("/state-reports/validate", requireRoles(...ADMIN_ROLES), async (req,
       errors,
       warnings: warns,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Validation error:", err);
     res.status(500).json({ error: "Validation failed" });
   }
@@ -384,7 +490,12 @@ router.post("/state-reports/validate", requireRoles(...ADMIN_ROLES), async (req,
 
 router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, res): Promise<void> => {
   try {
-    const { reportType, schoolId } = req.body;
+    const { reportType, schoolId, dateFrom, dateTo } = req.body as {
+      reportType: string;
+      schoolId?: number;
+      dateFrom?: string;
+      dateTo?: string;
+    };
     const template = TEMPLATES[reportType];
     if (!template) {
       res.status(400).json({ error: "Unknown report type" });
@@ -393,6 +504,8 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
 
     const rows = await template.query({
       schoolId: schoolId ? Number(schoolId) : undefined,
+      dateFrom,
+      dateTo,
     });
 
     const allIssues = template.validate(rows);
@@ -410,7 +523,7 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
       reportLabel: template.label,
       exportedBy: userId,
       schoolId: schoolId ? Number(schoolId) : null,
-      parameters: { schoolId, errorCount },
+      parameters: { schoolId, dateFrom, dateTo, errorCount } as Record<string, unknown>,
       recordCount: rows.length,
       warningCount: warnCount,
       fileName,
@@ -419,7 +532,7 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.send(csv);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Export error:", err);
     res.status(500).json({ error: "Export failed" });
   }
@@ -442,7 +555,7 @@ router.get("/state-reports/history", requireRoles(...ADMIN_ROLES), async (req, r
       .from(exportHistoryTable);
 
     res.json({ rows, total: count });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Export history error:", err);
     res.status(500).json({ error: "Failed to load export history" });
   }

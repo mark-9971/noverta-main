@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
-  Download, AlertTriangle, CheckCircle2, XCircle, RefreshCw,
-  FileSpreadsheet, Clock, History, ChevronDown, ChevronRight,
-  FileText, Shield, Info,
+  Download, AlertTriangle, CheckCircle2, XCircle,
+  FileSpreadsheet, Clock, History,
+  Shield, Info,
 } from "lucide-react";
 
 interface ReportTemplateMeta {
@@ -42,14 +42,19 @@ interface ExportHistoryRow {
   reportLabel: string;
   exportedBy: string;
   schoolId: number | null;
-  parameters: any;
+  parameters: Record<string, unknown> | null;
   recordCount: number;
   warningCount: number;
   fileName: string;
   createdAt: string;
 }
 
-function ValidationPanel({ result, onClose }: { result: ValidationResult; onClose: () => void }) {
+interface SchoolOption {
+  id: number;
+  name: string;
+}
+
+function ValidationPanel({ result }: { result: ValidationResult }) {
   const [showAll, setShowAll] = useState(false);
   const allIssues = [...result.errors, ...result.warnings];
   const displayed = showAll ? allIssues : allIssues.slice(0, 10);
@@ -122,11 +127,20 @@ function ValidationPanel({ result, onClose }: { result: ValidationResult; onClos
   );
 }
 
+function truncateUserId(id: string): string {
+  if (!id || id === "unknown") return "System";
+  if (id.length > 16) return id.slice(0, 8) + "…" + id.slice(-4);
+  return id;
+}
+
 export default function StateReporting() {
   const { typedFilter } = useSchoolContext();
-  const { data: schools } = useListSchools();
+  const { data: schoolsRaw } = useListSchools();
+  const schools = (schoolsRaw ?? []) as SchoolOption[];
   const [selectedReport, setSelectedReport] = useState<string>("idea_child_count");
   const [selectedSchool, setSelectedSchool] = useState<string>(typedFilter.schoolId ? String(typedFilter.schoolId) : "");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -153,6 +167,14 @@ export default function StateReporting() {
 
   const selectedTemplate = templates?.find((t) => t.key === selectedReport);
 
+  function buildRequestBody() {
+    const body: Record<string, unknown> = { reportType: selectedReport };
+    if (selectedSchool) body.schoolId = Number(selectedSchool);
+    if (dateFrom) body.dateFrom = dateFrom;
+    if (dateTo) body.dateTo = dateTo;
+    return body;
+  }
+
   const handleValidate = useCallback(async () => {
     setValidating(true);
     setValidationResult(null);
@@ -160,10 +182,7 @@ export default function StateReporting() {
       const res = await authFetch("/api/state-reports/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportType: selectedReport,
-          schoolId: selectedSchool || undefined,
-        }),
+        body: JSON.stringify(buildRequestBody()),
       });
       if (res.ok) {
         setValidationResult(await res.json());
@@ -171,7 +190,7 @@ export default function StateReporting() {
     } finally {
       setValidating(false);
     }
-  }, [selectedReport, selectedSchool]);
+  }, [selectedReport, selectedSchool, dateFrom, dateTo]);
 
   const handleExport = useCallback(async () => {
     setExporting(true);
@@ -179,10 +198,7 @@ export default function StateReporting() {
       const res = await authFetch("/api/state-reports/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportType: selectedReport,
-          ...(selectedSchool ? { schoolId: Number(selectedSchool) } : {}),
-        }),
+        body: JSON.stringify(buildRequestBody()),
       });
       if (res.ok) {
         const blob = await res.blob();
@@ -202,11 +218,10 @@ export default function StateReporting() {
     } finally {
       setExporting(false);
     }
-  }, [selectedReport, selectedSchool, refetchHistory]);
+  }, [selectedReport, selectedSchool, dateFrom, dateTo, refetchHistory]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">State Reporting</h1>
@@ -226,7 +241,6 @@ export default function StateReporting() {
       </div>
 
       {showHistory ? (
-        /* ===== Export History View ===== */
         <Card className="border-gray-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-[14px] font-semibold text-gray-700 flex items-center gap-2">
@@ -254,6 +268,7 @@ export default function StateReporting() {
                       <th className="text-left py-2 px-2 font-semibold text-gray-500">File</th>
                       <th className="text-center py-2 px-2 font-semibold text-gray-500">Records</th>
                       <th className="text-center py-2 px-2 font-semibold text-gray-500">Warnings</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-500">User</th>
                       <th className="text-right py-2 px-2 font-semibold text-gray-500">Date</th>
                     </tr>
                   </thead>
@@ -270,6 +285,9 @@ export default function StateReporting() {
                             <span className="text-emerald-500">0</span>
                           )}
                         </td>
+                        <td className="py-2.5 px-2 text-gray-400 text-[11px] font-mono" title={row.exportedBy}>
+                          {truncateUserId(row.exportedBy)}
+                        </td>
                         <td className="py-2.5 px-2 text-right text-gray-400">
                           {new Date(row.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
                         </td>
@@ -282,9 +300,7 @@ export default function StateReporting() {
           </CardContent>
         </Card>
       ) : (
-        /* ===== Report Builder View ===== */
         <>
-          {/* Report selector cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templatesLoading ? (
               [...Array(2)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
@@ -308,11 +324,10 @@ export default function StateReporting() {
             ))}
           </div>
 
-          {/* Configuration */}
           <Card className="border-gray-100">
             <CardContent className="pt-5 space-y-4">
-              <div className="flex items-end gap-3 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
                   <label className="text-[12px] font-semibold text-gray-500 mb-1.5 block">School Scope</label>
                   <select
                     value={selectedSchool}
@@ -320,27 +335,45 @@ export default function StateReporting() {
                     className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                   >
                     <option value="">All Schools (District-wide)</option>
-                    {((schools as any[]) ?? []).map((s: any) => (
+                    {schools.map((s) => (
                       <option key={s.id} value={String(s.id)}>{s.name}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex gap-2">
+                <div>
+                  <label className="text-[12px] font-semibold text-gray-500 mb-1.5 block">Date From</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => { setDateFrom(e.target.value); setValidationResult(null); }}
+                    className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-semibold text-gray-500 mb-1.5 block">Date To</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => { setDateTo(e.target.value); setValidationResult(null); }}
+                    className="w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                  />
+                </div>
+                <div className="flex items-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleValidate}
                     disabled={validating}
-                    className="text-[12px] gap-1.5 h-9"
+                    className="text-[12px] gap-1.5 h-9 flex-1"
                   >
                     <Shield className={`w-3.5 h-3.5 ${validating ? "animate-pulse" : ""}`} />
-                    {validating ? "Validating…" : "Validate Data"}
+                    {validating ? "Validating…" : "Validate"}
                   </Button>
                   <Button
                     size="sm"
                     onClick={handleExport}
                     disabled={exporting}
-                    className="text-[12px] gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700"
+                    className="text-[12px] gap-1.5 h-9 flex-1 bg-emerald-600 hover:bg-emerald-700"
                   >
                     <Download className={`w-3.5 h-3.5 ${exporting ? "animate-bounce" : ""}`} />
                     {exporting ? "Generating…" : "Export CSV"}
@@ -356,7 +389,7 @@ export default function StateReporting() {
                     <span className="text-blue-500 ml-1">— {selectedTemplate.description}</span>
                     <br />
                     <span className="text-blue-400 text-[11px]">
-                      Tip: Use "Validate Data" first to check for missing required fields before exporting.
+                      Date range filters IEPs active during that window. Leave blank to include all active IEPs.
                     </span>
                   </div>
                 </div>
@@ -364,13 +397,7 @@ export default function StateReporting() {
             </CardContent>
           </Card>
 
-          {/* Validation results */}
-          {validationResult && (
-            <ValidationPanel
-              result={validationResult}
-              onClose={() => setValidationResult(null)}
-            />
-          )}
+          {validationResult && <ValidationPanel result={validationResult} />}
         </>
       )}
     </div>
