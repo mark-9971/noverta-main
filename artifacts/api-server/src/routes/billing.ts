@@ -6,7 +6,7 @@ import { getPublicMeta } from "../lib/clerkClaims";
 import { getUncachableStripeClient, getStripePublishableKey } from "../lib/stripeClient";
 
 const router = Router();
-const adminOnly = requireMinRole("coordinator");
+const adminOnly = requireMinRole("admin");
 
 interface SchoolRow {
   id: number;
@@ -102,7 +102,10 @@ router.get("/billing/subscription", adminOnly, async (req: Request, res: Respons
 router.get("/billing/status", async (req: Request, res: Response): Promise<void> => {
   try {
     const districtId = await resolveCallerDistrictId(req);
-    if (!districtId) { res.json({ active: true }); return; }
+    if (!districtId) {
+      res.json({ active: false, status: "unresolvable", requiresAttention: true });
+      return;
+    }
 
     const [sub] = await db
       .select({ status: districtSubscriptionsTable.status, currentPeriodEnd: districtSubscriptionsTable.currentPeriodEnd })
@@ -110,7 +113,10 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
       .where(eq(districtSubscriptionsTable.districtId, districtId))
       .limit(1);
 
-    if (!sub) { res.json({ active: true, status: "no_subscription" }); return; }
+    if (!sub) {
+      res.json({ active: false, status: "no_subscription", requiresAttention: true });
+      return;
+    }
 
     const activeStatuses = ["active", "trialing"];
     const isActive = activeStatuses.includes(sub.status);
@@ -124,7 +130,7 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
     });
   } catch (err) {
     console.error("Error checking billing status:", err);
-    res.json({ active: true });
+    res.json({ active: false, status: "error", requiresAttention: true });
   }
 });
 
