@@ -39,11 +39,11 @@ export function StudentQuickView({ studentId, studentName, grade, trigger }: Stu
     if (!open) return;
     setLoading(true);
     Promise.all([
-      authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: any) => r.json()).catch(() => []),
-      authFetch(`/api/students/${studentId}/medical-alerts`).then((r: any) => r.json()).catch(() => []),
+      authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json()).catch(() => []),
+      authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json()).catch(() => []),
     ]).then(([c, a]) => {
       setContacts(Array.isArray(c) ? c : []);
-      setAlerts(Array.isArray(a) ? a.filter((al: any) => al.severity === "life_threatening" || al.severity === "severe") : []);
+      setAlerts(Array.isArray(a) ? a.filter((al: MedicalAlert) => al.severity === "life_threatening" || al.severity === "severe") : []);
     }).finally(() => setLoading(false));
   }, [open, studentId]);
 

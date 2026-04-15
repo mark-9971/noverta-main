@@ -30,6 +30,35 @@ const DIRECTION_COLORS = {
 
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
 
+interface EmergencyContactRecord {
+  id: number;
+  studentId: number;
+  firstName: string;
+  lastName: string;
+  relationship: string;
+  phone: string;
+  phoneSecondary: string | null;
+  email: string | null;
+  isAuthorizedForPickup: boolean;
+  priority: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface MedicalAlertRecord {
+  id: number;
+  studentId: number;
+  alertType: string;
+  description: string;
+  severity: string;
+  treatmentNotes: string | null;
+  epiPenOnFile: boolean;
+  notifyAllStaff: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function StudentDetail() {
   const params = useParams<{ id: string }>();
   const studentId = Number(params.id);
@@ -86,20 +115,20 @@ export default function StudentDetail() {
   const [enrollmentHistory, setEnrollmentHistory] = useState<any[]>([]);
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
-  const [emergencyContacts, setEmergencyContacts] = useState<any[]>([]);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContactRecord[]>([]);
   const [emergencyContactsLoading, setEmergencyContactsLoading] = useState(false);
   const [ecDialogOpen, setEcDialogOpen] = useState(false);
-  const [editingEc, setEditingEc] = useState<any>(null);
+  const [editingEc, setEditingEc] = useState<EmergencyContactRecord | null>(null);
   const [ecSaving, setEcSaving] = useState(false);
-  const [deletingEc, setDeletingEc] = useState<any>(null);
+  const [deletingEc, setDeletingEc] = useState<EmergencyContactRecord | null>(null);
   const [ecForm, setEcForm] = useState({ firstName: "", lastName: "", relationship: "", phone: "", phoneSecondary: "", email: "", isAuthorizedForPickup: false, priority: 1, notes: "" });
 
-  const [medicalAlerts, setMedicalAlerts] = useState<any[]>([]);
+  const [medicalAlerts, setMedicalAlerts] = useState<MedicalAlertRecord[]>([]);
   const [medicalAlertsLoading, setMedicalAlertsLoading] = useState(false);
   const [maDialogOpen, setMaDialogOpen] = useState(false);
-  const [editingMa, setEditingMa] = useState<any>(null);
+  const [editingMa, setEditingMa] = useState<MedicalAlertRecord | null>(null);
   const [maSaving, setMaSaving] = useState(false);
-  const [deletingMa, setDeletingMa] = useState<any>(null);
+  const [deletingMa, setDeletingMa] = useState<MedicalAlertRecord | null>(null);
   const [maForm, setMaForm] = useState({ alertType: "allergy", description: "", severity: "mild", treatmentNotes: "", epiPenOnFile: false, notifyAllStaff: false });
 
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -132,14 +161,14 @@ export default function StudentDetail() {
         .finally(() => setEnrollmentLoading(false));
       setEmergencyContactsLoading(true);
       authFetch(`/api/students/${studentId}/emergency-contacts`)
-        .then((r: any) => r.json())
-        .then((d: any) => setEmergencyContacts(Array.isArray(d) ? d : []))
+        .then((r: Response) => r.json())
+        .then((d: EmergencyContactRecord[]) => setEmergencyContacts(Array.isArray(d) ? d : []))
         .catch(() => {})
         .finally(() => setEmergencyContactsLoading(false));
       setMedicalAlertsLoading(true);
       authFetch(`/api/students/${studentId}/medical-alerts`)
-        .then((r: any) => r.json())
-        .then((d: any) => setMedicalAlerts(Array.isArray(d) ? d : []))
+        .then((r: Response) => r.json())
+        .then((d: MedicalAlertRecord[]) => setMedicalAlerts(Array.isArray(d) ? d : []))
         .catch(() => {})
         .finally(() => setMedicalAlertsLoading(false));
     }
@@ -216,19 +245,19 @@ export default function StudentDetail() {
       }
       setEcDialogOpen(false);
       setEditingEc(null);
-      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: any) => r.json());
+      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
       setEmergencyContacts(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to save contact"); }
     setEcSaving(false);
   }
 
-  async function handleDeleteEc(contact: any) {
+  async function handleDeleteEc(contact: EmergencyContactRecord) {
     try {
       const r = await authFetch(`/api/emergency-contacts/${contact.id}`, { method: "DELETE" });
       if (!r.ok) throw new Error();
       toast.success("Contact removed");
       setDeletingEc(null);
-      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: any) => r.json());
+      const d = await authFetch(`/api/students/${studentId}/emergency-contacts`).then((r: Response) => r.json());
       setEmergencyContacts(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to remove contact"); }
   }
@@ -239,7 +268,7 @@ export default function StudentDetail() {
     setEcDialogOpen(true);
   }
 
-  function openEditEc(contact: any) {
+  function openEditEc(contact: EmergencyContactRecord) {
     setEditingEc(contact);
     setEcForm({
       firstName: contact.firstName ?? "",
@@ -272,19 +301,19 @@ export default function StudentDetail() {
       }
       setMaDialogOpen(false);
       setEditingMa(null);
-      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: any) => r.json());
+      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
       setMedicalAlerts(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to save alert"); }
     setMaSaving(false);
   }
 
-  async function handleDeleteMa(alert: any) {
+  async function handleDeleteMa(alert: MedicalAlertRecord) {
     try {
       const r = await authFetch(`/api/medical-alerts/${alert.id}`, { method: "DELETE" });
       if (!r.ok) throw new Error();
       toast.success("Alert removed");
       setDeletingMa(null);
-      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: any) => r.json());
+      const d = await authFetch(`/api/students/${studentId}/medical-alerts`).then((r: Response) => r.json());
       setMedicalAlerts(Array.isArray(d) ? d : []);
     } catch { toast.error("Failed to remove alert"); }
   }
@@ -295,7 +324,7 @@ export default function StudentDetail() {
     setMaDialogOpen(true);
   }
 
-  function openEditMa(alert: any) {
+  function openEditMa(alert: MedicalAlertRecord) {
     setEditingMa(alert);
     setMaForm({
       alertType: alert.alertType ?? "allergy",
