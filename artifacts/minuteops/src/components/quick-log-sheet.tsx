@@ -307,8 +307,12 @@ export function QuickLogSheet({
       )
     : students;
 
-  const recentStudents = students.filter((s) => defaults.recentStudentIds.includes(s.id));
-  const recentServiceTypes = serviceTypes.filter((s) => defaults.recentServiceTypeIds.includes(s.id));
+  const recentStudents = defaults.recentStudentIds
+    .map(id => students.find(s => s.id === id))
+    .filter((s): s is typeof students[number] => s !== undefined);
+  const recentServiceTypes = defaults.recentServiceTypeIds
+    .map(id => serviceTypes.find(s => s.id === id))
+    .filter((s): s is typeof serviceTypes[number] => s !== undefined);
 
   const STEP_TOTAL = outcome === "missed" ? 6 : 5;
   const stepIdx = (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note"].filter(Boolean) as Step[]).indexOf(step) + 1;
@@ -389,6 +393,8 @@ export function QuickLogSheet({
             makeupNeeded={makeupNeeded}
             onToggleMakeup={() => setMakeupNeeded((v) => !v)}
             onSelect={selectReason}
+            initialSelectedId={missedReasonId}
+            initialSelectedLabel={missedReasonLabel}
           />
         )}
 
@@ -649,17 +655,19 @@ function OutcomeStep({ studentName, durationMinutes, onSelect }: {
   );
 }
 
-function ReasonStep({ dbReasons, makeupNeeded, onToggleMakeup, onSelect }: {
+function ReasonStep({ dbReasons, makeupNeeded, onToggleMakeup, onSelect, initialSelectedId, initialSelectedLabel }: {
   dbReasons: MissedReason[];
   makeupNeeded: boolean;
   onToggleMakeup: () => void;
   onSelect: (id: number | null, label?: string) => void;
+  initialSelectedId?: number | null;
+  initialSelectedLabel?: string | null;
 }) {
   const reasons = dbReasons.length > 0
     ? dbReasons
     : MISSED_QUICK_REASONS.map((r, i) => ({ id: -(i + 1), label: r.label, category: r.category }));
-  const [localSelectedId, setLocalSelectedId] = useState<number | null>(null);
-  const [localSelectedLabel, setLocalSelectedLabel] = useState<string | null>(null);
+  const [localSelectedId, setLocalSelectedId] = useState<number | null>(initialSelectedId ?? null);
+  const [localSelectedLabel, setLocalSelectedLabel] = useState<string | null>(initialSelectedLabel ?? null);
 
   const selectReason = (id: number, label: string) => {
     setLocalSelectedId(id);
