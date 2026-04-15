@@ -91,7 +91,7 @@ export default function SetupPage() {
   const [sisApiUrl, setSisApiUrl] = useState("");
   const [sisClientId, setSisClientId] = useState("");
   const [sisClientSecret, setSisClientSecret] = useState("");
-  const [csvRows, setCsvRows] = useState<{ school: string }[]>([]);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
 
   const [schoolYear, setSchoolYear] = useState("2025–2026");
   const [editingSchools, setEditingSchools] = useState<{ id?: number; name: string }[]>([]);
@@ -480,14 +480,15 @@ export default function SetupPage() {
                       if (!text) return;
                       const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
                       if (lines.length < 2) return;
-                      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-                      const schoolIdx = headers.indexOf("school");
+                      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
                       const parsed = lines.slice(1).map(line => {
                         const cols = line.split(",");
-                        return { school: schoolIdx >= 0 ? cols[schoolIdx]?.trim() || "Main Campus" : "Main Campus" };
+                        const row: Record<string, string> = {};
+                        headers.forEach((h, i) => { row[h] = cols[i]?.trim() || ""; });
+                        return row;
                       });
                       setCsvRows(parsed);
-                      const csvSchools = [...new Set(parsed.map(r => r.school))];
+                      const csvSchools = [...new Set(parsed.map(r => r.school || "Main Campus").filter(Boolean))];
                       setSchoolNames(csvSchools.length > 0 ? csvSchools : ["Main Campus"]);
                     };
                     reader.readAsText(file);
