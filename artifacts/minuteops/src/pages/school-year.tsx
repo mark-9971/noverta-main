@@ -24,6 +24,10 @@ interface RolloverPreview {
   activeStaffAssignments: number;
   iepsTotal: number;
   iepsExpired: number;
+  archiveComplianceEvents: number;
+  archiveScheduleBlocks: number;
+  archiveSessionLogs: number;
+  archiveTeamMeetings: number;
   yearHistory: SchoolYear[];
 }
 
@@ -174,6 +178,33 @@ export default function SchoolYearPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Archive Preview */}
+      {preview?.currentYear && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+              <History className="w-4 h-4 text-amber-600" /> Records to Archive ({preview.currentYear.label})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { label: "Compliance Events", value: preview.archiveComplianceEvents },
+                { label: "Schedule Blocks", value: preview.archiveScheduleBlocks },
+                { label: "Session Logs", value: preview.archiveSessionLogs },
+                { label: "Team Meetings", value: preview.archiveTeamMeetings },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="text-lg font-bold text-gray-700">{value.toLocaleString()}</div>
+                  <div className="text-[11px] text-gray-500">{label}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">These records remain fully accessible after rollover — they are preserved, not deleted.</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* What Rollover Does */}
