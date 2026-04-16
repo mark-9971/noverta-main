@@ -48,6 +48,35 @@ function validateGoalData(arr: any[]): { valid: true; data: GoalEntry[] } | { va
 
 const router: IRouter = Router();
 
+/**
+ * Tenant ownership guard for all session /:id routes (GET, PATCH, DELETE).
+ * Runs once per request when Express resolves the :id parameter.
+ * Returns 403 if the session's student does not belong to the caller's district.
+ * Platform admins (null enforcedDistrictId) bypass this check and see all records.
+ */
+router.param("id", async (req, res, next, id) => {
+  const sessionId = Number(id);
+  if (!Number.isFinite(sessionId) || sessionId <= 0) { next(); return; }
+  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDistrictId !== null) {
+    const rows = await db.execute(sql`
+      SELECT 1 FROM session_logs
+      WHERE id = ${sessionId}
+        AND deleted_at IS NULL
+        AND student_id IN (
+          SELECT id FROM students WHERE school_id IN (
+            SELECT id FROM schools WHERE district_id = ${enforcedDistrictId}
+          )
+        )
+    `);
+    if (!rows.rows.length) {
+      res.status(403).json({ error: "Access denied: session does not belong to your district" });
+      return;
+    }
+  }
+  next();
+});
+
 function sessionToJson(s: any) {
   return {
     ...s,
@@ -171,6 +200,26 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
 
   // Auto-assign active schoolYearId for any session that doesn't have one
   const sessions = parsed.data.sessions as Array<Record<string, unknown>>;
+
+  // District ownership check: verify all student IDs belong to caller's district.
+  {
+    const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDistrictId !== null) {
+      const bulkStudentIds = [...new Set(sessions.map(s => s.studentId as number))];
+      for (const sid of bulkStudentIds) {
+        const rows = await db.execute(sql`
+          SELECT 1 FROM students
+          WHERE id = ${sid}
+            AND school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})
+        `);
+        if (!rows.rows.length) {
+          res.status(403).json({ error: `Student ${sid} does not belong to your district` });
+          return;
+        }
+      }
+    }
+  }
+
   const uniqueStudentIds = [...new Set(sessions.filter(s => !s.schoolYearId).map(s => s.studentId as number))];
   const yearIdByStudent = new Map<number, number>();
   await Promise.all(uniqueStudentIds.map(async (sid) => {
@@ -211,6 +260,22 @@ router.post("/sessions", async (req, res): Promise<void> => {
     if (parsed.data.isCompensatory && !parsed.data.compensatoryObligationId) {
       res.status(400).json({ error: "compensatoryObligationId is required when isCompensatory is true" });
       return;
+    }
+
+    // District ownership check: verify the student belongs to the caller's district.
+    {
+      const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+      if (enforcedDistrictId !== null) {
+        const rows = await db.execute(sql`
+          SELECT 1 FROM students
+          WHERE id = ${parsed.data.studentId}
+            AND school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})
+        `);
+        if (!rows.rows.length) {
+          res.status(403).json({ error: "Student does not belong to your district" });
+          return;
+        }
+      }
     }
 
     // Resolve active school year — schoolYearId is not in the zod schema so we merge it here

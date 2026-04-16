@@ -105,6 +105,7 @@ async function assertStatus(expectedStatus, role, method, path, body) {
 // ─── Demo district and student IDs (Jefferson Unified School District) ──────
 const DISTRICT_ID = 2;
 const DEMO_STUDENT_ID = 32; // First student in demo district
+const DEMO_SESSION_ID = 175760; // Session belonging to district 2 student
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
@@ -291,6 +292,8 @@ await assertEmptyFromForeign("admin", "GET", `/api/staff`);
 // Incident ID 13 and student ID 51 both belong to district 2 (Jefferson Unified).
 await assertForeignForbidden("admin", "GET", `/api/protective-measures/incidents/13`);
 await assertForeignForbidden("admin", "GET", `/api/reports/parent-summary/51`);
+// Session ID-based cross-tenant isolation: session 175760 belongs to district 2.
+await assertForeignForbidden("admin", "GET", `/api/sessions/${DEMO_SESSION_ID}`);
 
 // ─── Results ─────────────────────────────────────────────────────────────────
 
