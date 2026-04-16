@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users, Download, FileText } from "lucide-react";
 import { toPng } from "html-to-image";
+import { toast } from "sonner";
 
 interface DataPoint {
   date: string;
@@ -152,12 +153,15 @@ export function InteractiveChart({
         backgroundColor: "#ffffff",
         pixelRatio: 2,
       });
+      const rawName = exportFilename || title || "chart";
+      const safeName = rawName.replace(/[^a-zA-Z0-9_\-\s]/g, "").replace(/\s+/g, "-").slice(0, 100);
       const link = document.createElement("a");
-      link.download = `${exportFilename || title || "chart"}-${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = `${safeName}-${new Date().toISOString().slice(0, 10)}.png`;
       link.href = dataUrl;
       link.click();
+      toast.success("Chart exported");
     } catch {
-      console.error("Failed to export chart");
+      toast.error("Failed to export chart image");
     }
     setExporting(false);
   }, [exporting, exportFilename, title]);
