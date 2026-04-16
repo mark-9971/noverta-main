@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, guardiansTable, studentsTable, generatedDocumentsTable, documentAcknowledgmentsTable, communicationEventsTable, parentContactsTable, teamMeetingsTable } from "@workspace/db";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc, gte, inArray } from "drizzle-orm";
 import { requireGuardianScope } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 
@@ -39,13 +39,20 @@ router.get("/guardian-portal/me", async (req: Request, res: Response) => {
         firstName: studentsTable.firstName,
         lastName: studentsTable.lastName,
         grade: studentsTable.grade,
-        dateOfBirth: studentsTable.dateOfBirth,
-        districtId: studentsTable.districtId,
       })
       .from(studentsTable)
       .where(eq(studentsTable.id, studentId));
 
-    res.json({ guardian, student: student ?? null });
+    // Return a minimal guardian projection — no internal metadata.
+    res.json({
+      guardian: {
+        id: guardian.id,
+        name: guardian.name,
+        relationship: guardian.relationship,
+        email: guardian.email,
+      },
+      student: student ?? null,
+    });
   } catch (err) {
     console.error("GET /guardian-portal/me error:", err);
     res.status(500).json({ error: "Failed to load profile" });
@@ -79,18 +86,19 @@ router.get("/guardian-portal/documents", async (req: Request, res: Response) => 
 
     const docIds = docs.map(d => d.id);
     const acks = await db
-      .select()
+      .select({
+        documentId: documentAcknowledgmentsTable.documentId,
+        acknowledgedAt: documentAcknowledgmentsTable.acknowledgedAt,
+      })
       .from(documentAcknowledgmentsTable)
       .where(and(
         eq(documentAcknowledgmentsTable.guardianId, guardian.id),
+        inArray(documentAcknowledgmentsTable.documentId, docIds),
       ));
 
-    const ackMap = new Map<number, string>();
-    for (const a of acks) {
-      if (docIds.includes(a.documentId)) {
-        ackMap.set(a.documentId, a.acknowledgedAt.toISOString());
-      }
-    }
+    const ackMap = new Map<number, string>(
+      acks.map(a => [a.documentId, a.acknowledgedAt.toISOString()])
+    );
 
     const enriched = docs.map(d => ({
       id: d.id,
