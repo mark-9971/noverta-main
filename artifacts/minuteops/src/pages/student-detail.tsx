@@ -8,7 +8,7 @@ import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Ac
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
@@ -440,6 +440,52 @@ export default function StudentDetail() {
 
   const isEditable = role === "admin" || role === "case_manager";
 
+  const SECTION_NAV = [
+    { id: "overview", label: "Overview" },
+    { id: "services", label: "Services" },
+    { id: "clinical", label: "Clinical" },
+    { id: "sessions", label: "Sessions" },
+    { id: "safety", label: "Safety" },
+    { id: "enrollment", label: "Enrollment" },
+  ] as const;
+
+  const [activeSection, setActiveSection] = useState("overview");
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const isClickScrolling = useRef(false);
+
+  const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
+    sectionRefs.current[id] = el;
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isClickScrolling.current) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+            break;
+          }
+        }
+      },
+      { rootMargin: "-80px 0px -60% 0px", threshold: 0.1 }
+    );
+    for (const sec of SECTION_NAV) {
+      const el = sectionRefs.current[sec.id];
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [s]);
+
+  function scrollToSection(id: string) {
+    const el = sectionRefs.current[id];
+    if (!el) return;
+    isClickScrolling.current = true;
+    setActiveSection(id);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => { isClickScrolling.current = false; }, 800);
+  }
+
   function loadPhaseChanges() {
     getStudentPhaseChanges(studentId).catch(() => {}).then(setPhaseChangesByTarget as any).catch(() => {});
   }
@@ -719,6 +765,26 @@ export default function StudentDetail() {
         )}
       </div>
 
+      {s && (
+        <nav className="sticky top-0 z-20 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-white/95 backdrop-blur-sm border-b border-gray-100 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1 min-w-max py-1">
+            {SECTION_NAV.map(sec => (
+              <button
+                key={sec.id}
+                onClick={() => scrollToSection(sec.id)}
+                className={`px-3 py-2 text-[12px] font-medium rounded-md transition-colors whitespace-nowrap ${
+                  activeSection === sec.id
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {sec.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+
       {reEvalStatus?.hasEligibility && reEvalStatus.reEvalStatus && (reEvalStatus.reEvalStatus.urgency === "overdue" || reEvalStatus.reEvalStatus.urgency === "upcoming") && (
         <Card className={reEvalStatus.reEvalStatus.urgency === "overdue" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
           <CardContent className="py-3 px-5 flex items-center gap-3">
@@ -745,7 +811,7 @@ export default function StudentDetail() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div id="overview" ref={setSectionRef("overview")} className="scroll-mt-16 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
           <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
             <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
@@ -790,7 +856,7 @@ export default function StudentDetail() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div id="services" ref={setSectionRef("services")} className="scroll-mt-16 grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-7">
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
@@ -1023,6 +1089,7 @@ export default function StudentDetail() {
         </Card>
       )}
 
+      <div id="clinical" ref={setSectionRef("clinical")} className="scroll-mt-16" />
       {(behaviorTargets.length > 0 || dataLoading) && (
         <Card>
           <CardHeader className="pb-2">
@@ -1242,6 +1309,7 @@ export default function StudentDetail() {
         </Card>
       )}
 
+      <div id="sessions" ref={setSectionRef("sessions")} className="scroll-mt-16" />
       {(dataSessions.length > 0 || dataLoading) && (
         <Card>
           <CardHeader className="pb-0">
@@ -1355,6 +1423,7 @@ export default function StudentDetail() {
         </Card>
       )}
 
+      <div id="safety" ref={setSectionRef("safety")} className="scroll-mt-16" />
       {protectiveData && protectiveData.incidents.length > 0 && (
         <Card>
           <CardHeader className="pb-0">
@@ -1714,7 +1783,7 @@ export default function StudentDetail() {
         </CardContent>
       </Card>
 
-      {/* Enrollment History */}
+      <div id="enrollment" ref={setSectionRef("enrollment")} className="scroll-mt-16" />
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

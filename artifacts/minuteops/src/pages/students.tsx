@@ -30,7 +30,7 @@ export default function Students() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
-  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" });
+  const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "", dateOfBirth: "", hasIep: "" as "" | "yes" | "no" });
 
   const { filterParams } = useSchoolContext();
   const { role } = useRole();
@@ -68,11 +68,12 @@ export default function Students() {
         grade: addForm.grade || null,
         schoolId: addForm.schoolId ? Number(addForm.schoolId) : null,
         externalId: addForm.externalId || null,
+        dateOfBirth: addForm.dateOfBirth || null,
         status: "active",
       });
       toast.success(`${addForm.firstName} ${addForm.lastName} added`);
       setAddDialogOpen(false);
-      setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" });
+      setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "", dateOfBirth: "", hasIep: "" });
       refetch();
     } catch { toast.error("Failed to add student"); }
     setAddSaving(false);
@@ -146,7 +147,7 @@ export default function Students() {
         </div>
         {isAdmin && !hasSIS && (
           <button
-            onClick={() => { setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "" }); setAddDialogOpen(true); }}
+            onClick={() => { setAddForm({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "", dateOfBirth: "", hasIep: "" }); setAddDialogOpen(true); }}
             className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex-shrink-0"
           >
             <Plus className="w-3.5 h-3.5" /> Add Student
@@ -340,15 +341,19 @@ export default function Students() {
           <div className="space-y-4 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-gray-600">First Name</Label>
+                <Label className="text-[12px] font-medium text-gray-600">First Name <span className="text-red-400">*</span></Label>
                 <Input value={addForm.firstName} onChange={e => setAddForm(f => ({ ...f, firstName: e.target.value }))} className="h-9 text-[13px]" placeholder="First name" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-gray-600">Last Name</Label>
+                <Label className="text-[12px] font-medium text-gray-600">Last Name <span className="text-red-400">*</span></Label>
                 <Input value={addForm.lastName} onChange={e => setAddForm(f => ({ ...f, lastName: e.target.value }))} className="h-9 text-[13px]" placeholder="Last name" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[12px] font-medium text-gray-600">Date of Birth</Label>
+                <Input type="date" value={addForm.dateOfBirth} onChange={e => setAddForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="h-9 text-[13px]" />
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-[12px] font-medium text-gray-600">Grade</Label>
                 <Select value={addForm.grade} onValueChange={v => setAddForm(f => ({ ...f, grade: v }))}>
@@ -360,6 +365,8 @@ export default function Students() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-[12px] font-medium text-gray-600">School</Label>
                 <Select value={addForm.schoolId} onValueChange={v => setAddForm(f => ({ ...f, schoolId: v }))}>
@@ -372,9 +379,28 @@ export default function Students() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[12px] font-medium text-gray-600">External ID</Label>
-                <Input value={addForm.externalId} onChange={e => setAddForm(f => ({ ...f, externalId: e.target.value }))} className="h-9 text-[13px]" placeholder="SIS ID" />
+                <Label className="text-[12px] font-medium text-gray-600">IEP Status</Label>
+                <div className="flex gap-1 h-9">
+                  {([{ key: "yes" as const, label: "Yes" }, { key: "no" as const, label: "No" }]).map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setAddForm(f => ({ ...f, hasIep: f.hasIep === opt.key ? "" : opt.key }))}
+                      className={`flex-1 rounded-md text-[13px] font-medium transition-colors border ${
+                        addForm.hasIep === opt.key
+                          ? opt.key === "yes" ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-300 text-gray-700"
+                          : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[12px] font-medium text-gray-600">External ID</Label>
+              <Input value={addForm.externalId} onChange={e => setAddForm(f => ({ ...f, externalId: e.target.value }))} className="h-9 text-[13px]" placeholder="SIS ID (optional)" />
             </div>
           </div>
           <DialogFooter>

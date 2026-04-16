@@ -463,6 +463,7 @@ export const CreateStudentBody = zod.object({
   caseManagerId: zod.number().nullish(),
   notes: zod.string().nullish(),
   tags: zod.string().nullish(),
+  dateOfBirth: zod.string().nullish(),
 });
 
 /**
