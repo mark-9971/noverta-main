@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
+import { saveGeneratedDocument } from "@/lib/print-document";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   getStudent, listIepGoals, listProgressReports, listProgramTargets,
@@ -219,7 +220,7 @@ export default function StudentIepPage() {
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [teamMeetings, setTeamMeetings] = useState<TeamMeeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"document" | "goals" | "accommodations" | "reports" | "meetings" | "contacts">("document");
+  const [tab, setTab] = useState<"document" | "goals" | "accommodations" | "reports" | "meetings" | "contacts" | "gendocs">("document");
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showGoalBank, setShowGoalBank] = useState(false);
   const [showGenerateReport, setShowGenerateReport] = useState(false);
@@ -374,6 +375,7 @@ export default function StudentIepPage() {
           { key: "meetings" as const, label: "Meetings", icon: Users },
           { key: "reports" as const, label: "Progress Reports", icon: FileText },
           { key: "contacts" as const, label: "Parent Log", icon: Phone },
+          { key: "gendocs" as const, label: "Generated Docs", icon: Download },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-[12px] md:text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
@@ -407,6 +409,10 @@ export default function StudentIepPage() {
 
       {tab === "contacts" && (
         <ParentContactsSection studentId={studentId} />
+      )}
+
+      {tab === "gendocs" && (
+        <GeneratedDocsPanel studentId={studentId} />
       )}
 
       {tab === "goals" && (
@@ -990,6 +996,25 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
       </body></html>`);
     printWin.document.close();
     setTimeout(() => printWin.print(), 500);
+    const htmlContent = `<!DOCTYPE html><html><head><title>IEP Progress Report - ${esc(studentName)}</title>
+      <style>body{font-family:Arial,sans-serif;margin:40px;color:#111}h1{font-size:18px;margin:0}h2{font-size:14px;margin:20px 0 8px;border-bottom:2px solid #059669;padding-bottom:4px}
+      table{width:100%;border-collapse:collapse;margin:8px 0}th{background:#f3f4f6;padding:6px 8px;border:1px solid #d1d5db;font-size:11px;text-align:left}
+      .header{text-align:center;border-bottom:3px solid #059669;padding-bottom:12px;margin-bottom:16px}
+      .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;margin:12px 0}</style></head><body>
+      <div class="header"><h1>MASSACHUSETTS IEP PROGRESS REPORT</h1><p>Pursuant to 603 CMR 28.07(8)</p></div>
+      <div class="meta">
+        <div><strong>Student:</strong> ${esc(studentName)}</div>
+        <div><strong>Period:</strong> ${esc(formatDate(report.periodStart))} — ${esc(formatDate(report.periodEnd))}</div>
+        <div><strong>Status:</strong> ${report.status === "final" ? "FINAL" : "DRAFT"}</div>
+      </div></body></html>`;
+    saveGeneratedDocument({
+      studentId: report.studentId,
+      type: "progress_report",
+      title: `IEP Progress Report — ${formatDate(report.periodStart)} to ${formatDate(report.periodEnd)}${report.status !== "final" ? " (Draft)" : ""}`,
+      htmlSnapshot: htmlContent,
+      linkedRecordId: report.id,
+      status: report.status === "final" ? "finalized" : "draft",
+    });
   }
 
   return (
@@ -2739,4 +2764,145 @@ function ParentContactsSection({ studentId }: { studentId: number }) {
 function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  incident_report: "Incident Report",
+  progress_report: "Progress Report",
+  iep_draft: "IEP Draft",
+};
+const DOC_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-amber-100 text-amber-700",
+  finalized: "bg-emerald-100 text-emerald-700",
+  archived: "bg-gray-100 text-gray-500",
+};
+
+type GeneratedDoc = {
+  id: number; studentId: number; type: string; status: string; title: string;
+  linkedRecordId: number | null; createdByName: string | null; createdAt: string;
+};
+
+function GeneratedDocsPanel({ studentId }: { studentId: number }) {
+  const [docs, setDocs] = useState<GeneratedDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<number | null>(null);
+  const [reprinting, setReprinting] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`/api/generated-documents?studentId=${studentId}`);
+      if (res.ok) setDocs(await res.json() as GeneratedDoc[]);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [studentId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function updateStatus(id: number, status: string) {
+    setUpdating(id);
+    try {
+      await authFetch(`/api/generated-documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      setDocs(d => d.map(doc => doc.id === id ? { ...doc, status } : doc));
+    } catch { /* ignore */ }
+    setUpdating(null);
+  }
+
+  async function handleReprint(id: number) {
+    setReprinting(id);
+    try {
+      const res = await authFetch(`/api/generated-documents/${id}`);
+      if (!res.ok) { toast.error("Could not load document"); return; }
+      const doc = await res.json() as GeneratedDoc & { htmlSnapshot: string | null };
+      if (!doc.htmlSnapshot) { toast.error("No saved content for this document"); return; }
+      const win = window.open("", "_blank");
+      if (!win) { toast.error("Please allow pop-ups to open print preview"); return; }
+      win.document.write(doc.htmlSnapshot);
+      win.document.close();
+      setTimeout(() => win.print(), 600);
+    } catch { toast.error("Failed to open document"); }
+    setReprinting(null);
+  }
+
+  if (loading) return (
+    <div className="space-y-2 py-4">
+      {[0, 1, 2].map(i => (
+        <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />
+      ))}
+    </div>
+  );
+
+  if (!docs.length) return (
+    <div className="py-12 text-center text-gray-400 text-sm">
+      <Download className="w-8 h-8 mx-auto mb-2 opacity-30" />
+      No generated documents yet. Use Print buttons on Progress Reports, Incident Reports, or the IEP Builder to generate documents.
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        Documents generated from Progress Reports, IEP Builder, and Incident Reports are saved here for re-download.
+      </p>
+      {docs.map(doc => (
+        <div key={doc.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <span className="text-sm font-medium text-gray-800 truncate">{doc.title}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${DOC_STATUS_COLORS[doc.status] ?? "bg-gray-100 text-gray-500"}`}>
+                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-wrap">
+              <span>{DOC_TYPE_LABELS[doc.type] ?? doc.type}</span>
+              <span>·</span>
+              <span>{new Date(doc.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              {doc.createdByName && <><span>·</span><span>by {doc.createdByName}</span></>}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {doc.status !== "archived" && (
+              <button
+                onClick={() => handleReprint(doc.id)}
+                disabled={reprinting === doc.id}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 disabled:opacity-50"
+                title="Re-open and print"
+              >
+                {reprinting === doc.id ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Printer className="w-3 h-3" />
+                )}
+                Print
+              </button>
+            )}
+            {doc.status === "draft" && (
+              <button
+                onClick={() => updateStatus(doc.id, "finalized")}
+                disabled={updating === doc.id}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 rounded-lg text-emerald-700 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                Finalize
+              </button>
+            )}
+            {doc.status !== "archived" && (
+              <button
+                onClick={() => updateStatus(doc.id, "archived")}
+                disabled={updating === doc.id}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 hover:text-gray-600 rounded-lg disabled:opacity-50"
+                title="Archive"
+              >
+                <MinusIcon className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }

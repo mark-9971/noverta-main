@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
+import { saveGeneratedDocument } from "@/lib/print-document";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -309,6 +310,14 @@ export default function IepBuilderPage() {
     </body></html>`);
     win.document.close();
     setTimeout(() => win.print(), 500);
+    const snapshotHtml = `<!DOCTYPE html><html><head><title>IEP Draft - ${esc(draft.studentName)}</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#111;font-size:12px}h1{font-size:18px}h2{font-size:14px;border-bottom:2px solid #059669;padding-bottom:4px;margin:20px 0 8px}.disclaimer{background:#fef9c3;border:1px solid #fde68a;padding:10px;border-radius:4px;font-size:11px;margin-top:24px}</style></head><body><h1>IEP Annual Review — Draft Recommendations</h1><p>Student: ${esc(draft.studentName)} | Period: ${esc(draft.generatedFor)} | Generated: ${new Date(draft.generatedAt).toLocaleDateString()}</p><div class="disclaimer"><strong>⚠ DRAFT ONLY:</strong> ${esc(draft.disclaimer)}</div></body></html>`;
+    saveGeneratedDocument({
+      studentId,
+      type: "iep_draft",
+      title: `IEP Annual Review Draft — ${esc(draft.generatedFor ?? new Date().getFullYear().toString())}`,
+      htmlSnapshot: snapshotHtml,
+      status: "draft",
+    });
   }
 
   function setParentField(field: keyof ParentQuestionnaire, value: string) {

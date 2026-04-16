@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { authFetch } from "@/lib/auth-fetch";
 import { StudentQuickView } from "@/components/student-quick-view";
+import { buildIncidentReportHtml, openPrintWindow, saveGeneratedDocument } from "@/lib/print-document";
 import { Phone } from "lucide-react";
 
 type Incident = {
@@ -1921,7 +1922,31 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
   }, [isAdminReviewed, alreadySent]);
 
   const handleDownloadPdf = () => {
-    window.open(`/api/protective-measures/incidents/${incidentId}/report-pdf`, "_blank");
+    const staffMap: Record<number, string> = {};
+    staff.forEach(s => { staffMap[s.id] = `${s.firstName} ${s.lastName}`; });
+    const studentName = incident.studentFirstName
+      ? `${incident.studentFirstName} ${incident.studentLastName}`
+      : incident.student ? `${incident.student.firstName} ${incident.student.lastName}` : "Student";
+    const html = buildIncidentReportHtml({
+      incident: incident as Record<string, unknown>,
+      studentName,
+      studentDob: incident.student?.dateOfBirth ?? null,
+      school: incident.schoolName ?? incident.school?.name ?? null,
+      district: incident.districtName ?? incident.district?.name ?? null,
+      staffMap,
+    });
+    openPrintWindow(html);
+    const studentId: number | undefined = incident.studentId;
+    if (studentId) {
+      saveGeneratedDocument({
+        studentId,
+        type: "incident_report",
+        title: `Restraint/Seclusion Report — ${new Date(incident.incidentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+        htmlSnapshot: html,
+        linkedRecordId: incidentId,
+        status: "finalized",
+      });
+    }
   };
 
   const handleSaveDraft = () => {

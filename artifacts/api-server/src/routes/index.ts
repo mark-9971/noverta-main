@@ -49,6 +49,7 @@ import guardiansRouter from "./guardians";
 import reportExportsRouter from "./reportExports";
 import rolloverRouter from "./rollover";
 import legalRouter from "./legal";
+import generatedDocumentsRouter from "./generatedDocuments";
 
 const router: IRouter = Router();
 
@@ -143,5 +144,6 @@ router.use(guardiansRouter);
 router.use(reportExportsRouter);
 router.use(rolloverRouter);
 router.use(legalRouter);
+router.use(generatedDocumentsRouter);
 
 export default router;
