@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db, parentMessagesTable, messageTemplatesTable, conferenceRequestsTable, guardiansTable, staffTable, studentsTable } from "@workspace/db";
+import { db, parentMessagesTable, messageTemplatesTable, conferenceRequestsTable, guardiansTable, staffTable, studentsTable, teamMeetingsTable } from "@workspace/db";
 import { eq, and, desc, or, isNull, sql } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { logAudit } from "../lib/auditLog";
@@ -125,6 +125,70 @@ router.get("/students/:studentId/messages", async (req: Request, res: Response) 
   } catch (err) {
     console.error("GET /students/:studentId/messages error:", err);
     res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
+router.get("/students/:studentId/messages/search", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const q = (req.query.q as string || "").trim();
+    const category = req.query.category as string | undefined;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
+
+    const conditions = [sql`pm.student_id = ${studentId}`];
+    if (q) {
+      conditions.push(sql`(pm.subject ILIKE ${"%" + q + "%"} OR pm.body ILIKE ${"%" + q + "%"})`);
+    }
+    if (category) {
+      conditions.push(sql`pm.category = ${category}`);
+    }
+    if (startDate) {
+      conditions.push(sql`pm.created_at >= ${startDate}::timestamptz`);
+    }
+    if (endDate) {
+      conditions.push(sql`pm.created_at <= ${endDate}::timestamptz`);
+    }
+
+    const whereClause = conditions.length > 0
+      ? sql.join(conditions, sql` AND `)
+      : sql`1=1`;
+
+    const messages = await db.execute(sql`
+      SELECT
+        pm.id, pm.student_id as "studentId", pm.sender_type as "senderType",
+        pm.thread_id as "threadId", pm.category, pm.subject, pm.body,
+        pm.read_at as "readAt", pm.created_at as "createdAt",
+        s.first_name as "senderStaffFirst", s.last_name as "senderStaffLast",
+        COALESCE(rg.name, sg.name) as "guardianName"
+      FROM parent_messages pm
+      LEFT JOIN staff s ON s.id = pm.sender_staff_id
+      LEFT JOIN guardians rg ON rg.id = pm.recipient_guardian_id
+      LEFT JOIN guardians sg ON sg.id = pm.sender_guardian_id
+      WHERE ${whereClause}
+      ORDER BY pm.created_at DESC
+      LIMIT 100
+    `);
+
+    const rows = "rows" in messages ? (messages.rows as Record<string, unknown>[]) : (messages as unknown as Record<string, unknown>[]);
+    res.json({
+      results: rows.map(m => ({
+        ...m,
+        senderName: m.senderType === "staff"
+          ? (m.senderStaffFirst ? `${m.senderStaffFirst} ${m.senderStaffLast}` : "Staff")
+          : (m.guardianName ?? "Guardian"),
+      })),
+      total: rows.length,
+    });
+  } catch (err) {
+    console.error("GET /students/:studentId/messages/search error:", err);
+    res.status(500).json({ error: "Failed to search messages" });
   }
 });
 
@@ -623,6 +687,31 @@ guardianMessagesRouter.patch("/conferences/:id", async (req: Request, res: Respo
         category: "conference_request",
         subject: `Re: Conference Request — ${conf.title}`,
         body: `${statusText}${guardianNotes ? `\n\nNote: ${guardianNotes}` : ""}`,
+      });
+    }
+
+    if (updates.status === "accepted" && updates.selectedTime) {
+      const meetingDate = updates.selectedTime;
+      const [guardianRow] = await db.select({ name: guardiansTable.name })
+        .from(guardiansTable).where(eq(guardiansTable.id, guardianId));
+      const [staffRow] = await db.select({ firstName: staffTable.firstName, lastName: staffTable.lastName })
+        .from(staffTable).where(eq(staffTable.id, conf.staffId));
+
+      await db.insert(teamMeetingsTable).values({
+        studentId: conf.studentId,
+        meetingType: "parent_conference",
+        scheduledDate: meetingDate.toISOString().split("T")[0],
+        scheduledTime: meetingDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+        duration: 30,
+        location: conf.location ?? "TBD",
+        meetingFormat: "in_person",
+        status: "scheduled",
+        agendaItems: [conf.title, conf.description ?? ""].filter(Boolean),
+        attendees: [
+          { name: staffRow ? `${staffRow.firstName} ${staffRow.lastName}` : "Staff", role: "staff", present: false },
+          { name: guardianRow?.name ?? "Guardian", role: "parent", present: false },
+        ],
+        notes: `Auto-created from conference request #${confId}`,
       });
     }
 

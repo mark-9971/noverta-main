@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
-import { MessageSquare, Send, ChevronDown, ChevronUp, Clock, Check, CheckCheck, FileText, Calendar, Plus, X } from "lucide-react";
+import { MessageSquare, Send, ChevronDown, ChevronUp, Clock, Check, CheckCheck, FileText, Calendar, Plus, X, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function StudentMessages({ studentId, studentName, guardians }: { studentId: number; studentName: string; guardians: Guardian[] }) {
+  const { user } = useUser();
+  const staffName = user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Staff" : "Staff";
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [conferences, setConferences] = useState<ConferenceRequest[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -87,6 +90,9 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
   const [replyBody, setReplyBody] = useState("");
   const [replySending, setReplySending] = useState(false);
   const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: number; senderType: string; senderName: string; category: string; subject: string; body: string; createdAt: string; threadId: number }> | null>(null);
+  const [searching, setSearching] = useState(false);
 
   const [form, setForm] = useState({
     guardianId: "",
@@ -125,6 +131,22 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
     setLoading(false);
   }
 
+  async function handleSearch(query: string) {
+    setSearchQuery(query);
+    if (!query.trim()) { setSearchResults(null); return; }
+    setSearching(true);
+    try {
+      const r = await authFetch(`/api/students/${studentId}/messages/search?q=${encodeURIComponent(query)}`);
+      if (r.ok) {
+        const data = await r.json();
+        setSearchResults(data.results ?? []);
+      }
+    } catch {
+      toast.error("Search failed");
+    }
+    setSearching(false);
+  }
+
   function applyTemplate(templateId: string) {
     const tmpl = templates.find(t => t.id === Number(templateId));
     if (!tmpl) return;
@@ -132,12 +154,14 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
     let subject = tmpl.subject;
     let body = tmpl.body;
 
-    subject = subject.replace("{{studentName}}", studentName);
-    body = body.replace("{{studentName}}", studentName);
+    subject = subject.replace(/\{\{studentName\}\}/g, studentName);
+    body = body.replace(/\{\{studentName\}\}/g, studentName);
+    subject = subject.replace(/\{\{staffName\}\}/g, staffName);
+    body = body.replace(/\{\{staffName\}\}/g, staffName);
 
     const guardian = guardians.find(g => g.id === Number(form.guardianId));
     if (guardian) {
-      subject = subject.replace("{{guardianName}}", guardian.name);
+      subject = subject.replace(/\{\{guardianName\}\}/g, guardian.name);
       body = body.replace(/\{\{guardianName\}\}/g, guardian.name);
     }
 
@@ -278,11 +302,49 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         </div>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search messages..."
+          value={searchQuery}
+          onChange={e => handleSearch(e.target.value)}
+          className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-gray-50"
+        />
+        {searchQuery && (
+          <button onClick={() => { setSearchQuery(""); setSearchResults(null); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+            <X className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
+          </button>
+        )}
+      </div>
+
+      {searchResults !== null && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            {searching ? "Searching..." : `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}`}
+          </h4>
+          {searchResults.map(msg => (
+            <div
+              key={msg.id}
+              onClick={() => { setExpandedThread(msg.threadId); setSearchQuery(""); setSearchResults(null); }}
+              className="p-3 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-100 transition"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-700">{msg.senderName}</span>
+                <span className="text-[10px] text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-900 truncate">{msg.subject}</p>
+              <p className="text-xs text-gray-500 truncate mt-0.5">{msg.body.substring(0, 100)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {guardians.length === 0 && (
         <p className="text-xs text-gray-400 italic">No guardians on file — add a guardian to enable messaging.</p>
       )}
 
-      {conferences.length > 0 && (
+      {searchResults === null && conferences.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Conference Requests</h4>
           {conferences.map(c => (
@@ -317,7 +379,7 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         </div>
       )}
 
-      {threads.length > 0 && (
+      {searchResults === null && threads.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Conversations</h4>
           {threads.map(thread => (
