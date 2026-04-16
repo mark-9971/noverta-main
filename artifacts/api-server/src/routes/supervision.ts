@@ -23,6 +23,7 @@ function isPrivileged(req: AuthedRequest): boolean {
   return PRIVILEGED_STAFF_ROLES.includes(req.trellisRole);
 }
 
+/** Reads staffId from Clerk session publicMetadata (set via Clerk user management). */
 function getClerkStaffId(req: AuthedRequest): number | null {
   const id = getPublicMeta(req).staffId ?? null;
   return id && Number.isFinite(id) ? id : null;

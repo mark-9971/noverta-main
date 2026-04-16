@@ -20,6 +20,11 @@ function dayOfWeekFromDate(dateStr: string): string {
   return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
 }
 
+/**
+ * Reads staffId from Clerk session publicMetadata, then verifies the staff record
+ * exists in the database. Returns null if not found (staff record deleted or
+ * Clerk metadata not yet populated).
+ */
 async function getStaffIdForUser(req: AuthedRequest): Promise<number | null> {
   const clerkStaffId = getPublicMeta(req).staffId ?? null;
   if (clerkStaffId && Number.isFinite(clerkStaffId)) {
