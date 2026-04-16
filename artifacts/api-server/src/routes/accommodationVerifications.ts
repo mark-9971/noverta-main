@@ -255,10 +255,11 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     : sql`1=1`;
 
   const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
+  const isBroadAccess = BROAD_ACCESS_ROLES.includes(callerRole ?? "");
   let staffIdFilter: number | null = null;
-  if (req.query.staffId) {
+  if (req.query.staffId && isBroadAccess) {
     staffIdFilter = Number(req.query.staffId);
-  } else if (callerStaffId && !BROAD_ACCESS_ROLES.includes(callerRole ?? "")) {
+  } else if (!isBroadAccess && callerStaffId) {
     staffIdFilter = callerStaffId;
   }
 
