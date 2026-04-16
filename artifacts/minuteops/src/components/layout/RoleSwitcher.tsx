@@ -1,11 +1,13 @@
 import { useRole, type UserRole } from "@/lib/role-context";
-import { Shield, Brain, User } from "lucide-react";
+import { Shield, Brain, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
-const roles: { value: UserRole; label: string; icon: any; color: string; activeClass: string }[] = [
+const roles: { value: UserRole; label: string; icon: LucideIcon; color: string; activeClass: string }[] = [
   { value: "admin", label: "Admin", icon: Shield, color: "bg-emerald-800", activeClass: "bg-emerald-800 text-white shadow-sm" },
   { value: "sped_teacher", label: "SPED Teacher", icon: Brain, color: "bg-emerald-700", activeClass: "bg-emerald-700 text-white shadow-sm" },
   { value: "sped_student", label: "SPED Student", icon: User, color: "bg-emerald-600", activeClass: "bg-emerald-600 text-white shadow-sm" },
+  { value: "sped_parent", label: "Parent / Guardian", icon: Users, color: "bg-purple-600", activeClass: "bg-purple-600 text-white shadow-sm" },
 ];
 
 export function RoleSwitcher() {

@@ -10,7 +10,7 @@ import {
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, ChevronRight,
-  GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock, Mail
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster, toast } from "sonner";
@@ -233,6 +233,7 @@ const guardianPortalNav: NavSection[] = [
   {
     items: [
       { href: "/guardian-portal", label: "Overview", icon: LayoutDashboard, primary: true },
+      { href: "/guardian-portal/messages", label: "Messages", icon: Mail, primary: true },
       { href: "/guardian-portal/documents", label: "Documents", icon: FileText, primary: true },
       { href: "/guardian-portal/meetings", label: "Meetings", icon: Calendar, primary: true },
       { href: "/guardian-portal/contact-history", label: "Contact History", icon: MessageSquare, primary: true },
@@ -305,12 +306,12 @@ const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
   },
   sped_parent: {
     nav: guardianPortalNav,
-    color: "bg-emerald-600",
-    textColor: "text-emerald-600",
-    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
-    iconActive: "text-emerald-600",
+    color: "bg-purple-600",
+    textColor: "text-purple-600",
+    bgActive: "bg-purple-50 text-purple-700 font-semibold",
+    iconActive: "text-purple-600",
     label: "Trellis",
-    subtitle: "Built to support.",
+    subtitle: "Parent Portal",
     homeHref: "/guardian-portal",
   },
 };

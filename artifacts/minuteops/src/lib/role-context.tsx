@@ -73,9 +73,11 @@ interface RoleContextType {
   isPlatformAdmin: boolean;
   studentId: number;
   teacherId: number;
+  guardianId: number;
   setRole: (role: UserRole) => void;
   setStudentId: (id: number, name?: string) => void;
   setTeacherId: (id: number, name?: string) => void;
+  setGuardianId: (id: number) => void;
 }
 
 const RoleContext = createContext<RoleContextType | null>(null);
@@ -107,6 +109,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return Number(lsGet("trellis_teacher_id")) || 0;
   });
 
+  const [devGuardianId, setDevGuardianIdState] = useState<number>(() => {
+    return Number(lsGet("trellis_guardian_id")) || 1;
+  });
+
   const clerkRole = isValidRole(clerkUser?.publicMetadata?.role)
     ? (clerkUser!.publicMetadata!.role as UserRole)
     : null;
@@ -118,15 +124,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const role: UserRole = (isDevMode && devRole) ? devRole : (clerkRole ?? (isDevMode ? "admin" : "sped_teacher"));
   const studentId = (isDevMode && devStudentId) ? devStudentId : clerkStudentId;
   const teacherId = (isDevMode && devTeacherId) ? devTeacherId : clerkStaffId;
+  const clerkGuardianId = Number(clerkUser?.publicMetadata?.guardianId) || 0;
+  const guardianId = (isDevMode && devGuardianId) ? devGuardianId : clerkGuardianId;
 
   useEffect(() => {
     if (isDevMode) {
-      setExtraHeaders({ "x-demo-role": role });
+      const headers: Record<string, string> = { "x-demo-role": role };
+      if (role === "sped_parent") {
+        headers["x-demo-guardian-id"] = String(guardianId);
+      }
+      setExtraHeaders(headers);
     }
     return () => {
       if (isDevMode) setExtraHeaders(null);
     };
-  }, [isDevMode, role]);
+  }, [isDevMode, role, guardianId]);
 
   const clerkName = clerkUser?.fullName || clerkUser?.firstName || "";
   const userName = (isDevMode && devRole)
@@ -162,6 +174,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     lsSet("trellis_teacher_id", String(id));
   }
 
+  function setGuardianId(id: number) {
+    if (!isDevMode) return;
+    setDevGuardianIdState(id);
+    lsSet("trellis_guardian_id", String(id));
+  }
+
   if (!isLoaded) return null;
 
   return (
@@ -172,9 +190,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       isPlatformAdmin,
       studentId,
       teacherId,
+      guardianId,
       setRole,
       setStudentId,
       setTeacherId,
+      setGuardianId,
     }}>
       {children}
     </RoleContext.Provider>
