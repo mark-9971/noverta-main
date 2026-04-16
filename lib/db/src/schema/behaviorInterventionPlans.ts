@@ -28,6 +28,8 @@ export const behaviorInterventionPlansTable = pgTable("behavior_intervention_pla
   progressCriteria: text("progress_criteria"),
   reviewDate: date("review_date"),
   effectiveDate: date("effective_date"),
+  implementationStartDate: date("implementation_start_date"),
+  discontinuedDate: date("discontinued_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

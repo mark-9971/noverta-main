@@ -4,14 +4,17 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardList, Plus, FileText, Search, AlertTriangle, TrendingDown,
   ChevronRight, X, Save, Trash2, BarChart3, Brain, Shield, ArrowRight,
-  Clock, Eye, CheckCircle2, Circle
+  Clock, Eye, CheckCircle2, Circle, Users, History, ClipboardCheck,
+  Send, ThumbsUp, Play, Ban, RotateCcw, UserMinus
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, BarChart, Bar, Cell
 } from "recharts";
 import { toast } from "sonner";
-import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, generateBipFromFba } from "@workspace/api-client-react";
+import { listStudents, listFbas, getStudentBips, listFbaObservations, getFbaObservationsSummary, listFaSessions, createFba, updateFba, createFbaObservation, deleteFbaObservation, createFaSession, deleteFaSession, updateBip, generateBipFromFba, listStaff } from "@workspace/api-client-react";
+import { useRole } from "@/lib/role-context";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface FbaRecord {
@@ -56,7 +59,24 @@ interface BipRecord {
   reinforcementSchedule: string | null; crisisPlan: string | null;
   dataCollectionMethod: string | null; progressCriteria: string | null;
   reviewDate: string | null; effectiveDate: string | null;
+  implementationStartDate: string | null; discontinuedDate: string | null;
+  version: number; createdByName?: string | null;
   createdAt: string; updatedAt: string;
+}
+interface BipStatusEntry {
+  id: number; fromStatus: string; toStatus: string;
+  changedById: number | null; changedByName: string | null;
+  notes: string | null; changedAt: string;
+}
+interface BipImplementerEntry {
+  id: number; staffId: number; staffName: string | null; staffRole: string | null;
+  assignedByName: string | null; notes: string | null; assignedAt: string;
+}
+interface BipFidelityEntry {
+  id: number; staffId: number | null; staffName: string | null;
+  logDate: string; fidelityRating: number | null;
+  studentResponse: string | null; implementationNotes: string | null;
+  createdAt: string;
 }
 
 const ANTECEDENT_CATEGORIES = [
@@ -75,17 +95,22 @@ const CONDITION_COLORS: Record<string, string> = {
   control: "#374151", alone: "#92400e", play: "#10b981"
 };
 
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  draft: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
+  "in-progress": { label: "In Progress", cls: "bg-amber-50 text-amber-700" },
+  completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-700" },
+  under_review: { label: "Under Review", cls: "bg-blue-50 text-blue-700" },
+  approved: { label: "Approved", cls: "bg-violet-50 text-violet-700" },
+  active: { label: "Active", cls: "bg-emerald-100 text-emerald-800 font-semibold" },
+  discontinued: { label: "Discontinued", cls: "bg-red-50 text-red-600" },
+  archived: { label: "Archived", cls: "bg-gray-100 text-gray-500" },
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-700",
-    "in-progress": "bg-amber-50 text-amber-700",
-    completed: "bg-emerald-50 text-emerald-700",
-    active: "bg-emerald-50 text-emerald-700",
-    archived: "bg-gray-100 text-gray-500",
-  };
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles[status] || styles.draft}`}>
-      {status.replace("-", " ")}
+    <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.cls}`}>
+      {cfg.label}
     </span>
   );
 }
@@ -1167,7 +1192,44 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   onSelectBip: (b: BipRecord | null) => void; onEdit: (b: Partial<BipRecord> | null) => void;
   onRefresh: () => void;
 }) {
+  const { role } = useRole();
   const [generating, setGenerating] = useState(false);
+  const [transitionNotes, setTransitionNotes] = useState("");
+  const [transitioning, setTransitioning] = useState(false);
+  const [bipTab, setBipTab] = useState<"plan" | "implementers" | "history" | "fidelity">("plan");
+  const [statusHistory, setStatusHistory] = useState<BipStatusEntry[]>([]);
+  const [implementers, setImplementers] = useState<BipImplementerEntry[]>([]);
+  const [fidelityLogs, setFidelityLogs] = useState<BipFidelityEntry[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [addImplStaffId, setAddImplStaffId] = useState("");
+  const [addImplNotes, setAddImplNotes] = useState("");
+  const [addingImpl, setAddingImpl] = useState(false);
+  const [showAddImpl, setShowAddImpl] = useState(false);
+  const [fidelityForm, setFidelityForm] = useState({ logDate: new Date().toISOString().split("T")[0], fidelityRating: "", studentResponse: "", implementationNotes: "" });
+  const [addingFidelity, setAddingFidelity] = useState(false);
+  const [showAddFidelity, setShowAddFidelity] = useState(false);
+
+  const isApprover = role === "admin" || role === "bcba";
+  const isReviewer = ["admin", "bcba", "case_manager", "coordinator"].includes(role);
+
+  const loadBipExtras = useCallback(async (bipId: number) => {
+    const [hist, impls, fidelity] = await Promise.all([
+      authFetch(`/api/bips/${bipId}/status-history`).then(r => r.json()).catch(() => []),
+      authFetch(`/api/bips/${bipId}/implementers`).then(r => r.json()).catch(() => []),
+      authFetch(`/api/bips/${bipId}/fidelity-logs`).then(r => r.json()).catch(() => []),
+    ]);
+    setStatusHistory(Array.isArray(hist) ? hist : []);
+    setImplementers(Array.isArray(impls) ? impls : []);
+    setFidelityLogs(Array.isArray(fidelity) ? fidelity : []);
+  }, []);
+
+  useEffect(() => {
+    listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (selectedBip) loadBipExtras(selectedBip.id);
+  }, [selectedBip, loadBipExtras]);
 
   const generateFromFba = async () => {
     if (!selectedFba) { toast.error("Select an FBA first"); return; }
@@ -1190,28 +1252,105 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     } catch { toast.error("Failed to update BIP"); }
   };
 
-  const updateBipStatus = async (id: number, status: string) => {
+  const doTransition = async (toStatus: string) => {
+    if (!selectedBip) return;
+    setTransitioning(true);
     try {
-      await updateBip(id, { status } as any);
-      toast.success(`BIP ${status}`);
+      const r = await authFetch(`/api/bips/${selectedBip.id}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toStatus, notes: transitionNotes || null }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        toast.error(err.error || "Transition failed");
+        return;
+      }
+      toast.success(`BIP is now ${STATUS_CONFIG[toStatus]?.label || toStatus}`);
+      setTransitionNotes("");
       onRefresh();
-    } catch { toast.error("Failed to update status"); }
+      await loadBipExtras(selectedBip.id);
+    } catch { toast.error("Failed to transition BIP"); }
+    setTransitioning(false);
+  };
+
+  const addImplementer = async () => {
+    if (!selectedBip || !addImplStaffId) return;
+    setAddingImpl(true);
+    try {
+      const r = await authFetch(`/api/bips/${selectedBip.id}/implementers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId: parseInt(addImplStaffId), notes: addImplNotes || null }),
+      });
+      if (!r.ok) throw new Error();
+      toast.success("Implementer assigned");
+      setAddImplStaffId(""); setAddImplNotes(""); setShowAddImpl(false);
+      await loadBipExtras(selectedBip.id);
+    } catch { toast.error("Failed to assign implementer"); }
+    setAddingImpl(false);
+  };
+
+  const removeImplementer = async (implId: number) => {
+    try {
+      await authFetch(`/api/bip-implementers/${implId}`, { method: "DELETE" });
+      toast.success("Implementer removed");
+      if (selectedBip) await loadBipExtras(selectedBip.id);
+    } catch { toast.error("Failed to remove implementer"); }
+  };
+
+  const addFidelityLog = async () => {
+    if (!selectedBip || !fidelityForm.logDate) return;
+    setAddingFidelity(true);
+    try {
+      const r = await authFetch(`/api/bips/${selectedBip.id}/fidelity-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logDate: fidelityForm.logDate,
+          fidelityRating: fidelityForm.fidelityRating ? parseInt(fidelityForm.fidelityRating) : null,
+          studentResponse: fidelityForm.studentResponse || null,
+          implementationNotes: fidelityForm.implementationNotes || null,
+        }),
+      });
+      if (!r.ok) throw new Error();
+      toast.success("Fidelity entry logged");
+      setFidelityForm({ logDate: new Date().toISOString().split("T")[0], fidelityRating: "", studentResponse: "", implementationNotes: "" });
+      setShowAddFidelity(false);
+      await loadBipExtras(selectedBip.id);
+    } catch { toast.error("Failed to add fidelity entry"); }
+    setAddingFidelity(false);
+  };
+
+  const removeFidelityLog = async (logId: number) => {
+    try {
+      await authFetch(`/api/bip-fidelity-logs/${logId}`, { method: "DELETE" });
+      toast.success("Entry removed");
+      if (selectedBip) await loadBipExtras(selectedBip.id);
+    } catch { toast.error("Failed to remove entry"); }
   };
 
   const currentBip = selectedBip
     ? { ...selectedBip, ...(editingBip || {}) } as BipRecord
     : null;
 
+  const BIP_WORKFLOW_STEPS = [
+    { status: "draft", label: "Draft" },
+    { status: "under_review", label: "Under Review" },
+    { status: "approved", label: "Approved" },
+    { status: "active", label: "Active" },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Behavior Intervention Plans</h2>
         <div className="flex gap-2">
-          {selectedFba && (
+          {selectedFba && !selectedBip && (
             <Button size="sm" onClick={generateFromFba} disabled={generating}
               className="bg-emerald-600 hover:bg-emerald-700">
               <Brain className="w-4 h-4 mr-1" />
-              Generate from FBA
+              {generating ? "Generating…" : "Generate from FBA"}
             </Button>
           )}
         </div>
@@ -1225,17 +1364,19 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
         <div className="space-y-2">
           {bips.map(bip => (
             <Card key={bip.id} className="cursor-pointer hover:border-emerald-300 transition"
-              onClick={() => onSelectBip(bip)}>
+              onClick={() => { onSelectBip(bip); setBipTab("plan"); }}>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-gray-900">{bip.targetBehavior}</h3>
                       <StatusBadge status={bip.status} />
+                      <span className="text-xs text-gray-400">v{bip.version}</span>
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
                       Function: <FunctionBadge func={bip.hypothesizedFunction} />
                       <span className="ml-3">{new Date(bip.createdAt).toLocaleDateString()}</span>
+                      {bip.implementationStartDate && <span className="ml-3 text-emerald-600">Active since {bip.implementationStartDate}</span>}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -1248,24 +1389,17 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
 
       {currentBip && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => { onSelectBip(null); onEdit(null); }}>
               <X className="w-4 h-4 mr-1" /> Back to List
             </Button>
-            <div className="flex gap-2">
-              {!editingBip ? (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => onEdit({ ...currentBip })}>
-                    Edit BIP
-                  </Button>
-                  {currentBip.status === "draft" && (
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => updateBipStatus(currentBip.id, "active")}>
-                      Activate
-                    </Button>
-                  )}
-                </>
-              ) : (
+            <div className="flex gap-2 flex-wrap">
+              {!editingBip && !["discontinued", "archived"].includes(currentBip.status) && (
+                <Button variant="outline" size="sm" onClick={() => onEdit({ ...currentBip })}>
+                  Edit BIP
+                </Button>
+              )}
+              {editingBip && (
                 <>
                   <Button variant="ghost" size="sm" onClick={() => onEdit(null)}>Cancel</Button>
                   <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={saveBipEdits}>
@@ -1276,83 +1410,384 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
             </div>
           </div>
 
-          <Card>
-            <CardHeader>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">{currentBip.targetBehavior}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <StatusBadge status={currentBip.status} />
+                  <span className="text-xs text-gray-400">Version {currentBip.version}</span>
+                  {currentBip.implementationStartDate && (
+                    <span className="text-xs text-emerald-600">Active since {currentBip.implementationStartDate}</span>
+                  )}
+                  {currentBip.discontinuedDate && (
+                    <span className="text-xs text-red-500">Discontinued {currentBip.discontinuedDate}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {currentBip.status !== "discontinued" && currentBip.status !== "archived" && (
+              <div className="border-t border-gray-100 pt-3">
+                <div className="flex items-center gap-1 mb-3">
+                  {BIP_WORKFLOW_STEPS.map((step, i) => {
+                    const steps = BIP_WORKFLOW_STEPS.map(s => s.status);
+                    const curIdx = steps.indexOf(currentBip.status);
+                    const stepIdx = i;
+                    const isDone = stepIdx < curIdx || currentBip.status === step.status;
+                    const isCurrent = currentBip.status === step.status;
+                    return (
+                      <div key={step.status} className="flex items-center flex-1 min-w-0">
+                        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${
+                          isCurrent ? "bg-emerald-100 text-emerald-800" : isDone ? "bg-gray-100 text-gray-500" : "text-gray-300"
+                        }`}>
+                          {isDone && !isCurrent && <CheckCircle2 className="w-3 h-3" />}
+                          {step.label}
+                        </div>
+                        {i < BIP_WORKFLOW_STEPS.length - 1 && (
+                          <div className={`flex-1 h-px mx-1 ${stepIdx < curIdx ? "bg-gray-300" : "bg-gray-100"}`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-start gap-2 flex-wrap">
+                  {currentBip.status === "draft" && isReviewer && (
+                    <Button size="sm" variant="outline" disabled={transitioning}
+                      onClick={() => doTransition("under_review")}
+                      className="text-blue-700 border-blue-200 hover:bg-blue-50">
+                      <Send className="w-3.5 h-3.5 mr-1" /> Submit for Review
+                    </Button>
+                  )}
+                  {currentBip.status === "under_review" && isApprover && (
+                    <>
+                      <Button size="sm" variant="outline" disabled={transitioning}
+                        onClick={() => doTransition("approved")}
+                        className="text-violet-700 border-violet-200 hover:bg-violet-50">
+                        <ThumbsUp className="w-3.5 h-3.5 mr-1" /> Approve
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={transitioning}
+                        onClick={() => doTransition("draft")}
+                        className="text-gray-600 border-gray-200 hover:bg-gray-50">
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" /> Return to Draft
+                      </Button>
+                    </>
+                  )}
+                  {currentBip.status === "approved" && isApprover && (
+                    <Button size="sm" disabled={transitioning}
+                      onClick={() => doTransition("active")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Play className="w-3.5 h-3.5 mr-1" /> Activate
+                    </Button>
+                  )}
+                  {currentBip.status === "active" && isApprover && (
+                    <Button size="sm" variant="outline" disabled={transitioning}
+                      onClick={() => doTransition("discontinued")}
+                      className="text-red-600 border-red-200 hover:bg-red-50">
+                      <Ban className="w-3.5 h-3.5 mr-1" /> Discontinue
+                    </Button>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Optional notes for this transition…"
+                    value={transitionNotes}
+                    onChange={e => setTransitionNotes(e.target.value)}
+                    className="flex-1 min-w-[160px] px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-1 border-b border-gray-200">
+            {([
+              { key: "plan" as const, label: "BIP Plan", icon: Shield },
+              { key: "implementers" as const, label: `Implementers${implementers.length > 0 ? ` (${implementers.length})` : ""}`, icon: Users },
+              { key: "history" as const, label: `History${statusHistory.length > 0 ? ` (${statusHistory.length})` : ""}`, icon: History },
+              { key: "fidelity" as const, label: `Fidelity Log${fidelityLogs.length > 0 ? ` (${fidelityLogs.length})` : ""}`, icon: ClipboardCheck },
+            ]).map(t => (
+              <button key={t.key} onClick={() => setBipTab(t.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium border-b-2 transition-all whitespace-nowrap ${
+                  bipTab === t.key ? "border-emerald-700 text-emerald-800" : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}>
+                <t.icon className="w-3.5 h-3.5" />
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {bipTab === "plan" && (
+            <Card>
+              <CardContent className="pt-5 space-y-5">
+                <BipSection title="Target Behavior" field="targetBehavior" value={currentBip.targetBehavior}
+                  editing={editingBip} onEdit={onEdit} />
+                <BipSection title="Operational Definition" field="operationalDefinition" value={currentBip.operationalDefinition}
+                  editing={editingBip} onEdit={onEdit} multiline />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600">Hypothesized Function:</span>
+                  <FunctionBadge func={currentBip.hypothesizedFunction} />
+                </div>
+
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Replacement Behaviors
+                  </h3>
+                  <BipSection field="replacementBehaviors" value={currentBip.replacementBehaviors || ""}
+                    editing={editingBip} onEdit={onEdit} multiline />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-amber-600" /> Prevention Strategies
+                    </h3>
+                    <BipSection field="preventionStrategies" value={currentBip.preventionStrategies || ""}
+                      editing={editingBip} onEdit={onEdit} multiline />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-emerald-600" /> Teaching Strategies
+                    </h3>
+                    <BipSection field="teachingStrategies" value={currentBip.teachingStrategies || ""}
+                      editing={editingBip} onEdit={onEdit} multiline />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <ArrowRight className="w-4 h-4 text-gray-600" /> Consequence Strategies
+                    </h3>
+                    <BipSection field="consequenceStrategies" value={currentBip.consequenceStrategies || ""}
+                      editing={editingBip} onEdit={onEdit} multiline />
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">Reinforcement Schedule</h3>
+                  <BipSection field="reinforcementSchedule" value={currentBip.reinforcementSchedule || ""}
+                    editing={editingBip} onEdit={onEdit} multiline />
+                </div>
+
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Crisis Plan
+                  </h3>
+                  <BipSection field="crisisPlan" value={currentBip.crisisPlan || ""}
+                    editing={editingBip} onEdit={onEdit} multiline />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">Data Collection Method</h3>
+                    <BipSection field="dataCollectionMethod" value={currentBip.dataCollectionMethod || ""}
+                      editing={editingBip} onEdit={onEdit} multiline />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">Progress Criteria</h3>
+                    <BipSection field="progressCriteria" value={currentBip.progressCriteria || ""}
+                      editing={editingBip} onEdit={onEdit} multiline />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {bipTab === "implementers" && (
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Behavior Intervention Plan</CardTitle>
-                <StatusBadge status={currentBip.status} />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <BipSection title="Target Behavior" field="targetBehavior" value={currentBip.targetBehavior}
-                editing={editingBip} onEdit={onEdit} />
-              <BipSection title="Operational Definition" field="operationalDefinition" value={currentBip.operationalDefinition}
-                editing={editingBip} onEdit={onEdit} multiline />
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600">Hypothesized Function:</span>
-                <FunctionBadge func={currentBip.hypothesizedFunction} />
+                <p className="text-sm text-gray-600">Staff assigned to implement this BIP</p>
+                {isApprover && (
+                  <Button size="sm" variant="outline" onClick={() => setShowAddImpl(v => !v)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Assign Staff
+                  </Button>
+                )}
               </div>
 
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Replacement Behaviors
-                </h3>
-                <BipSection field="replacementBehaviors" value={currentBip.replacementBehaviors || ""}
-                  editing={editingBip} onEdit={onEdit} multiline />
+              {showAddImpl && (
+                <Card className="border-emerald-200 bg-emerald-50/30">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-700">Staff Member *</label>
+                        <select value={addImplStaffId} onChange={e => setAddImplStaffId(e.target.value)}
+                          className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                          <option value="">Select staff…</option>
+                          {staffList.map((s: any) => (
+                            <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.role})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-700">Notes</label>
+                        <input value={addImplNotes} onChange={e => setAddImplNotes(e.target.value)}
+                          placeholder="Optional notes for this assignment…"
+                          className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setShowAddImpl(false)}>Cancel</Button>
+                      <Button size="sm" onClick={addImplementer} disabled={addingImpl || !addImplStaffId}
+                        className="bg-emerald-600 hover:bg-emerald-700">
+                        Assign
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {implementers.length === 0 ? (
+                <Card><CardContent className="py-10 text-center"><Users className="w-8 h-8 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-400">No implementers assigned yet</p></CardContent></Card>
+              ) : (
+                <div className="space-y-2">
+                  {implementers.map(impl => (
+                    <Card key={impl.id}>
+                      <CardContent className="py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{impl.staffName || "Staff"}</p>
+                          <p className="text-xs text-gray-500">{impl.staffRole || ""} · Assigned {new Date(impl.assignedAt).toLocaleDateString()}
+                            {impl.assignedByName ? ` by ${impl.assignedByName}` : ""}
+                          </p>
+                          {impl.notes && <p className="text-xs text-gray-400 mt-0.5">{impl.notes}</p>}
+                        </div>
+                        {isApprover && (
+                          <Button variant="ghost" size="sm" onClick={() => removeImplementer(impl.id)}
+                            className="text-red-400 hover:text-red-600">
+                            <UserMinus className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {bipTab === "history" && (
+            <div className="space-y-2">
+              {statusHistory.length === 0 ? (
+                <Card><CardContent className="py-10 text-center"><History className="w-8 h-8 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-400">No status changes recorded yet</p></CardContent></Card>
+              ) : (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+                  <div className="space-y-3 pl-10">
+                    {statusHistory.map(entry => (
+                      <div key={entry.id} className="relative">
+                        <div className="absolute -left-6 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
+                        <Card>
+                          <CardContent className="py-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <StatusBadge status={entry.fromStatus} />
+                              <ArrowRight className="w-3 h-3 text-gray-400" />
+                              <StatusBadge status={entry.toStatus} />
+                              <span className="text-xs text-gray-400 ml-auto">
+                                {new Date(entry.changedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                {entry.changedByName ? ` · ${entry.changedByName}` : ""}
+                              </span>
+                            </div>
+                            {entry.notes && <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {bipTab === "fidelity" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">Implementation fidelity check-ins</p>
+                <Button size="sm" variant="outline" onClick={() => setShowAddFidelity(v => !v)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Log Entry
+                </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-4">
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-amber-600" /> Prevention Strategies
-                  </h3>
-                  <BipSection field="preventionStrategies" value={currentBip.preventionStrategies || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-emerald-600" /> Teaching Strategies
-                  </h3>
-                  <BipSection field="teachingStrategies" value={currentBip.teachingStrategies || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <ArrowRight className="w-4 h-4 text-gray-600" /> Consequence Strategies
-                  </h3>
-                  <BipSection field="consequenceStrategies" value={currentBip.consequenceStrategies || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
-                </div>
-              </div>
+              {showAddFidelity && (
+                <Card className="border-emerald-200 bg-emerald-50/30">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-700">Date *</label>
+                        <input type="date" value={fidelityForm.logDate}
+                          onChange={e => setFidelityForm(p => ({ ...p, logDate: e.target.value }))}
+                          className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-700">Fidelity Rating (1–4)</label>
+                        <select value={fidelityForm.fidelityRating}
+                          onChange={e => setFidelityForm(p => ({ ...p, fidelityRating: e.target.value }))}
+                          className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                          <option value="">Select…</option>
+                          <option value="4">4 — Full fidelity (all steps followed)</option>
+                          <option value="3">3 — High fidelity (most steps followed)</option>
+                          <option value="2">2 — Partial fidelity (some steps missed)</option>
+                          <option value="1">1 — Low fidelity (significant deviation)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-700">Student Response</label>
+                      <input value={fidelityForm.studentResponse}
+                        onChange={e => setFidelityForm(p => ({ ...p, studentResponse: e.target.value }))}
+                        placeholder="How did the student respond today?"
+                        className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-700">Implementation Notes</label>
+                      <textarea value={fidelityForm.implementationNotes} rows={2}
+                        onChange={e => setFidelityForm(p => ({ ...p, implementationNotes: e.target.value }))}
+                        placeholder="Any notes on implementation, challenges, or observations…"
+                        className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setShowAddFidelity(false)}>Cancel</Button>
+                      <Button size="sm" onClick={addFidelityLog} disabled={addingFidelity || !fidelityForm.logDate}
+                        className="bg-emerald-600 hover:bg-emerald-700">
+                        <Save className="w-3.5 h-3.5 mr-1" /> Save Entry
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-bold text-gray-900 mb-2">Reinforcement Schedule</h3>
-                <BipSection field="reinforcementSchedule" value={currentBip.reinforcementSchedule || ""}
-                  editing={editingBip} onEdit={onEdit} multiline />
-              </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Crisis Plan
-                </h3>
-                <BipSection field="crisisPlan" value={currentBip.crisisPlan || ""}
-                  editing={editingBip} onEdit={onEdit} multiline />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2">Data Collection Method</h3>
-                  <BipSection field="dataCollectionMethod" value={currentBip.dataCollectionMethod || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
+              {fidelityLogs.length === 0 ? (
+                <Card><CardContent className="py-10 text-center"><ClipboardCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-400">No fidelity entries yet. Log check-ins when implementing this BIP.</p></CardContent></Card>
+              ) : (
+                <div className="space-y-2">
+                  {fidelityLogs.map(log => {
+                    const ratingColors = ["", "bg-red-50 text-red-700", "bg-amber-50 text-amber-700", "bg-emerald-50 text-emerald-700", "bg-emerald-100 text-emerald-800"];
+                    const ratingLabels = ["", "Low", "Partial", "High", "Full"];
+                    return (
+                      <Card key={log.id}>
+                        <CardContent className="py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-gray-900">{log.logDate}</span>
+                                {log.staffName && <span className="text-xs text-gray-400">by {log.staffName}</span>}
+                                {log.fidelityRating != null && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ratingColors[log.fidelityRating] || ""}`}>
+                                    {ratingLabels[log.fidelityRating] || ""} fidelity
+                                  </span>
+                                )}
+                              </div>
+                              {log.studentResponse && <p className="text-xs text-gray-600 mt-1"><span className="font-medium">Student response:</span> {log.studentResponse}</p>}
+                              {log.implementationNotes && <p className="text-xs text-gray-500 mt-0.5">{log.implementationNotes}</p>}
+                            </div>
+                            <button onClick={() => removeFidelityLog(log.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-2">Progress Criteria</h3>
-                  <BipSection field="progressCriteria" value={currentBip.progressCriteria || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

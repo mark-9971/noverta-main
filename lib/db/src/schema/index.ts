@@ -80,3 +80,7 @@ export * from "./schoolYears";
 export * from "./generatedDocuments";
 export * from "./communicationEvents";
 export * from "./documentAcknowledgments";
+
+export * from "./bipStatusHistory";
+export * from "./bipImplementers";
+export * from "./bipFidelityLogs";

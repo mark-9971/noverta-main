@@ -3,10 +3,11 @@ import { db } from "@workspace/db";
 import {
   fbasTable, fbaObservationsTable, functionalAnalysesTable,
   behaviorInterventionPlansTable, studentsTable, staffTable,
-  behaviorTargetsTable
+  behaviorTargetsTable, bipStatusHistoryTable, bipImplementersTable, bipFidelityLogsTable
 } from "@workspace/db";
 import { eq, desc, and, sql, asc, max } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 router.use(requireTierAccess("clinical.fba_bip"));
@@ -425,10 +426,21 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
     if (existing.status === "archived") { res.status(400).json({ error: "Cannot version an archived BIP" }); return; }
 
     const body = req.body || {};
+    const authed = req as AuthedRequest;
+    const changedById = authed.tenantStaffId ?? null;
+
     const newBip = await db.transaction(async (tx) => {
       await tx.update(behaviorInterventionPlansTable)
         .set({ status: "archived" })
         .where(eq(behaviorInterventionPlansTable.id, id));
+
+      await tx.insert(bipStatusHistoryTable).values({
+        bipId: id,
+        fromStatus: existing.status,
+        toStatus: "archived",
+        changedById,
+        notes: body.revisionNotes || "New version created",
+      });
 
       const [created] = await tx.insert(behaviorInterventionPlansTable).values({
         studentId: existing.studentId,
@@ -527,6 +539,278 @@ router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("POST generate-bip error:", e);
     res.status(500).json({ error: "Failed to generate BIP" });
+  }
+});
+
+const BIP_APPROVER_ROLES = ["admin", "bcba"];
+const BIP_REVIEWER_ROLES = ["admin", "bcba", "case_manager", "coordinator"];
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  draft: ["under_review"],
+  under_review: ["approved", "draft"],
+  approved: ["active", "under_review"],
+  active: ["discontinued"],
+  discontinued: [],
+};
+
+router.post("/bips/:id/transition", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    const changedById = authed.tenantStaffId ?? null;
+    const { toStatus, notes } = req.body;
+
+    if (!toStatus) { res.status(400).json({ error: "toStatus is required" }); return; }
+
+    const [bip] = await db.select().from(behaviorInterventionPlansTable)
+      .where(eq(behaviorInterventionPlansTable.id, id));
+    if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
+
+    const allowed = VALID_TRANSITIONS[bip.status] ?? [];
+    if (!allowed.includes(toStatus)) {
+      res.status(400).json({ error: `Cannot transition from '${bip.status}' to '${toStatus}'` });
+      return;
+    }
+
+    const approverOnly = ["approved", "active", "discontinued"];
+    if (approverOnly.includes(toStatus) && !BIP_APPROVER_ROLES.includes(role)) {
+      res.status(403).json({ error: "Only BCBAs and admins can approve, activate, or discontinue a BIP" });
+      return;
+    }
+    if (toStatus === "under_review" && !BIP_REVIEWER_ROLES.includes(role)) {
+      res.status(403).json({ error: "Insufficient permissions to submit for review" });
+      return;
+    }
+
+    const dateNow = new Date().toISOString().split("T")[0];
+    const updates: any = { status: toStatus };
+    if (toStatus === "active" && !bip.implementationStartDate) {
+      updates.implementationStartDate = dateNow;
+    }
+    if (toStatus === "discontinued") {
+      updates.discontinuedDate = dateNow;
+    }
+
+    const [updated] = await db.transaction(async (tx) => {
+      const [u] = await tx.update(behaviorInterventionPlansTable)
+        .set(updates)
+        .where(eq(behaviorInterventionPlansTable.id, id))
+        .returning();
+      await tx.insert(bipStatusHistoryTable).values({
+        bipId: id,
+        fromStatus: bip.status,
+        toStatus,
+        changedById,
+        notes: notes || null,
+      });
+      return [u];
+    });
+
+    res.json({ ...updated, createdAt: isoDate(updated.createdAt), updatedAt: isoDate(updated.updatedAt) });
+  } catch (e: any) {
+    console.error("POST bip/transition error:", e);
+    res.status(500).json({ error: "Failed to transition BIP status" });
+  }
+});
+
+router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const history = await db.select({
+      id: bipStatusHistoryTable.id,
+      bipId: bipStatusHistoryTable.bipId,
+      fromStatus: bipStatusHistoryTable.fromStatus,
+      toStatus: bipStatusHistoryTable.toStatus,
+      changedById: bipStatusHistoryTable.changedById,
+      notes: bipStatusHistoryTable.notes,
+      changedAt: bipStatusHistoryTable.changedAt,
+      changedByName: sql<string>`${staffTable.firstName} || ' ' || ${staffTable.lastName}`,
+    })
+      .from(bipStatusHistoryTable)
+      .leftJoin(staffTable, eq(staffTable.id, bipStatusHistoryTable.changedById))
+      .where(eq(bipStatusHistoryTable.bipId, id))
+      .orderBy(asc(bipStatusHistoryTable.changedAt));
+    res.json(history.map(h => ({ ...h, changedAt: isoDate(h.changedAt) })));
+  } catch (e: any) {
+    console.error("GET bip status-history error:", e);
+    res.status(500).json({ error: "Failed to fetch status history" });
+  }
+});
+
+router.get("/bips/:id/implementers", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const implementers = await db.select({
+      id: bipImplementersTable.id,
+      bipId: bipImplementersTable.bipId,
+      staffId: bipImplementersTable.staffId,
+      assignedById: bipImplementersTable.assignedById,
+      notes: bipImplementersTable.notes,
+      active: bipImplementersTable.active,
+      assignedAt: bipImplementersTable.assignedAt,
+      staffName: sql<string>`si.first_name || ' ' || si.last_name`,
+      staffRole: sql<string>`si.role`,
+      assignedByName: sql<string>`ab.first_name || ' ' || ab.last_name`,
+    })
+      .from(bipImplementersTable)
+      .leftJoin(sql`staff si`, sql`si.id = ${bipImplementersTable.staffId}`)
+      .leftJoin(sql`staff ab`, sql`ab.id = ${bipImplementersTable.assignedById}`)
+      .where(and(eq(bipImplementersTable.bipId, id), eq(bipImplementersTable.active, true)))
+      .orderBy(asc(bipImplementersTable.assignedAt));
+    res.json(implementers.map(i => ({ ...i, assignedAt: isoDate(i.assignedAt) })));
+  } catch (e: any) {
+    console.error("GET bip implementers error:", e);
+    res.status(500).json({ error: "Failed to fetch implementers" });
+  }
+});
+
+router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const assignedById = authed.tenantStaffId ?? null;
+    const { staffId, notes } = req.body;
+
+    if (!staffId) { res.status(400).json({ error: "staffId is required" }); return; }
+
+    const [bip] = await db.select().from(behaviorInterventionPlansTable)
+      .where(eq(behaviorInterventionPlansTable.id, id));
+    if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
+
+    const [impl] = await db.insert(bipImplementersTable).values({
+      bipId: id,
+      staffId: parseInt(staffId),
+      assignedById,
+      notes: notes || null,
+      active: true,
+    }).returning();
+    res.status(201).json({ ...impl, assignedAt: isoDate(impl.assignedAt) });
+  } catch (e: any) {
+    console.error("POST bip implementer error:", e);
+    res.status(500).json({ error: "Failed to add implementer" });
+  }
+});
+
+router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [deleted] = await db.update(bipImplementersTable)
+      .set({ active: false })
+      .where(eq(bipImplementersTable.id, id))
+      .returning();
+    if (!deleted) { res.status(404).json({ error: "Implementer not found" }); return; }
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE bip-implementer error:", e);
+    res.status(500).json({ error: "Failed to remove implementer" });
+  }
+});
+
+router.get("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const logs = await db.select({
+      id: bipFidelityLogsTable.id,
+      bipId: bipFidelityLogsTable.bipId,
+      staffId: bipFidelityLogsTable.staffId,
+      logDate: bipFidelityLogsTable.logDate,
+      fidelityRating: bipFidelityLogsTable.fidelityRating,
+      studentResponse: bipFidelityLogsTable.studentResponse,
+      implementationNotes: bipFidelityLogsTable.implementationNotes,
+      createdAt: bipFidelityLogsTable.createdAt,
+      staffName: sql<string>`${staffTable.firstName} || ' ' || ${staffTable.lastName}`,
+    })
+      .from(bipFidelityLogsTable)
+      .leftJoin(staffTable, eq(staffTable.id, bipFidelityLogsTable.staffId))
+      .where(eq(bipFidelityLogsTable.bipId, id))
+      .orderBy(desc(bipFidelityLogsTable.logDate), desc(bipFidelityLogsTable.createdAt));
+    res.json(logs.map(l => ({ ...l, createdAt: isoDate(l.createdAt) })));
+  } catch (e: any) {
+    console.error("GET bip fidelity-logs error:", e);
+    res.status(500).json({ error: "Failed to fetch fidelity logs" });
+  }
+});
+
+router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const staffId = authed.tenantStaffId ?? null;
+    const { logDate, fidelityRating, studentResponse, implementationNotes, staffIdOverride } = req.body;
+
+    if (!logDate) { res.status(400).json({ error: "logDate is required" }); return; }
+
+    const [log] = await db.insert(bipFidelityLogsTable).values({
+      bipId: id,
+      staffId: staffIdOverride ? parseInt(staffIdOverride) : staffId,
+      logDate,
+      fidelityRating: fidelityRating != null ? parseInt(fidelityRating) : null,
+      studentResponse: studentResponse || null,
+      implementationNotes: implementationNotes || null,
+    }).returning();
+    res.status(201).json({ ...log, createdAt: isoDate(log.createdAt) });
+  } catch (e: any) {
+    console.error("POST bip fidelity-log error:", e);
+    res.status(500).json({ error: "Failed to add fidelity log" });
+  }
+});
+
+router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const [deleted] = await db.delete(bipFidelityLogsTable)
+      .where(eq(bipFidelityLogsTable.id, id))
+      .returning();
+    if (!deleted) { res.status(404).json({ error: "Fidelity log not found" }); return; }
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE bip-fidelity-log error:", e);
+    res.status(500).json({ error: "Failed to delete fidelity log" });
+  }
+});
+
+router.get("/staff/:staffId/assigned-bips", async (req, res): Promise<void> => {
+  try {
+    const staffId = parseInt(req.params.staffId);
+    const bips = await db.select({
+      id: behaviorInterventionPlansTable.id,
+      studentId: behaviorInterventionPlansTable.studentId,
+      targetBehavior: behaviorInterventionPlansTable.targetBehavior,
+      operationalDefinition: behaviorInterventionPlansTable.operationalDefinition,
+      hypothesizedFunction: behaviorInterventionPlansTable.hypothesizedFunction,
+      replacementBehaviors: behaviorInterventionPlansTable.replacementBehaviors,
+      preventionStrategies: behaviorInterventionPlansTable.preventionStrategies,
+      teachingStrategies: behaviorInterventionPlansTable.teachingStrategies,
+      consequenceStrategies: behaviorInterventionPlansTable.consequenceStrategies,
+      crisisPlan: behaviorInterventionPlansTable.crisisPlan,
+      dataCollectionMethod: behaviorInterventionPlansTable.dataCollectionMethod,
+      status: behaviorInterventionPlansTable.status,
+      version: behaviorInterventionPlansTable.version,
+      implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
+      effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+      reviewDate: behaviorInterventionPlansTable.reviewDate,
+      createdAt: behaviorInterventionPlansTable.createdAt,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+    })
+      .from(bipImplementersTable)
+      .innerJoin(behaviorInterventionPlansTable, eq(behaviorInterventionPlansTable.id, bipImplementersTable.bipId))
+      .innerJoin(studentsTable, eq(studentsTable.id, behaviorInterventionPlansTable.studentId))
+      .where(and(
+        eq(bipImplementersTable.staffId, staffId),
+        eq(bipImplementersTable.active, true),
+        eq(behaviorInterventionPlansTable.status, "active"),
+      ))
+      .orderBy(asc(studentsTable.lastName), asc(studentsTable.firstName));
+    res.json(bips.map(b => ({
+      ...b,
+      studentName: `${b.studentFirstName} ${b.studentLastName}`,
+      createdAt: isoDate(b.createdAt),
+    })));
+  } catch (e: any) {
+    console.error("GET staff assigned-bips error:", e);
+    res.status(500).json({ error: "Failed to fetch assigned BIPs" });
   }
 });
 
