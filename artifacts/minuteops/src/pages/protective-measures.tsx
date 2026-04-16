@@ -1683,6 +1683,8 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
             sendNotificationMutation={sendNotificationMutation}
             reviewNotificationMutation={reviewNotificationMutation}
             statusHistory={statusHistory}
+            lastEmailFailure={lastEmailFailure}
+            setLastEmailFailure={setLastEmailFailure}
           />
 
           <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
@@ -1915,7 +1917,7 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   );
 }
 
-function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutation, sendNotificationMutation, reviewNotificationMutation, statusHistory }: {
+function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutation, sendNotificationMutation, reviewNotificationMutation, statusHistory, lastEmailFailure, setLastEmailFailure }: {
   incident: any;
   staff: Staff[];
   incidentId: number;
@@ -1923,6 +1925,8 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
   sendNotificationMutation: any;
   reviewNotificationMutation: any;
   statusHistory: StatusHistoryEntry[];
+  lastEmailFailure: { notConfigured: boolean; error: string } | null;
+  setLastEmailFailure: (v: { notConfigured: boolean; error: string } | null) => void;
 }) {
   const [draftText, setDraftText] = useState(incident.parentNotificationDraft || "");
   const [sendMethod, setSendMethod] = useState("email");
