@@ -294,6 +294,8 @@ await assertForeignForbidden("admin", "GET", `/api/protective-measures/incidents
 await assertForeignForbidden("admin", "GET", `/api/reports/parent-summary/51`);
 // Session ID-based cross-tenant isolation: session 175760 belongs to district 2.
 await assertForeignForbidden("admin", "GET", `/api/sessions/${DEMO_SESSION_ID}`);
+// Student ID-based cross-tenant isolation: DEMO_STUDENT_ID belongs to district 2.
+await assertForeignForbidden("admin", "GET", `/api/students/${DEMO_STUDENT_ID}`);
 
 // ─── Results ─────────────────────────────────────────────────────────────────
 
