@@ -59,6 +59,7 @@ import documentWorkflowRouter from "./documentWorkflow";
 import studentNotesRouter from "./studentNotes";
 import accommodationVerificationsRouter from "./accommodationVerifications";
 import medicaidBillingRouter from "./medicaidBilling";
+import costAvoidanceRouter from "./costAvoidance";
 
 const router: IRouter = Router();
 
@@ -191,5 +192,9 @@ const requireBillingAdmin = requireRoles("admin", "coordinator");
 router.use("/medicaid", requireDistrictScope);
 router.use("/medicaid", requireBillingAdmin);
 router.use(medicaidBillingRouter);
+
+router.use("/cost-avoidance", requireDistrictScope);
+router.use("/cost-avoidance", requireRoles("admin", "coordinator"));
+router.use(costAvoidanceRouter);
 
 export default router;
