@@ -82,7 +82,7 @@ function NeedsAttentionPanel() {
 
   const items = [
     { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", critical: true },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance#timeline", critical: false },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance?filter=unresolved#timeline", critical: false },
     { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", critical: false },
     { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", critical: false },
   ].filter(i => i.count > 0);

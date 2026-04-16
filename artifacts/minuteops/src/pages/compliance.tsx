@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { RISK_CONFIG } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 import { FeatureGate } from "@/components/FeatureGate";
+import { type FeatureKey } from "@/lib/module-tiers";
 import ComplianceChecklist from "./compliance-checklist";
 import ComplianceTimelinePage from "./compliance-timeline";
 
@@ -308,7 +309,7 @@ export default function CompliancePage() {
 
       {activeTab === "minutes" && <ServiceMinutesContent />}
       {activeTab === "checklist" && (
-        <FeatureGate featureKey={"compliance.checklist" as any}>
+        <FeatureGate featureKey={"compliance.checklist" satisfies FeatureKey}>
           <ComplianceChecklist embedded />
         </FeatureGate>
       )}
