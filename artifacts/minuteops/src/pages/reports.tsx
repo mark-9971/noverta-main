@@ -104,6 +104,7 @@ function ComplianceExportsTab() {
   const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string } | null>(null);
   const [providers, setProviders] = useState<{ id: number; name: string }[]>([]);
   const [serviceTypes, setServiceTypes] = useState<{ id: number; name: string }[]>([]);
+  const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>("all");
   const [selectedServiceTypeId, setSelectedServiceTypeId] = useState<string>("all");
   const [complianceFilter, setComplianceFilter] = useState<string>("all");
@@ -116,6 +117,10 @@ function ComplianceExportsTab() {
     authFetch("/api/service-types").then(r => r.ok ? r.json() : []).then((data: any) => {
       const list = Array.isArray(data) ? data : [];
       setServiceTypes(list.map((s: any) => ({ id: s.id, name: s.name })));
+    }).catch(() => {});
+    authFetch("/api/schools").then(r => r.ok ? r.json() : []).then((data: any) => {
+      const list = Array.isArray(data) ? data : [];
+      setSchools(list.map((s: any) => ({ id: s.id, name: s.name })));
     }).catch(() => {});
   }, []);
 
@@ -168,6 +173,9 @@ function ComplianceExportsTab() {
     if (!scheduleForm) return;
     const emails = scheduleForm.emails.split(",").map(e => e.trim()).filter(Boolean);
     if (emails.length === 0) { toast.error("Enter at least one email address"); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = emails.filter(e => !emailRegex.test(e));
+    if (invalid.length > 0) { toast.error(`Invalid email format: ${invalid.join(", ")}`); return; }
     try {
       const res = await authFetch("/api/reports/exports/scheduled", {
         method: "POST",
@@ -557,6 +565,16 @@ function ComplianceExportsTab() {
                     <input type="date" value={scheduleForm.endDate} onChange={e => setScheduleForm({ ...scheduleForm, endDate: e.target.value })}
                       className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white" />
                   </div>
+                  {schools.length > 0 && (
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-medium block mb-1">School</label>
+                      <select value={scheduleForm.schoolId} onChange={e => setScheduleForm({ ...scheduleForm, schoolId: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                        <option value="all">All Schools</option>
+                        {schools.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                   {providers.length > 0 && (
                     <div>
                       <label className="text-[11px] text-gray-500 font-medium block mb-1">Provider</label>
