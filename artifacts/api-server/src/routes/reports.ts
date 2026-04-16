@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db } from "@workspace/db";
-import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireDistrictScope, requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable, staffTable, programsTable,
@@ -19,6 +19,10 @@ import { eq, and, gte, lte, desc, sql, count, asc } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
+
+// All report routes require district scope: users without a district claim are rejected.
+// Platform admins bypass this check and can access cross-district data.
+router.use(requireDistrictScope);
 
 const requireReportExport = requireRoles("admin", "case_manager", "coordinator");
 
@@ -158,9 +162,9 @@ router.get("/reports/compliance-trend", async (req: Request, res): Promise<void>
       return;
     }
     const { startDate, endDate, granularity, schoolId, schoolYearId: trendYearId } = req.query;
-    // Override districtId with the token-derived enforced value — client-supplied param is ignored for scoping.
+    // districtId is always token-derived; never accept from query param.
     const trendEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
-    const districtId = trendEnforcedDistrictId !== null ? String(trendEnforcedDistrictId) : req.query.districtId;
+    const districtId = trendEnforcedDistrictId !== null ? String(trendEnforcedDistrictId) : null;
     const gran = (granularity as string) || "weekly";
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
@@ -383,9 +387,9 @@ router.get("/reports/executive-summary", requireReportExport, async (req: Reques
       return;
     }
     const { schoolId, startDate, endDate, schoolYearId: execYearId } = req.query;
-    // Override districtId with the enforced token-derived value.
+    // districtId is always token-derived; never accept from query param.
     const execEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
-    const districtId = execEnforcedDistrictId !== null ? String(execEnforcedDistrictId) : req.query.districtId;
+    const districtId = execEnforcedDistrictId !== null ? String(execEnforcedDistrictId) : null;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -571,9 +575,9 @@ router.get("/reports/audit-package", requireReportExport, async (req: Request, r
       return;
     }
     const { startDate, endDate, schoolId, studentId } = req.query;
-    // Override districtId with the enforced token-derived value.
+    // districtId is always token-derived; never accept from query param.
     const auditEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
-    const districtId = auditEnforcedDistrictId !== null ? String(auditEnforcedDistrictId) : req.query.districtId;
+    const districtId = auditEnforcedDistrictId !== null ? String(auditEnforcedDistrictId) : null;
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
     const defaultStart = new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];

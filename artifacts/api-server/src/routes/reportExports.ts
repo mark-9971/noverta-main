@@ -9,7 +9,7 @@ import {
   schoolYearsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
-import { getEnforcedDistrictId } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireDistrictScope } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
@@ -19,6 +19,8 @@ interface BufferedPDFDoc {
 }
 
 const router: IRouter = Router();
+// Non-platform-admin users without a district claim cannot access export routes.
+router.use(requireDistrictScope);
 
 function escapeCSV(val: unknown): string {
   const str = String(val ?? "");

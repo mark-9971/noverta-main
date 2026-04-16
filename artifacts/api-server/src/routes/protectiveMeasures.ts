@@ -5,10 +5,13 @@ import PDFDocument from "pdfkit";
 import { logAudit } from "../lib/auditLog";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { getPublicMeta } from "../lib/clerkClaims";
-import { getEnforcedDistrictId } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireDistrictScope } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 
 const router = Router();
+// requireDistrictScope: non-platform-admin users without a district claim get 403.
+// Applies before all handlers — guarantees getEnforcedDistrictId() is non-null for regular users.
+router.use(requireDistrictScope);
 router.use(requireTierAccess("clinical.protective_measures"));
 
 /**

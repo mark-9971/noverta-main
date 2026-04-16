@@ -94,17 +94,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 /**
  * Returns the district ID to use for data filtering.
- * - Production: always returns the value from the auth token (cannot be overridden by query).
- * - Dev/test: prefers token value when present; falls back to client query param.
+ * Always derived from the auth token (set by requireAuth from Clerk claims or test headers).
+ * Never falls back to a client-supplied query parameter — callers must not rely on
+ * req.query.districtId for data scoping.
  */
 export function getEnforcedDistrictId(req: AuthedRequest): number | null {
-  const tokenDistrict = req.tenantDistrictId;
-  if (process.env.NODE_ENV === "production") {
-    return tokenDistrict;
-  }
-  if (tokenDistrict) return tokenDistrict;
-  const qd = req.query.districtId ? Number(req.query.districtId) : null;
-  return qd || null;
+  return req.tenantDistrictId ?? null;
 }
 
 /**
@@ -126,6 +121,27 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
     delete (req.query as Record<string, unknown>).schoolId;
   }
   next();
+}
+
+/**
+ * Middleware: ensures the authenticated user has a district scope derived from their
+ * token. If the user is NOT a platform admin and has no district claim, returns 403.
+ *
+ * Apply to any route that reads or writes district-scoped data. This guarantees that
+ * all downstream handlers can safely call getEnforcedDistrictId() and get a non-null
+ * value (unless explicitly checking for platform admin bypass).
+ */
+export function requireDistrictScope(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const authed = req as AuthedRequest;
+    const meta = getPublicMeta(req);
+    if (meta.platformAdmin) { next(); return; }
+    if (authed.tenantDistrictId == null) {
+      res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
+      return;
+    }
+    next();
+  });
 }
 
 export function requireRoles(...allowedRoles: TrellisRole[]) {
