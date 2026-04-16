@@ -62,7 +62,7 @@ export default function GuardianMessages() {
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
   const [confAction, setConfAction] = useState<{ id: number; action: string; time?: string } | null>(null);
-  const [confNotes, setConfNotes] = useState("");
+  const [confNotesMap, setConfNotesMap] = useState<Record<number, string>>({});
 
   useEffect(() => { loadData(); }, []);
 
@@ -132,7 +132,7 @@ export default function GuardianMessages() {
       const r = await authFetch(`/api/guardian-portal/conferences/${confId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, selectedTime, guardianNotes: confNotes.trim() || null }),
+        body: JSON.stringify({ status, selectedTime, guardianNotes: (confNotesMap[confId] || "").trim() || null }),
       });
       if (!r.ok) throw new Error();
       toast.success(status === "accepted" ? "Conference accepted" : "Conference declined");
@@ -212,8 +212,8 @@ export default function GuardianMessages() {
               </div>
               <div className="flex items-center gap-2 pt-1 border-t border-purple-100">
                 <input
-                  value={confNotes}
-                  onChange={e => setConfNotes(e.target.value)}
+                  value={confNotesMap[conf.id] || ""}
+                  onChange={e => setConfNotesMap(prev => ({ ...prev, [conf.id]: e.target.value }))}
                   placeholder="Add a note (optional)..."
                   className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:ring-1 focus:ring-emerald-500"
                 />
