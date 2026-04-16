@@ -256,11 +256,18 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
 
   const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
   const isBroadAccess = BROAD_ACCESS_ROLES.includes(callerRole ?? "");
-  let staffIdFilter: number | null = null;
-  if (req.query.staffId && isBroadAccess) {
-    staffIdFilter = Number(req.query.staffId);
+
+  if (!isBroadAccess && !callerStaffId) {
+    res.status(403).json({ error: "Staff identity required for caseload-scoped access" });
+    return;
+  }
+
+  let caseloadFilter = sql`1=1`;
+  if (isBroadAccess && req.query.staffId) {
+    const targetStaffId = Number(req.query.staffId);
+    caseloadFilter = sql`(s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
   } else if (!isBroadAccess && callerStaffId) {
-    staffIdFilter = callerStaffId;
+    caseloadFilter = sql`(s.case_manager_id = ${callerStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${callerStaffId}))`;
   }
 
   const rows = await db.execute(sql`
@@ -292,7 +299,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
       WHERE s.status = 'active'
         AND s.deleted_at IS NULL
         AND ${districtConditions}
-        ${staffIdFilter ? sql`AND s.case_manager_id = ${staffIdFilter}` : sql``}
+        AND ${caseloadFilter}
     )
     SELECT
       student_id AS "studentId",
