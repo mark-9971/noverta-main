@@ -14,7 +14,23 @@ See `docs/pilot/feature-status.md` for full module classification. Navigation ha
 - **DEMO (sell harder):** Compliance Dashboard, Progress Reports, IEP Builder, IEP Meetings, Protective Measures, Executive Dashboard, Clinical tools
 - **RESTORED (full nav):** All previously archived items are now restored to the sidebar: IEP Search, Evaluations, Transition Planning, IEP Calendar (Students); Staff Calendar, Coverage (Service Delivery); Compensatory Services, State Reports (Compliance); IEP Suggestions, Supervision (Clinical); Resource Management, Contract Utilization, Caseload Balancing (District); Agencies (People); Data Import, Billing (Admin)
 
-See `docs/pilot/refactor-plan.md` for staged refactor plan targeting oversized files.
+**Codebase Refactoring (April 2026):** Major refactoring initiative completed. All monolithic files (1000-3000 lines) have been broken into focused sub-module directories:
+
+Frontend pages refactored into sub-component directories (state/hooks in index.tsx, sub-components receive props):
+- `student-detail/` (7 sub-components), `student-iep/` (9 sub-components), `protective-measures/` (7 sub-components)
+- `sessions/`, `para-my-day/`, `evaluations/`, `iep-builder/`, `document-workflow/`, `transitions/`, `iep-meetings/`
+- `coverage/`, `progress-reports/`, `program-data/`, `analytics/`, `behavior-assessment/`, `reports/`
+- `schedule/`, `parent-communication/`, `staff-calendar/`, `caseload-balancing/`, `setup/`, `medicaid-billing/`
+- `supervision/`, `resource-management/`, `dashboard/`, `compensatory-finance/`, `compensatory-services/`
+- Components: `quick-log-sheet/`, `bip-management/`, `program-builder/` (TemplateManager split)
+
+Backend routes refactored into sub-module directories (index.ts mounts sub-routers):
+- `reportExports/`, `protectiveMeasures/`, `iep/`, `students/`, `programData/`, `dashboard/`, `iepMeetings/`, `sessions/`
+- `fba/`, `reports/`, `schedules/`, `analytics/`, `agencies/`
+- `documentWorkflow/`, `imports/`, `parentMessages/`, `medicaidBilling/`, `compensatoryFinance/`
+- `iepBuilder/`, `stateReporting/`, `parentCommunication/`
+
+**Pitch Deck:** 14-slide investor/district/SIS partner pitch deck at `artifacts/trellis-pitch` with slides covering problem, why now, solution, product depth, platform demo, market opportunity, competitive landscape, business model, traction & roadmap, implementation & pilot, SIS partnership, team approach, and closing CTA.
 
 The brand uses an "Ink & Air" theme with pure white/near-white backgrounds, near-black typography, neutral grays, and emerald green accents (primary: HSL 160 84% 39%), creating a clean, airy, and editorial aesthetic.
 
