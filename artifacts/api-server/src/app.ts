@@ -12,6 +12,9 @@ import { requireActiveSubscription } from "./middlewares/subscriptionGate";
 import { enforceDistrictScope } from "./middlewares/auth";
 import { captureException, recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
+import { db } from "@workspace/db";
+import { communicationEventsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const app: Express = express();
 
@@ -52,9 +55,38 @@ app.post(
       }
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ err: error }, 'Stripe webhook error');
       res.status(400).json({ error: 'Webhook processing error' });
+    }
+  }
+);
+
+app.post(
+  '/webhooks/resend',
+  express.json({ limit: '1mb' }),
+  async (req, res) => {
+    try {
+      const event = req.body as { type?: string; data?: { email_id?: string } };
+      const providerMessageId = event?.data?.email_id ?? null;
+      if (!providerMessageId) {
+        res.status(200).json({ ok: true, note: 'no email_id' });
+        return;
+      }
+      const now = new Date();
+      if (event.type === 'email.delivered') {
+        await db.update(communicationEventsTable)
+          .set({ status: 'delivered', deliveredAt: now, updatedAt: now })
+          .where(eq(communicationEventsTable.providerMessageId, providerMessageId));
+      } else if (event.type === 'email.bounced' || event.type === 'email.complained') {
+        await db.update(communicationEventsTable)
+          .set({ status: 'bounced', failedAt: now, failedReason: event.type, updatedAt: now })
+          .where(eq(communicationEventsTable.providerMessageId, providerMessageId));
+      }
+      res.status(200).json({ ok: true });
+    } catch (err: unknown) {
+      logger.error({ err }, 'Resend webhook error');
+      res.status(200).json({ ok: true });
     }
   }
 );

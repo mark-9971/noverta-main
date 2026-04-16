@@ -2,6 +2,7 @@ import { initSentry, captureException, recordError5xx } from "./lib/sentry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
+import { startReminderScheduler } from "./lib/reminders";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { ensureDbConstraints } from "./lib/activeSchoolYear";
@@ -134,6 +135,7 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 
   startSisScheduler();
+  startReminderScheduler();
   initStripe();
   backfillDistrictSubscriptions();
   ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));
