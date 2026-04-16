@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment, useEffect } from "react";
+import { useState, useMemo, Fragment, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listProtectiveIncidents, getProtectiveSummary,
@@ -14,7 +14,7 @@ import {
   ChevronRight, FileText, Bell, CheckCircle, XCircle,
   Filter, Calendar, Eye, ChevronDown, ChevronUp,
   ArrowLeft, TrendingUp, Download, PenLine, Send, UserCheck, Users,
-  Mail, FilePenLine, Printer, BarChart2, Flame, History,
+  Mail, FilePenLine, Printer, BarChart2, Flame, History, Zap, Save,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
@@ -242,13 +242,14 @@ function hoursUntilDeadline(incidentDate: string, incidentTime: string) {
 export default function ProtectiveMeasuresPage() {
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
-  const [view, setView] = useState<"list" | "new" | "detail">("list");
+  const [view, setView] = useState<"list" | "new" | "quick" | "detail">("list");
   const [detailId, setDetailId] = useState<number | null>(null);
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "all");
   const [searchTerm, setSearchTerm] = useState("");
 
   if (view === "new") return <NewIncidentForm onClose={() => setView("list")} />;
+  if (view === "quick") return <QuickReportForm onClose={() => setView("list")} />;
   if (view === "detail" && detailId) return <IncidentDetailView id={detailId} onBack={() => { setView("list"); setDetailId(null); }} />;
 
   return <IncidentList
@@ -256,6 +257,7 @@ export default function ProtectiveMeasuresPage() {
     filterStatus={filterStatus} setFilterStatus={setFilterStatus}
     searchTerm={searchTerm} setSearchTerm={setSearchTerm}
     onNew={() => setView("new")}
+    onQuick={() => setView("quick")}
     onDetail={(id: number) => { setDetailId(id); setView("detail"); }}
   />;
 }
@@ -275,7 +277,7 @@ function TrendsPanel() {
   const byStudent = (_byStudent as any[]) ?? [];
   const ants = (_ants as any[]) ?? [];
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   if (!ov) return null;
 
@@ -382,11 +384,12 @@ function TrendsPanel() {
   );
 }
 
-function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus, searchTerm, setSearchTerm, onNew, onDetail }: {
+function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus, searchTerm, setSearchTerm, onNew, onQuick, onDetail }: {
   filterType: string; setFilterType: (v: string) => void;
   filterStatus: string; setFilterStatus: (v: string) => void;
   searchTerm: string; setSearchTerm: (v: string) => void;
   onNew: () => void;
+  onQuick: () => void;
   onDetail: (id: number) => void;
 }) {
   const [exportYear, setExportYear] = useState("2025-2026");
@@ -441,6 +444,9 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
               <Download className="w-3.5 h-3.5" /> DESE Export
             </button>
           </div>
+          <button onClick={onQuick} className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors shadow-sm">
+            <Zap className="w-4 h-4" /> Quick Report
+          </button>
           <button onClick={onNew} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-800 transition-colors shadow-sm">
             <Plus className="w-4 h-4" /> Report Incident
           </button>
@@ -631,9 +637,192 @@ const inputCls = "w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg 
 const textareaCls = "w-full px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none";
 const labelCls = "block text-xs font-medium text-gray-600 mb-1.5";
 
+function QuickReportForm({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    studentId: "",
+    incidentDate: new Date().toISOString().split("T")[0],
+    incidentTime: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    incidentType: "physical_restraint",
+    behaviorDescription: "",
+    primaryStaffId: "",
+    studentInjury: false,
+    staffInjury: false,
+  });
+  const [error, setError] = useState("");
+
+  const { data: students = [] } = useQuery<any[]>({
+    queryKey: ["students-list"],
+    queryFn: ({ signal }) => listStudents(undefined, { signal }),
+  });
+
+  const { data: staff = [] } = useQuery({
+    queryKey: ["staff-list"],
+    queryFn: ({ signal }) => listStaff(undefined, { signal }) as Promise<Staff[]>,
+  });
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await createProtectiveIncident({
+        studentId: Number(form.studentId),
+        incidentDate: form.incidentDate,
+        incidentTime: form.incidentTime,
+        incidentType: form.incidentType,
+        behaviorDescription: form.behaviorDescription,
+        primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
+        studentInjury: form.studentInjury,
+        staffInjury: form.staffInjury,
+        notes: "[Quick Report] — expand to add full details",
+      });
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["protective-incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["protective-summary"] });
+      toast.success("Quick report saved as draft");
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const set = (key: string, val: any) => setForm(f => ({ ...f, [key]: val }));
+
+  return (
+    <div className="p-4 md:p-8 max-w-xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-500" /> Quick Report
+          </h1>
+          <p className="text-sm text-gray-500">Capture the essentials now — add full details later</p>
+        </div>
+      </div>
+
+      <div className="flex gap-1 mb-4">
+        {["Incident Basics", "Staff & Injuries"].map((label, i) => (
+          <div key={i} className="flex-1">
+            <div className={`h-1.5 rounded-full ${i < step ? "bg-amber-500" : "bg-gray-200"}`} />
+            <p className={`text-[10px] mt-1 text-center ${i < step ? "text-amber-700 font-medium" : "text-gray-400"}`}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+
+      {step === 1 && (
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">What happened?</h2>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Student *</label>
+              <select value={form.studentId} onChange={e => set("studentId", e.target.value)} className={inputCls}>
+                <option value="">Select student...</option>
+                {(students || []).map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — Grade {s.grade}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Date *</label>
+                <input type="date" value={form.incidentDate} onChange={e => set("incidentDate", e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Time *</label>
+                <input type="time" value={form.incidentTime} onChange={e => set("incidentTime", e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Incident Type *</label>
+              <select value={form.incidentType} onChange={e => set("incidentType", e.target.value)} className={inputCls}>
+                <option value="physical_restraint">Physical Restraint</option>
+                <option value="seclusion">Seclusion (Emergency Only)</option>
+                <option value="time_out">Time-Out (Exclusionary)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Brief Description *</label>
+              <textarea value={form.behaviorDescription} onChange={e => set("behaviorDescription", e.target.value)} rows={3}
+                placeholder="What behavior prompted this incident? (You can add more detail later)"
+                className={textareaCls} />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button onClick={() => {
+              if (!form.studentId || !form.incidentDate || !form.incidentTime || !form.behaviorDescription.trim()) {
+                setError("Please fill in all required fields"); return;
+              }
+              setError(""); setStep(2);
+            }} className="px-5 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600">
+              Next: Staff & Injuries
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
+          <h2 className="text-base font-semibold text-gray-800">Who was involved?</h2>
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Primary Staff Who Administered</label>
+              <select value={form.primaryStaffId} onChange={e => set("primaryStaffId", e.target.value)} className={inputCls}>
+                <option value="">Select staff...</option>
+                {(staff || []).map((s: Staff) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.title || s.role}</option>)}
+              </select>
+            </div>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+              <input type="checkbox" checked={form.studentInjury} onChange={e => set("studentInjury", e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Student sustained injury</span>
+                <p className="text-xs text-gray-500">Any visible mark, bruise, or reported pain</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+              <input type="checkbox" checked={form.staffInjury} onChange={e => set("staffInjury", e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Staff sustained injury</span>
+                <p className="text-xs text-gray-500">Any injury to staff member(s) during the incident</p>
+              </div>
+            </label>
+          </div>
+
+          {(form.studentInjury || form.staffInjury) && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-red-800 flex items-center gap-1.5"><Send className="w-3.5 h-3.5" /> DESE Injury Reporting Required</p>
+              <p className="text-xs text-red-700 mt-1">Per 603 CMR 46.06(7), a DESE report will be required within 3 school working days.</p>
+            </div>
+          )}
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-amber-800">
+              <span className="font-semibold">This creates a draft report.</span> You can open the draft later to add full 603 CMR 46.06 details including de-escalation strategies, staff signatures, and parent notifications.
+            </p>
+          </div>
+
+          <div className="flex justify-between">
+            <button onClick={() => setStep(1)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Back</button>
+            <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
+              className="px-6 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 flex items-center gap-2">
+              {mutation.isPending ? "Saving..." : "Save Quick Report"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewIncidentForm({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
+  const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveRef = useRef<string>("");
   const [form, setForm] = useState({
     studentId: "",
     incidentDate: new Date().toISOString().split("T")[0],
@@ -683,6 +872,52 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
   });
   const [error, setError] = useState("");
 
+  const isDirtyRef = useRef(false);
+
+  const saveDraft = useCallback(() => {
+    if (!isDirtyRef.current) return;
+    const snapshot = JSON.stringify(form);
+    if (snapshot === lastSaveRef.current) return;
+    setDraftStatus("saving");
+    try {
+      localStorage.setItem("pm-incident-draft", snapshot);
+      lastSaveRef.current = snapshot;
+      setTimeout(() => setDraftStatus("saved"), 300);
+    } catch {
+      setDraftStatus("idle");
+    }
+  }, [form]);
+
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(saveDraft, 30000);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [form, saveDraft]);
+
+  const prevStepRef = useRef(step);
+  useEffect(() => {
+    if (prevStepRef.current !== step) {
+      prevStepRef.current = step;
+      saveDraft();
+    }
+  }, [step, saveDraft]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("pm-incident-draft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.studentId) {
+          setForm(f => ({ ...f, ...parsed }));
+          lastSaveRef.current = saved;
+          isDirtyRef.current = true;
+          setDraftStatus("saved");
+        }
+      }
+    } catch {}
+  }, []);
+
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
     queryFn: ({ signal }) => listStudents(undefined, { signal }),
@@ -718,14 +953,19 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["protective-incidents"] });
       queryClient.invalidateQueries({ queryKey: ["protective-summary"] });
+      try { localStorage.removeItem("pm-incident-draft"); } catch {}
       onClose();
     },
     onError: (e: Error) => setError(e.message),
   });
 
-  const set = (key: string, val: any) => setForm(f => ({ ...f, [key]: val }));
+  const set = (key: string, val: any) => {
+    isDirtyRef.current = true;
+    setForm(f => ({ ...f, [key]: val }));
+  };
 
   const toggleStaffMulti = (field: "additionalStaffIds" | "observerStaffIds", staffId: string) => {
+    isDirtyRef.current = true;
     setForm(f => {
       const arr = f[field];
       return { ...f, [field]: arr.includes(staffId) ? arr.filter(x => x !== staffId) : [...arr, staffId] };
@@ -740,10 +980,16 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-800">Report Incident</h1>
           <p className="text-sm text-gray-500">603 CMR 46.06 Compliant Documentation</p>
         </div>
+        {draftStatus !== "idle" && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Save className="w-3.5 h-3.5" />
+            {draftStatus === "saving" ? "Saving..." : "Draft saved"}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-1 mb-4">
