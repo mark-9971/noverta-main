@@ -88,3 +88,5 @@ export * from "./iepBuilderDrafts";
 export * from "./parentMessages";
 export * from "./staffSchedules";
 export * from "./scheduledReports";
+export * from "./documentVersions";
+export * from "./approvalWorkflows";

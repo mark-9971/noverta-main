@@ -77,6 +77,7 @@ const BillingPage = lazy(() => import("@/pages/billing"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
+const DocumentWorkflowPage = lazy(() => import("@/pages/document-workflow"));
 const SignInPage = lazy(() => import("@/pages/sign-in"));
 const SignUpPage = lazy(() => import("@/pages/sign-up"));
 const SignDocumentPage = lazy(() => import("@/pages/sign-document"));
@@ -170,6 +171,7 @@ function StaffRouter() {
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
       <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" featureKey="compliance.state_reporting" />
+      <BoundedRoute path="/document-workflow" component={DocumentWorkflowPage} fallbackTitle="Document workflow error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />

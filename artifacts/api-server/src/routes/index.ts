@@ -54,6 +54,7 @@ import communicationEventsRouter from "./communicationEvents";
 import guardianPortalRouter from "./guardianPortal";
 import parentMessagesRouter, { guardianMessagesRouter } from "./parentMessages";
 import staffSchedulesRouter from "./staffSchedules";
+import documentWorkflowRouter from "./documentWorkflow";
 
 const router: IRouter = Router();
 
@@ -110,6 +111,7 @@ const requireReportExport = requireRoles("admin", "case_manager", "coordinator")
 router.use("/reports/exports", requireReportExport);
 // Incidents / protective measures — PRIVILEGED_STAFF only (para, provider, sped_student excluded)
 router.use("/protective-measures", requirePrivilegedStaffOnly);
+router.use("/document-workflow", requirePrivilegedStaffOnly);
 
 router.use(storageRouter);
 
@@ -162,5 +164,6 @@ router.use(generatedDocumentsRouter);
 router.use(communicationEventsRouter);
 router.use(parentMessagesRouter);
 router.use(staffSchedulesRouter);
+router.use(documentWorkflowRouter);
 
 export default router;
