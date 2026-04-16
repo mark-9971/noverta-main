@@ -976,4 +976,100 @@ router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void>
   }
 });
 
+router.get("/dashboard/pilot-metrics", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
+  try {
+    const sdFilters = parseSchoolDistrictFilters(req, req.query);
+    const studentFilter = buildStudentSubquery(sdFilters);
+
+    const studentConditions = [eq(studentsTable.status, "active")];
+    if (studentFilter) studentConditions.push(studentFilter as any);
+
+    const [
+      [activeStudentsResult],
+      [studentsWithIepResult],
+      sessionTimeliness,
+      incidentTimeliness,
+    ] = await Promise.all([
+      db.select({ count: count() })
+        .from(studentsTable)
+        .where(and(...studentConditions)),
+
+      db.select({ count: sql<number>`count(distinct ${studentsTable.id})` })
+        .from(studentsTable)
+        .innerJoin(iepDocumentsTable, and(
+          eq(iepDocumentsTable.studentId, studentsTable.id),
+          eq(iepDocumentsTable.active, true),
+        ))
+        .where(and(...studentConditions)),
+
+      db.select({
+        total: count(),
+        loggedWithin48h: sql<number>`count(*) filter (where ${sessionLogsTable.createdAt} <= (${sessionLogsTable.sessionDate}::timestamp + interval '48 hours'))`,
+      })
+        .from(sessionLogsTable)
+        .where(
+          sdFilters.schoolId
+            ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
+            : sdFilters.districtId
+            ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
+            : sql`1=1`
+        ),
+
+      db.select({
+        total: count(),
+        loggedWithin24h: sql<number>`count(*) filter (where ${restraintIncidentsTable.createdAt} <= (${restraintIncidentsTable.incidentDate}::timestamp + interval '24 hours'))`,
+      })
+        .from(restraintIncidentsTable)
+        .where(
+          sdFilters.schoolId
+            ? sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
+            : sdFilters.districtId
+            ? sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
+            : sql`1=1`
+        ),
+    ]);
+
+    const totalActive = (activeStudentsResult as any)?.count ?? 0;
+    const withIep = (studentsWithIepResult as any)?.count ?? 0;
+    const rosterCoverage = totalActive > 0 ? Math.round((withIep / totalActive) * 100) : 100;
+
+    const totalSessions = sessionTimeliness[0]?.total ?? 0;
+    const sessionsOnTime = sessionTimeliness[0]?.loggedWithin48h ?? 0;
+    const sessionLoggingRate = totalSessions > 0 ? Math.round((sessionsOnTime / totalSessions) * 100) : 100;
+
+    const totalIncidents = incidentTimeliness[0]?.total ?? 0;
+    const incidentsOnTime = incidentTimeliness[0]?.loggedWithin24h ?? 0;
+    const incidentTimelinessPct = totalIncidents > 0 ? Math.round((incidentsOnTime / totalIncidents) * 100) : 100;
+
+    const iepConditions: any[] = [eq(studentsTable.status, "active"), eq(iepDocumentsTable.active, true)];
+    if (sdFilters.schoolId) iepConditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
+    if (sdFilters.districtId) iepConditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+
+    const iepDocs = await db.select({
+      iepEndDate: iepDocumentsTable.iepEndDate,
+    })
+      .from(iepDocumentsTable)
+      .innerJoin(studentsTable, eq(iepDocumentsTable.studentId, studentsTable.id))
+      .where(and(...iepConditions));
+
+    const todayMs = Date.now();
+    let expiredIeps = 0;
+    for (const doc of iepDocs) {
+      const endMs = new Date(doc.iepEndDate).getTime();
+      if (endMs < todayMs) expiredIeps++;
+    }
+
+    res.json({
+      rosterCoverage: { percent: rosterCoverage, withIep, totalActive, target: 100 },
+      sessionLogging: { percent: sessionLoggingRate, onTime: sessionsOnTime, total: totalSessions, target: 80 },
+      incidentTimeliness: { percent: incidentTimelinessPct, onTime: incidentsOnTime, total: totalIncidents, target: 100 },
+      annualReviewCompliance: { expiredIeps, target: 0 },
+      staffEngagement: { avgLoginsPerWeek: 0, target: 3 },
+    });
+  } catch (e: any) {
+    console.error("GET /dashboard/pilot-metrics error:", e);
+    res.status(500).json({ error: "Failed to fetch pilot metrics" });
+  }
+});
+
 export default router;

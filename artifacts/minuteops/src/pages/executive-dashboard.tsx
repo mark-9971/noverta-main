@@ -7,9 +7,10 @@ import { useSchoolContext } from "@/lib/school-context";
 import { Link } from "wouter";
 import {
   Users, AlertTriangle, ShieldAlert, TrendingDown,
-  ArrowRight, Calendar, BarChart3, Clock
+  ArrowRight, Calendar, BarChart3, Clock, Target, CheckCircle2
 } from "lucide-react";
 import { getExecutiveDashboard, getStaffCoverage } from "@workspace/api-client-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 
 interface ExecutiveData {
@@ -34,6 +35,14 @@ interface ExecutiveData {
     within60: number;
     within90: number;
   };
+}
+
+interface PilotMetrics {
+  rosterCoverage: { percent: number; withIep: number; totalActive: number; target: number };
+  sessionLogging: { percent: number; onTime: number; total: number; target: number };
+  incidentTimeliness: { percent: number; onTime: number; total: number; target: number };
+  annualReviewCompliance: { expiredIeps: number; target: number };
+  staffEngagement: { avgLoginsPerWeek: number; target: number };
 }
 
 interface CoverageData {
@@ -73,15 +82,19 @@ export default function ExecutiveDashboard() {
   const { filterParams } = useSchoolContext();
   const [data, setData] = useState<ExecutiveData | null>(null);
   const [coverage, setCoverage] = useState<CoverageData | null>(null);
+  const [pilotMetrics, setPilotMetrics] = useState<PilotMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const qs = new URLSearchParams(filterParams as any).toString();
     Promise.all([
       getExecutiveDashboard(filterParams as any).catch(() => null),
       getStaffCoverage(filterParams as any).catch(() => null),
-    ]).then(([exec, cov]) => {
+      authFetch(`/api/dashboard/pilot-metrics${qs ? `?${qs}` : ""}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([exec, cov, pm]) => {
       setData(exec);
       setCoverage(cov);
+      setPilotMetrics(pm);
     }).catch(() => {}).finally(() => setLoading(false));
   }, [filterParams]);
 
@@ -263,6 +276,56 @@ export default function ExecutiveDashboard() {
         </Card>
       </div>
 
+      {pilotMetrics && (
+        <Card className="border-gray-200/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Target className="w-4 h-4 text-gray-400" />
+              Pilot Success Metrics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <PilotMetricCard
+                label="IEP Roster Coverage"
+                value={`${pilotMetrics.rosterCoverage.percent}%`}
+                target="100%"
+                met={pilotMetrics.rosterCoverage.percent >= pilotMetrics.rosterCoverage.target}
+                detail={`${pilotMetrics.rosterCoverage.withIep} of ${pilotMetrics.rosterCoverage.totalActive} students`}
+              />
+              <PilotMetricCard
+                label="Session Logging (48h)"
+                value={`${pilotMetrics.sessionLogging.percent}%`}
+                target="80%"
+                met={pilotMetrics.sessionLogging.percent >= pilotMetrics.sessionLogging.target}
+                detail={`${pilotMetrics.sessionLogging.onTime} of ${pilotMetrics.sessionLogging.total} on time`}
+              />
+              <PilotMetricCard
+                label="Incident Timeliness (24h)"
+                value={`${pilotMetrics.incidentTimeliness.percent}%`}
+                target="100%"
+                met={pilotMetrics.incidentTimeliness.percent >= pilotMetrics.incidentTimeliness.target}
+                detail={`${pilotMetrics.incidentTimeliness.onTime} of ${pilotMetrics.incidentTimeliness.total} on time`}
+              />
+              <PilotMetricCard
+                label="Expired IEPs"
+                value={String(pilotMetrics.annualReviewCompliance.expiredIeps)}
+                target="0"
+                met={pilotMetrics.annualReviewCompliance.expiredIeps === 0}
+                detail="past end-date without renewal"
+              />
+              <PilotMetricCard
+                label="Staff Engagement"
+                value={`${pilotMetrics.staffEngagement.avgLoginsPerWeek}`}
+                target="3/wk"
+                met={pilotMetrics.staffEngagement.avgLoginsPerWeek >= pilotMetrics.staffEngagement.target}
+                detail="avg logins per staff per week"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-gray-200/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -299,6 +362,26 @@ export default function ExecutiveDashboard() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function PilotMetricCard({ label, value, target, met, detail }: {
+  label: string; value: string; target: string; met: boolean; detail: string;
+}) {
+  return (
+    <div className={`rounded-xl p-4 border ${met ? "bg-emerald-50/60 border-emerald-200/60" : "bg-gray-50 border-gray-200/60"}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">{label}</span>
+        {met ? (
+          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+        ) : (
+          <Target className="w-4 h-4 text-gray-400" />
+        )}
+      </div>
+      <p className={`text-2xl font-bold ${met ? "text-emerald-600" : "text-gray-800"}`}>{value}</p>
+      <p className="text-[11px] text-gray-400 mt-1">Target: {target}</p>
+      <p className="text-[11px] text-gray-500 mt-0.5">{detail}</p>
     </div>
   );
 }

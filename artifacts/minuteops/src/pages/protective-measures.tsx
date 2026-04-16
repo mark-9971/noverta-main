@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { authFetch } from "@/lib/auth-fetch";
 import { StudentQuickView } from "@/components/student-quick-view";
+import { EmergencyAlertInline } from "@/components/emergency-alert-inline";
 import { buildIncidentReportHtml, openPrintWindow, saveGeneratedDocument } from "@/lib/print-document";
 import { Phone } from "lucide-react";
 
@@ -759,6 +760,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
       {step === 1 && (
         <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-6 space-y-5">
           <h2 className="text-base font-semibold text-gray-800">Incident Details — 603 CMR 46.06(4)(a)</h2>
+          {form.studentId && <EmergencyAlertInline studentId={Number(form.studentId)} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Student *</label>

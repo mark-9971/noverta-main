@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, X, Search, Check, Clock, AlertTriangle, Zap } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
+import { EmergencyAlertInline } from "@/components/emergency-alert-inline";
 
 interface QuickLogDefaults {
   recentStudentIds: number[];
@@ -364,6 +365,7 @@ export function QuickLogSheet({
             serviceTypes={serviceTypes}
             recents={recentServiceTypes}
             studentName={studentName}
+            studentId={studentId}
             onSelect={selectService}
           />
         )}
@@ -500,17 +502,19 @@ function StudentRow({ student, onSelect, highlight }: { student: Student; onSele
 }
 
 function ServiceStep({
-  serviceTypes, recents, studentName, onSelect,
+  serviceTypes, recents, studentName, studentId, onSelect,
 }: {
   serviceTypes: ServiceType[];
   recents: ServiceType[];
   studentName: string;
+  studentId: number | null;
   onSelect: (id: number | null, name: string) => void;
 }) {
   return (
     <div className="px-4 pt-5 pb-6">
       <h2 className="text-xl font-bold text-gray-900">What service?</h2>
       <p className="text-sm text-gray-500 mt-1">{studentName}</p>
+      {studentId && <div className="mt-3"><EmergencyAlertInline studentId={studentId} /></div>}
 
       {recents.length > 0 && (
         <div className="mt-5">

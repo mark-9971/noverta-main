@@ -18,6 +18,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolYears } from "@/lib/use-school-years";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 import { StudentQuickView } from "@/components/student-quick-view";
+import { EmergencyAlertInline } from "@/components/emergency-alert-inline";
 
 const INITIAL_FORM = {
   studentId: "",
@@ -1077,6 +1078,7 @@ export default function Sessions() {
             </div>
           )}
           <div className="space-y-4">
+            {form.studentId && <EmergencyAlertInline studentId={Number(form.studentId)} />}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-[12px] text-gray-500">Student *</Label>
