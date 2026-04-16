@@ -1200,6 +1200,8 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const [statusHistory, setStatusHistory] = useState<BipStatusEntry[]>([]);
   const [implementers, setImplementers] = useState<BipImplementerEntry[]>([]);
   const [fidelityLogs, setFidelityLogs] = useState<BipFidelityEntry[]>([]);
+  const [versionHistory, setVersionHistory] = useState<BipRecord[]>([]);
+  const [creatingVersion, setCreatingVersion] = useState(false);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [addImplStaffId, setAddImplStaffId] = useState("");
   const [addImplNotes, setAddImplNotes] = useState("");
@@ -1212,15 +1214,23 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const isApprover = role === "admin" || role === "bcba";
   const isReviewer = ["admin", "bcba", "case_manager", "coordinator"].includes(role);
 
-  const loadBipExtras = useCallback(async (bipId: number) => {
+  const loadBipExtras = useCallback(async (bip: BipRecord) => {
     const [hist, impls, fidelity] = await Promise.all([
-      authFetch(`/api/bips/${bipId}/status-history`).then(r => r.json()).catch(() => []),
-      authFetch(`/api/bips/${bipId}/implementers`).then(r => r.json()).catch(() => []),
-      authFetch(`/api/bips/${bipId}/fidelity-logs`).then(r => r.json()).catch(() => []),
+      authFetch(`/api/bips/${bip.id}/status-history`).then(r => r.json()).catch(() => []),
+      authFetch(`/api/bips/${bip.id}/implementers`).then(r => r.json()).catch(() => []),
+      authFetch(`/api/bips/${bip.id}/fidelity-logs`).then(r => r.json()).catch(() => []),
     ]);
     setStatusHistory(Array.isArray(hist) ? hist : []);
     setImplementers(Array.isArray(impls) ? impls : []);
     setFidelityLogs(Array.isArray(fidelity) ? fidelity : []);
+    const allBips = await authFetch(`/api/students/${bip.studentId}/bips`).then(r => r.json()).catch(() => []);
+    if (Array.isArray(allBips)) {
+      const siblings = (allBips as BipRecord[]).filter(b => b.id !== bip.id && (
+        (bip.fbaId && b.fbaId === bip.fbaId) ||
+        b.targetBehavior === bip.targetBehavior
+      )).sort((a, b) => b.version - a.version);
+      setVersionHistory(siblings);
+    }
   }, []);
 
   useEffect(() => {
@@ -1228,7 +1238,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   }, []);
 
   useEffect(() => {
-    if (selectedBip) loadBipExtras(selectedBip.id);
+    if (selectedBip) loadBipExtras(selectedBip);
   }, [selectedBip, loadBipExtras]);
 
   const generateFromFba = async () => {
@@ -1283,9 +1293,31 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
       toast.success(`BIP is now ${STATUS_CONFIG[toStatus]?.label || toStatus}`);
       setTransitionNotes("");
       onRefresh();
-      await loadBipExtras(selectedBip.id);
+      if (selectedBip) await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to transition BIP"); }
     setTransitioning(false);
+  };
+
+  const createNewVersion = async () => {
+    if (!selectedBip) return;
+    setCreatingVersion(true);
+    try {
+      const r = await authFetch(`/api/bips/${selectedBip.id}/new-version`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revisionNotes: "New version created from edit action" }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        toast.error(err.error || "Failed to create new version");
+        return;
+      }
+      const newBip = await r.json();
+      toast.success(`Version ${newBip.version} created — now in Draft`);
+      onRefresh();
+      onSelectBip(newBip as BipRecord);
+    } catch { toast.error("Failed to create new version"); }
+    setCreatingVersion(false);
   };
 
   const addImplementer = async () => {
@@ -1300,7 +1332,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
       if (!r.ok) throw new Error();
       toast.success("Implementer assigned");
       setAddImplStaffId(""); setAddImplNotes(""); setShowAddImpl(false);
-      await loadBipExtras(selectedBip.id);
+      await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to assign implementer"); }
     setAddingImpl(false);
   };
@@ -1309,7 +1341,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     try {
       await authFetch(`/api/bip-implementers/${implId}`, { method: "DELETE" });
       toast.success("Implementer removed");
-      if (selectedBip) await loadBipExtras(selectedBip.id);
+      if (selectedBip) await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to remove implementer"); }
   };
 
@@ -1331,7 +1363,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
       toast.success("Fidelity entry logged");
       setFidelityForm({ logDate: new Date().toISOString().split("T")[0], fidelityRating: "", studentResponse: "", implementationNotes: "" });
       setShowAddFidelity(false);
-      await loadBipExtras(selectedBip.id);
+      await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to add fidelity entry"); }
     setAddingFidelity(false);
   };
@@ -1340,7 +1372,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     try {
       await authFetch(`/api/bip-fidelity-logs/${logId}`, { method: "DELETE" });
       toast.success("Entry removed");
-      if (selectedBip) await loadBipExtras(selectedBip.id);
+      if (selectedBip) await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to remove entry"); }
   };
 
@@ -1408,9 +1440,16 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
               <X className="w-4 h-4 mr-1" /> Back to List
             </Button>
             <div className="flex gap-2 flex-wrap">
-              {!editingBip && !["discontinued", "archived"].includes(currentBip.status) && (
+              {!editingBip && ["draft", "under_review"].includes(currentBip.status) && (
                 <Button variant="outline" size="sm" onClick={() => onEdit({ ...currentBip })}>
                   Edit BIP
+                </Button>
+              )}
+              {!editingBip && ["approved", "active"].includes(currentBip.status) && isApprover && (
+                <Button variant="outline" size="sm" onClick={createNewVersion} disabled={creatingVersion}
+                  className="text-violet-700 border-violet-200 hover:bg-violet-50">
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {creatingVersion ? "Creating…" : "Create New Version"}
                 </Button>
               )}
               {editingBip && (
@@ -1677,35 +1716,67 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
           )}
 
           {bipTab === "history" && (
-            <div className="space-y-2">
-              {statusHistory.length === 0 ? (
-                <Card><CardContent className="py-10 text-center"><History className="w-8 h-8 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-400">No status changes recorded yet</p></CardContent></Card>
-              ) : (
-                <div className="relative">
-                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
-                  <div className="space-y-3 pl-10">
-                    {statusHistory.map(entry => (
-                      <div key={entry.id} className="relative">
-                        <div className="absolute -left-6 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
-                        <Card>
-                          <CardContent className="py-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <StatusBadge status={entry.fromStatus} />
-                              <ArrowRight className="w-3 h-3 text-gray-400" />
-                              <StatusBadge status={entry.toStatus} />
-                              <span className="text-xs text-gray-400 ml-auto">
-                                {new Date(entry.changedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                                {entry.changedByName ? ` · ${entry.changedByName}` : ""}
-                              </span>
+            <div className="space-y-4">
+              {versionHistory.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Previous Versions ({versionHistory.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {versionHistory.map(v => (
+                      <Card key={v.id} className="bg-gray-50/50">
+                        <CardContent className="py-3">
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-gray-700">v{v.version}</span>
+                              <StatusBadge status={v.status} />
                             </div>
-                            {entry.notes && <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>}
-                          </CardContent>
-                        </Card>
-                      </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              {v.createdByName && <span>by {v.createdByName}</span>}
+                              <span>{new Date(v.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 truncate">{v.targetBehavior}</p>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 </div>
               )}
+
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                  Status Changes
+                </h3>
+                {statusHistory.length === 0 ? (
+                  <Card><CardContent className="py-8 text-center"><History className="w-7 h-7 text-gray-300 mx-auto mb-2" /><p className="text-sm text-gray-400">No status changes recorded yet</p></CardContent></Card>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+                    <div className="space-y-3 pl-10">
+                      {statusHistory.map(entry => (
+                        <div key={entry.id} className="relative">
+                          <div className="absolute -left-6 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
+                          <Card>
+                            <CardContent className="py-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <StatusBadge status={entry.fromStatus} />
+                                <ArrowRight className="w-3 h-3 text-gray-400" />
+                                <StatusBadge status={entry.toStatus} />
+                                <span className="text-xs text-gray-400 ml-auto">
+                                  {new Date(entry.changedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                  {entry.changedByName ? ` · ${entry.changedByName}` : ""}
+                                </span>
+                              </div>
+                              {entry.notes && <p className="text-xs text-gray-500 mt-1">{entry.notes}</p>}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

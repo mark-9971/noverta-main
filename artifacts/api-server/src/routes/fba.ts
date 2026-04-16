@@ -410,7 +410,7 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
     }
 
     const updates: any = {};
-    for (const key of [...BIP_PLAN_FIELDS, "status"]) {
+    for (const key of BIP_PLAN_FIELDS) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [updated] = await db.update(behaviorInterventionPlansTable).set(updates)
