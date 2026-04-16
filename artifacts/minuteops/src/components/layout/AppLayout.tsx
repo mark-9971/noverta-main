@@ -112,6 +112,7 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Gift, featureKey: "compliance.compensatory" as FeatureKey },
       { href: "/state-reporting", label: "State Reports", icon: FileText, featureKey: "compliance.state_reporting" as FeatureKey },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },

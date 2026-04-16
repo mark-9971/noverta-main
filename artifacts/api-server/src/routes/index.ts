@@ -112,6 +112,7 @@ const requireReportExport = requireRoles("admin", "case_manager", "coordinator")
 router.use("/reports/exports", requireReportExport);
 // Incidents / protective measures — PRIVILEGED_STAFF only (para, provider, sped_student excluded)
 router.use("/protective-measures", requirePrivilegedStaffOnly);
+router.use("/progress-reports", requirePrivilegedStaffOnly);
 router.use("/document-workflow", requirePrivilegedStaffOnly);
 
 router.use(storageRouter);

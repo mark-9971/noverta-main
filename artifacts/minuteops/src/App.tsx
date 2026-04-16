@@ -43,6 +43,7 @@ const IepSearchPage = lazy(() => import("@/pages/iep-search"));
 const ProtectiveMeasuresPage = lazy(() => import("@/pages/protective-measures"));
 const AnalyticsPage = lazy(() => import("@/pages/analytics"));
 const StateReportingPage = lazy(() => import("@/pages/state-reporting"));
+const ProgressReportsPage = lazy(() => import("@/pages/progress-reports"));
 
 const SpedStudentDashboard = lazy(() => import("@/pages/sped-student/SpedStudentDashboard"));
 const SpedStudentGoals = lazy(() => import("@/pages/sped-student/SpedStudentGoals"));
@@ -171,6 +172,7 @@ function StaffRouter() {
       <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
+      <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
       <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" featureKey="compliance.state_reporting" />
       <BoundedRoute path="/document-workflow" component={DocumentWorkflowPage} fallbackTitle="Document workflow error" />
