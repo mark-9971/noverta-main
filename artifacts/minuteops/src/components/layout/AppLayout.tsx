@@ -151,7 +151,7 @@ const adminNav: NavSection[] = [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Scale, featureKey: "district.resource_management" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge, featureKey: "district.contract_utilization" as FeatureKey },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, comingSoon: true, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/budget", label: "Budget", icon: CreditCard, comingSoon: true, featureKey: "district.budget" as FeatureKey },
     ],
   },

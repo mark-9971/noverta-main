@@ -62,6 +62,7 @@ const IepBuilderPage = lazy(() => import("@/pages/iep-builder"));
 const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
 const IepCalendarPage = lazy(() => import("@/pages/iep-calendar"));
 const ResourceManagement = lazy(() => import("@/pages/resource-management"));
+const CaseloadBalancing = lazy(() => import("@/pages/caseload-balancing"));
 const CompensatoryServices = lazy(() => import("@/pages/compensatory-services"));
 const ParentCommunication = lazy(() => import("@/pages/parent-communication"));
 const Supervision = lazy(() => import("@/pages/supervision"));
@@ -182,6 +183,7 @@ function StaffRouter() {
       <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" featureKey="clinical.fba_bip" />
       <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
       <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" featureKey="district.resource_management" />
+      <BoundedRoute path="/caseload-balancing" component={CaseloadBalancing} fallbackTitle="Caseload balancing error" featureKey="district.caseload_balancing" />
       <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" featureKey="compliance.compensatory" />
       <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" featureKey="engagement.parent_communication" />
       <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
