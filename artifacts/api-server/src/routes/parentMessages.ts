@@ -12,11 +12,30 @@ const router = Router();
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
+interface MessageRow {
+  id: unknown;
+  studentId: unknown;
+  senderType: unknown;
+  senderStaffFirst: unknown;
+  senderStaffLast: unknown;
+  guardianName: unknown;
+  createdAt: unknown;
+  readAt: unknown;
+  threadId: unknown;
+  subject: unknown;
+  category: unknown;
+  body: unknown;
+  [key: string]: unknown;
+}
+
 function getStaffId(req: Request): number | null {
   const meta = getPublicMeta(req);
   const id = meta.staffId;
   if (id) return id;
-  if (!IS_PRODUCTION) return 77;
+  if (!IS_PRODUCTION) {
+    console.warn("[parentMessages] No staffId in auth claims — using dev fallback (77)");
+    return 77;
+  }
   return null;
 }
 
@@ -89,11 +108,11 @@ router.get("/students/:studentId/messages", async (req: Request, res: Response) 
       ORDER BY pm.created_at DESC
     `);
 
-    const grouped = new Map<number, any[]>();
+    const grouped = new Map<number, MessageRow[]>();
 
-    const messageRows = "rows" in messages ? (messages.rows as Record<string, unknown>[]) : (messages as unknown as Record<string, unknown>[]);
+    const messageRows = "rows" in messages ? (messages.rows as MessageRow[]) : (messages as unknown as MessageRow[]);
     for (const m of messageRows) {
-      const msg = {
+      const msg: MessageRow = {
         ...m,
         senderName: m.senderType === "staff"
           ? (m.senderStaffFirst ? `${m.senderStaffFirst} ${m.senderStaffLast}` : "Staff")
@@ -101,25 +120,25 @@ router.get("/students/:studentId/messages", async (req: Request, res: Response) 
         createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
         readAt: m.readAt ? (m.readAt instanceof Date ? m.readAt.toISOString() : m.readAt) : null,
       };
-      const tid = m.threadId ?? m.id;
+      const tid = (m.threadId ?? m.id) as number;
       if (!grouped.has(tid)) grouped.set(tid, []);
       grouped.get(tid)!.push(msg);
     }
 
     const threads = Array.from(grouped.entries()).map(([threadId, msgs]) => {
-      msgs.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      msgs.sort((a, b) => new Date(String(a.createdAt)).getTime() - new Date(String(b.createdAt)).getTime());
       return {
         threadId,
         subject: msgs[0].subject,
         category: msgs[0].category,
         messageCount: msgs.length,
         lastMessageAt: msgs[msgs.length - 1].createdAt,
-        hasUnread: msgs.some((m: any) => !m.readAt && m.senderType === "guardian"),
+        hasUnread: msgs.some(m => !m.readAt && m.senderType === "guardian"),
         messages: msgs,
       };
     });
 
-    threads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    threads.sort((a, b) => new Date(String(b.lastMessageAt)).getTime() - new Date(String(a.lastMessageAt)).getTime());
 
     res.json({ threads });
   } catch (err) {
@@ -328,7 +347,7 @@ router.post("/students/:studentId/conference-requests", async (req: Request, res
       res.status(400).json({ error: "Guardian does not belong to this student" }); return;
     }
 
-    if (!Array.isArray(proposedTimes) || !proposedTimes.every((t: any) => typeof t === "string" && !isNaN(Date.parse(t)))) {
+    if (!Array.isArray(proposedTimes) || !proposedTimes.every((t: unknown) => typeof t === "string" && !isNaN(Date.parse(t)))) {
       res.status(400).json({ error: "proposedTimes must be an array of valid date strings" }); return;
     }
 
@@ -486,9 +505,10 @@ guardianMessagesRouter.get("/messages", async (req: Request, res: Response) => {
       ))
       .orderBy(desc(parentMessagesTable.createdAt));
 
-    const grouped = new Map<number, any[]>();
+    interface GuardianMsg { id: number; senderType: string; senderName: string; studentName: string | null; createdAt: string; readAt: string | null; subject: string; category: string; body: string; threadId: number | null; [key: string]: unknown; }
+    const grouped = new Map<number, GuardianMsg[]>();
     for (const m of messages) {
-      const msg = {
+      const msg: GuardianMsg = {
         ...m,
         senderName: m.senderType === "staff"
           ? (m.senderStaffFirst ? `${m.senderStaffFirst} ${m.senderStaffLast}` : "Staff")
@@ -503,8 +523,8 @@ guardianMessagesRouter.get("/messages", async (req: Request, res: Response) => {
     }
 
     const threads = Array.from(grouped.entries()).map(([threadId, msgs]) => {
-      msgs.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      const unreadCount = msgs.filter((m: any) => !m.readAt && m.senderType === "staff").length;
+      msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const unreadCount = msgs.filter(m => !m.readAt && m.senderType === "staff").length;
       return {
         threadId,
         subject: msgs[0].subject,
@@ -656,8 +676,17 @@ guardianMessagesRouter.patch("/conferences/:id", async (req: Request, res: Respo
 
     const updates: Partial<{ status: string; selectedTime: Date; guardianNotes: string }> = {};
     if (status === "accepted" && selectedTime) {
+      const parsedTime = new Date(selectedTime);
+      if (isNaN(parsedTime.getTime())) {
+        res.status(400).json({ error: "Invalid selectedTime format" }); return;
+      }
+      const proposed = (conf.proposedTimes as string[]) ?? [];
+      const isValidTime = proposed.some(pt => new Date(pt).getTime() === parsedTime.getTime());
+      if (!isValidTime) {
+        res.status(400).json({ error: "selectedTime must be one of the proposed times" }); return;
+      }
       updates.status = "accepted";
-      updates.selectedTime = new Date(selectedTime);
+      updates.selectedTime = parsedTime;
     } else if (status === "declined") {
       updates.status = "declined";
     }
