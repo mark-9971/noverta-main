@@ -475,7 +475,7 @@ export default function StudentDetail() {
       if (el) observer.observe(el);
     }
     return () => observer.disconnect();
-  }, [s]);
+  }, [student]);
 
   function scrollToSection(id: string) {
     const el = sectionRefs.current[id];

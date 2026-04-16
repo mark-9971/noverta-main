@@ -69,6 +69,7 @@ export default function Students() {
         schoolId: addForm.schoolId ? Number(addForm.schoolId) : null,
         externalId: addForm.externalId || null,
         dateOfBirth: addForm.dateOfBirth || null,
+        placementType: addForm.hasIep === "yes" ? "iep" : addForm.hasIep === "no" ? "gen_ed" : null,
         status: "active",
       });
       toast.success(`${addForm.firstName} ${addForm.lastName} added`);
