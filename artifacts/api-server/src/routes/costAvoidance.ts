@@ -304,7 +304,7 @@ async function getEvaluationDeadlineRisks(
     lte(complianceEventsTable.dueDate, horizon),
   ));
 
-  const seenEvalStudents = new Set(referrals.map(r => r.studentId));
+  const seenEvalStudents = new Set(risks.map(r => r.studentId));
   for (const ce of complianceEvals) {
     if (seenEvalStudents.has(ce.studentId)) continue;
     const days = daysBetween(ce.dueDate, today);
