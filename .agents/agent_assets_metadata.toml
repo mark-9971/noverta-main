@@ -12,3 +12,9 @@ id = "fMJA58BQrAeexqL46OkQw"
 uri = "file://Trellis-Platform-Analysis.md"
 type = "text"
 title = "Trellis Platform Analysis: PowerSchool Replacement Roadmap"
+
+[[outputs]]
+id = "JLWYhK6s3-hFVehO9Pmb8"
+uri = "file://.local/demo-readiness-audit.md"
+type = "text"
+title = "Trellis Demo-Readiness Audit Report"
