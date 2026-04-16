@@ -112,11 +112,15 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
       };
 
       // Log the request server-side (audit trail)
-      await fetch("/api/legal/request-dpa", {
+      const res = await fetch("/api/legal/request-dpa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        toast.error("Server error logging request. Please email legal@trellis.app directly.");
+        return;
+      }
 
       // Open pre-filled email to Trellis legal so the notification is sent immediately
       const emailSubject = encodeURIComponent(`DPA Request — ${districtName}`);
