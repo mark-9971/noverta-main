@@ -57,6 +57,20 @@ interface NeedsAttentionData {
   pendingNotifications: number;
 }
 
+interface ProviderCaseloadSummary {
+  staffId: number;
+  staffName: string;
+  role: string;
+  assignedStudents: number;
+  totalRequiredMinutes: number;
+  totalDeliveredMinutes: number;
+  studentsAtRisk: number;
+  openAlerts: number;
+  utilizationPercent: number;
+}
+
+const CASELOAD_ROLES = new Set(["case_manager", "provider", "bcba", "sped_teacher"]);
+
 function NeedsAttentionPanel() {
   const { data } = useQuery<NeedsAttentionData>({
     queryKey: ["dashboard-needs-attention"],
@@ -140,16 +154,17 @@ export default function Dashboard() {
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
-  const { data: providerSummaryAll } = useQuery<any[]>({
+  const showPersonalCaseload = CASELOAD_ROLES.has(role) && !!teacherId;
+  const { data: providerSummaryAll } = useQuery<ProviderCaseloadSummary[]>({
     queryKey: ["provider-summary", filterParams],
     queryFn: () => authFetch(`/api/dashboard/provider-summary?${new URLSearchParams(filterParams).toString()}`).then(r => r.ok ? r.json() : []),
     staleTime: 60_000,
-    enabled: !isAdmin && !!teacherId,
+    enabled: showPersonalCaseload,
   });
-  const myCaseload = useMemo(() => {
-    if (isAdmin || !providerSummaryAll || !teacherId) return null;
-    return providerSummaryAll.find((p: any) => p.staffId === teacherId) ?? null;
-  }, [isAdmin, providerSummaryAll, teacherId]);
+  const myCaseload = useMemo((): ProviderCaseloadSummary | null => {
+    if (!showPersonalCaseload || !providerSummaryAll || !teacherId) return null;
+    return providerSummaryAll.find((p) => p.staffId === teacherId) ?? null;
+  }, [showPersonalCaseload, providerSummaryAll, teacherId]);
 
   const { data: evalDash } = useQuery({
     queryKey: ["evaluations-dashboard"],
@@ -228,35 +243,35 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
-          title={isAdmin ? "Active Students" : "Your Caseload"}
-          value={!isAdmin && myCaseload ? myCaseload.assignedStudents : s?.totalActiveStudents}
+          title={myCaseload ? "Your Caseload" : "Active Students"}
+          value={myCaseload ? myCaseload.assignedStudents : s?.totalActiveStudents}
           icon={Users}
           accent="emerald"
-          subtitle={isAdmin ? "on IEPs" : "students assigned"}
+          subtitle={myCaseload ? "students assigned" : "on IEPs"}
           href="/students"
         />
         <MetricCard
-          title={isAdmin ? "Open Alerts" : "Sessions Delivered"}
-          value={!isAdmin && myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : alerts?.total}
-          icon={isAdmin ? Bell : Clock}
-          accent={isAdmin ? "red" : "emerald"}
-          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : `of ${myCaseload?.totalRequiredMinutes ?? 0} required`}
-          href={isAdmin ? "/alerts" : "/sessions"}
+          title={myCaseload ? "Sessions Delivered" : "Open Alerts"}
+          value={myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : alerts?.total}
+          icon={myCaseload ? Clock : Bell}
+          accent={myCaseload ? "emerald" : "red"}
+          subtitle={myCaseload ? `of ${myCaseload.totalRequiredMinutes} required` : `${alerts?.critical ?? 0} critical`}
+          href={myCaseload ? "/sessions" : "/alerts"}
         />
         <MetricCard
-          title={isAdmin ? "Makeup Needed" : "Compliance"}
-          value={!isAdmin && myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
-          icon={isAdmin ? Clock : CheckCircle}
-          accent={!isAdmin && myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
-          subtitle={isAdmin ? "sessions" : "of your students"}
-          href={isAdmin ? "/sessions" : "/compliance"}
+          title={myCaseload ? "Compliance" : "Makeup Needed"}
+          value={myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
+          icon={myCaseload ? CheckCircle : Clock}
+          accent={myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
+          subtitle={myCaseload ? "of your students" : "sessions"}
+          href={myCaseload ? "/compliance" : "/sessions"}
         />
         <MetricCard
-          title={isAdmin ? "Out of Compliance" : "At Risk"}
-          value={!isAdmin && myCaseload ? myCaseload.studentsAtRisk : s?.outOfComplianceStudents}
+          title={myCaseload ? "At Risk" : "Out of Compliance"}
+          value={myCaseload ? myCaseload.studentsAtRisk : s?.outOfComplianceStudents}
           icon={AlertTriangle}
           accent="red"
-          subtitle={isAdmin ? "students" : "your students"}
+          subtitle={myCaseload ? "your students" : "students"}
           href="/compliance"
         />
       </div>
