@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
-import { saveGeneratedDocument } from "@/lib/print-document";
+import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, type DocumentSection } from "@/lib/print-document";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   getStudent, listIepGoals, listProgressReports, listProgramTargets,
@@ -921,97 +921,85 @@ function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
   }
 
   function printReport() {
-    const printWin = window.open("", "_blank");
-    if (!printWin) return;
-    const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const goalRows = goalProgress.map(gp => `
       <tr>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(String(gp.goalNumber))}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.goalArea)}${gp.serviceArea ? ` (${esc(gp.serviceArea)})` : ""}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.annualGoal)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.baseline) || "N/A"}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center;font-weight:bold">${esc(gp.progressCode)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.currentPerformance)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:12px">${esc(gp.narrative)}</td>
+        <td>${escDoc(String(gp.goalNumber))}</td>
+        <td>${escDoc(gp.goalArea)}${gp.serviceArea ? ` (${escDoc(gp.serviceArea)})` : ""}</td>
+        <td>${escDoc(gp.annualGoal)}</td>
+        <td>${escDoc(gp.baseline) || "N/A"}</td>
+        <td style="text-align:center;font-weight:bold">${escDoc(gp.progressCode)}</td>
+        <td>${escDoc(gp.currentPerformance)}</td>
+        <td>${escDoc(gp.narrative)}</td>
       </tr>
     `).join("");
     const svcRows = serviceBreakdown.map(s => `
       <tr>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px">${esc(s.serviceType)}</td>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.requiredMinutes}</td>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.deliveredMinutes}</td>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.completedSessions}</td>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center">${s.missedSessions}</td>
-        <td style="padding:4px 8px;border:1px solid #d1d5db;font-size:12px;text-align:center;font-weight:bold">${s.compliancePercent}%</td>
+        <td>${escDoc(s.serviceType)}</td>
+        <td style="text-align:center">${s.requiredMinutes}</td>
+        <td style="text-align:center">${s.deliveredMinutes}</td>
+        <td style="text-align:center">${s.completedSessions}</td>
+        <td style="text-align:center">${s.missedSessions}</td>
+        <td style="text-align:center;font-weight:bold">${s.compliancePercent}%</td>
       </tr>
     `).join("");
-    printWin.document.write(`<!DOCTYPE html><html><head><title>IEP Progress Report - ${esc(studentName)}</title>
-      <style>body{font-family:Arial,sans-serif;margin:40px;color:#111}h1{font-size:18px;margin:0}h2{font-size:14px;margin:20px 0 8px;border-bottom:2px solid #059669;padding-bottom:4px}
-      table{width:100%;border-collapse:collapse;margin:8px 0}th{background:#f3f4f6;padding:6px 8px;border:1px solid #d1d5db;font-size:11px;text-align:left}
-      .header{text-align:center;border-bottom:3px solid #059669;padding-bottom:12px;margin-bottom:16px}
-      .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;margin:12px 0}
-      .code-key{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;font-size:11px;margin:8px 0;padding:8px;background:#f9fafb;border-radius:4px}
-      .footer{margin-top:30px;padding-top:16px;border-top:2px solid #e5e7eb;font-size:11px;color:#6b7280}
-      .sig-line{margin-top:40px;display:flex;gap:40px}.sig-line div{flex:1;border-top:1px solid #9ca3af;padding-top:4px;font-size:11px}
-      @media print{body{margin:20px}}</style></head><body>
-      <div class="header">
-        <h1>MASSACHUSETTS IEP PROGRESS REPORT</h1>
-        <p style="font-size:12px;color:#6b7280;margin:4px 0">Pursuant to 603 CMR 28.07(8)</p>
-      </div>
-      <div class="meta">
-        <div><strong>Student:</strong> ${esc(studentName)}</div>
-        <div><strong>DOB:</strong> ${report.studentDob ? esc(formatDate(report.studentDob)) : "N/A"}</div>
-        <div><strong>Grade:</strong> ${esc(report.studentGrade) || "N/A"}</div>
-        <div><strong>School:</strong> ${esc(report.schoolName) || "N/A"}</div>
-        <div><strong>District:</strong> ${esc(report.districtName) || "N/A"}</div>
-        <div><strong>Reporting Period:</strong> ${esc(formatDate(report.periodStart))} — ${esc(formatDate(report.periodEnd))}</div>
-        ${report.iepStartDate ? `<div><strong>IEP Dates:</strong> ${esc(formatDate(report.iepStartDate))} — ${esc(formatDate(report.iepEndDate || ""))}</div>` : ""}
-        <div><strong>Report Status:</strong> ${report.status === "final" ? "FINAL" : "DRAFT"}</div>
-      </div>
-      <h2>Progress Code Key</h2>
-      <div class="code-key">
-        <div><strong>M</strong> = Mastered</div><div><strong>SP</strong> = Sufficient Progress</div><div><strong>IP</strong> = Insufficient Progress</div>
-        <div><strong>NP</strong> = No Progress</div><div><strong>R</strong> = Regression</div><div><strong>NA</strong> = Not Addressed</div>
-      </div>
-      <h2>Goal-by-Goal Progress</h2>
-      <table><thead><tr><th>#</th><th>Area</th><th>Annual Goal</th><th>Baseline</th><th>Code</th><th>Current Performance</th><th>Narrative</th></tr></thead>
-      <tbody>${goalRows}</tbody></table>
-      ${serviceBreakdown.length > 0 ? `<h2>Service Delivery Summary</h2>
-      <table><thead><tr><th>Service</th><th>Required Min</th><th>Delivered Min</th><th>Sessions</th><th>Missed</th><th>Compliance</th></tr></thead>
-      <tbody>${svcRows}</tbody></table>` : ""}
-      <h2>Recommendations</h2>
-      <p style="font-size:13px">${esc(report.recommendations) || "None"}</p>
-      ${report.parentNotes ? `<h2>Parent/Guardian Notes</h2><p style="font-size:13px">${esc(report.parentNotes)}</p>` : ""}
-      <div class="footer">
-        <p><strong>Parent/Guardian Notification:</strong> This progress report is provided pursuant to 603 CMR 28.07(8), which requires that parents/guardians
-        be informed of their child's progress toward IEP goals at least as often as parents of non-disabled children are informed of their child's progress.
-        Parents/guardians have the right to request an IEP Team meeting at any time to discuss their child's progress.</p>
-        ${report.nextReportDate ? `<p><strong>Next Report Due:</strong> ${esc(formatDate(report.nextReportDate))}</p>` : ""}
-        ${report.preparedByName ? `<p><strong>Prepared By:</strong> ${esc(report.preparedByName)}</p>` : ""}
-      </div>
-      <div class="sig-line">
-        <div>Educator Signature / Date</div>
-        <div>Parent/Guardian Signature / Date</div>
-      </div>
-      </body></html>`);
-    printWin.document.close();
-    setTimeout(() => printWin.print(), 500);
-    const htmlContent = `<!DOCTYPE html><html><head><title>IEP Progress Report - ${esc(studentName)}</title>
-      <style>body{font-family:Arial,sans-serif;margin:40px;color:#111}h1{font-size:18px;margin:0}h2{font-size:14px;margin:20px 0 8px;border-bottom:2px solid #059669;padding-bottom:4px}
-      table{width:100%;border-collapse:collapse;margin:8px 0}th{background:#f3f4f6;padding:6px 8px;border:1px solid #d1d5db;font-size:11px;text-align:left}
-      .header{text-align:center;border-bottom:3px solid #059669;padding-bottom:12px;margin-bottom:16px}
-      .meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;margin:12px 0}</style></head><body>
-      <div class="header"><h1>MASSACHUSETTS IEP PROGRESS REPORT</h1><p>Pursuant to 603 CMR 28.07(8)</p></div>
-      <div class="meta">
-        <div><strong>Student:</strong> ${esc(studentName)}</div>
-        <div><strong>Period:</strong> ${esc(formatDate(report.periodStart))} — ${esc(formatDate(report.periodEnd))}</div>
-        <div><strong>Status:</strong> ${report.status === "final" ? "FINAL" : "DRAFT"}</div>
-      </div></body></html>`;
+
+    const sections: DocumentSection[] = [
+      {
+        heading: "Progress Code Key",
+        html: `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;font-size:11px;padding:8px;background:#f9fafb;border-radius:4px;margin-bottom:10px">
+          <div><strong>M</strong> = Mastered</div><div><strong>SP</strong> = Sufficient Progress</div><div><strong>IP</strong> = Insufficient Progress</div>
+          <div><strong>NP</strong> = No Progress</div><div><strong>R</strong> = Regression</div><div><strong>NA</strong> = Not Addressed</div>
+        </div>`,
+      },
+      {
+        heading: "Goal-by-Goal Progress",
+        html: `<table>
+          <thead><tr><th>#</th><th>Area</th><th>Annual Goal</th><th>Baseline</th><th>Code</th><th>Current Performance</th><th>Narrative</th></tr></thead>
+          <tbody>${goalRows}</tbody>
+        </table>`,
+      },
+      ...(serviceBreakdown.length > 0 ? [{
+        heading: "Service Delivery Summary",
+        html: `<table>
+          <thead><tr><th>Service</th><th>Required Min</th><th>Delivered Min</th><th>Sessions</th><th>Missed</th><th>Compliance</th></tr></thead>
+          <tbody>${svcRows}</tbody>
+        </table>`,
+      } as DocumentSection] : []),
+      {
+        heading: "Recommendations",
+        html: `<div class="field-box">${escDoc(report.recommendations) || "None"}</div>`,
+      },
+      ...(report.parentNotes ? [{
+        heading: "Parent/Guardian Notes",
+        html: `<div class="field-box">${escDoc(report.parentNotes)}</div>`,
+      } as DocumentSection] : []),
+      ...(report.iepStartDate ? [{
+        heading: "IEP Period",
+        html: `<div class="field-box">${escDoc(formatDate(report.iepStartDate))} — ${escDoc(formatDate(report.iepEndDate || ""))}</div>`,
+      } as DocumentSection] : []),
+    ];
+
+    const html = buildDocumentHtml({
+      documentTitle: "Massachusetts IEP Progress Report",
+      documentSubtitle: "Pursuant to 603 CMR 28.07(8)",
+      studentName,
+      studentDob: report.studentDob,
+      studentGrade: report.studentGrade,
+      school: report.schoolName,
+      district: report.districtName,
+      isDraft: report.status !== "final",
+      generatedDate: `${formatDate(report.periodStart)} — ${formatDate(report.periodEnd)}`,
+      sections,
+      signatureLines: ["Educator Signature / Date", "Parent/Guardian Signature / Date"],
+      footerHtml: `<p style="margin:3px 0">Pursuant to 603 CMR 28.07(8), parents/guardians must be informed of IEP goal progress as often as non-disabled peers. Parents may request an IEP Team meeting at any time.</p>${report.nextReportDate ? `<p style="margin:3px 0"><strong>Next Report Due:</strong> ${escDoc(formatDate(report.nextReportDate))}</p>` : ""}${report.preparedByName ? `<p style="margin:3px 0"><strong>Prepared By:</strong> ${escDoc(report.preparedByName)}</p>` : ""}`,
+    });
+
+    openPrintWindow(html);
     saveGeneratedDocument({
       studentId: report.studentId,
       type: "progress_report",
       title: `IEP Progress Report — ${formatDate(report.periodStart)} to ${formatDate(report.periodEnd)}${report.status !== "final" ? " (Draft)" : ""}`,
-      htmlSnapshot: htmlContent,
+      htmlSnapshot: html,
       linkedRecordId: report.id,
       status: report.status === "final" ? "finalized" : "draft",
     });
@@ -2819,11 +2807,11 @@ function GeneratedDocsPanel({ studentId }: { studentId: number }) {
       if (!res.ok) { toast.error("Could not load document"); return; }
       const doc = await res.json() as GeneratedDoc & { htmlSnapshot: string | null };
       if (!doc.htmlSnapshot) { toast.error("No saved content for this document"); return; }
-      const win = window.open("", "_blank");
-      if (!win) { toast.error("Please allow pop-ups to open print preview"); return; }
-      win.document.write(doc.htmlSnapshot);
-      win.document.close();
-      setTimeout(() => win.print(), 600);
+      const blob = new Blob([doc.htmlSnapshot], { type: "text/html" });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, "_blank");
+      if (!win) { URL.revokeObjectURL(blobUrl); toast.error("Please allow pop-ups to open print preview"); return; }
+      setTimeout(() => { win.print(); URL.revokeObjectURL(blobUrl); }, 600);
     } catch { toast.error("Failed to open document"); }
     setReprinting(null);
   }

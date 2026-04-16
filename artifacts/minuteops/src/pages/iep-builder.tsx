@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
-import { saveGeneratedDocument } from "@/lib/print-document";
+import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, type DocumentSection } from "@/lib/print-document";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -221,101 +221,116 @@ export default function IepBuilderPage() {
 
   function printDraft() {
     if (!draft) return;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const goalRows = draft.goalRecommendations.map(g => {
+    const goalRows = draft.goalRecommendations.map((g: any) => {
       const a = g.recommendation;
-      const ac = ACTION_COLORS[a.action] || ACTION_COLORS.review;
       return `<tr>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px;font-weight:bold">${esc(String(g.goalNumber))}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px">${esc(g.goalArea)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px">${esc(g.progressCode)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px">${esc(g.currentPerformance)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px;font-style:italic">${esc(a.action.toUpperCase())}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px">${esc(a.suggestedGoal)}</td>
-        <td style="padding:6px 8px;border:1px solid #d1d5db;font-size:11px">${esc(a.suggestedCriterion)}</td>
+        <td style="font-weight:bold">${escDoc(String(g.goalNumber))}</td>
+        <td>${escDoc(g.goalArea)}</td>
+        <td>${escDoc(g.progressCode)}</td>
+        <td>${escDoc(g.currentPerformance)}</td>
+        <td style="font-style:italic">${escDoc(a.action.toUpperCase())}</td>
+        <td>${escDoc(a.suggestedGoal)}</td>
+        <td>${escDoc(a.suggestedCriterion)}</td>
       </tr>`;
     }).join("");
 
-    const svcRows = draft.serviceRecommendations.map(s => `<tr>
-      <td style="padding:5px 8px;border:1px solid #d1d5db;font-size:11px">${esc(s.serviceType)}</td>
-      <td style="padding:5px 8px;border:1px solid #d1d5db;font-size:11px;text-align:center">${s.currentMinutes ?? "—"} min/${esc(s.currentInterval)}</td>
-      <td style="padding:5px 8px;border:1px solid #d1d5db;font-size:11px;text-align:center">${s.compliancePercent}%</td>
-      <td style="padding:5px 8px;border:1px solid #d1d5db;font-size:11px;font-style:italic">${esc(s.action.toUpperCase())}</td>
-      <td style="padding:5px 8px;border:1px solid #d1d5db;font-size:11px">${esc(s.rationale)}</td>
+    const svcRows = draft.serviceRecommendations.map((s: any) => `<tr>
+      <td>${escDoc(s.serviceType)}</td>
+      <td style="text-align:center">${s.currentMinutes ?? "—"} min/${escDoc(s.currentInterval)}</td>
+      <td style="text-align:center">${s.compliancePercent}%</td>
+      <td style="font-style:italic">${escDoc(s.action.toUpperCase())}</td>
+      <td>${escDoc(s.rationale)}</td>
     </tr>`).join("");
 
-    const transSection = draft.transitionPlan ? `
-      <h2>Transition Planning</h2>
-      ${Object.entries(draft.transitionPlan.domains || {}).map(([domain, d]: [string, any]) => `
-        <h3 style="font-size:13px;margin:12px 0 4px">${esc(domain)}</h3>
-        <p style="font-size:12px;margin:2px 0"><strong>Post-Secondary Goal:</strong> ${esc(d.goal)}</p>
-        <p style="font-size:12px;margin:2px 0"><strong>Transition Services:</strong> ${esc(d.services)}</p>
-        ${d.assessment ? `<p style="font-size:12px;margin:2px 0"><strong>Assessment:</strong> ${esc(d.assessment)}</p>` : ""}
-      `).join("")}
-      <p style="font-size:12px;margin:8px 0"><strong>Agency Linkages:</strong> ${esc(draft.transitionPlan.agencyLinkages)}</p>
-    ` : "";
+    const plaafpHtml = [
+      draft.plaafp.academic ? `<div class="field-box"><div class="field-label">Academic Performance</div>${escDoc(draft.plaafp.academic)}</div>` : "",
+      draft.plaafp.behavioral ? `<div class="field-box"><div class="field-label">Behavioral / Functional</div>${escDoc(draft.plaafp.behavioral)}</div>` : "",
+      draft.plaafp.communication ? `<div class="field-box"><div class="field-label">Communication</div>${escDoc(draft.plaafp.communication)}</div>` : "",
+      draft.plaafp.parentInput ? `<div class="field-box"><div class="field-label">Parent/Guardian Input</div>${escDoc(draft.plaafp.parentInput)}</div>` : "",
+      draft.plaafp.studentVoice ? `<div class="field-box"><div class="field-label">Student Voice</div>${escDoc(draft.plaafp.studentVoice)}</div>` : "",
+    ].filter(Boolean).join("");
 
-    win.document.write(`<!DOCTYPE html><html><head><title>IEP Annual Review Draft - ${esc(draft.studentName)}</title>
-    <style>
-      body{font-family:Arial,sans-serif;margin:40px;color:#111;font-size:12px}
-      h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;border-bottom:2px solid #059669;padding-bottom:4px;margin:20px 0 8px}
-      table{width:100%;border-collapse:collapse;margin:8px 0 16px}th{background:#f3f4f6;padding:6px 8px;border:1px solid #d1d5db;font-size:11px;text-align:left}
-      .header{border-bottom:3px solid #059669;padding-bottom:12px;margin-bottom:20px}
-      .disclaimer{background:#fef9c3;border:1px solid #fde68a;padding:10px;border-radius:4px;font-size:11px;margin-top:24px}
-      .plaafp-box{background:#f9fafb;padding:12px;border-radius:4px;font-size:12px;margin-bottom:12px;border-left:3px solid #059669}
-      .team-note{background:#eff6ff;padding:8px 12px;border-radius:4px;font-size:11px;margin:4px 0;border-left:3px solid #3b82f6}
-      @media print{body{margin:20px}}
-    </style></head><body>
-    <div class="header">
-      <h1>IEP Annual Review — Draft Recommendations</h1>
-      <p style="color:#6b7280;margin:4px 0">Student: ${esc(draft.studentName)} | School Year: ${esc(draft.generatedFor)} | IEP Period: ${draft.iepStartDate} to ${draft.iepEndDate}</p>
-      <p style="color:#6b7280;margin:4px 0">Generated: ${new Date(draft.generatedAt).toLocaleDateString()} | Status: DRAFT — Requires IEP Team Review</p>
-    </div>
+    const sections: DocumentSection[] = [
+      {
+        heading: "Present Levels of Academic Achievement and Functional Performance (PLAAFP)",
+        html: plaafpHtml || "<p>No PLAAFP data available.</p>",
+      },
+      {
+        heading: `Goal Recommendations for ${escDoc(draft.generatedFor)}`,
+        html: `<table>
+          <thead><tr><th>#</th><th>Area</th><th>Code</th><th>Current Performance</th><th>Action</th><th>Suggested Goal</th><th>Criterion</th></tr></thead>
+          <tbody>${goalRows}</tbody>
+        </table>`,
+      },
+      ...(draft.additionalGoalSuggestions?.length > 0 ? [{
+        heading: "Additional Goal Suggestions",
+        html: draft.additionalGoalSuggestions.map((s: any) => `
+          <div class="field-box"><div class="field-label">${escDoc(s.goalArea)} <small>(${escDoc(s.source)})</small></div>
+          ${escDoc(s.suggestedGoal)}<br><em style="color:#6b7280">${escDoc(s.rationale)}</em></div>
+        `).join(""),
+      } as DocumentSection] : []),
+      {
+        heading: "Service Recommendations",
+        html: `<table>
+          <thead><tr><th>Service</th><th>Current</th><th>Compliance</th><th>Action</th><th>Rationale</th></tr></thead>
+          <tbody>${svcRows}</tbody>
+        </table>`,
+      },
+      ...(draft.accommodationRecommendations?.length > 0 ? [{
+        heading: "Accommodations",
+        html: draft.accommodationRecommendations.map((a: any) =>
+          `<div style="margin:3px 0">• <strong>${escDoc(a.description)}</strong> (${escDoc(a.category)}) — ${escDoc(a.action)}</div>`
+        ).join(""),
+      } as DocumentSection] : []),
+      ...(draft.transitionPlan ? [{
+        heading: "Transition Planning",
+        html: [
+          ...Object.entries(draft.transitionPlan.domains || {}).map(([domain, d]: [string, any]) =>
+            `<div class="field-box">
+              <div class="field-label">${escDoc(domain)}</div>
+              <div><strong>Post-Secondary Goal:</strong> ${escDoc(d.goal)}</div>
+              <div><strong>Transition Services:</strong> ${escDoc(d.services)}</div>
+              ${d.assessment ? `<div><strong>Assessment:</strong> ${escDoc(d.assessment)}</div>` : ""}
+            </div>`
+          ),
+          draft.transitionPlan.agencyLinkages ? `<div class="field-box"><div class="field-label">Agency Linkages</div>${escDoc(draft.transitionPlan.agencyLinkages)}</div>` : "",
+        ].filter(Boolean).join(""),
+      } as DocumentSection] : []),
+      ...(draft.teamDiscussionNotes?.length > 0 ? [{
+        heading: "IEP Team Discussion Items",
+        html: draft.teamDiscussionNotes.map((n: string) =>
+          `<div style="background:#eff6ff;padding:8px 12px;border-radius:4px;border-left:3px solid #3b82f6;margin:4px 0;font-size:11px">• ${escDoc(n)}</div>`
+        ).join(""),
+      } as DocumentSection] : []),
+      {
+        heading: "Important Notice",
+        html: `<div class="notice-box"><strong>⚠ DRAFT ONLY:</strong> ${escDoc(draft.disclaimer)}</div>`,
+      },
+    ];
 
-    <h2>Present Levels of Academic Achievement and Functional Performance (PLAAFP)</h2>
-    ${draft.plaafp.academic ? `<div class="plaafp-box"><strong>Academic Performance:</strong><br>${esc(draft.plaafp.academic)}</div>` : ""}
-    ${draft.plaafp.behavioral ? `<div class="plaafp-box"><strong>Behavioral/Functional:</strong><br>${esc(draft.plaafp.behavioral)}</div>` : ""}
-    ${draft.plaafp.communication ? `<div class="plaafp-box"><strong>Communication:</strong><br>${esc(draft.plaafp.communication)}</div>` : ""}
-    ${draft.plaafp.parentInput ? `<div class="plaafp-box"><strong>Parent/Guardian Input:</strong><br>${esc(draft.plaafp.parentInput)}</div>` : ""}
-    ${draft.plaafp.studentVoice ? `<div class="plaafp-box"><strong>Student Voice:</strong><br>${esc(draft.plaafp.studentVoice)}</div>` : ""}
+    const html = buildDocumentHtml({
+      documentTitle: "IEP Annual Review — Draft Recommendations",
+      documentSubtitle: `School Year: ${escDoc(draft.generatedFor)} · IEP Period: ${escDoc(draft.iepStartDate)} to ${escDoc(draft.iepEndDate)}`,
+      studentName: draft.studentName,
+      isDraft: true,
+      watermark: "DRAFT",
+      generatedDate: new Date(draft.generatedAt).toLocaleDateString(),
+      sections,
+      signatureLines: [
+        "Case Manager / Date",
+        "Parent/Guardian / Date",
+        "Special Education Director / Date",
+      ],
+      footerHtml: `<p style="margin:3px 0">This document is a DRAFT generated by the Trellis IEP Annual Review Assistant. It requires review and approval by the full IEP team before becoming a final document. Do not distribute to families without team review.</p>`,
+    });
 
-    <h2>Goal Recommendations for ${esc(draft.generatedFor)}</h2>
-    <table><thead><tr><th>#</th><th>Area</th><th>Code</th><th>Current Performance</th><th>Action</th><th>Suggested Goal</th><th>Criterion</th></tr></thead>
-    <tbody>${goalRows}</tbody></table>
-
-    ${draft.additionalGoalSuggestions.length > 0 ? `
-    <h2>Additional Goal Suggestions</h2>
-    ${draft.additionalGoalSuggestions.map(s => `
-      <div class="plaafp-box"><strong>${esc(s.goalArea)}</strong> (${esc(s.source)})<br>${esc(s.suggestedGoal)}<br><em>${esc(s.rationale)}</em></div>
-    `).join("")}` : ""}
-
-    <h2>Service Recommendations</h2>
-    <table><thead><tr><th>Service</th><th>Current</th><th>Compliance</th><th>Action</th><th>Rationale</th></tr></thead>
-    <tbody>${svcRows}</tbody></table>
-
-    ${draft.accommodationRecommendations.length > 0 ? `
-    <h2>Accommodations</h2>
-    ${draft.accommodationRecommendations.map(a => `<p style="font-size:12px;margin:2px 0">• ${esc(a.description)} (${esc(a.category)}) — ${esc(a.action)}</p>`).join("")}` : ""}
-
-    ${transSection}
-
-    ${draft.teamDiscussionNotes.length > 0 ? `
-    <h2>IEP Team Discussion Items</h2>
-    ${draft.teamDiscussionNotes.map(n => `<div class="team-note">• ${esc(n)}</div>`).join("")}` : ""}
-
-    <div class="disclaimer"><strong>⚠ DRAFT ONLY:</strong> ${esc(draft.disclaimer)}</div>
-    </body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 500);
-    const snapshotHtml = `<!DOCTYPE html><html><head><title>IEP Draft - ${esc(draft.studentName)}</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#111;font-size:12px}h1{font-size:18px}h2{font-size:14px;border-bottom:2px solid #059669;padding-bottom:4px;margin:20px 0 8px}.disclaimer{background:#fef9c3;border:1px solid #fde68a;padding:10px;border-radius:4px;font-size:11px;margin-top:24px}</style></head><body><h1>IEP Annual Review — Draft Recommendations</h1><p>Student: ${esc(draft.studentName)} | Period: ${esc(draft.generatedFor)} | Generated: ${new Date(draft.generatedAt).toLocaleDateString()}</p><div class="disclaimer"><strong>⚠ DRAFT ONLY:</strong> ${esc(draft.disclaimer)}</div></body></html>`;
+    openPrintWindow(html);
     saveGeneratedDocument({
       studentId,
       type: "iep_draft",
-      title: `IEP Annual Review Draft — ${esc(draft.generatedFor ?? new Date().getFullYear().toString())}`,
-      htmlSnapshot: snapshotHtml,
+      title: `IEP Annual Review Draft — ${escDoc(draft.generatedFor ?? String(new Date().getFullYear()))}`,
+      htmlSnapshot: html,
       status: "draft",
     });
   }

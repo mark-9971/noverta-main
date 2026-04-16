@@ -10,6 +10,16 @@ import { getPublicMeta } from "../lib/clerkClaims";
 
 const ALLOWED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
 
+function sanitizeHtmlSnapshot(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<script\b[^>]*>/gi, "")
+    .replace(/<\/?(?:iframe|object|embed|applet|base|link)\b[^>]*>/gi, "")
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "")
+    .replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi, 'href="#"')
+    .replace(/src\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi, 'src=""');
+}
+
 const CreateBody = z.object({
   studentId: z.number().int().positive(),
   type: z.enum(["incident_report", "progress_report", "iep_draft"]),
@@ -84,6 +94,10 @@ router.post("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: 
   const authed = req as AuthedRequest;
   if (!await assertStudentInDistrict(req, parsed.data.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
+  const sanitizedHtml = parsed.data.htmlSnapshot
+    ? sanitizeHtmlSnapshot(parsed.data.htmlSnapshot)
+    : undefined;
+
   const [doc] = await db
     .insert(generatedDocumentsTable)
     .values({
@@ -91,7 +105,7 @@ router.post("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: 
       type: parsed.data.type,
       status: parsed.data.status,
       title: parsed.data.title,
-      htmlSnapshot: parsed.data.htmlSnapshot,
+      htmlSnapshot: sanitizedHtml,
       linkedRecordId: parsed.data.linkedRecordId,
       createdByName: authed.displayName || null,
     })

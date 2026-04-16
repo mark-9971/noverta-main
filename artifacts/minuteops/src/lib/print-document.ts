@@ -229,6 +229,7 @@ export function buildDocumentHtml(opts: BuildDocumentOptions): string {
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; script-src 'none'">
   <title>${esc(documentTitle)} — ${esc(studentName)}</title>
   <style>${SHARED_CSS}</style>
 </head>
@@ -253,14 +254,16 @@ export function buildDocumentHtml(opts: BuildDocumentOptions): string {
 }
 
 export function openPrintWindow(html: string): void {
-  const win = window.open("", "_blank");
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
   if (!win) {
+    URL.revokeObjectURL(url);
     alert("Please allow pop-ups for this site to open print preview.");
     return;
   }
-  win.document.write(html);
-  win.document.close();
-  setTimeout(() => win.print(), 600);
+  win.addEventListener("load", () => { setTimeout(() => win.print(), 300); });
+  setTimeout(() => URL.revokeObjectURL(url), 300_000);
 }
 
 export async function saveGeneratedDocument(params: {
