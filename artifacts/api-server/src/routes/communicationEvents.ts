@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { db, communicationEventsTable, studentsTable, guardiansTable, staffTable } from "@workspace/db";
-import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 
@@ -53,7 +53,7 @@ router.get("/communication-events", async (req: Request, res: Response) => {
       .orderBy(desc(communicationEventsTable.createdAt))
       .limit(limit)
       .offset(offset),
-    db.select({ count: db.$count(communicationEventsTable, and(...conditions)) }).from(communicationEventsTable),
+    db.select({ count: sql<number>`count(*)::int` }).from(communicationEventsTable).where(and(...conditions)),
   ]);
 
   const staffIds = [...new Set(events.flatMap(e => e.staffId ? [e.staffId] : []))];
