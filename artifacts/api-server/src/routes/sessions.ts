@@ -7,7 +7,9 @@ import {
   programTargetsTable, behaviorTargetsTable,
   compensatoryObligationsTable,
   sessionGoalDataTable,
+  guardiansTable, schoolsTable,
 } from "@workspace/db";
+import { sendEmail, buildMissedServiceAlertEmail } from "../lib/email";
 import {
   ListSessionsQueryParams,
   CreateSessionBody,
@@ -407,9 +409,56 @@ router.post("/sessions", async (req, res): Promise<void> => {
         summary: `Logged session for student #${result.studentId} on ${result.sessionDate}`,
         newValues: { sessionDate: result.sessionDate, durationMinutes: result.durationMinutes, status: result.status } as Record<string, unknown>,
       });
+
+      if (result.status === "missed" && result.studentId) {
+        (async () => {
+          try {
+            const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, result.studentId));
+            if (!student) return;
+            const [guardian] = await db.select().from(guardiansTable)
+              .where(eq(guardiansTable.studentId, student.id))
+              .orderBy(asc(guardiansTable.contactPriority), asc(guardiansTable.id))
+              .limit(1);
+            const toEmail = guardian?.email ?? student.parentEmail ?? null;
+            const toName = guardian?.name ?? student.parentGuardianName ?? null;
+            if (!toEmail) return;
+
+            const [school] = student.schoolId
+              ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId))
+              : [null];
+            const [svcType] = result.serviceTypeId
+              ? await db.select().from(serviceTypesTable).where(eq(serviceTypesTable.id, result.serviceTypeId))
+              : [null];
+
+            const emailContent = buildMissedServiceAlertEmail({
+              guardianName: toName ?? "Parent/Guardian",
+              studentName: `${student.firstName} ${student.lastName}`,
+              serviceType: svcType?.name ?? "Special Education Service",
+              missedMinutes: result.durationMinutes ?? 0,
+              requiredMinutes: result.durationMinutes ?? 0,
+              schoolName: school?.name ?? "the school",
+            });
+
+            await sendEmail({
+              studentId: student.id,
+              type: "missed_service_alert",
+              subject: emailContent.subject,
+              bodyHtml: emailContent.html,
+              bodyText: emailContent.text,
+              toEmail,
+              toName: toName ?? undefined,
+              guardianId: guardian?.id,
+              metadata: { sessionLogId: result.id, sessionDate: result.sessionDate, triggeredBy: "session_missed" },
+            });
+          } catch (emailErr) {
+            console.error("Missed-session alert email error:", emailErr);
+          }
+        })();
+      }
+
       res.status(201).json({ ...result, createdAt: result.createdAt.toISOString() });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("POST /sessions error:", e);
     res.status(500).json({ error: "Failed to create session" });
   }

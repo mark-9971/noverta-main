@@ -8,6 +8,7 @@ import { eq, and, desc, asc, isNull, lte, sql, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { sendEmail, buildOverdueEvaluationEmail } from "../lib/email";
 
 const router: IRouter = Router();
 router.use(requireTierAccess("compliance.evaluations"));
@@ -253,6 +254,43 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
 
     logAudit(req, { action: "create", targetTable: "evaluations", targetId: row.id, studentId: body.studentId, summary: `Created evaluation for student #${body.studentId}` });
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+
+    if (row.dueDate && row.leadEvaluatorId) {
+      (async () => {
+        try {
+          const dueMs = new Date(row.dueDate!).getTime();
+          const daysOverdue = Math.floor((Date.now() - dueMs) / 86400000);
+          if (daysOverdue < 0) return;
+          const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, row.studentId));
+          const [leadStaff] = await db.select().from(staffTable).where(eq(staffTable.id, row.leadEvaluatorId!));
+          if (!leadStaff?.email) return;
+          const [school] = student?.schoolId
+            ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId))
+            : [null];
+          const emailContent = buildOverdueEvaluationEmail({
+            staffName: `${leadStaff.firstName} ${leadStaff.lastName}`,
+            studentName: student ? `${student.firstName} ${student.lastName}` : "Student",
+            evaluationType: row.evaluationType ?? "initial",
+            dueDate: row.dueDate!,
+            daysOverdue,
+            schoolName: school?.name ?? "the school",
+          });
+          await sendEmail({
+            studentId: row.studentId,
+            type: "overdue_evaluation_reminder",
+            subject: emailContent.subject,
+            bodyHtml: emailContent.html,
+            bodyText: emailContent.text,
+            toEmail: leadStaff.email,
+            toName: `${leadStaff.firstName} ${leadStaff.lastName}`,
+            staffId: row.leadEvaluatorId ?? undefined,
+            metadata: { evaluationId: row.id, daysOverdue, triggeredBy: "evaluation_created_overdue" },
+          });
+        } catch (emailErr) {
+          console.error("Overdue evaluation alert email error:", emailErr);
+        }
+      })();
+    }
   } catch (err) {
     console.error("POST /evaluations error:", err);
     res.status(500).json({ error: "Failed to create evaluation" });

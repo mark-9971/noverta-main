@@ -2,12 +2,13 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   transitionPlansTable, transitionGoalsTable, transitionAgencyReferralsTable,
-  studentsTable, staffTable, iepDocumentsTable,
+  studentsTable, staffTable, iepDocumentsTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, desc, isNull, sql, lte, gte, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { sendEmail, buildIncompleteTransitionEmail } from "../lib/email";
 
 const router: IRouter = Router();
 router.use(requireTierAccess("compliance.transitions"));
@@ -184,6 +185,38 @@ router.post("/transitions/plans", transitionAccess, async (req, res): Promise<vo
 
     logAudit(req, { action: "create", targetTable: "transition_plans", targetId: row.id, studentId: body.studentId, summary: `Created transition plan for student #${body.studentId}` });
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+
+    if (row.coordinatorId && (row.status === "draft" || !row.status)) {
+      (async () => {
+        try {
+          const [coordinator] = await db.select().from(staffTable).where(eq(staffTable.id, row.coordinatorId!));
+          if (!coordinator?.email) return;
+          const [school] = student?.schoolId
+            ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId))
+            : [null];
+          const planDateStr = row.planDate ?? new Date().toISOString().substring(0, 10);
+          const emailContent = buildIncompleteTransitionEmail({
+            coordinatorName: `${coordinator.firstName} ${coordinator.lastName}`,
+            studentName: `${student.firstName} ${student.lastName}`,
+            planDate: planDateStr,
+            schoolName: school?.name ?? "the school",
+          });
+          await sendEmail({
+            studentId: row.studentId,
+            type: "incomplete_transition_reminder",
+            subject: emailContent.subject,
+            bodyHtml: emailContent.html,
+            bodyText: emailContent.text,
+            toEmail: coordinator.email,
+            toName: `${coordinator.firstName} ${coordinator.lastName}`,
+            staffId: row.coordinatorId ?? undefined,
+            metadata: { transitionPlanId: row.id, triggeredBy: "transition_plan_created_draft" },
+          });
+        } catch (emailErr) {
+          console.error("Transition plan reminder email error:", emailErr);
+        }
+      })();
+    }
   } catch (err) {
     console.error("create transition plan", err);
     res.status(500).json({ error: "Failed to create transition plan" });

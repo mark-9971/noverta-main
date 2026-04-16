@@ -1382,21 +1382,40 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
     onSuccess: invalidateAll,
   });
 
+  type SendNotificationResult = {
+    emailNotSent?: boolean;
+    emailResult?: {
+      success: boolean;
+      notConfigured?: boolean;
+      error?: string;
+      communicationEventId?: number;
+    };
+    parentNotificationSentAt?: string | null;
+    [key: string]: unknown;
+  };
+
+  const [lastEmailFailure, setLastEmailFailure] = useState<{ notConfigured: boolean; error: string } | null>(null);
+
   const sendNotificationMutation = useMutation({
     mutationFn: (data: { draft: string; method: string }) =>
-      sendParentNotificationIncident(id, data),
-    onSuccess: (data: any) => {
+      sendParentNotificationIncident(id, data) as Promise<SendNotificationResult>,
+    onSuccess: (data: SendNotificationResult) => {
       invalidateAll();
       const er = data?.emailResult;
       if (data?.emailNotSent) {
         if (er?.notConfigured) {
+          setLastEmailFailure({ notConfigured: true, error: "Email provider not configured" });
           toast.warning("Notification draft saved. Email delivery is not configured — add RESEND_API_KEY to enable real delivery.", { duration: 8000 });
         } else {
-          toast.error(`Email delivery failed: ${er?.error ?? "Unknown error"}. Please retry or choose a different method.`, { duration: 8000 });
+          const msg = er?.error ?? "Unknown error";
+          setLastEmailFailure({ notConfigured: false, error: msg });
+          toast.error(`Email delivery failed: ${msg}. Please retry or choose a different notification method.`, { duration: 8000 });
         }
       } else if (er?.success === true) {
+        setLastEmailFailure(null);
         toast.success("Parent notification email sent successfully");
       } else {
+        setLastEmailFailure(null);
         toast.success("Parent notification recorded");
       }
     },
@@ -2122,6 +2141,28 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
             <option value="certified_mail">Certified Mail</option>
             <option value="hand_delivered">Hand Delivered</option>
           </select>
+
+          {lastEmailFailure && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-red-700">
+                  {lastEmailFailure.notConfigured ? "Email not configured" : "Email delivery failed"}
+                </p>
+                <p className="text-[10px] text-red-600 mt-0.5">
+                  {lastEmailFailure.notConfigured
+                    ? "Add RESEND_API_KEY to enable real email delivery, or switch to Certified Mail / Hand Delivered below."
+                    : `${lastEmailFailure.error}. Update the method or try again.`}
+                </p>
+              </div>
+              <button
+                onClick={() => { setLastEmailFailure(null); setShowConfirm(true); }}
+                disabled={!draftText}
+                className="text-[10px] px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 whitespace-nowrap flex-shrink-0">
+                Retry
+              </button>
+            </div>
+          )}
 
           {!showConfirm ? (
             <button onClick={() => setShowConfirm(true)} disabled={!draftText}

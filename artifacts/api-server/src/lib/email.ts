@@ -40,10 +40,33 @@ export interface SendEmailResult {
 const FROM_EMAIL = "Trellis SPED <noreply@trellis.education>";
 const FROM_EMAIL_FALLBACK = "noreply@trellis.education";
 
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = [600, 1200];
+
 function getResendClient(): Resend | null {
   const key = process.env.RESEND_API_KEY;
   if (!key) return null;
   return new Resend(key);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTransientError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("network") ||
+    lower.includes("timeout") ||
+    lower.includes("econnreset") ||
+    lower.includes("enotfound") ||
+    lower.includes("socket") ||
+    lower.includes("rate_limit") ||
+    lower.includes("429") ||
+    lower.includes("503") ||
+    lower.includes("502") ||
+    lower.includes("500")
+  );
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
@@ -97,35 +120,58 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     metadata: metadata ?? null,
   }).returning();
 
-  try {
-    const result = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: toName ? `${toName} <${toEmail}>` : toEmail,
-      subject,
-      html: bodyHtml,
-      text: bodyText,
-    });
-
-    if (result.error) {
-      const errMsg = result.error.message ?? "Resend API error";
-      await db.update(communicationEventsTable)
-        .set({ status: "failed", failedAt: now, failedReason: errMsg, updatedAt: now })
-        .where(eq(communicationEventsTable.id, pending.id));
-      return { success: false, communicationEventId: pending.id, error: errMsg };
+  let lastError = "";
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await sleep(RETRY_DELAY_MS[attempt - 1] ?? 1200);
     }
+    try {
+      const result = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: toName ? `${toName} <${toEmail}>` : toEmail,
+        subject,
+        html: bodyHtml,
+        text: bodyText,
+      });
 
-    await db.update(communicationEventsTable)
-      .set({ status: "sent", providerMessageId: result.data?.id ?? null, sentAt: now, updatedAt: now })
-      .where(eq(communicationEventsTable.id, pending.id));
+      if (result.error) {
+        const errMsg = result.error.message ?? "Resend API error";
+        if (attempt < MAX_RETRIES && isTransientError(errMsg)) {
+          lastError = errMsg;
+          continue;
+        }
+        const failNow = new Date();
+        await db.update(communicationEventsTable)
+          .set({ status: "failed", failedAt: failNow, failedReason: `${errMsg} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`, updatedAt: failNow })
+          .where(eq(communicationEventsTable.id, pending.id));
+        return { success: false, communicationEventId: pending.id, error: errMsg };
+      }
 
-    return { success: true, communicationEventId: pending.id, providerMessageId: result.data?.id };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await db.update(communicationEventsTable)
-      .set({ status: "failed", failedAt: now, failedReason: msg, updatedAt: now })
-      .where(eq(communicationEventsTable.id, pending.id));
-    return { success: false, communicationEventId: pending.id, error: msg };
+      const sentNow = new Date();
+      await db.update(communicationEventsTable)
+        .set({ status: "sent", providerMessageId: result.data?.id ?? null, sentAt: sentNow, updatedAt: sentNow })
+        .where(eq(communicationEventsTable.id, pending.id));
+      return { success: true, communicationEventId: pending.id, providerMessageId: result.data?.id };
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < MAX_RETRIES && isTransientError(msg)) {
+        lastError = msg;
+        continue;
+      }
+      const failNow = new Date();
+      await db.update(communicationEventsTable)
+        .set({ status: "failed", failedAt: failNow, failedReason: `${msg} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`, updatedAt: failNow })
+        .where(eq(communicationEventsTable.id, pending.id));
+      return { success: false, communicationEventId: pending.id, error: msg };
+    }
   }
+
+  const failNow = new Date();
+  await db.update(communicationEventsTable)
+    .set({ status: "failed", failedAt: failNow, failedReason: `Max retries exceeded: ${lastError}`, updatedAt: failNow })
+    .where(eq(communicationEventsTable.id, pending.id));
+  return { success: false, communicationEventId: pending.id, error: `Delivery failed after ${MAX_RETRIES + 1} attempts: ${lastError}` };
 }
 
 export function buildIncidentNotificationEmail(opts: {
@@ -240,5 +286,69 @@ export function buildOverdueFollowupEmail(opts: {
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `Dear ${guardianName},\n\nThis is a follow-up regarding our previous contact on ${originalContactDate} about: ${originalSubject}.\n\nA follow-up was scheduled for ${followUpDate}. Please contact ${staffName} to discuss next steps for ${studentName}.\n\n${schoolName}`;
+  return { subject, html, text };
+}
+
+export function buildIncompleteTransitionEmail(opts: {
+  coordinatorName: string;
+  studentName: string;
+  planDate: string;
+  schoolName: string;
+}): { subject: string; html: string; text: string } {
+  const { coordinatorName, studentName, planDate, schoolName } = opts;
+  const subject = `Action Required — Transition Plan Incomplete: ${studentName}`;
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#1e3a5f;color:#fff;padding:20px 24px}.body{padding:24px}.notice{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Transition Plan Reminder</h1><p style="margin:4px 0 0;font-size:11px;opacity:.8">603 CMR 28.05 — Massachusetts Transition Requirements</p></div>
+<div class="body">
+<div class="notice">A transition plan for <strong>${studentName}</strong> was created on <strong>${planDate}</strong> and is currently in <em>draft</em> status.</div>
+<p>Dear ${coordinatorName},</p>
+<p>Please review and complete the transition plan for <strong>${studentName}</strong> in Trellis. Under 603 CMR 28.05, transition plans must be completed and included in the IEP for students age 14 or older.</p>
+<p>Key items to complete:</p>
+<ul>
+  <li>Graduation pathway and expected graduation date</li>
+  <li>Post-secondary vision and transition goals</li>
+  <li>Course of study aligned to post-secondary goals</li>
+  <li>Age of majority notification (if applicable)</li>
+</ul>
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+</div></body></html>`;
+  const text = `TRANSITION PLAN INCOMPLETE\n\nDear ${coordinatorName},\n\nA transition plan for ${studentName} (plan date: ${planDate}) is in draft status and requires completion.\n\nPlease complete the plan including graduation pathway, transition goals, and course of study.\n\n${schoolName}`;
+  return { subject, html, text };
+}
+
+export function buildOverdueEvaluationEmail(opts: {
+  staffName: string;
+  studentName: string;
+  evaluationType: string;
+  dueDate: string;
+  daysOverdue: number;
+  schoolName: string;
+}): { subject: string; html: string; text: string } {
+  const { staffName, studentName, evaluationType, dueDate, daysOverdue, schoolName } = opts;
+  const typeLabel = evaluationType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+  const overduePart = daysOverdue >= 0 ? `${daysOverdue} day(s) overdue` : `due on ${dueDate}`;
+  const subject = `Action Required — ${typeLabel} Evaluation Overdue: ${studentName}`;
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#7f1d1d;color:#fff;padding:20px 24px}.body{padding:24px}.alert{background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Evaluation Overdue Alert</h1><p style="margin:4px 0 0;font-size:11px;opacity:.8">603 CMR 28.04 — Massachusetts Timeline Compliance</p></div>
+<div class="body">
+<div class="alert"><strong>Immediate Action Required:</strong> The ${typeLabel} evaluation for <strong>${studentName}</strong> is ${overduePart}.</div>
+<p>Dear ${staffName},</p>
+<p>This is an automated compliance alert. The evaluation listed below has reached or exceeded its required due date under 603 CMR 28.04:</p>
+<ul>
+  <li>Student: <strong>${studentName}</strong></li>
+  <li>Evaluation type: <strong>${typeLabel}</strong></li>
+  <li>Due date: <strong>${dueDate}</strong></li>
+  <li>Status: <strong>${overduePart}</strong></li>
+</ul>
+<p>Please take immediate action to complete this evaluation or document the reason for the delay in Trellis.</p>
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
+</div></body></html>`;
+  const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.\n\n${schoolName}`;
   return { subject, html, text };
 }
