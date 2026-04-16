@@ -79,6 +79,7 @@ const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"
 const BillingPage = lazy(() => import("@/pages/billing"));
 const MedicaidBillingPage = lazy(() => import("@/pages/medicaid-billing"));
 const CostAvoidancePage = lazy(() => import("@/pages/cost-avoidance"));
+const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
@@ -213,6 +214,7 @@ function StaffRouter() {
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
+      <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <Route component={NotFound} />
     </Switch>

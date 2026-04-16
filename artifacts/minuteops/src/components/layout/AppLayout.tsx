@@ -9,7 +9,7 @@ import {
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
-  Heart, Trophy, CreditCard, Crown, ChevronRight, FileSearch, TrendingDown,
+  Heart, Trophy, CreditCard, Crown, ChevronRight, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock, Mail
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
@@ -158,6 +158,7 @@ const adminNav: NavSection[] = [
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
       { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+      { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
     ],
   },
   {

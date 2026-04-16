@@ -60,6 +60,7 @@ import studentNotesRouter from "./studentNotes";
 import accommodationVerificationsRouter from "./accommodationVerifications";
 import medicaidBillingRouter from "./medicaidBilling";
 import costAvoidanceRouter from "./costAvoidance";
+import compensatoryFinanceRouter from "./compensatoryFinance";
 
 const router: IRouter = Router();
 
@@ -196,5 +197,9 @@ router.use(medicaidBillingRouter);
 router.use("/cost-avoidance", requireDistrictScope);
 router.use("/cost-avoidance", requireRoles("admin", "coordinator"));
 router.use(costAvoidanceRouter);
+
+router.use("/compensatory-finance", requireDistrictScope);
+router.use("/compensatory-finance", requireRoles("admin", "coordinator"));
+router.use(compensatoryFinanceRouter);
 
 export default router;

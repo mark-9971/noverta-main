@@ -95,3 +95,4 @@ export * from "./studentNotes";
 export * from "./accommodationVerifications";
 export * from "./cptCodeMappings";
 export * from "./medicaidClaims";
+export * from "./serviceRateConfigs";
