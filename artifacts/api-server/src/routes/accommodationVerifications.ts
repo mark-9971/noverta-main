@@ -125,11 +125,11 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     )),
   }));
 
-  const grouped: Record<string, typeof enriched> = {};
+  const groupedBySetting: Record<string, typeof enriched> = {};
   for (const a of enriched) {
-    const cat = a.category || "other";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(a);
+    const key = a.setting || "general";
+    if (!groupedBySetting[key]) groupedBySetting[key] = [];
+    groupedBySetting[key].push(a);
   }
 
   res.json({
@@ -142,7 +142,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     verificationRate: accommodations.length > 0
       ? Math.round((enriched.filter(a => !a.isOverdue).length / accommodations.length) * 100)
       : 100,
-    accommodationsByCategory: grouped,
+    accommodationsBySetting: groupedBySetting,
   });
 });
 
@@ -394,13 +394,13 @@ router.get("/students/:studentId/accommodation-card", async (req, res): Promise<
       eq(iepAccommodationsTable.studentId, studentId),
       eq(iepAccommodationsTable.active, true),
     ))
-    .orderBy(iepAccommodationsTable.category, iepAccommodationsTable.id);
+    .orderBy(iepAccommodationsTable.setting, iepAccommodationsTable.id);
 
-  const grouped: Record<string, typeof accommodations> = {};
+  const groupedBySetting: Record<string, typeof accommodations> = {};
   for (const a of accommodations) {
-    const cat = a.category || "other";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(a);
+    const key = a.setting || "general";
+    if (!groupedBySetting[key]) groupedBySetting[key] = [];
+    groupedBySetting[key].push(a);
   }
 
   logAudit(req, {
@@ -415,7 +415,7 @@ router.get("/students/:studentId/accommodation-card", async (req, res): Promise<
     grade: student.grade,
     generatedAt: new Date().toISOString(),
     totalAccommodations: accommodations.length,
-    accommodationsByCategory: grouped,
+    accommodationsBySetting: groupedBySetting,
   });
 });
 

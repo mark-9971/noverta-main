@@ -33,7 +33,7 @@ interface AccommodationSummary {
   verifiedCount: number;
   overdueCount: number;
   verificationRate: number;
-  accommodationsByCategory: Record<string, Accommodation[]>;
+  accommodationsBySetting: Record<string, Accommodation[]>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,14 +50,14 @@ const STATUS_COLORS: Record<string, string> = {
   not_applicable: "bg-gray-100 text-gray-600",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  instruction: "Instructional",
-  assessment: "Assessment / Testing",
-  environment: "Environmental",
-  materials: "Materials",
+const SETTING_LABELS: Record<string, string> = {
+  classroom: "Classroom",
+  testing: "Testing",
   behavioral: "Behavioral",
-  communication: "Communication",
-  other: "Other",
+  general: "General",
+  therapy: "Therapy",
+  lunch_recess: "Lunch / Recess",
+  transportation: "Transportation",
 };
 
 function timeAgo(dateStr: string): string {
@@ -177,7 +177,7 @@ export default function AccommodationTracking({ studentId }: { studentId: number
     );
   }
 
-  const categories = Object.keys(data.accommodationsByCategory);
+  const settings = Object.keys(data.accommodationsBySetting);
 
   return (
     <Card className={printMode ? "print:shadow-none print:border-0" : ""}>
@@ -232,13 +232,13 @@ export default function AccommodationTracking({ studentId }: { studentId: number
             </div>
           </div>
 
-          {categories.map(cat => (
-            <div key={cat}>
+          {settings.map(setting => (
+            <div key={setting}>
               <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                {CATEGORY_LABELS[cat] || cat}
+                {SETTING_LABELS[setting] || setting}
               </h4>
               <div className="space-y-2">
-                {data.accommodationsByCategory[cat].map(acc => (
+                {data.accommodationsBySetting[setting].map(acc => (
                   <div
                     key={acc.id}
                     className={`border rounded-lg p-3 text-sm ${

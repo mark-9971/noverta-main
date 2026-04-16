@@ -59,7 +59,7 @@ interface AccommodationSummary {
   verifiedCount: number;
   overdueCount: number;
   verificationRate: number;
-  accommodationsByCategory: Record<string, AccommodationDetail[]>;
+  accommodationsBySetting: Record<string, AccommodationDetail[]>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -76,14 +76,14 @@ const STATUS_COLORS: Record<string, string> = {
   not_applicable: "bg-gray-100 text-gray-600",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  instruction: "Instructional",
-  assessment: "Assessment / Testing",
-  environment: "Environmental",
-  materials: "Materials",
+const SETTING_LABELS: Record<string, string> = {
+  classroom: "Classroom",
+  testing: "Testing",
   behavioral: "Behavioral",
-  communication: "Communication",
-  other: "Other",
+  general: "General",
+  therapy: "Therapy",
+  lunch_recess: "Lunch / Recess",
+  transportation: "Transportation",
 };
 
 function timeAgo(dateStr: string): string {
@@ -101,13 +101,14 @@ export default function AccommodationLookup() {
   const [data, setData] = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [windowDays, setWindowDays] = useState(30);
   const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
   const [studentDetails, setStudentDetails] = useState<Record<number, AccommodationSummary>>({});
   const [detailLoading, setDetailLoading] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    authFetch("/api/accommodation-compliance")
+    authFetch(`/api/accommodation-compliance?windowDays=${windowDays}`)
       .then((r: Response) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -115,7 +116,7 @@ export default function AccommodationLookup() {
       .then((d: ComplianceData) => setData(d))
       .catch(() => toast.error("Failed to load accommodation compliance"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [windowDays]);
 
   const toggleExpand = useCallback(async (studentId: number) => {
     if (expandedStudentId === studentId) {
@@ -155,6 +156,22 @@ export default function AccommodationLookup() {
           <p className="text-sm text-muted-foreground mt-1">
             Track and verify IEP accommodation implementation across your caseload
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">Window:</label>
+          <select
+            value={windowDays}
+            onChange={e => setWindowDays(Number(e.target.value))}
+            className="text-xs border rounded-md px-2 py-1.5 bg-white"
+          >
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={30}>30 days</option>
+            <option value={60}>60 days</option>
+            <option value={90}>90 days</option>
+            <option value={180}>6 months</option>
+            <option value={365}>1 year</option>
+          </select>
         </div>
       </div>
 
@@ -342,10 +359,10 @@ function StudentRow({ student, expanded, onToggle, onNavigate, details, detailLo
             </div>
           ) : details ? (
             <div className="space-y-3 pt-1">
-              {Object.entries(details.accommodationsByCategory).map(([cat, accommodations]) => (
-                <div key={cat}>
+              {Object.entries(details.accommodationsBySetting).map(([setting, accommodations]) => (
+                <div key={setting}>
                   <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
-                    {CATEGORY_LABELS[cat] || cat}
+                    {SETTING_LABELS[setting] || setting}
                   </h5>
                   <div className="space-y-1.5">
                     {accommodations.map((acc: AccommodationDetail) => (
