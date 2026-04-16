@@ -195,7 +195,8 @@ router.post("/parent-contacts", async (req, res): Promise<void> => {
           .from(studentsTable).where(eq(studentsTable.id, Number(studentId)));
         const studentName = student ? `${student.firstName} ${student.lastName}` : `Student #${studentId}`;
 
-        if (followUpNeeded === "yes" && followUpDate) {
+        const today = new Date().toISOString().substring(0, 10);
+        if (followUpNeeded === "yes" && followUpDate && followUpDate < today) {
           const schoolRow = student?.schoolId
             ? await db.select({ name: schoolsTable.name }).from(schoolsTable).where(eq(schoolsTable.id, student.schoolId)).then(r => r[0] ?? null)
             : null;

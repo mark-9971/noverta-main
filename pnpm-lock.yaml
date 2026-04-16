@@ -229,6 +229,9 @@ importers:
       stripe-replit-sync:
         specifier: ^1.0.0
         version: 1.0.0(stripe@20.0.0(@types/node@25.3.5))
+      svix:
+        specifier: ^1.90.0
+        version: 1.90.0
       zod:
         specifier: 'catalog:'
         version: 3.25.76

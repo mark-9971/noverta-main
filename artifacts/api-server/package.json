@@ -31,6 +31,7 @@
     "sanitize-html": "^2.17.2",
     "stripe": "20.0.0",
     "stripe-replit-sync": "^1.0.0",
+    "svix": "^1.90.0",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -15,6 +15,7 @@ import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 import { db } from "@workspace/db";
 import { communicationEventsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { Webhook as SvixWebhook } from "svix";
 
 const app: Express = express();
 
@@ -64,10 +65,40 @@ app.post(
 
 app.post(
   '/webhooks/resend',
-  express.json({ limit: '1mb' }),
+  express.raw({ type: 'application/json', limit: '1mb' }),
   async (req, res) => {
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      logger.warn('RESEND_WEBHOOK_SECRET not configured — Resend webhook rejected');
+      res.status(501).json({ error: 'Webhook secret not configured' });
+      return;
+    }
+
+    const svixId = req.headers['svix-id'];
+    const svixTimestamp = req.headers['svix-timestamp'];
+    const svixSignature = req.headers['svix-signature'];
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      res.status(400).json({ error: 'Missing required Svix webhook headers' });
+      return;
+    }
+
+    let event: { type?: string; data?: { email_id?: string } };
     try {
-      const event = req.body as { type?: string; data?: { email_id?: string } };
+      const wh = new SvixWebhook(webhookSecret);
+      const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf-8') : String(req.body);
+      event = wh.verify(payload, {
+        'svix-id': String(svixId),
+        'svix-timestamp': String(svixTimestamp),
+        'svix-signature': String(svixSignature),
+      }) as { type?: string; data?: { email_id?: string } };
+    } catch (err: unknown) {
+      logger.warn({ err }, 'Resend webhook signature verification failed');
+      res.status(401).json({ error: 'Invalid webhook signature' });
+      return;
+    }
+
+    try {
       const providerMessageId = event?.data?.email_id ?? null;
       if (!providerMessageId) {
         res.status(200).json({ ok: true, note: 'no email_id' });
@@ -82,11 +113,13 @@ app.post(
         await db.update(communicationEventsTable)
           .set({ status: 'bounced', failedAt: now, failedReason: event.type, updatedAt: now })
           .where(eq(communicationEventsTable.providerMessageId, providerMessageId));
+      } else {
+        logger.info({ eventType: event.type }, 'Resend webhook: unhandled event type — no DB update');
       }
       res.status(200).json({ ok: true });
     } catch (err: unknown) {
-      logger.error({ err }, 'Resend webhook error');
-      res.status(200).json({ ok: true });
+      logger.error({ err }, 'Resend webhook DB update error');
+      res.status(500).json({ error: 'Internal error processing webhook' });
     }
   }
 );
