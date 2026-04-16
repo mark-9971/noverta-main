@@ -230,6 +230,17 @@ export default function EvaluationsPage() {
   const [viewMode, setViewMode] = useState<"tabs" | "pipeline">(() =>
     typeof window !== "undefined" && window.innerWidth >= 768 ? "pipeline" : "tabs"
   );
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  function handleCardClick(card: PipelineCard) {
+    const tabMap: Record<PipelineCard["type"], string> = {
+      referral: "referrals",
+      evaluation: "evaluations",
+      eligibility: "eligibility",
+    };
+    setActiveTab(tabMap[card.type]);
+    setViewMode("tabs");
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
@@ -255,9 +266,9 @@ export default function EvaluationsPage() {
       </div>
 
       {viewMode === "pipeline" ? (
-        <PipelineView />
+        <PipelineView onCardClick={handleCardClick} />
       ) : (
-        <Tabs defaultValue="dashboard">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="flex-wrap">
             <TabsTrigger value="dashboard" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Dashboard</TabsTrigger>
             <TabsTrigger value="referrals" className="gap-1.5"><FileSearch className="w-3.5 h-3.5" /> Referrals</TabsTrigger>
@@ -287,7 +298,7 @@ interface PipelineCard {
   daysUntil?: number | null;
 }
 
-function PipelineView() {
+function PipelineView({ onCardClick }: { onCardClick: (card: PipelineCard) => void }) {
   const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [eligibility, setEligibility] = useState<EligibilityRecord[]>([]);
@@ -417,7 +428,7 @@ function PipelineView() {
                 <p className="text-[11px] text-gray-400 text-center py-6">No items</p>
               )}
               {col.cards.map(card => (
-                <div key={card.id} className="bg-white rounded-lg border border-gray-200/80 p-3 shadow-sm hover:shadow transition-shadow">
+                <div key={card.id} onClick={() => onCardClick(card)} className="bg-white rounded-lg border border-gray-200/80 p-3 shadow-sm hover:shadow transition-shadow cursor-pointer hover:border-gray-300">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-[12px] font-semibold text-gray-800 leading-tight">{card.studentName}</p>
                     {card.studentGrade && (
