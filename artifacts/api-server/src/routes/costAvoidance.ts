@@ -15,6 +15,7 @@ import {
 import { eq, and, sql, gte, lte, isNull, or, inArray, ne } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getEnforcedDistrictId } from "../middlewares/auth";
+import { generateAlertsForDistrict } from "../lib/costAvoidanceAlerts";
 
 const router = Router();
 
@@ -150,78 +151,8 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const horizon90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-  const activeStudentIds = await db.select({ id: studentsTable.id })
-    .from(studentsTable)
-    .where(and(
-      eq(studentsTable.status, "active"),
-      sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`,
-    ));
-  const studentIdArray = activeStudentIds.map(s => s.id);
-  if (studentIdArray.length === 0) {
-    res.json({ created: 0, skipped: 0 });
-    return;
-  }
-
-  const [studentMap, serviceTypeMap] = await Promise.all([
-    buildStudentMap(studentIdArray),
-    buildServiceTypeMap(),
-  ]);
-
-  const [evalRisks, serviceRisks, iepRisks] = await Promise.all([
-    getEvaluationDeadlineRisks(studentIdArray, studentMap, today, horizon90),
-    getServiceShortfallRisks(studentIdArray, studentMap, serviceTypeMap, today),
-    getIepAnnualReviewRisks(studentIdArray, studentMap, today, horizon90),
-  ]);
-
-  const alertableRisks = [...evalRisks, ...serviceRisks, ...iepRisks].filter(
-    r => r.urgency === "critical" || r.urgency === "high" || r.urgency === "medium"
-  );
-
-  const existingAlerts = await db.select({ message: alertsTable.message })
-    .from(alertsTable)
-    .innerJoin(studentsTable, eq(alertsTable.studentId, studentsTable.id))
-    .where(and(
-      eq(alertsTable.resolved, false),
-      eq(alertsTable.type, "cost_avoidance_risk"),
-      sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`,
-    ));
-  const existingKeys = new Set<string>();
-  for (const a of existingAlerts) {
-    const match = a.message?.match(/\[dedupe:([^\]]+)\]/);
-    if (match) existingKeys.add(match[1]);
-  }
-
-  let created = 0;
-  let skipped = 0;
-
-  for (const risk of alertableRisks) {
-    const days = risk.daysRemaining;
-    const window = days < 0 ? "overdue" : days <= 7 ? "7" : days <= 14 ? "14" : "30";
-    const dedupeKey = `${risk.category}:${risk.studentId}:${risk.id}:${window}`;
-
-    if (existingKeys.has(dedupeKey)) {
-      skipped++;
-      continue;
-    }
-
-    const message = `[Cost Avoidance] ${risk.title} — Est. exposure: $${risk.estimatedExposure.toLocaleString()} [dedupe:${dedupeKey}]`;
-    await db.insert(alertsTable).values({
-      type: "cost_avoidance_risk",
-      severity: risk.urgency,
-      studentId: risk.studentId,
-      staffId: risk.staffId,
-      message,
-      suggestedAction: risk.actionNeeded,
-      resolved: false,
-    });
-    created++;
-    existingKeys.add(dedupeKey);
-  }
-
-  res.json({ created, skipped, totalRisks: alertableRisks.length });
+  const result = await generateAlertsForDistrict(districtId);
+  res.json(result);
 });
 
 function emptySummary() {
@@ -594,10 +525,18 @@ async function getIepAnnualReviewRisks(
     eq(complianceEventsTable.eventType, "annual_review"),
     eq(complianceEventsTable.status, "completed"),
   ));
-  const completedStudents = new Set(annualReviewEvents.map(e => e.studentId));
+  const completionsByStudent = new Map<number, string[]>();
+  for (const e of annualReviewEvents) {
+    const list = completionsByStudent.get(e.studentId) || [];
+    if (e.completedDate) list.push(typeof e.completedDate === "string" ? e.completedDate : new Date(e.completedDate).toISOString().slice(0, 10));
+    completionsByStudent.set(e.studentId, list);
+  }
 
   for (const iep of activeIeps) {
-    if (scheduledStudents.has(iep.studentId) || completedStudents.has(iep.studentId)) continue;
+    if (scheduledStudents.has(iep.studentId)) continue;
+    const completions = completionsByStudent.get(iep.studentId) || [];
+    const hasCurrentCycleCompletion = completions.some(d => d >= (iep.iepStartDate || ""));
+    if (hasCurrentCycleCompletion) continue;
 
     const student = studentMap.get(iep.studentId);
     if (!student) continue;

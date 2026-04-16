@@ -64,7 +64,7 @@ export async function runCostAvoidanceAlertGeneration(): Promise<void> {
   console.log(`[CostAvoidance] Alert generation complete: ${totalCreated} created, ${totalSkipped} skipped`);
 }
 
-async function generateAlertsForDistrict(districtId: number): Promise<{ created: number; skipped: number }> {
+export async function generateAlertsForDistrict(districtId: number): Promise<{ created: number; skipped: number }> {
   const today = new Date().toISOString().slice(0, 10);
   const horizon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -349,6 +349,7 @@ async function collectIepAnnualReviewRisks(
     id: iepDocumentsTable.id,
     studentId: iepDocumentsTable.studentId,
     iepEndDate: iepDocumentsTable.iepEndDate,
+    iepStartDate: iepDocumentsTable.iepStartDate,
     preparedBy: iepDocumentsTable.preparedBy,
   }).from(iepDocumentsTable).where(and(
     inArray(iepDocumentsTable.studentId, studentIds),
@@ -369,16 +370,26 @@ async function collectIepAnnualReviewRisks(
     ));
   const scheduledStudents = new Set(futureMeetings.map(m => m.studentId));
 
-  const completedReviews = await db.select({ studentId: complianceEventsTable.studentId })
-    .from(complianceEventsTable).where(and(
+  const completedReviews = await db.select({
+    studentId: complianceEventsTable.studentId,
+    completedDate: complianceEventsTable.completedDate,
+  }).from(complianceEventsTable).where(and(
       inArray(complianceEventsTable.studentId, iepStudentIds),
       eq(complianceEventsTable.eventType, "annual_review"),
       eq(complianceEventsTable.status, "completed"),
     ));
-  const completedStudents = new Set(completedReviews.map(e => e.studentId));
+  const completionsByStudent = new Map<number, string[]>();
+  for (const e of completedReviews) {
+    const list = completionsByStudent.get(e.studentId) || [];
+    if (e.completedDate) list.push(typeof e.completedDate === "string" ? e.completedDate : new Date(e.completedDate).toISOString().slice(0, 10));
+    completionsByStudent.set(e.studentId, list);
+  }
 
   for (const iep of activeIeps) {
-    if (scheduledStudents.has(iep.studentId) || completedStudents.has(iep.studentId)) continue;
+    if (scheduledStudents.has(iep.studentId)) continue;
+    const completions = completionsByStudent.get(iep.studentId) || [];
+    const hasCurrentCycleCompletion = completions.some(d => d >= (iep.iepStartDate || ""));
+    if (hasCurrentCycleCompletion) continue;
     const days = daysBetween(iep.iepEndDate, today);
     const window = getUrgencyWindow(days);
     if (!window) continue;
