@@ -192,7 +192,11 @@ router.post("/accommodations/:accommodationId/verify", async (req, res): Promise
   }
 
   const { status, notes, periodStart, periodEnd } = req.body ?? {};
-  const finalStatus = (VALID_STATUSES as readonly string[]).includes(status) ? status : "verified";
+  if (status && !(VALID_STATUSES as readonly string[]).includes(status)) {
+    res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` });
+    return;
+  }
+  const finalStatus = status || "verified";
 
   const [row] = await db.insert(accommodationVerificationsTable).values({
     accommodationId,

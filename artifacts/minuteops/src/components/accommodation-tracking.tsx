@@ -84,7 +84,6 @@ export default function AccommodationTracking({ studentId }: { studentId: number
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [history, setHistory] = useState<Verification[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [printMode, setPrintMode] = useState(false);
 
   useEffect(() => {
     if (!studentId) return;
@@ -182,7 +181,7 @@ export default function AccommodationTracking({ studentId }: { studentId: number
   const settings = Object.keys(data.accommodationsBySetting);
 
   return (
-    <Card className={printMode ? "print:shadow-none print:border-0" : ""}>
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle
@@ -205,9 +204,28 @@ export default function AccommodationTracking({ studentId }: { studentId: number
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setPrintMode(true);
-                setTimeout(() => { window.print(); setPrintMode(false); }, 200);
+              onClick={async () => {
+                try {
+                  const r = await authFetch(`/api/students/${studentId}/accommodation-card`);
+                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                  const card = await r.json();
+                  const printWindow = window.open("", "_blank");
+                  if (!printWindow) return;
+                  const settingEntries = Object.entries(card.accommodationsBySetting as Record<string, Array<{ description: string; category: string; frequency: string | null; provider: string | null }>>);
+                  printWindow.document.write(`<!DOCTYPE html><html><head><title>Accommodation Card - ${card.studentName}</title><style>body{font-family:system-ui,sans-serif;padding:24px;max-width:700px;margin:0 auto}h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;text-transform:uppercase;color:#666;margin:16px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}p.meta{color:#888;font-size:12px;margin:0 0 16px}.acc{padding:6px 0;border-bottom:1px solid #eee;font-size:13px}.acc .desc{font-weight:500}.acc .detail{color:#666;font-size:11px}@media print{body{padding:12px}}</style></head><body>`);
+                  printWindow.document.write(`<h1>${card.studentName}</h1><p class="meta">Grade: ${card.grade || "N/A"} &bull; Generated: ${new Date(card.generatedAt).toLocaleDateString()} &bull; ${card.totalAccommodations} accommodations</p>`);
+                  for (const [setting, accs] of settingEntries) {
+                    printWindow.document.write(`<h2>${setting}</h2>`);
+                    for (const acc of accs) {
+                      printWindow.document.write(`<div class="acc"><div class="desc">${acc.description}</div><div class="detail">${[acc.category, acc.frequency, acc.provider].filter(Boolean).join(" &bull; ")}</div></div>`);
+                    }
+                  }
+                  printWindow.document.write(`</body></html>`);
+                  printWindow.document.close();
+                  setTimeout(() => printWindow.print(), 300);
+                } catch {
+                  toast.error("Failed to generate printable card");
+                }
               }}
               className="h-7 px-2 text-xs"
             >
