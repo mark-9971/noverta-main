@@ -41,9 +41,19 @@ async function verifyGuardianBelongsToStudent(guardianId: number, studentId: num
 
 router.get("/message-templates", async (req: Request, res: Response) => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
     const templates = await db
       .select()
       .from(messageTemplatesTable)
+      .where(
+        districtId
+          ? or(
+              eq(messageTemplatesTable.isSystem, true),
+              isNull(messageTemplatesTable.districtId),
+              eq(messageTemplatesTable.districtId, districtId),
+            )
+          : or(eq(messageTemplatesTable.isSystem, true), isNull(messageTemplatesTable.districtId))
+      )
       .orderBy(messageTemplatesTable.name);
     res.json(templates);
   } catch (err) {
@@ -115,6 +125,37 @@ router.get("/students/:studentId/messages", async (req: Request, res: Response) 
   } catch (err) {
     console.error("GET /students/:studentId/messages error:", err);
     res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
+router.patch("/students/:studentId/messages/:messageId/read", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    const messageId = Number(req.params.messageId);
+    if (isNaN(studentId) || isNaN(messageId)) { res.status(400).json({ error: "Invalid IDs" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const [msg] = await db.select({ id: parentMessagesTable.id, senderType: parentMessagesTable.senderType })
+      .from(parentMessagesTable)
+      .where(and(
+        eq(parentMessagesTable.id, messageId),
+        eq(parentMessagesTable.studentId, studentId),
+        eq(parentMessagesTable.senderType, "guardian"),
+      ));
+
+    if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+
+    await db.update(parentMessagesTable)
+      .set({ readAt: new Date() })
+      .where(and(eq(parentMessagesTable.id, messageId), isNull(parentMessagesTable.readAt)));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("PATCH /students/:studentId/messages/:messageId/read error:", err);
+    res.status(500).json({ error: "Failed to mark as read" });
   }
 });
 
@@ -477,6 +518,15 @@ guardianMessagesRouter.post("/messages/:id/reply", async (req: Request, res: Res
       body: body.trim(),
     }).returning();
 
+    logAudit(req, {
+      action: "create",
+      targetTable: "parent_messages",
+      targetId: reply.id,
+      studentId: original.studentId,
+      summary: `Guardian replied to message thread ${threadId}`,
+      newValues: { guardianId, threadId, subject: reply.subject },
+    });
+
     res.status(201).json({ ...reply, createdAt: reply.createdAt.toISOString(), updatedAt: reply.updatedAt.toISOString() });
   } catch (err) {
     console.error("POST /guardian-portal/messages/:id/reply error:", err);
@@ -575,6 +625,15 @@ guardianMessagesRouter.patch("/conferences/:id", async (req: Request, res: Respo
         body: `${statusText}${guardianNotes ? `\n\nNote: ${guardianNotes}` : ""}`,
       });
     }
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "conference_requests",
+      targetId: confId,
+      studentId: conf.studentId,
+      summary: `Guardian ${updates.status ?? "updated"} conference: ${conf.title}`,
+      newValues: updates,
+    });
 
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(), selectedTime: updated.selectedTime?.toISOString() ?? null });
   } catch (err) {

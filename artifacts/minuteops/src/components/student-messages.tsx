@@ -323,7 +323,18 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
           {threads.map(thread => (
             <div key={thread.threadId} className="border border-gray-100 rounded-lg overflow-hidden">
               <button
-                onClick={() => setExpandedThread(expandedThread === thread.threadId ? null : thread.threadId)}
+                onClick={() => {
+                  const opening = expandedThread !== thread.threadId;
+                  setExpandedThread(opening ? thread.threadId : null);
+                  if (opening && thread.hasUnread) {
+                    thread.messages
+                      .filter(m => m.senderType === "guardian" && !m.readAt)
+                      .forEach(m => {
+                        authFetch(`/api/students/${studentId}/messages/${m.id}/read`, { method: "PATCH" })
+                          .catch(() => {});
+                      });
+                  }
+                }}
                 className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition text-left"
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
