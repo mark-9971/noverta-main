@@ -57,6 +57,8 @@ router.get("/transitions/plans", transitionAccess, async (req, res): Promise<voi
       graduationPathway: transitionPlansTable.graduationPathway,
       expectedGraduationDate: transitionPlansTable.expectedGraduationDate,
       diplomaType: transitionPlansTable.diplomaType,
+      assessmentsUsed: transitionPlansTable.assessmentsUsed,
+      studentVisionStatement: transitionPlansTable.studentVisionStatement,
       status: transitionPlansTable.status,
       coordinatorId: transitionPlansTable.coordinatorId,
       createdAt: transitionPlansTable.createdAt,
@@ -74,11 +76,34 @@ router.get("/transitions/plans", transitionAccess, async (req, res): Promise<voi
       .where(isNull(transitionPlansTable.deletedAt))
       .orderBy(desc(transitionPlansTable.updatedAt));
 
+    const allPlanIds = rows.map(r => r.id);
+    let goalCountMap = new Map<number, number>();
+    let referralCountMap = new Map<number, number>();
+    if (allPlanIds.length > 0) {
+      const goalCounts = await db.select({
+        transitionPlanId: transitionGoalsTable.transitionPlanId,
+        count: sql<number>`count(*)::int`,
+      }).from(transitionGoalsTable)
+        .where(isNull(transitionGoalsTable.deletedAt))
+        .groupBy(transitionGoalsTable.transitionPlanId);
+      for (const g of goalCounts) goalCountMap.set(g.transitionPlanId, g.count);
+
+      const referralCounts = await db.select({
+        transitionPlanId: transitionAgencyReferralsTable.transitionPlanId,
+        count: sql<number>`count(*)::int`,
+      }).from(transitionAgencyReferralsTable)
+        .where(isNull(transitionAgencyReferralsTable.deletedAt))
+        .groupBy(transitionAgencyReferralsTable.transitionPlanId);
+      for (const r of referralCounts) referralCountMap.set(r.transitionPlanId, r.count);
+    }
+
     res.json(rows.map(r => ({
       ...r,
       studentName: `${r.studentFirstName} ${r.studentLastName}`,
       studentAge: r.studentDateOfBirth ? computeAge(r.studentDateOfBirth) : null,
       coordinatorName: r.coordinatorFirstName ? `${r.coordinatorFirstName} ${r.coordinatorLastName}` : null,
+      goalsCount: goalCountMap.get(r.id) ?? 0,
+      referralsCount: referralCountMap.get(r.id) ?? 0,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     })));
