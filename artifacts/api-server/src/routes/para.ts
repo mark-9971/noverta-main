@@ -7,9 +7,9 @@ import {
   dataSessionsTable, sessionGoalDataTable, programDataTable, behaviorDataTable,
 } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { STAFF_ROLES } from "../lib/permissions";
-import { getPublicMeta } from "../lib/clerkClaims";
 
 const router: IRouter = Router();
 
@@ -21,8 +21,9 @@ function dayOfWeekFromDate(dateStr: string): string {
 }
 
 async function getStaffIdForUser(req: AuthedRequest): Promise<number | null> {
-  const meta = getPublicMeta(req);
-  const clerkStaffId = meta.staffId ?? null;
+  const auth = getAuth(req);
+  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
+  const clerkStaffId = meta?.staffId ? Number(meta.staffId) : null;
   if (clerkStaffId && Number.isFinite(clerkStaffId)) {
     const rows = await db.select({ id: staffTable.id }).from(staffTable)
       .where(eq(staffTable.id, clerkStaffId)).limit(1);

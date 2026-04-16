@@ -8,6 +8,27 @@ import { ensureDbConstraints } from "./lib/activeSchoolYear";
 
 initSentry();
 
+// ─── Clerk configuration guard ────────────────────────────────────────────────
+// Trellis uses Clerk for production authentication. Session claims must include
+// publicMetadata with: role, staffId (or studentId), and districtId.
+// Configure separate Clerk apps for dev/staging and production, then set:
+//   CLERK_SECRET_KEY        — server-side secret (Replit Secret)
+//   CLERK_PUBLISHABLE_KEY   — used by clerkProxyMiddleware
+//   VITE_CLERK_PUBLISHABLE_KEY — frontend publishable key (Replit Secret)
+const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!clerkSecretKey) {
+  logger.warn("CLERK_SECRET_KEY is not set — authentication will fail for real Clerk sessions");
+} else if (clerkSecretKey.startsWith("sk_test_")) {
+  logger.info("Clerk: using test/development key (sk_test_*)");
+} else if (clerkSecretKey.startsWith("sk_live_")) {
+  logger.info("Clerk: using production key (sk_live_*)");
+}
+if (!clerkPublishableKey) {
+  logger.warn("CLERK_PUBLISHABLE_KEY / VITE_CLERK_PUBLISHABLE_KEY is not set");
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 process.on("uncaughtException", (err) => {
   logger.error({ err }, "Uncaught exception — process will exit");
   recordError5xx();
