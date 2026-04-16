@@ -6,10 +6,15 @@
  * using x-test-* headers to simulate different roles without Clerk sessions.
  *
  * Usage:
- *   node tests/permission-matrix.mjs
+ *   NODE_ENV=test node tests/permission-matrix.mjs
  *
- * The API server must be running (pnpm --filter @workspace/api-server run dev)
- * in development or test mode (not NODE_ENV=production).
+ * The API server MUST be running with NODE_ENV=test (not "development" or "production").
+ * The x-test-* auth bypass in requireAuth and tierGate is ONLY enabled when NODE_ENV=test.
+ * In the Replit dev environment, NODE_ENV=test is set as a development env var.
+ *
+ * To run:
+ *   1. Ensure API server is started: pnpm --filter @workspace/api-server run test:server
+ *   2. Run this script: NODE_ENV=test node tests/permission-matrix.mjs
  *
  * Roles tested:
  *   admin, coordinator, case_manager, bcba, sped_teacher, provider, para, sped_student

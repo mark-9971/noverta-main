@@ -228,12 +228,15 @@ router.post("/students", async (req, res): Promise<void> => {
     return;
   }
   // District ownership check: verify the target school belongs to the caller's district.
+  // schoolId is part of CreateStudentBody and required by the students table — it is
+  // always present at this point since Zod validation passed.
   {
     const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
-    if (enforcedDistrictId !== null) {
+    const schoolId = Number(parsed.data.schoolId ?? 0);
+    if (enforcedDistrictId !== null && schoolId > 0) {
       const rows = await db.execute(sql`
         SELECT 1 FROM schools
-        WHERE id = ${(parsed.data as any).schoolId}
+        WHERE id = ${schoolId}
           AND district_id = ${enforcedDistrictId}
       `);
       if (!rows.rows.length) {
