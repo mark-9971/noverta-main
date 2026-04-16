@@ -216,12 +216,14 @@ function evalStatusBadge(status: string) {
 
 async function fetchStudents(): Promise<StudentOption[]> {
   const res = await authFetch("/api/students?limit=500");
-  return (res as StudentOption[]) ?? [];
+  if (!res.ok) return [];
+  return res.json();
 }
 
 async function fetchStaff(): Promise<StaffOption[]> {
   const res = await authFetch("/api/staff");
-  return (res as StaffOption[]) ?? [];
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export default function EvaluationsPage() {
@@ -254,6 +256,7 @@ function EvalDashboard() {
 
   useEffect(() => {
     authFetch("/api/evaluations/dashboard")
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => { setData(d as DashboardData); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
@@ -430,11 +433,12 @@ function ReferralsTab() {
 
   const load = useCallback(async () => {
     try {
-      const [refs, stu, stf] = await Promise.all([
-        authFetch("/api/evaluations/referrals") as Promise<ReferralRecord[]>,
+      const [refsRes, stu, stf] = await Promise.all([
+        authFetch("/api/evaluations/referrals"),
         fetchStudents(),
         fetchStaff(),
       ]);
+      const refs = refsRes.ok ? await refsRes.json() : [];
       setReferrals(refs);
       setStudents(stu);
       setStaff(stf);
@@ -634,14 +638,16 @@ function EvaluationsTab() {
 
   const load = useCallback(async () => {
     try {
-      const [evals, refs, stu, stf] = await Promise.all([
-        authFetch("/api/evaluations") as Promise<EvaluationRecord[]>,
-        authFetch("/api/evaluations/referrals") as Promise<ReferralRecord[]>,
+      const [evalsRes, refsRes, stu, stf] = await Promise.all([
+        authFetch("/api/evaluations"),
+        authFetch("/api/evaluations/referrals"),
         fetchStudents(),
         fetchStaff(),
       ]);
+      const evals = evalsRes.ok ? await evalsRes.json() : [];
+      const refs = refsRes.ok ? await refsRes.json() : [];
       setEvaluations(evals);
-      setReferrals(refs.filter(r => r.status === "open" || r.status === "evaluation_in_progress"));
+      setReferrals(refs.filter((r: ReferralRecord) => r.status === "open" || r.status === "evaluation_in_progress"));
       setStudents(stu);
       setStaff(stf);
     } catch { toast.error("Failed to load evaluations"); }
@@ -861,10 +867,11 @@ function EligibilityTab() {
 
   const load = useCallback(async () => {
     try {
-      const [dets, stu] = await Promise.all([
-        authFetch("/api/evaluations/eligibility") as Promise<EligibilityRecord[]>,
+      const [detsRes, stu] = await Promise.all([
+        authFetch("/api/evaluations/eligibility"),
         fetchStudents(),
       ]);
+      const dets = detsRes.ok ? await detsRes.json() : [];
       setDeterminations(dets);
       setStudents(stu);
     } catch { toast.error("Failed to load eligibility records"); }

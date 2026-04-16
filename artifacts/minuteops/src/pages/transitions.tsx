@@ -149,28 +149,33 @@ export default function TransitionsPage() {
 
   async function loadDashboard() {
     try {
-      const d = await authFetch("/api/transitions/dashboard") as DashboardData;
-      setDashboard(d);
+      const res = await authFetch("/api/transitions/dashboard");
+      if (!res.ok) throw new Error();
+      setDashboard(await res.json());
     } catch { /* ignore */ }
   }
 
   async function loadPlans() {
     try {
-      const p = await authFetch("/api/transitions/plans") as TransitionPlan[];
-      setPlans(p);
+      const res = await authFetch("/api/transitions/plans");
+      if (!res.ok) throw new Error();
+      setPlans(await res.json());
     } catch { /* ignore */ }
   }
 
   async function loadPlanDetail(id: number) {
     try {
-      const p = await authFetch(`/api/transitions/plans/${id}`) as TransitionPlan;
-      setSelectedPlan(p);
+      const res = await authFetch(`/api/transitions/plans/${id}`);
+      if (!res.ok) throw new Error();
+      setSelectedPlan(await res.json());
     } catch { toast.error("Failed to load plan details"); }
   }
 
   async function loadStudents() {
     try {
-      const s = await authFetch("/api/students") as StudentOption[];
+      const res = await authFetch("/api/students");
+      if (!res.ok) throw new Error();
+      const s = await res.json();
       setStudents(Array.isArray(s) ? s : []);
     } catch { /* ignore */ }
   }
@@ -226,7 +231,7 @@ export default function TransitionsPage() {
         toast.success("Plan updated");
         if (selectedPlan?.id === editingPlan.id) await loadPlanDetail(editingPlan.id);
       } else {
-        const created = await authFetch("/api/transitions/plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }) as TransitionPlan;
+        await authFetch("/api/transitions/plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Plan created");
         setSelectedPlan(null);
         setTab("plans");

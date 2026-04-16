@@ -54,9 +54,10 @@ router.get("/compliance/checklist", requireRoles(...PRIVILEGED_ROLES), async (re
     const schoolIdFilter = req.query.schoolId ? Number(req.query.schoolId) : null;
 
     // 1. Fetch all active students
+    const activeCond = and(eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt));
     const studentsCond = schoolIdFilter
-      ? and(eq(studentsTable.schoolId, schoolIdFilter), isNull(studentsTable.exitedAt))
-      : isNull(studentsTable.exitedAt);
+      ? and(eq(studentsTable.schoolId, schoolIdFilter), activeCond)
+      : activeCond;
 
     const students = await db.select({
       id: studentsTable.id,
@@ -64,7 +65,7 @@ router.get("/compliance/checklist", requireRoles(...PRIVILEGED_ROLES), async (re
       lastName: studentsTable.lastName,
       grade: studentsTable.grade,
       schoolId: studentsTable.schoolId,
-      dob: studentsTable.dob,
+      dob: studentsTable.dateOfBirth,
     }).from(studentsTable).where(studentsCond).orderBy(studentsTable.lastName);
 
     const studentIds = students.map(s => s.id);
@@ -441,7 +442,7 @@ router.post("/compliance/checklist/run-alerts", requireRoles("admin", "case_mana
     })
       .from(iepDocumentsTable)
       .innerJoin(studentsTable, eq(studentsTable.id, iepDocumentsTable.studentId))
-      .where(isNull(studentsTable.exitedAt))
+      .where(and(eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)))
       .orderBy(desc(iepDocumentsTable.iepEndDate));
 
     const latestIepByStudent = new Map<number, typeof ieps[0]>();
@@ -485,7 +486,7 @@ router.post("/compliance/checklist/run-alerts", requireRoles("admin", "case_mana
       id: studentsTable.id,
       firstName: studentsTable.firstName,
       lastName: studentsTable.lastName,
-    }).from(studentsTable).where(isNull(studentsTable.exitedAt));
+    }).from(studentsTable).where(and(eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)));
 
     const allPRs = await db.select({
       studentId: progressReportsTable.studentId,
