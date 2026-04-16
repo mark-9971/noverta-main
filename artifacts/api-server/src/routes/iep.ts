@@ -57,6 +57,177 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
   }
 });
 
+router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    let { from, to } = req.query as { from?: string; to?: string };
+
+    if (!from) {
+      const d = new Date();
+      d.setDate(d.getDate() - 180);
+      from = d.toISOString().slice(0, 10);
+    }
+
+    const goals = await db
+      .select({
+        goal: iepGoalsTable,
+        pt: programTargetsTable,
+        bt: behaviorTargetsTable,
+      })
+      .from(iepGoalsTable)
+      .leftJoin(programTargetsTable, eq(iepGoalsTable.programTargetId, programTargetsTable.id))
+      .leftJoin(behaviorTargetsTable, eq(iepGoalsTable.behaviorTargetId, behaviorTargetsTable.id))
+      .where(and(eq(iepGoalsTable.studentId, studentId), eq(iepGoalsTable.active, true)))
+      .orderBy(asc(iepGoalsTable.goalArea), asc(iepGoalsTable.goalNumber));
+
+    const result = await Promise.all(goals.map(async ({ goal, pt, bt }) => {
+      let dataPoints: { date: string; value: number; staffId?: number | null; staffName?: string | null }[] = [];
+      let baseline: number | null = null;
+      let goalValue: number | null = null;
+      let targetDirection: "increase" | "decrease" = "increase";
+      let measurementType: string | null = null;
+      let yLabel = "% Correct";
+      let trendDirection: "improving" | "declining" | "stable" = "stable";
+
+      const dateConditions: any[] = [];
+      if (from) dateConditions.push(gte(dataSessionsTable.sessionDate, from as string));
+      if (to) dateConditions.push(lte(dataSessionsTable.sessionDate, to as string));
+
+      if (goal.programTargetId && pt) {
+        baseline = pt.baselinePercent ? parseFloat(String(pt.baselinePercent)) : null;
+        goalValue = pt.masteryCriterionPercent ?? 80;
+        yLabel = "% Correct";
+        measurementType = "program";
+
+        const rows = await db.select({
+          sessionDate: dataSessionsTable.sessionDate,
+          percentCorrect: programDataTable.percentCorrect,
+          staffId: dataSessionsTable.staffId,
+          staffFirst: staffTable.firstName,
+          staffLast: staffTable.lastName,
+        }).from(programDataTable)
+          .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
+          .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
+          .where(and(
+            eq(programDataTable.programTargetId, goal.programTargetId),
+            eq(dataSessionsTable.studentId, studentId),
+            ...dateConditions,
+          ))
+          .orderBy(asc(dataSessionsTable.sessionDate));
+
+        dataPoints = rows.map(r => ({
+          date: r.sessionDate,
+          value: parseFloat(r.percentCorrect ?? "0"),
+          staffId: r.staffId,
+          staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+        }));
+      } else if (goal.behaviorTargetId && bt) {
+        baseline = bt.baselineValue ? parseFloat(bt.baselineValue) : null;
+        goalValue = bt.goalValue ? parseFloat(bt.goalValue) : null;
+        targetDirection = (bt.targetDirection as "increase" | "decrease") || "decrease";
+        measurementType = bt.measurementType || "frequency";
+        yLabel = measurementType === "frequency" ? "Count" : measurementType === "duration" ? "Minutes" : "Value";
+
+        const rows = await db.select({
+          sessionDate: dataSessionsTable.sessionDate,
+          value: behaviorDataTable.value,
+          staffId: dataSessionsTable.staffId,
+          staffFirst: staffTable.firstName,
+          staffLast: staffTable.lastName,
+        }).from(behaviorDataTable)
+          .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
+          .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
+          .where(and(
+            eq(behaviorDataTable.behaviorTargetId, goal.behaviorTargetId),
+            eq(dataSessionsTable.studentId, studentId),
+            ...dateConditions,
+          ))
+          .orderBy(asc(dataSessionsTable.sessionDate));
+
+        dataPoints = rows.map(r => ({
+          date: r.sessionDate,
+          value: parseFloat(r.value),
+          staffId: r.staffId,
+          staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+        }));
+      }
+
+      if (dataPoints.length >= 4) {
+        const firstHalf = dataPoints.slice(0, Math.floor(dataPoints.length / 2));
+        const secondHalf = dataPoints.slice(Math.floor(dataPoints.length / 2));
+        const firstAvg = firstHalf.reduce((s, d) => s + d.value, 0) / firstHalf.length;
+        const secondAvg = secondHalf.reduce((s, d) => s + d.value, 0) / secondHalf.length;
+        const threshold = measurementType === "program" ? 5 : 0.5;
+        const improving = targetDirection === "decrease"
+          ? secondAvg < firstAvg - threshold
+          : secondAvg > firstAvg + threshold;
+        const declining = targetDirection === "decrease"
+          ? secondAvg > firstAvg + threshold
+          : secondAvg < firstAvg - threshold;
+        trendDirection = improving ? "improving" : declining ? "declining" : "stable";
+      }
+
+      const latestValue = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : null;
+      let progressRating = "not_addressed";
+      if (dataPoints.length > 0 && goalValue !== null) {
+        if (measurementType === "program") {
+          const pct = latestValue ?? 0;
+          if (pct >= goalValue) progressRating = "mastered";
+          else if (pct >= goalValue * 0.75) progressRating = "sufficient_progress";
+          else if (pct >= goalValue * 0.5) progressRating = "some_progress";
+          else progressRating = "insufficient_progress";
+        } else {
+          const goalMet = targetDirection === "decrease"
+            ? (latestValue ?? Infinity) <= goalValue
+            : (latestValue ?? 0) >= goalValue;
+          if (goalMet) progressRating = "mastered";
+          else if (baseline !== null) {
+            const totalRange = Math.abs(goalValue - baseline);
+            const progress = Math.abs((latestValue ?? baseline) - baseline);
+            const pctToGoal = totalRange > 0 ? progress / totalRange : 0;
+            if (pctToGoal >= 0.75) progressRating = "sufficient_progress";
+            else if (pctToGoal >= 0.25) progressRating = "some_progress";
+            else progressRating = "insufficient_progress";
+          } else {
+            progressRating = "some_progress";
+          }
+        }
+      }
+
+      return {
+        id: goal.id,
+        goalArea: goal.goalArea,
+        goalNumber: goal.goalNumber,
+        annualGoal: goal.annualGoal,
+        baseline: goal.baseline,
+        targetCriterion: goal.targetCriterion,
+        measurementMethod: goal.measurementMethod,
+        status: goal.status,
+        linkedTarget: pt
+          ? { type: "program" as const, name: pt.name, masteryCriterionPercent: pt.masteryCriterionPercent }
+          : bt
+          ? { type: "behavior" as const, name: bt.name, measurementType: bt.measurementType, targetDirection: bt.targetDirection }
+          : null,
+        dataPoints,
+        baseline_value: baseline,
+        goal_value: goalValue,
+        targetDirection,
+        measurementType,
+        yLabel,
+        trendDirection,
+        progressRating,
+        latestValue,
+        dataPointCount: dataPoints.length,
+      };
+    }));
+
+    res.json(result);
+  } catch (e: any) {
+    console.error("GET iep-goals/progress error:", e);
+    res.status(500).json({ error: "Failed to fetch goal progress" });
+  }
+});
+
 router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);

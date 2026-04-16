@@ -37,6 +37,7 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **IEP Program Suggestions:** An engine generates suggestions for behaviors, DTTs, task analyses, academic programs, and related services based on IEP goals, with relevance scoring and one-click application.
 -   **Protective Measures (603 CMR 46.00/46.06):** Full MA DESE-compliant tracking for restraint/seclusion/time-out incidents, featuring a 4-step form, compliance checklist, digital signatures, and DESE CSV/JSON export.
 -   **Session-IEP Goal Integration:** Sessions can be linked to IEP goals with inline data collection for behavior and program data.
+-   **IEP Goal Progress Visualization:** Per-goal trend charts on the student detail page showing progress data points over time with baseline and mastery criterion reference lines, trend direction indicators (improving/stable/declining), progress ratings (mastered/on track/some progress/needs attention), and interactive charts with date and staff filtering. API: `GET /api/students/:id/iep-goals/progress` returns all active goals with linked program or behavior target time-series data.
 -   **Resource Management:** Caseload balancing, provider utilization, and budget tracking for staff and services.
 -   **Compensatory Services:** Tracks owed compensatory minutes, calculates shortfalls, and manages compensation sessions.
 -   **Parent Communication:** Manages parent contacts, follow-ups, and compliance notifications. Includes a "Share Progress" feature for secure progress report sharing.
