@@ -461,11 +461,11 @@ export default function StudentDetail() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (isClickScrolling.current) return;
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-            break;
-          }
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
         }
       },
       { rootMargin: "-80px 0px -60% 0px", threshold: 0.1 }

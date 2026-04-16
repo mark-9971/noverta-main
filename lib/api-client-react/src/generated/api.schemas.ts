@@ -362,6 +362,8 @@ export interface CreateStudentBody {
   notes?: string | null;
   /** @nullable */
   tags?: string | null;
+  /** @nullable */
+  dateOfBirth?: string | null;
 }
 
 export interface UpdateStudentBody {
