@@ -1047,11 +1047,13 @@ export default function StudentDetail() {
                             data={g.dataPoints}
                             color={g.progressRating === "mastered" ? "#10b981" : g.progressRating === "insufficient_progress" ? "#ef4444" : "#3b82f6"}
                             gradientId={`goal-${g.id}`}
+                            title={`${g.goalArea} Goal #${g.goalNumber || 1}`}
                             yLabel={g.yLabel}
                             baselineLine={g.baseline_value}
                             goalLine={g.goal_value}
                             targetDirection={g.targetDirection}
                             valueFormatter={(v: number) => g.measurementType === "program" ? `${Math.round(v)}%` : String(Math.round(v * 10) / 10)}
+                            exportFilename={`${student?.firstName || "student"}-${student?.lastName || ""}-${g.goalArea}-goal-progress`}
                           />
                         )}
                       </div>

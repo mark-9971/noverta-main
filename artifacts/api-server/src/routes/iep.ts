@@ -83,7 +83,7 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
       .orderBy(asc(iepGoalsTable.goalArea), asc(iepGoalsTable.goalNumber));
 
     const result = await Promise.all(goals.map(async ({ goal, pt, bt }) => {
-      let dataPoints: { date: string; value: number; staffId?: number | null; staffName?: string | null }[] = [];
+      let dataPoints: { date: string; value: number; staffId?: number | null; staffName?: string | null; dataSessionId?: number; notes?: string | null; trialsCorrect?: number | null; trialsTotal?: number | null; sessionType?: string | null }[] = [];
       let baseline: number | null = null;
       let goalValue: number | null = null;
       let targetDirection: "increase" | "decrease" = "increase";
@@ -107,6 +107,12 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
           staffId: dataSessionsTable.staffId,
           staffFirst: staffTable.firstName,
           staffLast: staffTable.lastName,
+          dataSessionId: dataSessionsTable.id,
+          sessionNotes: dataSessionsTable.notes,
+          sessionType: dataSessionsTable.sessionType,
+          trialsCorrect: programDataTable.trialsCorrect,
+          trialsTotal: programDataTable.trialsTotal,
+          dataNotes: programDataTable.notes,
         }).from(programDataTable)
           .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
           .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
@@ -122,6 +128,11 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
           value: parseFloat(r.percentCorrect ?? "0"),
           staffId: r.staffId,
           staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+          dataSessionId: r.dataSessionId,
+          notes: r.dataNotes || r.sessionNotes || null,
+          trialsCorrect: r.trialsCorrect,
+          trialsTotal: r.trialsTotal,
+          sessionType: r.sessionType,
         }));
       } else if (goal.behaviorTargetId && bt) {
         baseline = bt.baselineValue ? parseFloat(bt.baselineValue) : null;
@@ -136,6 +147,10 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
           staffId: dataSessionsTable.staffId,
           staffFirst: staffTable.firstName,
           staffLast: staffTable.lastName,
+          dataSessionId: dataSessionsTable.id,
+          sessionNotes: dataSessionsTable.notes,
+          sessionType: dataSessionsTable.sessionType,
+          dataNotes: behaviorDataTable.notes,
         }).from(behaviorDataTable)
           .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
           .leftJoin(staffTable, eq(dataSessionsTable.staffId, staffTable.id))
@@ -151,6 +166,9 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
           value: parseFloat(r.value),
           staffId: r.staffId,
           staffName: r.staffFirst && r.staffLast ? `${r.staffFirst} ${r.staffLast}` : null,
+          dataSessionId: r.dataSessionId,
+          notes: r.dataNotes || r.sessionNotes || null,
+          sessionType: r.sessionType,
         }));
       }
 

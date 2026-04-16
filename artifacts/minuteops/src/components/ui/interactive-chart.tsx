@@ -1,16 +1,22 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, Dot,
 } from "recharts";
-import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users } from "lucide-react";
+import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users, Download, FileText } from "lucide-react";
+import { toPng } from "html-to-image";
 
 interface DataPoint {
   date: string;
   value: number;
   staffId?: number | null;
   staffName?: string | null;
-  [key: string]: any;
+  notes?: string | null;
+  trialsCorrect?: number | null;
+  trialsTotal?: number | null;
+  sessionType?: string | null;
+  dataSessionId?: number;
+  [key: string]: unknown;
 }
 
 interface PhaseLine {
@@ -37,6 +43,7 @@ interface InteractiveChartProps {
   valueFormatter?: (v: number) => string;
   initialExpanded?: boolean;
   hideCollapse?: boolean;
+  exportFilename?: string;
 }
 
 function formatChartDate(d: string) {
@@ -70,6 +77,7 @@ export function InteractiveChart({
   valueFormatter = (v) => String(v),
   initialExpanded = false,
   hideCollapse = false,
+  exportFilename,
 }: InteractiveChartProps) {
   const [expanded, setExpanded] = useState(initialExpanded);
   const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
@@ -80,13 +88,15 @@ export function InteractiveChart({
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [newPhaseDate, setNewPhaseDate] = useState("");
   const [newPhaseLabel, setNewPhaseLabel] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   const phaseLines = externalPhaseLines ?? [];
 
   const staffList = useMemo(() => {
     const map = new Map<string, string>();
     data.forEach((d) => {
-      if (d.staffId && d.staffName) map.set(String(d.staffId), d.staffName);
+      if (d.staffId && d.staffName) map.set(String(d.staffId), d.staffName as string);
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [data]);
@@ -134,9 +144,27 @@ export function InteractiveChart({
     [phaseLines, onPhaseLinesChange]
   );
 
+  const handleExportPng = useCallback(async () => {
+    if (!chartContainerRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const dataUrl = await toPng(chartContainerRef.current, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+      });
+      const link = document.createElement("a");
+      link.download = `${exportFilename || title || "chart"}-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch {
+      console.error("Failed to export chart");
+    }
+    setExporting(false);
+  }, [exporting, exportFilename, title]);
+
   const customDotRenderer = useCallback(
-    (props: any) => {
-      const { cx, cy, index } = props;
+    (props: Record<string, unknown>) => {
+      const { cx, cy, index } = props as { cx: number; cy: number; index: number };
       const isHighlighted = highlightedIdx === index;
       return (
         <Dot
@@ -155,7 +183,7 @@ export function InteractiveChart({
   );
 
   const customTooltipRenderer = useCallback(
-    ({ active, payload }: any) => {
+    ({ active, payload }: { active?: boolean; payload?: Array<{ payload: DataPoint }> }) => {
       if (!active || !payload?.length) return null;
       const d = payload[0].payload;
       return (
@@ -164,6 +192,9 @@ export function InteractiveChart({
           <p className="text-gray-600 mt-0.5">
             {yLabel || "Value"}: <span className="font-bold" style={{ color }}>{valueFormatter(d.value)}</span>
           </p>
+          {d.trialsCorrect != null && d.trialsTotal != null && (
+            <p className="text-gray-400 mt-0.5">{d.trialsCorrect}/{d.trialsTotal} trials</p>
+          )}
           {d.staffName && (
             <p className="text-gray-400 mt-0.5">Staff: {d.staffName}</p>
           )}
@@ -223,6 +254,8 @@ export function InteractiveChart({
     );
   }
 
+  const highlightedPoint = highlightedIdx !== null ? filteredData[highlightedIdx] : null;
+
   return (
     <div className="border border-gray-200 rounded-xl bg-white shadow-sm mt-2 mb-1 overflow-hidden w-full">
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -236,6 +269,14 @@ export function InteractiveChart({
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleExportPng}
+            disabled={exporting}
+            className="p-1.5 rounded-md transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+            title="Export chart as PNG"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-1.5 rounded-md transition-colors ${showFilters ? "bg-emerald-50 text-emerald-700" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
@@ -350,7 +391,7 @@ export function InteractiveChart({
         </div>
       )}
 
-      <div className="px-3 pb-3 pt-1">
+      <div ref={chartContainerRef} className="px-3 pb-3 pt-1">
         {filteredData.length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={filteredData} margin={{ top: 10, right: 12, left: 0, bottom: 4 }}>
@@ -436,25 +477,48 @@ export function InteractiveChart({
         )}
       </div>
 
-      {highlightedIdx !== null && filteredData[highlightedIdx] && (
+      {highlightedPoint && (
         <div className="px-4 pb-3">
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-medium text-gray-600">
-                {formatChartDate(filteredData[highlightedIdx].date)}
-              </span>
-              <span className="text-xs font-bold" style={{ color }}>
-                {valueFormatter(filteredData[highlightedIdx].value)}
-              </span>
-              {filteredData[highlightedIdx].staffName && (
-                <span className="text-[10px] text-gray-400">
-                  by {filteredData[highlightedIdx].staffName}
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-gray-600">
+                  {formatChartDate(highlightedPoint.date)}
                 </span>
-              )}
+                <span className="text-xs font-bold" style={{ color }}>
+                  {valueFormatter(highlightedPoint.value)}
+                </span>
+                {highlightedPoint.staffName && (
+                  <span className="text-[10px] text-gray-400">
+                    by {highlightedPoint.staffName}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setHighlightedIdx(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-3 h-3" />
+              </button>
             </div>
-            <button onClick={() => setHighlightedIdx(null)} className="text-gray-400 hover:text-gray-600">
-              <X className="w-3 h-3" />
-            </button>
+            {(highlightedPoint.trialsCorrect != null && highlightedPoint.trialsTotal != null) && (
+              <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                <span className="font-medium">Trials:</span>
+                <span>{highlightedPoint.trialsCorrect}/{highlightedPoint.trialsTotal} correct ({highlightedPoint.trialsTotal > 0 ? Math.round((highlightedPoint.trialsCorrect / highlightedPoint.trialsTotal) * 100) : 0}%)</span>
+              </div>
+            )}
+            {highlightedPoint.sessionType && (
+              <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                <span className="font-medium">Type:</span>
+                <span className="capitalize">{highlightedPoint.sessionType}</span>
+              </div>
+            )}
+            {highlightedPoint.notes && (
+              <div className="text-[11px] text-gray-500 mt-1">
+                <div className="flex items-center gap-1 font-medium text-gray-600 mb-0.5">
+                  <FileText className="w-3 h-3" />
+                  Session Notes
+                </div>
+                <p className="text-gray-500 leading-relaxed">{highlightedPoint.notes}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
