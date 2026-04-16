@@ -18,6 +18,35 @@ function timesOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
   return timeToMinutes(s1) < timeToMinutes(e2) && timeToMinutes(s2) < timeToMinutes(e1);
 }
 
+async function verifyScheduleInDistrict(scheduleId: number, districtId: number | null): Promise<boolean> {
+  if (!districtId) return true;
+  const result = await db.execute(sql`
+    SELECT 1 FROM staff_schedules ss
+    JOIN schools sc ON sc.id = ss.school_id
+    WHERE ss.id = ${scheduleId} AND sc.district_id = ${districtId}
+  `);
+  const rows = "rows" in result ? result.rows : result;
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function verifySchoolInDistrict(schoolId: number, districtId: number | null): Promise<boolean> {
+  if (!districtId) return true;
+  const result = await db.execute(sql`SELECT 1 FROM schools WHERE id = ${schoolId} AND district_id = ${districtId}`);
+  const rows = "rows" in result ? result.rows : result;
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function verifyStaffInDistrict(staffId: number, districtId: number | null): Promise<boolean> {
+  if (!districtId) return true;
+  const result = await db.execute(sql`
+    SELECT 1 FROM staff s
+    JOIN schools sc ON sc.id = s.school_id
+    WHERE s.id = ${staffId} AND sc.district_id = ${districtId}
+  `);
+  const rows = "rows" in result ? result.rows : result;
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 router.get("/staff-schedules", async (req, res) => {
   try {
     const districtId = getEnforcedDistrictId(req as AuthedRequest);
@@ -106,7 +135,7 @@ router.get("/staff-schedules/coverage-gaps", async (req, res) => {
     const { schoolId } = req.query;
 
     let query = sql`
-      SELECT DISTINCT ss.day_of_week as "dayOfWeek", sc.id as "schoolId", sc.name as "schoolName"
+      SELECT DISTINCT days.day_of_week as "dayOfWeek", sc.id as "schoolId", sc.name as "schoolName"
       FROM schools sc
       CROSS JOIN (SELECT UNNEST(ARRAY['monday','tuesday','wednesday','thursday','friday']) AS day_of_week) days
       LEFT JOIN staff_schedules ss ON ss.school_id = sc.id AND ss.day_of_week = days.day_of_week
@@ -131,6 +160,55 @@ router.get("/staff-schedules/coverage-gaps", async (req, res) => {
   }
 });
 
+router.get("/staff-schedules/provider-summary/:staffId", async (req, res) => {
+  try {
+    const staffId = Number(req.params.staffId);
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
+    const result = await db.execute(sql`
+      SELECT ss.day_of_week as "dayOfWeek", ss.start_time as "startTime", ss.end_time as "endTime",
+        ss.label, sc.id as "schoolId", sc.name as "schoolName"
+      FROM staff_schedules ss
+      JOIN schools sc ON sc.id = ss.school_id
+      WHERE ss.staff_id = ${staffId}
+      ${districtId ? sql`AND sc.district_id = ${districtId}` : sql``}
+      ORDER BY ss.day_of_week, ss.start_time
+    `);
+    const rows = "rows" in result ? result.rows : result;
+
+    const hoursPerSchool = new Map<number, { schoolName: string; minutes: number }>();
+    const schedule = (rows as Array<{ dayOfWeek: string; startTime: string; endTime: string; label: string | null; schoolId: number; schoolName: string }>);
+    for (const row of schedule) {
+      const mins = timeToMinutes(row.endTime) - timeToMinutes(row.startTime);
+      const existing = hoursPerSchool.get(row.schoolId);
+      if (existing) {
+        existing.minutes += mins;
+      } else {
+        hoursPerSchool.set(row.schoolId, { schoolName: row.schoolName, minutes: mins });
+      }
+    }
+
+    const distribution = Array.from(hoursPerSchool.entries()).map(([schoolId, data]) => ({
+      schoolId,
+      schoolName: data.schoolName,
+      weeklyHours: +(data.minutes / 60).toFixed(1),
+    }));
+
+    const totalMinutes = distribution.reduce((sum, d) => sum + d.weeklyHours * 60, 0);
+
+    res.json({
+      staffId,
+      schedule: rows,
+      distribution,
+      totalWeeklyHours: +(totalMinutes / 60).toFixed(1),
+      daysScheduled: [...new Set(schedule.map(s => s.dayOfWeek))].length,
+    });
+  } catch (err) {
+    console.error("GET /staff-schedules/provider-summary/:staffId error:", err);
+    res.status(500).json({ error: "Failed to load provider summary" });
+  }
+});
+
 router.post("/staff-schedules", requireRoles("admin", "coordinator"), async (req, res) => {
   try {
     const { staffId, schoolId, dayOfWeek, startTime, endTime, label, notes, effectiveFrom, effectiveTo } = req.body;
@@ -146,12 +224,11 @@ router.post("/staff-schedules", requireRoles("admin", "coordinator"), async (req
     }
 
     const districtId = getEnforcedDistrictId(req as AuthedRequest);
-    if (districtId) {
-      const schoolCheck = await db.execute(sql`SELECT 1 FROM schools WHERE id = ${Number(schoolId)} AND district_id = ${districtId}`);
-      const schoolRows = "rows" in schoolCheck ? schoolCheck.rows : schoolCheck;
-      if (!Array.isArray(schoolRows) || schoolRows.length === 0) {
-        res.status(400).json({ error: "School not found in your district" }); return;
-      }
+    if (!(await verifySchoolInDistrict(Number(schoolId), districtId))) {
+      res.status(403).json({ error: "School not found in your district" }); return;
+    }
+    if (!(await verifyStaffInDistrict(Number(staffId), districtId))) {
+      res.status(403).json({ error: "Staff member not found in your district" }); return;
     }
 
     const existingResult = await db.execute(sql`
@@ -201,10 +278,20 @@ router.post("/staff-schedules", requireRoles("admin", "coordinator"), async (req
 router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (req, res) => {
   try {
     const scheduleId = Number(req.params.id);
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
+    if (!(await verifyScheduleInDistrict(scheduleId, districtId))) {
+      res.status(403).json({ error: "Schedule not found in your district" }); return;
+    }
+
     const { schoolId, dayOfWeek, startTime, endTime, label, notes, effectiveFrom, effectiveTo } = req.body;
 
     if (dayOfWeek && !VALID_DAYS.includes(dayOfWeek)) {
       res.status(400).json({ error: "dayOfWeek must be monday through friday" }); return;
+    }
+
+    if (schoolId && !(await verifySchoolInDistrict(Number(schoolId), districtId))) {
+      res.status(403).json({ error: "School not found in your district" }); return;
     }
 
     const [existing] = await db.select().from(staffSchedulesTable).where(eq(staffSchedulesTable.id, scheduleId));
@@ -263,6 +350,12 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
 router.delete("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (req, res) => {
   try {
     const scheduleId = Number(req.params.id);
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
+    if (!(await verifyScheduleInDistrict(scheduleId, districtId))) {
+      res.status(403).json({ error: "Schedule not found in your district" }); return;
+    }
+
     const [deleted] = await db.delete(staffSchedulesTable)
       .where(eq(staffSchedulesTable.id, scheduleId))
       .returning();

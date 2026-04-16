@@ -70,6 +70,20 @@ interface Conflict {
   bSchoolName: string;
 }
 
+interface CoverageGap {
+  dayOfWeek: string;
+  schoolId: number;
+  schoolName: string;
+}
+
+interface ProviderSummary {
+  staffId: number;
+  schedule: Array<{ dayOfWeek: string; startTime: string; endTime: string; label: string | null; schoolId: number; schoolName: string }>;
+  distribution: Array<{ schoolId: number; schoolName: string; weeklyHours: number }>;
+  totalWeeklyHours: number;
+  daysScheduled: number;
+}
+
 interface StaffOption {
   id: number;
   firstName: string;
@@ -101,6 +115,8 @@ export default function StaffCalendar() {
 
   const [schedules, setSchedules] = useState<StaffSchedule[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [coverageGaps, setCoverageGaps] = useState<CoverageGap[]>([]);
+  const [providerSummary, setProviderSummary] = useState<ProviderSummary | null>(null);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [schoolList, setSchoolList] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,17 +135,30 @@ export default function StaffCalendar() {
 
   useEffect(() => { loadData(); }, []);
 
+  useEffect(() => {
+    if (filterStaff !== "all") {
+      authFetch(`/api/staff-schedules/provider-summary/${filterStaff}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setProviderSummary(d))
+        .catch(() => setProviderSummary(null));
+    } else {
+      setProviderSummary(null);
+    }
+  }, [filterStaff]);
+
   async function loadData() {
     setLoading(true);
     try {
-      const [schedRes, conflictRes, staffRes, schoolRes] = await Promise.all([
+      const [schedRes, conflictRes, gapsRes, staffRes, schoolRes] = await Promise.all([
         authFetch("/api/staff-schedules").then(r => r.ok ? r.json() : { schedules: [] }),
         authFetch("/api/staff-schedules/conflicts").then(r => r.ok ? r.json() : { conflicts: [] }),
+        authFetch("/api/staff-schedules/coverage-gaps").then(r => r.ok ? r.json() : { gaps: [] }),
         authFetch("/api/staff?limit=500").then(r => r.ok ? r.json() : { staff: [] }),
         authFetch("/api/schools").then(r => r.ok ? r.json() : []),
       ]);
       setSchedules(schedRes.schedules || []);
       setConflicts(conflictRes.conflicts || []);
+      setCoverageGaps(gapsRes.gaps || []);
       const staffArr = Array.isArray(staffRes) ? staffRes : (staffRes.staff || []);
       setStaffList(staffArr.map((s: Record<string, unknown>) => ({
         id: s.id as number,
@@ -423,6 +452,62 @@ export default function StaffCalendar() {
             </p>
           </Card>
         </div>
+      )}
+
+      {providerSummary && (
+        <Card className="p-4 border-emerald-200 bg-emerald-50/30">
+          <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
+            <User className="w-4 h-4 text-emerald-600" />
+            Provider Availability — {staffList.find(s => s.id === Number(filterStaff))?.firstName} {staffList.find(s => s.id === Number(filterStaff))?.lastName}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div>
+              <p className="text-[10px] font-medium text-gray-500 uppercase">Weekly Hours</p>
+              <p className="text-lg font-bold text-gray-900">{providerSummary.totalWeeklyHours}h</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-medium text-gray-500 uppercase">Days Scheduled</p>
+              <p className="text-lg font-bold text-gray-900">{providerSummary.daysScheduled}/5</p>
+            </div>
+            {providerSummary.distribution.map(d => (
+              <div key={d.schoolId}>
+                <p className="text-[10px] font-medium text-gray-500 uppercase truncate">{d.schoolName}</p>
+                <p className="text-lg font-bold text-gray-900">{d.weeklyHours}h</p>
+              </div>
+            ))}
+          </div>
+          {providerSummary.distribution.length > 1 && (
+            <div className="flex items-center gap-1 h-3 rounded-full overflow-hidden bg-gray-200">
+              {providerSummary.distribution.map((d, i) => {
+                const pct = providerSummary.totalWeeklyHours > 0 ? (d.weeklyHours / providerSummary.totalWeeklyHours) * 100 : 0;
+                const color = schoolColorMap.get(d.schoolId) || SCHOOL_COLORS[i % SCHOOL_COLORS.length];
+                return (
+                  <div key={d.schoolId} className={cn("h-full", color.dot.replace("bg-", "bg-"))} style={{ width: `${pct}%` }} title={`${d.schoolName}: ${d.weeklyHours}h (${pct.toFixed(0)}%)`} />
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {coverageGaps.length > 0 && (
+        <Card className="p-4 border-amber-200 bg-amber-50/30">
+          <h3 className="text-sm font-semibold text-amber-800 flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            Coverage Gaps — {coverageGaps.length} uncovered day{coverageGaps.length !== 1 ? "s" : ""}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {coverageGaps.slice(0, 15).map((g, i) => (
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-100 text-amber-800 border border-amber-200">
+                <Building2 className="w-3 h-3" />
+                {g.schoolName} — {WEEKDAY_LABELS[g.dayOfWeek] || g.dayOfWeek}
+              </span>
+            ))}
+            {coverageGaps.length > 15 && (
+              <span className="text-xs text-amber-600">+{coverageGaps.length - 15} more</span>
+            )}
+          </div>
+        </Card>
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
