@@ -566,7 +566,8 @@ export default function StudentDetail() {
       getCompensatorySummaryByStudent(studentId).catch(() => null),
       getStudentPhaseChanges(studentId).catch(() => {}),
       authFetch(`/api/students/${studentId}/iep-goals/progress`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs, gp]) => {
+      authFetch(`/api/compensatory-finance/students`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs, gp, finStudents]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
@@ -574,6 +575,12 @@ export default function StudentDetail() {
       setDataSessions(ds);
       setProtectiveData(pm as any);
       setMinutesTrend(mt);
+      const finData = Array.isArray(finStudents) ? finStudents.find((s: any) => s.studentId === studentId) : null;
+      if (cs && finData) {
+        cs._financialExposure = finData.remainingDollars || 0;
+        cs._totalDollarsOwed = finData.totalDollarsOwed || 0;
+        cs._rateAware = true;
+      }
       setCompSummary(cs);
       setPhaseChangesByTarget(pcs as any);
       setGoalProgress(gp);
@@ -1322,12 +1329,17 @@ export default function StudentDetail() {
             {compSummary.totalRemaining > 0 && (
               <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-amber-800">Est. Financial Exposure</p>
+                  <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
                   <p className="text-sm font-bold text-amber-900">
-                    ${((compSummary.totalRemaining / 60) * 75).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    ${(compSummary._rateAware
+                      ? compSummary._financialExposure
+                      : (compSummary.totalRemaining / 60) * 75
+                    ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
-                <p className="text-[10px] text-amber-600 mt-0.5">Based on default rate · See Financial View for configured rates</p>
+                <p className="text-[10px] text-amber-600 mt-0.5">
+                  {compSummary._rateAware ? "Based on configured district rates" : "Based on default rate · See Financial View for configured rates"}
+                </p>
               </div>
             )}
             <div className="grid grid-cols-3 gap-3 mb-3">

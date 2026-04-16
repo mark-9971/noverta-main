@@ -411,7 +411,10 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
 
   if (studentIds.length === 0) { res.json([]); return; }
 
-  const rateMap = await getRateMap(districtId);
+  const [rateMap, contractedProviders] = await Promise.all([
+    getRateMap(districtId),
+    getContractedProviderIds(districtId),
+  ]);
 
   const accrued = await db.select({
     month: sql<string>`to_char(${compensatoryObligationsTable.createdAt}, 'YYYY-MM')`,
@@ -428,6 +431,7 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
   const delivered = await db.select({
     month: sql<string>`to_char(${sessionLogsTable.sessionDate}::date, 'YYYY-MM')`,
     serviceTypeId: sessionLogsTable.serviceTypeId,
+    providerId: sessionLogsTable.providerId,
     totalMinutes: sql<number>`coalesce(sum(${sessionLogsTable.durationMinutes}), 0)::int`,
   }).from(sessionLogsTable).where(and(
     inArray(sessionLogsTable.studentId, studentIds),
@@ -437,14 +441,23 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
   )).groupBy(
     sql`to_char(${sessionLogsTable.sessionDate}::date, 'YYYY-MM')`,
     sessionLogsTable.serviceTypeId,
+    sessionLogsTable.providerId,
   );
 
   const svcReqIds = [...new Set(accrued.filter(a => a.serviceReqId).map(a => a.serviceReqId!))];
-  let svcReqServiceType = new Map<number, number>();
+  let svcReqInfo = new Map<number, { serviceTypeId: number; providerId: number | null }>();
   if (svcReqIds.length > 0) {
-    const reqs = await db.select({ id: serviceRequirementsTable.id, serviceTypeId: serviceRequirementsTable.serviceTypeId })
-      .from(serviceRequirementsTable).where(inArray(serviceRequirementsTable.id, svcReqIds));
-    svcReqServiceType = new Map(reqs.map(r => [r.id, r.serviceTypeId]));
+    const reqs = await db.select({
+      id: serviceRequirementsTable.id,
+      serviceTypeId: serviceRequirementsTable.serviceTypeId,
+      providerId: serviceRequirementsTable.providerId,
+    }).from(serviceRequirementsTable).where(
+      and(
+        inArray(serviceRequirementsTable.id, svcReqIds),
+        inArray(serviceRequirementsTable.studentId, studentIds),
+      )
+    );
+    svcReqInfo = new Map(reqs.map(r => [r.id, r]));
   }
 
   const monthlyData: Record<string, { accrued: number; delivered: number; accruedDollars: number; deliveredDollars: number }> = {};
@@ -458,15 +471,18 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
   for (const a of accrued) {
     if (!monthlyData[a.month]) monthlyData[a.month] = { accrued: 0, delivered: 0, accruedDollars: 0, deliveredDollars: 0 };
     monthlyData[a.month].accrued += a.totalMinutes;
-    const svcTypeId = a.serviceReqId ? (svcReqServiceType.get(a.serviceReqId) || 0) : 0;
-    const rate = (rateMap.get(svcTypeId) || { inHouse: DEFAULT_HOURLY_RATE }).inHouse;
+    const reqInfo = a.serviceReqId ? svcReqInfo.get(a.serviceReqId) : null;
+    const svcTypeId = reqInfo?.serviceTypeId || 0;
+    const isContracted = reqInfo?.providerId ? contractedProviders.has(reqInfo.providerId) : false;
+    const rate = resolveRate(rateMap, svcTypeId, isContracted);
     monthlyData[a.month].accruedDollars += minutesToDollars(a.totalMinutes, rate);
   }
 
   for (const d of delivered) {
     if (!monthlyData[d.month]) monthlyData[d.month] = { accrued: 0, delivered: 0, accruedDollars: 0, deliveredDollars: 0 };
     monthlyData[d.month].delivered += d.totalMinutes;
-    const rate = (rateMap.get(d.serviceTypeId) || { inHouse: DEFAULT_HOURLY_RATE }).inHouse;
+    const isContracted = d.providerId ? contractedProviders.has(d.providerId) : false;
+    const rate = resolveRate(rateMap, d.serviceTypeId, isContracted);
     monthlyData[d.month].deliveredDollars += minutesToDollars(d.totalMinutes, rate);
   }
 
