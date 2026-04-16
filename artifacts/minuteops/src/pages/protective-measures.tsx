@@ -400,7 +400,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
   onDetail: (id: number) => void;
 }) {
   const { role } = useRole();
-  const showTrends = role === "admin" || role === "coordinator" || role === "case_manager" || role === "bcba";
+  const showTrends = role === "admin" || role === "coordinator";
   const [exportYear, setExportYear] = useState("2025-2026");
 
   const { data: incidents = [], isLoading } = useQuery({
