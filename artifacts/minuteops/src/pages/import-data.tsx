@@ -5,14 +5,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Upload, FileSpreadsheet, Users, Clock, ClipboardList,
   CheckCircle, XCircle, AlertTriangle, Download, RefreshCw,
-  BarChart2, ChevronDown, ChevronUp, Copy, Table2
+  BarChart2, ChevronDown, ChevronUp, Copy, Table2, FileText,
+  Target, Sparkles, BookOpen
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 
-type ImportType = "students" | "service-requirements" | "sessions" | "goals-data";
+type ImportType = "students" | "service-requirements" | "sessions" | "goals-data" | "iep-documents";
 
 const IMPORT_TYPES: { key: ImportType; label: string; description: string; icon: any; templateKey: string; badge?: string }[] = [
   { key: "students", label: "Students", description: "Import student roster with names, grades, IDs", icon: Users, templateKey: "students" },
+  { key: "iep-documents", label: "IEP Documents", description: "Upload IEP PDFs — auto-extracts goals, services, accommodations & tracking targets", icon: FileText, templateKey: "", badge: "AI" },
   { key: "service-requirements", label: "IEP Service Requirements", description: "Import mandated service minutes per student", icon: ClipboardList, templateKey: "service_requirements" },
   { key: "sessions", label: "Session Logs", description: "Import delivered session/minute logs", icon: Clock, templateKey: "sessions" },
   { key: "goals-data", label: "Goals & Progress Data", description: "Import IEP goals with historical data points — from Google Sheets or any tracker", icon: BarChart2, templateKey: "goals_data_tall", badge: "New" },
@@ -22,6 +24,7 @@ const PREBUILT_TEMPLATES: Record<ImportType, { key: string; label: string; descr
   "students": [
     { key: "aspen_students", label: "Aspen X2 Student Export", description: "Matches Aspen X2 student roster export format" },
   ],
+  "iep-documents": [],
   "service-requirements": [
     { key: "esped_services", label: "eSPED Service Grid", description: "Matches eSPED IEP service requirement export" },
   ],
@@ -85,6 +88,27 @@ Wide format (Google Sheets style) — dates as column headers:
 For each goal, Trellis will auto-create the IEP goal, target,
 and linked sessions so data appears in all charts immediately.`;
 
+interface IepProgressEvent {
+  type: string;
+  index?: number;
+  fileName?: string;
+  success?: boolean;
+  studentName?: { firstName: string; lastName: string };
+  goalsCreated?: number;
+  servicesCreated?: number;
+  accommodationsCreated?: number;
+  error?: string;
+  completed?: number;
+  total?: number;
+  results?: Array<{
+    fileName: string;
+    success: boolean;
+    studentName?: { firstName: string; lastName: string };
+    error?: string;
+    details?: Record<string, number>;
+  }>;
+}
+
 export default function ImportData() {
   const [selectedType, setSelectedType] = useState<ImportType | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -98,6 +122,12 @@ export default function ImportData() {
   const [showGuide, setShowGuide] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+
+  const [iepFiles, setIepFiles] = useState<File[]>([]);
+  const [iepProcessing, setIepProcessing] = useState(false);
+  const [iepProgress, setIepProgress] = useState<IepProgressEvent[]>([]);
+  const [iepComplete, setIepComplete] = useState<IepProgressEvent | null>(null);
+  const iepFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -118,7 +148,12 @@ export default function ImportData() {
     setCsvPreview(null);
     setFile(null);
     setResult(null);
+    setIepFiles([]);
+    setIepProgress([]);
+    setIepComplete(null);
+    setIepProcessing(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (iepFileInputRef.current) iepFileInputRef.current.value = "";
   }, [selectedType]);
 
   async function handleFile(f: File) {
@@ -193,7 +228,126 @@ export default function ImportData() {
     setPasteText("");
     setCsvPreview(null);
     setResult(null);
+    setIepFiles([]);
+    setIepProgress([]);
+    setIepComplete(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (iepFileInputRef.current) iepFileInputRef.current.value = "";
+  }
+
+  function handleIepFiles(fileList: FileList) {
+    const pdfs = Array.from(fileList).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"));
+    setIepFiles(prev => [...prev, ...pdfs]);
+    setIepComplete(null);
+    setIepProgress([]);
+  }
+
+  function removeIepFile(index: number) {
+    setIepFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleIepImport() {
+    if (iepFiles.length === 0) return;
+    setIepProcessing(true);
+    setIepProgress([]);
+    setIepComplete(null);
+
+    try {
+      const formData = new FormData();
+      if (iepFiles.length === 1) {
+        formData.append("file", iepFiles[0]);
+        const res = await authFetch("/api/imports/iep-documents", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setIepComplete({
+            type: "complete",
+            total: 1,
+            results: [{
+              fileName: iepFiles[0].name,
+              success: true,
+              studentName: data.studentName,
+              details: {
+                goalsCreated: data.goalsCreated,
+                servicesCreated: data.servicesCreated,
+                accommodationsCreated: data.accommodationsCreated,
+                behaviorTargetsCreated: data.behaviorTargetsCreated,
+                programTargetsCreated: data.programTargetsCreated,
+              },
+            }],
+          });
+        } else {
+          setIepComplete({
+            type: "complete",
+            total: 1,
+            results: [{
+              fileName: iepFiles[0].name,
+              success: false,
+              error: data.error || data.message || "Import failed",
+            }],
+          });
+        }
+      } else {
+        for (const f of iepFiles) {
+          formData.append("files", f);
+        }
+        const res = await authFetch("/api/imports/iep-documents/bulk", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Upload failed" }));
+          setIepComplete({
+            type: "complete",
+            total: iepFiles.length,
+            results: [{ fileName: "bulk upload", success: false, error: errData.error }],
+          });
+          setIepProcessing(false);
+          loadHistory();
+          return;
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const event: IepProgressEvent = JSON.parse(line.slice(6));
+                if (event.type === "progress") {
+                  setIepProgress(prev => [...prev, event]);
+                } else if (event.type === "complete") {
+                  setIepComplete(event);
+                }
+              } catch {}
+            }
+          }
+        }
+      }
+
+      loadHistory();
+    } catch (e: any) {
+      setIepComplete({
+        type: "complete",
+        total: iepFiles.length,
+        results: [{ fileName: "upload", success: false, error: e.message }],
+      });
+    }
+    setIepProcessing(false);
   }
 
   const rowCount = csvPreview?.rows.length ?? 0;
@@ -258,6 +412,206 @@ export default function ImportData() {
               </div>
             )}
 
+            {selectedType === "iep-documents" && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <p className="text-[13px] font-semibold text-blue-800">AI-Powered IEP Import</p>
+                </div>
+                <p className="text-[12px] text-blue-700 leading-relaxed">
+                  Upload IEP PDF documents and Trellis will automatically extract goals, service requirements,
+                  accommodations, behavior targets, and program targets — no manual entry needed.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { icon: Target, label: "IEP Goals" },
+                    { icon: Clock, label: "Service Grid" },
+                    { icon: BookOpen, label: "Accommodations" },
+                    { icon: BarChart2, label: "Behavior Targets" },
+                    { icon: ClipboardList, label: "Program Targets" },
+                  ].map(item => (
+                    <span key={item.label} className="flex items-center gap-1 text-[11px] bg-white/70 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">
+                      <item.icon className="w-3 h-3" />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-blue-600">
+                  Students must already exist in the system. Upload the student roster first if needed.
+                </p>
+              </div>
+            )}
+
+            {selectedType === "iep-documents" ? (
+              <Card>
+                <CardHeader className="pb-0">
+                  <CardTitle className="text-sm font-semibold text-gray-600">Upload IEP Documents</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                      dragActive ? "border-emerald-400 bg-emerald-50/50" : "border-gray-200 hover:border-gray-300 bg-gray-50/30"
+                    }`}
+                    onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      setDragActive(false);
+                      if (e.dataTransfer.files.length > 0) handleIepFiles(e.dataTransfer.files);
+                    }}
+                    onClick={() => iepFileInputRef.current?.click()}
+                  >
+                    <input
+                      ref={iepFileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      multiple
+                      className="hidden"
+                      onChange={e => { if (e.target.files && e.target.files.length > 0) handleIepFiles(e.target.files); }}
+                    />
+                    <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-[14px] font-medium text-gray-600">Drop IEP PDF files here</p>
+                    <p className="text-[12px] text-gray-400 mt-1">or click to browse — select multiple PDFs at once</p>
+                    <p className="text-[11px] text-gray-400 mt-2">Supports up to 100 files at a time, 20MB max per file</p>
+                  </div>
+
+                  {iepFiles.length > 0 && !iepProcessing && !iepComplete && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] font-semibold text-gray-600">{iepFiles.length} file{iepFiles.length !== 1 ? "s" : ""} selected</p>
+                        <Button variant="ghost" size="sm" className="text-[11px] text-gray-400" onClick={() => setIepFiles([])}>Clear all</Button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {iepFiles.map((f, i) => (
+                          <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-emerald-600" />
+                              <span className="text-[12px] text-gray-700 font-medium truncate max-w-[300px]">{f.name}</span>
+                              <span className="text-[10px] text-gray-400">{(f.size / 1024).toFixed(0)} KB</span>
+                            </div>
+                            <button onClick={() => removeIepFile(i)} className="text-gray-400 hover:text-red-500 p-1">
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]"
+                          onClick={handleIepImport}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Import {iepFiles.length} IEP{iepFiles.length !== 1 ? "s" : ""}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {iepProcessing && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
+                        <p className="text-[13px] font-semibold text-gray-600">
+                          Processing {iepProgress.length} of {iepFiles.length} IEPs...
+                        </p>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(iepProgress.length / iepFiles.length) * 100}%` }}
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {iepProgress.map((evt, i) => (
+                          <div key={i} className={`flex items-center gap-2 p-2 rounded-lg text-[12px] ${
+                            evt.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                          }`}>
+                            {evt.success ? <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" /> : <XCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                            <span className="font-medium truncate">{evt.fileName}</span>
+                            {evt.success && evt.studentName && (
+                              <span className="text-emerald-600">
+                                — {evt.studentName.firstName} {evt.studentName.lastName}: {evt.goalsCreated} goals, {evt.servicesCreated} services
+                              </span>
+                            )}
+                            {!evt.success && evt.error && (
+                              <span className="text-red-500 truncate">— {evt.error}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {iepComplete && (
+                    <div className="space-y-3">
+                      <div className={`p-4 rounded-xl border ${
+                        iepComplete.results?.every(r => r.success) ? "bg-emerald-50/50 border-emerald-200" :
+                        iepComplete.results?.every(r => !r.success) ? "bg-red-50/50 border-red-200" :
+                        "bg-amber-50/50 border-amber-200"
+                      }`}>
+                        <div className="flex items-center gap-3 mb-3">
+                          {iepComplete.results?.every(r => r.success) ? (
+                            <CheckCircle className="w-5 h-5 text-emerald-600" />
+                          ) : (
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                          )}
+                          <p className="text-[14px] font-semibold text-gray-700">
+                            IEP Import {iepComplete.results?.every(r => r.success) ? "Complete" : "Finished with Issues"}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <div>
+                            <p className="text-[11px] text-gray-400">Total Files</p>
+                            <p className="text-lg font-bold text-gray-700">{iepComplete.results?.length || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-gray-400">Successful</p>
+                            <p className="text-lg font-bold text-emerald-600">{iepComplete.results?.filter(r => r.success).length || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-gray-400">Failed</p>
+                            <p className="text-lg font-bold text-red-500">{iepComplete.results?.filter(r => !r.success).length || 0}</p>
+                          </div>
+                        </div>
+
+                        <div className="max-h-64 overflow-y-auto space-y-1.5">
+                          {iepComplete.results?.map((r, i) => (
+                            <div key={i} className={`p-2.5 rounded-lg text-[12px] ${
+                              r.success ? "bg-white border border-emerald-100" : "bg-white border border-red-100"
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                {r.success ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />}
+                                <span className="font-semibold text-gray-700 truncate">{r.fileName}</span>
+                                {r.studentName && (
+                                  <span className="text-gray-400">— {r.studentName.firstName} {r.studentName.lastName}</span>
+                                )}
+                              </div>
+                              {r.success && r.details && (
+                                <div className="flex flex-wrap gap-2 mt-1.5 ml-5">
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded">{r.details.goalsCreated} goals</span>
+                                  <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{r.details.servicesCreated} services</span>
+                                  <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">{r.details.accommodationsCreated} accommodations</span>
+                                  <span className="text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded">{r.details.behaviorTargetsCreated} behavior targets</span>
+                                  <span className="text-[10px] bg-cyan-50 text-cyan-700 px-1.5 py-0.5 rounded">{r.details.programTargetsCreated} program targets</span>
+                                </div>
+                              )}
+                              {!r.success && r.error && (
+                                <p className="text-[11px] text-red-500 mt-1 ml-5">{r.error}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button variant="outline" size="sm" className="text-[12px]" onClick={resetForm}>Import More IEPs</Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
             <Card>
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between">
@@ -430,9 +784,11 @@ export default function ImportData() {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
 
           <div className="lg:col-span-4 space-y-4">
+            {selectedType !== "iep-documents" ? (
             <Card>
               <CardHeader className="pb-0">
                 <CardTitle className="text-sm font-semibold text-gray-600">Templates</CardTitle>
@@ -525,6 +881,43 @@ export default function ImportData() {
                 )}
               </CardContent>
             </Card>
+            ) : (
+              <Card>
+                <CardHeader className="pb-0">
+                  <CardTitle className="text-sm font-semibold text-gray-600">How It Works</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-3">
+                  <div className="space-y-3 text-[12px] text-gray-500">
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">1</span>
+                      <span>Upload IEP PDF documents (one per student)</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">2</span>
+                      <span>AI reads the document and extracts structured data</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">3</span>
+                      <span>Matches student by name, creates IEP goals, services, accommodations, and tracking targets</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">4</span>
+                      <span>Data appears immediately in all charts, progress views, and compliance tracking</span>
+                    </div>
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                      <p className="text-[11px] text-amber-700">
+                        <span className="font-semibold">Requirements:</span> Students must already be imported into Trellis. The student name in the IEP must match the roster.
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                      <p className="text-[11px] text-blue-700">
+                        <span className="font-semibold">Supported formats:</span> Massachusetts IEP forms, any district-formatted IEP as a text-based PDF (not scanned images).
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       )}
