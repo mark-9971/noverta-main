@@ -235,7 +235,7 @@ export default function IepMeetings() {
       const data = await fetchJson(`/api/iep-meetings${qs ? `?${qs}` : ""}`);
       const list: Meeting[] = Array.isArray(data) ? data : [];
       setMeetings(list);
-      const scheduled = list.filter(m => m.status === "scheduled").slice(0, 20);
+      const scheduled = list.filter(m => m.status === "scheduled");
       const readinessMap: Record<number, number> = {};
       await Promise.all(scheduled.map(async (m) => {
         try {

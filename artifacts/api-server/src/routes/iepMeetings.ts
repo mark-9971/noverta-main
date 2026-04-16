@@ -711,8 +711,14 @@ router.get("/iep-meetings/:id/prep", meetingAccess, async (req, res): Promise<vo
         completedByStaffId: null,
         notes: null,
       }));
-      items = await db.insert(meetingPrepItemsTable).values(toInsert).returning();
-      items.sort((a, b) => a.sortOrder - b.sortOrder);
+      items = await db.insert(meetingPrepItemsTable).values(toInsert).onConflictDoNothing().returning();
+      if (items.length === 0) {
+        items = await db.select().from(meetingPrepItemsTable)
+          .where(eq(meetingPrepItemsTable.meetingId, meetingId))
+          .orderBy(asc(meetingPrepItemsTable.sortOrder));
+      } else {
+        items.sort((a, b) => a.sortOrder - b.sortOrder);
+      }
     }
 
     const autoStatus = await autoDetectPrepItems(meetingId, meeting.studentId);
