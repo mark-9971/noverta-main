@@ -224,7 +224,7 @@ export default function Dashboard() {
 
       {isAdmin && <SetupChecklist />}
 
-      {isAdmin && <NeedsAttentionPanel />}
+      <NeedsAttentionPanel />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
@@ -236,27 +236,27 @@ export default function Dashboard() {
           href="/students"
         />
         <MetricCard
-          title="Open Alerts"
+          title={isAdmin ? "Open Alerts" : "Your Alerts"}
           value={!isAdmin && myCaseload ? myCaseload.openAlerts : alerts?.total}
           icon={Bell}
           accent="red"
-          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : "your alerts"}
+          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : "open alerts"}
           href="/alerts"
         />
         <MetricCard
-          title={isAdmin ? "Makeup Needed" : "Utilization"}
+          title={isAdmin ? "Makeup Needed" : "Compliance"}
           value={!isAdmin && myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
           icon={Clock}
-          accent="amber"
-          subtitle={isAdmin ? "sessions" : "minutes delivered"}
-          href="/sessions"
+          accent={!isAdmin && myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
+          subtitle={isAdmin ? "sessions" : "of your students"}
+          href={isAdmin ? "/sessions" : "/compliance"}
         />
         <MetricCard
           title={isAdmin ? "Out of Compliance" : "At Risk"}
           value={!isAdmin && myCaseload ? myCaseload.studentsAtRisk : s?.outOfComplianceStudents}
           icon={AlertTriangle}
           accent="red"
-          subtitle="students"
+          subtitle={isAdmin ? "students" : "your students"}
           href="/compliance"
         />
       </div>
@@ -303,8 +303,8 @@ export default function Dashboard() {
         )}
       </CollapsibleSection>
 
-      {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) && (
-        <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
+      <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
+        {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) ? (
           <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
             <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
               <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
@@ -318,8 +318,10 @@ export default function Dashboard() {
               </Link>
             </CardContent>
           </Card>
-        </CollapsibleSection>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400 py-4 text-center">No upcoming meetings to report.</p>
+        )}
+      </CollapsibleSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-4 border-gray-200/60">
@@ -474,8 +476,8 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {deadlines.length > 0 && (
-        <CollapsibleSection title="Upcoming IEP Deadlines" icon={CalendarDays}>
+      <CollapsibleSection title="Upcoming IEP Deadlines" icon={CalendarDays}>
+        {deadlines.length > 0 ? (
           <Card className="border-gray-200/60">
             <CardHeader className="pb-0 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-600">Next {deadlines.length} deadlines</CardTitle>
@@ -505,8 +507,10 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </CollapsibleSection>
-      )}
+        ) : (
+          <p className="text-sm text-gray-400 py-4 text-center">No upcoming deadlines.</p>
+        )}
+      </CollapsibleSection>
     </div>
   );
 }
