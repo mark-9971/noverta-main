@@ -306,13 +306,15 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
     const { fbaId, createdBy, behaviorTargetId, targetBehavior, operationalDefinition, hypothesizedFunction,
       replacementBehaviors, preventionStrategies, teachingStrategies, consequenceStrategies,
       reinforcementSchedule, crisisPlan, implementationNotes, dataCollectionMethod, progressCriteria,
-      reviewDate, effectiveDate, status } = req.body;
+      reviewDate, effectiveDate } = req.body;
     if (!targetBehavior || !operationalDefinition || !hypothesizedFunction) {
       res.status(400).json({ error: "targetBehavior, operationalDefinition, and hypothesizedFunction are required" });
       return;
     }
+    const authedCreator = req as AuthedRequest;
+    const resolvedCreatedBy = createdBy ?? authedCreator.tenantStaffId ?? null;
     const [bip] = await db.insert(behaviorInterventionPlansTable).values({
-      studentId, fbaId: fbaId || null, createdBy: createdBy || null,
+      studentId, fbaId: fbaId || null, createdBy: resolvedCreatedBy,
       behaviorTargetId: behaviorTargetId || null,
       targetBehavior, operationalDefinition, hypothesizedFunction,
       replacementBehaviors: replacementBehaviors || null,
@@ -326,9 +328,13 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
       progressCriteria: progressCriteria || null,
       reviewDate: reviewDate || null,
       effectiveDate: effectiveDate || null,
-      status: status || "draft",
+      status: "draft",
       version: 1,
     }).returning();
+    await db.insert(bipStatusHistoryTable).values({
+      bipId: bip.id, fromStatus: "none", toStatus: "draft",
+      changedById: resolvedCreatedBy, notes: "BIP created",
+    });
     res.status(201).json({ ...bip, createdAt: isoDate(bip.createdAt), updatedAt: isoDate(bip.updatedAt) });
   } catch (e: any) {
     console.error("POST bip error:", e);
