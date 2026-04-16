@@ -64,7 +64,9 @@ router.use(requireAuth);
 // Guardian portal: scoped separately from district-authenticated routes.
 // requireGuardianScope (inside guardianPortalRouter) handles its own auth & role enforcement.
 // Mounted before requireDistrictScope because guardian accounts have no district claim.
-router.use(guardianPortalRouter);
+// Must be path-scoped so requireGuardianScope inside the sub-router doesn't bleed
+// into all other routes.
+router.use("/guardian-portal", guardianPortalRouter);
 
 // Global district scope enforcement: non-platform-admin users without a district claim
 // in their token are blocked from all authenticated data routes. Platform admins pass through.

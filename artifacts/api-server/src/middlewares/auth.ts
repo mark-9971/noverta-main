@@ -139,27 +139,22 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
  * all downstream handlers can safely call getEnforcedDistrictId() and get a non-null
  * value (unless explicitly checking for platform admin bypass).
  */
-// Dev-mode district cache: avoids repeated DB lookups when Clerk token has no districtId.
-let _devDistrictId: number | null | undefined = undefined; // undefined = not yet resolved
-let _devDistrictPending: Array<() => void> = [];
+let _devDistrictId: number | null = null;
 
-function getDevDistrictId(): Promise<number | null> {
-  if (_devDistrictId !== undefined) return Promise.resolve(_devDistrictId);
-  return new Promise((resolve) => {
-    _devDistrictPending.push(() => resolve(_devDistrictId!));
-    if (_devDistrictPending.length > 1) return; // already fetching
-    db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`)
-      .then((result) => {
-        const rows = result.rows as Array<Record<string, unknown>>;
-        _devDistrictId = rows.length > 0 ? Number(rows[0].id) : null;
-      })
-      .catch(() => { _devDistrictId = null; })
-      .finally(() => {
-        const cbs = _devDistrictPending;
-        _devDistrictPending = [];
-        cbs.forEach(cb => cb());
-      });
-  });
+export async function initDevDistrictFallback(): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
+  try {
+    const result = await db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`);
+    const rows = result.rows as Array<Record<string, unknown>>;
+    if (rows.length > 0) {
+      _devDistrictId = Number(rows[0].id);
+      console.log(`[Auth] Dev district fallback initialized: district ${_devDistrictId}`);
+    } else {
+      console.warn("[Auth] Dev district fallback: no districts found in database");
+    }
+  } catch (err) {
+    console.error("[Auth] Dev district fallback init failed:", err);
+  }
 }
 
 export function requireDistrictScope(req: Request, res: Response, next: NextFunction): void {
@@ -169,19 +164,9 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
     if (meta.platformAdmin) { next(); return; }
     if (authed.tenantDistrictId != null) { next(); return; }
 
-    // In dev mode, auto-resolve the district from the DB so dev accounts without
-    // a districtId claim in their Clerk metadata can still access the app.
-    if (process.env.NODE_ENV !== "production") {
-      getDevDistrictId().then((districtId) => {
-        if (districtId != null) {
-          authed.tenantDistrictId = districtId;
-          next();
-        } else {
-          res.status(403).json({ error: "No district found in database. Add a district to use the app." });
-        }
-      }).catch(() => {
-        res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
-      });
+    if (process.env.NODE_ENV !== "production" && _devDistrictId != null) {
+      authed.tenantDistrictId = _devDistrictId;
+      next();
       return;
     }
 

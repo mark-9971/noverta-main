@@ -6,6 +6,7 @@ import { startReminderScheduler } from "./lib/reminders";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { ensureDbConstraints } from "./lib/activeSchoolYear";
+import { initDevDistrictFallback } from "./middlewares/auth";
 
 initSentry();
 
@@ -125,6 +126,8 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+await initDevDistrictFallback().catch((e) => logger.warn({ err: e }, "initDevDistrictFallback failed (non-fatal)"));
 
 app.listen(port, (err) => {
   if (err) {

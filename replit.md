@@ -25,7 +25,8 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 
 -   **Modular Monorepo:** Code is organized into `artifacts/minuteops` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries.
 -   **RESTful API Design:** All backend interactions are exposed via a REST API.
--   **Authentication:** Clerk authentication provides real sign-in/sign-up flows and secures routes using `ProtectedRoutes`. Role-based access is enforced, with 8 distinct roles (`admin`, `case_manager`, `bcba`, `sped_teacher`, `coordinator`, `provider`, `para`, `sped_student`). Backend API authentication uses `@clerk/express` middleware to validate roles and tokens.
+-   **Authentication:** Clerk authentication provides real sign-in/sign-up flows and secures routes using `ProtectedRoutes`. Role-based access is enforced, with 9 distinct roles (`admin`, `case_manager`, `bcba`, `sped_teacher`, `coordinator`, `provider`, `para`, `sped_student`, `sped_parent`). Backend API authentication uses `@clerk/express` middleware to validate roles and tokens. In dev mode, `requireAuth` defaults to `admin` role and `requireDistrictScope` auto-resolves the first district from DB when Clerk metadata has no districtId.
+-   **Guardian Portal:** The guardian portal sub-router is path-scoped at `/guardian-portal` in `routes/index.ts` — its `requireGuardianScope` middleware only applies to guardian routes, not to the rest of the API.
 -   **Comprehensive Database Schema:** A PostgreSQL database manages districts, schools, students, staff, services, IEPs, compliance, ABA data, and protective measures, including detailed `restraint_incidents` for MA DESE 603 CMR 46.00.
 -   **UI/UX Design:** Adheres to the "Ink & Air" theme, utilizing a pure white, neutral gray, and emerald green palette. Features role-based color theming and responsive design with components like `ProgressRing` and a role-aware `AppLayout`.
 

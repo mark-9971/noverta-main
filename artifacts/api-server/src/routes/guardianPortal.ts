@@ -25,7 +25,7 @@ async function resolveGuardian(req: Request): Promise<{ guardian: typeof guardia
  * GET /guardian-portal/me
  * Returns the guardian's profile and their linked student's basic info.
  */
-router.get("/guardian-portal/me", async (req: Request, res: Response) => {
+router.get("/me", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) {
@@ -64,7 +64,7 @@ router.get("/guardian-portal/me", async (req: Request, res: Response) => {
  * Returns all documents shared with this guardian's student (guardian_visible = true).
  * Includes acknowledgment status for this guardian.
  */
-router.get("/guardian-portal/documents", async (req: Request, res: Response) => {
+router.get("/documents", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) { res.status(404).json({ error: "Guardian not found" }); return; }
@@ -123,7 +123,7 @@ router.get("/guardian-portal/documents", async (req: Request, res: Response) => 
  * GET /guardian-portal/documents/:id/view
  * Returns the HTML snapshot of a shared document (for in-portal reading / print).
  */
-router.get("/guardian-portal/documents/:id/view", async (req: Request, res: Response) => {
+router.get("/documents/:id/view", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) { res.status(404).json({ error: "Guardian not found" }); return; }
@@ -162,7 +162,7 @@ router.get("/guardian-portal/documents/:id/view", async (req: Request, res: Resp
  * Records the guardian's receipt acknowledgment for a document.
  * Idempotent — re-acknowledging is allowed (returns existing timestamp).
  */
-router.post("/guardian-portal/documents/:id/acknowledge", async (req: Request, res: Response) => {
+router.post("/documents/:id/acknowledge", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) { res.status(404).json({ error: "Guardian not found" }); return; }
@@ -227,7 +227,7 @@ router.post("/guardian-portal/documents/:id/acknowledge", async (req: Request, r
  * GET /guardian-portal/meetings
  * Returns upcoming and recent IEP team meetings for the guardian's student.
  */
-router.get("/guardian-portal/meetings", async (req: Request, res: Response) => {
+router.get("/meetings", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) { res.status(404).json({ error: "Guardian not found" }); return; }
@@ -265,7 +265,7 @@ router.get("/guardian-portal/meetings", async (req: Request, res: Response) => {
  * Returns the parent contact log for the guardian's student (read-only).
  * Returns last 50 contacts in reverse chronological order.
  */
-router.get("/guardian-portal/contact-history", async (req: Request, res: Response) => {
+router.get("/contact-history", async (req: Request, res: Response) => {
   try {
     const resolved = await resolveGuardian(req);
     if (!resolved) { res.status(404).json({ error: "Guardian not found" }); return; }
