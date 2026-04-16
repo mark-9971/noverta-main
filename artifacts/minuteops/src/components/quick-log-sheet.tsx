@@ -57,6 +57,9 @@ interface QuickLogSheetProps {
   prefillStudentName?: string;
   prefillServiceTypeId?: number;
   prefillServiceTypeName?: string;
+  prefillDurationMinutes?: number;
+  prefillStartTime?: string;
+  prefillEndTime?: string;
   sessionDate?: string;
   skipToMissed?: boolean;
 }
@@ -65,6 +68,7 @@ export function QuickLogSheet({
   isOpen, onClose, onSuccess, staffId,
   prefillStudentId, prefillStudentName,
   prefillServiceTypeId, prefillServiceTypeName,
+  prefillDurationMinutes, prefillStartTime, prefillEndTime,
   sessionDate, skipToMissed,
 }: QuickLogSheetProps) {
   const [step, setStep] = useState<Step>("student");
@@ -118,7 +122,7 @@ export function QuickLogSheet({
     if (!isOpen) return;
     const d = loadDefaults(staffId);
     setDefaults(d);
-    setDurationMinutes(d.lastDurationMinutes || 30);
+    setDurationMinutes(prefillDurationMinutes ?? (d.lastDurationMinutes || 30));
     setMissedReasonId(null);
     setMissedReasonLabel(null);
     setMakeupNeeded(false);
@@ -137,14 +141,18 @@ export function QuickLogSheet({
       if (prefillServiceTypeId) {
         setServiceTypeId(prefillServiceTypeId);
         setServiceTypeName(prefillServiceTypeName ?? "");
-        setStep("duration");
+        if (prefillDurationMinutes) {
+          setStep("outcome");
+        } else {
+          setStep("duration");
+        }
       } else {
         setStep("service");
       }
     } else {
       setStep("student");
     }
-  }, [isOpen, prefillStudentId, skipToMissed]);
+  }, [isOpen, prefillStudentId, skipToMissed, prefillDurationMinutes]);
 
   useEffect(() => {
     if (!isOpen || prefillStudentId) return;
@@ -238,9 +246,9 @@ export function QuickLogSheet({
     setSubmitting(true);
 
     const now = new Date();
-    const endTime = now.toTimeString().slice(0, 5);
+    const endTime = prefillEndTime ?? now.toTimeString().slice(0, 5);
     const startMs = now.getTime() - durationMinutes * 60 * 1000;
-    const startTime = new Date(startMs).toTimeString().slice(0, 5);
+    const startTime = prefillStartTime ?? new Date(startMs).toTimeString().slice(0, 5);
 
     const body: Record<string, unknown> = {
       studentId,

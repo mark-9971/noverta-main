@@ -19,6 +19,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
+import { FloatingTimer } from "@/components/floating-timer";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
@@ -754,6 +755,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </nav>
       </div>
+
+      <FloatingTimer />
     </div>
   );
 }
