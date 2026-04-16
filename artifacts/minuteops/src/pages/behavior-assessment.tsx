@@ -1245,7 +1245,21 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const saveBipEdits = async () => {
     if (!selectedBip || !editingBip) return;
     try {
-      await updateBip(selectedBip.id, editingBip as any);
+      const r = await authFetch(`/api/bips/${selectedBip.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingBip),
+      });
+      if (r.status === 409) {
+        const { status: bipStatus } = await r.json().catch(() => ({}));
+        toast.error(
+          `This BIP is ${STATUS_CONFIG[bipStatus]?.label || bipStatus}. To make changes, create a new version from the plan actions menu.`,
+          { duration: 6000 }
+        );
+        onEdit(null);
+        return;
+      }
+      if (!r.ok) throw new Error();
       toast.success("BIP updated");
       onEdit(null);
       onRefresh();

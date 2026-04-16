@@ -274,6 +274,8 @@ router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
       progressCriteria: behaviorInterventionPlansTable.progressCriteria,
       reviewDate: behaviorInterventionPlansTable.reviewDate,
       effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+      implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
+      discontinuedDate: behaviorInterventionPlansTable.discontinuedDate,
       createdAt: behaviorInterventionPlansTable.createdAt,
       updatedAt: behaviorInterventionPlansTable.updatedAt,
       createdByFirst: staffTable.firstName,
@@ -358,6 +360,8 @@ router.get("/bips/:id", async (req, res): Promise<void> => {
       progressCriteria: behaviorInterventionPlansTable.progressCriteria,
       reviewDate: behaviorInterventionPlansTable.reviewDate,
       effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+      implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
+      discontinuedDate: behaviorInterventionPlansTable.discontinuedDate,
       createdAt: behaviorInterventionPlansTable.createdAt,
       updatedAt: behaviorInterventionPlansTable.updatedAt,
       createdByFirst: staffTable.firstName,
@@ -381,17 +385,32 @@ router.get("/bips/:id", async (req, res): Promise<void> => {
   }
 });
 
+const BIP_PLAN_FIELDS = [
+  "targetBehavior", "operationalDefinition", "hypothesizedFunction",
+  "behaviorTargetId", "replacementBehaviors", "preventionStrategies", "teachingStrategies",
+  "consequenceStrategies", "reinforcementSchedule", "crisisPlan", "implementationNotes",
+  "dataCollectionMethod", "progressCriteria", "reviewDate", "effectiveDate"
+];
+const BIP_LOCKED_STATUSES = ["approved", "active", "discontinued", "archived"];
+
 router.patch("/bips/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const allowed = [
-      "targetBehavior", "operationalDefinition", "hypothesizedFunction", "status",
-      "behaviorTargetId", "replacementBehaviors", "preventionStrategies", "teachingStrategies",
-      "consequenceStrategies", "reinforcementSchedule", "crisisPlan", "implementationNotes",
-      "dataCollectionMethod", "progressCriteria", "reviewDate", "effectiveDate"
-    ];
+    const [existing] = await db.select({ status: behaviorInterventionPlansTable.status })
+      .from(behaviorInterventionPlansTable).where(eq(behaviorInterventionPlansTable.id, id));
+    if (!existing) { res.status(404).json({ error: "BIP not found" }); return; }
+
+    if (BIP_LOCKED_STATUSES.includes(existing.status)) {
+      res.status(409).json({
+        error: `BIP is ${existing.status} — create a new version to make changes`,
+        locked: true,
+        status: existing.status,
+      });
+      return;
+    }
+
     const updates: any = {};
-    for (const key of allowed) {
+    for (const key of [...BIP_PLAN_FIELDS, "status"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [updated] = await db.update(behaviorInterventionPlansTable).set(updates)
@@ -669,14 +688,22 @@ router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    if (!BIP_APPROVER_ROLES.includes(role)) {
+      res.status(403).json({ error: "Only BCBAs and admins can assign implementers" }); return;
+    }
     const assignedById = authed.tenantStaffId ?? null;
     const { staffId, notes } = req.body;
 
     if (!staffId) { res.status(400).json({ error: "staffId is required" }); return; }
 
-    const [bip] = await db.select().from(behaviorInterventionPlansTable)
+    const [bip] = await db.select({ id: behaviorInterventionPlansTable.id, status: behaviorInterventionPlansTable.status })
+      .from(behaviorInterventionPlansTable)
       .where(eq(behaviorInterventionPlansTable.id, id));
     if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
+    if (!["approved", "active"].includes(bip.status)) {
+      res.status(409).json({ error: "Implementers can only be assigned to approved or active BIPs" }); return;
+    }
 
     const [impl] = await db.insert(bipImplementersTable).values({
       bipId: id,
@@ -695,6 +722,11 @@ router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
 router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    if (!BIP_APPROVER_ROLES.includes(role)) {
+      res.status(403).json({ error: "Only BCBAs and admins can remove implementers" }); return;
+    }
     const [deleted] = await db.update(bipImplementersTable)
       .set({ active: false })
       .where(eq(bipImplementersTable.id, id))
@@ -737,13 +769,21 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
     const id = parseInt(req.params.id);
     const authed = req as AuthedRequest;
     const staffId = authed.tenantStaffId ?? null;
-    const { logDate, fidelityRating, studentResponse, implementationNotes, staffIdOverride } = req.body;
+    const { logDate, fidelityRating, studentResponse, implementationNotes } = req.body;
 
     if (!logDate) { res.status(400).json({ error: "logDate is required" }); return; }
 
+    const [bip] = await db.select({ id: behaviorInterventionPlansTable.id, status: behaviorInterventionPlansTable.status })
+      .from(behaviorInterventionPlansTable)
+      .where(eq(behaviorInterventionPlansTable.id, id));
+    if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
+    if (bip.status !== "active") {
+      res.status(409).json({ error: "Fidelity logs can only be added to active BIPs" }); return;
+    }
+
     const [log] = await db.insert(bipFidelityLogsTable).values({
       bipId: id,
-      staffId: staffIdOverride ? parseInt(staffIdOverride) : staffId,
+      staffId,
       logDate,
       fidelityRating: fidelityRating != null ? parseInt(fidelityRating) : null,
       studentResponse: studentResponse || null,
@@ -759,10 +799,20 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
 router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
-    const [deleted] = await db.delete(bipFidelityLogsTable)
-      .where(eq(bipFidelityLogsTable.id, id))
-      .returning();
-    if (!deleted) { res.status(404).json({ error: "Fidelity log not found" }); return; }
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    const staffId = authed.tenantStaffId ?? null;
+
+    const [entry] = await db.select().from(bipFidelityLogsTable)
+      .where(eq(bipFidelityLogsTable.id, id));
+    if (!entry) { res.status(404).json({ error: "Fidelity log not found" }); return; }
+
+    const isOwner = entry.staffId != null && entry.staffId === staffId;
+    if (!isOwner && !BIP_APPROVER_ROLES.includes(role)) {
+      res.status(403).json({ error: "You can only delete your own fidelity log entries" }); return;
+    }
+
+    await db.delete(bipFidelityLogsTable).where(eq(bipFidelityLogsTable.id, id));
     res.json({ success: true });
   } catch (e: any) {
     console.error("DELETE bip-fidelity-log error:", e);
@@ -773,6 +823,12 @@ router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
 router.get("/staff/:staffId/assigned-bips", async (req, res): Promise<void> => {
   try {
     const staffId = parseInt(req.params.staffId);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    const callerStaffId = authed.tenantStaffId ?? null;
+    if (!BIP_APPROVER_ROLES.includes(role) && callerStaffId !== staffId) {
+      res.status(403).json({ error: "You can only view your own assigned BIPs" }); return;
+    }
     const bips = await db.select({
       id: behaviorInterventionPlansTable.id,
       studentId: behaviorInterventionPlansTable.studentId,
