@@ -61,7 +61,8 @@ router.get("/caseload-balancing/summary", async (req, res) => {
     })
     .from(staffAssignmentsTable)
     .innerJoin(studentsTable, eq(staffAssignmentsTable.studentId, studentsTable.id))
-    .where(eq(studentsTable.status, "active"))
+    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .where(and(eq(studentsTable.status, "active"), eq(schoolsTable.districtId, districtId)))
     .groupBy(staffAssignmentsTable.staffId);
 
     const serviceMinutes = await db.select({
@@ -70,7 +71,9 @@ router.get("/caseload-balancing/summary", async (req, res) => {
       serviceCount: count(serviceRequirementsTable.id),
     })
     .from(serviceRequirementsTable)
-    .where(eq(serviceRequirementsTable.active, true))
+    .innerJoin(studentsTable, eq(serviceRequirementsTable.studentId, studentsTable.id))
+    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .where(and(eq(serviceRequirementsTable.active, true), eq(schoolsTable.districtId, districtId)))
     .groupBy(serviceRequirementsTable.providerId);
 
     const caseloadMap = new Map(caseloadCounts.map(c => [c.staffId, Number(c.studentCount)]));
@@ -383,14 +386,15 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
   }
 
   try {
-    const [fromProvider] = await db.select({ id: staffTable.id }).from(staffTable)
+    const [fromProvider] = await db.select({ id: staffTable.id, role: staffTable.role }).from(staffTable)
       .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
       .where(and(eq(staffTable.id, fromProviderId), eq(schoolsTable.districtId, districtId)));
-    const [toProvider] = await db.select({ id: staffTable.id }).from(staffTable)
+    const [toProvider] = await db.select({ id: staffTable.id, role: staffTable.role }).from(staffTable)
       .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
       .where(and(eq(staffTable.id, toProviderId), eq(schoolsTable.districtId, districtId)));
 
     if (!fromProvider || !toProvider) return res.status(404).json({ error: "Provider not found in your district" });
+    if (fromProvider.role !== toProvider.role) return res.status(400).json({ error: "Cannot reassign between providers with different roles" });
 
     const [student] = await db.select({ id: studentsTable.id }).from(studentsTable)
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
