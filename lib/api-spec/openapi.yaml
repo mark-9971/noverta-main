@@ -6483,6 +6483,8 @@ components:
           type: ["string", "null"]
         tags:
           type: ["string", "null"]
+        dateOfBirth:
+          type: ["string", "null"]
       required: [firstName, lastName, status]
 
     UpdateStudentBody:
