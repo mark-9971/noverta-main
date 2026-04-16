@@ -1101,22 +1101,26 @@ router.post("/progress-reports/batch-generate", async (req, res): Promise<void> 
     for (const sid of studentIds) {
       const studentId = Number(sid);
       try {
-        const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
-        if (!student) {
+        const studentConditions = [eq(studentsTable.id, studentId)];
+        if (districtId) {
+          studentConditions.push(eq(schoolsTable.districtId, districtId));
+        }
+        const [studentRow] = await db.select({
+          id: studentsTable.id,
+          firstName: studentsTable.firstName,
+          lastName: studentsTable.lastName,
+          schoolId: studentsTable.schoolId,
+          dateOfBirth: studentsTable.dateOfBirth,
+          grade: studentsTable.grade,
+          status: studentsTable.status,
+        }).from(studentsTable)
+          .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+          .where(and(...studentConditions));
+        if (!studentRow) {
           results.push({ studentId, reportId: null, studentName: "Unknown", error: "Student not found" });
           continue;
         }
-        if (!student.schoolId) {
-          results.push({ studentId, reportId: null, studentName: `${student.firstName} ${student.lastName}`, error: "Student has no school assignment" });
-          continue;
-        }
-        if (districtId) {
-          const [sch] = await db.select({ districtId: schoolsTable.districtId }).from(schoolsTable).where(eq(schoolsTable.id, student.schoolId));
-          if (!sch || sch.districtId !== districtId) {
-            results.push({ studentId, reportId: null, studentName: `${student.firstName} ${student.lastName}`, error: "Student not in your district" });
-            continue;
-          }
-        }
+        const student = studentRow;
 
         let schoolName: string | null = null;
         let districtName: string | null = null;
