@@ -9,16 +9,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  FileText, CheckCircle, XCircle, Clock, ArrowRight, MessageSquare,
+  FileText, CheckCircle, XCircle, Clock, ArrowRight,
   History, Plus, ChevronDown, ChevronUp, AlertTriangle, RotateCcw,
-  Clipboard, Users, Shield, Send,
+  Clipboard, Users, Shield, Send, UserPlus, Timer,
 } from "lucide-react";
+
+interface AgingWorkflow {
+  id: number;
+  title: string;
+  currentStage: string;
+  updatedAt: string;
+  daysInStage: number;
+}
 
 interface WorkflowSummary {
   byStage: Record<string, number>;
   totalActive: number;
   totalCompleted: number;
   totalRejected: number;
+  aging: AgingWorkflow[];
 }
 
 interface Workflow {
@@ -48,9 +57,18 @@ interface WorkflowApproval {
   createdAt: string;
 }
 
+interface WorkflowReviewer {
+  id: number;
+  workflowId: number;
+  stage: string;
+  reviewerUserId: string;
+  reviewerName: string;
+}
+
 interface WorkflowDetail extends Workflow {
   createdByUserId: string;
   approvals: WorkflowApproval[];
+  reviewers: WorkflowReviewer[];
 }
 
 interface DocumentVersion {
@@ -97,6 +115,20 @@ function formatDate(d: string) {
 
 function formatDateTime(d: string) {
   return new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function daysAgo(d: string): number {
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+}
+
+function AgingBadge({ days }: { days: number }) {
+  const color = days >= 7 ? "bg-red-100 text-red-700 border-red-200" : days >= 3 ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}>
+      <Timer className="w-3 h-3" />
+      {days}d
+    </span>
+  );
 }
 
 function StageBadge({ stage }: { stage: string }) {
@@ -152,6 +184,18 @@ function StageProgress({ stages, currentStage, status }: { stages: string[]; cur
   );
 }
 
+function groupApprovalsByStage(approvals: WorkflowApproval[], stages: string[]) {
+  const grouped: Record<string, WorkflowApproval[]> = {};
+  for (const stage of stages) {
+    grouped[stage] = [];
+  }
+  for (const a of approvals) {
+    if (!grouped[a.stage]) grouped[a.stage] = [];
+    grouped[a.stage].push(a);
+  }
+  return grouped;
+}
+
 export default function DocumentWorkflowPage() {
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -170,6 +214,7 @@ export default function DocumentWorkflowPage() {
   const [pwnDialog, setPwnDialog] = useState(false);
   const [pwnForm, setPwnForm] = useState({ studentId: "", meetingId: "" });
   const [pwnLoading, setPwnLoading] = useState(false);
+  const [agingExpanded, setAgingExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -315,58 +360,93 @@ export default function DocumentWorkflowPage() {
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
         </div>
       ) : summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-blue-200 bg-blue-50/50">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-blue-600 font-medium">Active</p>
-                  <p className="text-2xl font-bold text-blue-900">{summary.totalActive}</p>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">Active</p>
+                    <p className="text-2xl font-bold text-blue-900">{summary.totalActive}</p>
+                  </div>
+                  <Clock className="w-8 h-8 text-blue-400" />
                 </div>
-                <Clock className="w-8 h-8 text-blue-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-emerald-200 bg-emerald-50/50">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-emerald-600 font-medium">Completed</p>
-                  <p className="text-2xl font-bold text-emerald-900">{summary.totalCompleted}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-emerald-200 bg-emerald-50/50">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-emerald-600 font-medium">Completed</p>
+                    <p className="text-2xl font-bold text-emerald-900">{summary.totalCompleted}</p>
+                  </div>
+                  <CheckCircle className="w-8 h-8 text-emerald-400" />
                 </div>
-                <CheckCircle className="w-8 h-8 text-emerald-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-red-200 bg-red-50/50">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-red-600 font-medium">Rejected</p>
-                  <p className="text-2xl font-bold text-red-900">{summary.totalRejected}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-red-200 bg-red-50/50">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-red-600 font-medium">Rejected</p>
+                    <p className="text-2xl font-bold text-red-900">{summary.totalRejected}</p>
+                  </div>
+                  <XCircle className="w-8 h-8 text-red-400" />
                 </div>
-                <XCircle className="w-8 h-8 text-red-400" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200">
-            <CardContent className="pt-4 pb-4">
-              <p className="text-sm text-gray-600 font-medium mb-2">By Stage</p>
-              {Object.keys(summary.byStage).length === 0 ? (
-                <p className="text-xs text-gray-400">No active workflows</p>
-              ) : (
-                <div className="space-y-1">
-                  {Object.entries(summary.byStage).map(([stage, count]) => (
-                    <div key={stage} className="flex justify-between text-xs">
-                      <span className="text-gray-600">{STAGE_LABELS[stage] || stage}</span>
-                      <span className="font-medium">{count}</span>
-                    </div>
-                  ))}
-                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-slate-200">
+              <CardContent className="pt-4 pb-4">
+                <p className="text-sm text-gray-600 font-medium mb-2">By Stage</p>
+                {Object.keys(summary.byStage).length === 0 ? (
+                  <p className="text-xs text-gray-400">No active workflows</p>
+                ) : (
+                  <div className="space-y-1">
+                    {Object.entries(summary.byStage).map(([stage, count]) => (
+                      <div key={stage} className="flex justify-between text-xs">
+                        <span className="text-gray-600">{STAGE_LABELS[stage] || stage}</span>
+                        <span className="font-medium">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {summary.aging.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50/30">
+              <CardHeader className="pb-2 pt-3">
+                <button
+                  onClick={() => setAgingExpanded(!agingExpanded)}
+                  className="flex items-center gap-2 w-full"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <CardTitle className="text-sm text-amber-800">
+                    Aging Workflows ({summary.aging.length})
+                  </CardTitle>
+                  <span className="text-xs text-amber-600 ml-1">Stalled 3+ days in current stage</span>
+                  {agingExpanded ? <ChevronUp className="w-3 h-3 text-amber-500 ml-auto" /> : <ChevronDown className="w-3 h-3 text-amber-500 ml-auto" />}
+                </button>
+              </CardHeader>
+              {agingExpanded && (
+                <CardContent className="pt-0 pb-3">
+                  <div className="space-y-1.5">
+                    {summary.aging.map(a => (
+                      <div key={a.id} className="flex items-center justify-between text-xs px-2 py-1.5 bg-white rounded border border-amber-100">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-800 truncate max-w-[200px]">{a.title}</span>
+                          <StageBadge stage={a.currentStage} />
+                        </div>
+                        <AgingBadge days={a.daysInStage} />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </Card>
+          )}
+        </>
       )}
 
       <Card>
@@ -413,33 +493,37 @@ export default function DocumentWorkflowPage() {
             </div>
           ) : (
             <div className="divide-y">
-              {workflows.map(wf => (
-                <button
-                  key={wf.id}
-                  onClick={() => openDetail(wf)}
-                  className="w-full text-left py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 truncate">{wf.title}</span>
-                        <StatusBadge status={wf.status} />
+              {workflows.map(wf => {
+                const days = wf.status === "in_progress" ? daysAgo(wf.updatedAt) : 0;
+                return (
+                  <button
+                    key={wf.id}
+                    onClick={() => openDetail(wf)}
+                    className="w-full text-left py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 truncate">{wf.title}</span>
+                          <StatusBadge status={wf.status} />
+                          {days >= 3 && <AgingBadge days={days} />}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>{wf.studentFirstName} {wf.studentLastName}</span>
+                          <span className="text-gray-300">|</span>
+                          <span className="capitalize">{wf.documentType.replace(/_/g, " ")}</span>
+                          <span className="text-gray-300">|</span>
+                          <span>Started {formatDate(wf.createdAt)} by {wf.createdByName}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-500">
-                        <span>{wf.studentFirstName} {wf.studentLastName}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="capitalize">{wf.documentType.replace(/_/g, " ")}</span>
-                        <span className="text-gray-300">|</span>
-                        <span>Started {formatDate(wf.createdAt)} by {wf.createdByName}</span>
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        <StageProgress stages={wf.stages} currentStage={wf.currentStage} status={wf.status} />
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0 ml-4">
-                      <StageProgress stages={wf.stages} currentStage={wf.currentStage} status={wf.status} />
-                      <ArrowRight className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -460,6 +544,9 @@ export default function DocumentWorkflowPage() {
                   <DialogTitle className="flex items-center gap-2">
                     {selectedWorkflow.title}
                     <StatusBadge status={selectedWorkflow.status} />
+                    {selectedWorkflow.status === "in_progress" && daysAgo(selectedWorkflow.updatedAt) >= 3 && (
+                      <AgingBadge days={daysAgo(selectedWorkflow.updatedAt)} />
+                    )}
                   </DialogTitle>
                 </DialogHeader>
 
@@ -508,6 +595,31 @@ export default function DocumentWorkflowPage() {
                     </div>
                   </div>
 
+                  {selectedWorkflow.reviewers && selectedWorkflow.reviewers.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                        <UserPlus className="w-4 h-4" />
+                        Assigned Reviewers
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedWorkflow.stages.map(stage => {
+                          const stageReviewers = selectedWorkflow.reviewers.filter(r => r.stage === stage);
+                          if (stageReviewers.length === 0) return null;
+                          return (
+                            <div key={stage} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 text-xs">
+                              <StageBadge stage={stage} />
+                              <div className="space-y-0.5">
+                                {stageReviewers.map(r => (
+                                  <p key={r.id} className="text-gray-700 font-medium">{r.reviewerName}</p>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedWorkflow.status === "in_progress" && (
                     <div className="flex gap-2 border-t pt-4">
                       <Button
@@ -541,23 +653,34 @@ export default function DocumentWorkflowPage() {
                     {selectedWorkflow.approvals.length === 0 ? (
                       <p className="text-xs text-gray-400">No actions taken yet</p>
                     ) : (
-                      <div className="space-y-2">
-                        {selectedWorkflow.approvals.map(a => {
-                          const cfg = ACTION_CONFIG[a.action] || { label: a.action, color: "text-gray-600", icon: Clock };
-                          const Icon = cfg.icon;
+                      <div className="space-y-3">
+                        {Object.entries(groupApprovalsByStage(selectedWorkflow.approvals, selectedWorkflow.stages)).map(([stage, approvals]) => {
+                          if (approvals.length === 0) return null;
                           return (
-                            <div key={a.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
-                              <Icon className={`w-4 h-4 mt-0.5 ${cfg.color}`} />
-                              <div className="text-xs space-y-0.5">
-                                <div>
-                                  <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
-                                  <span className="text-gray-500"> at </span>
-                                  <span className="text-gray-600 capitalize">{STAGE_LABELS[a.stage] || a.stage}</span>
-                                  <span className="text-gray-500"> by </span>
-                                  <span className="font-medium text-gray-700">{a.reviewerName}</span>
-                                </div>
-                                <p className="text-gray-400">{formatDateTime(a.createdAt)}</p>
-                                {a.comment && <p className="text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">{a.comment}</p>}
+                            <div key={stage}>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <StageBadge stage={stage} />
+                                <span className="text-xs text-gray-400">({approvals.length} action{approvals.length > 1 ? "s" : ""})</span>
+                              </div>
+                              <div className="space-y-1.5 ml-2 border-l-2 border-gray-100 pl-3">
+                                {approvals.map(a => {
+                                  const cfg = ACTION_CONFIG[a.action] || { label: a.action, color: "text-gray-600", icon: Clock };
+                                  const Icon = cfg.icon;
+                                  return (
+                                    <div key={a.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
+                                      <Icon className={`w-4 h-4 mt-0.5 ${cfg.color}`} />
+                                      <div className="text-xs space-y-0.5">
+                                        <div>
+                                          <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
+                                          <span className="text-gray-500"> by </span>
+                                          <span className="font-medium text-gray-700">{a.reviewerName}</span>
+                                        </div>
+                                        <p className="text-gray-400">{formatDateTime(a.createdAt)}</p>
+                                        {a.comment && <p className="text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">{a.comment}</p>}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );

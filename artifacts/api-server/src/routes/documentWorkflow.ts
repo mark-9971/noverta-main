@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, schoolsTable } from "@workspace/db";
+import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, schoolsTable, staffTable } from "@workspace/db";
 import { eq, and, desc, SQL, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
+import { sendEmail } from "../lib/email";
 
 const router = Router();
 
@@ -10,11 +11,17 @@ const DEFAULT_STAGES = ["draft", "team_review", "director_signoff", "parent_deli
 const VALID_DOC_TYPES = ["iep", "evaluation", "progress_report", "prior_written_notice", "incident_report"];
 const VALID_STATUSES = ["in_progress", "completed", "rejected"];
 const VALID_STAGES = ["draft", "team_review", "director_signoff", "parent_delivery"];
+const STAGE_LABELS: Record<string, string> = {
+  draft: "Draft",
+  team_review: "Team Review",
+  director_signoff: "Director Sign-off",
+  parent_delivery: "Parent Delivery",
+};
 
 function getUserInfo(req: AuthedRequest) {
   return {
     userId: req.userId!,
-    name: req.userName || "Unknown",
+    name: req.displayName || "Unknown",
   };
 }
 
@@ -32,6 +39,86 @@ async function assertStudentInDistrict(studentId: number, districtId: number): P
     .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
     .where(and(eq(studentsTable.id, studentId), eq(schoolsTable.districtId, districtId)));
   return student || null;
+}
+
+function sendWorkflowNotification(studentId: number, reviewerEmail: string, reviewerName: string, subject: string, bodyHtml: string) {
+  sendEmail({
+    studentId,
+    type: "general",
+    subject,
+    bodyHtml,
+    toEmail: reviewerEmail,
+    toName: reviewerName,
+  }).catch(err => {
+    console.error("[DocumentWorkflow] Notification failed:", err);
+  });
+}
+
+async function notifyReviewersForStage(workflowId: number, stage: string, workflowTitle: string, studentId: number, studentName: string, districtId: number) {
+  const reviewers = await db.select().from(workflowReviewersTable)
+    .where(and(eq(workflowReviewersTable.workflowId, workflowId), eq(workflowReviewersTable.stage, stage)));
+
+  if (reviewers.length === 0) return;
+
+  const stageLabel = STAGE_LABELS[stage] || stage;
+
+  for (const reviewer of reviewers) {
+    const staffRows = await db.select({ email: staffTable.email })
+      .from(staffTable)
+      .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+      .where(and(eq(staffTable.externalId, reviewer.reviewerUserId), eq(schoolsTable.districtId, districtId)));
+    const email = staffRows[0]?.email;
+    if (!email) continue;
+
+    sendWorkflowNotification(
+      studentId,
+      email,
+      reviewer.reviewerName,
+      `Trellis: Document needs your review — ${stageLabel}`,
+      `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0;font-size:18px">Document Review Required</h2>
+        </div>
+        <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+          <p>A document requires your review at the <strong>${stageLabel}</strong> stage.</p>
+          <ul style="color:#374151">
+            <li><strong>Document:</strong> ${workflowTitle}</li>
+            <li><strong>Student:</strong> ${studentName}</li>
+            <li><strong>Stage:</strong> ${stageLabel}</li>
+          </ul>
+          <p style="color:#6b7280;font-size:13px">Log in to Trellis to review and take action.</p>
+        </div>
+      </div>`,
+    );
+  }
+}
+
+async function notifyWorkflowCreator(workflow: { createdByUserId: string; createdByName: string; title: string; studentId: number }, action: string, reviewerName: string, comment: string | null, studentName: string, districtId: number) {
+  const staffRows = await db.select({ email: staffTable.email })
+    .from(staffTable)
+    .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+    .where(and(eq(staffTable.externalId, workflow.createdByUserId), eq(schoolsTable.districtId, districtId)));
+  const email = staffRows[0]?.email;
+  if (!email) return;
+
+  const actionLabel = action === "completed" ? "approved (all stages)" : action === "rejected" ? "rejected" : "returned for changes";
+
+  sendWorkflowNotification(
+    workflow.studentId,
+    email,
+    workflow.createdByName,
+    `Trellis: Document ${actionLabel} — ${workflow.title}`,
+    `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:${action === "rejected" ? "#dc2626" : action === "completed" ? "#059669" : "#d97706"};color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+        <h2 style="margin:0;font-size:18px">Document ${actionLabel.charAt(0).toUpperCase() + actionLabel.slice(1)}</h2>
+      </div>
+      <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+        <p>Your document <strong>${workflow.title}</strong> for <strong>${studentName}</strong> has been ${actionLabel} by ${reviewerName}.</p>
+        ${comment ? `<p style="margin-top:12px;padding:12px;background:#f3f4f6;border-radius:6px;color:#374151"><em>"${comment}"</em></p>` : ""}
+        <p style="color:#6b7280;font-size:13px;margin-top:16px">Log in to Trellis to view details.</p>
+      </div>
+    </div>`,
+  );
 }
 
 router.get("/document-workflow/versions/:documentType/:documentId", async (req, res) => {
@@ -185,18 +272,22 @@ router.get("/document-workflow/workflows/:id", async (req, res) => {
 
   if (!workflow) return res.status(404).json({ error: "Workflow not found" });
 
-  const approvals = await db.select().from(workflowApprovalsTable)
-    .where(eq(workflowApprovalsTable.workflowId, id))
-    .orderBy(desc(workflowApprovalsTable.createdAt));
+  const [approvals, reviewers] = await Promise.all([
+    db.select().from(workflowApprovalsTable)
+      .where(eq(workflowApprovalsTable.workflowId, id))
+      .orderBy(desc(workflowApprovalsTable.createdAt)),
+    db.select().from(workflowReviewersTable)
+      .where(eq(workflowReviewersTable.workflowId, id)),
+  ]);
 
-  res.json({ ...workflow, approvals });
+  res.json({ ...workflow, approvals, reviewers });
 });
 
 router.post("/document-workflow/workflows", async (req, res) => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (!districtId) return res.status(403).json({ error: "No district scope" });
   const user = getUserInfo(req as AuthedRequest);
-  const { documentType, title, stages } = req.body;
+  const { documentType, title, stages, reviewers } = req.body;
   const documentId = parsePositiveInt(req.body.documentId);
   const studentId = parsePositiveInt(req.body.studentId);
 
@@ -230,6 +321,30 @@ router.post("/document-workflow/workflows", async (req, res) => {
     createdByName: user.name,
   }).returning();
 
+  if (Array.isArray(reviewers) && reviewers.length > 0) {
+    const validReviewers = reviewers.filter(
+      (r: unknown): r is { stage: string; userId: string; name: string } =>
+        typeof r === "object" && r !== null &&
+        typeof (r as Record<string, unknown>).stage === "string" &&
+        VALID_STAGES.includes((r as Record<string, unknown>).stage as string) &&
+        typeof (r as Record<string, unknown>).userId === "string" &&
+        typeof (r as Record<string, unknown>).name === "string"
+    );
+    if (validReviewers.length > 0) {
+      await db.insert(workflowReviewersTable).values(
+        validReviewers.map(r => ({
+          workflowId: workflow.id,
+          stage: r.stage,
+          reviewerUserId: r.userId,
+          reviewerName: r.name,
+        })),
+      );
+    }
+  }
+
+  const studentName = `${student.firstName} ${student.lastName}`;
+  notifyReviewersForStage(workflow.id, workflowStages[0], title, studentId, studentName, districtId);
+
   logAudit(req, {
     action: "create",
     targetTable: "approval_workflows",
@@ -240,6 +355,16 @@ router.post("/document-workflow/workflows", async (req, res) => {
 
   res.status(201).json(workflow);
 });
+
+async function checkReviewerAuth(workflowId: number, stage: string, userId: string): Promise<boolean> {
+  const reviewers = await db.select().from(workflowReviewersTable)
+    .where(and(
+      eq(workflowReviewersTable.workflowId, workflowId),
+      eq(workflowReviewersTable.stage, stage),
+    ));
+  if (reviewers.length === 0) return true;
+  return reviewers.some(r => r.reviewerUserId === userId);
+}
 
 router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
@@ -254,6 +379,9 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
   if (!workflow) return res.status(404).json({ error: "Workflow not found" });
   if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
 
+  const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
+  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+
   const stages = workflow.stages as string[];
   const currentIdx = stages.indexOf(workflow.currentStage);
   const isLastStage = currentIdx >= stages.length - 1;
@@ -267,15 +395,20 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
     comment,
   });
 
+  const student = await assertStudentInDistrict(workflow.studentId, districtId);
+  const studentName = student ? `${student.firstName} ${student.lastName}` : "Unknown";
+
   if (isLastStage) {
     await db.update(approvalWorkflowsTable)
       .set({ status: "completed", completedAt: new Date() })
       .where(eq(approvalWorkflowsTable.id, id));
+    notifyWorkflowCreator(workflow, "completed", user.name, comment, studentName, districtId);
   } else {
     const nextStage = stages[currentIdx + 1];
     await db.update(approvalWorkflowsTable)
       .set({ currentStage: nextStage })
       .where(eq(approvalWorkflowsTable.id, id));
+    notifyReviewersForStage(id, nextStage, workflow.title, workflow.studentId, studentName, districtId);
   }
 
   logAudit(req, {
@@ -303,6 +436,9 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
   if (!workflow) return res.status(404).json({ error: "Workflow not found" });
   if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
 
+  const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
+  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
     stage: workflow.currentStage,
@@ -315,6 +451,10 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
   await db.update(approvalWorkflowsTable)
     .set({ status: "rejected" })
     .where(eq(approvalWorkflowsTable.id, id));
+
+  const student = await assertStudentInDistrict(workflow.studentId, districtId);
+  const studentName = student ? `${student.firstName} ${student.lastName}` : "Unknown";
+  notifyWorkflowCreator(workflow, "rejected", user.name, comment, studentName, districtId);
 
   logAudit(req, {
     action: "update",
@@ -343,6 +483,9 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
   if (!workflow) return res.status(404).json({ error: "Workflow not found" });
   if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
 
+  const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
+  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+
   const stages = workflow.stages as string[];
 
   await db.insert(workflowApprovalsTable).values({
@@ -357,6 +500,11 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
   await db.update(approvalWorkflowsTable)
     .set({ currentStage: stages[0] })
     .where(eq(approvalWorkflowsTable.id, id));
+
+  const student = await assertStudentInDistrict(workflow.studentId, districtId);
+  const studentName = student ? `${student.firstName} ${student.lastName}` : "Unknown";
+  notifyWorkflowCreator(workflow, "changes_requested", user.name, comment, studentName, districtId);
+  notifyReviewersForStage(id, stages[0], workflow.title, workflow.studentId, studentName, districtId);
 
   logAudit(req, {
     action: "update",
@@ -399,7 +547,54 @@ router.get("/document-workflow/dashboard/summary", async (req, res) => {
     }
   }
 
-  res.json({ byStage: summary, totalActive, totalCompleted, totalRejected });
+  const agingRows = await db.select({
+    id: approvalWorkflowsTable.id,
+    title: approvalWorkflowsTable.title,
+    currentStage: approvalWorkflowsTable.currentStage,
+    updatedAt: approvalWorkflowsTable.updatedAt,
+    daysInStage: sql<number>`EXTRACT(DAY FROM NOW() - ${approvalWorkflowsTable.updatedAt})::int`,
+  })
+    .from(approvalWorkflowsTable)
+    .where(and(
+      eq(approvalWorkflowsTable.districtId, districtId),
+      eq(approvalWorkflowsTable.status, "in_progress"),
+      sql`${approvalWorkflowsTable.updatedAt} < NOW() - INTERVAL '3 days'`,
+    ))
+    .orderBy(approvalWorkflowsTable.updatedAt);
+
+  res.json({ byStage: summary, totalActive, totalCompleted, totalRejected, aging: agingRows });
+});
+
+router.post("/document-workflow/workflows/:id/reviewers", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+
+  const [workflow] = await db.select().from(approvalWorkflowsTable)
+    .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
+  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+
+  const { stage, userId, name } = req.body;
+  if (!stage || !userId || !name) return res.status(400).json({ error: "stage, userId, and name are required" });
+  if (!VALID_STAGES.includes(stage)) return res.status(400).json({ error: "Invalid stage" });
+
+  const [reviewer] = await db.insert(workflowReviewersTable).values({
+    workflowId: id,
+    stage,
+    reviewerUserId: userId,
+    reviewerName: name,
+  }).returning();
+
+  logAudit(req, {
+    action: "create",
+    targetTable: "workflow_reviewers",
+    targetId: reviewer.id,
+    studentId: workflow.studentId,
+    summary: `Assigned ${name} as reviewer for stage "${stage}" on workflow #${id}`,
+  });
+
+  res.status(201).json(reviewer);
 });
 
 router.post("/document-workflow/generate-pwn", async (req, res) => {

@@ -54,3 +54,16 @@ CREATE TABLE IF NOT EXISTS workflow_approvals (
 );
 CREATE INDEX IF NOT EXISTS wf_appr_workflow_idx ON workflow_approvals(workflow_id);
 CREATE INDEX IF NOT EXISTS wf_appr_stage_idx ON workflow_approvals(stage);
+
+-- Workflow Reviewers: assigned reviewers per workflow stage
+CREATE TABLE IF NOT EXISTS workflow_reviewers (
+  id SERIAL PRIMARY KEY,
+  workflow_id INTEGER NOT NULL REFERENCES approval_workflows(id) ON DELETE CASCADE,
+  stage TEXT NOT NULL,
+  reviewer_user_id TEXT NOT NULL,
+  reviewer_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS wf_rev_workflow_idx ON workflow_reviewers(workflow_id);
+CREATE INDEX IF NOT EXISTS wf_rev_stage_idx ON workflow_reviewers(stage);
+CREATE INDEX IF NOT EXISTS wf_rev_user_idx ON workflow_reviewers(reviewer_user_id);

@@ -43,3 +43,19 @@ export const workflowApprovalsTable = pgTable("workflow_approvals", {
 
 export type WorkflowApproval = typeof workflowApprovalsTable.$inferSelect;
 export type NewWorkflowApproval = typeof workflowApprovalsTable.$inferInsert;
+
+export const workflowReviewersTable = pgTable("workflow_reviewers", {
+  id: serial("id").primaryKey(),
+  workflowId: integer("workflow_id").notNull().references(() => approvalWorkflowsTable.id, { onDelete: "cascade" }),
+  stage: text("stage").notNull(),
+  reviewerUserId: text("reviewer_user_id").notNull(),
+  reviewerName: text("reviewer_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("wf_rev_workflow_idx").on(table.workflowId),
+  index("wf_rev_stage_idx").on(table.stage),
+  index("wf_rev_user_idx").on(table.reviewerUserId),
+]);
+
+export type WorkflowReviewer = typeof workflowReviewersTable.$inferSelect;
+export type NewWorkflowReviewer = typeof workflowReviewersTable.$inferInsert;
