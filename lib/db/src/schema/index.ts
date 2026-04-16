@@ -91,3 +91,4 @@ export * from "./scheduledReports";
 export * from "./documentVersions";
 export * from "./approvalWorkflows";
 export * from "./meetingPrepItems";
+export * from "./studentNotes";

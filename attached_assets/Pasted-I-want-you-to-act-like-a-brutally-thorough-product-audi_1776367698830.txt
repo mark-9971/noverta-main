@@ -1,0 +1,227 @@
+I want you to act like a brutally thorough product auditor, implementation reviewer, and pilot-launch strategist for this entire app/codebase.
+
+Your job is NOT to sell me generic app advice. Your job is to inspect the actual project in detail and tell me, based on the real code, database, routes, UI, workflows, and integrations, exactly what this app currently does, how complete each area is, what is genuinely valuable, what is weak or half-built, what should be prioritized, what should be postponed, and what is most compelling for a real pilot customer.
+
+Be concrete. Base everything on the actual codebase and visible product behavior. Do not make assumptions unless you clearly label them as assumptions.
+
+I want an extremely detailed report with the following sections:
+
+1. ONE-SENTENCE PRODUCT DESCRIPTION
+- Describe what the app actually is today based on the code, not what it might become.
+
+2. WHAT THE APP CURRENTLY DOES
+List every major capability and workflow that currently exists.
+For each feature/module, include:
+- feature name
+- what user problem it solves
+- who it is for (admin, teacher, BCBA, para, parent, student, etc.)
+- current level of completeness: demo-only / partial MVP / usable MVP / near-production
+- what in the code proves it exists (pages, routes, DB tables, components, logic, forms, exports, dashboards, etc.)
+- whether it appears real or mostly UI shell
+
+3. FULL FEATURE INVENTORY
+Create a structured list of all app areas, such as:
+- auth / user management
+- role-based access
+- onboarding
+- dashboard(s)
+- student records
+- caseload management
+- IEP / goal tracking
+- service minute logging
+- behavior data collection
+- FBA / BIP tools
+- compliance alerts
+- reporting / exports
+- scheduling
+- messaging / communication
+- parent portal
+- student portal
+- billing / revenue workflows
+- SIS integrations
+- settings / admin tools
+- audit logs / security / permissions
+- mobile / para workflows
+- anything else present in the code
+
+For each one, say:
+- exists now / partially exists / missing
+- exact evidence in the code
+- how important it is to the product thesis
+
+4. USER ROLES AND REAL USER EXPERIENCE
+Identify every user role the app appears to support.
+For each role, explain:
+- what that person can realistically do in the product today
+- which workflows are actually useful today
+- where the experience breaks down
+- whether this role is essential for pilot launch or can wait
+
+5. CORE PRODUCT THESIS
+Based on the actual codebase, answer:
+- What is the strongest real use case of this app right now?
+- What category does this fit into most naturally?
+  Examples: SPED compliance platform, service-minute tracking tool, ABA data platform, district operations software, IEP workflow assistant, etc.
+- What pain point does it solve best right now?
+- What pain point does it look like it wants to solve but is not ready to solve yet?
+
+6. MOST VALUABLE FEATURES
+Tell me the top 5–10 most valuable features or product areas already present.
+For each:
+- why it matters
+- who would pay for it
+- whether it is differentiated or commodity
+- whether it is strong enough to sell in a pilot
+- what small improvements would make it much more convincing
+
+7. WEAK / CONFUSING / LOW-VALUE AREAS
+Identify:
+- features that seem half-built
+- features that add complexity without helping near-term value
+- features that are likely to confuse buyers
+- areas that feel like “nice demo material” but not core to landing a pilot
+- duplicate or overlapping workflows
+- anything that should probably be hidden, simplified, or deprioritized for now
+
+Be honest and specific.
+
+8. WHAT TO SCRAP, HIDE, OR DEFER
+Make 3 lists:
+A. Keep and emphasize now
+B. Keep but don’t emphasize yet
+C. Hide / scrap / defer for pilot phase
+
+For each item, explain why.
+
+9. SELLING POINTS
+Based only on what actually exists, identify:
+- the strongest selling points
+- the strongest differentiators
+- the best pilot wedge
+- what type of customer would care most
+- what claims I can safely make
+- what claims I should NOT make yet because the product is not ready
+
+10. IDEAL PILOT CUSTOMER
+Describe the best first customer profile for this app as it exists today.
+Include:
+- district size or org type
+- likely buyer title
+- likely daily users
+- urgent pain point
+- why they would say yes
+- why they would hesitate
+
+11. PILOT READINESS ASSESSMENT
+Score the product from 1–10 on:
+- usefulness
+- differentiation
+- completeness
+- trust/readiness
+- compliance readiness
+- security readiness
+- ability to survive real daily use
+- ability to survive procurement review
+- ability to survive a friendly pilot
+
+Then explain each score.
+
+12. GAPS BLOCKING PILOT LAUNCH
+List the highest-priority missing pieces that would block a real pilot.
+Separate into:
+- must fix before any pilot
+- should fix before a serious pilot
+- can wait until after first pilot
+
+Be especially alert for:
+- auth gaps
+- authorization / permissions gaps
+- student data privacy concerns
+- audit logging gaps
+- broken workflows
+- fake or stubbed data
+- missing validation
+- missing exports
+- missing notifications
+- missing reporting
+- poor mobile usability
+- lack of implementation consistency
+
+13. WHAT TO FOCUS ON MORE
+Tell me where I should invest the next chunk of effort if my goal is:
+- to make the product more useful fast
+- to make the product easier to sell
+- to make the product feel more trustworthy
+- to get to pilot launch sooner
+- to create clearer differentiation
+
+Be opinionated.
+
+14. WHAT NOT TO WORK ON RIGHT NOW
+Tell me what I should stop spending time on for now.
+These should be things that are:
+- interesting but not urgent
+- unlikely to help win first pilot
+- too complex relative to value
+- premature before core workflow is excellent
+
+15. RECOMMENDED POSITIONING
+Give me 3 possible ways to position the product based on current reality:
+- conservative / credible positioning
+- stronger commercial positioning
+- long-term strategic positioning
+
+For each, explain:
+- what it emphasizes
+- what it avoids
+- who it appeals to
+- whether it matches current product reality
+
+16. PILOT LAUNCH ROADMAP
+Build a practical roadmap to first pilot launch.
+Break it into phases:
+Phase 1: immediate cleanup / truth-telling
+Phase 2: must-have pilot readiness work
+Phase 3: pilot UX polish
+Phase 4: post-pilot expansion
+
+For each phase, include:
+- exact tasks
+- why they matter
+- effort estimate (small / medium / large)
+- dependency notes
+- impact on sales / usability / trust
+
+17. TOP 30 NEXT TASKS
+Give me the 30 best next product/build tasks in priority order.
+For each task, include:
+- title
+- why it matters
+- what part of app it affects
+- effort estimate
+- pilot importance: critical / high / medium / low
+- whether it improves product value, trust, sales readiness, or implementation quality
+
+18. FOUNDER BLUNT SUMMARY
+End with a very candid summary:
+- what this app really is today
+- what is actually promising
+- what is fluff
+- what I should lean into
+- what I should ignore for now
+- whether this is closer to “interesting demo,” “usable pilot,” or “real emerging product”
+
+IMPORTANT INSTRUCTIONS:
+- Inspect the real codebase deeply before answering.
+- Look through routes, pages, components, DB schema, API endpoints, permissions logic, fake/mock data usage, environment variables, integrations, and any TODOs/comments that reveal incomplete work.
+- Distinguish clearly between UI that exists and backend workflow that truly works.
+- Distinguish between “looks impressive in demo” and “would matter to a paying pilot customer.”
+- Do not just compliment the app. I want accuracy and prioritization.
+- Prefer harsh truth over politeness.
+- If you are uncertain, say exactly what you are uncertain about.
+- If possible, include a final appendix with:
+  - all routes/pages discovered
+  - all DB tables/models discovered
+  - all major API endpoints discovered
+  - all explicit integrations/services discovered
+  - all places where mock/sample/demo data is still being used

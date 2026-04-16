@@ -1,0 +1,209 @@
+I want you to act like a senior product engineer + technical PM auditing and reorganizing this codebase for pilot readiness.
+
+Important constraints:
+- Do NOT delete features unless absolutely necessary.
+- Prefer ARCHIVE over CUT.
+- Do NOT make product-direction decisions casually; preserve optionality.
+- Focus on reducing complexity, clarifying what is active, and making the app easier to ship as a school/district pilot.
+- Before changing anything, inspect the existing repo structure and infer the true active architecture from the code.
+
+Your mission:
+Reorganize my app conceptually and structurally into:
+1. KEEP BUILDING NOW
+2. SELL HARDER
+3. REFACTOR SOON
+4. ARCHIVE FOR NOW
+
+The product context:
+This app is a SPED / special education operations and compliance platform for school districts, with strong BCBA / service-delivery / compliance workflow relevance. The strongest pilot wedge is NOT “replace the SIS.” The strongest wedge is:
+
+“Trellis helps SPED teams deliver required services, document what happened, and spot compliance risk before it becomes an audit or parent problem.”
+
+So optimize around that.
+
+Core pilot value should center on:
+- students
+- student detail / student snapshot
+- student IEP snapshot
+- sessions / service logging
+- schedule
+- staff
+- caseload view
+- alerts
+- reports
+- document workflow
+- parent communication
+- SIS/setup basics
+
+Likely “sell harder” / useful in demos:
+- protective measures
+- progress reports
+- IEP builder
+- IEP meetings
+- compliance dashboard/checklists/timeline
+- district overview / executive dashboard
+
+Likely “archive for now” candidates unless code inspection proves otherwise:
+- agencies / agency detail
+- billing
+- contract utilization
+- resource management
+- coverage
+- caseload balancing
+- supervision
+- school year
+- state reporting
+- evaluations
+- transitions
+- compensatory services
+- staff calendar
+- IEP calendar
+- IEP search / suggestions
+- tenants
+- system status
+- recently deleted
+- pricing page
+- other broadening modules not essential to proving the pilot wedge
+
+Likely “refactor soon” candidates if large / messy:
+- student IEP
+- student detail
+- reports
+- sessions
+- protective measures
+- behavior assessment
+- program data
+- backend IEP/report/student/protective-measures routes
+- any very large page or route files that mix too much UI/business logic/fetching/validation
+
+What I want from you:
+
+PHASE 1 — AUDIT
+Inspect the repo and produce a grounded assessment of:
+- actual active modules/pages/routes
+- which modules are central to the pilot wedge
+- which modules add distracting surface area
+- which files are too large / risky / overloaded
+- which modules are good for sales/demo but not active build priority
+- where the app currently feels too broad for current maturity
+
+For each major module/page/route, classify it as one of:
+- ACTIVE NOW
+- DEMO / SELL
+- REFACTOR
+- ARCHIVE
+
+Do not just guess from filenames. Inspect imports, routes, nav/sidebar usage, page structure, and module interconnectedness.
+
+PHASE 2 — ARCHIVE STRATEGY
+Implement a SAFE archive strategy without deleting work.
+
+Goal:
+Archive features so they stop competing for attention, but remain recoverable.
+
+Preferred archive meaning:
+- still in git
+- still recoverable
+- not in active nav
+- not in route config unless explicitly needed
+- not in current sprint planning
+- clearly marked inactive/deferred
+- easy to re-enable later
+
+Choose the safest practical approach for this codebase from these options:
+A. Soft archive in place
+   - remove from nav/sidebar
+   - remove links
+   - mark as archived/deferred in comments/docs
+B. Move to an archived folder
+   - only if imports/routes can be safely updated
+C. Feature-flag archive
+   - use if that fits the architecture better
+
+I do NOT want reckless breakage. Favor the least risky approach that creates clarity.
+
+PHASE 3 — CREATE A CLEAR FEATURE STATUS SYSTEM
+Create a simple internal structure for the repo so it is obvious what is:
+- Core
+- Expansion
+- Archived
+
+At minimum, create a document like:
+docs/pilot/feature-status.md
+
+It should list:
+1. Core now
+2. Expansion later
+3. Archived for now
+
+And include a one-line rationale for each module.
+
+Also create a rule like:
+“If a district pilot would not fail, stall, or become materially less valuable without this in the next 60 days, archive it for now.”
+
+PHASE 4 — TIGHTEN THE PRODUCT STORY IN THE CODEBASE
+Refactor product emphasis around this story:
+This is NOT currently a full SIS replacement.
+This IS a SPED operations + service delivery + compliance risk platform.
+
+Please align:
+- navigation emphasis
+- dashboard emphasis
+- module prominence
+- any labels or comments that imply too-broad platform scope
+
+without deleting optional future modules.
+
+PHASE 5 — REFACTOR PLAN
+Do NOT rewrite everything.
+Instead, identify the highest-risk oversized files and create a staged refactor plan.
+
+For each major refactor target, specify:
+- why it is risky now
+- how to split it
+- what to extract first
+- what should become hooks/services/components/schemas/utils
+- what not to touch yet
+
+Prefer incremental refactors over big rewrites.
+
+PHASE 6 — OUTPUTS I WANT
+I want you to give me:
+
+1. A concise executive summary of the app’s best pilot wedge
+2. A module-by-module table:
+   - module/page/route
+   - status: ACTIVE NOW / DEMO / REFACTOR / ARCHIVE
+   - reason
+3. A list of specific features removed from active nav
+4. A list of routes/pages archived or hidden
+5. A list of files marked for refactor first
+6. A proposed new navigation structure optimized for pilot readiness
+7. A proposed docs/pilot/feature-status.md file
+8. A recommended next 10 engineering tasks in order
+9. A recommended next 10 product/founder tasks in order
+10. A short explanation of exactly what you changed vs what you only recommended
+
+Important guardrails:
+- Preserve existing work unless there is a strong reason not to
+- Do not broaden the product further
+- Do not optimize for hypothetical enterprise scale yet
+- Do not turn this into a generic school SIS
+- Do not delete demo-valuable modules just because they are not active build priority
+- Be skeptical of feature sprawl
+- Favor focus, clarity, and pilot readiness
+
+Decision framework:
+For every module, ask:
+“Would a district pilot fail, stall, or become much less valuable without this in the next 60 days?”
+If no, archive it for now.
+
+Also distinguish:
+- build priority
+from
+- demo value
+
+because some features may help sell even if they should not get active engineering effort right now.
+
+Finally:
+Start by auditing and presenting your proposed classification BEFORE making irreversible structural changes. After that, proceed with the safest low-risk archive/clarity changes you can implement confidently.

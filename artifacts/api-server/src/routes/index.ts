@@ -56,6 +56,7 @@ import guardianPortalRouter from "./guardianPortal";
 import parentMessagesRouter, { guardianMessagesRouter } from "./parentMessages";
 import staffSchedulesRouter from "./staffSchedules";
 import documentWorkflowRouter from "./documentWorkflow";
+import studentNotesRouter from "./studentNotes";
 
 const router: IRouter = Router();
 
@@ -177,5 +178,6 @@ router.use(communicationEventsRouter);
 router.use(parentMessagesRouter);
 router.use(staffSchedulesRouter);
 router.use(documentWorkflowRouter);
+router.use(studentNotesRouter);
 
 export default router;

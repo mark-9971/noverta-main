@@ -16,6 +16,7 @@ import StudentDocuments from "@/components/student-documents";
 import StudentSnapshot from "@/components/student-snapshot";
 import { StudentGuardians } from "@/components/student-guardians";
 import StudentMessages from "@/components/student-messages";
+import StudentNotes from "@/components/student-notes";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
 import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink, createServiceRequirement, updateServiceRequirement, deleteServiceRequirement, listServiceTypes, listStaff, createStaffAssignment, deleteStaffAssignment } from "@workspace/api-client-react";
@@ -459,6 +460,7 @@ export default function StudentDetail() {
     { id: "sessions", label: "Sessions" },
     { id: "safety", label: "Safety" },
     { id: "messages", label: "Messages" },
+    { id: "notes", label: "Notes" },
     { id: "enrollment", label: "Enrollment" },
   ] as const;
 
@@ -2025,6 +2027,9 @@ export default function StudentDetail() {
         studentName={student ? `${student.firstName} ${student.lastName}` : ""}
         guardians={messageGuardians}
       />
+
+      <div id="notes" ref={setSectionRef("notes")} className="scroll-mt-16" />
+      <StudentNotes studentId={studentId} />
 
       <div id="enrollment" ref={setSectionRef("enrollment")} className="scroll-mt-16" />
       <Card>
