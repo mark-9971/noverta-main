@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import { db, communicationEventsTable, studentsTable, guardiansTable, staffTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
-import { getEnforcedDistrictId } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router = Router();
 router.use(requireTierAccess("engagement.parent_communication"));
+router.use(requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba"));
 
 router.get("/communication-events", async (req: Request, res: Response) => {
   const districtId = getEnforcedDistrictId(req);

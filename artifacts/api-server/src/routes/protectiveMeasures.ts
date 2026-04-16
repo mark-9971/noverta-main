@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import { db, restraintIncidentsTable, incidentSignaturesTable, incidentStatusHistoryTable, studentsTable, staffTable, schoolsTable, guardiansTable } from "@workspace/db";
+import { db, restraintIncidentsTable, incidentSignaturesTable, incidentStatusHistoryTable, studentsTable, staffTable, schoolsTable, guardiansTable, communicationEventsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray, asc } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { logAudit } from "../lib/auditLog";
@@ -1795,6 +1795,25 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     writtenReportSentMethod: method || "email",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
+  // For non-email channels (certified_mail, hand_delivered, fax, etc.) there is no sendEmail()
+  // call to write the communication event, so we create the audit row here.
+  let nonEmailCommEventId: number | undefined;
+  if (!isEmailChannel) {
+    const deliveryChannel = method || "hand_delivered";
+    const [commEvt] = await db.insert(communicationEventsTable).values({
+      studentId: incident.studentId,
+      type: "incident_parent_notification",
+      channel: deliveryChannel,
+      subject: `Restraint incident notification — ${incident.incidentDate ?? now.substring(0, 10)}`,
+      status: "sent",
+      staffId: Number(senderId),
+      guardianId: guardianId ?? null,
+      linkedIncidentId: id,
+      metadata: { incidentId: id, method: deliveryChannel, sentBy: senderId },
+    }).returning({ id: communicationEventsTable.id });
+    nonEmailCommEventId = commEvt?.id;
+  }
+
   logAudit(req, {
     action: "update",
     targetTable: "restraint_incidents",
@@ -1811,6 +1830,7 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     emailResult: emailResult
       ? { success: emailResult.success, communicationEventId: emailResult.communicationEventId, notConfigured: false, error: null }
       : null,
+    communicationEventId: nonEmailCommEventId ?? null,
     emailNotSent: false,
   });
 });
