@@ -191,6 +191,7 @@ const adminNav: NavSection[] = [
       { href: "/recently-deleted", label: "Recently Deleted", icon: Trash2 },
       { href: "/system-status", label: "System Status", icon: Activity },
       { href: "/setup", label: "Settings", icon: Settings },
+      { href: "/legal-compliance", label: "Legal & Compliance", icon: Scale },
     ],
   },
 ];
