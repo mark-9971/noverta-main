@@ -24,9 +24,14 @@ function getDistrictId(req: AuthedRequest): number | null {
 
 router.get("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
   const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
   const mappings = await db
     .select({
       id: cptCodeMappingsTable.id,
+      districtId: cptCodeMappingsTable.districtId,
       serviceTypeId: cptCodeMappingsTable.serviceTypeId,
       serviceTypeName: serviceTypesTable.name,
       serviceCategory: serviceTypesTable.category,
@@ -42,17 +47,24 @@ router.get("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
     })
     .from(cptCodeMappingsTable)
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, cptCodeMappingsTable.serviceTypeId))
+    .where(eq(cptCodeMappingsTable.districtId, districtId))
     .orderBy(asc(serviceTypesTable.name), asc(cptCodeMappingsTable.cptCode));
   res.json(mappings);
 });
 
 router.post("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
   const { serviceTypeId, cptCode, modifier, description, minDurationMinutes, maxDurationMinutes, unitDurationMinutes, ratePerUnit, placeOfService } = req.body;
   if (!serviceTypeId || !cptCode || !ratePerUnit) {
     res.status(400).json({ error: "serviceTypeId, cptCode, and ratePerUnit are required" });
     return;
   }
   const [mapping] = await db.insert(cptCodeMappingsTable).values({
+    districtId,
     serviceTypeId: Number(serviceTypeId),
     cptCode,
     modifier: modifier || null,
@@ -74,6 +86,11 @@ router.post("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
 });
 
 router.put("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
   const id = Number(req.params.id);
   const { cptCode, modifier, description, minDurationMinutes, maxDurationMinutes, unitDurationMinutes, ratePerUnit, placeOfService, isActive } = req.body;
   const updates: Record<string, any> = {};
@@ -90,7 +107,7 @@ router.put("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "No fields to update" });
     return;
   }
-  const [updated] = await db.update(cptCodeMappingsTable).set(updates).where(eq(cptCodeMappingsTable.id, id)).returning();
+  const [updated] = await db.update(cptCodeMappingsTable).set(updates).where(and(eq(cptCodeMappingsTable.id, id), eq(cptCodeMappingsTable.districtId, districtId))).returning();
   if (!updated) {
     res.status(404).json({ error: "Mapping not found" });
     return;
@@ -106,8 +123,13 @@ router.put("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
   const id = Number(req.params.id);
-  const [deleted] = await db.delete(cptCodeMappingsTable).where(eq(cptCodeMappingsTable.id, id)).returning();
+  const [deleted] = await db.delete(cptCodeMappingsTable).where(and(eq(cptCodeMappingsTable.id, id), eq(cptCodeMappingsTable.districtId, districtId))).returning();
   if (!deleted) {
     res.status(404).json({ error: "Mapping not found" });
     return;
@@ -134,7 +156,7 @@ router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
   }
 
   const activeMappings = await db.select().from(cptCodeMappingsTable)
-    .where(eq(cptCodeMappingsTable.isActive, "true"));
+    .where(and(eq(cptCodeMappingsTable.isActive, "true"), eq(cptCodeMappingsTable.districtId, districtId)));
 
   if (activeMappings.length === 0) {
     res.status(400).json({ error: "No active CPT code mappings configured. Set up CPT mappings first." });
@@ -331,6 +353,58 @@ router.get("/medicaid/claims", async (req, res): Promise<void> => {
     })),
     total: countResult?.total ?? 0,
   });
+});
+
+router.patch("/medicaid/claims/:id", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+  const claimId = Number(req.params.id);
+  if (!Number.isFinite(claimId)) {
+    res.status(400).json({ error: "Invalid claim ID" });
+    return;
+  }
+
+  const { cptCode, modifier, units, billedAmount, placeOfService, diagnosisCode, rejectionReason } = req.body;
+  const updates: Record<string, any> = {};
+  if (cptCode !== undefined) updates.cptCode = cptCode;
+  if (modifier !== undefined) updates.modifier = modifier || null;
+  if (units !== undefined) updates.units = Number(units);
+  if (billedAmount !== undefined) updates.billedAmount = String(billedAmount);
+  if (placeOfService !== undefined) updates.placeOfService = placeOfService;
+  if (diagnosisCode !== undefined) updates.diagnosisCode = diagnosisCode || null;
+  if (rejectionReason !== undefined) updates.rejectionReason = rejectionReason || null;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [updated] = await db.update(medicaidClaimsTable)
+    .set(updates)
+    .where(and(
+      eq(medicaidClaimsTable.id, claimId),
+      eq(medicaidClaimsTable.districtId, districtId),
+      inArray(medicaidClaimsTable.status, ["pending", "rejected"]),
+    ))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Claim not found or not editable (only pending/rejected claims can be edited)" });
+    return;
+  }
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "medicaid_claims",
+    targetId: claimId,
+    summary: `Edited claim #${claimId}`,
+    newValues: updates as Record<string, unknown>,
+  });
+
+  res.json(updated);
 });
 
 router.post("/medicaid/claims/batch-action", async (req, res): Promise<void> => {

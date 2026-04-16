@@ -427,6 +427,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     caseManagerId: student.caseManagerId,
     notes: student.notes,
     tags: student.tags,
+    medicaidId: student.medicaidId,
     schoolName: student.schoolName,
     programName: student.programName,
     caseManagerName: student.caseManagerFirst ? `${student.caseManagerFirst} ${student.caseManagerLast}` : null,

@@ -2,9 +2,11 @@ import { pgTable, text, serial, timestamp, integer, numeric, index } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { serviceTypesTable } from "./serviceTypes";
+import { districtsTable } from "./districts";
 
 export const cptCodeMappingsTable = pgTable("cpt_code_mappings", {
   id: serial("id").primaryKey(),
+  districtId: integer("district_id").notNull().references(() => districtsTable.id),
   serviceTypeId: integer("service_type_id").notNull().references(() => serviceTypesTable.id),
   cptCode: text("cpt_code").notNull(),
   modifier: text("modifier"),
@@ -19,6 +21,7 @@ export const cptCodeMappingsTable = pgTable("cpt_code_mappings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("cpt_mapping_service_idx").on(table.serviceTypeId),
+  index("cpt_mapping_district_idx").on(table.districtId),
 ]);
 
 export const insertCptCodeMappingSchema = createInsertSchema(cptCodeMappingsTable).omit({ id: true, createdAt: true, updatedAt: true });
