@@ -7,7 +7,7 @@ import {
   Search, X, Users, UserCheck, AlertTriangle, Target,
   LayoutDashboard, Calendar, Clipboard, Timer, Activity,
   ClipboardList, Shield, Gauge, Building2, BarChart3,
-  PieChart, CalendarDays, Sparkles, Upload, Star, Clock,
+  PieChart, Star, Clock,
   BookOpen, ArrowRight, Loader2, ListChecks,
 } from "lucide-react";
 
@@ -19,10 +19,9 @@ const adminShortcuts: NavShortcut[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, subtitle: "Compliance overview" },
   { label: "Alerts", href: "/alerts", icon: AlertTriangle, subtitle: "Unresolved alerts" },
   { label: "Students", href: "/students", icon: Users, subtitle: "Active caseload" },
-  { label: "IEP Calendar", href: "/iep-calendar", icon: CalendarDays, subtitle: "Upcoming deadlines" },
-  { label: "Compliance", href: "/compliance", icon: ListChecks, subtitle: "Service minutes, checklists & timeline" },
+  { label: "Sessions", href: "/sessions", icon: Clipboard, subtitle: "Session records" },
   { label: "Schedule", href: "/schedule", icon: Calendar, subtitle: "Service delivery schedule" },
-  { label: "Session Log", href: "/sessions", icon: Clipboard, subtitle: "Session records" },
+  { label: "Compliance", href: "/compliance", icon: ListChecks, subtitle: "Service minutes, checklists & timeline" },
   { label: "Programs & Behaviors", href: "/program-data", icon: Activity, subtitle: "ABA & clinical data" },
   { label: "FBA / BIP", href: "/behavior-assessment", icon: ClipboardList, subtitle: "Behavior plans" },
   { label: "Restraint & Seclusion", href: "/protective-measures", icon: Shield, subtitle: "Incident reports" },
@@ -31,23 +30,18 @@ const adminShortcuts: NavShortcut[] = [
   { label: "Reports", href: "/reports", icon: BarChart3, subtitle: "Compliance & audit reports" },
   { label: "Analytics", href: "/analytics", icon: PieChart, subtitle: "Trends & charts" },
   { label: "Staff Directory", href: "/staff", icon: UserCheck, subtitle: "Providers & admins" },
-  { label: "IEP Suggestions", href: "/iep-suggestions", icon: Sparkles, subtitle: "AI goal suggestions" },
-  { label: "IEP Search", href: "/search", icon: Search, subtitle: "Search goals & accommodations" },
-  { label: "Data Import", href: "/import", icon: Upload, subtitle: "Bulk data upload" },
+  { label: "Settings", href: "/settings", icon: LayoutDashboard, subtitle: "District configuration" },
 ];
 
 const teacherShortcuts: NavShortcut[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, subtitle: "Daily overview" },
   { label: "Alerts", href: "/alerts", icon: AlertTriangle, subtitle: "Unresolved alerts" },
   { label: "My Students", href: "/students", icon: Users, subtitle: "My caseload" },
+  { label: "Sessions", href: "/sessions", icon: Clipboard, subtitle: "Log & review sessions" },
   { label: "Schedule", href: "/schedule", icon: Calendar, subtitle: "Today's sessions" },
   { label: "Compliance", href: "/compliance", icon: ListChecks, subtitle: "Service minutes & checklists" },
-  { label: "Session Log", href: "/sessions", icon: Clipboard, subtitle: "Log & review sessions" },
   { label: "Programs & Behaviors", href: "/program-data", icon: Activity, subtitle: "Clinical data entry" },
-  { label: "IEP Calendar", href: "/iep-calendar", icon: CalendarDays, subtitle: "Upcoming IEP dates" },
   { label: "FBA / BIP", href: "/behavior-assessment", icon: ClipboardList, subtitle: "Behavior plans" },
-  { label: "IEP Suggestions", href: "/iep-suggestions", icon: Sparkles, subtitle: "AI goal suggestions" },
-  { label: "IEP Search", href: "/search", icon: Search, subtitle: "Search goals" },
   { label: "Reports", href: "/reports", icon: BarChart3, subtitle: "Compliance reports" },
   { label: "Analytics", href: "/analytics", icon: PieChart, subtitle: "Trends & charts" },
 ];

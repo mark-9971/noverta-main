@@ -100,23 +100,6 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/students", label: "Student List", icon: Users, primary: true },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/evaluations", label: "Evaluations", icon: FileText },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Compliance",
-    icon: ListChecks,
-    collapsible: true,
-    items: [
-      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-      { href: "/compensatory-services", label: "Compensatory Services", icon: Gift, featureKey: "compliance.compensatory" as FeatureKey },
-      { href: "/state-reporting", label: "State Reports", icon: FileText, featureKey: "compliance.state_reporting" as FeatureKey },
-      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
-      { href: "/attendance", label: "Attendance", icon: ClipboardCheck, comingSoon: true, featureKey: "compliance.attendance" as FeatureKey },
     ],
   },
   {
@@ -126,9 +109,17 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-      { href: "/coverage", label: "Coverage", icon: UserX },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+    ],
+  },
+  {
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
     ],
   },
   {
@@ -138,10 +129,7 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
-      { href: "/supervision", label: "Supervision", icon: ClipboardCheck, featureKey: "clinical.supervision" as FeatureKey },
-      { href: "/aba-graphing", label: "ABA Graphing", icon: BarChart3, comingSoon: true, featureKey: "clinical.aba_graphing" as FeatureKey },
     ],
   },
   {
@@ -151,10 +139,6 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/resource-management", label: "Resource Management", icon: Scale, featureKey: "district.resource_management" as FeatureKey },
-      { href: "/contract-utilization", label: "Contract Utilization", icon: Gauge, featureKey: "district.contract_utilization" as FeatureKey },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Users, featureKey: "district.caseload_balancing" as FeatureKey },
-      { href: "/budget", label: "Budget", icon: CreditCard, comingSoon: true, featureKey: "district.budget" as FeatureKey },
     ],
   },
   {
@@ -163,9 +147,6 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/staff", label: "Staff Directory", icon: UserCheck },
-      { href: "/agencies", label: "Agencies", icon: Truck },
-      { href: "/credentialing", label: "Credentialing", icon: GraduationCap, comingSoon: true },
-      { href: "/supervision-log", label: "Supervision Log", icon: ClipboardCheck, comingSoon: true },
     ],
   },
   {
@@ -174,9 +155,6 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
-      { href: "/parent-portal", label: "Parent Portal", icon: Users, comingSoon: true, featureKey: "engagement.parent_portal" as FeatureKey },
-      { href: "/documents", label: "Documents", icon: FolderOpen, comingSoon: true, featureKey: "engagement.documents" as FeatureKey },
-      { href: "/translation", label: "Translation", icon: Languages, comingSoon: true, featureKey: "engagement.translation" as FeatureKey },
     ],
   },
   {
@@ -186,8 +164,6 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
-      { href: "/import", label: "Data Import", icon: Upload },
-      { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
   },

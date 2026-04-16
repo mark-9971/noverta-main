@@ -1,8 +1,20 @@
-# Trellis — SPED Compliance & Behavior Analysis Platform
+# Trellis — SPED Operations, Service Delivery & Compliance Platform
 
 ## Overview
 
-Trellis is a K-12 Special Education (SPED) compliance and behavior analysis platform, primarily targeting Massachusetts 603 CMR 28.00/46.00 regulations. It provides specialized tools for Admins, SPED Teachers, and SPED Students, with a strong focus on BCBA clinical functionalities like FBA, Functional Analysis, and BIP generation. The platform also manages IEPs, tracks protective measures (restraint/seclusion incidents with multi-signature workflows), and offers detailed analytics. While maintaining general education features in the backend, the frontend prioritizes SPED-specific workflows. The project aims to be a leading solution for SPED compliance and clinical management, with potential for broader K-12 integration.
+Trellis is a SPED operations, service delivery, and compliance risk platform for Massachusetts school districts (603 CMR 28.00/46.00). The pilot wedge: **"Trellis helps SPED teams deliver required services, document what happened, and spot compliance risk before it becomes an audit or parent problem."**
+
+The platform is NOT a full SIS replacement — it is a focused SPED compliance and clinical management tool.
+
+## Pilot Feature Organization
+
+See `docs/pilot/feature-status.md` for full module classification. Navigation has been reorganized around the pilot wedge:
+
+- **CORE (build now):** Dashboard, Alerts, Students, Sessions, Schedule, Staff, Reports, Compliance, Document Workflow, Parent Comms, Settings
+- **DEMO (sell harder):** Compliance Dashboard, Progress Reports, IEP Builder, IEP Meetings, Protective Measures, Executive Dashboard, Clinical tools
+- **ARCHIVED (nav-hidden, URL-accessible):** Agencies, Billing, Contract Utilization, Resource Management, Coverage, Caseload Balancing, Supervision, Staff Calendar, IEP Search/Calendar/Suggestions, Evaluations, Transitions, Compensatory Services, State Reporting, Data Import
+
+See `docs/pilot/refactor-plan.md` for staged refactor plan targeting oversized files.
 
 The brand uses an "Ink & Air" theme with pure white/near-white backgrounds, near-black typography, neutral grays, and emerald green accents (primary: HSL 160 84% 39%), creating a clean, airy, and editorial aesthetic.
 
