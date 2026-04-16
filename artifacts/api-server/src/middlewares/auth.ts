@@ -2,6 +2,8 @@ import { type Request, type Response, type NextFunction } from "express";
 import { getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -139,11 +141,28 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
     const authed = req as AuthedRequest;
     const meta = getPublicMeta(req);
     if (meta.platformAdmin) { next(); return; }
-    if (authed.tenantDistrictId == null) {
-      res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
+    if (authed.tenantDistrictId != null) { next(); return; }
+
+    // In dev mode, auto-resolve the district from the DB so dev accounts without
+    // a districtId claim in their Clerk metadata can still access the app.
+    if (process.env.NODE_ENV !== "production") {
+      db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`)
+        .then((result) => {
+          const rows = result.rows as Array<{ id: number }>;
+          if (rows.length > 0) {
+            authed.tenantDistrictId = Number(rows[0].id);
+            next();
+          } else {
+            res.status(403).json({ error: "No district found. Seed your database with at least one district." });
+          }
+        })
+        .catch(() => {
+          res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
+        });
       return;
     }
-    next();
+
+    res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
   });
 }
 
