@@ -8,11 +8,12 @@ import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, Target, FileText,
   CheckCircle2, AlertCircle, Clock, TrendingUp, Download, Loader2,
   Sparkles, BookOpen, MessageSquare, Briefcase, GraduationCap,
-  Home, Building2, Star, RefreshCw, Info
+  Home, Building2, Star, RefreshCw, Info, Save
 } from "lucide-react";
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
 import { saveGeneratedDocument, buildDocumentHtml, openPrintWindow, esc as escDoc, type DocumentSection } from "@/lib/print-document";
+import { authFetch } from "@/lib/auth-fetch";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -183,6 +184,29 @@ function StepIndicator({ step, currentStep }: { step: number; currentStep: Step 
   );
 }
 
+const API_BASE = "/api";
+
+const EMPTY_PARENT: ParentQuestionnaire = {
+  strengthsAtHome: "", primaryConcerns: "", prioritiesForYear: "", learningStyle: "",
+  dailyLivingSkills: "", studentGoals: "", newGoalAreas: "", transitionConcerns: "",
+  healthChanges: "", additionalComments: "",
+};
+
+const EMPTY_TEACHER: TeacherQuestionnaire = {
+  academicPerformance: "", areasOfStrength: "", areasOfNeed: "",
+  behavioralObservations: "", socialEmotional: "", communicationSkills: "",
+  selfAdvocacy: "", studentSelfAdvocacy: "", recommendedNewGoals: "",
+  recommendedAccommodations: "", serviceChanges: {}, teamDiscussionTopics: "",
+  transitionNotes: "", responseToServices: "",
+};
+
+const EMPTY_TRANSITION: TransitionInput = {
+  employment: { goal: "", services: "", assessment: "" },
+  postSecondary: { goal: "", services: "", assessment: "" },
+  independentLiving: { goal: "", services: "" },
+  agencyLinkages: "Department of Developmental Services (DDS), Mass Rehab Commission (MRC)",
+};
+
 export default function IepBuilderPage() {
   const params = useParams<{ id: string }>();
   const studentId = parseInt(params.id);
@@ -193,33 +217,117 @@ export default function IepBuilderPage() {
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const draftRef = useRef<HTMLDivElement>(null);
 
-  const [parent, setParent] = useState<ParentQuestionnaire>({
-    strengthsAtHome: "", primaryConcerns: "", prioritiesForYear: "", learningStyle: "",
-    dailyLivingSkills: "", studentGoals: "", newGoalAreas: "", transitionConcerns: "",
-    healthChanges: "", additionalComments: "",
-  });
+  const [parent, setParent] = useState<ParentQuestionnaire>({ ...EMPTY_PARENT });
+  const [teacher, setTeacher] = useState<TeacherQuestionnaire>({ ...EMPTY_TEACHER });
+  const [transition, setTransition] = useState<TransitionInput>({ ...EMPTY_TRANSITION });
 
-  const [teacher, setTeacher] = useState<TeacherQuestionnaire>({
-    academicPerformance: "", areasOfStrength: "", areasOfNeed: "",
-    behavioralObservations: "", socialEmotional: "", communicationSkills: "",
-    selfAdvocacy: "", studentSelfAdvocacy: "", recommendedNewGoals: "",
-    recommendedAccommodations: "", serviceChanges: {}, teamDiscussionTopics: "",
-    transitionNotes: "", responseToServices: "",
-  });
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<{ wizardStep: number; formData: any; updatedAt: string } | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSavingRef = useRef(false);
+  const hasRestoredRef = useRef(false);
 
-  const [transition, setTransition] = useState<TransitionInput>({
-    employment: { goal: "", services: "", assessment: "" },
-    postSecondary: { goal: "", services: "", assessment: "" },
-    independentLiving: { goal: "", services: "" },
-    agencyLinkages: "Department of Developmental Services (DDS), Mass Rehab Commission (MRC)",
-  });
-
-  useEffect(() => {
-    getStudentIepBuilderContext(studentId).then(data => { setContext(data as any); setLoading(false); })
-      .catch(() => { toast.error("Failed to load student context"); setLoading(false); });
+  const saveDraft = useCallback(async (currentStep: Step, p: ParentQuestionnaire, t: TeacherQuestionnaire, tr: TransitionInput) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    try {
+      const res = await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wizardStep: currentStep,
+          formData: { parent: p, teacher: t, transition: tr },
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDraftSavedAt(data.updatedAt);
+      }
+    } catch {}
+    isSavingRef.current = false;
   }, [studentId]);
 
+  const deleteDraft = useCallback(async () => {
+    try {
+      await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`, { method: "DELETE" });
+    } catch {}
+    setDraftSavedAt(null);
+  }, [studentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      try {
+        const [ctxData, draftRes] = await Promise.all([
+          getStudentIepBuilderContext(studentId),
+          authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`).then(r => r.ok ? r.json() : null),
+        ]);
+        if (cancelled) return;
+        setContext(ctxData as any);
+        if (draftRes && draftRes.formData) {
+          setPendingDraft({ wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt });
+          setShowResumeDialog(true);
+        }
+      } catch {
+        if (!cancelled) toast.error("Failed to load student context");
+      }
+      if (!cancelled) setLoading(false);
+    }
+    init();
+    return () => { cancelled = true; };
+  }, [studentId]);
+
+  function resumeDraft() {
+    if (!pendingDraft) return;
+    const fd = pendingDraft.formData;
+    if (fd.parent) setParent({ ...EMPTY_PARENT, ...fd.parent });
+    if (fd.teacher) setTeacher({ ...EMPTY_TEACHER, ...fd.teacher });
+    if (fd.transition) setTransition({ ...EMPTY_TRANSITION, ...fd.transition });
+    setStep(pendingDraft.wizardStep as Step);
+    setDraftSavedAt(pendingDraft.updatedAt);
+    hasRestoredRef.current = true;
+    setShowResumeDialog(false);
+    setPendingDraft(null);
+  }
+
+  function startFresh() {
+    deleteDraft();
+    setShowResumeDialog(false);
+    setPendingDraft(null);
+  }
+
+  const parentRef = useRef(parent);
+  const teacherRef = useRef(teacher);
+  const transitionRef = useRef(transition);
+  const stepRef = useRef(step);
+  parentRef.current = parent;
+  teacherRef.current = teacher;
+  transitionRef.current = transition;
+  stepRef.current = step;
+
+  const scheduleAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraft(stepRef.current, parentRef.current, teacherRef.current, transitionRef.current);
+    }, 30000);
+  }, [saveDraft]);
+
+  useEffect(() => {
+    scheduleAutoSave();
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [parent, teacher, transition, scheduleAutoSave]);
+
+  const changeStep = useCallback((newStep: Step) => {
+    setStep(newStep);
+    setTimeout(() => {
+      saveDraft(newStep, parentRef.current, teacherRef.current, transitionRef.current);
+    }, 0);
+    scheduleAutoSave();
+  }, [saveDraft, scheduleAutoSave]);
+
   async function generate() {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     setGenerating(true);
     try {
       const res = await generateIepBuilder(studentId, {
@@ -230,8 +338,10 @@ export default function IepBuilderPage() {
         });
       setDraft(res as any);
       setStep(5);
+      deleteDraft();
     } catch {
       toast.error("Failed to generate draft. Please try again.");
+      scheduleAutoSave();
     }
     setGenerating(false);
   }
@@ -394,21 +504,48 @@ export default function IepBuilderPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      {showResumeDialog && pendingDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Unfinished Draft Found</h2>
+            <p className="text-[13px] text-gray-600 mb-1">
+              You have an unfinished IEP draft from{" "}
+              <span className="font-semibold">{new Date(pendingDraft.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span>.
+            </p>
+            <p className="text-[12px] text-gray-400 mb-5">You were on step {pendingDraft.wizardStep} of the wizard.</p>
+            <div className="flex gap-3">
+              <Button className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={resumeDraft}>
+                <RefreshCw className="w-4 h-4 mr-2" /> Resume
+              </Button>
+              <Button className="flex-1" variant="outline" onClick={startFresh}>
+                Start Fresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <Link href={`/students/${studentId}/iep`} className="text-gray-400 hover:text-gray-600">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">IEP Annual Review Assistant</h1>
           <p className="text-[13px] text-gray-500">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
         </div>
+        {draftSavedAt && (
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
+            <Save className="w-3 h-3" />
+            Draft saved {new Date(draftSavedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
         {steps.map((s, i) => (
           <div key={s.n} className="flex items-center gap-2 flex-shrink-0">
             <button
-              onClick={() => { if (s.n < step || (draft && step === maxStep)) setStep(s.n as Step); }}
+              onClick={() => { if (s.n < step || (draft && step === maxStep)) changeStep(s.n as Step); }}
               className="flex items-center gap-2"
             >
               <StepIndicator step={s.n} currentStep={step} />
@@ -430,13 +567,13 @@ export default function IepBuilderPage() {
       )}
 
       <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-        <Button variant="outline" size="sm" onClick={() => setStep(s => Math.max(1, s - 1) as Step)} disabled={step === 1}>
+        <Button variant="outline" size="sm" onClick={() => changeStep(Math.max(1, step - 1) as Step)} disabled={step === 1}>
           <ChevronLeft className="w-4 h-4 mr-1" /> Back
         </Button>
         <div className="flex items-center gap-3">
           {!(step === maxStep) && (
             <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white"
-              onClick={() => setStep(s => Math.min(maxStep, s + 1) as Step)}>
+              onClick={() => changeStep(Math.min(maxStep, step + 1) as Step)}>
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           )}
