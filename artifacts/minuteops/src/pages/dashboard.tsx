@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, CalendarDays, ShieldAlert, ChevronDown } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, CalendarDays, ShieldAlert, ChevronDown, CheckCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
