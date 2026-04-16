@@ -58,6 +58,11 @@ router.use(demoRequestsRouter);
 
 router.use(requireAuth);
 
+// Global district scope enforcement: non-platform-admin users without a district claim
+// in their token are blocked from all authenticated data routes. Platform admins pass through.
+// Individual sub-routers may add supplementary district checks on top of this.
+router.use(requireDistrictScope);
+
 // Path-scoped role guards — applied before their respective routers so they only
 // block sped_student (and where appropriate, lower-privilege roles) from staff-facing
 // resources without leaking middleware across unrelated sub-routers.

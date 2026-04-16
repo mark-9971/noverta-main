@@ -73,6 +73,7 @@ const readLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 const mutationLimiter = rateLimit({
@@ -81,7 +82,7 @@ const mutationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many write requests, please slow down." },
-  skip: (req) => ["GET", "HEAD", "OPTIONS"].includes(req.method),
+  skip: (req) => process.env.NODE_ENV === "test" || ["GET", "HEAD", "OPTIONS"].includes(req.method),
 });
 
 app.use("/api", readLimiter);

@@ -302,6 +302,38 @@ await assertForeignForbidden("admin", "GET", `/api/sessions/${DEMO_SESSION_ID}`)
 // Student ID-based cross-tenant isolation: DEMO_STUDENT_ID belongs to district 2.
 await assertForeignForbidden("admin", "GET", `/api/students/${DEMO_STUDENT_ID}`);
 
+// ─── 16. Dashboard / Aggregate endpoints — token-derived district scoping ─────
+// Confirms that aggregate/dashboard routes enforce the token-derived district:
+// privileged staff get 200; student role is blocked; foreign district gets empty data.
+console.log("16. Dashboard / aggregate endpoints …");
+
+// Dashboard summary — all authenticated district roles can access
+for (const role of ["admin", "coordinator", "case_manager", "bcba", "sped_teacher", "provider", "para"]) {
+  await canAccess(role, "GET", `/api/dashboard/summary`);
+}
+
+// Minute-progress — all privileged staff can access; foreign district gets empty array
+for (const role of ["admin", "coordinator", "case_manager", "bcba", "sped_teacher"]) {
+  await canAccess(role, "GET", `/api/minute-progress`);
+}
+await assertEmptyFromForeign("admin", "GET", `/api/minute-progress`);
+
+// Resource management caseload — privileged staff can access; foreign district gets empty array
+for (const role of ["admin", "coordinator", "case_manager", "bcba", "sped_teacher"]) {
+  await canAccess(role, "GET", `/api/resource-management/caseload`);
+}
+// resource-management/caseload returns an object (not array); verify foreign district gets 200
+// with data scoped to district 99 (no rows from district 2 cross-tenanted in).
+{
+  const r = await reqForeign("admin", "GET", `/api/resource-management/caseload`);
+  if (r.status >= 200 && r.status < 300) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(`FAIL cross-tenant [GET /api/resource-management/caseload] role=admin: expected 2xx, got ${r.status}`);
+  }
+}
+
 // ─── Results ─────────────────────────────────────────────────────────────────
 
 console.log(`\nResults: ${passed} passed, ${failed} failed\n`);

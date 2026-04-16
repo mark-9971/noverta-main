@@ -12,6 +12,9 @@ import { eq, and, gte, lte, count, sql, asc, desc, isNull, inArray } from "drizz
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
+import type { Request } from "express";
 
 async function resolveCallerDistrictId(req: import("express").Request): Promise<number | null> {
   const meta = getPublicMeta(req);
@@ -31,10 +34,17 @@ async function resolveCallerDistrictId(req: import("express").Request): Promise<
 
 const router: IRouter = Router();
 
-function parseSchoolDistrictFilters(query: any): { schoolId?: number; districtId?: number } {
+function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>): { schoolId?: number; districtId?: number } {
   const filters: { schoolId?: number; districtId?: number } = {};
+  // Enforced district from token always takes precedence over client query params.
+  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDistrictId !== null) {
+    filters.districtId = enforcedDistrictId;
+  } else if (query.districtId) {
+    // Platform admin: optional filter by query param
+    filters.districtId = Number(query.districtId);
+  }
   if (query.schoolId) filters.schoolId = Number(query.schoolId);
-  if (query.districtId) filters.districtId = Number(query.districtId);
   return filters;
 }
 
@@ -57,7 +67,7 @@ function buildAlertStudentFilter(filters: { schoolId?: number; districtId?: numb
 }
 
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const today = new Date();
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay() + 1);
@@ -188,7 +198,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const allProgress = await computeAllActiveMinuteProgress(sdFilters);
   const counts = { on_track: 0, slightly_behind: 0, at_risk: 0, out_of_compliance: 0, completed: 0, total: 0 };
   for (const p of allProgress) {
@@ -210,7 +220,7 @@ router.get("/dashboard/risk-overview", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const staffConditions: any[] = [eq(staffTable.status, "active")];
   if (sdFilters.schoolId) staffConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
   if (sdFilters.districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
@@ -262,7 +272,7 @@ router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const paraConditions: any[] = [eq(staffTable.status, "active"), eq(staffTable.role, "para")];
   if (sdFilters.schoolId) paraConditions.push(eq(staffTable.schoolId, sdFilters.schoolId));
   if (sdFilters.districtId) paraConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
@@ -301,7 +311,7 @@ router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/alerts-summary", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const alertFilter = buildAlertStudentFilter(sdFilters);
   const conditions: any[] = [eq(alertsTable.resolved, false)];
   if (alertFilter) conditions.push(alertFilter);
@@ -326,7 +336,7 @@ router.get("/dashboard/alerts-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const allProgress = await computeAllActiveMinuteProgress(sdFilters);
   const serviceMap = new Map<string, { total: number; onTrack: number; atRisk: number; outOfCompliance: number; sumPct: number }>();
 
@@ -352,7 +362,7 @@ router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> =
 });
 
 router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req.query);
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const sessionFilter = buildSessionStudentFilter(sdFilters);
   const today = new Date();
   const earliestMonday = new Date(today);
@@ -412,7 +422,7 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
 
 router.get("/dashboard/executive", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
-    const sdFilters = parseSchoolDistrictFilters(req.query);
+    const sdFilters = parseSchoolDistrictFilters(req, req.query);
     const studentFilter = buildStudentSubquery(sdFilters);
     const alertFilter = buildAlertStudentFilter(sdFilters);
 
@@ -535,7 +545,7 @@ router.get("/dashboard/executive", requireTierAccess("district.executive"), asyn
 
 router.get("/dashboard/staff-coverage", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
-    const sdFilters = parseSchoolDistrictFilters(req.query);
+    const sdFilters = parseSchoolDistrictFilters(req, req.query);
 
     const reqConditions: any[] = [eq(serviceRequirementsTable.active, true)];
     if (sdFilters.schoolId) reqConditions.push(sql`${serviceRequirementsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
@@ -624,7 +634,7 @@ router.get("/dashboard/staff-coverage", requireTierAccess("district.executive"),
 router.get("/dashboard/iep-calendar", async (req, res): Promise<void> => {
   try {
     const { startDate, endDate, eventType } = req.query;
-    const sdFilters = parseSchoolDistrictFilters(req.query);
+    const sdFilters = parseSchoolDistrictFilters(req, req.query);
 
     type CalendarEvent = {
       id: number | string;

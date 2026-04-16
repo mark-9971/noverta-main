@@ -6,19 +6,26 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, gte, lte, count, sum, type SQL } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
+import type { Request } from "express";
 
 const router: IRouter = Router();
 router.use(requireTierAccess("district.resource_management"));
 
-function parseSchoolDistrictFilters(query: Record<string, unknown>) {
+function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>) {
+  // Token-derived district always takes precedence over client query param.
+  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
   return {
     schoolId: query.schoolId ? Number(query.schoolId) : undefined,
-    districtId: query.districtId ? Number(query.districtId) : undefined,
+    districtId: enforcedDistrictId !== null
+      ? enforcedDistrictId
+      : (query.districtId ? Number(query.districtId) : undefined),
   };
 }
 
 router.get("/resource-management/caseload", async (req, res): Promise<void> => {
-  const filters = parseSchoolDistrictFilters(req.query);
+  const filters = parseSchoolDistrictFilters(req, req.query);
 
   const schoolConditions: ReturnType<typeof eq>[] = [];
   if (filters.schoolId) schoolConditions.push(eq(schoolsTable.id, filters.schoolId));
@@ -123,7 +130,7 @@ router.get("/resource-management/caseload", async (req, res): Promise<void> => {
 });
 
 router.get("/resource-management/provider-utilization", async (req, res): Promise<void> => {
-  const filters = parseSchoolDistrictFilters(req.query);
+  const filters = parseSchoolDistrictFilters(req, req.query);
 
   const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
@@ -193,7 +200,7 @@ router.get("/resource-management/provider-utilization", async (req, res): Promis
 });
 
 router.get("/resource-management/rebalancing", async (req, res): Promise<void> => {
-  const filters = parseSchoolDistrictFilters(req.query);
+  const filters = parseSchoolDistrictFilters(req, req.query);
 
   const staffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
@@ -302,7 +309,7 @@ router.get("/resource-management/rebalancing", async (req, res): Promise<void> =
 });
 
 router.get("/resource-management/budget", async (req, res): Promise<void> => {
-  const filters = parseSchoolDistrictFilters(req.query);
+  const filters = parseSchoolDistrictFilters(req, req.query);
 
   const filteredStaffConditions: (SQL | ReturnType<typeof eq>)[] = [eq(staffTable.status, "active")];
   if (filters.schoolId) filteredStaffConditions.push(eq(staffTable.schoolId, filters.schoolId));

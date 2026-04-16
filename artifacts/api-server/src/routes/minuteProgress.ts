@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { ListMinuteProgressQueryParams } from "@workspace/api-zod";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -13,7 +15,13 @@ router.get("/minute-progress", async (req, res): Promise<void> => {
     if (params.data.serviceTypeId) filters.serviceTypeId = Number(params.data.serviceTypeId);
     if (params.data.riskStatus) filters.riskStatus = params.data.riskStatus;
     if (params.data.schoolId) filters.schoolId = Number(params.data.schoolId);
-    if (params.data.districtId) filters.districtId = Number(params.data.districtId);
+    // Token-derived district takes precedence over query param
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      filters.districtId = enforcedDid;
+    } else if (params.data.districtId) {
+      filters.districtId = Number(params.data.districtId);
+    }
   }
 
   const progress = await computeAllActiveMinuteProgress(filters);
