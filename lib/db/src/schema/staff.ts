@@ -16,6 +16,8 @@ export const staffTable = pgTable("staff", {
   qualifications: text("qualifications"),
   hourlyRate: numeric("hourly_rate"),
   annualSalary: numeric("annual_salary"),
+  npiNumber: text("npi_number"),
+  medicaidProviderId: text("medicaid_provider_id"),
   sisConnectionId: integer("sis_connection_id"),
   sisManaged: text("sis_managed"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

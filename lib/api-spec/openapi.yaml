@@ -6613,6 +6613,8 @@ components:
           type: ["string", "null"]
         tags:
           type: ["string", "null"]
+        medicaidId:
+          type: ["string", "null"]
         createdAt:
           type: string
         updatedAt:
@@ -6645,6 +6647,8 @@ components:
         notes:
           type: ["string", "null"]
         tags:
+          type: ["string", "null"]
+        medicaidId:
           type: ["string", "null"]
         schoolName:
           type: ["string", "null"]
@@ -6732,6 +6736,8 @@ components:
           type: ["string", "null"]
         tags:
           type: ["string", "null"]
+        medicaidId:
+          type: ["string", "null"]
 
     # ─── Staff ────────────────────────────────────────────────────
     Staff:
@@ -6758,6 +6764,10 @@ components:
         hourlyRate:
           type: ["string", "null"]
         annualSalary:
+          type: ["string", "null"]
+        npiNumber:
+          type: ["string", "null"]
+        medicaidProviderId:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -6839,6 +6849,10 @@ components:
         status:
           type: ["string", "null"]
         qualifications:
+          type: ["string", "null"]
+        npiNumber:
+          type: ["string", "null"]
+        medicaidProviderId:
           type: ["string", "null"]
 
     # ─── Service Types ────────────────────────────────────────────

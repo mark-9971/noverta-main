@@ -99,6 +99,8 @@ export interface Student {
   notes?: string | null;
   /** @nullable */
   tags?: string | null;
+  /** @nullable */
+  medicaidId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -330,6 +332,8 @@ export interface StudentDetail {
   /** @nullable */
   tags?: string | null;
   /** @nullable */
+  medicaidId?: string | null;
+  /** @nullable */
   schoolName?: string | null;
   /** @nullable */
   programName?: string | null;
@@ -391,6 +395,8 @@ export interface UpdateStudentBody {
   notes?: string | null;
   /** @nullable */
   tags?: string | null;
+  /** @nullable */
+  medicaidId?: string | null;
 }
 
 export interface Staff {
@@ -411,6 +417,10 @@ export interface Staff {
   hourlyRate?: string | null;
   /** @nullable */
   annualSalary?: string | null;
+  /** @nullable */
+  npiNumber?: string | null;
+  /** @nullable */
+  medicaidProviderId?: string | null;
   createdAt: string;
 }
 
@@ -499,6 +509,10 @@ export interface UpdateStaffBody {
   status?: string | null;
   /** @nullable */
   qualifications?: string | null;
+  /** @nullable */
+  npiNumber?: string | null;
+  /** @nullable */
+  medicaidProviderId?: string | null;
 }
 
 export interface ServiceType {

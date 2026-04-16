@@ -231,6 +231,8 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
   if (parsed.data.schoolId !== undefined) updateData.schoolId = parsed.data.schoolId;
   if (parsed.data.status != null) updateData.status = parsed.data.status;
   if (parsed.data.qualifications !== undefined) updateData.qualifications = parsed.data.qualifications;
+  if (parsed.data.npiNumber !== undefined) updateData.npiNumber = parsed.data.npiNumber;
+  if (parsed.data.medicaidProviderId !== undefined) updateData.medicaidProviderId = parsed.data.medicaidProviderId;
 
   const [staff] = await db.update(staffTable).set(updateData).where(eq(staffTable.id, params.data.id)).returning();
   if (!staff) {

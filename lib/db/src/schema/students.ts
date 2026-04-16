@@ -26,6 +26,7 @@ export const studentsTable = pgTable("students", {
   tags: text("tags"),
   enrolledAt: text("enrolled_at"),
   withdrawnAt: text("withdrawn_at"),
+  medicaidId: text("medicaid_id"),
   sisConnectionId: integer("sis_connection_id"),
   sisManaged: text("sis_managed"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

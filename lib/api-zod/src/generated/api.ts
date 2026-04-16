@@ -486,6 +486,7 @@ export const GetStudentResponse = zod.object({
   caseManagerId: zod.number().nullish(),
   notes: zod.string().nullish(),
   tags: zod.string().nullish(),
+  medicaidId: zod.string().nullish(),
   schoolName: zod.string().nullish(),
   programName: zod.string().nullish(),
   caseManagerName: zod.string().nullish(),
@@ -658,6 +659,7 @@ export const UpdateStudentBody = zod.object({
   caseManagerId: zod.number().nullish(),
   notes: zod.string().nullish(),
   tags: zod.string().nullish(),
+  medicaidId: zod.string().nullish(),
 });
 
 export const UpdateStudentResponse = zod.object({
@@ -673,6 +675,7 @@ export const UpdateStudentResponse = zod.object({
   caseManagerId: zod.number().nullish(),
   notes: zod.string().nullish(),
   tags: zod.string().nullish(),
+  medicaidId: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -842,6 +845,8 @@ export const ListStaffResponseItem = zod.object({
   qualifications: zod.string().nullish(),
   hourlyRate: zod.string().nullish(),
   annualSalary: zod.string().nullish(),
+  npiNumber: zod.string().nullish(),
+  medicaidProviderId: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListStaffResponse = zod.array(ListStaffResponseItem);
@@ -935,6 +940,8 @@ export const UpdateStaffBody = zod.object({
   schoolId: zod.number().nullish(),
   status: zod.string().nullish(),
   qualifications: zod.string().nullish(),
+  npiNumber: zod.string().nullish(),
+  medicaidProviderId: zod.string().nullish(),
 });
 
 export const UpdateStaffResponse = zod.object({
@@ -949,6 +956,8 @@ export const UpdateStaffResponse = zod.object({
   qualifications: zod.string().nullish(),
   hourlyRate: zod.string().nullish(),
   annualSalary: zod.string().nullish(),
+  npiNumber: zod.string().nullish(),
+  medicaidProviderId: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -2527,6 +2536,8 @@ export const UpdateStaffRatesResponse = zod.object({
   qualifications: zod.string().nullish(),
   hourlyRate: zod.string().nullish(),
   annualSalary: zod.string().nullish(),
+  npiNumber: zod.string().nullish(),
+  medicaidProviderId: zod.string().nullish(),
   createdAt: zod.string(),
 });
 

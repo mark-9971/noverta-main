@@ -2,15 +2,18 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Link } from "wouter";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import {
   ArrowLeft, Users, Calendar, AlertTriangle, CheckCircle2, Clock,
-  Mail, Phone, Building, Shield, ChevronRight, ClipboardCheck
+  Mail, Phone, Building, Shield, ChevronRight, ClipboardCheck, Stethoscope, Save, Loader2
 } from "lucide-react";
 
+import { toast } from "sonner";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
 import { getStaff, getStaffCaseloadSummary, getStaffCaseload, getStaffSupervisionSummary } from "@workspace/api-client-react";
@@ -32,6 +35,63 @@ interface ProviderScheduleSummary {
   distribution: Array<{ schoolId: number; schoolName: string; weeklyHours: number }>;
   schedule: Array<{ dayOfWeek: string; startTime: string; endTime: string; schoolName: string; serviceTypeName: string | null }>;
   availability: Record<string, Array<{ start: string; end: string }>>;
+}
+
+function MedicaidBillingFields({ staff, onSave }: { staff: any; onSave: (s: any) => void }) {
+  const [npi, setNpi] = useState(staff.npiNumber || "");
+  const [providerId, setProviderId] = useState(staff.medicaidProviderId || "");
+  const [saving, setSaving] = useState(false);
+  const dirty = npi !== (staff.npiNumber || "") || providerId !== (staff.medicaidProviderId || "");
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await authFetch(`/api/staff/${staff.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ npiNumber: npi || null, medicaidProviderId: providerId || null }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json();
+      onSave(updated);
+      toast.success("Medicaid billing info saved");
+    } catch {
+      toast.error("Failed to save billing info");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+          <Stethoscope className="w-4 h-4 text-emerald-600" />
+          Medicaid Billing Info
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="npi" className="text-xs text-gray-500">NPI Number</Label>
+            <Input id="npi" placeholder="10-digit NPI" value={npi} onChange={e => setNpi(e.target.value)} maxLength={10} className="h-9" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="medicaidPid" className="text-xs text-gray-500">Medicaid Provider ID</Label>
+            <Input id="medicaidPid" placeholder="State Medicaid Provider ID" value={providerId} onChange={e => setProviderId(e.target.value)} className="h-9" />
+          </div>
+        </div>
+        {dirty && (
+          <div className="flex justify-end mt-3">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+              Save
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function StaffDetail() {
@@ -165,6 +225,10 @@ export default function StaffDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {(role === "admin" || role === "coordinator") && (
+        <MedicaidBillingFields staff={staff} onSave={(updated: any) => setStaff(updated)} />
+      )}
 
       {scheduleSummary && scheduleSummary.daysScheduled > 0 && (
         <Card>

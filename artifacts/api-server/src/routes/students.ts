@@ -313,6 +313,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
       caseManagerId: studentsTable.caseManagerId,
       notes: studentsTable.notes,
       tags: studentsTable.tags,
+      medicaidId: studentsTable.medicaidId,
       createdAt: studentsTable.createdAt,
       updatedAt: studentsTable.updatedAt,
       schoolName: schoolsTable.name,
@@ -519,6 +520,7 @@ router.patch("/students/:id", async (req, res): Promise<void> => {
   if (parsed.data.caseManagerId !== undefined) updateData.caseManagerId = parsed.data.caseManagerId;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
   if (parsed.data.tags !== undefined) updateData.tags = parsed.data.tags;
+  if (parsed.data.medicaidId !== undefined) updateData.medicaidId = parsed.data.medicaidId;
 
   const [oldStudent] = await db.select().from(studentsTable).where(eq(studentsTable.id, params.data.id));
   const [student] = await db.update(studentsTable).set(updateData).where(eq(studentsTable.id, params.data.id)).returning();

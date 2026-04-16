@@ -58,6 +58,7 @@ import staffSchedulesRouter from "./staffSchedules";
 import documentWorkflowRouter from "./documentWorkflow";
 import studentNotesRouter from "./studentNotes";
 import accommodationVerificationsRouter from "./accommodationVerifications";
+import medicaidBillingRouter from "./medicaidBilling";
 
 const router: IRouter = Router();
 
@@ -185,5 +186,10 @@ router.use("/accommodations", requireStaffOnly);
 router.use("/accommodation-compliance", requireDistrictScope);
 router.use("/accommodation-compliance", requireStaffOnly);
 router.use(accommodationVerificationsRouter);
+
+const requireBillingAdmin = requireRoles("admin", "coordinator");
+router.use("/medicaid", requireDistrictScope);
+router.use("/medicaid", requireBillingAdmin);
+router.use(medicaidBillingRouter);
 
 export default router;
