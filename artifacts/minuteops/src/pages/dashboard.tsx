@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, CalendarDays, ShieldAlert, ChevronDown, CheckCircle } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, CalendarDays, ShieldAlert, ChevronDown, CheckCircle, Shield, TrendingUp, ArrowRight, Clipboard, FileText, Scale } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -235,6 +235,11 @@ export default function Dashboard() {
     queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
   });
+  const { data: accommodationCompliance } = useQuery<{ totalStudents: number; overallComplianceRate: number; students: { overdueCount: number }[] }>({
+    queryKey: ["accommodation-compliance-dash"],
+    queryFn: () => authFetch("/api/accommodation-compliance?windowDays=30").then(r => r.ok ? r.json() : null),
+    staleTime: 120_000,
+  });
 
   const deadlines = (() => {
     const items: any[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : (deadlinesRaw as any)?.events ?? [];
@@ -329,6 +334,24 @@ export default function Dashboard() {
           subtitle={myCaseload ? "your students" : "students"}
           href="/compliance"
         />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        {[
+          { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" },
+          { label: "Student Lookup", icon: Users, href: "/students", color: "text-blue-600 bg-blue-50 hover:bg-blue-100" },
+          { label: "Compliance", icon: Shield, href: "/compliance", color: "text-amber-600 bg-amber-50 hover:bg-amber-100" },
+          { label: "Accommodations", icon: CheckCircle, href: "/accommodation-lookup", color: "text-purple-600 bg-purple-50 hover:bg-purple-100" },
+          { label: "Progress Reports", icon: FileText, href: "/progress-reports", color: "text-cyan-600 bg-cyan-50 hover:bg-cyan-100" },
+          { label: "IEP Meetings", icon: CalendarDays, href: "/iep-meetings", color: "text-indigo-600 bg-indigo-50 hover:bg-indigo-100" },
+        ].map(action => (
+          <Link key={action.href} href={action.href}>
+            <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${action.color}`}>
+              <action.icon className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{action.label}</span>
+            </div>
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -455,6 +478,53 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {accommodationCompliance && (
+        <Card className="border-gray-200/60">
+          <CardHeader className="pb-0 flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-gray-600">Accommodation Verification Status</CardTitle>
+            <Link href="/accommodation-lookup" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+              View details <ArrowRight className="w-3 h-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-6 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">{accommodationCompliance.overallComplianceRate}%</div>
+                  <div className="text-[11px] text-gray-400">verified in 30 days</div>
+                </div>
+              </div>
+              <div className="flex-1 min-w-[200px]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12px] text-gray-500">{accommodationCompliance.totalStudents} students with accommodations</span>
+                  <span className="text-[11px] font-medium text-gray-600">
+                    {accommodationCompliance.students.filter(s => s.overdueCount === 0).length} fully verified
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5">
+                  <div
+                    className="h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${accommodationCompliance.overallComplianceRate}%`,
+                      backgroundColor: accommodationCompliance.overallComplianceRate >= 80 ? "#10b981" : accommodationCompliance.overallComplianceRate >= 50 ? "#f59e0b" : "#ef4444",
+                    }}
+                  />
+                </div>
+              </div>
+              {accommodationCompliance.students.filter(s => s.overdueCount > 0).length > 0 && (
+                <div className="text-center px-3 py-1.5 rounded-lg bg-amber-50">
+                  <div className="text-lg font-bold text-amber-700">{accommodationCompliance.students.filter(s => s.overdueCount > 0).length}</div>
+                  <div className="text-[10px] text-amber-600">need attention</div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <CollapsibleSection title="Evaluations & Transitions" icon={FileSearch}>
         {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (

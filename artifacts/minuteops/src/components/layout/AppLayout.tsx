@@ -9,7 +9,7 @@ import {
   Star, Clock, Sparkles, Sun,
   Timer, Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, Gift, MessageSquare, ClipboardCheck, LogOut, FileText, Trash2, Rocket, Briefcase, ListChecks, Database,
-  Heart, Trophy, CreditCard, Crown, ChevronRight,
+  Heart, Trophy, CreditCard, Crown, ChevronRight, FileSearch,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Languages, FolderOpen, Lock, Mail
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
@@ -98,29 +98,40 @@ const adminNav: NavSection[] = [
     label: "Students",
     icon: GraduationCap,
     collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/students", label: "Student List", icon: Users, primary: true },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
     ],
   },
   {
     label: "Service Delivery",
     icon: Calendar,
     collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/coverage", label: "Coverage", icon: UserCheck },
     ],
   },
   {
     label: "Compliance",
     icon: ListChecks,
     collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
+      { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+      { href: "/state-reporting", label: "State Reports", icon: Building2 },
     ],
   },
   {
@@ -131,6 +142,8 @@ const adminNav: NavSection[] = [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
   {
@@ -140,6 +153,9 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
+      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
   },
   {
@@ -148,6 +164,7 @@ const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/staff", label: "Staff Directory", icon: UserCheck },
+      { href: "/agencies", label: "Agencies", icon: Truck },
     ],
   },
   {
@@ -165,6 +182,8 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
+      { href: "/import", label: "Data Import", icon: Upload },
+      { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
   },

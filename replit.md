@@ -12,7 +12,7 @@ See `docs/pilot/feature-status.md` for full module classification. Navigation ha
 
 - **CORE (build now):** Dashboard, Alerts, Students, Sessions, Schedule, Staff, Reports, Compliance, Document Workflow, Parent Comms, Settings
 - **DEMO (sell harder):** Compliance Dashboard, Progress Reports, IEP Builder, IEP Meetings, Protective Measures, Executive Dashboard, Clinical tools
-- **ARCHIVED (nav-hidden, URL-accessible):** Agencies, Billing, Contract Utilization, Resource Management, Coverage, Caseload Balancing, Supervision, Staff Calendar, IEP Search/Calendar/Suggestions, Evaluations, Transitions, Compensatory Services, State Reporting, Data Import
+- **RESTORED (full nav):** All previously archived items are now restored to the sidebar: IEP Search, Evaluations, Transition Planning, IEP Calendar (Students); Staff Calendar, Coverage (Service Delivery); Compensatory Services, State Reports (Compliance); IEP Suggestions, Supervision (Clinical); Resource Management, Contract Utilization, Caseload Balancing (District); Agencies (People); Data Import, Billing (Admin)
 
 See `docs/pilot/refactor-plan.md` for staged refactor plan targeting oversized files.
 
