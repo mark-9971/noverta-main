@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,7 +12,7 @@ import { TierProvider } from "@/lib/tier-context";
 import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -66,24 +66,17 @@ const CompensatoryServices = lazy(() => import("@/pages/compensatory-services"))
 const ParentCommunication = lazy(() => import("@/pages/parent-communication"));
 const Supervision = lazy(() => import("@/pages/supervision"));
 const ParaMyDayPage = lazy(() => import("@/pages/para-my-day"));
-const AuditLogPage = lazy(() => import("@/pages/audit-log"));
-const RecentlyDeletedPage = lazy(() => import("@/pages/recently-deleted"));
-const SetupPage = lazy(() => import("@/pages/setup"));
 const MyCaseloadPage = lazy(() => import("@/pages/my-caseload"));
 const EvaluationsPage = lazy(() => import("@/pages/evaluations"));
 const TransitionsPage = lazy(() => import("@/pages/transitions"));
 const IepMeetingsPage = lazy(() => import("@/pages/iep-meetings"));
-const SisSettingsPage = lazy(() => import("@/pages/sis-settings"));
 const AgenciesPage = lazy(() => import("@/pages/agencies"));
 const AgencyDetailPage = lazy(() => import("@/pages/agency-detail"));
 const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"));
 const BillingPage = lazy(() => import("@/pages/billing"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
-const SystemStatusPage = lazy(() => import("@/pages/system-status"));
-const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
-
+const SettingsHubPage = lazy(() => import("@/pages/settings"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
-const SchoolYearPage = lazy(() => import("@/pages/school-year"));
 const SignInPage = lazy(() => import("@/pages/sign-in"));
 const SignUpPage = lazy(() => import("@/pages/sign-up"));
 const SignDocumentPage = lazy(() => import("@/pages/sign-document"));
@@ -139,6 +132,20 @@ function BoundedRoute({ component: Comp, fallbackTitle, featureKey, ...rest }: {
   );
 }
 
+function HashRedirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    const [path, hash] = to.split("#");
+    setLocation(path);
+    if (hash) {
+      requestAnimationFrame(() => {
+        window.location.hash = hash;
+      });
+    }
+  }, [to, setLocation]);
+  return null;
+}
+
 function StaffRouter() {
   return (
     <Switch>
@@ -173,17 +180,18 @@ function StaffRouter() {
       <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" featureKey="engagement.parent_communication" />
       <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
-      <BoundedRoute path="/audit-log" component={AuditLogPage} fallbackTitle="Audit log error" />
-      <BoundedRoute path="/recently-deleted" component={RecentlyDeletedPage} fallbackTitle="Recently deleted error" />
-      <BoundedRoute path="/system-status" component={SystemStatusPage} fallbackTitle="System status error" />
-      <BoundedRoute path="/legal-compliance" component={LegalCompliancePage} fallbackTitle="Legal & Compliance error" />
-      <BoundedRoute path="/school-year" component={SchoolYearPage} fallbackTitle="School year error" />
-      <BoundedRoute path="/setup" component={SetupPage} fallbackTitle="Setup error" />
+      <BoundedRoute path="/settings" component={SettingsHubPage} fallbackTitle="Settings error" />
+      <Route path="/audit-log">{() => <HashRedirect to="/settings#audit-log" />}</Route>
+      <Route path="/recently-deleted">{() => <HashRedirect to="/settings#recently-deleted" />}</Route>
+      <Route path="/system-status">{() => <HashRedirect to="/settings#system-status" />}</Route>
+      <Route path="/legal-compliance">{() => <HashRedirect to="/settings#legal" />}</Route>
+      <Route path="/school-year">{() => <HashRedirect to="/settings#school-year" />}</Route>
+      <Route path="/sis-settings">{() => <HashRedirect to="/settings#sis" />}</Route>
+      <Route path="/setup">{() => <HashRedirect to="/settings" />}</Route>
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" featureKey="compliance.evaluations" />
       <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" featureKey="compliance.transitions" />
       <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
-      <BoundedRoute path="/sis-settings" component={SisSettingsPage} fallbackTitle="SIS settings error" />
       <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" />
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
