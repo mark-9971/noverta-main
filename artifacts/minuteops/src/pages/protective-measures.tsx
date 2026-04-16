@@ -113,6 +113,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
+  draft_quick: "Draft — Quick Report",
   open: "Open",
   under_review: "Under Review",
   resolved: "Resolved",
@@ -120,6 +121,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500",
+  draft_quick: "bg-amber-100 text-amber-700",
   open: "bg-blue-100 text-blue-700",
   under_review: "bg-purple-100 text-purple-700",
   resolved: "bg-gray-100 text-gray-600",
@@ -128,6 +130,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 const VALID_TRANSITIONS: Record<string, { toStatus: string; label: string; color: string; isReturn?: boolean }[]> = {
   draft: [
+    { toStatus: "open", label: "Submit Incident", color: "bg-blue-600 hover:bg-blue-700 text-white" },
+  ],
+  draft_quick: [
     { toStatus: "open", label: "Submit Incident", color: "bg-blue-600 hover:bg-blue-700 text-white" },
   ],
   open: [
@@ -673,6 +678,7 @@ function QuickReportForm({ onClose }: { onClose: () => void }) {
         primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
         studentInjury: form.studentInjury,
         staffInjury: form.staffInjury,
+        draftSource: "quick",
         notes: "[Quick Report] — expand to add full details",
       });
       return res;

@@ -69,6 +69,8 @@ router.get("/protective-measures/incidents", async (req: Request, res: Response)
     if (String(status) === "notification_pending") {
       conditions.push(inArray(restraintIncidentsTable.status, ["under_review", "resolved"]));
       conditions.push(sql`${restraintIncidentsTable.parentNotificationSentAt} IS NULL`);
+    } else if (String(status) === "draft") {
+      conditions.push(inArray(restraintIncidentsTable.status, ["draft", "draft_quick"]));
     } else {
       conditions.push(eq(restraintIncidentsTable.status, String(status)));
     }
@@ -296,7 +298,7 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
     reportingStaffSignedAt: body.reportingStaffSignedAt || null,
     adminSignature: body.adminSignature || null,
     adminSignedAt: body.adminSignedAt || null,
-    status: "draft",
+    status: body.draftSource === "quick" ? "draft_quick" : "draft",
     followUpPlan: body.followUpPlan || null,
     notes: body.notes || null,
   }).returning();
@@ -443,6 +445,7 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
 
   const VALID_TRANSITIONS: Record<string, string[]> = {
     draft: ["open"],
+    draft_quick: ["open"],
     open: ["under_review"],
     under_review: ["resolved", "open"],
     resolved: ["dese_reported"],
