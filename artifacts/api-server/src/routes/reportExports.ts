@@ -6,9 +6,10 @@ import {
   sessionLogsTable, schoolsTable, iepGoalsTable, progressReportsTable,
   restraintIncidentsTable, teamMeetingsTable, iepAccommodationsTable,
   parentContactsTable, complianceEventsTable, meetingConsentRecordsTable,
-  schoolYearsTable,
+  schoolYearsTable, staffTable, staffAssignmentsTable, exportHistoryTable,
+  scheduledReportsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, sql, isNull, count } from "drizzle-orm";
 import { getEnforcedDistrictId, requireDistrictScope } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
@@ -832,5 +833,999 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
     }
   }
 });
+
+function recordExport(req: Request, opts: { reportType: string; reportLabel: string; format: string; fileName: string; recordCount: number; parameters?: Record<string, unknown> }) {
+  const { platformAdmin } = getPublicMeta(req);
+  const districtId = platformAdmin ? null : getEnforcedDistrictId(req as AuthedRequest);
+  const exportedBy = (req as AuthedRequest).userId ?? "system";
+  db.insert(exportHistoryTable).values({
+    reportType: opts.reportType,
+    reportLabel: opts.reportLabel,
+    exportedBy,
+    districtId,
+    format: opts.format,
+    fileName: opts.fileName,
+    recordCount: opts.recordCount,
+    parameters: opts.parameters as any,
+  }).catch(e => console.error("Failed to record export history:", e));
+}
+
+const PDF_COLORS = { EMERALD: "#059669", GRAY_DARK: "#111827", GRAY_MID: "#6b7280", GRAY_LIGHT: "#e5e7eb" };
+
+function initPdfDoc(): InstanceType<typeof PDFDocument> {
+  return new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 60, left: 60, right: 60 }, bufferPages: true });
+}
+
+function pdfHeader(doc: InstanceType<typeof PDFDocument>, title: string, subtitle: string) {
+  doc.fontSize(18).font("Helvetica-Bold").fillColor(PDF_COLORS.GRAY_DARK).text(title, { align: "center" });
+  doc.moveDown(0.2);
+  doc.fontSize(9).font("Helvetica").fillColor(PDF_COLORS.GRAY_MID).text(subtitle, { align: "center" });
+  doc.moveDown(0.2);
+  doc.fontSize(8).fillColor(PDF_COLORS.GRAY_MID).text(`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, { align: "center" });
+  doc.moveDown(0.5);
+  doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor(PDF_COLORS.GRAY_LIGHT).lineWidth(1).stroke();
+  doc.moveDown(0.4);
+}
+
+function pdfSectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
+  doc.moveDown(0.4);
+  doc.fontSize(12).font("Helvetica-Bold").fillColor(PDF_COLORS.EMERALD).text(title);
+  doc.moveTo(60, doc.y + 2).lineTo(552, doc.y + 2).strokeColor("#d1fae5").lineWidth(1).stroke();
+  doc.moveDown(0.3);
+  doc.fontSize(9).font("Helvetica").fillColor(PDF_COLORS.GRAY_DARK);
+}
+
+function pdfTableRow(doc: InstanceType<typeof PDFDocument>, cols: { text: string; width: number; bold?: boolean; align?: "left" | "right" | "center" }[], y: number) {
+  let x = 60;
+  for (const col of cols) {
+    doc.font(col.bold ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(8.5)
+      .fillColor(PDF_COLORS.GRAY_DARK)
+      .text(col.text, x, y, { width: col.width, align: col.align ?? "left" });
+    x += col.width;
+  }
+}
+
+function pdfTableHeader(doc: InstanceType<typeof PDFDocument>, cols: { text: string; width: number }[]) {
+  const y = doc.y;
+  let x = 60;
+  doc.rect(60, y - 2, 492, 14).fill("#f3f4f6");
+  for (const col of cols) {
+    doc.font("Helvetica-Bold").fontSize(7.5).fillColor(PDF_COLORS.GRAY_MID)
+      .text(col.text.toUpperCase(), x, y, { width: col.width });
+    x += col.width;
+  }
+  doc.y = y + 16;
+}
+
+function pdfFooters(doc: InstanceType<typeof PDFDocument>, reportName: string) {
+  const pageCount = (doc as unknown as BufferedPDFDoc).bufferedPageRange().count;
+  for (let i = 0; i < pageCount; i++) {
+    doc.switchToPage(i);
+    doc.fontSize(7).fillColor(PDF_COLORS.GRAY_MID)
+      .text(`Trellis — ${reportName} | Page ${i + 1} of ${pageCount} | Confidential`, 60, 762, { align: "center", width: 492 });
+  }
+}
+
+function districtCondition(enforcedDistrictId: number | null) {
+  if (enforcedDistrictId === null) return undefined;
+  return sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})`;
+}
+
+router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId, startDate, endDate } = req.query;
+    const now = new Date();
+    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+    const end = (endDate as string) || now.toISOString().split("T")[0];
+
+    const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+    const dc = districtCondition(scope.enforcedDistrictId);
+    if (dc) conditions.push(dc);
+    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+
+    const students = await db.select({
+      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
+      grade: studentsTable.grade, schoolName: schoolsTable.name,
+    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+
+    if (students.length === 0) {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="Compliance_Summary.csv"`);
+      res.send(buildCSV(["Student", "School", "Grade", "Service", "Required Min/Wk", "Delivered Min", "Compliance %", "Status"], []));
+      return;
+    }
+
+    const sIds = students.map(s => s.id);
+    const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
+
+    const [reqs, sessions] = await Promise.all([
+      db.select({
+        studentId: serviceRequirementsTable.studentId,
+        serviceTypeName: serviceTypesTable.name,
+        requiredMinutes: serviceRequirementsTable.requiredMinutes,
+        intervalType: serviceRequirementsTable.intervalType,
+      }).from(serviceRequirementsTable)
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+        .where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+
+      db.select({
+        studentId: sessionLogsTable.studentId,
+        serviceTypeName: serviceTypesTable.name,
+        status: sessionLogsTable.status,
+        durationMinutes: sessionLogsTable.durationMinutes,
+      }).from(sessionLogsTable)
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
+        .where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+    ]);
+
+    const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
+    for (const s of sessions) {
+      const key = `${s.studentId}|${s.serviceTypeName ?? ""}`;
+      if (!sessionMap.has(key)) sessionMap.set(key, { delivered: 0, completed: 0, missed: 0 });
+      const e = sessionMap.get(key)!;
+      if (s.status === "completed" || s.status === "makeup") { e.completed++; e.delivered += s.durationMinutes ?? 0; }
+      else if (s.status === "missed") e.missed++;
+    }
+
+    const reqsByStudent = new Map<number, typeof reqs>();
+    for (const r of reqs) {
+      if (!reqsByStudent.has(r.studentId)) reqsByStudent.set(r.studentId, []);
+      reqsByStudent.get(r.studentId)!.push(r);
+    }
+
+    const headers = ["Student", "School", "Grade", "Service", "Required Min/Wk", "Delivered Min", "Compliance %", "Status"];
+    const csvRows: unknown[][] = [];
+    for (const student of students) {
+      const studentReqs = reqsByStudent.get(student.id) ?? [];
+      for (const req of studentReqs) {
+        const key = `${student.id}|${req.serviceTypeName ?? ""}`;
+        const sm = sessionMap.get(key) ?? { delivered: 0, completed: 0, missed: 0 };
+        const totalSessions = sm.completed + sm.missed;
+        const pct = totalSessions > 0 ? Math.round((sm.completed / totalSessions) * 100) : 100;
+        const status = pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance";
+        csvRows.push([
+          `${student.lastName}, ${student.firstName}`, student.schoolName ?? "", student.grade ?? "",
+          req.serviceTypeName ?? "", `${req.requiredMinutes ?? ""}/${req.intervalType ?? "week"}`,
+          sm.delivered, `${pct}%`, status,
+        ]);
+      }
+    }
+
+    const filename = `Compliance_Summary_${start}_${end}.csv`;
+    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end, schoolId } });
+    logAudit(req, { action: "read", targetTable: "service_requirements", summary: `Exported compliance summary CSV (${csvRows.length} rows)`, metadata: { reportType: "compliance-summary-csv", rowCount: csvRows.length } });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buildCSV(headers, csvRows));
+  } catch (e: any) {
+    console.error("GET /reports/exports/compliance-summary.csv error:", e);
+    res.status(500).json({ error: "Failed to generate compliance summary" });
+  }
+});
+
+router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId, startDate, endDate } = req.query;
+    const now = new Date();
+    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+    const end = (endDate as string) || now.toISOString().split("T")[0];
+
+    const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+    const dc = districtCondition(scope.enforcedDistrictId);
+    if (dc) conditions.push(dc);
+    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+
+    const students = await db.select({
+      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
+      grade: studentsTable.grade, schoolName: schoolsTable.name,
+    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+
+    const sIds = students.map(s => s.id);
+    const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const [reqs, sessions] = await Promise.all([
+      db.select({
+        studentId: serviceRequirementsTable.studentId,
+        serviceTypeName: serviceTypesTable.name,
+        requiredMinutes: serviceRequirementsTable.requiredMinutes,
+      }).from(serviceRequirementsTable)
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+        .where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+      db.select({
+        studentId: sessionLogsTable.studentId,
+        serviceTypeName: serviceTypesTable.name,
+        status: sessionLogsTable.status,
+        durationMinutes: sessionLogsTable.durationMinutes,
+      }).from(sessionLogsTable)
+        .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
+        .where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+    ]);
+
+    const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
+    for (const s of sessions) {
+      const key = `${s.studentId}|${s.serviceTypeName ?? ""}`;
+      if (!sessionMap.has(key)) sessionMap.set(key, { delivered: 0, completed: 0, missed: 0 });
+      const e = sessionMap.get(key)!;
+      if (s.status === "completed" || s.status === "makeup") { e.completed++; e.delivered += s.durationMinutes ?? 0; }
+      else if (s.status === "missed") e.missed++;
+    }
+
+    const reqsByStudent = new Map<number, typeof reqs>();
+    for (const r of reqs) {
+      if (!reqsByStudent.has(r.studentId)) reqsByStudent.set(r.studentId, []);
+      reqsByStudent.get(r.studentId)!.push(r);
+    }
+
+    let onTrack = 0, atRisk = 0, outOfCompliance = 0, totalDelivered = 0, totalRequired = 0;
+    const rows: { name: string; school: string; grade: string; service: string; delivered: number; required: number; pct: number; status: string }[] = [];
+    for (const student of students) {
+      const studentReqs = reqsByStudent.get(student.id) ?? [];
+      for (const r of studentReqs) {
+        const key = `${student.id}|${r.serviceTypeName ?? ""}`;
+        const sm = sessionMap.get(key) ?? { delivered: 0, completed: 0, missed: 0 };
+        const total = sm.completed + sm.missed;
+        const pct = total > 0 ? Math.round((sm.completed / total) * 100) : 100;
+        const status = pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance";
+        if (status === "On Track") onTrack++;
+        else if (status === "At Risk") atRisk++;
+        else outOfCompliance++;
+        totalDelivered += sm.delivered;
+        totalRequired += (r.requiredMinutes ?? 0);
+        rows.push({ name: `${student.lastName}, ${student.firstName}`, school: student.schoolName ?? "", grade: student.grade ?? "", service: r.serviceTypeName ?? "", delivered: sm.delivered, required: r.requiredMinutes ?? 0, pct, status });
+      }
+    }
+
+    const doc = initPdfDoc();
+    res.setHeader("Content-Type", "application/pdf");
+    const filename = `Compliance_Summary_${start}_${end}.pdf`;
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    pdfHeader(doc, "Compliance Summary Report", `${fmtDate(start)} through ${fmtDate(end)} — Prepared for School Committee`);
+
+    pdfSectionTitle(doc, "Overview");
+    const totalReqs = onTrack + atRisk + outOfCompliance;
+    const compRate = totalReqs > 0 ? Math.round((onTrack / totalReqs) * 100) : 0;
+    doc.font("Helvetica-Bold").fontSize(9).text(`Overall Compliance Rate: ${compRate}%`);
+    doc.font("Helvetica").fontSize(9).text(`Active Students: ${students.length}  |  Service Requirements: ${totalReqs}`);
+    doc.text(`On Track: ${onTrack}  |  At Risk: ${atRisk}  |  Out of Compliance: ${outOfCompliance}`);
+    doc.text(`Total Delivered: ${totalDelivered.toLocaleString()} min  |  Total Required: ${totalRequired.toLocaleString()} min`);
+
+    if (rows.length > 0) {
+      pdfSectionTitle(doc, "Student Detail");
+      const cols = [
+        { text: "Student", width: 110 }, { text: "School", width: 80 }, { text: "Service", width: 85 },
+        { text: "Delivered", width: 60 }, { text: "Required", width: 60 }, { text: "%", width: 40 }, { text: "Status", width: 57 },
+      ];
+      pdfTableHeader(doc, cols);
+      for (const r of rows) {
+        if (doc.y > 700) { doc.addPage(); pdfTableHeader(doc, cols); }
+        const y = doc.y;
+        pdfTableRow(doc, [
+          { text: r.name, width: 110 }, { text: r.school, width: 80 }, { text: r.service, width: 85 },
+          { text: String(r.delivered), width: 60, align: "right" }, { text: String(r.required), width: 60, align: "right" },
+          { text: `${r.pct}%`, width: 40, align: "right" }, { text: r.status, width: 57, bold: r.status === "Out of Compliance" },
+        ], y);
+        doc.y = y + 13;
+      }
+    }
+
+    pdfFooters(doc, "Compliance Summary");
+    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "pdf", fileName: filename, recordCount: rows.length, parameters: { start, end, schoolId } });
+    logAudit(req, { action: "read", targetTable: "service_requirements", summary: `Exported compliance summary PDF (${rows.length} rows)`, metadata: { reportType: "compliance-summary-pdf" } });
+    doc.end();
+  } catch (e: any) {
+    console.error("GET compliance-summary.pdf error:", e);
+    if (!res.headersSent) res.status(500).json({ error: "Failed to generate compliance summary PDF" });
+  }
+});
+
+router.get("/reports/exports/services-by-provider.csv", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { startDate, endDate, schoolId } = req.query;
+    const now = new Date();
+    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+    const end = (endDate as string) || now.toISOString().split("T")[0];
+
+    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    if (scope.enforcedDistrictId !== null) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
+    }
+    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+
+    const staffMembers = await db.select({
+      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
+      role: staffTable.role, schoolName: schoolsTable.name,
+    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+
+    if (staffMembers.length === 0) {
+      const h = ["Provider", "Role", "School", "Service Type", "Sessions Completed", "Missed Sessions", "Total Minutes", "Unique Students"];
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="Services_By_Provider.csv"`);
+      res.send(buildCSV(h, []));
+      return;
+    }
+
+    const staffIds = staffMembers.map(s => s.id);
+    const staffIdList = sql.join(staffIds.map(id => sql`${id}`), sql`, `);
+
+    const sessionData = await db.select({
+      staffId: sessionLogsTable.staffId,
+      serviceTypeName: serviceTypesTable.name,
+      status: sessionLogsTable.status,
+      durationMinutes: sessionLogsTable.durationMinutes,
+      studentId: sessionLogsTable.studentId,
+    }).from(sessionLogsTable)
+      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
+      .where(and(
+        sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
+        gte(sessionLogsTable.sessionDate, start),
+        lte(sessionLogsTable.sessionDate, end),
+      ));
+
+    const providerMap = new Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }>();
+    for (const s of sessionData) {
+      const key = `${s.staffId}|${s.serviceTypeName ?? "Other"}`;
+      if (!providerMap.has(key)) providerMap.set(key, { completed: 0, missed: 0, minutes: 0, students: new Set() });
+      const e = providerMap.get(key)!;
+      if (s.status === "completed" || s.status === "makeup") { e.completed++; e.minutes += s.durationMinutes ?? 0; }
+      else if (s.status === "missed") e.missed++;
+      if (s.studentId) e.students.add(s.studentId);
+    }
+
+    const staffLookup = new Map(staffMembers.map(s => [s.id, s]));
+    const headers = ["Provider", "Role", "School", "Service Type", "Sessions Completed", "Missed Sessions", "Total Minutes", "Unique Students"];
+    const csvRows: unknown[][] = [];
+    for (const [key, data] of providerMap) {
+      const [staffIdStr, serviceType] = key.split("|");
+      const staff = staffLookup.get(Number(staffIdStr));
+      if (!staff) continue;
+      const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager", coordinator: "Coordinator", admin: "Admin" };
+      csvRows.push([
+        `${staff.lastName}, ${staff.firstName}`, ROLE_LABELS[staff.role] ?? staff.role, staff.schoolName ?? "",
+        serviceType, data.completed, data.missed, data.minutes, data.students.size,
+      ]);
+    }
+    csvRows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+    const filename = `Services_By_Provider_${start}_${end}.csv`;
+    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end } });
+    logAudit(req, { action: "read", targetTable: "session_logs", summary: `Exported services-by-provider CSV (${csvRows.length} rows)`, metadata: { reportType: "services-by-provider-csv" } });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buildCSV(headers, csvRows));
+  } catch (e: any) {
+    console.error("GET services-by-provider.csv error:", e);
+    res.status(500).json({ error: "Failed to generate services by provider report" });
+  }
+});
+
+router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { startDate, endDate, schoolId } = req.query;
+    const now = new Date();
+    const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+    const end = (endDate as string) || now.toISOString().split("T")[0];
+
+    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    if (scope.enforcedDistrictId !== null) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
+    }
+    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+
+    const staffMembers = await db.select({
+      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
+      role: staffTable.role, schoolName: schoolsTable.name,
+    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+
+    const staffIds = staffMembers.map(s => s.id);
+    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const sessionData = await db.select({
+      staffId: sessionLogsTable.staffId,
+      serviceTypeName: serviceTypesTable.name,
+      status: sessionLogsTable.status,
+      durationMinutes: sessionLogsTable.durationMinutes,
+      studentId: sessionLogsTable.studentId,
+    }).from(sessionLogsTable)
+      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
+      .where(and(sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)));
+
+    const providerMap = new Map<number, { services: Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }> }>();
+    for (const s of sessionData) {
+      if (!s.staffId) continue;
+      if (!providerMap.has(s.staffId)) providerMap.set(s.staffId, { services: new Map() });
+      const pm = providerMap.get(s.staffId)!;
+      const svc = s.serviceTypeName ?? "Other";
+      if (!pm.services.has(svc)) pm.services.set(svc, { completed: 0, missed: 0, minutes: 0, students: new Set() });
+      const e = pm.services.get(svc)!;
+      if (s.status === "completed" || s.status === "makeup") { e.completed++; e.minutes += s.durationMinutes ?? 0; }
+      else if (s.status === "missed") e.missed++;
+      if (s.studentId) e.students.add(s.studentId);
+    }
+
+    const doc = initPdfDoc();
+    res.setHeader("Content-Type", "application/pdf");
+    const filename = `Services_By_Provider_${start}_${end}.pdf`;
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    pdfHeader(doc, "Services by Provider Report", `${fmtDate(start)} through ${fmtDate(end)} — For Superintendent Review`);
+
+    const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager", coordinator: "Coordinator", admin: "Admin" };
+    let totalProviders = 0, totalSessions = 0, totalMinutes = 0;
+
+    for (const staff of staffMembers) {
+      const pm = providerMap.get(staff.id);
+      if (!pm || pm.services.size === 0) continue;
+      totalProviders++;
+
+      if (doc.y > 680) doc.addPage();
+      doc.moveDown(0.3);
+      doc.font("Helvetica-Bold").fontSize(10).fillColor(PDF_COLORS.GRAY_DARK)
+        .text(`${staff.lastName}, ${staff.firstName}`, { continued: true })
+        .font("Helvetica").fontSize(9).fillColor(PDF_COLORS.GRAY_MID)
+        .text(`  ${ROLE_LABELS[staff.role] ?? staff.role} — ${staff.schoolName ?? "Unassigned"}`);
+
+      for (const [svc, data] of pm.services) {
+        totalSessions += data.completed;
+        totalMinutes += data.minutes;
+        doc.font("Helvetica").fontSize(8.5).fillColor(PDF_COLORS.GRAY_DARK)
+          .text(`  ${svc}: ${data.completed} sessions, ${data.minutes} min delivered, ${data.missed} missed, ${data.students.size} students`, { indent: 15 });
+      }
+    }
+
+    doc.moveDown(0.5);
+    pdfSectionTitle(doc, "Summary");
+    doc.font("Helvetica").fontSize(9).text(`Active Providers: ${totalProviders}  |  Total Sessions: ${totalSessions}  |  Total Minutes: ${totalMinutes.toLocaleString()}`);
+
+    pdfFooters(doc, "Services by Provider");
+    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "pdf", fileName: filename, recordCount: totalProviders, parameters: { start, end } });
+    logAudit(req, { action: "read", targetTable: "session_logs", summary: `Exported services-by-provider PDF`, metadata: { reportType: "services-by-provider-pdf" } });
+    doc.end();
+  } catch (e: any) {
+    console.error("GET services-by-provider.pdf error:", e);
+    if (!res.headersSent) res.status(500).json({ error: "Failed to generate services by provider PDF" });
+  }
+});
+
+router.get("/reports/exports/student-roster.csv", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId, status: statusParam } = req.query;
+    const statusFilter = typeof statusParam === "string" ? statusParam : "active";
+
+    const conditions: any[] = [isNull(studentsTable.deletedAt)];
+    if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
+    const dc = districtCondition(scope.enforcedDistrictId);
+    if (dc) conditions.push(dc);
+    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+
+    const students = await db.select({
+      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
+      grade: studentsTable.grade, dateOfBirth: studentsTable.dateOfBirth, status: studentsTable.status,
+      disabilityCategory: studentsTable.disabilityCategory, placementType: studentsTable.placementType,
+      schoolName: schoolsTable.name, enrolledAt: studentsTable.enrolledAt,
+    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+
+    const sIds = students.map(s => s.id);
+    const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const iepRows = sIds.length > 0 ? await db.select({
+      studentId: iepDocumentsTable.studentId,
+      iepStartDate: iepDocumentsTable.iepStartDate,
+      iepEndDate: iepDocumentsTable.iepEndDate,
+      status: iepDocumentsTable.status,
+    }).from(iepDocumentsTable)
+      .where(and(eq(iepDocumentsTable.active, true), sql`${iepDocumentsTable.studentId} IN (${idList})`)) : [];
+
+    const iepMap = new Map<number, typeof iepRows[0]>();
+    for (const r of iepRows) iepMap.set(r.studentId, r);
+
+    const headers = ["Last Name", "First Name", "Grade", "School", "Status", "Disability Category", "Placement", "Date of Birth", "Enrolled", "IEP Start", "IEP End", "IEP Status"];
+    const csvRows = students.map(s => {
+      const iep = iepMap.get(s.id);
+      return [
+        s.lastName, s.firstName, s.grade ?? "", s.schoolName ?? "", s.status ?? "", s.disabilityCategory ?? "",
+        s.placementType ?? "", fmtDate(s.dateOfBirth), fmtDate(s.enrolledAt), fmtDate(iep?.iepStartDate), fmtDate(iep?.iepEndDate), iep?.status ?? "No IEP",
+      ];
+    });
+
+    const filename = `Student_Roster_${new Date().toISOString().split("T")[0]}.csv`;
+    recordExport(req, { reportType: "student-roster", reportLabel: "Student Roster", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { statusFilter, schoolId } });
+    logAudit(req, { action: "read", targetTable: "students", summary: `Exported student roster CSV (${csvRows.length} rows)`, metadata: { reportType: "student-roster-csv" } });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buildCSV(headers, csvRows));
+  } catch (e: any) {
+    console.error("GET student-roster.csv error:", e);
+    res.status(500).json({ error: "Failed to generate student roster" });
+  }
+});
+
+router.get("/reports/exports/student-roster.pdf", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId, status: statusParam } = req.query;
+    const statusFilter = typeof statusParam === "string" ? statusParam : "active";
+
+    const conditions: any[] = [isNull(studentsTable.deletedAt)];
+    if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
+    const dc = districtCondition(scope.enforcedDistrictId);
+    if (dc) conditions.push(dc);
+    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
+
+    const students = await db.select({
+      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
+      grade: studentsTable.grade, status: studentsTable.status, disabilityCategory: studentsTable.disabilityCategory,
+      placementType: studentsTable.placementType, schoolName: schoolsTable.name,
+    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+
+    const sIds = students.map(s => s.id);
+    const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const iepRows = sIds.length > 0 ? await db.select({
+      studentId: iepDocumentsTable.studentId, iepEndDate: iepDocumentsTable.iepEndDate, status: iepDocumentsTable.status,
+    }).from(iepDocumentsTable).where(and(eq(iepDocumentsTable.active, true), sql`${iepDocumentsTable.studentId} IN (${idList})`)) : [];
+    const iepMap = new Map<number, typeof iepRows[0]>();
+    for (const r of iepRows) iepMap.set(r.studentId, r);
+
+    const doc = initPdfDoc();
+    res.setHeader("Content-Type", "application/pdf");
+    const filename = `Student_Roster_${new Date().toISOString().split("T")[0]}.pdf`;
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    pdfHeader(doc, "SPED Student Roster", `${students.length} students — ${statusFilter === "all" ? "All statuses" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`);
+
+    const bySchool = new Map<string, typeof students>();
+    for (const s of students) {
+      const school = s.schoolName ?? "Unassigned";
+      if (!bySchool.has(school)) bySchool.set(school, []);
+      bySchool.get(school)!.push(s);
+    }
+
+    for (const [school, schoolStudents] of bySchool) {
+      pdfSectionTitle(doc, `${school} (${schoolStudents.length} students)`);
+      const cols = [
+        { text: "Student", width: 130 }, { text: "Grade", width: 45 }, { text: "Disability", width: 100 },
+        { text: "Placement", width: 80 }, { text: "IEP End", width: 70 }, { text: "IEP Status", width: 67 },
+      ];
+      pdfTableHeader(doc, cols);
+      for (const s of schoolStudents) {
+        if (doc.y > 700) { doc.addPage(); pdfTableHeader(doc, cols); }
+        const iep = iepMap.get(s.id);
+        const y = doc.y;
+        pdfTableRow(doc, [
+          { text: `${s.lastName}, ${s.firstName}`, width: 130 }, { text: s.grade ?? "", width: 45 },
+          { text: s.disabilityCategory ?? "", width: 100 }, { text: s.placementType ?? "", width: 80 },
+          { text: fmtDate(iep?.iepEndDate), width: 70 }, { text: iep?.status ?? "No IEP", width: 67 },
+        ], y);
+        doc.y = y + 13;
+      }
+    }
+
+    pdfFooters(doc, "Student Roster");
+    recordExport(req, { reportType: "student-roster", reportLabel: "Student Roster", format: "pdf", fileName: filename, recordCount: students.length, parameters: { statusFilter, schoolId } });
+    logAudit(req, { action: "read", targetTable: "students", summary: `Exported student roster PDF (${students.length} rows)`, metadata: { reportType: "student-roster-pdf" } });
+    doc.end();
+  } catch (e: any) {
+    console.error("GET student-roster.pdf error:", e);
+    if (!res.headersSent) res.status(500).json({ error: "Failed to generate student roster PDF" });
+  }
+});
+
+router.get("/reports/exports/caseload-distribution.csv", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId } = req.query;
+
+    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    if (scope.enforcedDistrictId !== null) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
+    }
+    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+
+    const staffMembers = await db.select({
+      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
+      role: staffTable.role, schoolName: schoolsTable.name,
+    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+
+    const staffIds = staffMembers.map(s => s.id);
+    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const assignments = staffIds.length > 0 ? await db.select({
+      staffId: staffAssignmentsTable.staffId,
+      studentId: staffAssignmentsTable.studentId,
+      assignmentType: staffAssignmentsTable.assignmentType,
+    }).from(staffAssignmentsTable)
+      .where(sql`${staffAssignmentsTable.staffId} IN (${staffIdList})`) : [];
+
+    const caseloadMap = new Map<number, { students: Set<number>; types: Set<string> }>();
+    for (const a of assignments) {
+      if (!caseloadMap.has(a.staffId)) caseloadMap.set(a.staffId, { students: new Set(), types: new Set() });
+      const c = caseloadMap.get(a.staffId)!;
+      c.students.add(a.studentId);
+      if (a.assignmentType) c.types.add(a.assignmentType);
+    }
+
+    const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager", coordinator: "Coordinator", admin: "Admin" };
+    const headers = ["Staff Member", "Role", "School", "Caseload Size", "Assignment Types"];
+    const csvRows = staffMembers.map(s => {
+      const c = caseloadMap.get(s.id);
+      return [
+        `${s.lastName}, ${s.firstName}`, ROLE_LABELS[s.role] ?? s.role, s.schoolName ?? "",
+        c ? c.students.size : 0, c ? [...c.types].join(", ") : "",
+      ];
+    });
+
+    const filename = `Caseload_Distribution_${new Date().toISOString().split("T")[0]}.csv`;
+    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "csv", fileName: filename, recordCount: csvRows.length });
+    logAudit(req, { action: "read", targetTable: "staff_assignments", summary: `Exported caseload distribution CSV (${csvRows.length} rows)`, metadata: { reportType: "caseload-distribution-csv" } });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buildCSV(headers, csvRows));
+  } catch (e: any) {
+    console.error("GET caseload-distribution.csv error:", e);
+    res.status(500).json({ error: "Failed to generate caseload distribution" });
+  }
+});
+
+router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { schoolId } = req.query;
+
+    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    if (scope.enforcedDistrictId !== null) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
+    }
+    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+
+    const staffMembers = await db.select({
+      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
+      role: staffTable.role, schoolName: schoolsTable.name,
+    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+
+    const staffIds = staffMembers.map(s => s.id);
+    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+
+    const assignments = staffIds.length > 0 ? await db.select({
+      staffId: staffAssignmentsTable.staffId,
+      studentId: staffAssignmentsTable.studentId,
+    }).from(staffAssignmentsTable).where(sql`${staffAssignmentsTable.staffId} IN (${staffIdList})`) : [];
+
+    const caseloadMap = new Map<number, Set<number>>();
+    for (const a of assignments) {
+      if (!caseloadMap.has(a.staffId)) caseloadMap.set(a.staffId, new Set());
+      caseloadMap.get(a.staffId)!.add(a.studentId);
+    }
+
+    const doc = initPdfDoc();
+    res.setHeader("Content-Type", "application/pdf");
+    const filename = `Caseload_Distribution_${new Date().toISOString().split("T")[0]}.pdf`;
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    pdfHeader(doc, "Caseload Distribution Report", `${staffMembers.length} staff members — Current assignments`);
+
+    const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager", coordinator: "Coordinator", admin: "Admin" };
+
+    const sizes = staffMembers.map(s => caseloadMap.get(s.id)?.size ?? 0);
+    const avg = sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0;
+    const max = Math.max(0, ...sizes);
+    const min = sizes.length > 0 ? Math.min(...sizes) : 0;
+
+    pdfSectionTitle(doc, "Summary");
+    doc.font("Helvetica").fontSize(9).text(`Total Staff: ${staffMembers.length}  |  Average Caseload: ${avg}  |  Max: ${max}  |  Min: ${min}`);
+
+    const byRole = new Map<string, typeof staffMembers>();
+    for (const s of staffMembers) {
+      const role = ROLE_LABELS[s.role] ?? s.role;
+      if (!byRole.has(role)) byRole.set(role, []);
+      byRole.get(role)!.push(s);
+    }
+
+    for (const [role, roleStaff] of byRole) {
+      pdfSectionTitle(doc, `${role} (${roleStaff.length})`);
+      const cols = [{ text: "Staff Member", width: 180 }, { text: "School", width: 150 }, { text: "Caseload Size", width: 100 }];
+      pdfTableHeader(doc, cols);
+      for (const s of roleStaff) {
+        if (doc.y > 700) { doc.addPage(); pdfTableHeader(doc, cols); }
+        const y = doc.y;
+        const caseloadSize = caseloadMap.get(s.id)?.size ?? 0;
+        pdfTableRow(doc, [
+          { text: `${s.lastName}, ${s.firstName}`, width: 180 },
+          { text: s.schoolName ?? "", width: 150 },
+          { text: String(caseloadSize), width: 100, align: "right", bold: caseloadSize > avg * 1.5 },
+        ], y);
+        doc.y = y + 13;
+      }
+    }
+
+    pdfFooters(doc, "Caseload Distribution");
+    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "pdf", fileName: filename, recordCount: staffMembers.length });
+    logAudit(req, { action: "read", targetTable: "staff_assignments", summary: `Exported caseload distribution PDF`, metadata: { reportType: "caseload-distribution-pdf" } });
+    doc.end();
+  } catch (e: any) {
+    console.error("GET caseload-distribution.pdf error:", e);
+    if (!res.headersSent) res.status(500).json({ error: "Failed to generate caseload distribution PDF" });
+  }
+});
+
+router.get("/reports/exports/history", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const conditions: any[] = [];
+    if (scope.enforcedDistrictId !== null) {
+      conditions.push(eq(exportHistoryTable.districtId, scope.enforcedDistrictId));
+    }
+
+    const history = await db.select({
+      id: exportHistoryTable.id,
+      reportType: exportHistoryTable.reportType,
+      reportLabel: exportHistoryTable.reportLabel,
+      format: exportHistoryTable.format,
+      fileName: exportHistoryTable.fileName,
+      recordCount: exportHistoryTable.recordCount,
+      exportedBy: exportHistoryTable.exportedBy,
+      createdAt: exportHistoryTable.createdAt,
+    }).from(exportHistoryTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(exportHistoryTable.createdAt))
+      .limit(50);
+
+    res.json(history);
+  } catch (e: any) {
+    console.error("GET /reports/exports/history error:", e);
+    res.status(500).json({ error: "Failed to fetch export history" });
+  }
+});
+
+router.get("/reports/exports/scheduled", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const conditions: any[] = [];
+    if (scope.enforcedDistrictId !== null) {
+      conditions.push(eq(scheduledReportsTable.districtId, scope.enforcedDistrictId));
+    }
+
+    const schedules = await db.select().from(scheduledReportsTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(scheduledReportsTable.createdAt));
+
+    res.json(schedules);
+  } catch (e: any) {
+    console.error("GET /reports/exports/scheduled error:", e);
+    res.status(500).json({ error: "Failed to fetch scheduled reports" });
+  }
+});
+
+router.post("/reports/exports/scheduled", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { reportType, frequency, filters, recipientEmails } = req.body;
+
+    if (!reportType || !frequency || !recipientEmails || !Array.isArray(recipientEmails) || recipientEmails.length === 0) {
+      res.status(400).json({ error: "Missing required fields: reportType, frequency, recipientEmails" });
+      return;
+    }
+
+    const validReportTypes = ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"];
+    if (!validReportTypes.includes(reportType)) {
+      res.status(400).json({ error: `Invalid reportType. Must be one of: ${validReportTypes.join(", ")}` });
+      return;
+    }
+
+    const validFreqs = ["weekly", "monthly"];
+    if (!validFreqs.includes(frequency)) {
+      res.status(400).json({ error: `Invalid frequency. Must be one of: ${validFreqs.join(", ")}` });
+      return;
+    }
+
+    const districtId = scope.enforcedDistrictId ?? 0;
+    const createdBy = (req as AuthedRequest).userId ?? "system";
+
+    const now = new Date();
+    let nextRunAt: Date;
+    if (frequency === "weekly") {
+      nextRunAt = new Date(now);
+      nextRunAt.setDate(nextRunAt.getDate() + (7 - nextRunAt.getDay()) % 7 + 1);
+      nextRunAt.setHours(6, 0, 0, 0);
+    } else {
+      nextRunAt = new Date(now.getFullYear(), now.getMonth() + 1, 1, 6, 0, 0, 0);
+    }
+
+    const [created] = await db.insert(scheduledReportsTable).values({
+      districtId,
+      reportType,
+      frequency,
+      filters: filters ?? {},
+      recipientEmails,
+      createdBy,
+      nextRunAt,
+    }).returning();
+
+    logAudit(req, { action: "create", targetTable: "scheduled_reports", targetId: created.id, summary: `Created scheduled ${frequency} report: ${reportType}` });
+
+    res.status(201).json(created);
+  } catch (e: any) {
+    console.error("POST /reports/exports/scheduled error:", e);
+    res.status(500).json({ error: "Failed to create scheduled report" });
+  }
+});
+
+router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const conditions: any[] = [eq(scheduledReportsTable.id, id)];
+    if (scope.enforcedDistrictId !== null) {
+      conditions.push(eq(scheduledReportsTable.districtId, scope.enforcedDistrictId));
+    }
+
+    const deleted = await db.delete(scheduledReportsTable).where(and(...conditions)).returning();
+    if (deleted.length === 0) { res.status(404).json({ error: "Scheduled report not found" }); return; }
+
+    logAudit(req, { action: "delete", targetTable: "scheduled_reports", targetId: id, summary: `Deleted scheduled report ${id}` });
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE /reports/exports/scheduled error:", e);
+    res.status(500).json({ error: "Failed to delete scheduled report" });
+  }
+});
+
+export async function generateReportCSVDirect(reportType: string, districtId: number): Promise<{ csv: string; rowCount: number } | null> {
+  try {
+    const dc = districtId > 0
+      ? sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
+      : undefined;
+
+    if (reportType === "compliance-summary") {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+      const end = now.toISOString().split("T")[0];
+      const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+      if (dc) conditions.push(dc);
+
+      const students = await db.select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName, grade: studentsTable.grade, schoolName: schoolsTable.name })
+        .from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId)).where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+
+      if (students.length === 0) return { csv: buildCSV(["Student", "School", "Grade", "Service", "Required", "Delivered", "Compliance %", "Status"], []), rowCount: 0 };
+
+      const sIds = students.map(s => s.id);
+      const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
+      const [reqs, sessions] = await Promise.all([
+        db.select({ studentId: serviceRequirementsTable.studentId, serviceTypeName: serviceTypesTable.name, requiredMinutes: serviceRequirementsTable.requiredMinutes, intervalType: serviceRequirementsTable.intervalType })
+          .from(serviceRequirementsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId)).where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+        db.select({ studentId: sessionLogsTable.studentId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes })
+          .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+      ]);
+
+      const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
+      for (const s of sessions) {
+        const key = `${s.studentId}|${s.serviceTypeName ?? ""}`;
+        if (!sessionMap.has(key)) sessionMap.set(key, { delivered: 0, completed: 0, missed: 0 });
+        const e = sessionMap.get(key)!;
+        if (s.status === "completed" || s.status === "makeup") { e.completed++; e.delivered += s.durationMinutes ?? 0; } else if (s.status === "missed") e.missed++;
+      }
+      const reqsByStudent = new Map<number, typeof reqs>();
+      for (const r of reqs) { if (!reqsByStudent.has(r.studentId)) reqsByStudent.set(r.studentId, []); reqsByStudent.get(r.studentId)!.push(r); }
+
+      const rows: unknown[][] = [];
+      for (const student of students) {
+        for (const req of (reqsByStudent.get(student.id) ?? [])) {
+          const key = `${student.id}|${req.serviceTypeName ?? ""}`;
+          const sm = sessionMap.get(key) ?? { delivered: 0, completed: 0, missed: 0 };
+          const total = sm.completed + sm.missed;
+          const pct = total > 0 ? Math.round((sm.completed / total) * 100) : 100;
+          rows.push([`${student.lastName}, ${student.firstName}`, student.schoolName ?? "", student.grade ?? "", req.serviceTypeName ?? "", `${req.requiredMinutes ?? ""}/${req.intervalType ?? "week"}`, sm.delivered, `${pct}%`, pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance"]);
+        }
+      }
+      return { csv: buildCSV(["Student", "School", "Grade", "Service", "Required", "Delivered", "Compliance %", "Status"], rows), rowCount: rows.length };
+    }
+
+    if (reportType === "student-roster") {
+      const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+      if (dc) conditions.push(dc);
+      const students = await db.select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName, grade: studentsTable.grade, status: studentsTable.status, disabilityCategory: studentsTable.disabilityCategory, placementType: studentsTable.placementType, schoolName: schoolsTable.name, dateOfBirth: studentsTable.dateOfBirth, enrolledAt: studentsTable.enrolledAt })
+        .from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId)).where(and(...conditions)).orderBy(asc(studentsTable.lastName));
+      const rows = students.map(s => [s.lastName, s.firstName, s.grade ?? "", s.schoolName ?? "", s.status ?? "", s.disabilityCategory ?? "", s.placementType ?? "", fmtDate(s.dateOfBirth), fmtDate(s.enrolledAt)]);
+      return { csv: buildCSV(["Last Name", "First Name", "Grade", "School", "Status", "Disability", "Placement", "DOB", "Enrolled"], rows), rowCount: rows.length };
+    }
+
+    if (reportType === "services-by-provider" || reportType === "caseload-distribution") {
+      const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+      if (districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`);
+      const staffMembers = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName, role: staffTable.role, schoolName: schoolsTable.name })
+        .from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId)).where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+
+      if (reportType === "caseload-distribution") {
+        const staffIds = staffMembers.map(s => s.id);
+        const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+        const assignments = staffIds.length > 0 ? await db.select({ staffId: staffAssignmentsTable.staffId, studentId: staffAssignmentsTable.studentId }).from(staffAssignmentsTable).where(sql`${staffAssignmentsTable.staffId} IN (${staffIdList})`) : [];
+        const caseloadMap = new Map<number, Set<number>>();
+        for (const a of assignments) { if (!caseloadMap.has(a.staffId)) caseloadMap.set(a.staffId, new Set()); caseloadMap.get(a.staffId)!.add(a.studentId); }
+        const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager" };
+        const rows = staffMembers.map(s => [`${s.lastName}, ${s.firstName}`, ROLE_LABELS[s.role] ?? s.role, s.schoolName ?? "", caseloadMap.get(s.id)?.size ?? 0]);
+        return { csv: buildCSV(["Staff Member", "Role", "School", "Caseload Size"], rows), rowCount: rows.length };
+      }
+
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+      const end = now.toISOString().split("T")[0];
+      const staffIds = staffMembers.map(s => s.id);
+      const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+      const sessionData = staffIds.length > 0 ? await db.select({ staffId: sessionLogsTable.staffId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes, studentId: sessionLogsTable.studentId })
+        .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))) : [];
+      const providerMap = new Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }>();
+      for (const s of sessionData) {
+        const key = `${s.staffId}|${s.serviceTypeName ?? "Other"}`;
+        if (!providerMap.has(key)) providerMap.set(key, { completed: 0, missed: 0, minutes: 0, students: new Set() });
+        const e = providerMap.get(key)!;
+        if (s.status === "completed" || s.status === "makeup") { e.completed++; e.minutes += s.durationMinutes ?? 0; } else if (s.status === "missed") e.missed++;
+        if (s.studentId) e.students.add(s.studentId);
+      }
+      const staffLookup = new Map(staffMembers.map(s => [s.id, s]));
+      const ROLE_LABELS: Record<string, string> = { bcba: "BCBA", provider: "Provider", para: "Paraprofessional", sped_teacher: "SPED Teacher", case_manager: "Case Manager" };
+      const rows: unknown[][] = [];
+      for (const [key, data] of providerMap) {
+        const [staffIdStr, serviceType] = key.split("|");
+        const staff = staffLookup.get(Number(staffIdStr));
+        if (!staff) continue;
+        rows.push([`${staff.lastName}, ${staff.firstName}`, ROLE_LABELS[staff.role] ?? staff.role, staff.schoolName ?? "", serviceType, data.completed, data.missed, data.minutes, data.students.size]);
+      }
+      return { csv: buildCSV(["Provider", "Role", "School", "Service Type", "Sessions Completed", "Missed", "Total Minutes", "Students"], rows), rowCount: rows.length };
+    }
+
+    return null;
+  } catch (e) {
+    console.error(`[generateReportCSVDirect] Error generating ${reportType}:`, e);
+    return null;
+  }
+}
 
 export default router;

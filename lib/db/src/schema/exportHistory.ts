@@ -6,6 +6,8 @@ export const exportHistoryTable = pgTable("export_history", {
   reportLabel: text("report_label").notNull(),
   exportedBy: text("exported_by").notNull(),
   schoolId: integer("school_id"),
+  districtId: integer("district_id"),
+  format: text("format").notNull().default("csv"),
   parameters: jsonb("parameters"),
   recordCount: integer("record_count").notNull().default(0),
   warningCount: integer("warning_count").notNull().default(0),
@@ -15,6 +17,7 @@ export const exportHistoryTable = pgTable("export_history", {
   index("export_hist_type_idx").on(table.reportType),
   index("export_hist_user_idx").on(table.exportedBy),
   index("export_hist_created_idx").on(table.createdAt),
+  index("export_hist_district_idx").on(table.districtId),
 ]);
 
 export type ExportHistory = typeof exportHistoryTable.$inferSelect;

@@ -8,8 +8,10 @@ import {
   guardiansTable,
   schoolsTable,
   communicationEventsTable,
+  scheduledReportsTable,
+  exportHistoryTable,
 } from "@workspace/db";
-import { eq, and, lt, ne, sql, isNull, or } from "drizzle-orm";
+import { eq, and, lt, ne, sql, isNull, or, lte } from "drizzle-orm";
 import {
   sendEmail,
   buildOverdueFollowupEmail,
@@ -17,6 +19,7 @@ import {
   buildIncompleteTransitionEmail,
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
+import { generateReportCSVDirect } from "../routes/reportExports";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -261,6 +264,74 @@ async function runComplianceAlertCheck(): Promise<void> {
   }
 }
 
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  "compliance-summary": "Compliance Summary",
+  "services-by-provider": "Services by Provider",
+  "student-roster": "Student Roster",
+  "caseload-distribution": "Caseload Distribution",
+};
+
+async function runScheduledReports(): Promise<void> {
+  const now = new Date();
+
+  const dueReports = await db
+    .select()
+    .from(scheduledReportsTable)
+    .where(
+      and(
+        eq(scheduledReportsTable.enabled, true),
+        lte(scheduledReportsTable.nextRunAt, now),
+      )
+    )
+    .limit(20);
+
+  if (dueReports.length === 0) return;
+
+  for (const schedule of dueReports) {
+    try {
+      const reportType = schedule.reportType;
+      const label = REPORT_TYPE_LABELS[reportType] ?? reportType;
+      const today = now.toISOString().split("T")[0];
+
+      const result = await generateReportCSVDirect(reportType, schedule.districtId);
+      if (!result) {
+        console.error(`[ScheduledReports] Failed to generate ${reportType} for schedule #${schedule.id}`);
+        continue;
+      }
+
+      const rowCount = result.rowCount;
+
+      await db.insert(exportHistoryTable).values({
+        reportType,
+        reportLabel: label,
+        exportedBy: schedule.createdBy,
+        districtId: schedule.districtId,
+        format: "csv",
+        fileName: `Scheduled_${label.replace(/\s+/g, "_")}_${today}.csv`,
+        recordCount: rowCount,
+        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency } as any,
+      });
+
+      let nextRunAt: Date;
+      if (schedule.frequency === "weekly") {
+        nextRunAt = new Date(now);
+        nextRunAt.setDate(nextRunAt.getDate() + 7);
+        nextRunAt.setHours(6, 0, 0, 0);
+      } else {
+        nextRunAt = new Date(now.getFullYear(), now.getMonth() + 1, 1, 6, 0, 0, 0);
+      }
+
+      await db.update(scheduledReportsTable)
+        .set({ lastRunAt: now, nextRunAt })
+        .where(eq(scheduledReportsTable.id, schedule.id));
+
+      console.log(`[ScheduledReports] Generated ${label} (${rowCount} rows) for schedule #${schedule.id}, next run: ${nextRunAt.toISOString()}`);
+    } catch (err) {
+      console.error(`[ScheduledReports] Error processing schedule #${schedule.id}:`, err);
+    }
+  }
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -269,6 +340,7 @@ async function runAllReminders(): Promise<void> {
       runOverdueEvaluations(),
       runDraftTransitionPlans(),
       runComplianceAlertCheck(),
+      runScheduledReports(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {
