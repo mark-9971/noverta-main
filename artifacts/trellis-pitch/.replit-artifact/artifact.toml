@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/trellis-pitch/"
+title = "Trellis Investor Pitch"
+version = "1.0.0"
+id = "artifacts/trellis-pitch"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/trellis-pitch/" ]
+localPort = 25405
+
+[services.development]
+run = "pnpm --filter @workspace/trellis-pitch run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trellis-pitch", "run", "build" ]
+publicDir = "artifacts/trellis-pitch/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25405"
+BASE_PATH = "/trellis-pitch/"
