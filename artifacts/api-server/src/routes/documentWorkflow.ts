@@ -709,8 +709,8 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
     }).from(teamMeetingsTable)
       .innerJoin(studentsTable, eq(teamMeetingsTable.studentId, studentsTable.id))
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
-      .where(and(eq(teamMeetingsTable.id, meetingId), eq(schoolsTable.districtId, districtId)));
-    if (!m) return res.status(404).json({ error: "Meeting not found in your district" });
+      .where(and(eq(teamMeetingsTable.id, meetingId), eq(teamMeetingsTable.studentId, studentId), eq(schoolsTable.districtId, districtId)));
+    if (!m) return res.status(404).json({ error: "Meeting not found for this student in your district" });
     meetingData = m;
 
     attendees = await db.select({
