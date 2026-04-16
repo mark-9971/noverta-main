@@ -696,6 +696,10 @@ router.get("/coverage/history", requireAdmin, async (req, res): Promise<void> =>
     queryParams.push(Number(req.query.originalStaffId));
     whereClauses.push(`ci.original_staff_id = $${queryParams.length}`);
   }
+  if (req.query.schoolId) {
+    queryParams.push(Number(req.query.schoolId));
+    whereClauses.push(`orig_staff.school_id = $${queryParams.length}`);
+  }
 
   const q = `
     SELECT
@@ -747,9 +751,16 @@ router.get("/coverage/summary", requireAdmin, async (req, res): Promise<void> =>
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   const dateParam = String(req.query.date ?? new Date().toISOString().slice(0, 10));
 
-  const districtFilter = districtId
-    ? `AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId}))`
-    : "";
+  const queryParams: any[] = [dateParam];
+  let districtFilter = "";
+  if (districtId) {
+    queryParams.push(districtId);
+    districtFilter = `AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = $${queryParams.length}))`;
+  }
+  if (req.query.schoolId) {
+    queryParams.push(Number(req.query.schoolId));
+    districtFilter += ` AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id = $${queryParams.length})`;
+  }
 
   const q = `
     SELECT
@@ -762,7 +773,7 @@ router.get("/coverage/summary", requireAdmin, async (req, res): Promise<void> =>
     WHERE ci.absence_date = $1 ${districtFilter}
   `;
 
-  const result = await pool.query(q, [dateParam]);
+  const result = await pool.query(q, queryParams);
   const row = result.rows[0] ?? { total_sessions: 0, covered: 0, uncovered: 0, absent_staff_count: 0 };
   const total = Number(row.total_sessions);
 
@@ -782,10 +793,18 @@ router.get("/coverage/substitute-report", requireAdmin, async (req, res): Promis
   const months = Math.min(Number(req.query.months) || 3, 12);
   const since = new Date();
   since.setMonth(since.getMonth() - months);
+  const sinceStr = since.toISOString().slice(0, 10);
 
-  const districtFilter = districtId
-    ? `AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${districtId}))`
-    : "";
+  const baseParams: any[] = [sinceStr];
+  let districtFilter = "";
+  if (districtId) {
+    baseParams.push(districtId);
+    districtFilter = `AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = $${baseParams.length}))`;
+  }
+  if (req.query.schoolId) {
+    baseParams.push(Number(req.query.schoolId));
+    districtFilter += ` AND ci.original_staff_id IN (SELECT id FROM staff WHERE school_id = $${baseParams.length})`;
+  }
 
   const q = `
     SELECT
@@ -801,7 +820,7 @@ router.get("/coverage/substitute-report", requireAdmin, async (req, res): Promis
     ORDER BY sessions_covered DESC
   `;
 
-  const result = await pool.query(q, [since.toISOString().slice(0, 10)]);
+  const result = await pool.query(q, baseParams);
 
   const absenceQ = `
     SELECT
@@ -817,7 +836,7 @@ router.get("/coverage/substitute-report", requireAdmin, async (req, res): Promis
     ORDER BY absence_dates DESC
   `;
 
-  const absenceResult = await pool.query(absenceQ, [since.toISOString().slice(0, 10)]);
+  const absenceResult = await pool.query(absenceQ, baseParams);
 
   res.json({
     period: { months, since: since.toISOString().slice(0, 10) },

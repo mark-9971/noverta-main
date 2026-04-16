@@ -606,6 +606,7 @@ function HistoryTab({ schoolId }: { schoolId?: number | null }) {
     setLoading(true);
     try {
       const params = new URLSearchParams({ startDate, endDate });
+      if (schoolId) params.set("schoolId", String(schoolId));
       const r = await authFetch(`/api/coverage/history?${params}`);
       const data = await r.json();
       setEntries(Array.isArray(data) ? data : []);
@@ -688,7 +689,9 @@ function ReportTab({ schoolId }: { schoolId?: number | null }) {
   const loadReport = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await authFetch(`/api/coverage/substitute-report?months=${months}`);
+      const params = new URLSearchParams({ months });
+      if (schoolId) params.set("schoolId", String(schoolId));
+      const r = await authFetch(`/api/coverage/substitute-report?${params}`);
       const data = await r.json();
       setReport(data);
     } catch {
@@ -829,14 +832,16 @@ function ReportTab({ schoolId }: { schoolId?: number | null }) {
 }
 
 // ─── Daily Summary Card ───────────────────────────────────────────────────
-function DailySummary() {
+function DailySummary({ schoolId }: { schoolId?: number | null }) {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await authFetch(`/api/coverage/summary?date=${today()}`);
+        const params = new URLSearchParams({ date: today() });
+        if (schoolId) params.set("schoolId", String(schoolId));
+        const r = await authFetch(`/api/coverage/summary?${params}`);
         const data = await r.json();
         setSummary(data);
       } catch {
@@ -904,7 +909,7 @@ export default function CoveragePage() {
         </p>
       </div>
 
-      <DailySummary />
+      <DailySummary schoolId={schoolId} />
 
       <Card>
         <CardHeader className="pb-0 pt-4 px-4">
