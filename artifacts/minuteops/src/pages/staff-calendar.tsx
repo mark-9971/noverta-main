@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { authFetch } from "@workspace/api-client-react";
 import {
-  Calendar, Plus, AlertTriangle, Trash2, Pencil, ChevronLeft, ChevronRight,
-  Building2, Clock, User, Filter, X
+  Calendar, Plus, AlertTriangle, Trash2, Pencil,
+  Building2, User, Filter, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ interface StaffSchedule {
   id: number;
   staff_id: number;
   school_id: number;
+  service_type_id: number | null;
   day_of_week: string;
   start_time: string;
   end_time: string;
@@ -51,6 +52,8 @@ interface StaffSchedule {
   staffLastName: string;
   staffRole: string;
   schoolName: string;
+  serviceTypeName: string | null;
+  serviceTypeCategory: string | null;
 }
 
 interface Conflict {
@@ -68,12 +71,15 @@ interface Conflict {
   bEndTime: string;
   bSchoolId: number;
   bSchoolName: string;
+  suggestions: string[];
 }
 
 interface CoverageGap {
   dayOfWeek: string;
   schoolId: number;
   schoolName: string;
+  uncoveredSlots: Array<{ start: string; end: string }>;
+  totalUncoveredMinutes: number;
 }
 
 interface ProviderSummary {
@@ -82,6 +88,7 @@ interface ProviderSummary {
   distribution: Array<{ schoolId: number; schoolName: string; weeklyHours: number }>;
   totalWeeklyHours: number;
   daysScheduled: number;
+  availability: Record<string, Array<{ start: string; end: string }>>;
 }
 
 interface StaffOption {
@@ -94,6 +101,12 @@ interface StaffOption {
 interface SchoolOption {
   id: number;
   name: string;
+}
+
+interface ServiceTypeOption {
+  id: number;
+  name: string;
+  category: string;
 }
 
 function timeToMinutes(t: string): number {
@@ -119,15 +132,17 @@ export default function StaffCalendar() {
   const [providerSummary, setProviderSummary] = useState<ProviderSummary | null>(null);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [schoolList, setSchoolList] = useState<SchoolOption[]>([]);
+  const [serviceTypeList, setServiceTypeList] = useState<ServiceTypeOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filterStaff, setFilterStaff] = useState<string>("all");
   const [filterSchool, setFilterSchool] = useState<string>("all");
+  const [filterServiceType, setFilterServiceType] = useState<string>("all");
 
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<StaffSchedule | null>(null);
   const [formData, setFormData] = useState({
-    staffId: "", schoolId: "", dayOfWeek: "monday", startTime: "08:00", endTime: "12:00", label: "", notes: "",
+    staffId: "", schoolId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "08:00", endTime: "12:00", label: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -149,16 +164,23 @@ export default function StaffCalendar() {
   async function loadData() {
     setLoading(true);
     try {
-      const [schedRes, conflictRes, gapsRes, staffRes, schoolRes] = await Promise.all([
+      const [schedRes, conflictRes, gapsRes, staffRes, schoolRes, stRes] = await Promise.all([
         authFetch("/api/staff-schedules").then(r => r.ok ? r.json() : { schedules: [] }),
         authFetch("/api/staff-schedules/conflicts").then(r => r.ok ? r.json() : { conflicts: [] }),
         authFetch("/api/staff-schedules/coverage-gaps").then(r => r.ok ? r.json() : { gaps: [] }),
         authFetch("/api/staff?limit=500").then(r => r.ok ? r.json() : { staff: [] }),
         authFetch("/api/schools").then(r => r.ok ? r.json() : []),
+        authFetch("/api/service-types").then(r => r.ok ? r.json() : []),
       ]);
       setSchedules(schedRes.schedules || []);
       setConflicts(conflictRes.conflicts || []);
       setCoverageGaps(gapsRes.gaps || []);
+      const stArr = Array.isArray(stRes) ? stRes : (stRes.serviceTypes || []);
+      setServiceTypeList(stArr.map((s: Record<string, unknown>) => ({
+        id: s.id as number,
+        name: s.name as string,
+        category: s.category as string,
+      })));
       const staffArr = Array.isArray(staffRes) ? staffRes : (staffRes.staff || []);
       setStaffList(staffArr.map((s: Record<string, unknown>) => ({
         id: s.id as number,
@@ -193,9 +215,10 @@ export default function StaffCalendar() {
     return schedules.filter(s => {
       if (filterStaff !== "all" && s.staff_id !== Number(filterStaff)) return false;
       if (filterSchool !== "all" && s.school_id !== Number(filterSchool)) return false;
+      if (filterServiceType !== "all" && s.service_type_id !== Number(filterServiceType)) return false;
       return true;
     });
-  }, [schedules, filterStaff, filterSchool]);
+  }, [schedules, filterStaff, filterSchool, filterServiceType]);
 
   const uniqueStaffInView = useMemo(() => {
     const map = new Map<number, { id: number; name: string; role: string }>();
@@ -212,6 +235,7 @@ export default function StaffCalendar() {
     setFormData({
       staffId: filterStaff !== "all" ? filterStaff : "",
       schoolId: filterSchool !== "all" ? filterSchool : "",
+      serviceTypeId: filterServiceType !== "all" ? filterServiceType : "",
       dayOfWeek: day || "monday",
       startTime: "08:00",
       endTime: "12:00",
@@ -226,6 +250,7 @@ export default function StaffCalendar() {
     setFormData({
       staffId: String(s.staff_id),
       schoolId: String(s.school_id),
+      serviceTypeId: s.service_type_id ? String(s.service_type_id) : "",
       dayOfWeek: s.day_of_week,
       startTime: s.start_time,
       endTime: s.end_time,
@@ -244,6 +269,7 @@ export default function StaffCalendar() {
       const payload = {
         staffId: Number(formData.staffId),
         schoolId: Number(formData.schoolId),
+        serviceTypeId: formData.serviceTypeId ? Number(formData.serviceTypeId) : null,
         dayOfWeek: formData.dayOfWeek,
         startTime: formData.startTime,
         endTime: formData.endTime,
@@ -342,8 +368,19 @@ export default function StaffCalendar() {
             ))}
           </SelectContent>
         </Select>
-        {(filterStaff !== "all" || filterSchool !== "all") && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-500" onClick={() => { setFilterStaff("all"); setFilterSchool("all"); }}>
+        <Select value={filterServiceType} onValueChange={setFilterServiceType}>
+          <SelectTrigger className="w-[180px] h-8 text-xs">
+            <SelectValue placeholder="All Service Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Service Types</SelectItem>
+            {serviceTypeList.map(s => (
+              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(filterStaff !== "all" || filterSchool !== "all" || filterServiceType !== "all") && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-500" onClick={() => { setFilterStaff("all"); setFilterSchool("all"); setFilterServiceType("all"); }}>
             <X className="w-3 h-3 mr-1" /> Clear
           </Button>
         )}
@@ -411,6 +448,7 @@ export default function StaffCalendar() {
                                 {formatTime(sched.start_time)}–{formatTime(sched.end_time)}
                               </div>
                               <div className="truncate opacity-80">{sched.schoolName}</div>
+                              {sched.serviceTypeName && <div className="truncate opacity-70 italic">{sched.serviceTypeName}</div>}
                               {sched.label && <div className="truncate opacity-60">{sched.label}</div>}
                               {isAdmin && (
                                 <div className="absolute top-0.5 right-0.5 hidden group-hover:flex gap-0.5">
@@ -482,9 +520,30 @@ export default function StaffCalendar() {
                 const pct = providerSummary.totalWeeklyHours > 0 ? (d.weeklyHours / providerSummary.totalWeeklyHours) * 100 : 0;
                 const color = schoolColorMap.get(d.schoolId) || SCHOOL_COLORS[i % SCHOOL_COLORS.length];
                 return (
-                  <div key={d.schoolId} className={cn("h-full", color.dot.replace("bg-", "bg-"))} style={{ width: `${pct}%` }} title={`${d.schoolName}: ${d.weeklyHours}h (${pct.toFixed(0)}%)`} />
+                  <div key={d.schoolId} className={cn("h-full", color.dot)} style={{ width: `${pct}%` }} title={`${d.schoolName}: ${d.weeklyHours}h (${pct.toFixed(0)}%)`} />
                 );
               })}
+            </div>
+          )}
+          {providerSummary.availability && Object.keys(providerSummary.availability).length > 0 && (
+            <div className="mt-3 pt-3 border-t border-emerald-200">
+              <p className="text-[10px] font-semibold text-emerald-700 uppercase mb-1.5">Available Slots</p>
+              <div className="grid grid-cols-5 gap-1.5">
+                {WEEKDAYS.map(day => (
+                  <div key={day}>
+                    <p className="text-[10px] font-medium text-gray-500 mb-0.5">{WEEKDAY_SHORT[day]}</p>
+                    {providerSummary.availability[day] ? (
+                      providerSummary.availability[day].map((s, i) => (
+                        <p key={i} className="text-[10px] text-emerald-700 bg-emerald-100 rounded px-1 py-0.5 mb-0.5">
+                          {formatTime(s.start)}–{formatTime(s.end)}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-[10px] text-gray-400">Fully booked</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Card>
@@ -494,17 +553,30 @@ export default function StaffCalendar() {
         <Card className="p-4 border-amber-200 bg-amber-50/30">
           <h3 className="text-sm font-semibold text-amber-800 flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
-            Coverage Gaps — {coverageGaps.length} uncovered day{coverageGaps.length !== 1 ? "s" : ""}
+            Coverage Gaps — {coverageGaps.length} uncovered time slot{coverageGaps.length !== 1 ? "s" : ""} across schools
           </h3>
-          <div className="flex flex-wrap gap-2">
-            {coverageGaps.slice(0, 15).map((g, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-100 text-amber-800 border border-amber-200">
-                <Building2 className="w-3 h-3" />
-                {g.schoolName} — {WEEKDAY_LABELS[g.dayOfWeek] || g.dayOfWeek}
-              </span>
+          <div className="space-y-2">
+            {coverageGaps.slice(0, 10).map((g, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded bg-amber-100/60 border border-amber-200">
+                <div className="flex items-center gap-1 min-w-[160px]">
+                  <Building2 className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-amber-900">{g.schoolName}</span>
+                  <span className="text-xs text-amber-700">— {WEEKDAY_LABELS[g.dayOfWeek] || g.dayOfWeek}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {g.uncoveredSlots.map((slot, si) => (
+                    <span key={si} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-medium">
+                      {formatTime(slot.start)}–{formatTime(slot.end)}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[10px] text-amber-600 ml-auto">
+                  {Math.round(g.totalUncoveredMinutes / 60 * 10) / 10}h uncovered
+                </span>
+              </div>
             ))}
-            {coverageGaps.length > 15 && (
-              <span className="text-xs text-amber-600">+{coverageGaps.length - 15} more</span>
+            {coverageGaps.length > 10 && (
+              <p className="text-xs text-amber-600">+{coverageGaps.length - 10} more gaps</p>
             )}
           </div>
         </Card>
@@ -533,6 +605,18 @@ export default function StaffCalendar() {
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select school..." /></SelectTrigger>
                 <SelectContent>
                   {schoolList.map(s => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Service Type</Label>
+              <Select value={formData.serviceTypeId || "none"} onValueChange={v => setFormData(p => ({ ...p, serviceTypeId: v === "none" ? "" : v }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select service type..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {serviceTypeList.map(s => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -599,9 +683,19 @@ export default function StaffCalendar() {
                     <span className="text-gray-400">{formatTime(c.bStartTime)}–{formatTime(c.bEndTime)}</span>
                   </div>
                 </div>
-                <p className="text-[10px] text-red-600 mt-1.5">
-                  These time blocks overlap. Edit one to resolve the conflict.
-                </p>
+                {c.suggestions && c.suggestions.length > 0 && (
+                  <div className="mt-2 pt-1.5 border-t border-red-200">
+                    <p className="text-[10px] font-semibold text-red-700 mb-1">Suggested fixes:</p>
+                    <ul className="space-y-0.5">
+                      {c.suggestions.map((s, si) => (
+                        <li key={si} className="text-[10px] text-red-600 flex items-start gap-1">
+                          <span className="text-red-400 mt-0.5">•</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </Card>
             ))}
           </div>

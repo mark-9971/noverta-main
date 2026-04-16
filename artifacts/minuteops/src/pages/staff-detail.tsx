@@ -14,6 +14,25 @@ import {
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
 import { getStaff, getStaffCaseloadSummary, getStaffCaseload, getStaffSupervisionSummary } from "@workspace/api-client-react";
+import { authFetch } from "@workspace/api-client-react";
+
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"] as const;
+const WEEKDAY_SHORT: Record<string, string> = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hh = h % 12 || 12;
+  return `${hh}:${String(m || 0).padStart(2, "0")} ${ampm}`;
+}
+
+interface ProviderScheduleSummary {
+  totalWeeklyHours: number;
+  daysScheduled: number;
+  distribution: Array<{ schoolId: number; schoolName: string; weeklyHours: number }>;
+  schedule: Array<{ dayOfWeek: string; startTime: string; endTime: string; schoolName: string; serviceTypeName: string | null }>;
+  availability: Record<string, Array<{ start: string; end: string }>>;
+}
 
 export default function StaffDetail() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +41,7 @@ export default function StaffDetail() {
   const [staff, setStaff] = useState<any>(null);
   const [caseload, setCaseload] = useState<any>(null);
   const [supervisionSummary, setSupervisionSummary] = useState<any>(null);
+  const [scheduleSummary, setScheduleSummary] = useState<ProviderScheduleSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -34,10 +54,12 @@ export default function StaffDetail() {
       getStaffCaseloadSummary(staffId).catch(() => ({ students: [], summary: {} })),
       getStaffCaseload(staffId).catch(() => []),
       getStaffSupervisionSummary(staffId).catch(() => null),
-    ]).then(([s, cs, cl, sup]) => {
+      authFetch(`/api/staff-schedules/provider-summary/${staffId}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, cs, cl, sup, sched]) => {
       setStaff(s);
       setCaseload({ ...cs, minuteProgress: Array.isArray(cl) ? cl : [] });
       setSupervisionSummary(sup);
+      setScheduleSummary(sched);
     }).catch(() => setLoadError(true)).finally(() => setLoading(false));
   }
 
@@ -143,6 +165,77 @@ export default function StaffDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {scheduleSummary && scheduleSummary.daysScheduled > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              Weekly Schedule & Availability
+              <Link href="/staff-calendar" className="ml-auto text-xs text-emerald-600 hover:text-emerald-700 font-normal">
+                View Full Calendar →
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div>
+                <p className="text-[10px] font-medium text-gray-500 uppercase">Weekly Hours</p>
+                <p className="text-xl font-bold text-gray-900">{scheduleSummary.totalWeeklyHours}h</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500 uppercase">Days Scheduled</p>
+                <p className="text-xl font-bold text-gray-900">{scheduleSummary.daysScheduled}/5</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium text-gray-500 uppercase">Buildings</p>
+                <p className="text-xl font-bold text-gray-900">{scheduleSummary.distribution.length}</p>
+              </div>
+            </div>
+            {scheduleSummary.distribution.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] font-medium text-gray-500 uppercase mb-1">Building Distribution</p>
+                <div className="space-y-1">
+                  {scheduleSummary.distribution.map(d => (
+                    <div key={d.schoolId} className="flex items-center gap-2">
+                      <Building className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-700 flex-1">{d.schoolName}</span>
+                      <span className="text-xs font-semibold text-gray-900">{d.weeklyHours}h</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-5 gap-1.5 pt-3 border-t border-gray-100">
+              {WEEKDAYS.map(day => {
+                const dayBlocks = scheduleSummary!.schedule.filter(s => s.dayOfWeek === day);
+                const freeSlots = scheduleSummary!.availability?.[day] || [];
+                return (
+                  <div key={day} className="text-center">
+                    <p className="text-[10px] font-semibold text-gray-500 mb-1">{WEEKDAY_SHORT[day]}</p>
+                    {dayBlocks.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {dayBlocks.map((b, i) => (
+                          <div key={i} className="text-[9px] bg-emerald-50 rounded px-1 py-0.5 text-emerald-700 truncate" title={`${b.schoolName}${b.serviceTypeName ? ' — ' + b.serviceTypeName : ''}`}>
+                            {formatTime(b.startTime).replace(/ [AP]M/, '')}-{formatTime(b.endTime).replace(/ [AP]M/, '')}
+                          </div>
+                        ))}
+                        {freeSlots.map((s, i) => (
+                          <div key={`f${i}`} className="text-[9px] bg-gray-50 rounded px-1 py-0.5 text-gray-400 truncate">
+                            {formatTime(s.start).replace(/ [AP]M/, '')}-{formatTime(s.end).replace(/ [AP]M/, '')} free
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[9px] text-gray-300">No blocks</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
