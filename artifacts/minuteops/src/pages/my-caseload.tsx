@@ -2,16 +2,25 @@ import { useMemo } from "react";
 import { Link } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { useListServiceRequirements, useListStudents, useListSessions, useListStaff } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Users, Timer, ClipboardList, ExternalLink, AlertTriangle,
-  CheckCircle2, Clock, Calendar, BookOpen, ChevronRight,
+  Users, Timer, ClipboardList, AlertTriangle,
+  CheckCircle2, Clock, BookOpen, ChevronRight, Activity,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate } from "@/lib/formatters";
+
+interface AssignedBip {
+  id: number; studentId: number; studentName?: string;
+  targetBehavior: string; status: string; version: number;
+  teachingStrategies: string | null; crisisPlan: string | null;
+  implementationStartDate: string | null;
+}
 
 interface ServiceReq {
   id: number; studentId: number; providerId: number | null;
@@ -50,6 +59,17 @@ export default function MyCaseloadPage() {
   const { data: allStudents, isLoading: studentsLoading } = useListStudents({} as any);
   const { data: recentSessions } = useListSessions({ staffId: teacherId } as any, { enabled: !!teacherId });
   const { data: allStaff } = useListStaff({} as any);
+
+  const { data: assignedBipsData } = useQuery<AssignedBip[]>({
+    queryKey: ["assigned-bips", teacherId],
+    queryFn: ({ signal }) =>
+      authFetch(`/api/staff/${teacherId}/assigned-bips`, { signal }).then(async r => {
+        if (!r.ok) return [];
+        return r.json();
+      }),
+    enabled: !!teacherId,
+  });
+  const assignedBips: AssignedBip[] = assignedBipsData ?? [];
 
   const reqs: ServiceReq[] = useMemo(() => (allReqs as any[] ?? []).filter((r: any) => r.active), [allReqs]);
   const students: Student[] = useMemo(() => allStudents as any[] ?? [], [allStudents]);
@@ -215,6 +235,46 @@ export default function MyCaseloadPage() {
             );
           })}
         </div>
+      )}
+
+      {assignedBips.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-[13px] font-semibold text-gray-700 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-500" /> My BIP Assignments
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5 ml-1">{assignedBips.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {assignedBips.map(bip => {
+              const student = students.find(s => s.id === bip.studentId);
+              return (
+                <div key={bip.id} className="border border-gray-100 rounded-lg p-3 text-[12px]">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-semibold text-gray-800">
+                      {student ? `${student.firstName} ${student.lastName}` : `Student ${bip.studentId}`}
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-gray-400">v{bip.version}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${bip.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                        {bip.status}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-gray-600 line-clamp-2">{bip.targetBehavior}</p>
+                  {bip.implementationStartDate && (
+                    <p className="text-gray-400 text-[11px] mt-1">Started {formatDate(bip.implementationStartDate)}</p>
+                  )}
+                  <Link href="/behavior-assessment">
+                    <Button size="sm" variant="ghost" className="mt-1.5 text-[11px] h-6 px-2 text-emerald-700">
+                      View BIP <ChevronRight className="w-3 h-3 ml-0.5" />
+                    </Button>
+                  </Link>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid md:grid-cols-2 gap-4 mt-2">

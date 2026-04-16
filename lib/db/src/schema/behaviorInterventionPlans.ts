@@ -30,6 +30,8 @@ export const behaviorInterventionPlansTable = pgTable("behavior_intervention_pla
   effectiveDate: date("effective_date"),
   implementationStartDate: date("implementation_start_date"),
   discontinuedDate: date("discontinued_date"),
+  /** ID of the first BIP in this version chain. Null for standalone BIPs that have never been versioned. */
+  versionGroupId: integer("version_group_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

@@ -60,8 +60,13 @@ interface BipRecord {
   dataCollectionMethod: string | null; progressCriteria: string | null;
   reviewDate: string | null; effectiveDate: string | null;
   implementationStartDate: string | null; discontinuedDate: string | null;
-  version: number; createdByName?: string | null;
+  version: number; versionGroupId: number | null;
+  createdByName?: string | null;
   createdAt: string; updatedAt: string;
+}
+
+interface StaffEntry {
+  id: number; firstName: string; lastName: string; role: string;
 }
 interface BipStatusEntry {
   id: number; fromStatus: string; toStatus: string;
@@ -95,28 +100,26 @@ const CONDITION_COLORS: Record<string, string> = {
   control: "#374151", alone: "#92400e", play: "#10b981"
 };
 
-const BIP_PLAN_FIELD_LABELS: Record<string, string> = {
-  targetBehavior: "Target Behavior",
-  operationalDefinition: "Operational Definition",
-  hypothesizedFunction: "Hypothesized Function",
-  replacementBehaviors: "Replacement Behaviors",
-  preventionStrategies: "Prevention Strategies",
-  teachingStrategies: "Teaching Strategies",
-  consequenceStrategies: "Consequence Strategies",
-  reinforcementSchedule: "Reinforcement Schedule",
-  crisisPlan: "Crisis Plan",
-  dataCollectionMethod: "Data Collection Method",
-  progressCriteria: "Progress Criteria",
-  reviewDate: "Review Date",
-  effectiveDate: "Effective Date",
-};
+const BIP_DIFF_FIELDS: Array<{ key: keyof BipRecord; label: string }> = [
+  { key: "targetBehavior", label: "Target Behavior" },
+  { key: "operationalDefinition", label: "Operational Definition" },
+  { key: "hypothesizedFunction", label: "Hypothesized Function" },
+  { key: "replacementBehaviors", label: "Replacement Behaviors" },
+  { key: "preventionStrategies", label: "Prevention Strategies" },
+  { key: "teachingStrategies", label: "Teaching Strategies" },
+  { key: "consequenceStrategies", label: "Consequence Strategies" },
+  { key: "reinforcementSchedule", label: "Reinforcement Schedule" },
+  { key: "crisisPlan", label: "Crisis Plan" },
+  { key: "dataCollectionMethod", label: "Data Collection Method" },
+  { key: "progressCriteria", label: "Progress Criteria" },
+  { key: "reviewDate", label: "Review Date" },
+  { key: "effectiveDate", label: "Effective Date" },
+];
 
 function computeBipDiff(older: BipRecord, newer: BipRecord): string[] {
-  return Object.keys(BIP_PLAN_FIELD_LABELS).filter(k => {
-    const ov = (older as any)[k] || "";
-    const nv = (newer as any)[k] || "";
-    return ov !== nv;
-  }).map(k => BIP_PLAN_FIELD_LABELS[k]);
+  return BIP_DIFF_FIELDS
+    .filter(({ key }) => (older[key] ?? "") !== (newer[key] ?? ""))
+    .map(({ label }) => label);
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -1226,7 +1229,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
   const [fidelityLogs, setFidelityLogs] = useState<BipFidelityEntry[]>([]);
   const [versionHistory, setVersionHistory] = useState<BipRecord[]>([]);
   const [creatingVersion, setCreatingVersion] = useState(false);
-  const [staffList, setStaffList] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<StaffEntry[]>([]);
   const [addImplStaffId, setAddImplStaffId] = useState("");
   const [addImplNotes, setAddImplNotes] = useState("");
   const [addingImpl, setAddingImpl] = useState(false);
@@ -1247,18 +1250,23 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
     setStatusHistory(Array.isArray(hist) ? hist : []);
     setImplementers(Array.isArray(impls) ? impls : []);
     setFidelityLogs(Array.isArray(fidelity) ? fidelity : []);
-    const allBips = await authFetch(`/api/students/${bip.studentId}/bips`).then(r => r.json()).catch(() => []);
-    if (Array.isArray(allBips)) {
-      const siblings = (allBips as BipRecord[]).filter(b => b.id !== bip.id && (
-        (bip.fbaId && b.fbaId === bip.fbaId) ||
-        b.targetBehavior === bip.targetBehavior
-      )).sort((a, b) => b.version - a.version);
-      setVersionHistory(siblings);
+    // Version siblings are identified by the explicit versionGroupId lineage chain.
+    const groupId = bip.versionGroupId ?? null;
+    if (groupId !== null) {
+      const allBips = await authFetch(`/api/students/${bip.studentId}/bips`).then(r => r.json()).catch(() => []);
+      if (Array.isArray(allBips)) {
+        const siblings = (allBips as BipRecord[]).filter(b =>
+          b.id !== bip.id && (b.versionGroupId === groupId || b.id === groupId)
+        ).sort((a, b) => b.version - a.version);
+        setVersionHistory(siblings);
+      }
+    } else {
+      setVersionHistory([]);
     }
   }, []);
 
   useEffect(() => {
-    listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
+    listStaff().then((r: unknown) => setStaffList(Array.isArray(r) ? (r as StaffEntry[]) : [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1688,7 +1696,7 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
                         <select value={addImplStaffId} onChange={e => setAddImplStaffId(e.target.value)}
                           className="w-full mt-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
                           <option value="">Select staff…</option>
-                          {staffList.map((s: any) => (
+                          {staffList.map((s) => (
                             <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.role})</option>
                           ))}
                         </select>

@@ -89,7 +89,7 @@ router.patch("/fbas/:id", async (req, res): Promise<void> => {
       "directMethods", "directFindings", "hypothesizedFunction",
       "hypothesisNarrative", "recommendations"
     ];
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
@@ -276,6 +276,7 @@ router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
       effectiveDate: behaviorInterventionPlansTable.effectiveDate,
       implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
       discontinuedDate: behaviorInterventionPlansTable.discontinuedDate,
+      versionGroupId: behaviorInterventionPlansTable.versionGroupId,
       createdAt: behaviorInterventionPlansTable.createdAt,
       updatedAt: behaviorInterventionPlansTable.updatedAt,
       createdByFirst: staffTable.firstName,
@@ -362,6 +363,7 @@ router.get("/bips/:id", async (req, res): Promise<void> => {
       effectiveDate: behaviorInterventionPlansTable.effectiveDate,
       implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
       discontinuedDate: behaviorInterventionPlansTable.discontinuedDate,
+      versionGroupId: behaviorInterventionPlansTable.versionGroupId,
       createdAt: behaviorInterventionPlansTable.createdAt,
       updatedAt: behaviorInterventionPlansTable.updatedAt,
       createdByFirst: staffTable.firstName,
@@ -409,7 +411,7 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
       return;
     }
 
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
     for (const key of BIP_PLAN_FIELDS) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
@@ -448,9 +450,13 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
     const authed = req as AuthedRequest;
     const changedById = authed.tenantStaffId ?? null;
 
+    // Determine version group: all BIPs in this chain share the same groupId (the root BIP's id).
+    const groupId: number = existing.versionGroupId ?? existing.id;
+
     const newBip = await db.transaction(async (tx) => {
+      // Archive the source BIP and stamp its versionGroupId if not yet set.
       await tx.update(behaviorInterventionPlansTable)
-        .set({ status: "archived" })
+        .set({ status: "archived", versionGroupId: groupId })
         .where(eq(behaviorInterventionPlansTable.id, id));
 
       await tx.insert(bipStatusHistoryTable).values({
@@ -465,9 +471,9 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
         studentId: existing.studentId,
         behaviorTargetId: body.behaviorTargetId ?? existing.behaviorTargetId,
         fbaId: existing.fbaId,
-        createdBy: body.createdBy ?? existing.createdBy,
+        createdBy: changedById ?? existing.createdBy,
         version: existing.version + 1,
-        status: body.status || "draft",
+        status: "draft",
         targetBehavior: body.targetBehavior ?? existing.targetBehavior,
         operationalDefinition: body.operationalDefinition ?? existing.operationalDefinition,
         hypothesizedFunction: body.hypothesizedFunction ?? existing.hypothesizedFunction,
@@ -482,6 +488,7 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
         progressCriteria: body.progressCriteria ?? existing.progressCriteria,
         reviewDate: body.reviewDate ?? existing.reviewDate,
         effectiveDate: body.effectiveDate ?? existing.effectiveDate,
+        versionGroupId: groupId,
       }).returning();
       return created;
     });
@@ -603,7 +610,8 @@ router.post("/bips/:id/transition", async (req, res): Promise<void> => {
     }
 
     const dateNow = new Date().toISOString().split("T")[0];
-    const updates: any = { status: toStatus };
+    type BipUpdate = { status: string; implementationStartDate?: string; discontinuedDate?: string };
+    const updates: BipUpdate = { status: toStatus };
     if (toStatus === "active" && !bip.implementationStartDate) {
       updates.implementationStartDate = dateNow;
     }
@@ -798,6 +806,7 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
     const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
     const staffId = authed.tenantStaffId ?? null;
     const { logDate, fidelityRating, studentResponse, implementationNotes } = req.body;
 
@@ -809,6 +818,23 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
     if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
     if (bip.status !== "active") {
       res.status(409).json({ error: "Fidelity logs can only be added to active BIPs" }); return;
+    }
+
+    // Only BCBAs/admins and actively assigned implementers may log fidelity data.
+    if (!BIP_APPROVER_ROLES.includes(role)) {
+      if (!staffId) {
+        res.status(403).json({ error: "Only BCBAs, admins, or assigned implementers may add fidelity logs" }); return;
+      }
+      const [impl] = await db.select({ id: bipImplementersTable.id })
+        .from(bipImplementersTable)
+        .where(and(
+          eq(bipImplementersTable.bipId, id),
+          eq(bipImplementersTable.staffId, staffId),
+          eq(bipImplementersTable.active, true),
+        ));
+      if (!impl) {
+        res.status(403).json({ error: "Only BCBAs, admins, or assigned implementers may add fidelity logs" }); return;
+      }
     }
 
     const [log] = await db.insert(bipFidelityLogsTable).values({
