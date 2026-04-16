@@ -57,6 +57,7 @@ import parentMessagesRouter, { guardianMessagesRouter } from "./parentMessages";
 import staffSchedulesRouter from "./staffSchedules";
 import documentWorkflowRouter from "./documentWorkflow";
 import studentNotesRouter from "./studentNotes";
+import accommodationVerificationsRouter from "./accommodationVerifications";
 
 const router: IRouter = Router();
 
@@ -179,5 +180,10 @@ router.use(parentMessagesRouter);
 router.use(staffSchedulesRouter);
 router.use(documentWorkflowRouter);
 router.use(studentNotesRouter);
+router.use("/accommodations", requireDistrictScope);
+router.use("/accommodations", requireStaffOnly);
+router.use("/accommodation-compliance", requireDistrictScope);
+router.use("/accommodation-compliance", requirePrivilegedStaffOnly);
+router.use(accommodationVerificationsRouter);
 
 export default router;
