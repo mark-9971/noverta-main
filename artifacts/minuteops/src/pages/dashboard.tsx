@@ -1,14 +1,14 @@
 import {
   useGetDashboardSummary, useGetDashboardRiskOverview, useGetMissedSessionsTrend,
   useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts,
-  useGetAcademicsOverview, useGetComplianceDeadlines,
+  useGetComplianceDeadlines,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ProgressRing } from "@/components/ui/progress-ring";
-import { AlertTriangle, Users, Clock, Bell, TrendingUp, CheckCircle, CalendarDays, BookOpen, GraduationCap, ShieldAlert } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { AlertTriangle, Users, Clock, Bell, CalendarDays, ShieldAlert, ChevronDown } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
@@ -17,7 +17,37 @@ import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
 import { FileSearch, Sprout, CalendarDays as MeetingIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function CollapsibleSection({ title, icon: Icon, children, defaultOpen = false }: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 w-full text-left py-2 group"
+      >
+        <Icon className="w-4 h-4 text-gray-400" />
+        <span className="text-sm font-semibold text-gray-600 flex-1">{title}</span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="space-y-4 mt-1">{children}</div>}
+    </div>
+  );
+}
 
 interface NeedsAttentionData {
   total: number;
@@ -36,21 +66,22 @@ function NeedsAttentionPanel() {
 
   if (!data || data.total === 0) return null;
 
+  const hasCritical = data.openIncidents > 0 || data.pendingNotifications > 0;
   const items = [
-    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50" },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-600", bg: "bg-red-50" },
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50", critical: true },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50", critical: false },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50", critical: false },
+    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-700", bg: "bg-red-50", critical: true },
   ].filter(i => i.count > 0);
 
   return (
-    <Card className="border-red-200 bg-red-50/20">
+    <Card className={hasCritical ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
       <CardContent className="py-3 px-5">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <ShieldAlert className="w-5 h-5 text-red-500" />
-            <span className="text-sm font-semibold text-red-800">Needs Attention</span>
-            <span className="text-xs font-bold bg-red-100 text-red-700 rounded-full px-2 py-0.5">{data.total}</span>
+            <ShieldAlert className={`w-5 h-5 ${hasCritical ? "text-red-500" : "text-amber-500"}`} />
+            <span className={`text-sm font-semibold ${hasCritical ? "text-red-800" : "text-amber-800"}`}>Needs Attention</span>
+            <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${hasCritical ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{data.total}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
             {items.map(item => (
@@ -98,8 +129,9 @@ const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
 const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
 
 export default function Dashboard() {
-  const { role } = useRole();
+  const { role, user } = useRole();
   const isAdmin = role === "admin" || role === "coordinator";
+  const firstName = user.name?.split(" ")[0] || "";
   const { filterParams, typedFilter } = useSchoolContext();
   const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary(typedFilter);
   const { data: riskOverview } = useGetDashboardRiskOverview(typedFilter);
@@ -107,8 +139,6 @@ export default function Dashboard() {
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
-  const { data: _academicsData } = useGetAcademicsOverview();
-  const academics = _academicsData as any;
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
   const { data: evalDash } = useQuery({
@@ -173,8 +203,12 @@ export default function Dashboard() {
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6 md:space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-          <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">Jefferson Unified · Lincoln High School · IEP Year 2025–2026</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">
+            {getGreeting()}{firstName ? `, ${firstName}` : ""}
+          </h1>
+          <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">
+            {isAdmin ? "District overview" : "Your caseload"} · IEP Year 2025–2026
+          </p>
         </div>
       </div>
 
@@ -183,60 +217,91 @@ export default function Dashboard() {
       {isAdmin && <NeedsAttentionPanel />}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <MetricCard title="Active Students" value={s?.totalActiveStudents} icon={Users} accent="emerald" subtitle="on IEPs" href="/students" />
+        <MetricCard
+          title={isAdmin ? "Active Students" : "Your Caseload"}
+          value={s?.totalActiveStudents}
+          icon={Users}
+          accent="emerald"
+          subtitle="on IEPs"
+          href="/students"
+        />
         <MetricCard title="Open Alerts" value={alerts?.total} icon={Bell} accent="red" subtitle={`${alerts?.critical ?? 0} critical`} href="/alerts" />
-        <MetricCard title="Makeup Needed" value={s?.openMakeupObligations} icon={Clock} accent="amber" subtitle="sessions" href="/sessions" />
-        <MetricCard title="Out of Compliance" value={s?.outOfComplianceStudents} icon={AlertTriangle} accent="red" subtitle="students" href="/compliance" />
+        <MetricCard
+          title={isAdmin ? "Makeup Needed" : "Your Makeups"}
+          value={s?.openMakeupObligations}
+          icon={Clock}
+          accent="amber"
+          subtitle="sessions"
+          href="/sessions"
+        />
+        <MetricCard
+          title={isAdmin ? "Out of Compliance" : "Needs Action"}
+          value={s?.outOfComplianceStudents}
+          icon={AlertTriangle}
+          accent="red"
+          subtitle="students"
+          href="/compliance"
+        />
       </div>
 
-      {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
-        <Card className={evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
-          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-            <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
-            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-              {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
-              {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
-              {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
-              {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
-            </div>
-            <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-              View Evaluations →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      <CollapsibleSection title="Evaluations & Transitions" icon={FileSearch}>
+        {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
+          <Card className={evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
+                {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
+                {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
+                {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
+              </div>
+              <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                View Evaluations →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
-      {transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0) && (
-        <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
-          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-            <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
-            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-              {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
-              {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
-              {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
-              {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
-            </div>
-            <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-              Transition Planning →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+        {transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0) && (
+          <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+                {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
+                {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
+                {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
+              </div>
+              <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                Transition Planning →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {(evalDash && !(evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0))
+          && (transitionDash && !(transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0))
+          && (
+          <p className="text-sm text-gray-400 py-4 text-center">All evaluations and transitions are on track.</p>
+        )}
+      </CollapsibleSection>
 
       {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) && (
-        <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
-          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-            <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
-            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-              {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
-              {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
-              {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
-            </div>
-            <Link href="/iep-meetings" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-              IEP Meetings →
-            </Link>
-          </CardContent>
-        </Card>
+        <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
+          <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
+                {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
+                {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
+              </div>
+              <Link href="/iep-meetings" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                IEP Meetings →
+              </Link>
+            </CardContent>
+          </Card>
+        </CollapsibleSection>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -364,91 +429,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {academics && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-emerald-600" />
-              Academic Overview
-            </h2>
-            <Link href="/gradebook" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View Gradebook</Link>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            <MetricCard title="Total Classes" value={academics.totalClasses} icon={BookOpen} accent="emerald" subtitle="this semester" href="/classes" />
-            <MetricCard title="Enrolled Students" value={academics.totalStudents} icon={Users} accent="emerald" subtitle="across all classes" />
-            <MetricCard title="School Average" value={academics.schoolAverage ? `${academics.schoolAverage}%` : "–"} icon={TrendingUp} accent="emerald" />
-            <MetricCard title="Failing Students" value={academics.failingStudents} icon={AlertTriangle} accent={academics.failingStudents > 0 ? "red" : "emerald"} subtitle="below 60%" />
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-gray-200/60">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-sm font-semibold text-gray-600">Grade Distribution</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={[
-                    { grade: "A", count: academics.gradeDistribution.A, fill: "#10b981" },
-                    { grade: "B", count: academics.gradeDistribution.B, fill: "#059669" },
-                    { grade: "C", count: academics.gradeDistribution.C, fill: "#f59e0b" },
-                    { grade: "D", count: academics.gradeDistribution.D, fill: "#f97316" },
-                    { grade: "F", count: academics.gradeDistribution.F, fill: "#ef4444" },
-                  ]} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey="grade" tick={{ fontSize: 12, fill: "#6b7280", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }} />
-                    <Bar dataKey="count" name="Students" radius={[6, 6, 0, 0]} barSize={36}>
-                      {[
-                        { grade: "A", fill: "#10b981" },
-                        { grade: "B", fill: "#059669" },
-                        { grade: "C", fill: "#f59e0b" },
-                        { grade: "D", fill: "#f97316" },
-                        { grade: "F", fill: "#ef4444" },
-                      ].map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="border-gray-200/60">
-              <CardHeader className="pb-0 flex-row items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-gray-600">Classes by Performance</CardTitle>
-                <Link href="/classes" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View all</Link>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-2.5">
-                {academics.classes?.slice(0, 6).map((cls: any) => {
-                  const pct = cls.averageGrade || 0;
-                  return (
-                    <div key={cls.classId} className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <span className="text-[13px] font-medium text-gray-800 truncate">{cls.className}</span>
-                          <span className={`text-[12px] font-bold ml-2 ${pct >= 80 ? "text-emerald-600" : pct >= 70 ? "text-amber-600" : pct >= 60 ? "text-amber-700" : "text-red-600"}`}>
-                            {cls.letterGrade} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5">
-                          <div
-                            className="h-1.5 rounded-full transition-all duration-500"
-                            style={{ width: `${pct}%`, backgroundColor: pct >= 80 ? "#10b981" : pct >= 70 ? "#f59e0b" : pct >= 60 ? "#f97316" : "#ef4444" }}
-                          />
-                        </div>
-                        {cls.failingCount > 0 && (
-                          <span className="text-[10px] text-red-500 font-medium">{cls.failingCount} failing</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
       {isAdmin && s?.contractRenewals?.length > 0 && (
         <Card className="border-gray-200/60">
           <CardHeader className="pb-0 flex-row items-center justify-between">
@@ -478,35 +458,37 @@ export default function Dashboard() {
       )}
 
       {deadlines.length > 0 && (
-        <Card className="border-gray-200/60">
-          <CardHeader className="pb-0 flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-gray-600">Upcoming IEP Deadlines</CardTitle>
-            <Link href="/compliance/timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {deadlines.map((d: any, i: number) => {
-                const days = d.daysUntilDue ?? d.daysRemaining ?? 0;
-                const isOverdue = days < 0;
-                const isUrgent = days >= 0 && days <= 14;
-                return (
-                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isOverdue ? "bg-red-50 border-red-200" : isUrgent ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"}`}>
-                    <CalendarDays className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isOverdue ? "text-red-500" : isUrgent ? "text-amber-500" : "text-gray-400"}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-gray-800 truncate">{d.studentName || "Student"}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        {(d.eventType || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                      </p>
-                      <p className={`text-[11px] font-semibold mt-0.5 ${isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-gray-500"}`}>
-                        {isOverdue ? `${Math.abs(days)} days overdue` : `${days} days remaining`}
-                      </p>
+        <CollapsibleSection title="Upcoming IEP Deadlines" icon={CalendarDays}>
+          <Card className="border-gray-200/60">
+            <CardHeader className="pb-0 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-600">Next {deadlines.length} deadlines</CardTitle>
+              <Link href="/compliance/timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {deadlines.map((d: any, i: number) => {
+                  const days = d.daysUntilDue ?? d.daysRemaining ?? 0;
+                  const isOverdue = days < 0;
+                  const isUrgent = days >= 0 && days <= 14;
+                  return (
+                    <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isOverdue ? "bg-red-50 border-red-200" : isUrgent ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"}`}>
+                      <CalendarDays className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isOverdue ? "text-red-500" : isUrgent ? "text-amber-500" : "text-gray-400"}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-gray-800 truncate">{d.studentName || "Student"}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {(d.eventType || "").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </p>
+                        <p className={`text-[11px] font-semibold mt-0.5 ${isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-gray-500"}`}>
+                          {isOverdue ? `${Math.abs(days)} days overdue` : `${days} days remaining`}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </CollapsibleSection>
       )}
     </div>
   );
