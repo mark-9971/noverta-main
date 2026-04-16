@@ -77,7 +77,9 @@ export function FloatingTimer() {
       const studentArr = Array.isArray(sData) ? sData : (sData && typeof sData === "object" && "data" in (sData as Record<string, unknown>) ? (sData as Record<string, unknown>).data : []);
       setStudents(Array.isArray(studentArr) ? studentArr as Student[] : []);
       setServiceTypes(Array.isArray(stData) ? stData as ServiceType[] : []);
-    } catch {}
+    } catch {
+      toast.error("Failed to load students or services");
+    }
   }, []);
 
   const openStartFlow = useCallback(() => {
@@ -120,7 +122,7 @@ export function FloatingTimer() {
       durationMinutes,
       startTime: startDate.toTimeString().slice(0, 5),
       endTime: endDate.toTimeString().slice(0, 5),
-      sessionDate: endDate.toISOString().split("T")[0],
+      sessionDate: `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`,
     };
   }
 
