@@ -169,10 +169,11 @@ router.get("/caseload-balancing/provider/:providerId/students", async (req, res)
     })
     .from(staffAssignmentsTable)
     .innerJoin(studentsTable, eq(staffAssignmentsTable.studentId, studentsTable.id))
-    .leftJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
     .where(and(
       eq(staffAssignmentsTable.staffId, providerId),
       eq(studentsTable.status, "active"),
+      eq(schoolsTable.districtId, districtId),
     ));
 
     res.json({ students });
@@ -241,6 +242,52 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
       providersByRole.set(p.role, arr);
     }
 
+    const allAssignments = await db.select({
+      staffId: staffAssignmentsTable.staffId,
+      studentId: staffAssignmentsTable.studentId,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+      studentSchoolId: studentsTable.schoolId,
+    })
+    .from(staffAssignmentsTable)
+    .innerJoin(studentsTable, eq(staffAssignmentsTable.studentId, studentsTable.id))
+    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .where(and(
+      eq(studentsTable.status, "active"),
+      eq(schoolsTable.districtId, districtId),
+    ));
+
+    const studentServiceTypes = await db.select({
+      studentId: serviceRequirementsTable.studentId,
+      serviceTypeId: serviceRequirementsTable.serviceTypeId,
+    })
+    .from(serviceRequirementsTable)
+    .where(eq(serviceRequirementsTable.active, true));
+
+    const studentServicesMap = new Map<number, Set<number | null>>();
+    for (const s of studentServiceTypes) {
+      const set = studentServicesMap.get(s.studentId) || new Set();
+      set.add(s.serviceTypeId);
+      studentServicesMap.set(s.studentId, set);
+    }
+
+    const providerServicesMap = new Map<number, Set<number | null>>();
+    for (const a of allAssignments) {
+      const studentServices = studentServicesMap.get(a.studentId);
+      if (studentServices) {
+        const existing = providerServicesMap.get(a.staffId) || new Set();
+        for (const s of studentServices) existing.add(s);
+        providerServicesMap.set(a.staffId, existing);
+      }
+    }
+
+    const assignmentsByProvider = new Map<number, typeof allAssignments>();
+    for (const a of allAssignments) {
+      const arr = assignmentsByProvider.get(a.staffId) || [];
+      arr.push(a);
+      assignmentsByProvider.set(a.staffId, arr);
+    }
+
     const suggestions: Array<{
       fromProviderId: number;
       fromProviderName: string;
@@ -251,6 +298,13 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
       role: string;
       sameSchool: boolean;
       studentsToMove: number;
+      candidateStudents: Array<{
+        id: number;
+        name: string;
+        schoolId: number | null;
+        serviceOverlap: boolean;
+        sameSchool: boolean;
+      }>;
     }> = [];
 
     for (const [role, members] of providersByRole) {
@@ -269,6 +323,27 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
           const toMove = Math.min(excess, Math.floor(capacity * 0.5), 5);
           if (toMove < 1) continue;
 
+          const overStudents = assignmentsByProvider.get(over.id) || [];
+          const targetServices = providerServicesMap.get(target.id) || new Set();
+
+          const candidates = overStudents.map(s => {
+            const studentServices = studentServicesMap.get(s.studentId) || new Set();
+            const hasServiceOverlap = [...studentServices].some(svc => targetServices.has(svc));
+            return {
+              id: s.studentId,
+              name: `${s.studentFirstName} ${s.studentLastName}`,
+              schoolId: s.studentSchoolId,
+              serviceOverlap: hasServiceOverlap,
+              sameSchool: s.studentSchoolId === target.schoolId,
+            };
+          });
+
+          candidates.sort((a, b) => {
+            if (a.sameSchool !== b.sameSchool) return a.sameSchool ? -1 : 1;
+            if (a.serviceOverlap !== b.serviceOverlap) return a.serviceOverlap ? -1 : 1;
+            return 0;
+          });
+
           suggestions.push({
             fromProviderId: over.id,
             fromProviderName: over.name,
@@ -279,6 +354,7 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
             role,
             sameSchool: over.schoolId === target.schoolId,
             studentsToMove: toMove,
+            candidateStudents: candidates.slice(0, toMove + 3),
           });
         }
       }
@@ -315,6 +391,11 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
       .where(and(eq(staffTable.id, toProviderId), eq(schoolsTable.districtId, districtId)));
 
     if (!fromProvider || !toProvider) return res.status(404).json({ error: "Provider not found in your district" });
+
+    const [student] = await db.select({ id: studentsTable.id }).from(studentsTable)
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(and(eq(studentsTable.id, studentId), eq(schoolsTable.districtId, districtId)));
+    if (!student) return res.status(404).json({ error: "Student not found in your district" });
 
     const [assignment] = await db.select().from(staffAssignmentsTable)
       .where(and(
@@ -380,7 +461,7 @@ router.get("/caseload-balancing/trends", async (req, res) => {
         SELECT
           ds.role,
           m.month_start,
-          COUNT(DISTINCT sa.student_id) AS student_count,
+          COUNT(DISTINCT st.id) AS student_count,
           COUNT(DISTINCT ds.id) AS provider_count
         FROM months m
         CROSS JOIN district_staff ds
