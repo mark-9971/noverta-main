@@ -31,13 +31,11 @@ const Schedule = lazy(() => import("@/pages/schedule"));
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const Compliance = lazy(() => import("@/pages/compliance"));
-const ComplianceChecklist = lazy(() => import("@/pages/compliance-checklist"));
 const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
 const ImportData = lazy(() => import("@/pages/import-data"));
 const ProgramDataPage = lazy(() => import("@/pages/program-data"));
 const StudentIepPage = lazy(() => import("@/pages/student-iep"));
-const ComplianceTimelinePage = lazy(() => import("@/pages/compliance-timeline"));
 const StaffDetailPage = lazy(() => import("@/pages/staff-detail"));
 const IepSearchPage = lazy(() => import("@/pages/iep-search"));
 const ProtectiveMeasuresPage = lazy(() => import("@/pages/protective-measures"));
@@ -136,10 +134,11 @@ function HashRedirect({ to }: { to: string }) {
   const [, setLocation] = useLocation();
   useEffect(() => {
     const [path, hash] = to.split("#");
-    setLocation(path);
+    setLocation(path, { replace: true });
     if (hash) {
       requestAnimationFrame(() => {
-        window.location.hash = hash;
+        history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${hash}`);
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
       });
     }
   }, [to, setLocation]);
@@ -161,8 +160,8 @@ function StaffRouter() {
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
-      <BoundedRoute path="/compliance/timeline" component={ComplianceTimelinePage} fallbackTitle="Compliance timeline error" />
-      <BoundedRoute path="/compliance/checklist" component={ComplianceChecklist} fallbackTitle="Compliance checklist error" featureKey="compliance.checklist" />
+      <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
+      <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
       <BoundedRoute path="/state-reporting" component={StateReportingPage} fallbackTitle="State reporting error" featureKey="compliance.state_reporting" />

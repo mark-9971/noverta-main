@@ -16,6 +16,7 @@ import {
   buildOverdueEvaluationEmail,
   buildIncompleteTransitionEmail,
 } from "./email";
+import { generateComplianceAlerts } from "../routes/complianceChecklist";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -251,6 +252,15 @@ async function runDraftTransitionPlans(): Promise<void> {
   }
 }
 
+async function runComplianceAlertCheck(): Promise<void> {
+  try {
+    const result = await generateComplianceAlerts();
+    console.log(`[Reminders] Compliance alerts: ${result.created} created, ${result.checked} checked`);
+  } catch (err) {
+    console.error("[Reminders] Compliance alert check error:", err);
+  }
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -258,6 +268,7 @@ async function runAllReminders(): Promise<void> {
       runOverdueContactFollowups(),
       runOverdueEvaluations(),
       runDraftTransitionPlans(),
+      runComplianceAlertCheck(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {

@@ -110,8 +110,7 @@ const adminNav: NavSection[] = [
     icon: ListChecks,
     collapsible: true,
     items: [
-      { href: "/compliance/checklist", label: "Compliance Checklist", icon: ListChecks, featureKey: "compliance.checklist" as FeatureKey },
-      { href: "/compliance", label: "Service Minutes", icon: Timer, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Gift, featureKey: "compliance.compensatory" as FeatureKey },
       { href: "/state-reporting", label: "State Reports", icon: FileText, featureKey: "compliance.state_reporting" as FeatureKey },
       { href: "/attendance", label: "Attendance", icon: ClipboardCheck, comingSoon: true, featureKey: "compliance.attendance" as FeatureKey },

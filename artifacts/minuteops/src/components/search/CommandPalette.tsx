@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Calendar, Clipboard, Timer, Activity,
   ClipboardList, Shield, Gauge, Building2, BarChart3,
   PieChart, CalendarDays, Sparkles, Upload, Star, Clock,
-  BookOpen, ArrowRight, Loader2,
+  BookOpen, ArrowRight, Loader2, ListChecks,
 } from "lucide-react";
 
 // ─── Navigation shortcuts per role ───────────────────────────────────────────
@@ -20,7 +20,7 @@ const adminShortcuts: NavShortcut[] = [
   { label: "Alerts", href: "/alerts", icon: AlertTriangle, subtitle: "Unresolved alerts" },
   { label: "Students", href: "/students", icon: Users, subtitle: "Active caseload" },
   { label: "IEP Calendar", href: "/iep-calendar", icon: CalendarDays, subtitle: "Upcoming deadlines" },
-  { label: "Service Minutes", href: "/compliance", icon: Timer, subtitle: "Compliance tracking" },
+  { label: "Compliance", href: "/compliance", icon: ListChecks, subtitle: "Service minutes, checklists & timeline" },
   { label: "Schedule", href: "/schedule", icon: Calendar, subtitle: "Service delivery schedule" },
   { label: "Session Log", href: "/sessions", icon: Clipboard, subtitle: "Session records" },
   { label: "Programs & Behaviors", href: "/program-data", icon: Activity, subtitle: "ABA & clinical data" },
@@ -41,7 +41,7 @@ const teacherShortcuts: NavShortcut[] = [
   { label: "Alerts", href: "/alerts", icon: AlertTriangle, subtitle: "Unresolved alerts" },
   { label: "My Students", href: "/students", icon: Users, subtitle: "My caseload" },
   { label: "Schedule", href: "/schedule", icon: Calendar, subtitle: "Today's sessions" },
-  { label: "Service Minutes", href: "/compliance", icon: Timer, subtitle: "Compliance tracking" },
+  { label: "Compliance", href: "/compliance", icon: ListChecks, subtitle: "Service minutes & checklists" },
   { label: "Session Log", href: "/sessions", icon: Clipboard, subtitle: "Log & review sessions" },
   { label: "Programs & Behaviors", href: "/program-data", icon: Activity, subtitle: "Clinical data entry" },
   { label: "IEP Calendar", href: "/iep-calendar", icon: CalendarDays, subtitle: "Upcoming IEP dates" },

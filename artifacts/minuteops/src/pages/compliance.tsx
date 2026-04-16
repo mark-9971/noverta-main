@@ -1,30 +1,82 @@
-import { useListMinuteProgress, useGetComplianceByService, useGetDashboardRiskOverview } from "@workspace/api-client-react";
+import { useState, useEffect, useMemo } from "react";
+import { useListMinuteProgress, useGetComplianceByService } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, Timer, ListChecks, Calendar } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
+import { ProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
 import { RISK_CONFIG } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
+import { FeatureGate } from "@/components/FeatureGate";
+import ComplianceChecklist from "./compliance-checklist";
+import ComplianceTimelinePage from "./compliance-timeline";
 
-export default function Compliance() {
+const TABS = [
+  { key: "minutes", label: "Service Minutes", icon: Timer },
+  { key: "checklist", label: "Checklist", icon: ListChecks },
+  { key: "timeline", label: "Timeline", icon: Calendar },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+function resolveTab(hash: string): TabKey {
+  const key = hash.replace(/^#/, "");
+  return TABS.some(t => t.key === key) ? (key as TabKey) : "minutes";
+}
+
+function useHashTab(): [TabKey, (tab: TabKey) => void] {
+  const initialHash = typeof window !== "undefined" ? window.location.hash : "";
+  const [tab, setTabState] = useState<TabKey>(resolveTab(initialHash));
+
+  useEffect(() => {
+    function onHashChange() {
+      setTabState(resolveTab(window.location.hash));
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  function setTab(key: TabKey) {
+    setTabState(key);
+    if (key === "minutes") {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    } else {
+      window.location.hash = key;
+    }
+  }
+
+  return [tab, setTab];
+}
+
+function ServiceMinutesContent() {
   const { typedFilter } = useSchoolContext();
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const { data: progress, isLoading, isError, refetch } = useListMinuteProgress(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
-  const { data: riskOverview } = useGetDashboardRiskOverview(typedFilter);
 
   const progressList = (progress as any[]) ?? [];
-  const serviceData = (complianceByService as any[]) ?? [];
-  const ro = riskOverview as any;
-
   const totalReqs = progressList.length;
-  const onTrackCount = progressList.filter(p => p.riskStatus === "on_track" || p.riskStatus === "completed").length;
-  const onTrackPct = totalReqs > 0 ? Math.round((onTrackCount / totalReqs) * 100) : 0;
+
+  const { studentsOnTrack, totalStudents } = useMemo(() => {
+    const byStudent = new Map<number, boolean>();
+    for (const p of progressList) {
+      const sid = p.studentId as number;
+      const isOnTrack = p.riskStatus === "on_track" || p.riskStatus === "completed";
+      if (!byStudent.has(sid)) {
+        byStudent.set(sid, isOnTrack);
+      } else if (!isOnTrack) {
+        byStudent.set(sid, false);
+      }
+    }
+    let onTrack = 0;
+    for (const v of byStudent.values()) if (v) onTrack++;
+    return { studentsOnTrack: onTrack, totalStudents: byStudent.size };
+  }, [progressList]);
+
+  const onTrackPct = totalStudents > 0 ? Math.round((studentsOnTrack / totalStudents) * 100) : 0;
 
   const filtered = progressList.filter(p =>
     riskFilter === "all" || p.riskStatus === riskFilter
@@ -38,6 +90,7 @@ export default function Compliance() {
     return acc;
   }, {} as Record<string, number>);
 
+  const serviceData = (complianceByService as any[]) ?? [];
   const chartData = serviceData.map(d => ({
     name: d.serviceTypeName?.split(" ").slice(0, 2).join(" "),
     "On Track": d.onTrack,
@@ -46,20 +99,7 @@ export default function Compliance() {
   }));
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
-      <div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Compliance & Risk</h1>
-            <p className="text-xs md:text-sm text-gray-400 mt-1">IEP minute delivery compliance for current school year</p>
-          </div>
-          <Link href="/compliance/timeline" className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            IEP Compliance Timeline
-          </Link>
-        </div>
-      </div>
-
+    <div className="space-y-4 md:space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-3">
           <CardContent className="flex flex-col items-center py-6">
@@ -68,7 +108,7 @@ export default function Compliance() {
               size={130}
               strokeWidth={12}
               label={`${onTrackPct}%`}
-              sublabel="On Track"
+              sublabel={`${studentsOnTrack} of ${totalStudents} students on track`}
               color={onTrackPct >= 70 ? "#10b981" : onTrackPct >= 40 ? "#f59e0b" : "#ef4444"}
             />
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-5 w-full">
@@ -235,6 +275,44 @@ export default function Compliance() {
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+export default function CompliancePage() {
+  const [activeTab, setTab] = useHashTab();
+
+  return (
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <div className="mb-5">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Compliance & Risk</h1>
+        <p className="text-xs md:text-sm text-gray-400 mt-1">IEP compliance, service minutes, and deadline tracking</p>
+      </div>
+
+      <div className="flex items-center gap-1 border-b border-gray-200 mb-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium border-b-2 transition-all whitespace-nowrap ${
+              activeTab === t.key
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <t.icon className="w-3.5 h-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "minutes" && <ServiceMinutesContent />}
+      {activeTab === "checklist" && (
+        <FeatureGate featureKey={"compliance.checklist" as any}>
+          <ComplianceChecklist embedded />
+        </FeatureGate>
+      )}
+      {activeTab === "timeline" && <ComplianceTimelinePage embedded />}
     </div>
   );
 }

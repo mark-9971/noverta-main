@@ -82,7 +82,7 @@ function NeedsAttentionPanel() {
 
   const items = [
     { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", critical: true },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", critical: false },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance#timeline", critical: false },
     { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", critical: false },
     { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", critical: false },
   ].filter(i => i.count > 0);
@@ -547,7 +547,7 @@ export default function Dashboard() {
           <Card className="border-gray-200/60">
             <CardHeader className="pb-0 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-600">Next {deadlines.length} deadlines</CardTitle>
-              <Link href="/compliance/timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
+              <Link href="/compliance#timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

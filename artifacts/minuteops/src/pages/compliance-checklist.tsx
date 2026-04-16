@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronRight,
-  RefreshCw, Play, FileText, Users, BookOpen, Bell, ClipboardCheck,
+  RefreshCw, FileText, Users, BookOpen, Bell, ClipboardCheck,
   Filter,
 } from "lucide-react";
 
@@ -185,7 +185,7 @@ function ChecklistRow({ checklist, defaultExpanded }: { checklist: StudentCheckl
   );
 }
 
-export default function ComplianceChecklist() {
+export default function ComplianceChecklist({ embedded }: { embedded?: boolean }) {
   const { typedFilter } = useSchoolContext();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<"all" | "critical" | "warning" | "ok">("all");
@@ -236,17 +236,42 @@ export default function ComplianceChecklist() {
   const totalWarning = checklists.reduce((s, c) => s + c.warningCount, 0);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-5">
+    <div className={embedded ? "space-y-5" : "p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-5"}>
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Compliance Checklist</h1>
-          <p className="text-xs text-gray-400 mt-1">
-            IEP updates · progress reports · parent meetings · accommodations · goals
-          </p>
+      {!embedded && (
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Compliance Checklist</h1>
+            <p className="text-xs text-gray-400 mt-1">
+              IEP updates · progress reports · parent meetings · accommodations · goals
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="text-[12px] gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              onClick={runAlerts}
+              disabled={runningAlerts}
+              className="text-[12px] gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${runningAlerts ? "animate-spin" : ""}`} />
+              {runningAlerts ? "Running…" : "Refresh Alerts"}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+      )}
+
+      {embedded && (
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -263,11 +288,11 @@ export default function ComplianceChecklist() {
             disabled={runningAlerts}
             className="text-[12px] gap-1.5 bg-emerald-600 hover:bg-emerald-700"
           >
-            <Play className={`w-3.5 h-3.5 ${runningAlerts ? "animate-pulse" : ""}`} />
-            {runningAlerts ? "Running…" : "Generate Alerts"}
+            <RefreshCw className={`w-3.5 h-3.5 ${runningAlerts ? "animate-spin" : ""}`} />
+            {runningAlerts ? "Running…" : "Refresh Alerts"}
           </Button>
         </div>
-      </div>
+      )}
 
       {alertResult && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[13px] text-emerald-800">
@@ -318,7 +343,7 @@ export default function ComplianceChecklist() {
               <span className="text-amber-600 font-semibold">{totalWarning} warning{totalWarning === 1 ? "" : "s"}</span>
             )}
             {" "}across {checklists.length} student{checklists.length === 1 ? "" : "s"}.
-            {" "}Use <span className="font-semibold">Generate Alerts</span> to push issues to the Alerts center.
+            {" "}Use <span className="font-semibold">Refresh Alerts</span> to push issues to the Alerts center.
           </span>
         </div>
       )}

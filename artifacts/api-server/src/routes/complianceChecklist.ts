@@ -423,9 +423,7 @@ router.get("/compliance/checklist", requireRoles(...PRIVILEGED_ROLES), async (re
   }
 });
 
-// ── Generate IEP/Progress Report/Meeting Alerts ─────────────────────────────
-router.post("/compliance/checklist/run-alerts", requireRoles("admin", "case_manager"), async (req: Request, res: Response) => {
-  try {
+export async function generateComplianceAlerts(): Promise<{ created: number; checked: number }> {
     const today = TODAY();
     const alerts: Array<{
       type: string; severity: string; studentId: number; message: string; suggestedAction?: string;
@@ -621,7 +619,13 @@ router.post("/compliance/checklist/run-alerts", requireRoles("admin", "case_mana
       created++;
     }
 
-    res.json({ created, checked: alerts.length });
+    return { created, checked: alerts.length };
+}
+
+router.post("/compliance/checklist/run-alerts", requireRoles("admin", "case_manager"), async (req: Request, res: Response) => {
+  try {
+    const result = await generateComplianceAlerts();
+    res.json(result);
   } catch (e: any) {
     console.error("POST /compliance/checklist/run-alerts error:", e);
     res.status(500).json({ error: "Failed to run compliance alerts" });

@@ -116,7 +116,7 @@ function ResolveDialog({
   );
 }
 
-export default function ComplianceTimelinePage() {
+export default function ComplianceTimelinePage({ embedded }: { embedded?: boolean }) {
   const search = useSearch();
   const initialFilter = new URLSearchParams(search).get("filter") ?? "all";
   const [events, setEvents] = useState<ComplianceEvent[]>([]);
@@ -187,7 +187,7 @@ export default function ComplianceTimelinePage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
+    <div className={embedded ? "space-y-5" : "p-4 md:p-6 space-y-5"}>
       {resolveTarget && (
         <ResolveDialog
           event={resolveTarget}
@@ -196,14 +196,19 @@ export default function ComplianceTimelinePage() {
         />
       )}
 
-      <div className="flex items-center gap-3">
-        <Link href="/compliance" className="text-emerald-700 hover:text-emerald-900">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compliance Timeline</h1>
-          <p className="text-xs md:text-sm text-gray-400">IEP annual reviews, reevaluations, and deadline tracking (IDEA-compliant)</p>
+      {!embedded && (
+        <div className="flex items-center gap-3">
+          <Link href="/compliance" className="text-emerald-700 hover:text-emerald-900">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compliance Timeline</h1>
+            <p className="text-xs md:text-sm text-gray-400">IEP annual reviews, reevaluations, and deadline tracking (IDEA-compliant)</p>
+          </div>
         </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
         {schoolYears.length > 0 && (
           <Select value={selectedYearId} onValueChange={setSelectedYearId}>
             <SelectTrigger className="h-8 text-[12px] bg-white w-[120px]">
