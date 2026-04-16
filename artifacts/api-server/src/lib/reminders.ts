@@ -14,6 +14,7 @@ import {
 import { eq, and, lt, ne, sql, isNull, or, lte } from "drizzle-orm";
 import {
   sendEmail,
+  sendReportEmail,
   buildOverdueFollowupEmail,
   buildOverdueEvaluationEmail,
   buildIncompleteTransitionEmail,
@@ -300,6 +301,16 @@ async function runScheduledReports(): Promise<void> {
       }
 
       const rowCount = result.rowCount;
+      const fileName = `Scheduled_${label.replace(/\s+/g, "_")}_${today}.csv`;
+
+      const emailResult = await sendReportEmail({
+        toEmails: schedule.recipientEmails ?? [],
+        reportLabel: label,
+        frequency: schedule.frequency,
+        recordCount: rowCount,
+        csvContent: result.csv,
+        fileName,
+      });
 
       await db.insert(exportHistoryTable).values({
         reportType,
@@ -307,9 +318,9 @@ async function runScheduledReports(): Promise<void> {
         exportedBy: schedule.createdBy,
         districtId: schedule.districtId,
         format: "csv",
-        fileName: `Scheduled_${label.replace(/\s+/g, "_")}_${today}.csv`,
+        fileName,
         recordCount: rowCount,
-        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency } as any,
+        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency, emailSent: emailResult.success, emailError: emailResult.error ?? null },
       });
 
       let nextRunAt: Date;

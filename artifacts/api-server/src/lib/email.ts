@@ -2,6 +2,62 @@ import { db, communicationEventsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 
+export interface SendReportEmailParams {
+  toEmails: string[];
+  reportLabel: string;
+  frequency: string;
+  recordCount: number;
+  csvContent: string;
+  fileName: string;
+}
+
+export async function sendReportEmail(params: SendReportEmailParams): Promise<{ success: boolean; error?: string }> {
+  const { toEmails, reportLabel, frequency, recordCount, csvContent, fileName } = params;
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(`[ScheduledReports] Email not configured — would send ${reportLabel} to ${toEmails.join(", ")}`);
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const subject = `Trellis Scheduled Report: ${reportLabel} — ${dateStr}`;
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+<div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+<h2 style="margin:0;font-size:18px">Trellis — ${reportLabel}</h2>
+</div>
+<div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+<p>Your scheduled ${frequency} <strong>${reportLabel}</strong> report has been generated.</p>
+<ul style="color:#374151">
+<li><strong>Records:</strong> ${recordCount}</li>
+<li><strong>Generated:</strong> ${dateStr}</li>
+<li><strong>Format:</strong> CSV</li>
+</ul>
+<p style="color:#6b7280;font-size:13px">The report is attached as a CSV file. Log in to Trellis to generate PDF versions or view export history.</p>
+</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+</div>`;
+
+  try {
+    const csvBuffer = Buffer.from(csvContent, "utf-8");
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmails,
+      subject,
+      html,
+      attachments: [{ filename: fileName, content: csvBuffer }],
+    });
+    if (result.error) {
+      console.error(`[ScheduledReports] Email send failed:`, result.error);
+      return { success: false, error: result.error.message };
+    }
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[ScheduledReports] Email send error:`, msg);
+    return { success: false, error: msg };
+  }
+}
+
 export type EmailType =
   | "incident_parent_notification"
   | "written_report"

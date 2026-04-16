@@ -846,7 +846,7 @@ function recordExport(req: Request, opts: { reportType: string; reportLabel: str
     format: opts.format,
     fileName: opts.fileName,
     recordCount: opts.recordCount,
-    parameters: opts.parameters as any,
+    parameters: opts.parameters ?? null,
   }).catch(e => console.error("Failed to record export history:", e));
 }
 
