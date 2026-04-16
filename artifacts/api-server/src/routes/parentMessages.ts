@@ -3,6 +3,7 @@ import { db, parentMessagesTable, messageTemplatesTable, conferenceRequestsTable
 import { eq, and, desc, or, isNull, sql } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { logAudit } from "../lib/auditLog";
+import { sendEmail } from "../lib/email";
 import { requireGuardianScope } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getEnforcedDistrictId } from "../middlewares/auth";
@@ -175,6 +176,22 @@ router.post("/students/:studentId/messages", async (req: Request, res: Response)
       newValues: { guardianId, subject, category },
     });
 
+    const [guardianRow] = await db.select({ email: guardiansTable.email, name: guardiansTable.name })
+      .from(guardiansTable).where(eq(guardiansTable.id, gId));
+    if (guardianRow?.email) {
+      sendEmail({
+        studentId,
+        type: "general",
+        subject: `New Message: ${subject}`,
+        bodyHtml: `<p>You have a new message in the Trellis Parent Portal.</p><p><strong>Subject:</strong> ${subject}</p><p>${body.replace(/\n/g, "<br>")}</p><p>Log in to the portal to reply.</p>`,
+        bodyText: `You have a new message: ${subject}\n\n${body}\n\nLog in to the Trellis Parent Portal to reply.`,
+        toEmail: guardianRow.email,
+        toName: guardianRow.name,
+        guardianId: gId,
+        staffId,
+      }).catch(err => console.error("Email notification failed (non-blocking):", err));
+    }
+
     res.status(201).json({ ...message, createdAt: message.createdAt.toISOString(), updatedAt: message.updatedAt.toISOString() });
   } catch (err) {
     console.error("POST /students/:studentId/messages error:", err);
@@ -252,6 +269,24 @@ router.post("/students/:studentId/conference-requests", async (req: Request, res
       summary: `Created conference request: ${title}`,
       newValues: { guardianId, title, proposedTimes },
     });
+
+    if (guardian?.name) {
+      const [guardianForEmail] = await db.select({ email: guardiansTable.email })
+        .from(guardiansTable).where(eq(guardiansTable.id, gId));
+      if (guardianForEmail?.email) {
+        sendEmail({
+          studentId,
+          type: "general",
+          subject: `Conference Request: ${title}`,
+          bodyHtml: `<p>You have a new conference request in the Trellis Parent Portal.</p><p>${msgBody.replace(/\n/g, "<br>")}</p><p>Log in to the portal to respond.</p>`,
+          bodyText: `Conference Request: ${title}\n\n${msgBody}\n\nLog in to the Trellis Parent Portal to respond.`,
+          toEmail: guardianForEmail.email,
+          toName: guardian.name,
+          guardianId: gId,
+          staffId,
+        }).catch(err => console.error("Conference email notification failed (non-blocking):", err));
+      }
+    }
 
     res.status(201).json({ conference: { ...conf, createdAt: conf.createdAt.toISOString(), updatedAt: conf.updatedAt.toISOString() }, message: { ...message, createdAt: message.createdAt.toISOString() } });
   } catch (err) {
