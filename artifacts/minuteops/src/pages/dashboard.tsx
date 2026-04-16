@@ -81,10 +81,10 @@ function NeedsAttentionPanel() {
   if (!data || data.total === 0) return null;
 
   const items = [
-    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50", critical: true },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50", critical: false },
-    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50", critical: false },
-    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-amber-700", bg: "bg-amber-50", critical: false },
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", critical: true },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", critical: false },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", critical: false },
+    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", critical: false },
   ].filter(i => i.count > 0);
 
   return (
@@ -99,7 +99,7 @@ function NeedsAttentionPanel() {
           <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
             {items.map(item => (
               <Link key={item.label} href={item.href}>
-                <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.bg} ${item.color}`}>
+                <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${item.critical ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
                   <span className="font-bold">{item.count}</span> {item.label}
                 </span>
               </Link>
