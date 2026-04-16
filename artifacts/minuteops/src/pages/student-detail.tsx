@@ -13,6 +13,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import StudentDocuments from "@/components/student-documents";
+import StudentSnapshot from "@/components/student-snapshot";
 import { StudentGuardians } from "@/components/student-guardians";
 import StudentMessages from "@/components/student-messages";
 import { useRole } from "@/lib/role-context";
@@ -450,6 +451,7 @@ export default function StudentDetail() {
   const isEditable = role === "admin" || role === "case_manager";
 
   const SECTION_NAV = [
+    { id: "snapshot", label: "Snapshot" },
     { id: "overview", label: "Overview" },
     { id: "goals", label: "Goals" },
     { id: "services", label: "Services" },
@@ -460,7 +462,7 @@ export default function StudentDetail() {
     { id: "enrollment", label: "Enrollment" },
   ] as const;
 
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState("snapshot");
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isClickScrolling = useRef(false);
 
@@ -882,6 +884,10 @@ export default function StudentDetail() {
           </CardContent>
         </Card>
       )}
+
+      <div id="snapshot" ref={setSectionRef("snapshot")} className="scroll-mt-16">
+        <StudentSnapshot studentId={studentId} />
+      </div>
 
       <div id="overview" ref={setSectionRef("overview")} className="scroll-mt-16 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
