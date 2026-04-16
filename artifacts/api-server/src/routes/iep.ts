@@ -12,6 +12,8 @@ import type { ServiceDeliveryBreakdown } from "@workspace/db";
 import { eq, desc, and, sql, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
+import { createAutoVersion } from "../lib/documentVersioning";
+import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -572,15 +574,31 @@ router.patch("/progress-reports/:id", async (req, res): Promise<void> => {
     const [oldReport] = await db.select().from(progressReportsTable).where(eq(progressReportsTable.id, id));
     const [updated] = await db.update(progressReportsTable).set(updates).where(eq(progressReportsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    const oldVals = oldReport ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldReport as Record<string, unknown>)[k]]))) : null;
     logAudit(req, {
       action: "update",
       targetTable: "progress_reports",
       targetId: id,
       studentId: updated.studentId,
       summary: `Updated progress report #${id}`,
-      oldValues: oldReport ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldReport as Record<string, unknown>)[k]]))) : null,
+      oldValues: oldVals,
       newValues: updates as Record<string, unknown>,
     });
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+    if (districtId) {
+      createAutoVersion({
+        documentType: "progress_report",
+        documentId: id,
+        studentId: updated.studentId,
+        districtId,
+        authorUserId: authed.userId || "system",
+        authorName: authed.displayName || "System",
+        title: `Progress Report #${id} updated`,
+        oldValues: oldVals,
+        newValues: updates as Record<string, unknown>,
+      });
+    }
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update progress report" });
@@ -1063,15 +1081,31 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
     const [oldDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     const [updated] = await db.update(iepDocumentsTable).set(updates).where(eq(iepDocumentsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    const oldVals = oldDoc ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldDoc as Record<string, unknown>)[k]]))) : null;
     logAudit(req, {
       action: "update",
       targetTable: "iep_documents",
       targetId: id,
       studentId: updated.studentId,
       summary: `Updated IEP document #${id}`,
-      oldValues: oldDoc ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldDoc as Record<string, unknown>)[k]]))) : null,
+      oldValues: oldVals,
       newValues: updates as Record<string, unknown>,
     });
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+    if (districtId) {
+      createAutoVersion({
+        documentType: "iep",
+        documentId: id,
+        studentId: updated.studentId,
+        districtId,
+        authorUserId: authed.userId || "system",
+        authorName: authed.displayName || "System",
+        title: `IEP Document #${id} updated`,
+        oldValues: oldVals,
+        newValues: updates as Record<string, unknown>,
+      });
+    }
     res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to update IEP document" });

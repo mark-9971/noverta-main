@@ -720,7 +720,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
     evaluationInfo: `Current IEP goals:\n${goalsText}`,
     otherFactors: `Parent input was considered throughout the process.\n\nTeam composition:\n${teamMembersText}`,
     issuedDate: today,
-    issuedBy: parseInt(user.userId, 10) || null,
+    issuedBy: (req as AuthedRequest).tenantStaffId || null,
     parentResponseDueDate: responseDue,
     status: "draft",
   }).returning();
