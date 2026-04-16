@@ -94,6 +94,7 @@ export default function Sessions() {
   const [markMissedNotes, setMarkMissedNotes] = useState("");
   const [markMissedSaving, setMarkMissedSaving] = useState(false);
   const [logMakeupFor, setLogMakeupFor] = useState<{ id: number; studentId: number; studentName: string; serviceRequirementId: number | null; sessionDate: string } | null>(null);
+  const [showReview, setShowReview] = useState(false);
 
   const { typedFilter } = useSchoolContext();
 
@@ -263,6 +264,7 @@ export default function Sessions() {
       setForm(INITIAL_FORM);
       setGoalEntries([]);
       setLogMakeupFor(null);
+      setShowReview(false);
       toast.success(logMakeupFor ? `Makeup session logged for ${logMakeupFor.studentName}` : "Session logged successfully");
       refetch();
     } catch (e) {
@@ -687,12 +689,10 @@ export default function Sessions() {
         <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             size="sm"
-            variant="outline"
-            className="text-[13px] border-emerald-200 text-emerald-700 hover:bg-emerald-50 flex"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px]"
             onClick={() => setQuickLogOpen(true)}
           >
-            <Zap className="w-3.5 h-3.5 mr-1.5" />
-            <span className="hidden sm:inline">Quick </span>Log
+            <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
           </Button>
           <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
             <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
@@ -1066,7 +1066,7 @@ export default function Sessions() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setLogMakeupFor(null); setForm(INITIAL_FORM); setGoalEntries([]); } }}>
+      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setLogMakeupFor(null); setForm(INITIAL_FORM); setGoalEntries([]); setShowReview(false); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg">{logMakeupFor ? `Log Makeup Session — ${logMakeupFor.studentName}` : "Log Session"}</DialogTitle>
@@ -1077,7 +1077,7 @@ export default function Sessions() {
               Making up missed session from {formatDate(logMakeupFor.sessionDate)} — will be automatically linked.
             </div>
           )}
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ display: showReview ? "none" : undefined }}>
             {form.studentId && <EmergencyAlertInline studentId={Number(form.studentId)} />}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -1379,11 +1379,60 @@ export default function Sessions() {
               </div>
             )}
           </div>
+          {showReview && (
+            <div className="border-t border-emerald-200 pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-semibold text-gray-800">Review Before Saving</h3>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                {(() => {
+                  const student = studentList.find((s: any) => String(s.id) === form.studentId);
+                  const selectedReq = reqList.find((r: any) => String(r.id) === form.serviceRequirementId);
+                  const staff = staffAllList.find((s: any) => String(s.id) === form.staffId);
+                  const selectedGoalCount = goalEntries.filter(g => g.selected).length;
+                  return (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[13px]">
+                      <div><span className="text-gray-500">Student</span><p className="font-medium text-gray-800">{student ? `${student.firstName} ${student.lastName}` : "—"}</p></div>
+                      <div><span className="text-gray-500">Service</span><p className="font-medium text-gray-800">{selectedReq?.serviceTypeName || "None"}</p></div>
+                      <div><span className="text-gray-500">Date</span><p className="font-medium text-gray-800">{formatDate(form.sessionDate)}</p></div>
+                      <div><span className="text-gray-500">Duration</span><p className="font-medium text-gray-800">{form.durationMinutes} min</p></div>
+                      <div><span className="text-gray-500">Status</span><p className="font-medium text-gray-800 capitalize">{form.status}{form.isMakeup ? " (Makeup)" : ""}</p></div>
+                      <div><span className="text-gray-500">Provider</span><p className="font-medium text-gray-800">{staff ? `${staff.firstName} ${staff.lastName}` : "—"}</p></div>
+                      {selectedGoalCount > 0 && (
+                        <div className="col-span-2"><span className="text-gray-500">IEP Goals</span><p className="font-medium text-gray-800">{selectedGoalCount} goal{selectedGoalCount !== 1 ? "s" : ""} linked</p></div>
+                      )}
+                      {form.notes && (
+                        <div className="col-span-2"><span className="text-gray-500">Notes</span><p className="font-medium text-gray-800 line-clamp-2">{form.notes}</p></div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" disabled={!form.studentId || !form.sessionDate || !form.durationMinutes || submitting} onClick={handleSubmit}>
-              {submitting ? "Saving..." : "Log Session"}
-            </Button>
+            {showReview ? (
+              <>
+                <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowReview(false)}>Go Back</Button>
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" disabled={submitting} onClick={handleSubmit}>
+                  {submitting ? "Saving..." : "Confirm & Save"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" className="text-[12px]" onClick={() => setShowAddModal(false)}>Cancel</Button>
+                <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px]" disabled={!form.studentId || !form.sessionDate || !form.durationMinutes} onClick={() => {
+                  if (!form.studentId) { toast.error("Please select a student"); return; }
+                  if (!form.sessionDate) { toast.error("Please enter a session date"); return; }
+                  const dur = Number(form.durationMinutes);
+                  if (!dur || dur <= 0 || dur > 480) { toast.error("Duration must be between 1 and 480 minutes"); return; }
+                  setShowReview(true);
+                }}>
+                  Review
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
