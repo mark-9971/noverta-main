@@ -693,15 +693,15 @@ router.post("/compensatory-finance/rates", async (req, res): Promise<void> => {
   const [config] = await db.insert(serviceRateConfigsTable).values({
     districtId,
     serviceTypeId,
-    inHouseRate: inHouseRate ? String(inHouseRate) : null,
-    contractedRate: contractedRate ? String(contractedRate) : null,
+    inHouseRate: inHouseRate != null ? String(inHouseRate) : null,
+    contractedRate: contractedRate != null ? String(contractedRate) : null,
     effectiveDate,
     notes: notes || null,
   }).onConflictDoUpdate({
     target: [serviceRateConfigsTable.districtId, serviceRateConfigsTable.serviceTypeId, serviceRateConfigsTable.effectiveDate],
     set: {
-      inHouseRate: inHouseRate ? String(inHouseRate) : null,
-      contractedRate: contractedRate ? String(contractedRate) : null,
+      inHouseRate: inHouseRate != null ? String(inHouseRate) : null,
+      contractedRate: contractedRate != null ? String(contractedRate) : null,
       notes: notes || null,
     },
   }).returning();

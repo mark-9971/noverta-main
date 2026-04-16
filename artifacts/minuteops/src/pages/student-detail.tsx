@@ -126,6 +126,7 @@ export default function StudentDetail() {
   const [dataLoading, setDataLoading] = useState(true);
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
   const [compSummary, setCompSummary] = useState<any>(null);
+  const [compFinancial, setCompFinancial] = useState<{ exposure: number; totalOwed: number } | null>(null);
   const [goalProgress, setGoalProgress] = useState<any[]>([]);
   const [reEvalStatus, setReEvalStatus] = useState<{ hasEligibility: boolean; reEvalStatus: { nextReEvalDate: string | null; daysUntilReEval: number | null; urgency: string; primaryDisability: string | null; reEvalCycleMonths: number } | null } | null>(null);
   const [transitionData, setTransitionData] = useState<{ isTransitionAge: boolean; age: number | null; plans: { id: number; planDate: string; status: string; goals?: { id: number; domain: string; goalStatement: string; status: string }[]; agencyReferrals?: { id: number; agencyName: string; status: string }[] }[] } | null>(null);
@@ -575,11 +576,11 @@ export default function StudentDetail() {
       setDataSessions(ds);
       setProtectiveData(pm as any);
       setMinutesTrend(mt);
-      const finData = Array.isArray(finStudents) ? finStudents.find((s: any) => s.studentId === studentId) : null;
-      if (cs && finData) {
-        cs._financialExposure = finData.remainingDollars || 0;
-        cs._totalDollarsOwed = finData.totalDollarsOwed || 0;
-        cs._rateAware = true;
+      if (cs && Array.isArray(finStudents)) {
+        const match = finStudents.find((s: { studentId: number; remainingDollars?: number; totalDollarsOwed?: number }) => s.studentId === studentId);
+        if (match) {
+          setCompFinancial({ exposure: match.remainingDollars ?? 0, totalOwed: match.totalDollarsOwed ?? 0 });
+        }
       }
       setCompSummary(cs);
       setPhaseChangesByTarget(pcs as any);
@@ -1331,14 +1332,14 @@ export default function StudentDetail() {
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
                   <p className="text-sm font-bold text-amber-900">
-                    ${(compSummary._rateAware
-                      ? compSummary._financialExposure
+                    ${(compFinancial
+                      ? compFinancial.exposure
                       : (compSummary.totalRemaining / 60) * 75
                     ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </p>
                 </div>
                 <p className="text-[10px] text-amber-600 mt-0.5">
-                  {compSummary._rateAware ? "Based on configured district rates" : "Based on default rate · See Financial View for configured rates"}
+                  {compFinancial ? "Based on configured district rates" : "Based on default rate · See Financial View for configured rates"}
                 </p>
               </div>
             )}
