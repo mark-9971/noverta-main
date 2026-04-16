@@ -203,6 +203,8 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
         targetCriterion: goal.targetCriterion,
         measurementMethod: goal.measurementMethod,
         status: goal.status,
+        programTargetId: goal.programTargetId,
+        behaviorTargetId: goal.behaviorTargetId,
         linkedTarget: pt
           ? { type: "program" as const, name: pt.name, masteryCriterionPercent: pt.masteryCriterionPercent }
           : bt

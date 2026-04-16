@@ -91,6 +91,7 @@ export default function StudentDetail() {
 
   const [behaviorPhaseLines, setBehaviorPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
   const [programPhaseLines, setProgramPhaseLines] = useState<Record<number, { id: string; date: string; label: string; color?: string }[]>>({});
+  const [goalAbaView, setGoalAbaView] = useState<Record<number, boolean>>({});
   const [minutesExpanded, setMinutesExpanded] = useState(false);
   const [minutesTrend, setMinutesTrend] = useState<any[]>([]);
   const [minutesPhaseLines, setMinutesPhaseLines] = useState<{ id: string; date: string; label: string; color?: string }[]>([]);
@@ -529,6 +530,12 @@ export default function StudentDetail() {
   const totalRequired = progressList.reduce((sum: number, p: any) => sum + (p.requiredMinutes ?? 0), 0);
   const overallPct = totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 100) : 0;
 
+  const iepLinkedBehaviorIds = new Set(goalProgress.filter((g: any) => g.behaviorTargetId).map((g: any) => g.behaviorTargetId));
+  const iepLinkedProgramIds = new Set(goalProgress.filter((g: any) => g.programTargetId).map((g: any) => g.programTargetId));
+  const nonIepBehaviorTargets = behaviorTargets.filter((bt: any) => !iepLinkedBehaviorIds.has(bt.id));
+  const nonIepProgramTargets = programTargets.filter((pt: any) => !iepLinkedProgramIds.has(pt.id));
+  const hasNonIepData = nonIepBehaviorTargets.length > 0 || nonIepProgramTargets.length > 0;
+
   const priorityOrder = ["out_of_compliance", "at_risk", "slightly_behind", "on_track", "completed"];
   let worstRisk = "on_track";
   for (const p of progressList) {
@@ -921,16 +928,66 @@ export default function StudentDetail() {
                       {g.goal_value !== null && <span>Target: {g.measurementType === "program" ? `${g.goal_value}%` : g.goal_value}</span>}
                     </div>
                     {g.dataPoints.length > 1 && (
-                      <InteractiveChart
-                        data={g.dataPoints}
-                        color={g.progressRating === "mastered" ? "#10b981" : g.progressRating === "insufficient_progress" ? "#ef4444" : "#3b82f6"}
-                        gradientId={`goal-${g.id}`}
-                        yLabel={g.yLabel}
-                        baselineLine={g.baseline_value}
-                        goalLine={g.goal_value}
-                        targetDirection={g.targetDirection}
-                        valueFormatter={(v: number) => g.measurementType === "program" ? `${Math.round(v)}%` : String(Math.round(v * 10) / 10)}
-                      />
+                      <div>
+                        <div className="flex items-center justify-end mb-1">
+                          <button
+                            onClick={() => setGoalAbaView(prev => ({ ...prev, [`goal-${g.id}`]: !prev[`goal-${g.id}`] }))}
+                            className={`text-[10px] font-medium px-2 py-1 rounded-md transition-colors ${
+                              goalAbaView[`goal-${g.id}`]
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}
+                          >
+                            {goalAbaView[`goal-${g.id}`] ? "ABA View" : "Standard View"} — click to switch
+                          </button>
+                        </div>
+                        {goalAbaView[`goal-${g.id}`] && g.linkedTarget?.type === "behavior" ? (
+                          <AbaGraph
+                            target={behaviorTargets.find((bt: any) => bt.id === g.behaviorTargetId) || {
+                              id: g.behaviorTargetId,
+                              name: g.linkedTarget?.name || g.goalArea,
+                              measurementType: g.linkedTarget?.measurementType || "frequency",
+                              targetDirection: g.targetDirection,
+                              baselineValue: g.baseline_value != null ? String(g.baseline_value) : null,
+                              goalValue: g.goal_value != null ? String(g.goal_value) : null,
+                            }}
+                            data={behaviorTrends}
+                            phaseChanges={phaseChangesByTarget[g.behaviorTargetId] || []}
+                            onPhaseChangesUpdate={loadPhaseChanges}
+                          />
+                        ) : goalAbaView[`goal-${g.id}`] && g.linkedTarget?.type === "program" ? (
+                          <AbaGraph
+                            target={{
+                              id: g.programTargetId,
+                              name: g.linkedTarget?.name || g.goalArea,
+                              measurementType: "percentage",
+                              targetDirection: "increase",
+                              baselineValue: g.baseline_value != null ? String(g.baseline_value) : null,
+                              goalValue: g.goal_value != null ? String(g.goal_value) : null,
+                            }}
+                            data={programTrends.filter((d: any) => d.programTargetId === g.programTargetId).map((d: any) => ({
+                              ...d,
+                              behaviorTargetId: g.programTargetId,
+                              value: d.percentCorrect ?? "0",
+                              targetName: d.targetName,
+                              measurementType: "percentage",
+                            }))}
+                            phaseChanges={[]}
+                            onPhaseChangesUpdate={() => {}}
+                          />
+                        ) : (
+                          <InteractiveChart
+                            data={g.dataPoints}
+                            color={g.progressRating === "mastered" ? "#10b981" : g.progressRating === "insufficient_progress" ? "#ef4444" : "#3b82f6"}
+                            gradientId={`goal-${g.id}`}
+                            yLabel={g.yLabel}
+                            baselineLine={g.baseline_value}
+                            goalLine={g.goal_value}
+                            targetDirection={g.targetDirection}
+                            valueFormatter={(v: number) => g.measurementType === "program" ? `${Math.round(v)}%` : String(Math.round(v * 10) / 10)}
+                          />
+                        )}
+                      </div>
                     )}
                     {g.dataPoints.length === 1 && (
                       <div className="text-xs text-gray-400 italic">Only 1 data point collected — chart will appear after more data is recorded</div>
@@ -1177,23 +1234,25 @@ export default function StudentDetail() {
       )}
 
       <div id="clinical" ref={setSectionRef("clinical")} className="scroll-mt-16" />
-      {(behaviorTargets.length > 0 || dataLoading) && (
+      {(hasNonIepData || dataLoading) && (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-red-500" />
-                Behavior Data
+                <Activity className="w-4 h-4 text-emerald-600" />
+                Non-IEP Data Tracking
               </CardTitle>
-              <span className="text-xs text-gray-400">{behaviorTargets.length} active target{behaviorTargets.length !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-gray-400">
+                {nonIepBehaviorTargets.length + nonIepProgramTargets.length} target{(nonIepBehaviorTargets.length + nonIepProgramTargets.length) !== 1 ? "s" : ""} not linked to IEP goals
+              </span>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
             {dataLoading ? (
-              <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="w-full h-24" />)}</div>
+              <div className="space-y-3">{[...Array(2)].map((_, i) => <Skeleton key={i} className="w-full h-24" />)}</div>
             ) : (
               <div className="space-y-4">
-                {behaviorTargets.map((bt: any) => {
+                {nonIepBehaviorTargets.map((bt: any) => {
                   const trendData = getBehaviorTrendData(bt.id);
                   const latest = trendData[trendData.length - 1]?.value;
                   const baseline = parseFloat(bt.baselineValue) || 0;
@@ -1203,17 +1262,18 @@ export default function StudentDetail() {
                   const isGoodTrend = (bt.targetDirection === "decrease" && direction === "down") ||
                                        (bt.targetDirection === "increase" && direction === "up");
                   const trendColor = direction === "flat" ? "#9ca3af" : isGoodTrend ? dirColors.good : dirColors.bad;
-
                   const progressPct = bt.targetDirection === "decrease"
                     ? baseline > goal ? Math.round(((baseline - (latest ?? baseline)) / (baseline - goal)) * 100) : 0
                     : goal > baseline ? Math.round((((latest ?? baseline) - baseline) / (goal - baseline)) * 100) : 0;
                   const clampedPct = Math.max(0, Math.min(100, progressPct));
+                  const showAba = goalAbaView[`beh-${bt.id}`];
 
                   return (
-                    <div key={bt.id} className="border border-gray-100 rounded-xl p-4">
+                    <div key={`beh-${bt.id}`} className="border border-gray-100 rounded-xl p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">Behavior</span>
                             <p className="text-[13px] font-semibold text-gray-700">{bt.name}</p>
                             <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                               bt.targetDirection === "decrease" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
@@ -1236,7 +1296,7 @@ export default function StudentDetail() {
                           <p className="text-[10px] text-gray-400">latest</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 mb-2">
                         <div className="flex-1">
                           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
@@ -1246,77 +1306,47 @@ export default function StudentDetail() {
                           </div>
                           <p className="text-[10px] text-gray-400 mt-1">{clampedPct}% toward goal</p>
                         </div>
-                        {trendData.length > 1 && (
-                          <InteractiveChart
-                            data={trendData}
-                            color={trendColor}
-                            gradientId={`grad-beh-${bt.id}`}
-                            title={bt.name}
-                            yLabel={bt.measurementType}
-                            baselineLine={baseline}
-                            goalLine={goal}
-                            targetDirection={bt.targetDirection}
-                            phaseLines={behaviorPhaseLines[bt.id] || []}
-                            onPhaseLinesChange={(lines) => setBehaviorPhaseLines(prev => ({ ...prev, [bt.id]: lines }))}
-                          />
-                        )}
                       </div>
+                      {trendData.length > 1 && (
+                        <div>
+                          <div className="flex items-center justify-end mb-1">
+                            <button
+                              onClick={() => setGoalAbaView(prev => ({ ...prev, [`beh-${bt.id}`]: !prev[`beh-${bt.id}`] }))}
+                              className={`text-[10px] font-medium px-2 py-1 rounded-md transition-colors ${
+                                showAba ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              }`}
+                            >
+                              {showAba ? "ABA View" : "Standard View"} — click to switch
+                            </button>
+                          </div>
+                          {showAba ? (
+                            <AbaGraph
+                              target={bt}
+                              data={behaviorTrends}
+                              phaseChanges={phaseChangesByTarget[bt.id] || []}
+                              onPhaseChangesUpdate={loadPhaseChanges}
+                            />
+                          ) : (
+                            <InteractiveChart
+                              data={trendData}
+                              color={trendColor}
+                              gradientId={`grad-nonIep-beh-${bt.id}`}
+                              title={bt.name}
+                              yLabel={bt.measurementType}
+                              baselineLine={baseline}
+                              goalLine={goal}
+                              targetDirection={bt.targetDirection}
+                              phaseLines={behaviorPhaseLines[bt.id] || []}
+                              onPhaseLinesChange={(lines) => setBehaviorPhaseLines(prev => ({ ...prev, [bt.id]: lines }))}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {behaviorTargets.length > 0 && !dataLoading && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-600" />
-                ABA Clinical Graphs
-              </CardTitle>
-              <span className="text-[10px] text-gray-400">Per-target with phase lines, trend, and aim</span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-2 space-y-3">
-            {behaviorTargets.map((bt: any) => (
-              <AbaGraph
-                key={bt.id}
-                target={bt}
-                data={behaviorTrends}
-                phaseChanges={phaseChangesByTarget[bt.id] || []}
-                onPhaseChangesUpdate={loadPhaseChanges}
-                readOnly={bipReadOnly}
-              />
-            ))}
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-gray-500 mb-2">Inter-Observer Agreement (IOA)</h4>
-              <IoaSummary studentId={studentId} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {(programTargets.length > 0 || dataLoading) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-emerald-600" />
-                Academic Programs
-              </CardTitle>
-              <span className="text-xs text-gray-400">{programTargets.length} active program{programTargets.length !== 1 ? "s" : ""}</span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {dataLoading ? (
-              <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="w-full h-24" />)}</div>
-            ) : (
-              <div className="space-y-4">
-                {programTargets.map((pt: any) => {
+                {nonIepProgramTargets.map((pt: any) => {
                   const trendData = getProgramTrendData(pt.id);
                   const latest = trendData[trendData.length - 1]?.value;
                   const direction = getTrendDirection(trendData);
@@ -1324,12 +1354,14 @@ export default function StudentDetail() {
                   const isGoodTrend = direction === "up";
                   const trendColor = direction === "flat" ? "#9ca3af" : isGoodTrend ? "#059669" : "#f97316";
                   const atMastery = latest != null && latest >= masteryPct;
+                  const showAba = goalAbaView[`prog-${pt.id}`];
 
                   return (
-                    <div key={pt.id} className="border border-gray-100 rounded-xl p-4">
+                    <div key={`prog-${pt.id}`} className="border border-gray-100 rounded-xl p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">Program</span>
                             <p className="text-[13px] font-semibold text-gray-700">{pt.name}</p>
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
                               {pt.domain || pt.programType?.replace(/_/g, " ")}
@@ -1354,7 +1386,7 @@ export default function StudentDetail() {
                           <p className="text-[10px] text-gray-400">latest accuracy</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 mb-2">
                         <div className="flex-1">
                           <div className="h-2 bg-gray-100 rounded-full overflow-hidden relative">
                             <div
@@ -1372,26 +1404,74 @@ export default function StudentDetail() {
                             {atMastery && <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-0.5"><CheckCircle className="w-3 h-3" /> Mastered</span>}
                           </div>
                         </div>
-                        {trendData.length > 1 && (
-                          <InteractiveChart
-                            data={trendData}
-                            color={trendColor}
-                            gradientId={`grad-prog-${pt.id}`}
-                            title={pt.name}
-                            yLabel="Accuracy"
-                            masteryLine={masteryPct}
-                            targetDirection="increase"
-                            valueFormatter={(v) => `${Math.round(v)}%`}
-                            phaseLines={programPhaseLines[pt.id] || []}
-                            onPhaseLinesChange={(lines) => setProgramPhaseLines(prev => ({ ...prev, [pt.id]: lines }))}
-                          />
-                        )}
                       </div>
+                      {trendData.length > 1 && (
+                        <div>
+                          <div className="flex items-center justify-end mb-1">
+                            <button
+                              onClick={() => setGoalAbaView(prev => ({ ...prev, [`prog-${pt.id}`]: !prev[`prog-${pt.id}`] }))}
+                              className={`text-[10px] font-medium px-2 py-1 rounded-md transition-colors ${
+                                showAba ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              }`}
+                            >
+                              {showAba ? "ABA View" : "Standard View"} — click to switch
+                            </button>
+                          </div>
+                          {showAba ? (
+                            <AbaGraph
+                              target={{
+                                id: pt.id,
+                                name: pt.name,
+                                measurementType: "percentage",
+                                targetDirection: "increase",
+                                baselineValue: null,
+                                goalValue: String(masteryPct),
+                              }}
+                              data={programTrends.filter((d: any) => d.programTargetId === pt.id).map((d: any) => ({
+                                ...d,
+                                behaviorTargetId: pt.id,
+                                value: d.percentCorrect ?? "0",
+                                targetName: d.targetName,
+                                measurementType: "percentage",
+                              }))}
+                              phaseChanges={[]}
+                              onPhaseChangesUpdate={() => {}}
+                            />
+                          ) : (
+                            <InteractiveChart
+                              data={trendData}
+                              color={trendColor}
+                              gradientId={`grad-nonIep-prog-${pt.id}`}
+                              title={pt.name}
+                              yLabel="Accuracy"
+                              masteryLine={masteryPct}
+                              targetDirection="increase"
+                              valueFormatter={(v) => `${Math.round(v)}%`}
+                              phaseLines={programPhaseLines[pt.id] || []}
+                              onPhaseLinesChange={(lines) => setProgramPhaseLines(prev => ({ ...prev, [pt.id]: lines }))}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {behaviorTargets.length > 0 && !dataLoading && (
+        <Card className="border-gray-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-gray-400" />
+              Inter-Observer Agreement (IOA)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <IoaSummary studentId={studentId} />
           </CardContent>
         </Card>
       )}
