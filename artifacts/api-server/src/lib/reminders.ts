@@ -329,7 +329,7 @@ async function runScheduledReports(): Promise<void> {
         format: "csv",
         fileName,
         recordCount: rowCount,
-        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency, emailSent: emailResult.success, emailError: emailResult.error ?? null },
+        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency, emailSent: emailResult.success, emailError: emailResult.error ?? null, start: reportFilters.startDate, end: reportFilters.endDate, schoolId: reportFilters.schoolId, providerId: reportFilters.providerId, serviceTypeId: reportFilters.serviceTypeId, complianceStatus: reportFilters.complianceStatus },
       });
 
       let nextRunAt: Date;

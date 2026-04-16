@@ -101,7 +101,7 @@ function ComplianceExportsTab() {
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; emails: string } | null>(null);
+  const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string } | null>(null);
   const [providers, setProviders] = useState<{ id: number; name: string }[]>([]);
   const [serviceTypes, setServiceTypes] = useState<{ id: number; name: string }[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>("all");
@@ -172,7 +172,19 @@ function ComplianceExportsTab() {
       const res = await authFetch("/api/reports/exports/scheduled", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportType: scheduleForm.reportType, frequency: scheduleForm.frequency, recipientEmails: emails }),
+        body: JSON.stringify({
+          reportType: scheduleForm.reportType,
+          frequency: scheduleForm.frequency,
+          recipientEmails: emails,
+          filters: {
+            startDate: scheduleForm.startDate || undefined,
+            endDate: scheduleForm.endDate || undefined,
+            schoolId: scheduleForm.schoolId !== "all" ? Number(scheduleForm.schoolId) : undefined,
+            providerId: scheduleForm.providerId !== "all" ? Number(scheduleForm.providerId) : undefined,
+            serviceTypeId: scheduleForm.serviceTypeId !== "all" ? Number(scheduleForm.serviceTypeId) : undefined,
+            complianceStatus: scheduleForm.complianceStatus !== "all" ? scheduleForm.complianceStatus : undefined,
+          },
+        }),
       });
       if (res.ok) {
         toast.success("Scheduled report created");
@@ -499,7 +511,7 @@ function ComplianceExportsTab() {
             </div>
             {!scheduleForm && (
               <Button size="sm" className="gap-1.5 text-[12px] bg-emerald-700 hover:bg-emerald-800 text-white"
-                onClick={() => setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", emails: "" })}>
+                onClick={() => setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", emails: "", startDate: "", endDate: "", schoolId: "all", providerId: "all", serviceTypeId: "all", complianceStatus: "all" })}>
                 + New Schedule
               </Button>
             )}
@@ -532,6 +544,48 @@ function ComplianceExportsTab() {
                     <input type="text" value={scheduleForm.emails} onChange={e => setScheduleForm({ ...scheduleForm, emails: e.target.value })}
                       placeholder="email@school.edu, admin@school.edu"
                       className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Start Date</label>
+                    <input type="date" value={scheduleForm.startDate} onChange={e => setScheduleForm({ ...scheduleForm, startDate: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-medium block mb-1">End Date</label>
+                    <input type="date" value={scheduleForm.endDate} onChange={e => setScheduleForm({ ...scheduleForm, endDate: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white" />
+                  </div>
+                  {providers.length > 0 && (
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-medium block mb-1">Provider</label>
+                      <select value={scheduleForm.providerId} onChange={e => setScheduleForm({ ...scheduleForm, providerId: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                        <option value="all">All Providers</option>
+                        {providers.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {serviceTypes.length > 0 && (
+                    <div>
+                      <label className="text-[11px] text-gray-500 font-medium block mb-1">Service Type</label>
+                      <select value={scheduleForm.serviceTypeId} onChange={e => setScheduleForm({ ...scheduleForm, serviceTypeId: e.target.value })}
+                        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                        <option value="all">All Types</option>
+                        {serviceTypes.map(st => <option key={st.id} value={String(st.id)}>{st.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Compliance</label>
+                    <select value={scheduleForm.complianceStatus} onChange={e => setScheduleForm({ ...scheduleForm, complianceStatus: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                      <option value="all">All Statuses</option>
+                      <option value="compliant">Compliant</option>
+                      <option value="non-compliant">Non-Compliant</option>
+                      <option value="at-risk">At Risk</option>
+                    </select>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">

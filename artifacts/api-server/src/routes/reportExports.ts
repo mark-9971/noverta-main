@@ -1022,7 +1022,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, startDate, endDate } = req.query;
+    const { schoolId, startDate, endDate, serviceTypeId, complianceStatus } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -1041,6 +1041,12 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     const sIds = students.map(s => s.id);
     const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
 
+    const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+    if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
+
+    const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
+
     const [reqs, sessions] = await Promise.all([
       db.select({
         studentId: serviceRequirementsTable.studentId,
@@ -1048,7 +1054,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
         requiredMinutes: serviceRequirementsTable.requiredMinutes,
       }).from(serviceRequirementsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
-        .where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+        .where(and(...reqConditions)),
       db.select({
         studentId: sessionLogsTable.studentId,
         serviceTypeName: serviceTypesTable.name,
@@ -1056,7 +1062,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
         durationMinutes: sessionLogsTable.durationMinutes,
       }).from(sessionLogsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-        .where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+        .where(and(...sessConditions)),
     ]);
 
     const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
@@ -1074,6 +1080,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
       reqsByStudent.get(r.studentId)!.push(r);
     }
 
+    const statusMapping: Record<string, string> = { "compliant": "On Track", "at-risk": "At Risk", "non-compliant": "Out of Compliance" };
     let onTrack = 0, atRisk = 0, outOfCompliance = 0, totalDelivered = 0, totalRequired = 0;
     const rows: { name: string; school: string; grade: string; service: string; delivered: number; required: number; pct: number; status: string }[] = [];
     for (const student of students) {
@@ -1084,6 +1091,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
         const total = sm.completed + sm.missed;
         const pct = total > 0 ? Math.round((sm.completed / total) * 100) : 100;
         const status = pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance";
+        if (complianceStatus && statusMapping[complianceStatus as string] && status !== statusMapping[complianceStatus as string]) continue;
         if (status === "On Track") onTrack++;
         else if (status === "At Risk") atRisk++;
         else outOfCompliance++;
@@ -1129,7 +1137,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     }
 
     pdfFooters(doc, "Compliance Summary");
-    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "pdf", fileName: filename, recordCount: rows.length, parameters: { start, end, schoolId } });
+    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "pdf", fileName: filename, recordCount: rows.length, parameters: { start, end, schoolId, serviceTypeId, complianceStatus } });
     logAudit(req, { action: "read", targetTable: "service_requirements", summary: `Exported compliance summary PDF (${rows.length} rows)`, metadata: { reportType: "compliance-summary-pdf" } });
     doc.end();
   } catch (e: any) {
@@ -1232,7 +1240,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { startDate, endDate, schoolId } = req.query;
+    const { startDate, endDate, schoolId, providerId, serviceTypeId } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -1242,6 +1250,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
     if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+    if (providerId) staffConditions.push(eq(staffTable.id, Number(providerId)));
 
     const staffMembers = await db.select({
       id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
@@ -1252,6 +1261,9 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const staffIds = staffMembers.map(s => s.id);
     const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
 
+    const sessConditions: any[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
+
     const sessionData = await db.select({
       staffId: sessionLogsTable.staffId,
       serviceTypeName: serviceTypesTable.name,
@@ -1260,7 +1272,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
       studentId: sessionLogsTable.studentId,
     }).from(sessionLogsTable)
       .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-      .where(and(sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)));
+      .where(and(...sessConditions));
 
     const providerMap = new Map<number, { services: Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }> }>();
     for (const s of sessionData) {
@@ -1311,7 +1323,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     doc.font("Helvetica").fontSize(9).text(`Active Providers: ${totalProviders}  |  Total Sessions: ${totalSessions}  |  Total Minutes: ${totalMinutes.toLocaleString()}`);
 
     pdfFooters(doc, "Services by Provider");
-    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "pdf", fileName: filename, recordCount: totalProviders, parameters: { start, end } });
+    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "pdf", fileName: filename, recordCount: totalProviders, parameters: { start, end, schoolId, providerId, serviceTypeId } });
     logAudit(req, { action: "read", targetTable: "session_logs", summary: `Exported services-by-provider PDF`, metadata: { reportType: "services-by-provider-pdf" } });
     doc.end();
   } catch (e: any) {
@@ -1501,7 +1513,7 @@ router.get("/reports/exports/caseload-distribution.csv", async (req: Request, re
     });
 
     const filename = `Caseload_Distribution_${new Date().toISOString().split("T")[0]}.csv`;
-    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "csv", fileName: filename, recordCount: csvRows.length });
+    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { schoolId } });
     logAudit(req, { action: "read", targetTable: "staff_assignments", summary: `Exported caseload distribution CSV (${csvRows.length} rows)`, metadata: { reportType: "caseload-distribution-csv" } });
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -1589,7 +1601,7 @@ router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, re
     }
 
     pdfFooters(doc, "Caseload Distribution");
-    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "pdf", fileName: filename, recordCount: staffMembers.length });
+    recordExport(req, { reportType: "caseload-distribution", reportLabel: "Caseload Distribution", format: "pdf", fileName: filename, recordCount: staffMembers.length, parameters: { schoolId } });
     logAudit(req, { action: "read", targetTable: "staff_assignments", summary: `Exported caseload distribution PDF`, metadata: { reportType: "caseload-distribution-pdf" } });
     doc.end();
   } catch (e: any) {
