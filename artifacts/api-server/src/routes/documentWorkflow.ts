@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, schoolsTable, staffTable } from "@workspace/db";
+import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, iepMeetingAttendeesTable, schoolsTable, staffTable } from "@workspace/db";
 import { eq, and, desc, SQL, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
@@ -386,6 +386,8 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
   const currentIdx = stages.indexOf(workflow.currentStage);
   const isLastStage = currentIdx >= stages.length - 1;
 
+  const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
     stage: workflow.currentStage,
@@ -393,6 +395,7 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
     reviewerUserId: user.userId,
     reviewerName: user.name,
     comment,
+    parentCommentId,
   });
 
   const student = await assertStudentInDistrict(workflow.studentId, districtId);
@@ -439,6 +442,8 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
   const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
   if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
+  const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
     stage: workflow.currentStage,
@@ -446,6 +451,7 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
     reviewerUserId: user.userId,
     reviewerName: user.name,
     comment,
+    parentCommentId,
   });
 
   await db.update(approvalWorkflowsTable)
@@ -487,6 +493,7 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
   if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
   const stages = workflow.stages as string[];
+  const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
 
   await db.insert(workflowApprovalsTable).values({
     workflowId: id,
@@ -495,6 +502,7 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
     reviewerUserId: user.userId,
     reviewerName: user.name,
     comment: comment.slice(0, 2000),
+    parentCommentId,
   });
 
   await db.update(approvalWorkflowsTable)
@@ -597,6 +605,42 @@ router.post("/document-workflow/workflows/:id/reviewers", async (req, res) => {
   res.status(201).json(reviewer);
 });
 
+router.post("/document-workflow/workflows/:id/comments", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as AuthedRequest);
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+
+  const comment = typeof req.body.comment === "string" ? req.body.comment.trim() : "";
+  if (!comment) return res.status(400).json({ error: "Comment text is required" });
+
+  const [workflow] = await db.select().from(approvalWorkflowsTable)
+    .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
+  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+
+  const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
+
+  if (parentCommentId) {
+    const [parent] = await db.select({ id: workflowApprovalsTable.id })
+      .from(workflowApprovalsTable)
+      .where(and(eq(workflowApprovalsTable.id, parentCommentId), eq(workflowApprovalsTable.workflowId, id)));
+    if (!parent) return res.status(404).json({ error: "Parent comment not found" });
+  }
+
+  const [entry] = await db.insert(workflowApprovalsTable).values({
+    workflowId: id,
+    stage: workflow.currentStage,
+    action: "comment",
+    reviewerUserId: user.userId,
+    reviewerName: user.name,
+    comment: comment.slice(0, 2000),
+    parentCommentId,
+  }).returning();
+
+  res.status(201).json(entry);
+});
+
 router.post("/document-workflow/generate-pwn", async (req, res) => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (!districtId) return res.status(403).json({ error: "No district scope" });
@@ -609,19 +653,29 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
   const student = await assertStudentInDistrict(studentId, districtId);
   if (!student) return res.status(404).json({ error: "Student not found in your district" });
 
-  let meetingData: { id: number; meetingDate: string | null; meetingType: string | null; notes: string | null } | null = null;
+  let meetingData: { id: number; meetingDate: string | null; meetingType: string | null; notes: string | null; actionItems: { id: string; description: string; assignee: string; dueDate: string | null; status: string }[] | null } | null = null;
+  let attendees: { name: string; role: string; attended: boolean | null }[] = [];
+
   if (meetingId) {
     const [m] = await db.select({
       id: teamMeetingsTable.id,
       meetingDate: teamMeetingsTable.meetingDate,
       meetingType: teamMeetingsTable.meetingType,
       notes: teamMeetingsTable.notes,
+      actionItems: teamMeetingsTable.actionItems,
     }).from(teamMeetingsTable)
       .innerJoin(studentsTable, eq(teamMeetingsTable.studentId, studentsTable.id))
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
       .where(and(eq(teamMeetingsTable.id, meetingId), eq(schoolsTable.districtId, districtId)));
     if (!m) return res.status(404).json({ error: "Meeting not found in your district" });
     meetingData = m;
+
+    attendees = await db.select({
+      name: iepMeetingAttendeesTable.name,
+      role: iepMeetingAttendeesTable.role,
+      attended: iepMeetingAttendeesTable.attended,
+    }).from(iepMeetingAttendeesTable)
+      .where(eq(iepMeetingAttendeesTable.meetingId, meetingId));
   }
 
   const goals = await db.select({
@@ -642,8 +696,16 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
     ? goals.map(g => `- ${g.area || "General"}: ${g.annualGoal}`).join("\n")
     : "No active IEP goals on file.";
 
+  const teamMembersText = attendees.length > 0
+    ? attendees.map(a => `- ${a.name} (${a.role})${a.attended === false ? " — excused" : ""}`).join("\n")
+    : "No team member records on file.";
+
+  const decisionsText = meetingData?.actionItems && meetingData.actionItems.length > 0
+    ? meetingData.actionItems.map(ai => `- ${ai.description} (Assigned: ${ai.assignee}${ai.dueDate ? `, Due: ${ai.dueDate}` : ""})`).join("\n")
+    : "No action items/decisions recorded.";
+
   const actionDescription = meetingData
-    ? `Based on team meeting held ${meetingData.meetingDate || "N/A"} (${meetingData.meetingType || "IEP meeting"}). ${meetingData.notes ? "Meeting notes: " + meetingData.notes : ""}`
+    ? `Based on team meeting held ${meetingData.meetingDate || "N/A"} (${meetingData.meetingType || "IEP meeting"}).\n\nTeam Members Present:\n${teamMembersText}\n\nDecisions/Action Items:\n${decisionsText}${meetingData.notes ? "\n\nMeeting Notes: " + meetingData.notes : ""}`
     : `Prior Written Notice for ${student.firstName} ${student.lastName}.`;
 
   const [pwn] = await db.insert(priorWrittenNoticesTable).values({
@@ -656,7 +718,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
     optionsConsidered: `The team considered continuation of current services, modification of service delivery, and changes to goals and accommodations.`,
     reasonOptionsRejected: `Options were evaluated based on student progress data, assessment results, and team discussion. Selected options best meet the student's identified needs.`,
     evaluationInfo: `Current IEP goals:\n${goalsText}`,
-    otherFactors: `Parent input was considered throughout the process.`,
+    otherFactors: `Parent input was considered throughout the process.\n\nTeam composition:\n${teamMembersText}`,
     issuedDate: today,
     issuedBy: parseInt(user.userId, 10) || null,
     parentResponseDueDate: responseDue,

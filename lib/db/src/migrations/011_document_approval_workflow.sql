@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS workflow_approvals (
 );
 CREATE INDEX IF NOT EXISTS wf_appr_workflow_idx ON workflow_approvals(workflow_id);
 CREATE INDEX IF NOT EXISTS wf_appr_stage_idx ON workflow_approvals(stage);
+ALTER TABLE workflow_approvals ADD COLUMN IF NOT EXISTS parent_comment_id INTEGER;
+CREATE INDEX IF NOT EXISTS wf_appr_parent_idx ON workflow_approvals(parent_comment_id);
 
 -- Workflow Reviewers: assigned reviewers per workflow stage
 CREATE TABLE IF NOT EXISTS workflow_reviewers (

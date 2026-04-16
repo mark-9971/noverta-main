@@ -35,10 +35,12 @@ export const workflowApprovalsTable = pgTable("workflow_approvals", {
   reviewerUserId: text("reviewer_user_id").notNull(),
   reviewerName: text("reviewer_name").notNull(),
   comment: text("comment"),
+  parentCommentId: integer("parent_comment_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("wf_appr_workflow_idx").on(table.workflowId),
   index("wf_appr_stage_idx").on(table.stage),
+  index("wf_appr_parent_idx").on(table.parentCommentId),
 ]);
 
 export type WorkflowApproval = typeof workflowApprovalsTable.$inferSelect;

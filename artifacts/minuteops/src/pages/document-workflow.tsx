@@ -54,6 +54,7 @@ interface WorkflowApproval {
   action: string;
   reviewerName: string;
   comment: string | null;
+  parentCommentId: number | null;
   createdAt: string;
 }
 
@@ -107,6 +108,7 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; icon: typeof
   approved: { label: "Approved", color: "text-emerald-600", icon: CheckCircle },
   rejected: { label: "Rejected", color: "text-red-600", icon: XCircle },
   changes_requested: { label: "Changes Requested", color: "text-amber-600", icon: RotateCcw },
+  comment: { label: "Comment", color: "text-blue-600", icon: Clock },
 };
 
 function formatDate(d: string) {
@@ -196,6 +198,26 @@ function groupApprovalsByStage(approvals: WorkflowApproval[], stages: string[]) 
   return grouped;
 }
 
+function buildThreadTree(approvals: WorkflowApproval[]): { roots: WorkflowApproval[]; children: Record<number, WorkflowApproval[]> } {
+  const children: Record<number, WorkflowApproval[]> = {};
+  const roots: WorkflowApproval[] = [];
+  for (const a of approvals) {
+    if (a.parentCommentId) {
+      if (!children[a.parentCommentId]) children[a.parentCommentId] = [];
+      children[a.parentCommentId].push(a);
+    } else {
+      roots.push(a);
+    }
+  }
+  return { roots, children };
+}
+
+interface ReviewerAssignment {
+  stage: string;
+  userId: string;
+  name: string;
+}
+
 export default function DocumentWorkflowPage() {
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -211,6 +233,9 @@ export default function DocumentWorkflowPage() {
   const [versionExpanded, setVersionExpanded] = useState(false);
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState({ documentType: "iep", documentId: "", studentId: "", title: "" });
+  const [createReviewers, setCreateReviewers] = useState<ReviewerAssignment[]>([]);
+  const [replyTo, setReplyTo] = useState<{ id: number; workflowId: number; reviewerName: string } | null>(null);
+  const [replyComment, setReplyComment] = useState("");
   const [pwnDialog, setPwnDialog] = useState(false);
   const [pwnForm, setPwnForm] = useState({ studentId: "", meetingId: "" });
   const [pwnLoading, setPwnLoading] = useState(false);
@@ -294,6 +319,7 @@ export default function DocumentWorkflowPage() {
           documentId: parseInt(createForm.documentId, 10),
           studentId: parseInt(createForm.studentId, 10),
           title: createForm.title,
+          reviewers: createReviewers.filter(r => r.userId && r.name && r.stage),
         }),
       });
       if (!res.ok) {
@@ -304,9 +330,32 @@ export default function DocumentWorkflowPage() {
       toast.success("Approval workflow started");
       setCreateDialog(false);
       setCreateForm({ documentType: "iep", documentId: "", studentId: "", title: "" });
+      setCreateReviewers([]);
       fetchData();
     } catch {
       toast.error("Failed to create workflow");
+    }
+  }
+
+  async function handleReply() {
+    if (!replyTo || !replyComment.trim()) return;
+    try {
+      const res = await authFetch(`/api/document-workflow/workflows/${replyTo.workflowId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: replyComment, parentCommentId: replyTo.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to post reply");
+        return;
+      }
+      toast.success("Reply posted");
+      setReplyTo(null);
+      setReplyComment("");
+      if (selectedWorkflow) openDetail({ ...selectedWorkflow } as Workflow);
+    } catch {
+      toast.error("Failed to post reply");
     }
   }
 
@@ -654,30 +703,58 @@ export default function DocumentWorkflowPage() {
                       <p className="text-xs text-gray-400">No actions taken yet</p>
                     ) : (
                       <div className="space-y-3">
-                        {Object.entries(groupApprovalsByStage(selectedWorkflow.approvals, selectedWorkflow.stages)).map(([stage, approvals]) => {
-                          if (approvals.length === 0) return null;
+                        {Object.entries(groupApprovalsByStage(selectedWorkflow.approvals, selectedWorkflow.stages)).map(([stage, stageApprovals]) => {
+                          if (stageApprovals.length === 0) return null;
+                          const { roots, children } = buildThreadTree(stageApprovals);
                           return (
                             <div key={stage}>
                               <div className="flex items-center gap-2 mb-1.5">
                                 <StageBadge stage={stage} />
-                                <span className="text-xs text-gray-400">({approvals.length} action{approvals.length > 1 ? "s" : ""})</span>
+                                <span className="text-xs text-gray-400">({stageApprovals.length} action{stageApprovals.length > 1 ? "s" : ""})</span>
                               </div>
                               <div className="space-y-1.5 ml-2 border-l-2 border-gray-100 pl-3">
-                                {approvals.map(a => {
+                                {roots.map(a => {
                                   const cfg = ACTION_CONFIG[a.action] || { label: a.action, color: "text-gray-600", icon: Clock };
                                   const Icon = cfg.icon;
+                                  const replies = children[a.id] || [];
                                   return (
-                                    <div key={a.id} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
-                                      <Icon className={`w-4 h-4 mt-0.5 ${cfg.color}`} />
-                                      <div className="text-xs space-y-0.5">
-                                        <div>
-                                          <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
-                                          <span className="text-gray-500"> by </span>
-                                          <span className="font-medium text-gray-700">{a.reviewerName}</span>
+                                    <div key={a.id}>
+                                      <div className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
+                                        <Icon className={`w-4 h-4 mt-0.5 ${cfg.color}`} />
+                                        <div className="text-xs space-y-0.5 flex-1">
+                                          <div>
+                                            <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
+                                            <span className="text-gray-500"> by </span>
+                                            <span className="font-medium text-gray-700">{a.reviewerName}</span>
+                                          </div>
+                                          <p className="text-gray-400">{formatDateTime(a.createdAt)}</p>
+                                          {a.comment && <p className="text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">{a.comment}</p>}
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); setReplyTo({ id: a.id, workflowId: selectedWorkflow.id, reviewerName: a.reviewerName }); }}
+                                            className="text-blue-500 hover:text-blue-700 text-[10px] mt-1"
+                                          >
+                                            Reply
+                                          </button>
                                         </div>
-                                        <p className="text-gray-400">{formatDateTime(a.createdAt)}</p>
-                                        {a.comment && <p className="text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">{a.comment}</p>}
                                       </div>
+                                      {replies.length > 0 && (
+                                        <div className="ml-6 mt-1 space-y-1 border-l-2 border-blue-100 pl-2">
+                                          {replies.map(r => {
+                                            const rc = ACTION_CONFIG[r.action] || { label: r.action, color: "text-gray-600", icon: Clock };
+                                            const RIcon = rc.icon;
+                                            return (
+                                              <div key={r.id} className="flex items-start gap-2 p-1.5 rounded bg-blue-50/50 text-xs">
+                                                <RIcon className={`w-3 h-3 mt-0.5 ${rc.color}`} />
+                                                <div className="space-y-0.5">
+                                                  <span className="font-medium text-gray-700">{r.reviewerName}</span>
+                                                  <p className="text-gray-400 text-[10px]">{formatDateTime(r.createdAt)}</p>
+                                                  {r.comment && <p className="text-gray-600">{r.comment}</p>}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -685,6 +762,25 @@ export default function DocumentWorkflowPage() {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+                    {replyTo && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-xs text-blue-700 mb-1">Replying to {replyTo.reviewerName}</p>
+                        <textarea
+                          className="w-full border rounded p-1.5 text-xs min-h-[50px] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          value={replyComment}
+                          onChange={e => setReplyComment(e.target.value)}
+                          placeholder="Write a reply..."
+                        />
+                        <div className="flex gap-1.5 mt-1">
+                          <Button size="sm" className="h-6 text-xs bg-blue-600 hover:bg-blue-700" onClick={handleReply} disabled={!replyComment.trim()}>
+                            Send
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => { setReplyTo(null); setReplyComment(""); }}>
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -761,8 +857,8 @@ export default function DocumentWorkflowPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent>
+      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) setCreateReviewers([]); }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Start Approval Workflow</DialogTitle>
           </DialogHeader>
@@ -791,9 +887,67 @@ export default function DocumentWorkflowPage() {
               <Label>Title</Label>
               <Input className="mt-1" value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual IEP Review — Jane Doe" />
             </div>
+
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="flex items-center gap-1.5">
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Stage Reviewers
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-xs"
+                  onClick={() => setCreateReviewers(r => [...r, { stage: "draft", userId: "", name: "" }])}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Add Reviewer
+                </Button>
+              </div>
+              {createReviewers.length === 0 ? (
+                <p className="text-xs text-gray-400">No reviewers assigned — any privileged staff can act on each stage.</p>
+              ) : (
+                <div className="space-y-2">
+                  {createReviewers.map((rev, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <Select value={rev.stage} onValueChange={v => setCreateReviewers(r => r.map((item, i) => i === idx ? { ...item, stage: v } : item))}>
+                        <SelectTrigger className="w-[120px] h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="team_review">Team Review</SelectItem>
+                          <SelectItem value="director_signoff">Director Sign-off</SelectItem>
+                          <SelectItem value="parent_delivery">Parent Delivery</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-7 text-xs flex-1"
+                        value={rev.name}
+                        onChange={e => setCreateReviewers(r => r.map((item, i) => i === idx ? { ...item, name: e.target.value } : item))}
+                        placeholder="Reviewer name"
+                      />
+                      <Input
+                        className="h-7 text-xs w-[100px]"
+                        value={rev.userId}
+                        onChange={e => setCreateReviewers(r => r.map((item, i) => i === idx ? { ...item, userId: e.target.value } : item))}
+                        placeholder="User ID"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-400 hover:text-red-600"
+                        onClick={() => setCreateReviewers(r => r.filter((_, i) => i !== idx))}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setCreateDialog(false); setCreateReviewers([]); }}>Cancel</Button>
             <Button onClick={handleCreate} disabled={!createForm.documentId || !createForm.studentId || !createForm.title}>
               Start Workflow
             </Button>
