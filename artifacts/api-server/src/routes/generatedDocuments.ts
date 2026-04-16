@@ -7,17 +7,33 @@ import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { sql } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
+import sanitizeHtml from "sanitize-html";
 
 const ALLOWED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
 
+const ALLOWED_HTML_TAGS = [
+  "html", "head", "body", "title", "style", "meta",
+  "div", "p", "span", "h1", "h2", "h3", "h4", "h5", "h6",
+  "table", "thead", "tbody", "tr", "th", "td",
+  "strong", "em", "b", "i", "u", "br", "hr",
+  "ul", "ol", "li", "small", "pre", "blockquote",
+];
+
+const ALLOWED_HTML_ATTRS: sanitizeHtml.IOptions["allowedAttributes"] = {
+  "*": ["style", "class"],
+  "th": ["colspan", "rowspan", "style", "class"],
+  "td": ["colspan", "rowspan", "style", "class"],
+  "meta": ["charset", "name", "content", "http-equiv"],
+  "html": ["lang"],
+};
+
 function sanitizeHtmlSnapshot(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<script\b[^>]*>/gi, "")
-    .replace(/<\/?(?:iframe|object|embed|applet|base|link)\b[^>]*>/gi, "")
-    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "")
-    .replace(/href\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi, 'href="#"')
-    .replace(/src\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]*)/gi, 'src=""');
+  return sanitizeHtml(html, {
+    allowedTags: ALLOWED_HTML_TAGS,
+    allowedAttributes: ALLOWED_HTML_ATTRS,
+    allowedSchemes: ["data"],
+    disallowedTagsMode: "discard",
+  });
 }
 
 const CreateBody = z.object({

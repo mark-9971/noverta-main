@@ -419,6 +419,33 @@ export function buildIncidentReportHtml(opts: {
         </div>
         <div class="field-box"><div class="field-label">Review Notes</div>${esc(i.adminReviewNotes as string) || "—"}</div>`,
     },
+    {
+      heading: "DESE Reporting (603 CMR 46.03)",
+      html: `
+        <table>
+          <thead><tr><th>Requirement</th><th>Status</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>DESE Report Required</td>
+              <td>${i.deseReportRequired ? `<span class="badge badge-red">Yes — Required</span>` : `<span class="badge badge-green">No</span>`}</td>
+              <td>Per 603 CMR 46.03, incidents involving injury or restraint exceeding 20 min require DESE reporting within 3 school days.</td>
+            </tr>
+            <tr>
+              <td>DESE Report Sent</td>
+              <td>${i.deseReportSentAt ? `<span class="badge badge-green">Sent</span>` : (i.deseReportRequired ? `<span class="badge badge-red">Pending</span>` : `<span class="badge badge-gray">N/A</span>`)}</td>
+              <td>${i.deseReportSentAt ? `Sent: ${fmtDate(i.deseReportSentAt as string)}` : "—"}</td>
+            </tr>
+            <tr>
+              <td>30-Day Log Submitted to DESE</td>
+              <td>${i.thirtyDayLogSentToDese ? `<span class="badge badge-green">Yes</span>` : `<span class="badge badge-gray">No</span>`}</td>
+              <td>Monthly incident log submitted per 603 CMR 46.03(3).</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="notice-box" style="margin-top:8px">
+          <strong>DESE Reporting Obligations:</strong> Under 603 CMR 46.03, school districts must report each use of physical restraint that results in injury or lasts more than 20 consecutive minutes to the Department of Elementary and Secondary Education within 3 school days of the incident. Monthly incident logs must also be submitted.
+        </div>`,
+    },
   ];
 
   const html = buildDocumentHtml({

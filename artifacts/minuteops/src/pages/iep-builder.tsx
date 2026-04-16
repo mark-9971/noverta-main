@@ -83,6 +83,23 @@ interface TeacherQuestionnaire {
   responseToServices: string;
 }
 
+interface AccommodationRec {
+  description: string;
+  category: string;
+  action: string;
+}
+
+interface TransitionDomain {
+  goal: string;
+  services: string;
+  assessment?: string;
+}
+
+interface TransitionPlanDraft {
+  domains: Record<string, TransitionDomain>;
+  agencyLinkages: string;
+}
+
 interface TransitionInput {
   employment: { goal: string; services: string; assessment: string };
   postSecondary: { goal: string; services: string; assessment: string };
@@ -106,8 +123,8 @@ interface GeneratedDraft {
     compliancePercent: number; action: string; rationale: string;
     suggestedMinutes: number | null; suggestedInterval: string | null;
   }>;
-  accommodationRecommendations: any[];
-  transitionPlan: any | null;
+  accommodationRecommendations: AccommodationRec[];
+  transitionPlan: TransitionPlanDraft | null;
   teamDiscussionNotes: string[];
   disclaimer: string;
   generatedAt: string;
@@ -222,7 +239,7 @@ export default function IepBuilderPage() {
   function printDraft() {
     if (!draft) return;
 
-    const goalRows = draft.goalRecommendations.map((g: any) => {
+    const goalRows = draft.goalRecommendations.map(g => {
       const a = g.recommendation;
       return `<tr>
         <td style="font-weight:bold">${escDoc(String(g.goalNumber))}</td>
@@ -235,9 +252,9 @@ export default function IepBuilderPage() {
       </tr>`;
     }).join("");
 
-    const svcRows = draft.serviceRecommendations.map((s: any) => `<tr>
-      <td>${escDoc(s.serviceType)}</td>
-      <td style="text-align:center">${s.currentMinutes ?? "—"} min/${escDoc(s.currentInterval)}</td>
+    const svcRows = draft.serviceRecommendations.map(s => `<tr>
+      <td>${escDoc(s.serviceType ?? "")}</td>
+      <td style="text-align:center">${s.currentMinutes ?? "—"} min/${escDoc(s.currentInterval ?? "")}</td>
       <td style="text-align:center">${s.compliancePercent}%</td>
       <td style="font-style:italic">${escDoc(s.action.toUpperCase())}</td>
       <td>${escDoc(s.rationale)}</td>
@@ -265,7 +282,7 @@ export default function IepBuilderPage() {
       },
       ...(draft.additionalGoalSuggestions?.length > 0 ? [{
         heading: "Additional Goal Suggestions",
-        html: draft.additionalGoalSuggestions.map((s: any) => `
+        html: draft.additionalGoalSuggestions.map(s => `
           <div class="field-box"><div class="field-label">${escDoc(s.goalArea)} <small>(${escDoc(s.source)})</small></div>
           ${escDoc(s.suggestedGoal)}<br><em style="color:#6b7280">${escDoc(s.rationale)}</em></div>
         `).join(""),
@@ -279,14 +296,14 @@ export default function IepBuilderPage() {
       },
       ...(draft.accommodationRecommendations?.length > 0 ? [{
         heading: "Accommodations",
-        html: draft.accommodationRecommendations.map((a: any) =>
+        html: draft.accommodationRecommendations.map(a =>
           `<div style="margin:3px 0">• <strong>${escDoc(a.description)}</strong> (${escDoc(a.category)}) — ${escDoc(a.action)}</div>`
         ).join(""),
       } as DocumentSection] : []),
       ...(draft.transitionPlan ? [{
         heading: "Transition Planning",
         html: [
-          ...Object.entries(draft.transitionPlan.domains || {}).map(([domain, d]: [string, any]) =>
+          ...Object.entries(draft.transitionPlan.domains || {}).map(([domain, d]) =>
             `<div class="field-box">
               <div class="field-label">${escDoc(domain)}</div>
               <div><strong>Post-Secondary Goal:</strong> ${escDoc(d.goal)}</div>
@@ -299,7 +316,7 @@ export default function IepBuilderPage() {
       } as DocumentSection] : []),
       ...(draft.teamDiscussionNotes?.length > 0 ? [{
         heading: "IEP Team Discussion Items",
-        html: draft.teamDiscussionNotes.map((n: string) =>
+        html: draft.teamDiscussionNotes.map(n =>
           `<div style="background:#eff6ff;padding:8px 12px;border-radius:4px;border-left:3px solid #3b82f6;margin:4px 0;font-size:11px">• ${escDoc(n)}</div>`
         ).join(""),
       } as DocumentSection] : []),
