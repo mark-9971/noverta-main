@@ -67,10 +67,10 @@ function NeedsAttentionPanel() {
   if (!data || data.total === 0) return null;
 
   const items = [
-    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50" },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50" },
-    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-700", bg: "bg-red-50" },
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50", critical: true },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50", critical: false },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50", critical: false },
+    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-amber-700", bg: "bg-amber-50", critical: false },
   ].filter(i => i.count > 0);
 
   return (
@@ -236,17 +236,17 @@ export default function Dashboard() {
           href="/students"
         />
         <MetricCard
-          title={isAdmin ? "Open Alerts" : "Your Alerts"}
-          value={!isAdmin && myCaseload ? myCaseload.openAlerts : alerts?.total}
-          icon={Bell}
-          accent="red"
-          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : "open alerts"}
-          href="/alerts"
+          title={isAdmin ? "Open Alerts" : "Sessions Delivered"}
+          value={!isAdmin && myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : alerts?.total}
+          icon={isAdmin ? Bell : Clock}
+          accent={isAdmin ? "red" : "emerald"}
+          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : `of ${myCaseload?.totalRequiredMinutes ?? 0} required`}
+          href={isAdmin ? "/alerts" : "/sessions"}
         />
         <MetricCard
           title={isAdmin ? "Makeup Needed" : "Compliance"}
           value={!isAdmin && myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
-          icon={Clock}
+          icon={isAdmin ? Clock : CheckCircle}
           accent={!isAdmin && myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
           subtitle={isAdmin ? "sessions" : "of your students"}
           href={isAdmin ? "/sessions" : "/compliance"}
@@ -260,68 +260,6 @@ export default function Dashboard() {
           href="/compliance"
         />
       </div>
-
-      <CollapsibleSection title="Evaluations & Transitions" icon={FileSearch}>
-        {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
-          <Card className={evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
-            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-              <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
-              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-                {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
-                {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
-                {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
-                {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
-              </div>
-              <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-                View Evaluations →
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-
-        {transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0) && (
-          <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
-            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-              <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
-              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-                {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
-                {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
-                {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
-                {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
-              </div>
-              <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-                Transition Planning →
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-
-        {(evalDash && !(evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0))
-          && (transitionDash && !(transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0))
-          && (
-          <p className="text-sm text-gray-400 py-4 text-center">All evaluations and transitions are on track.</p>
-        )}
-      </CollapsibleSection>
-
-      <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
-        {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) ? (
-          <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
-            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
-              <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
-              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-                {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
-                {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
-                {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
-              </div>
-              <Link href="/iep-meetings" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
-                IEP Meetings →
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <p className="text-sm text-gray-400 py-4 text-center">No upcoming meetings to report.</p>
-        )}
-      </CollapsibleSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-4 border-gray-200/60">
@@ -447,6 +385,68 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <CollapsibleSection title="Evaluations & Transitions" icon={FileSearch}>
+        {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
+          <Card className={evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
+                {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
+                {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
+                {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
+              </div>
+              <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                View Evaluations →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0) && (
+          <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+                {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
+                {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
+                {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
+              </div>
+              <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                Transition Planning →
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {(evalDash && !(evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0))
+          && (transitionDash && !(transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0))
+          && (
+          <p className="text-sm text-gray-400 py-4 text-center">All evaluations and transitions are on track.</p>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
+        {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) ? (
+          <Card className={meetingDash.overdueCount > 0 ? "border-red-200 bg-red-50/20" : "border-gray-200/60"}>
+            <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+              <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
+              <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+                {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
+                {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
+                {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
+              </div>
+              <Link href="/iep-meetings" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+                IEP Meetings →
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="text-sm text-gray-400 py-4 text-center">No upcoming meetings to report.</p>
+        )}
+      </CollapsibleSection>
 
       {isAdmin && s?.contractRenewals?.length > 0 && (
         <Card className="border-gray-200/60">
