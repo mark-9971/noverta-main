@@ -20,6 +20,7 @@ import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
 } from "recharts";
 import { Link, useSearch } from "wouter";
+import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { authFetch } from "@/lib/auth-fetch";
@@ -247,15 +248,16 @@ function hoursUntilDeadline(incidentDate: string, incidentTime: string) {
 export default function ProtectiveMeasuresPage() {
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
-  const [view, setView] = useState<"list" | "new" | "quick" | "detail">("list");
+  const [view, setView] = useState<"list" | "new" | "quick" | "detail" | "edit">("list");
   const [detailId, setDetailId] = useState<number | null>(null);
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "all");
   const [searchTerm, setSearchTerm] = useState("");
 
   if (view === "new") return <NewIncidentForm onClose={() => setView("list")} />;
+  if (view === "edit" && detailId) return <NewIncidentForm editId={detailId} onClose={() => { setView("list"); setDetailId(null); }} />;
   if (view === "quick") return <QuickReportForm onClose={() => setView("list")} />;
-  if (view === "detail" && detailId) return <IncidentDetailView id={detailId} onBack={() => { setView("list"); setDetailId(null); }} />;
+  if (view === "detail" && detailId) return <IncidentDetailView id={detailId} onBack={() => { setView("list"); setDetailId(null); }} onExpandToFull={(id: number) => { setDetailId(id); setView("edit"); }} />;
 
   return <IncidentList
     filterType={filterType} setFilterType={setFilterType}
@@ -397,6 +399,8 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
   onQuick: () => void;
   onDetail: (id: number) => void;
 }) {
+  const { role } = useRole();
+  const showTrends = role === "admin" || role === "coordinator" || role === "case_manager" || role === "bcba";
   const [exportYear, setExportYear] = useState("2025-2026");
 
   const { data: incidents = [], isLoading } = useQuery({
@@ -510,7 +514,7 @@ function IncidentList({ filterType, setFilterType, filterStatus, setFilterStatus
         </div>
       )}
 
-      <TrendsPanel />
+      {showTrends && <TrendsPanel />}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -823,12 +827,13 @@ function QuickReportForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-function NewIncidentForm({ onClose }: { onClose: () => void }) {
+function NewIncidentForm({ onClose, editId }: { onClose: () => void; editId?: number }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [draftStatus, setDraftStatus] = useState<"idle" | "saving" | "saved">("idle");
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveRef = useRef<string>("");
+  const [loadedEdit, setLoadedEdit] = useState(false);
   const [form, setForm] = useState({
     studentId: "",
     incidentDate: new Date().toISOString().split("T")[0],
@@ -924,6 +929,66 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
     } catch {}
   }, []);
 
+  useEffect(() => {
+    if (!editId || loadedEdit) return;
+    (async () => {
+      try {
+        const data = await getProtectiveIncident(editId);
+        const d = data as any;
+        setForm(f => ({
+          ...f,
+          studentId: String(d.studentId ?? ""),
+          incidentDate: d.incidentDate ?? f.incidentDate,
+          incidentTime: d.incidentTime ?? "",
+          endTime: d.endTime ?? "",
+          incidentType: d.incidentType ?? "physical_restraint",
+          location: d.location ?? "",
+          precedingActivity: d.precedingActivity ?? "",
+          triggerDescription: d.triggerDescription ?? "",
+          antecedentCategory: d.antecedentCategory ?? "",
+          behaviorDescription: d.behaviorDescription ?? "",
+          deescalationAttempts: d.deescalationAttempts ?? "",
+          deescalationStrategies: Array.isArray(d.deescalationStrategies) ? d.deescalationStrategies : [],
+          alternativesAttempted: d.alternativesAttempted ?? "",
+          justification: d.justification ?? "",
+          restraintType: d.restraintType ?? "",
+          restraintDescription: d.restraintDescription ?? "",
+          bodyPosition: d.bodyPosition ?? "",
+          proceduresUsed: Array.isArray(d.proceduresUsed) ? d.proceduresUsed : [],
+          primaryStaffId: d.primaryStaffId ? String(d.primaryStaffId) : "",
+          additionalStaffIds: Array.isArray(d.additionalStaffIds) ? d.additionalStaffIds.map(String) : [],
+          observerStaffIds: Array.isArray(d.observerStaffIds) ? d.observerStaffIds.map(String) : [],
+          principalNotifiedName: d.principalNotifiedName ?? "",
+          continuedOver20Min: d.continuedOver20Min ?? false,
+          over20MinApproverName: d.over20MinApproverName ?? "",
+          calmingStrategiesUsed: d.calmingStrategiesUsed ?? "",
+          studentStateAfter: d.studentStateAfter ?? "",
+          studentMoved: d.studentMoved ?? false,
+          studentMovedTo: d.studentMovedTo ?? "",
+          roomCleared: d.roomCleared ?? false,
+          bipInPlace: d.bipInPlace ?? false,
+          physicalEscortOnly: d.physicalEscortOnly ?? false,
+          emergencyServicesCalled: d.emergencyServicesCalled ?? false,
+          studentReturnedToActivity: d.studentReturnedToActivity ?? "",
+          timeToCalm: d.timeToCalm ? String(d.timeToCalm) : "",
+          studentInjury: d.studentInjury ?? false,
+          studentInjuryDescription: d.studentInjuryDescription ?? "",
+          staffInjury: d.staffInjury ?? false,
+          staffInjuryDescription: d.staffInjuryDescription ?? "",
+          medicalAttentionRequired: d.medicalAttentionRequired ?? false,
+          medicalDetails: d.medicalDetails ?? "",
+          debriefConducted: d.debriefConducted ?? false,
+          debriefDate: d.debriefDate ?? "",
+          debriefNotes: d.debriefNotes ?? "",
+          reportingStaffSignature: d.reportingStaffSignature ?? "",
+          notes: d.notes ?? "",
+        }));
+        setLoadedEdit(true);
+        isDirtyRef.current = false;
+      } catch {}
+    })();
+  }, [editId, loadedEdit]);
+
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
     queryFn: ({ signal }) => listStudents(undefined, { signal }),
@@ -942,24 +1007,41 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
         return (eh * 60 + em) - (sh * 60 + sm);
       })() : null;
 
-      const res = await createProtectiveIncident({
-          ...form,
-          studentId: Number(form.studentId),
-          primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
-          additionalStaffIds: form.additionalStaffIds.length > 0 ? form.additionalStaffIds.map(Number) : null,
-          observerStaffIds: form.observerStaffIds.length > 0 ? form.observerStaffIds.map(Number) : null,
-          durationMinutes: dur && dur > 0 ? dur : null,
-          reportingStaffSignedAt: form.reportingStaffSignature ? new Date().toISOString() : null,
-          timeToCalm: form.timeToCalm ? Number(form.timeToCalm) : null,
-          proceduresUsed: form.proceduresUsed.length > 0 ? form.proceduresUsed : null,
-          deescalationStrategies: form.deescalationStrategies.length > 0 ? form.deescalationStrategies : null,
+      const payload = {
+        ...form,
+        studentId: Number(form.studentId),
+        primaryStaffId: form.primaryStaffId ? Number(form.primaryStaffId) : null,
+        additionalStaffIds: form.additionalStaffIds.length > 0 ? form.additionalStaffIds.map(Number) : null,
+        observerStaffIds: form.observerStaffIds.length > 0 ? form.observerStaffIds.map(Number) : null,
+        durationMinutes: dur && dur > 0 ? dur : null,
+        reportingStaffSignedAt: form.reportingStaffSignature ? new Date().toISOString() : null,
+        timeToCalm: form.timeToCalm ? Number(form.timeToCalm) : null,
+        proceduresUsed: form.proceduresUsed.length > 0 ? form.proceduresUsed : null,
+        deescalationStrategies: form.deescalationStrategies.length > 0 ? form.deescalationStrategies : null,
+      };
+
+      if (editId) {
+        const res = await authFetch(`/api/protective-measures/incidents/${editId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Update failed" }));
+          throw new Error(err.error || "Update failed");
+        }
+        return res.json();
+      }
+
+      const res = await createProtectiveIncident(payload);
       return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["protective-incidents"] });
       queryClient.invalidateQueries({ queryKey: ["protective-summary"] });
+      if (editId) queryClient.invalidateQueries({ queryKey: ["protective-incident", editId] });
       try { localStorage.removeItem("pm-incident-draft"); } catch {}
+      toast.success(editId ? "Incident updated" : "Incident report submitted");
       onClose();
     },
     onError: (e: Error) => setError(e.message),
@@ -987,7 +1069,7 @@ function NewIncidentForm({ onClose }: { onClose: () => void }) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-800">Report Incident</h1>
+          <h1 className="text-xl font-bold text-gray-800">{editId ? "Continue Report" : "Report Incident"}</h1>
           <p className="text-sm text-gray-500">603 CMR 46.06 Compliant Documentation</p>
         </div>
         {draftStatus !== "idle" && (
@@ -1576,7 +1658,7 @@ function IncidentTransitionDialog({
   );
 }
 
-function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) {
+function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number; onBack: () => void; onExpandToFull?: (id: number) => void }) {
   const queryClient = useQueryClient();
 
   const { data: incident, isLoading } = useQuery<IncidentDetail>({
@@ -1740,6 +1822,15 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
         <span className={`text-xs font-medium px-3 py-1.5 rounded-full ${STATUS_COLORS[incident.status]}`}>
           {STATUS_LABELS[incident.status]}
         </span>
+        {(incident.status === "draft" || incident.status === "draft_quick") && onExpandToFull && (
+          <button
+            onClick={() => onExpandToFull(id)}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition-colors flex items-center gap-1.5"
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            {incident.status === "draft_quick" ? "Expand to Full Report" : "Edit Draft"}
+          </button>
+        )}
         {availableTransitions.length > 0 && (
           <button
             onClick={() => setShowTransition(true)}
