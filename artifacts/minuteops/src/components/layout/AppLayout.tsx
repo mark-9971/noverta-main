@@ -28,7 +28,7 @@ import { type FeatureKey } from "@/lib/module-tiers";
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
-const SHOW_COMING_SOON = true;
+const SHOW_COMING_SOON = false;
 
 type NavItem = {
   href: string;
