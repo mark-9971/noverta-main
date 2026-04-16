@@ -1678,7 +1678,12 @@ router.get("/reports/exports/history/:id/download", async (req: Request, res: Re
       complianceStatus: params.complianceStatus as string | undefined,
     };
 
-    const result = await generateReportCSVDirect(entry.reportType, entry.districtId ?? 0, reportFilters);
+    const effectiveDistrictId = entry.districtId ?? scope.enforcedDistrictId;
+    if (!effectiveDistrictId || effectiveDistrictId <= 0) {
+      res.status(400).json({ error: "Cannot regenerate report without a valid district scope" });
+      return;
+    }
+    const result = await generateReportCSVDirect(entry.reportType, effectiveDistrictId, reportFilters);
     if (!result) { res.status(500).json({ error: "Failed to regenerate report" }); return; }
 
     const filename = entry.fileName || `${entry.reportType}.csv`;
@@ -1736,7 +1741,11 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       return;
     }
 
-    const districtId = scope.enforcedDistrictId ?? 0;
+    if (scope.enforcedDistrictId === null) {
+      res.status(400).json({ error: "District scope is required to create scheduled reports. Platform admins must specify a district." });
+      return;
+    }
+    const districtId = scope.enforcedDistrictId;
     const createdBy = (req as AuthedRequest).userId ?? "system";
 
     const now = new Date();
@@ -1802,10 +1811,12 @@ export interface ReportFilters {
 }
 
 export async function generateReportCSVDirect(reportType: string, districtId: number, filters?: ReportFilters): Promise<{ csv: string; rowCount: number } | null> {
+  if (districtId <= 0) {
+    console.error(`[generateReportCSVDirect] Refusing to generate report without valid district scope (districtId=${districtId})`);
+    return null;
+  }
   try {
-    const dc = districtId > 0
-      ? sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
-      : undefined;
+    const dc = sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`;
 
     if (reportType === "compliance-summary") {
       const now = new Date();
