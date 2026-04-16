@@ -76,15 +76,15 @@ router.get("/transitions/plans", transitionAccess, async (req, res): Promise<voi
       .where(isNull(transitionPlansTable.deletedAt))
       .orderBy(desc(transitionPlansTable.updatedAt));
 
-    const allPlanIds = rows.map(r => r.id);
     let goalCountMap = new Map<number, number>();
     let referralCountMap = new Map<number, number>();
-    if (allPlanIds.length > 0) {
+    if (rows.length > 0) {
+      const planIds = rows.map(r => r.id);
       const goalCounts = await db.select({
         transitionPlanId: transitionGoalsTable.transitionPlanId,
         count: sql<number>`count(*)::int`,
       }).from(transitionGoalsTable)
-        .where(isNull(transitionGoalsTable.deletedAt))
+        .where(and(isNull(transitionGoalsTable.deletedAt), sql`${transitionGoalsTable.transitionPlanId} = ANY(${planIds})`))
         .groupBy(transitionGoalsTable.transitionPlanId);
       for (const g of goalCounts) goalCountMap.set(g.transitionPlanId, g.count);
 
@@ -92,7 +92,7 @@ router.get("/transitions/plans", transitionAccess, async (req, res): Promise<voi
         transitionPlanId: transitionAgencyReferralsTable.transitionPlanId,
         count: sql<number>`count(*)::int`,
       }).from(transitionAgencyReferralsTable)
-        .where(isNull(transitionAgencyReferralsTable.deletedAt))
+        .where(and(isNull(transitionAgencyReferralsTable.deletedAt), sql`${transitionAgencyReferralsTable.transitionPlanId} = ANY(${planIds})`))
         .groupBy(transitionAgencyReferralsTable.transitionPlanId);
       for (const r of referralCounts) referralCountMap.set(r.transitionPlanId, r.count);
     }

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/formatters";
+import { useLocation } from "wouter";
 import {
   FileSearch, ClipboardList, Users, Calendar, AlertTriangle,
   Plus, Save, Loader2, CheckCircle2, Clock,
@@ -231,15 +232,10 @@ export default function EvaluationsPage() {
     typeof window !== "undefined" && window.innerWidth >= 768 ? "pipeline" : "tabs"
   );
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [, navigate] = useLocation();
 
   function handleCardClick(card: PipelineCard) {
-    const tabMap: Record<PipelineCard["type"], string> = {
-      referral: "referrals",
-      evaluation: "evaluations",
-      eligibility: "eligibility",
-    };
-    setActiveTab(tabMap[card.type]);
-    setViewMode("tabs");
+    navigate(`/students/${card.studentId}`);
   }
 
   return (
@@ -287,6 +283,7 @@ export default function EvaluationsPage() {
 
 interface PipelineCard {
   id: string;
+  studentId: number;
   studentName: string;
   studentGrade: string | null;
   type: "referral" | "evaluation" | "eligibility";
@@ -337,6 +334,7 @@ function PipelineView({ onCardClick }: { onCardClick: (card: PipelineCard) => vo
     .filter(r => r.status === "open" && !evalsByReferralId.has(r.id))
     .map(r => ({
       id: `ref-${r.id}`,
+      studentId: r.studentId,
       studentName: r.studentName ?? "—",
       studentGrade: r.studentGrade,
       type: "referral",
@@ -352,6 +350,7 @@ function PipelineView({ onCardClick }: { onCardClick: (card: PipelineCard) => vo
     .filter(ev => ev.status === "pending" || ev.status === "in_progress" || ev.status === "overdue")
     .map(ev => ({
       id: `eval-${ev.id}`,
+      studentId: ev.studentId,
       studentName: ev.studentName ?? "—",
       studentGrade: ev.studentGrade,
       type: "evaluation",
@@ -377,6 +376,7 @@ function PipelineView({ onCardClick }: { onCardClick: (card: PipelineCard) => vo
     })
     .map(ev => ({
       id: `eval-done-${ev.id}`,
+      studentId: ev.studentId,
       studentName: ev.studentName ?? "—",
       studentGrade: ev.studentGrade,
       type: "evaluation",
@@ -388,6 +388,7 @@ function PipelineView({ onCardClick }: { onCardClick: (card: PipelineCard) => vo
 
   const eligCards: PipelineCard[] = eligibility.map(el => ({
     id: `elig-${el.id}`,
+    studentId: el.studentId,
     studentName: el.studentName ?? "—",
     studentGrade: el.studentGrade,
     type: "eligibility",
