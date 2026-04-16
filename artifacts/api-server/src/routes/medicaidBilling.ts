@@ -369,13 +369,39 @@ router.patch("/medicaid/claims/:id", async (req, res): Promise<void> => {
 
   const { cptCode, modifier, units, billedAmount, placeOfService, diagnosisCode, rejectionReason } = req.body;
   const updates: Record<string, any> = {};
-  if (cptCode !== undefined) updates.cptCode = cptCode;
-  if (modifier !== undefined) updates.modifier = modifier || null;
-  if (units !== undefined) updates.units = Number(units);
-  if (billedAmount !== undefined) updates.billedAmount = String(billedAmount);
-  if (placeOfService !== undefined) updates.placeOfService = placeOfService;
-  if (diagnosisCode !== undefined) updates.diagnosisCode = diagnosisCode || null;
-  if (rejectionReason !== undefined) updates.rejectionReason = rejectionReason || null;
+  if (cptCode !== undefined) {
+    if (typeof cptCode !== "string" || !/^\d{4,5}$/.test(cptCode)) {
+      res.status(400).json({ error: "CPT code must be a 4-5 digit string" });
+      return;
+    }
+    updates.cptCode = cptCode;
+  }
+  if (modifier !== undefined) updates.modifier = (typeof modifier === "string" && modifier.trim()) ? modifier.trim().slice(0, 10) : null;
+  if (units !== undefined) {
+    const parsedUnits = Number(units);
+    if (!Number.isFinite(parsedUnits) || parsedUnits < 1 || parsedUnits > 999) {
+      res.status(400).json({ error: "Units must be a number between 1 and 999" });
+      return;
+    }
+    updates.units = parsedUnits;
+  }
+  if (billedAmount !== undefined) {
+    const parsedAmount = parseFloat(billedAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0 || parsedAmount > 99999.99) {
+      res.status(400).json({ error: "Billed amount must be a number between 0 and 99999.99" });
+      return;
+    }
+    updates.billedAmount = parsedAmount.toFixed(2);
+  }
+  if (placeOfService !== undefined) {
+    if (typeof placeOfService !== "string" || !/^\d{2}$/.test(placeOfService)) {
+      res.status(400).json({ error: "Place of service must be a 2-digit code" });
+      return;
+    }
+    updates.placeOfService = placeOfService;
+  }
+  if (diagnosisCode !== undefined) updates.diagnosisCode = (typeof diagnosisCode === "string" && diagnosisCode.trim()) ? diagnosisCode.trim().slice(0, 20) : null;
+  if (rejectionReason !== undefined) updates.rejectionReason = (typeof rejectionReason === "string" && rejectionReason.trim()) ? rejectionReason.trim().slice(0, 500) : null;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update" });
@@ -549,24 +575,34 @@ router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
       })),
     });
   } else {
+    const csvEscape = (val: unknown): string => {
+      const s = String(val ?? "");
+      if (/^[=+\-@\t\r]/.test(s)) {
+        return `"'${s.replace(/"/g, '""')}"`;
+      }
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
     const header = "ClaimID,PatientMedicaidID,PatientLastName,PatientFirstName,PatientDOB,ProviderNPI,ProviderMedicaidID,ServiceDate,CPTCode,Modifier,PlaceOfService,Units,BilledAmount,DiagnosisCode,ServiceDescription";
     const rows = claims.map(c =>
       [
         c.id,
-        c.studentMedicaidId || "",
-        c.studentLast || "",
-        c.studentFirst || "",
-        c.studentDob || "",
-        c.providerNpi || "",
-        c.providerMedicaidId || "",
-        c.serviceDate,
-        c.cptCode,
-        c.modifier || "",
-        c.placeOfService,
+        csvEscape(c.studentMedicaidId),
+        csvEscape(c.studentLast),
+        csvEscape(c.studentFirst),
+        csvEscape(c.studentDob),
+        csvEscape(c.providerNpi),
+        csvEscape(c.providerMedicaidId),
+        csvEscape(c.serviceDate),
+        csvEscape(c.cptCode),
+        csvEscape(c.modifier),
+        csvEscape(c.placeOfService),
         c.units,
         c.billedAmount,
-        c.diagnosisCode || "F84.0",
-        `"${(c.serviceTypeName || "").replace(/"/g, '""')}"`,
+        csvEscape(c.diagnosisCode || "F84.0"),
+        csvEscape(c.serviceTypeName),
       ].join(",")
     );
     const csv = [header, ...rows].join("\n");
