@@ -17,26 +17,33 @@ export default function ClosingSlide() {
         </div>
 
         <h2 className="font-display text-[5vw] font-extrabold text-white tracking-tight leading-[1.05]">
-          Compliance without
+          Let's build the future of
         </h2>
         <h2 className="font-display text-[5vw] font-extrabold text-accent tracking-tight leading-[1.05]">
-          the complexity.
+          special education.
         </h2>
 
         <p className="font-body text-[1.8vw] text-white/50 mt-[3vh] max-w-[50vw] leading-relaxed">
-          Trellis gives SPED teams the clinical tools and compliance automation they need -- so they can focus on what matters most: supporting students.
+          Whether you're a district ready to modernize, an investor looking at EdTech infrastructure, or an SIS partner seeking a SPED solution -- we're ready to talk.
         </p>
 
-        <div className="mt-[6vh] flex items-center gap-[3vw]">
-          <div className="text-center">
-            <p className="font-body text-[1.5vw] text-white/40 mb-[0.5vh]">Contact</p>
-            <p className="font-body text-[1.6vw] text-white font-medium">hello@trellised.com</p>
+        <div className="mt-[5vh] flex items-center gap-[4vw]">
+          <div className="bg-white/5 border border-white/10 rounded-[0.8vw] px-[2.5vw] py-[2vh] text-center">
+            <p className="font-body text-[1.3vw] text-white/40 mb-[0.5vh]">Schedule a Demo</p>
+            <p className="font-body text-[1.6vw] text-accent font-semibold">demo@trellised.com</p>
           </div>
-          <div className="w-[0.15vw] h-[4vh] bg-white/10" />
-          <div className="text-center">
-            <p className="font-body text-[1.5vw] text-white/40 mb-[0.5vh]">Website</p>
-            <p className="font-body text-[1.6vw] text-white font-medium">trellised.com</p>
+          <div className="bg-white/5 border border-white/10 rounded-[0.8vw] px-[2.5vw] py-[2vh] text-center">
+            <p className="font-body text-[1.3vw] text-white/40 mb-[0.5vh]">Partnerships</p>
+            <p className="font-body text-[1.6vw] text-white font-semibold">partners@trellised.com</p>
           </div>
+          <div className="bg-white/5 border border-white/10 rounded-[0.8vw] px-[2.5vw] py-[2vh] text-center">
+            <p className="font-body text-[1.3vw] text-white/40 mb-[0.5vh]">Website</p>
+            <p className="font-body text-[1.6vw] text-white font-semibold">trellised.com</p>
+          </div>
+        </div>
+
+        <div className="mt-[4vh] bg-accent/10 border border-accent/20 rounded-[0.6vw] px-[2vw] py-[1vh]">
+          <p className="font-body text-[1.2vw] text-accent font-semibold">60-day pilot program available -- full features, no commitment</p>
         </div>
       </div>
     </div>

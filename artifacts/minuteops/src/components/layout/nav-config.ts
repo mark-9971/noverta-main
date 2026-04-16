@@ -1,0 +1,287 @@
+import {
+  LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
+  BarChart3, UserCheck, Upload, Activity,
+  Search, Shield, PieChart, Building2,
+  Star, Clock, Sparkles, Sun,
+  Clipboard, Sprout, Gauge, CalendarDays,
+  BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
+  Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail
+} from "lucide-react";
+import { type FeatureKey } from "@/lib/module-tiers";
+
+type IconComponent = React.ComponentType<{ className?: string }>;
+
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: IconComponent;
+  primary?: boolean;
+  alertBadge?: boolean;
+  comingSoon?: boolean;
+  featureKey?: FeatureKey;
+};
+
+export type NavSection = {
+  label?: string;
+  icon?: IconComponent;
+  items: NavItem[];
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+};
+
+export const platformAdminSection: NavSection = {
+  label: "Platform",
+  icon: Crown,
+  collapsible: true,
+  items: [
+    { href: "/tenants", label: "Tenant Management", icon: Crown },
+  ],
+};
+
+export const adminNav: NavSection[] = [
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+    ],
+  },
+  {
+    label: "Students",
+    icon: GraduationCap,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/students", label: "Student List", icon: Users, primary: true },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
+    ],
+  },
+  {
+    label: "Service Delivery",
+    icon: Calendar,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/sessions", label: "Sessions", icon: Clipboard },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/coverage", label: "Coverage", icon: UserCheck },
+    ],
+  },
+  {
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
+      { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+      { href: "/state-reporting", label: "State Reports", icon: Building2 },
+    ],
+  },
+  {
+    label: "Clinical",
+    icon: Stethoscope,
+    collapsible: true,
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
+    ],
+  },
+  {
+    label: "District",
+    icon: Building2,
+    collapsible: true,
+    items: [
+      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
+      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
+      { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+      { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
+    ],
+  },
+  {
+    label: "People",
+    icon: Contact,
+    collapsible: true,
+    items: [
+      { href: "/staff", label: "Staff Directory", icon: UserCheck },
+      { href: "/agencies", label: "Agencies", icon: Truck },
+    ],
+  },
+  {
+    label: "Communication",
+    icon: MessageSquare,
+    collapsible: true,
+    items: [
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+    ],
+  },
+  {
+    label: "Admin",
+    icon: Settings,
+    collapsible: true,
+    items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/analytics", label: "Analytics", icon: PieChart },
+      { href: "/import", label: "Data Import", icon: Upload },
+      { href: "/billing", label: "Billing", icon: CreditCard },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
+];
+
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["District", "Admin"]);
+const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
+  "Students": "My Students",
+};
+const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
+  "Student List": "My Students",
+  "Sessions": "My Sessions",
+};
+
+export const spedTeacherNav: NavSection[] = adminNav
+  .filter(s => !s.label || !SPED_TEACHER_EXCLUDED_GROUPS.has(s.label))
+  .map(s => {
+    const label = s.label && SPED_TEACHER_LABEL_MAP[s.label] ? SPED_TEACHER_LABEL_MAP[s.label] : s.label;
+    let items = s.items.map(item => ({
+      ...item,
+      label: SPED_TEACHER_ITEM_LABEL_MAP[item.label] ?? item.label,
+    }));
+    if (s.label === "Overview") {
+      items = [...items, { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase }];
+    }
+    return { ...s, label, items };
+  });
+
+export const paraNav: NavSection[] = [
+  {
+    items: [
+      { href: "/my-day", label: "My Day", icon: Sun, primary: true },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+    ],
+  },
+  {
+    label: "Session Work",
+    items: [
+      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/sessions", label: "Session Log", icon: Clipboard },
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+    ],
+  },
+];
+
+export const guardianPortalNav: NavSection[] = [
+  {
+    items: [
+      { href: "/guardian-portal", label: "Overview", icon: LayoutDashboard, primary: true },
+      { href: "/guardian-portal/messages", label: "Messages", icon: Mail, primary: true },
+      { href: "/guardian-portal/documents", label: "Documents", icon: FileText, primary: true },
+      { href: "/guardian-portal/meetings", label: "Meetings", icon: Calendar, primary: true },
+      { href: "/guardian-portal/contact-history", label: "Contact History", icon: MessageSquare, primary: true },
+    ],
+  },
+];
+
+export const spedStudentNav: NavSection[] = [
+  {
+    items: [
+      { href: "/sped-portal", label: "My Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/sped-portal/goals", label: "My Goals", icon: Star, primary: true },
+      { href: "/sped-portal/check-in", label: "Daily Check-In", icon: Heart, primary: true },
+      { href: "/sped-portal/wins", label: "My Wins", icon: Trophy, primary: true },
+      { href: "/sped-portal/services", label: "My Services", icon: BookOpen },
+      { href: "/sped-portal/sessions", label: "My Sessions", icon: Clock },
+    ],
+  },
+];
+
+export type RoleThemeConfig = {
+  nav: NavSection[];
+  color: string;
+  textColor: string;
+  bgActive: string;
+  iconActive: string;
+  label: string;
+  subtitle: string;
+  homeHref: string;
+};
+
+const STAFF_NAV_CONFIG = {
+  admin: {
+    nav: adminNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/",
+  },
+  sped_teacher: {
+    nav: spedTeacherNav,
+    color: "bg-emerald-700",
+    textColor: "text-emerald-700",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-700",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/",
+  },
+} satisfies Record<string, RoleThemeConfig>;
+
+export const roleConfig: Record<string, RoleThemeConfig> = {
+  admin: STAFF_NAV_CONFIG.admin,
+  case_manager: STAFF_NAV_CONFIG.admin,
+  coordinator: STAFF_NAV_CONFIG.admin,
+  bcba: STAFF_NAV_CONFIG.sped_teacher,
+  sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
+  provider: STAFF_NAV_CONFIG.sped_teacher,
+  para: {
+    nav: paraNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-600 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/my-day",
+  },
+  sped_student: {
+    nav: spedStudentNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/sped-portal",
+  },
+  sped_parent: {
+    nav: guardianPortalNav,
+    color: "bg-purple-600",
+    textColor: "text-purple-600",
+    bgActive: "bg-purple-50 text-purple-700 font-semibold",
+    iconActive: "text-purple-600",
+    label: "Trellis",
+    subtitle: "Parent Portal",
+    homeHref: "/guardian-portal",
+  },
+};

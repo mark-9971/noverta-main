@@ -20,7 +20,7 @@ import {
   buildIncompleteTransitionEmail,
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
-import { generateReportCSVDirect } from "../routes/reportExports";
+import { generateReportCSVDirect } from "../routes/reportExports/historyAndScheduled";
 import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
