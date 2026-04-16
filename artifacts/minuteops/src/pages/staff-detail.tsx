@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
 import { getStaff, getStaffCaseloadSummary, getStaffCaseload, getStaffSupervisionSummary } from "@workspace/api-client-react";
-import { authFetch } from "@workspace/api-client-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"] as const;
 const WEEKDAY_SHORT: Record<string, string> = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };

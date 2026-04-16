@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, FileText, CheckCircle, XCircle, Upload, Download,
   AlertTriangle, TrendingUp, Clock, Filter, ChevronDown, Search,
-  Plus, Trash2, Edit, Eye, Ban
+  Plus, Trash2, Edit, Eye, Ban, Pencil, Save, X
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useRole } from "@/lib/role-context";
@@ -49,6 +49,8 @@ function ClaimsQueueTab() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [genDateFrom, setGenDateFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -97,6 +99,44 @@ function ClaimsQueueTab() {
     },
     onError: () => toast.error("Failed to update claims"),
   });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: number; updates: Record<string, string> }) =>
+      authFetch(`/api/medicaid/claims/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      }).then(r => {
+        if (!r.ok) return r.json().then((d: any) => Promise.reject(d));
+        return r.json();
+      }),
+    onSuccess: () => {
+      toast.success("Claim updated");
+      setEditingId(null);
+      setEditForm({});
+      queryClient.invalidateQueries({ queryKey: ["medicaid-claims"] });
+      queryClient.invalidateQueries({ queryKey: ["medicaid-revenue"] });
+    },
+    onError: (err: any) => toast.error(err?.error || "Failed to update claim"),
+  });
+
+  const startEditing = useCallback((claim: any) => {
+    setEditingId(claim.id);
+    setEditForm({
+      cptCode: claim.cptCode || "",
+      modifier: claim.modifier || "",
+      units: String(claim.units || ""),
+      billedAmount: claim.billedAmount || "",
+      placeOfService: claim.placeOfService || "03",
+      diagnosisCode: claim.diagnosisCode || "",
+      rejectionReason: claim.rejectionReason || "",
+    });
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    if (editingId === null) return;
+    editMutation.mutate({ id: editingId, updates: editForm });
+  }, [editingId, editForm, editMutation]);
 
   const claims = data?.claims ?? [];
   const total = data?.total ?? 0;
@@ -189,20 +229,58 @@ function ClaimsQueueTab() {
                   <th className="py-2.5 px-3 text-gray-500 font-medium">Status</th>
                   <th className="py-2.5 px-3 text-gray-500 font-medium">Medicaid ID</th>
                   <th className="py-2.5 px-3 text-gray-500 font-medium">NPI</th>
+                  <th className="py-2.5 px-3 text-gray-500 font-medium w-16"></th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   [...Array(5)].map((_, i) => (
                     <tr key={i} className="border-b border-gray-50">
-                      <td colSpan={11} className="py-3 px-3"><Skeleton className="h-5 w-full" /></td>
+                      <td colSpan={12} className="py-3 px-3"><Skeleton className="h-5 w-full" /></td>
                     </tr>
                   ))
                 ) : claims.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-gray-400 text-sm">No claims found</td>
+                    <td colSpan={12} className="py-8 text-center text-gray-400 text-sm">No claims found</td>
                   </tr>
-                ) : claims.map((c: any) => (
+                ) : claims.map((c: any) => editingId === c.id ? (
+                  <tr key={c.id} className="border-b border-gray-50 bg-emerald-50/40">
+                    <td className="py-2 px-3"></td>
+                    <td className="py-2 px-3 text-gray-700 whitespace-nowrap">{c.serviceDate}</td>
+                    <td className="py-2 px-3 font-medium text-gray-800 truncate max-w-[140px]">{c.studentName}</td>
+                    <td className="py-2 px-3 text-gray-600 truncate max-w-[120px]">{c.staffName}</td>
+                    <td className="py-2 px-3 text-gray-600 truncate max-w-[120px]">{c.serviceTypeName}</td>
+                    <td className="py-2 px-3">
+                      <div className="flex gap-1">
+                        <Input value={editForm.cptCode} onChange={e => setEditForm(f => ({ ...f, cptCode: e.target.value }))} className="w-16 h-6 text-[11px] font-mono px-1" placeholder="CPT" />
+                        <Input value={editForm.modifier} onChange={e => setEditForm(f => ({ ...f, modifier: e.target.value }))} className="w-10 h-6 text-[11px] font-mono px-1" placeholder="Mod" />
+                      </div>
+                    </td>
+                    <td className="py-2 px-3">
+                      <Input type="number" value={editForm.units} onChange={e => setEditForm(f => ({ ...f, units: e.target.value }))} className="w-14 h-6 text-[11px] text-right px-1" />
+                    </td>
+                    <td className="py-2 px-3">
+                      <Input value={editForm.billedAmount} onChange={e => setEditForm(f => ({ ...f, billedAmount: e.target.value }))} className="w-20 h-6 text-[11px] text-right px-1" placeholder="0.00" />
+                    </td>
+                    <td className="py-2 px-3">
+                      <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status as ClaimStatus] || "bg-gray-100 text-gray-500"}`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-mono text-gray-500 text-[11px]">{c.studentMedicaidId || <span className="text-red-400">Missing</span>}</td>
+                    <td className="py-2 px-3 font-mono text-gray-500 text-[11px]">{c.providerNpi || <span className="text-red-400">Missing</span>}</td>
+                    <td className="py-2 px-3">
+                      <div className="flex gap-1">
+                        <button onClick={saveEdit} disabled={editMutation.isPending} className="p-1 rounded hover:bg-emerald-100 text-emerald-600" title="Save">
+                          <Save className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => { setEditingId(null); setEditForm({}); }} className="p-1 rounded hover:bg-gray-200 text-gray-400" title="Cancel">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
                   <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="py-2 px-3">
                       <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleOne(c.id)} className="rounded" />
@@ -224,6 +302,13 @@ function ClaimsQueueTab() {
                     </td>
                     <td className="py-2 px-3 font-mono text-gray-500 text-[11px]">
                       {c.providerNpi || <span className="text-red-400">Missing</span>}
+                    </td>
+                    <td className="py-2 px-3">
+                      {(c.status === "pending" || c.status === "rejected") && (
+                        <button onClick={() => startEditing(c)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-600" title="Edit claim">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
