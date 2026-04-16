@@ -10,18 +10,19 @@ import {
   scheduledReportsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql, isNull, count } from "drizzle-orm";
-import { getEnforcedDistrictId, requireDistrictScope } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireDistrictScope, requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
+import type { SQL } from "drizzle-orm";
 
 interface BufferedPDFDoc {
   bufferedPageRange(): { start: number; count: number };
 }
 
 const router: IRouter = Router();
-// Non-platform-admin users without a district claim cannot access export routes.
 router.use(requireDistrictScope);
+router.use(requireRoles("admin", "case_manager", "coordinator"));
 
 function escapeCSV(val: unknown): string {
   const str = String(val ?? "");
@@ -922,7 +923,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+    const conditions: SQL[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
     const dc = districtCondition(scope.enforcedDistrictId);
     if (dc) conditions.push(dc);
     if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
@@ -943,10 +944,10 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const sIds = students.map(s => s.id);
     const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
 
-    const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+    const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
     if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
 
-    const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const [reqs, sessions] = await Promise.all([
@@ -1027,7 +1028,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+    const conditions: SQL[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
     const dc = districtCondition(scope.enforcedDistrictId);
     if (dc) conditions.push(dc);
     if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
@@ -1041,10 +1042,10 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     const sIds = students.map(s => s.id);
     const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
 
-    const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+    const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
     if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
 
-    const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const [reqs, sessions] = await Promise.all([
@@ -1156,7 +1157,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
     if (scope.enforcedDistrictId !== null) {
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
@@ -1180,7 +1181,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     const staffIds = staffMembers.map(s => s.id);
     const staffIdList = sql.join(staffIds.map(id => sql`${id}`), sql`, `);
 
-    const sessConditions: any[] = [
+    const sessConditions: SQL[] = [
       sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
       gte(sessionLogsTable.sessionDate, start),
       lte(sessionLogsTable.sessionDate, end),
@@ -1245,7 +1246,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
     if (scope.enforcedDistrictId !== null) {
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
@@ -1261,7 +1262,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const staffIds = staffMembers.map(s => s.id);
     const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
 
-    const sessConditions: any[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const sessionData = await db.select({
@@ -1340,7 +1341,7 @@ router.get("/reports/exports/student-roster.csv", async (req: Request, res: Resp
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
 
-    const conditions: any[] = [isNull(studentsTable.deletedAt)];
+    const conditions: SQL[] = [isNull(studentsTable.deletedAt)];
     if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
     const dc = districtCondition(scope.enforcedDistrictId);
     if (dc) conditions.push(dc);
@@ -1398,7 +1399,7 @@ router.get("/reports/exports/student-roster.pdf", async (req: Request, res: Resp
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
 
-    const conditions: any[] = [isNull(studentsTable.deletedAt)];
+    const conditions: SQL[] = [isNull(studentsTable.deletedAt)];
     if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
     const dc = districtCondition(scope.enforcedDistrictId);
     if (dc) conditions.push(dc);
@@ -1472,7 +1473,7 @@ router.get("/reports/exports/caseload-distribution.csv", async (req: Request, re
 
     const { schoolId } = req.query;
 
-    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
     if (scope.enforcedDistrictId !== null) {
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
@@ -1532,7 +1533,7 @@ router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, re
 
     const { schoolId } = req.query;
 
-    const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
     if (scope.enforcedDistrictId !== null) {
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
@@ -1615,7 +1616,7 @@ router.get("/reports/exports/history", async (req: Request, res: Response): Prom
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
     if (scope.enforcedDistrictId !== null) {
       conditions.push(eq(exportHistoryTable.districtId, scope.enforcedDistrictId));
     }
@@ -1701,7 +1702,7 @@ router.get("/reports/exports/scheduled", async (req: Request, res: Response): Pr
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
     if (scope.enforcedDistrictId !== null) {
       conditions.push(eq(scheduledReportsTable.districtId, scope.enforcedDistrictId));
     }
@@ -1785,7 +1786,7 @@ router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Respon
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const conditions: any[] = [eq(scheduledReportsTable.id, id)];
+    const conditions: SQL[] = [eq(scheduledReportsTable.id, id)];
     if (scope.enforcedDistrictId !== null) {
       conditions.push(eq(scheduledReportsTable.districtId, scope.enforcedDistrictId));
     }
@@ -1822,7 +1823,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       const now = new Date();
       const start = filters?.startDate || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
       const end = filters?.endDate || now.toISOString().split("T")[0];
-      const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+      const conditions: SQL[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
       if (dc) conditions.push(dc);
       if (filters?.schoolId) conditions.push(eq(studentsTable.schoolId, filters.schoolId));
 
@@ -1834,10 +1835,10 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       const sIds = students.map(s => s.id);
       const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
 
-      const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+      const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
       if (filters?.serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId));
 
-      const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
       if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
 
       const [reqs, sessions] = await Promise.all([
@@ -1874,7 +1875,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
     }
 
     if (reportType === "student-roster") {
-      const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+      const conditions: SQL[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
       if (dc) conditions.push(dc);
       if (filters?.schoolId) conditions.push(eq(studentsTable.schoolId, filters.schoolId));
       const students = await db.select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName, grade: studentsTable.grade, status: studentsTable.status, disabilityCategory: studentsTable.disabilityCategory, placementType: studentsTable.placementType, schoolName: schoolsTable.name, dateOfBirth: studentsTable.dateOfBirth, enrolledAt: studentsTable.enrolledAt })
@@ -1884,7 +1885,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
     }
 
     if (reportType === "services-by-provider" || reportType === "caseload-distribution") {
-      const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
+      const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
       if (districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`);
       if (filters?.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
       if (filters?.providerId) staffConditions.push(eq(staffTable.id, filters.providerId));
@@ -1907,7 +1908,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       const end = filters?.endDate || now.toISOString().split("T")[0];
       const staffIds = staffMembers.map(s => s.id);
       const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-      const sessConditions: any[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
       if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
       const sessionData = staffIds.length > 0 ? await db.select({ staffId: sessionLogsTable.staffId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes, studentId: sessionLogsTable.studentId })
         .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(...sessConditions)) : [];
