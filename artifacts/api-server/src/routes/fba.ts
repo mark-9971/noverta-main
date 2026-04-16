@@ -633,9 +633,16 @@ router.post("/bips/:id/transition", async (req, res): Promise<void> => {
   }
 });
 
+const CLINICAL_ROLES = ["admin", "bcba", "case_manager", "coordinator", "teacher", "para"];
+
 router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    if (!CLINICAL_ROLES.includes(role)) {
+      res.status(403).json({ error: "Insufficient permissions to view BIP history" }); return;
+    }
     const history = await db.select({
       id: bipStatusHistoryTable.id,
       bipId: bipStatusHistoryTable.bipId,
@@ -660,6 +667,11 @@ router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
 router.get("/bips/:id/implementers", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    if (!CLINICAL_ROLES.includes(role)) {
+      res.status(403).json({ error: "Insufficient permissions to view BIP implementers" }); return;
+    }
     const implementers = await db.select({
       id: bipImplementersTable.id,
       bipId: bipImplementersTable.bipId,
@@ -742,6 +754,24 @@ router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
 router.get("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    const callerStaffId = authed.tenantStaffId ?? null;
+    if (!BIP_APPROVER_ROLES.includes(role)) {
+      if (!callerStaffId) {
+        res.status(403).json({ error: "Only BCBAs, admins, and assigned implementers can view fidelity logs" }); return;
+      }
+      const [impl] = await db.select({ id: bipImplementersTable.id })
+        .from(bipImplementersTable)
+        .where(and(
+          eq(bipImplementersTable.bipId, id),
+          eq(bipImplementersTable.staffId, callerStaffId),
+          eq(bipImplementersTable.active, true),
+        ));
+      if (!impl) {
+        res.status(403).json({ error: "Only BCBAs, admins, and assigned implementers can view fidelity logs" }); return;
+      }
+    }
     const logs = await db.select({
       id: bipFidelityLogsTable.id,
       bipId: bipFidelityLogsTable.bipId,

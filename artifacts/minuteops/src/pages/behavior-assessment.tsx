@@ -95,6 +95,30 @@ const CONDITION_COLORS: Record<string, string> = {
   control: "#374151", alone: "#92400e", play: "#10b981"
 };
 
+const BIP_PLAN_FIELD_LABELS: Record<string, string> = {
+  targetBehavior: "Target Behavior",
+  operationalDefinition: "Operational Definition",
+  hypothesizedFunction: "Hypothesized Function",
+  replacementBehaviors: "Replacement Behaviors",
+  preventionStrategies: "Prevention Strategies",
+  teachingStrategies: "Teaching Strategies",
+  consequenceStrategies: "Consequence Strategies",
+  reinforcementSchedule: "Reinforcement Schedule",
+  crisisPlan: "Crisis Plan",
+  dataCollectionMethod: "Data Collection Method",
+  progressCriteria: "Progress Criteria",
+  reviewDate: "Review Date",
+  effectiveDate: "Effective Date",
+};
+
+function computeBipDiff(older: BipRecord, newer: BipRecord): string[] {
+  return Object.keys(BIP_PLAN_FIELD_LABELS).filter(k => {
+    const ov = (older as any)[k] || "";
+    const nv = (newer as any)[k] || "";
+    return ov !== nv;
+  }).map(k => BIP_PLAN_FIELD_LABELS[k]);
+}
+
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   draft: { label: "Draft", cls: "bg-gray-100 text-gray-700" },
   "in-progress": { label: "In Progress", cls: "bg-amber-50 text-amber-700" },
@@ -1720,26 +1744,57 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
               {versionHistory.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-                    Previous Versions ({versionHistory.length})
+                    Version History ({versionHistory.length + 1} total)
                   </h3>
                   <div className="space-y-2">
-                    {versionHistory.map(v => (
-                      <Card key={v.id} className="bg-gray-50/50">
-                        <CardContent className="py-3">
-                          <div className="flex items-center justify-between flex-wrap gap-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-gray-700">v{v.version}</span>
-                              <StatusBadge status={v.status} />
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                              {v.createdByName && <span>by {v.createdByName}</span>}
-                              <span>{new Date(v.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                            </div>
+                    <Card className="border-emerald-200 bg-emerald-50/30">
+                      <CardContent className="py-3">
+                        <div className="flex items-center justify-between flex-wrap gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-emerald-800">v{currentBip.version} (current)</span>
+                            <StatusBadge status={currentBip.status} />
                           </div>
-                          <p className="text-xs text-gray-500 mt-1 truncate">{v.targetBehavior}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          <div className="text-xs text-gray-400">
+                            {currentBip.createdByName && <span>by {currentBip.createdByName} · </span>}
+                            <span>{new Date(currentBip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    {versionHistory.map((v, idx) => {
+                      const newerBip = idx === 0 ? currentBip : versionHistory[idx - 1];
+                      const changedFields = computeBipDiff(v, newerBip);
+                      return (
+                        <Card key={v.id} className="bg-gray-50/50">
+                          <CardContent className="py-3">
+                            <div className="flex items-center justify-between flex-wrap gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-gray-700">v{v.version}</span>
+                                <StatusBadge status={v.status} />
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                {v.createdByName && <span>by {v.createdByName}</span>}
+                                <span>{new Date(v.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                              </div>
+                            </div>
+                            {changedFields.length > 0 ? (
+                              <div className="mt-1.5">
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Changed in v{newerBip.version}:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {changedFields.map(f => (
+                                    <span key={f} className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 px-1.5 py-0.5 rounded">
+                                      {f}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-gray-400 mt-1">No plan content changes from this version</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
