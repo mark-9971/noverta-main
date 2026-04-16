@@ -52,7 +52,8 @@ export default function SettingsHubPage() {
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
     const hash = key === "general" ? "" : `#${key}`;
-    window.history.replaceState(null, "", `/settings${hash}`);
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+    window.history.replaceState(null, "", `${base}/settings${hash}`);
   };
 
   return (
