@@ -174,40 +174,41 @@ router.post("/guardian-portal/documents/:id/acknowledge", async (req: Request, r
 
     if (!doc) { res.status(404).json({ error: "Document not found or not shared" }); return; }
 
-    const existing = await db
-      .select()
-      .from(documentAcknowledgmentsTable)
-      .where(and(
-        eq(documentAcknowledgmentsTable.documentId, docId),
-        eq(documentAcknowledgmentsTable.guardianId, guardian.id),
-      ))
-      .limit(1);
-
-    if (existing.length > 0) {
-      res.json({ acknowledgedAt: existing[0].acknowledgedAt, alreadyAcknowledged: true });
-      return;
-    }
-
     const ipAddress = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
       ?? req.socket?.remoteAddress ?? null;
 
-    const [ack] = await db.insert(documentAcknowledgmentsTable).values({
+    // Upsert — unique constraint on (document_id, guardian_id) prevents duplicates.
+    // ON CONFLICT DO NOTHING + returning() returns the existing row if already acknowledged.
+    const inserted = await db.insert(documentAcknowledgmentsTable).values({
       documentId: docId,
       guardianId: guardian.id,
       ipAddress,
-    }).returning();
+    }).onConflictDoNothing().returning();
 
-    await db.insert(communicationEventsTable).values({
-      studentId,
-      guardianId: guardian.id,
-      type: "document_acknowledgment",
-      channel: "portal",
-      status: "sent",
-      subject: `Guardian acknowledged: ${doc.title}`,
-      metadata: { documentId: docId, documentTitle: doc.title, guardianId: guardian.id },
-    });
+    const alreadyAcknowledged = inserted.length === 0;
 
-    res.json({ acknowledgedAt: ack.acknowledgedAt, alreadyAcknowledged: false });
+    // Fetch the acknowledgment row (existing or newly inserted)
+    const [ack] = alreadyAcknowledged
+      ? await db.select().from(documentAcknowledgmentsTable)
+          .where(and(
+            eq(documentAcknowledgmentsTable.documentId, docId),
+            eq(documentAcknowledgmentsTable.guardianId, guardian.id),
+          )).limit(1)
+      : inserted;
+
+    if (!alreadyAcknowledged) {
+      await db.insert(communicationEventsTable).values({
+        studentId,
+        guardianId: guardian.id,
+        type: "document_acknowledgment",
+        channel: "portal",
+        status: "sent",
+        subject: `Guardian acknowledged: ${doc.title}`,
+        metadata: { documentId: docId, documentTitle: doc.title, guardianId: guardian.id },
+      });
+    }
+
+    res.json({ acknowledgedAt: ack.acknowledgedAt, alreadyAcknowledged });
   } catch (err) {
     console.error("POST /guardian-portal/documents/:id/acknowledge error:", err);
     res.status(500).json({ error: "Failed to record acknowledgment" });

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { db, generatedDocumentsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { db, generatedDocumentsTable, documentAcknowledgmentsTable } from "@workspace/db";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
@@ -95,7 +95,21 @@ router.get("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: R
     .where(and(...conditions))
     .orderBy(desc(generatedDocumentsTable.createdAt));
 
-  res.json(docs);
+  // Batch-fetch acknowledgment counts for shared docs
+  const docIds = docs.map(d => d.id);
+  const ackRows = docIds.length > 0
+    ? await db
+        .select({
+          documentId: documentAcknowledgmentsTable.documentId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(documentAcknowledgmentsTable)
+        .where(inArray(documentAcknowledgmentsTable.documentId, docIds))
+        .groupBy(documentAcknowledgmentsTable.documentId)
+    : [];
+  const ackMap = new Map(ackRows.map(r => [r.documentId, r.count]));
+
+  res.json(docs.map(d => ({ ...d, acknowledgedCount: ackMap.get(d.id) ?? 0 })));
 });
 
 router.get("/generated-documents/:id", requireRoles(...ALLOWED_ROLES), async (req: Request, res: Response): Promise<void> => {

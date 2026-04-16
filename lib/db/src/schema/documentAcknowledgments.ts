@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, text, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, timestamp, text, index, unique } from "drizzle-orm/pg-core";
 import { generatedDocumentsTable } from "./generatedDocuments";
 import { guardiansTable } from "./guardians";
 
@@ -11,6 +11,7 @@ export const documentAcknowledgmentsTable = pgTable("document_acknowledgments", 
 }, (t) => [
   index("doc_ack_document_idx").on(t.documentId),
   index("doc_ack_guardian_idx").on(t.guardianId),
+  unique("doc_ack_unique").on(t.documentId, t.guardianId),
 ]);
 
 export type DocumentAcknowledgment = typeof documentAcknowledgmentsTable.$inferSelect;
