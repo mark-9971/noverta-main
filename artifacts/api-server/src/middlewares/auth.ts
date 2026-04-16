@@ -13,6 +13,8 @@ export interface AuthedRequest extends Request {
   tenantStaffId: number | null;
   /** Student ID from the authenticated token (sped_student role only). */
   tenantStudentId: number | null;
+  /** Guardian ID from the authenticated token (sped_parent role only). */
+  tenantGuardianId: number | null;
 }
 
 function extractRole(req: Request): TrellisRole | null {
@@ -88,6 +90,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   (req as AuthedRequest).tenantDistrictId = meta.districtId ?? null;
   (req as AuthedRequest).tenantStaffId = meta.staffId ?? null;
   (req as AuthedRequest).tenantStudentId = meta.studentId ?? null;
+  (req as AuthedRequest).tenantGuardianId = meta.guardianId ?? null;
 
   next();
 }
@@ -136,6 +139,8 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
     const authed = req as AuthedRequest;
     const meta = getPublicMeta(req);
     if (meta.platformAdmin) { next(); return; }
+    // sped_parent has its own scope enforcement via requireGuardianScope; no district claim needed.
+    if (authed.trellisRole === "sped_parent") { next(); return; }
     if (authed.tenantDistrictId == null) {
       res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
       return;
@@ -175,6 +180,33 @@ export function requirePlatformAdmin(req: Request, res: Response, next: NextFunc
     const meta = getPublicMeta(req);
     if (!meta.platformAdmin) {
       res.status(403).json({ error: "Platform admin access required" });
+      return;
+    }
+    next();
+  });
+}
+
+/**
+ * Middleware: ensures the authenticated user is a sped_parent with a valid guardianId claim.
+ * All guardian-portal routes must be preceded by this middleware.
+ * In dev mode (NODE_ENV !== "production"), falls back to x-demo-guardian-id header.
+ */
+export function requireGuardianScope(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const authed = req as AuthedRequest;
+    if (authed.trellisRole !== "sped_parent") {
+      res.status(403).json({ error: "Guardian portal access requires the sped_parent role." });
+      return;
+    }
+    // In dev mode allow a demo header to set guardianId for testing
+    if (process.env.NODE_ENV !== "production" && !authed.tenantGuardianId) {
+      const demoId = req.headers["x-demo-guardian-id"];
+      if (demoId && !isNaN(Number(demoId))) {
+        authed.tenantGuardianId = Number(demoId);
+      }
+    }
+    if (!authed.tenantGuardianId) {
+      res.status(403).json({ error: "No guardian identity found. Contact your district administrator to link your portal account." });
       return;
     }
     next();

@@ -79,3 +79,4 @@ export * from "./enrollmentEvents";
 export * from "./schoolYears";
 export * from "./generatedDocuments";
 export * from "./communicationEvents";
+export * from "./documentAcknowledgments";

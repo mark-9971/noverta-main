@@ -85,6 +85,9 @@ router.get("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: R
       title: generatedDocumentsTable.title,
       linkedRecordId: generatedDocumentsTable.linkedRecordId,
       createdByName: generatedDocumentsTable.createdByName,
+      guardianVisible: generatedDocumentsTable.guardianVisible,
+      sharedAt: generatedDocumentsTable.sharedAt,
+      sharedByName: generatedDocumentsTable.sharedByName,
       createdAt: generatedDocumentsTable.createdAt,
       updatedAt: generatedDocumentsTable.updatedAt,
     })
@@ -162,6 +165,56 @@ router.patch("/generated-documents/:id", requireRoles(...ALLOWED_ROLES), async (
   });
 
   res.json(updated);
+});
+
+/**
+ * PATCH /generated-documents/:id/share
+ * Toggles guardian visibility for a document. Staff-only.
+ * Body: { guardianVisible: boolean }
+ */
+router.patch("/generated-documents/:id/share", requireRoles(...ALLOWED_ROLES), async (req: Request, res: Response): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid document id" }); return; }
+
+  const authed = req as AuthedRequest;
+  const guardianVisible = req.body?.guardianVisible;
+  if (typeof guardianVisible !== "boolean") {
+    res.status(400).json({ error: "guardianVisible (boolean) is required" });
+    return;
+  }
+
+  const [existing] = await db.select().from(generatedDocumentsTable).where(eq(generatedDocumentsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (!await assertStudentInDistrict(req, existing.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+
+  const now = new Date();
+  const [updated] = await db
+    .update(generatedDocumentsTable)
+    .set({
+      guardianVisible,
+      sharedAt: guardianVisible ? (existing.sharedAt ?? now) : null,
+      sharedByName: guardianVisible ? (authed.displayName || null) : null,
+      updatedAt: now,
+    })
+    .where(eq(generatedDocumentsTable.id, id))
+    .returning();
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "generated_documents",
+    targetId: id,
+    studentId: existing.studentId,
+    summary: guardianVisible
+      ? `Shared document "${existing.title}" with guardian portal`
+      : `Removed document "${existing.title}" from guardian portal`,
+  });
+
+  res.json({
+    id: updated.id,
+    guardianVisible: updated.guardianVisible,
+    sharedAt: updated.sharedAt,
+    sharedByName: updated.sharedByName,
+  });
 });
 
 export default router;

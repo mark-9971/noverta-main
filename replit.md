@@ -92,6 +92,26 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **Frontend audit log:** "Email Audit Log" tab added to the Parent Communication page (`/parent-communication`). Shows all events in a table: date, student, recipient (name + email), subject, type, status (Sent/Failed/Not Configured badges). Tab count shows total events. Lazy-loaded when tab is selected.
 -   **To enable real delivery:** Add `RESEND_API_KEY` secret (from resend.com). Without it, all events are recorded as `not_configured` — no data is lost.
 
+## Guardian / Parent Portal v1 (Task #66)
+-   **Role:** `sped_parent` (hierarchy 5) added to `TrellisRole` in `permissions.ts` and `UserRole` in `role-context.tsx`. Home route: `/guardian-portal`.
+-   **Auth:** `requireGuardianScope` middleware in `auth.ts` — checks `sped_parent` role, reads `tenantGuardianId` from JWT. Dev bypass: `x-demo-guardian-id` header. `requireDistrictScope` passes through `sped_parent` (no district claim required).
+-   **Schema additions:** `guardian_visible` (boolean, default false), `shared_at` (timestamp), `shared_by_name` (text) added to `generated_documents` table. New `document_acknowledgments` table (`lib/db/src/schema/documentAcknowledgments.ts`): documentId, guardianId, acknowledgedAt, ipAddress, userAgent.
+-   **API routes** (`artifacts/api-server/src/routes/guardianPortal.ts`, all under `/guardian-portal/*`, all protected by `requireGuardianScope`):
+    - `GET /guardian-portal/me` — guardian profile + linked student
+    - `GET /guardian-portal/documents` — shared documents with acknowledgment status
+    - `GET /guardian-portal/documents/:id/view` — HTML snapshot for in-portal reading/print
+    - `POST /guardian-portal/documents/:id/acknowledge` — idempotent acknowledgment; writes to `document_acknowledgments` and `communication_events`
+    - `GET /guardian-portal/meetings` — IEP team meetings (last 3 months)
+    - `GET /guardian-portal/contact-history` — parent contact log (last 50 entries)
+-   **Staff share endpoint:** `PATCH /generated-documents/:id/share` — toggles `guardian_visible`; sets/clears `shared_at` and `shared_by_name`. Audit-logged.
+-   **Frontend pages** (`artifacts/minuteops/src/pages/guardian-portal/`):
+    - `GuardianPortalHome.tsx` — overview dashboard with quick-nav cards and pending-acknowledgment count
+    - `GuardianDocuments.tsx` — document list, inline HTML viewer (sandboxed iframe), print/save PDF button, acknowledge button
+    - `GuardianMeetings.tsx` — upcoming + past meetings with type/status/location
+    - `GuardianContactHistory.tsx` — contact log with method icons and outcome text
+-   **Navigation:** `guardianPortalNav` + `sped_parent` config added to `roleConfig` in `AppLayout.tsx`.
+-   **Routing:** `GuardianPortalRouter` added to `App.tsx`, rendered when `role === "sped_parent"`.
+
 ## Generated Document Pipeline (Task #64)
 -   **DB table:** `generated_documents` — stores rendered HTML snapshots per student with fields: id, studentId, type (incident_report|progress_report|iep_draft), status (draft|finalized|archived), title, htmlSnapshot (full HTML for re-print), linkedRecordId, createdByName, createdAt, updatedAt. Indexes on studentId, type, linkedRecordId.
 -   **API routes** (all require auth; roles: admin, case_manager, bcba, sped_teacher, coordinator, provider): `GET /api/generated-documents?studentId=X[&type=Y]`, `GET /api/generated-documents/:id` (includes htmlSnapshot), `POST /api/generated-documents`, `PATCH /api/generated-documents/:id` (status, title). District scope enforced via student→school→district join. All mutations audit-logged.

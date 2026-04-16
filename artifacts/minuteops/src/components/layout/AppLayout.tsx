@@ -236,6 +236,17 @@ const paraNav: NavSection[] = [
   },
 ];
 
+const guardianPortalNav: NavSection[] = [
+  {
+    items: [
+      { href: "/guardian-portal", label: "Overview", icon: LayoutDashboard, primary: true },
+      { href: "/guardian-portal/documents", label: "Documents", icon: FileText, primary: true },
+      { href: "/guardian-portal/meetings", label: "Meetings", icon: Calendar, primary: true },
+      { href: "/guardian-portal/contact-history", label: "Contact History", icon: MessageSquare, primary: true },
+    ],
+  },
+];
+
 const spedStudentNav: NavSection[] = [
   {
     items: [
@@ -298,6 +309,16 @@ const roleConfig: Record<string, typeof STAFF_NAV_CONFIG.admin> = {
     label: "Trellis",
     subtitle: "Built to support.",
     homeHref: "/sped-portal",
+  },
+  sped_parent: {
+    nav: guardianPortalNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Built to support.",
+    homeHref: "/guardian-portal",
   },
 };
 

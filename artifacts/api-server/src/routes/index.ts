@@ -51,6 +51,7 @@ import rolloverRouter from "./rollover";
 import legalRouter from "./legal";
 import generatedDocumentsRouter from "./generatedDocuments";
 import communicationEventsRouter from "./communicationEvents";
+import guardianPortalRouter from "./guardianPortal";
 
 const router: IRouter = Router();
 
@@ -147,5 +148,6 @@ router.use(rolloverRouter);
 router.use(legalRouter);
 router.use(generatedDocumentsRouter);
 router.use(communicationEventsRouter);
+router.use(guardianPortalRouter);
 
 export default router;

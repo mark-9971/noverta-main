@@ -39,6 +39,11 @@ import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
 import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
 import SpedStudentCheckIn from "@/pages/sped-student/SpedStudentCheckIn";
 import SpedStudentWins from "@/pages/sped-student/SpedStudentWins";
+
+import GuardianPortalHome from "@/pages/guardian-portal/GuardianPortalHome";
+import GuardianDocuments from "@/pages/guardian-portal/GuardianDocuments";
+import GuardianMeetings from "@/pages/guardian-portal/GuardianMeetings";
+import GuardianContactHistory from "@/pages/guardian-portal/GuardianContactHistory";
 import IepSuggestions from "@/pages/iep-suggestions";
 import DistrictOverview from "@/pages/district-overview";
 import BehaviorAssessmentPage from "@/pages/behavior-assessment";
@@ -183,6 +188,18 @@ function SpedStudentRouter() {
   );
 }
 
+function GuardianPortalRouter() {
+  return (
+    <Switch>
+      <BoundedRoute path="/guardian-portal" component={GuardianPortalHome} fallbackTitle="Guardian portal error" />
+      <BoundedRoute path="/guardian-portal/documents" component={GuardianDocuments} fallbackTitle="Documents error" />
+      <BoundedRoute path="/guardian-portal/meetings" component={GuardianMeetings} fallbackTitle="Meetings error" />
+      <BoundedRoute path="/guardian-portal/contact-history" component={GuardianContactHistory} fallbackTitle="Contact history error" />
+      <Route>{() => <Redirect to="/guardian-portal" />}</Route>
+    </Switch>
+  );
+}
+
 function AppRouter() {
   const { role } = useRole();
   const isStaff = (STAFF_ROLES as string[]).includes(role);
@@ -191,6 +208,7 @@ function AppRouter() {
     <AppLayout>
       {isStaff && <StaffRouter />}
       {role === "sped_student" && <SpedStudentRouter />}
+      {role === "sped_parent" && <GuardianPortalRouter />}
     </AppLayout>
   );
 }

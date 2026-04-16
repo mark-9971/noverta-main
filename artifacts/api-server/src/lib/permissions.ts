@@ -6,7 +6,8 @@ export type TrellisRole =
   | "coordinator"
   | "provider"
   | "para"
-  | "sped_student";
+  | "sped_student"
+  | "sped_parent";
 
 export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   admin: 100,
@@ -17,6 +18,7 @@ export const ROLE_HIERARCHY: Record<TrellisRole, number> = {
   provider: 40,
   para: 30,
   sped_student: 10,
+  sped_parent: 5,
 };
 
 export const STAFF_ROLES: TrellisRole[] = [
