@@ -5,8 +5,10 @@ import {
   ListAlertsQueryParams,
   ResolveAlertParams,
   ResolveAlertBody,
+  BulkResolveAlertsBody,
+  SnoozeAlertParams,
 } from "@workspace/api-zod";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, gt, isNull, isNotNull, or } from "drizzle-orm";
 import { runComplianceChecks } from "../lib/complianceEngine";
 
 const router: IRouter = Router();
@@ -16,6 +18,7 @@ function alertToJson(a: any) {
     ...a,
     createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
     resolvedAt: a.resolvedAt instanceof Date ? a.resolvedAt.toISOString() : a.resolvedAt,
+    snoozedUntil: a.snoozedUntil instanceof Date ? a.snoozedUntil.toISOString() : a.snoozedUntil ?? null,
   };
 }
 
@@ -26,6 +29,13 @@ router.get("/alerts", async (req, res): Promise<void> => {
     if (params.data.severity) conditions.push(eq(alertsTable.severity, params.data.severity));
     if (params.data.resolved === "true") conditions.push(eq(alertsTable.resolved, true));
     else if (params.data.resolved === "false") conditions.push(eq(alertsTable.resolved, false));
+
+    if (params.data.snoozed === "true") {
+      conditions.push(gt(alertsTable.snoozedUntil, new Date()));
+    } else if (params.data.snoozed === "false") {
+      conditions.push(or(isNull(alertsTable.snoozedUntil), sql`${alertsTable.snoozedUntil} <= NOW()`));
+    }
+
     if (params.data.studentId) conditions.push(eq(alertsTable.studentId, Number(params.data.studentId)));
     if (params.data.staffId) conditions.push(eq(alertsTable.staffId, Number(params.data.staffId)));
     if (params.data.type) conditions.push(eq(alertsTable.type, params.data.type));
@@ -46,6 +56,7 @@ router.get("/alerts", async (req, res): Promise<void> => {
       resolved: alertsTable.resolved,
       resolvedAt: alertsTable.resolvedAt,
       resolvedNote: alertsTable.resolvedNote,
+      snoozedUntil: alertsTable.snoozedUntil,
       createdAt: alertsTable.createdAt,
       studentFirst: studentsTable.firstName,
       studentLast: studentsTable.lastName,
@@ -82,7 +93,57 @@ router.patch("/alerts/:id/resolve", async (req, res): Promise<void> => {
       resolved: true,
       resolvedAt: new Date(),
       resolvedNote: parsed.data.resolvedNote,
+      snoozedUntil: null,
     })
+    .where(eq(alertsTable.id, params.data.id))
+    .returning();
+
+  if (!alert) {
+    res.status(404).json({ error: "Alert not found" });
+    return;
+  }
+  res.json(alertToJson(alert));
+});
+
+router.post("/alerts/bulk-resolve", async (req, res): Promise<void> => {
+  const parsed = BulkResolveAlertsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { ids, resolvedNote } = parsed.data;
+  if (!ids.length) {
+    res.json({ resolved: 0 });
+    return;
+  }
+
+  const updated = await db
+    .update(alertsTable)
+    .set({
+      resolved: true,
+      resolvedAt: new Date(),
+      resolvedNote: resolvedNote ?? "Bulk resolved from dashboard",
+      snoozedUntil: null,
+    })
+    .where(inArray(alertsTable.id, ids))
+    .returning({ id: alertsTable.id });
+
+  res.json({ resolved: updated.length });
+});
+
+router.patch("/alerts/:id/snooze", async (req, res): Promise<void> => {
+  const params = SnoozeAlertParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const snoozedUntil = new Date();
+  snoozedUntil.setDate(snoozedUntil.getDate() + 7);
+
+  const [alert] = await db
+    .update(alertsTable)
+    .set({ snoozedUntil })
     .where(eq(alertsTable.id, params.data.id))
     .returning();
 

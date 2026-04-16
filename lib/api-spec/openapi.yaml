@@ -812,6 +812,121 @@ paths:
                 items:
                   $ref: "#/components/schemas/MinuteProgress"
 
+  /staff/workload-summary:
+    get:
+      operationId: getWorkloadSummary
+      tags: [staff]
+      summary: Get workload summary for all staff
+      parameters:
+        - name: thresholdHours
+          in: query
+          schema:
+            type: ["number", "null"]
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: districtId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Workload summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /staff/{id}/absences:
+    post:
+      operationId: createAbsence
+      tags: [staff]
+      summary: Create a staff absence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                absenceDate:
+                  type: string
+                absenceType:
+                  type: string
+                schoolId:
+                  type: ["integer", "null"]
+                startTime:
+                  type: ["string", "null"]
+                endTime:
+                  type: ["string", "null"]
+                notes:
+                  type: ["string", "null"]
+                reportedBy:
+                  type: ["string", "null"]
+              required: [absenceDate, absenceType]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+    get:
+      operationId: listAbsences
+      tags: [staff]
+      summary: List absences for a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Absences
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /absences/{id}:
+    delete:
+      operationId: deleteAbsence
+      tags: [staff]
+      summary: Delete a staff absence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
   # ─── Service Types ────────────────────────────────────────────────
   /service-types:
     get:
@@ -1277,6 +1392,65 @@ paths:
                   $ref: "#/components/schemas/CoverageGap"
 
   # ─── Auto-scheduler ───────────────────────────────────────────────
+  /schedule-blocks/uncovered:
+    get:
+      operationId: listUncoveredSessions
+      tags: [schedules]
+      summary: Get uncovered sessions
+      parameters:
+        - name: schoolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Uncovered sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /schedule-blocks/{id}/assign-substitute:
+    post:
+      operationId: assignSubstitute
+      tags: [schedules]
+      summary: Assign a substitute to a schedule block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                substituteStaffId:
+                  type: integer
+                absenceDate:
+                  type: ["string", "null"]
+              required: [substituteStaffId]
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                type: object
+
   /scheduler/generate:
     post:
       operationId: generateSchedule
@@ -1330,6 +1504,10 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: snoozed
+          in: query
+          schema:
+            type: ["string", "null"]
         - name: studentId
           in: query
           schema:
@@ -1380,6 +1558,48 @@ paths:
       responses:
         "200":
           description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+
+  /alerts/bulk-resolve:
+    post:
+      operationId: bulkResolveAlerts
+      tags: [alerts]
+      summary: Resolve multiple alerts at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkResolveAlertsBody"
+      responses:
+        "200":
+          description: Bulk resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resolved:
+                    type: integer
+                required: [resolved]
+
+  /alerts/{id}/snooze:
+    patch:
+      operationId: snoozeAlert
+      tags: [alerts]
+      summary: Snooze an alert for 7 days
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Snoozed
           content:
             application/json:
               schema:
@@ -7517,6 +7737,8 @@ components:
           type: ["string", "null"]
         resolvedNote:
           type: ["string", "null"]
+        snoozedUntil:
+          type: ["string", "null"]
         createdAt:
           type: string
       required: [id, type, severity, message, resolved, createdAt]
@@ -7527,6 +7749,17 @@ components:
         resolvedNote:
           type: ["string", "null"]
       required: []
+
+    BulkResolveAlertsBody:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+        resolvedNote:
+          type: ["string", "null"]
+      required: [ids]
 
     RunChecksResult:
       type: object

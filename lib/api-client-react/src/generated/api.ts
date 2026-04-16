@@ -27,12 +27,16 @@ import type {
   AmendIepDocumentBody,
   ApplyIepSuggestions200,
   ApplyIepSuggestionsBody,
+  AssignSubstitute200,
+  AssignSubstituteBody,
   AuditPackageResponse,
   AutoCreateIepGoals201,
   AutoCreateIepGoalsBody,
   Bip,
   BudgetResponse,
   BulkCreateSessionsBody,
+  BulkResolveAlerts200,
+  BulkResolveAlertsBody,
   CalculateShortfallsBody,
   CaseloadResponse,
   CloneTemplateToStudent201,
@@ -43,6 +47,8 @@ import type {
   ComplianceByService,
   ComplianceTrendResponse,
   CoverageGap,
+  CreateAbsence201,
+  CreateAbsenceBody,
   CreateAccommodation201,
   CreateAccommodationBody,
   CreateAnnouncement201,
@@ -103,6 +109,7 @@ import type {
   CreateTeamMeeting201,
   CreateTeamMeetingBody,
   DashboardSummary,
+  DeleteAbsence200,
   DeleteAccommodation200,
   DeleteAssignment200,
   DeleteBip200,
@@ -231,6 +238,8 @@ import type {
   GetSupervisionComplianceSummaryParams,
   GetSupervisionTrendParams,
   GetTeacherDashboard200,
+  GetWorkloadSummary200Item,
+  GetWorkloadSummaryParams,
   GlobalSearch200,
   GlobalSearchParams,
   GradeSubmission200,
@@ -238,6 +247,8 @@ import type {
   HealthStatus,
   IepCalendarResponse,
   ImportRecord,
+  ListAbsences200Item,
+  ListAbsencesParams,
   ListAccommodations200Item,
   ListAlertsParams,
   ListAnnouncements200Item,
@@ -293,6 +304,8 @@ import type {
   ListTeacherObservationsParams,
   ListTeachersWithClasses200Item,
   ListTeamMeetings200Item,
+  ListUncoveredSessions200Item,
+  ListUncoveredSessionsParams,
   LogCompSessionBody,
   MinuteProgress,
   MissedReason,
@@ -3429,6 +3442,383 @@ export function useGetStaffCaseload<
 }
 
 /**
+ * @summary Get workload summary for all staff
+ */
+export const getGetWorkloadSummaryUrl = (params?: GetWorkloadSummaryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/staff/workload-summary?${stringifiedParams}`
+    : `/api/staff/workload-summary`;
+};
+
+export const getWorkloadSummary = async (
+  params?: GetWorkloadSummaryParams,
+  options?: RequestInit,
+): Promise<GetWorkloadSummary200Item[]> => {
+  return customFetch<GetWorkloadSummary200Item[]>(
+    getGetWorkloadSummaryUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetWorkloadSummaryQueryKey = (
+  params?: GetWorkloadSummaryParams,
+) => {
+  return [`/api/staff/workload-summary`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetWorkloadSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkloadSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetWorkloadSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkloadSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWorkloadSummaryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWorkloadSummary>>
+  > = ({ signal }) => getWorkloadSummary(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkloadSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWorkloadSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkloadSummary>>
+>;
+export type GetWorkloadSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get workload summary for all staff
+ */
+
+export function useGetWorkloadSummary<
+  TData = Awaited<ReturnType<typeof getWorkloadSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetWorkloadSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkloadSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWorkloadSummaryQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a staff absence
+ */
+export const getCreateAbsenceUrl = (id: number) => {
+  return `/api/staff/${id}/absences`;
+};
+
+export const createAbsence = async (
+  id: number,
+  createAbsenceBody: CreateAbsenceBody,
+  options?: RequestInit,
+): Promise<CreateAbsence201> => {
+  return customFetch<CreateAbsence201>(getCreateAbsenceUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAbsenceBody),
+  });
+};
+
+export const getCreateAbsenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAbsence>>,
+    TError,
+    { id: number; data: BodyType<CreateAbsenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAbsence>>,
+  TError,
+  { id: number; data: BodyType<CreateAbsenceBody> },
+  TContext
+> => {
+  const mutationKey = ["createAbsence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAbsence>>,
+    { id: number; data: BodyType<CreateAbsenceBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createAbsence(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAbsenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAbsence>>
+>;
+export type CreateAbsenceMutationBody = BodyType<CreateAbsenceBody>;
+export type CreateAbsenceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a staff absence
+ */
+export const useCreateAbsence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAbsence>>,
+    TError,
+    { id: number; data: BodyType<CreateAbsenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAbsence>>,
+  TError,
+  { id: number; data: BodyType<CreateAbsenceBody> },
+  TContext
+> => {
+  return useMutation(getCreateAbsenceMutationOptions(options));
+};
+
+/**
+ * @summary List absences for a staff member
+ */
+export const getListAbsencesUrl = (id: number, params?: ListAbsencesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/staff/${id}/absences?${stringifiedParams}`
+    : `/api/staff/${id}/absences`;
+};
+
+export const listAbsences = async (
+  id: number,
+  params?: ListAbsencesParams,
+  options?: RequestInit,
+): Promise<ListAbsences200Item[]> => {
+  return customFetch<ListAbsences200Item[]>(getListAbsencesUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAbsencesQueryKey = (
+  id: number,
+  params?: ListAbsencesParams,
+) => {
+  return [`/api/staff/${id}/absences`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAbsencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAbsences>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListAbsencesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAbsences>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAbsencesQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAbsences>>> = ({
+    signal,
+  }) => listAbsences(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAbsences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAbsencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAbsences>>
+>;
+export type ListAbsencesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List absences for a staff member
+ */
+
+export function useListAbsences<
+  TData = Awaited<ReturnType<typeof listAbsences>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: ListAbsencesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAbsences>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAbsencesQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Delete a staff absence
+ */
+export const getDeleteAbsenceUrl = (id: number) => {
+  return `/api/absences/${id}`;
+};
+
+export const deleteAbsence = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteAbsence200> => {
+  return customFetch<DeleteAbsence200>(getDeleteAbsenceUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAbsenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAbsence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAbsence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAbsence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAbsence>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAbsence(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAbsenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAbsence>>
+>;
+
+export type DeleteAbsenceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a staff absence
+ */
+export const useDeleteAbsence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAbsence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAbsence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAbsenceMutationOptions(options));
+};
+
+/**
  * @summary List service types
  */
 export const getListServiceTypesUrl = () => {
@@ -5193,6 +5583,199 @@ export function useGetCoverageGaps<
 }
 
 /**
+ * @summary Get uncovered sessions
+ */
+export const getListUncoveredSessionsUrl = (
+  params?: ListUncoveredSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/schedule-blocks/uncovered?${stringifiedParams}`
+    : `/api/schedule-blocks/uncovered`;
+};
+
+export const listUncoveredSessions = async (
+  params?: ListUncoveredSessionsParams,
+  options?: RequestInit,
+): Promise<ListUncoveredSessions200Item[]> => {
+  return customFetch<ListUncoveredSessions200Item[]>(
+    getListUncoveredSessionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListUncoveredSessionsQueryKey = (
+  params?: ListUncoveredSessionsParams,
+) => {
+  return [
+    `/api/schedule-blocks/uncovered`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListUncoveredSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUncoveredSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUncoveredSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUncoveredSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListUncoveredSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listUncoveredSessions>>
+  > = ({ signal }) =>
+    listUncoveredSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUncoveredSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUncoveredSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUncoveredSessions>>
+>;
+export type ListUncoveredSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get uncovered sessions
+ */
+
+export function useListUncoveredSessions<
+  TData = Awaited<ReturnType<typeof listUncoveredSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListUncoveredSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUncoveredSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUncoveredSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Assign a substitute to a schedule block
+ */
+export const getAssignSubstituteUrl = (id: number) => {
+  return `/api/schedule-blocks/${id}/assign-substitute`;
+};
+
+export const assignSubstitute = async (
+  id: number,
+  assignSubstituteBody: AssignSubstituteBody,
+  options?: RequestInit,
+): Promise<AssignSubstitute200> => {
+  return customFetch<AssignSubstitute200>(getAssignSubstituteUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assignSubstituteBody),
+  });
+};
+
+export const getAssignSubstituteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignSubstitute>>,
+    TError,
+    { id: number; data: BodyType<AssignSubstituteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignSubstitute>>,
+  TError,
+  { id: number; data: BodyType<AssignSubstituteBody> },
+  TContext
+> => {
+  const mutationKey = ["assignSubstitute"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignSubstitute>>,
+    { id: number; data: BodyType<AssignSubstituteBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return assignSubstitute(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignSubstituteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignSubstitute>>
+>;
+export type AssignSubstituteMutationBody = BodyType<AssignSubstituteBody>;
+export type AssignSubstituteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign a substitute to a schedule block
+ */
+export const useAssignSubstitute = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignSubstitute>>,
+    TError,
+    { id: number; data: BodyType<AssignSubstituteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignSubstitute>>,
+  TError,
+  { id: number; data: BodyType<AssignSubstituteBody> },
+  TContext
+> => {
+  return useMutation(getAssignSubstituteMutationOptions(options));
+};
+
+/**
  * @summary Run auto-schedule generation
  */
 export const getGenerateScheduleUrl = () => {
@@ -5543,6 +6126,176 @@ export const useResolveAlert = <
   TContext
 > => {
   return useMutation(getResolveAlertMutationOptions(options));
+};
+
+/**
+ * @summary Resolve multiple alerts at once
+ */
+export const getBulkResolveAlertsUrl = () => {
+  return `/api/alerts/bulk-resolve`;
+};
+
+export const bulkResolveAlerts = async (
+  bulkResolveAlertsBody: BulkResolveAlertsBody,
+  options?: RequestInit,
+): Promise<BulkResolveAlerts200> => {
+  return customFetch<BulkResolveAlerts200>(getBulkResolveAlertsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkResolveAlertsBody),
+  });
+};
+
+export const getBulkResolveAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkResolveAlerts>>,
+    TError,
+    { data: BodyType<BulkResolveAlertsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkResolveAlerts>>,
+  TError,
+  { data: BodyType<BulkResolveAlertsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkResolveAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkResolveAlerts>>,
+    { data: BodyType<BulkResolveAlertsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkResolveAlerts(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkResolveAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkResolveAlerts>>
+>;
+export type BulkResolveAlertsMutationBody = BodyType<BulkResolveAlertsBody>;
+export type BulkResolveAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Resolve multiple alerts at once
+ */
+export const useBulkResolveAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkResolveAlerts>>,
+    TError,
+    { data: BodyType<BulkResolveAlertsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkResolveAlerts>>,
+  TError,
+  { data: BodyType<BulkResolveAlertsBody> },
+  TContext
+> => {
+  return useMutation(getBulkResolveAlertsMutationOptions(options));
+};
+
+/**
+ * @summary Snooze an alert for 7 days
+ */
+export const getSnoozeAlertUrl = (id: number) => {
+  return `/api/alerts/${id}/snooze`;
+};
+
+export const snoozeAlert = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Alert> => {
+  return customFetch<Alert>(getSnoozeAlertUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getSnoozeAlertMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof snoozeAlert>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof snoozeAlert>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["snoozeAlert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof snoozeAlert>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return snoozeAlert(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SnoozeAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof snoozeAlert>>
+>;
+
+export type SnoozeAlertMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Snooze an alert for 7 days
+ */
+export const useSnoozeAlert = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof snoozeAlert>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof snoozeAlert>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSnoozeAlertMutationOptions(options));
 };
 
 /**

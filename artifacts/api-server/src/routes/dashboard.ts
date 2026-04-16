@@ -327,7 +327,10 @@ router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
 router.get("/dashboard/alerts-summary", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const alertFilter = buildAlertStudentFilter(sdFilters);
-  const conditions: any[] = [eq(alertsTable.resolved, false)];
+  const conditions: any[] = [
+    eq(alertsTable.resolved, false),
+    sql`(${alertsTable.snoozedUntil} IS NULL OR ${alertsTable.snoozedUntil} <= NOW())`,
+  ];
   if (alertFilter) conditions.push(alertFilter);
 
   const rows = await db

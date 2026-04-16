@@ -17,6 +17,7 @@ export const alertsTable = pgTable("alerts", {
   resolved: boolean("resolved").notNull().default(false),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   resolvedNote: text("resolved_note"),
+  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -25,6 +26,7 @@ export const alertsTable = pgTable("alerts", {
   index("alert_severity_resolved_idx").on(table.severity, table.resolved),
   index("alert_staff_resolved_idx").on(table.staffId, table.resolved),
   index("alert_type_idx").on(table.type),
+  index("alert_snoozed_idx").on(table.snoozedUntil),
 ]);
 
 export const insertAlertSchema = createInsertSchema(alertsTable).omit({ id: true, createdAt: true, updatedAt: true });

@@ -283,6 +283,8 @@ export interface Alert {
   resolvedAt?: string | null;
   /** @nullable */
   resolvedNote?: string | null;
+  /** @nullable */
+  snoozedUntil?: string | null;
   createdAt: string;
 }
 
@@ -631,8 +633,6 @@ export interface CreateSessionBody {
   /** @nullable */
   missedReasonId?: number | null;
   isMakeup: boolean;
-  /** @nullable */
-  makeupForId?: number | null;
   isCompensatory?: boolean;
   /** @nullable */
   compensatoryObligationId?: number | null;
@@ -905,6 +905,12 @@ export interface AcceptScheduleResult {
 }
 
 export interface ResolveAlertBody {
+  /** @nullable */
+  resolvedNote?: string | null;
+}
+
+export interface BulkResolveAlertsBody {
+  ids: number[];
   /** @nullable */
   resolvedNote?: string | null;
 }
@@ -2275,6 +2281,55 @@ export type ListStaffParams = {
   offset?: number | null;
 };
 
+export type GetWorkloadSummaryParams = {
+  /**
+   * @nullable
+   */
+  thresholdHours?: number | null;
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  districtId?: number | null;
+};
+
+export type GetWorkloadSummary200Item = { [key: string]: unknown };
+
+export type CreateAbsenceBody = {
+  absenceDate: string;
+  absenceType: string;
+  /** @nullable */
+  schoolId?: number | null;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  reportedBy?: string | null;
+};
+
+export type CreateAbsence201 = { [key: string]: unknown };
+
+export type ListAbsencesParams = {
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type ListAbsences200Item = { [key: string]: unknown };
+
+export type DeleteAbsence200 = { [key: string]: unknown };
+
 export type ListServiceRequirementsParams = {
   /**
    * @nullable
@@ -2402,6 +2457,31 @@ export type GetScheduleConflictsParams = {
   weekOf?: string | null;
 };
 
+export type ListUncoveredSessionsParams = {
+  /**
+   * @nullable
+   */
+  schoolId?: number | null;
+  /**
+   * @nullable
+   */
+  startDate?: string | null;
+  /**
+   * @nullable
+   */
+  endDate?: string | null;
+};
+
+export type ListUncoveredSessions200Item = { [key: string]: unknown };
+
+export type AssignSubstituteBody = {
+  substituteStaffId: number;
+  /** @nullable */
+  absenceDate?: string | null;
+};
+
+export type AssignSubstitute200 = { [key: string]: unknown };
+
 export type ListAlertsParams = {
   /**
    * @nullable
@@ -2411,6 +2491,10 @@ export type ListAlertsParams = {
    * @nullable
    */
   resolved?: string | null;
+  /**
+   * @nullable
+   */
+  snoozed?: string | null;
   /**
    * @nullable
    */
@@ -2431,6 +2515,10 @@ export type ListAlertsParams = {
    * @nullable
    */
   districtId?: number | null;
+};
+
+export type BulkResolveAlerts200 = {
+  resolved: number;
 };
 
 export type ListStaffAssignmentsParams = {

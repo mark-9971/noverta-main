@@ -13,7 +13,7 @@ import {
   ListAbsencesParams,
   ListAbsencesQueryParams,
   DeleteAbsenceParams,
-  WorkloadSummaryQueryParams,
+  GetWorkloadSummaryQueryParams,
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -78,7 +78,7 @@ router.post("/staff", async (req, res): Promise<void> => {
 
 // Workload summary — must appear BEFORE /staff/:id to avoid route conflict
 router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<void> => {
-  const params = WorkloadSummaryQueryParams.safeParse(req.query);
+  const params = GetWorkloadSummaryQueryParams.safeParse(req.query);
   const thresholdMinutes = (params.success && params.data.thresholdHours)
     ? params.data.thresholdHours * 60
     : 25 * 60;
