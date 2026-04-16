@@ -27,7 +27,8 @@ async function verifyStudentInDistrict(req: Request, studentId: number): Promise
     WHERE id = ${studentId}
       AND school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})
   `);
-  return ((result as any).rows ?? result).length > 0;
+  const rows = "rows" in result ? (result.rows as unknown[]) : (result as unknown as unknown[]);
+  return rows.length > 0;
 }
 
 async function verifyGuardianBelongsToStudent(guardianId: number, studentId: number): Promise<boolean> {
@@ -79,7 +80,8 @@ router.get("/students/:studentId/messages", async (req: Request, res: Response) 
 
     const grouped = new Map<number, any[]>();
 
-    for (const m of (messages as any).rows ?? messages) {
+    const messageRows = "rows" in messages ? (messages.rows as Record<string, unknown>[]) : (messages as unknown as Record<string, unknown>[]);
+    for (const m of messageRows) {
       const msg = {
         ...m,
         senderName: m.senderType === "staff"
@@ -139,7 +141,7 @@ router.post("/students/:studentId/messages", async (req: Request, res: Response)
       res.status(400).json({ error: "Guardian does not belong to this student" }); return;
     }
 
-    const validCategories = ["general", "prior_written_notice", "iep_meeting", "progress_update", "conference_request"];
+    const validCategories = ["general", "prior_written_notice", "iep_meeting_invitation", "progress_update", "conference_request"];
     const cat = category || "general";
     if (!validCategories.includes(cat)) {
       res.status(400).json({ error: "Invalid message category" }); return;
@@ -503,14 +505,14 @@ guardianMessagesRouter.patch("/conferences/:id", async (req: Request, res: Respo
 
     if (!conf) { res.status(404).json({ error: "Conference not found" }); return; }
 
-    const updates: any = {};
+    const updates: Partial<{ status: string; selectedTime: Date; guardianNotes: string }> = {};
     if (status === "accepted" && selectedTime) {
       updates.status = "accepted";
       updates.selectedTime = new Date(selectedTime);
     } else if (status === "declined") {
       updates.status = "declined";
     }
-    if (guardianNotes !== undefined) updates.guardianNotes = guardianNotes;
+    if (typeof guardianNotes === "string") updates.guardianNotes = guardianNotes;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: "No valid updates provided" });

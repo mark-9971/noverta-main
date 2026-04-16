@@ -26,6 +26,8 @@ interface MessageThread {
     id: number;
     senderType: string;
     senderName: string;
+    senderGuardianId: number | null;
+    recipientGuardianId: number | null;
     subject: string;
     body: string;
     readAt: string | null;
@@ -181,8 +183,8 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guardianId: firstMsg.senderType === "guardian"
-            ? (replyThread.messages.find(m => m.senderType === "guardian") as any)?.senderGuardianId
-            : (replyThread.messages.find(m => m.senderType === "staff") as any)?.recipientGuardianId,
+            ? replyThread.messages.find(m => m.senderType === "guardian")?.senderGuardianId
+            : replyThread.messages.find(m => m.senderType === "staff")?.recipientGuardianId,
           subject: replyThread.subject.startsWith("Re: ") ? replyThread.subject : `Re: ${replyThread.subject}`,
           body: replyBody.trim(),
           category: replyThread.category,
