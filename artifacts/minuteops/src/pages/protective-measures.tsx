@@ -1385,7 +1385,21 @@ function IncidentDetailView({ id, onBack }: { id: number; onBack: () => void }) 
   const sendNotificationMutation = useMutation({
     mutationFn: (data: { draft: string; method: string }) =>
       sendParentNotificationIncident(id, data),
-    onSuccess: () => { invalidateAll(); toast.success("Parent notification sent successfully"); },
+    onSuccess: (data: any) => {
+      invalidateAll();
+      const er = data?.emailResult;
+      if (data?.emailNotSent) {
+        if (er?.notConfigured) {
+          toast.warning("Notification draft saved. Email delivery is not configured — add RESEND_API_KEY to enable real delivery.", { duration: 8000 });
+        } else {
+          toast.error(`Email delivery failed: ${er?.error ?? "Unknown error"}. Please retry or choose a different method.`, { duration: 8000 });
+        }
+      } else if (er?.success === true) {
+        toast.success("Parent notification email sent successfully");
+      } else {
+        toast.success("Parent notification recorded");
+      }
+    },
     onError: (err: Error) => { toast.error(err.message || "Failed to send notification"); },
   });
 
@@ -2117,7 +2131,10 @@ function ParentNotificationPanel({ incident, staff, incidentId, saveDraftMutatio
           ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
               <p className="text-xs font-semibold text-amber-800">Confirm Send</p>
-              <p className="text-[11px] text-amber-700">This will mark the parent notification as sent and attach the restraint report. This action cannot be undone.</p>
+              {sendMethod === "email"
+                ? <p className="text-[11px] text-amber-700">The notification will be emailed to the parent/guardian. The incident will only be marked as sent after confirmed delivery. If email is not configured, you can use "Preview / Download Restraint Report PDF" above as a fallback.</p>
+                : <p className="text-[11px] text-amber-700">This will mark the parent notification as sent via {sendMethod.replace(/_/g, " ")} and attach the restraint report. This action cannot be undone.</p>
+              }
               <div className="flex gap-2">
                 <button onClick={() => setShowConfirm(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
                 <button onClick={handleSend} disabled={sendNotificationMutation.isPending}

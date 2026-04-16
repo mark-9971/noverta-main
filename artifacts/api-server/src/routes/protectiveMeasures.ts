@@ -1689,8 +1689,13 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
 
   const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, incident.studentId));
 
-  const [school, primaryGuardian] = await Promise.all([
-    student?.schoolId ? db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId)).then(r => r[0] ?? null) : Promise.resolve(null),
+  type GuardianRow = typeof guardiansTable.$inferSelect;
+  type SchoolRow = typeof schoolsTable.$inferSelect;
+
+  const [schoolRow, guardianRow]: [SchoolRow | null, GuardianRow | null] = await Promise.all([
+    student?.schoolId
+      ? db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
     db.select().from(guardiansTable)
       .where(eq(guardiansTable.studentId, incident.studentId))
       .orderBy(asc(guardiansTable.contactPriority), asc(guardiansTable.id))
@@ -1698,8 +1703,84 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
       .then(rows => rows[0] ?? null),
   ]);
 
-  const notificationDraft = draft || incident.parentNotificationDraft || "";
+  const toEmail: string | null = guardianRow?.email ?? student?.parentEmail ?? null;
+  const toName: string | null = guardianRow?.name ?? student?.parentGuardianName ?? null;
+  const guardianId: number | undefined = guardianRow?.id ?? undefined;
+  const studentName = student ? `${student.firstName} ${student.lastName}` : "Student";
+  const schoolName = schoolRow ? schoolRow.name : "the school";
+  const senderName = `${sender.firstName} ${sender.lastName}`;
+  const senderTitle = sender.role ? sender.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Staff";
+  const notificationDraft = (draft as string | undefined) || incident.parentNotificationDraft || "";
   const now = new Date().toISOString();
+  const isEmailChannel = method === "email" || (!method && !!toEmail);
+
+  type EmailResultShape = { success: boolean; communicationEventId?: number; error?: string; notConfigured?: boolean };
+  let emailResult: EmailResultShape | null = null;
+
+  if (isEmailChannel) {
+    if (!toEmail) {
+      res.status(422).json({ error: "No email address on file for this student or their guardians. Add a guardian email or choose a different notification method." });
+      return;
+    }
+
+    const incidentDateStr = incident.incidentDate
+      ? new Date(incident.incidentDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : now.substring(0, 10);
+    const emailContent = buildIncidentNotificationEmail({
+      studentName,
+      guardianName: toName ?? "Parent/Guardian",
+      incidentDate: incidentDateStr,
+      incidentType: incident.restraintType ?? incident.incidentType ?? "protective_measure",
+      schoolName,
+      notificationDraft,
+      senderName,
+      senderTitle,
+    });
+    emailResult = await sendEmail({
+      studentId: incident.studentId,
+      type: "incident_parent_notification",
+      subject: emailContent.subject,
+      bodyHtml: emailContent.html,
+      bodyText: emailContent.text,
+      toEmail,
+      toName: toName ?? undefined,
+      staffId: Number(senderId),
+      guardianId,
+      linkedIncidentId: id,
+      metadata: { incidentId: id, method: "email", sentBy: senderId },
+    });
+
+    if (!emailResult.success) {
+      const [draftSaved] = await db.update(restraintIncidentsTable)
+        .set({ parentNotificationDraft: notificationDraft })
+        .where(eq(restraintIncidentsTable.id, id))
+        .returning();
+      logAudit(req, {
+        action: "update",
+        targetTable: "restraint_incidents",
+        targetId: id,
+        studentId: incident.studentId,
+        summary: `Email send attempt for incident #${id}: ${emailResult.notConfigured ? "provider not configured (add RESEND_API_KEY)" : (emailResult.error ?? "delivery failed")}`,
+      });
+      res.json({
+        ...draftSaved,
+        sender: { firstName: sender.firstName, lastName: sender.lastName },
+        parentEmail: toEmail,
+        parentGuardianName: toName,
+        emailResult: {
+          success: false,
+          communicationEventId: emailResult.communicationEventId,
+          notConfigured: emailResult.notConfigured ?? false,
+          error: emailResult.notConfigured
+            ? "Email provider not configured. Add RESEND_API_KEY to enable delivery. The notification draft has been saved and can be retried."
+            : (emailResult.error ?? "Email delivery failed. Please retry or choose a different delivery method."),
+        },
+        emailNotSent: true,
+      });
+      return;
+    }
+  }
+
   const [updated] = await db.update(restraintIncidentsTable).set({
     parentNotificationDraft: notificationDraft,
     parentNotificationSentAt: now,
@@ -1714,52 +1795,12 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     writtenReportSentMethod: method || "email",
   }).where(eq(restraintIncidentsTable.id, id)).returning();
 
-  const studentName = student ? `${student.firstName} ${student.lastName}` : "Student";
-  const schoolName = school ? school.name : "the school";
-  const senderName = `${sender.firstName} ${sender.lastName}`;
-  const senderTitle = sender.role ? sender.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Staff";
-
-  let emailResult: { success: boolean; communicationEventId?: number; error?: string; notConfigured?: boolean } | null = null;
-  const toEmail = (primaryGuardian as any)?.email ?? student?.parentEmail ?? null;
-  const toName = (primaryGuardian as any)?.name ?? student?.parentGuardianName ?? null;
-
-  if (method === "email" || (!method && toEmail)) {
-    if (toEmail) {
-      const incidentDateStr = incident.incidentDate
-        ? new Date(incident.incidentDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-        : now.substring(0, 10);
-      const emailContent = buildIncidentNotificationEmail({
-        studentName,
-        guardianName: toName ?? "Parent/Guardian",
-        incidentDate: incidentDateStr,
-        incidentType: incident.restraintType ?? "protective_measure",
-        schoolName,
-        notificationDraft,
-        senderName,
-        senderTitle,
-      });
-      emailResult = await sendEmail({
-        studentId: incident.studentId,
-        type: "incident_parent_notification",
-        subject: emailContent.subject,
-        bodyHtml: emailContent.html,
-        bodyText: emailContent.text,
-        toEmail,
-        toName: toName ?? undefined,
-        staffId: Number(senderId),
-        guardianId: (primaryGuardian as any)?.id ?? undefined,
-        linkedIncidentId: id,
-        metadata: { incidentId: id, method: method || "email", sentBy: senderId },
-      });
-    }
-  }
-
   logAudit(req, {
     action: "update",
     targetTable: "restraint_incidents",
     targetId: id,
     studentId: incident.studentId,
-    summary: `Parent notification sent for restraint incident #${id} via ${method || "email"}${emailResult?.success ? " (email delivered)" : emailResult?.notConfigured ? " (email not configured)" : ""}`,
+    summary: `Parent notification sent for restraint incident #${id} via ${method || "email"}${emailResult?.success ? " (email confirmed sent)" : ""}`,
   });
 
   res.json({
@@ -1768,13 +1809,9 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
     parentEmail: toEmail,
     parentGuardianName: toName,
     emailResult: emailResult
-      ? {
-          success: emailResult.success,
-          communicationEventId: emailResult.communicationEventId,
-          notConfigured: emailResult.notConfigured ?? false,
-          error: emailResult.error ?? null,
-        }
+      ? { success: emailResult.success, communicationEventId: emailResult.communicationEventId, notConfigured: false, error: null }
       : null,
+    emailNotSent: false,
   });
 });
 
