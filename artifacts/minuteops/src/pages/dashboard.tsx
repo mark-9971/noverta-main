@@ -66,22 +66,21 @@ function NeedsAttentionPanel() {
 
   if (!data || data.total === 0) return null;
 
-  const hasCritical = data.openIncidents > 0 || data.pendingNotifications > 0;
   const items = [
-    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50", critical: true },
-    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50", critical: false },
-    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50", critical: false },
-    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-700", bg: "bg-red-50", critical: true },
+    { label: "Open incidents", count: data.openIncidents, href: "/protective-measures?status=open", color: "text-red-700", bg: "bg-red-50" },
+    { label: "Unresolved compliance alerts", count: data.unresolvedAlerts, href: "/compliance/timeline?filter=unresolved", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Overdue action items", count: data.overdueActionItems, href: "/iep-meetings?filter=overdue", color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "Notifications awaiting send", count: data.pendingNotifications, href: "/protective-measures?status=notification_pending", color: "text-red-700", bg: "bg-red-50" },
   ].filter(i => i.count > 0);
 
   return (
-    <Card className={hasCritical ? "border-red-200 bg-red-50/20" : "border-amber-200 bg-amber-50/20"}>
+    <Card className="border-amber-200 bg-amber-50/20">
       <CardContent className="py-3 px-5">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <ShieldAlert className={`w-5 h-5 ${hasCritical ? "text-red-500" : "text-amber-500"}`} />
-            <span className={`text-sm font-semibold ${hasCritical ? "text-red-800" : "text-amber-800"}`}>Needs Attention</span>
-            <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${hasCritical ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{data.total}</span>
+            <ShieldAlert className="w-5 h-5 text-amber-500" />
+            <span className="text-sm font-semibold text-amber-800">Needs Attention</span>
+            <span className="text-xs font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">{data.total}</span>
           </div>
           <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
             {items.map(item => (
@@ -129,7 +128,7 @@ const RISK_PIE_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444"];
 const RISK_PIE_LABELS = ["On Track", "Slightly Behind", "At Risk", "Out of Compliance"];
 
 export default function Dashboard() {
-  const { role, user } = useRole();
+  const { role, user, teacherId } = useRole();
   const isAdmin = role === "admin" || role === "coordinator";
   const firstName = user.name?.split(" ")[0] || "";
   const { filterParams, typedFilter } = useSchoolContext();
@@ -140,6 +139,17 @@ export default function Dashboard() {
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
+
+  const { data: providerSummaryAll } = useQuery<any[]>({
+    queryKey: ["provider-summary", filterParams],
+    queryFn: () => authFetch(`/api/dashboard/provider-summary?${new URLSearchParams(filterParams).toString()}`).then(r => r.ok ? r.json() : []),
+    staleTime: 60_000,
+    enabled: !isAdmin && !!teacherId,
+  });
+  const myCaseload = useMemo(() => {
+    if (isAdmin || !providerSummaryAll || !teacherId) return null;
+    return providerSummaryAll.find((p: any) => p.staffId === teacherId) ?? null;
+  }, [isAdmin, providerSummaryAll, teacherId]);
 
   const { data: evalDash } = useQuery({
     queryKey: ["evaluations-dashboard"],
@@ -219,24 +229,31 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
           title={isAdmin ? "Active Students" : "Your Caseload"}
-          value={s?.totalActiveStudents}
+          value={!isAdmin && myCaseload ? myCaseload.assignedStudents : s?.totalActiveStudents}
           icon={Users}
           accent="emerald"
-          subtitle="on IEPs"
+          subtitle={isAdmin ? "on IEPs" : "students assigned"}
           href="/students"
         />
-        <MetricCard title="Open Alerts" value={alerts?.total} icon={Bell} accent="red" subtitle={`${alerts?.critical ?? 0} critical`} href="/alerts" />
         <MetricCard
-          title={isAdmin ? "Makeup Needed" : "Your Makeups"}
-          value={s?.openMakeupObligations}
+          title="Open Alerts"
+          value={!isAdmin && myCaseload ? myCaseload.openAlerts : alerts?.total}
+          icon={Bell}
+          accent="red"
+          subtitle={isAdmin ? `${alerts?.critical ?? 0} critical` : "your alerts"}
+          href="/alerts"
+        />
+        <MetricCard
+          title={isAdmin ? "Makeup Needed" : "Utilization"}
+          value={!isAdmin && myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
           icon={Clock}
           accent="amber"
-          subtitle="sessions"
+          subtitle={isAdmin ? "sessions" : "minutes delivered"}
           href="/sessions"
         />
         <MetricCard
-          title={isAdmin ? "Out of Compliance" : "Needs Action"}
-          value={s?.outOfComplianceStudents}
+          title={isAdmin ? "Out of Compliance" : "At Risk"}
+          value={!isAdmin && myCaseload ? myCaseload.studentsAtRisk : s?.outOfComplianceStudents}
           icon={AlertTriangle}
           accent="red"
           subtitle="students"
