@@ -1,0 +1,27 @@
+import { pgTable, serial, integer, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+
+export const communicationEventsTable = pgTable("communication_events", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull(),
+  guardianId: integer("guardian_id"),
+  staffId: integer("staff_id"),
+  channel: text("channel").notNull().default("email"),
+  status: text("status").notNull().default("queued"),
+  type: text("type").notNull(),
+  subject: text("subject").notNull(),
+  bodyText: text("body_text"),
+  toEmail: text("to_email"),
+  toName: text("to_name"),
+  fromEmail: text("from_email"),
+  providerMessageId: text("provider_message_id"),
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  failedAt: timestamp("failed_at"),
+  failedReason: text("failed_reason"),
+  linkedIncidentId: integer("linked_incident_id"),
+  linkedAlertId: integer("linked_alert_id"),
+  linkedContactId: integer("linked_contact_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

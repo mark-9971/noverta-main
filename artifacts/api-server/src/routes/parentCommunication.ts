@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
+import { sendEmail, buildOverdueFollowupEmail } from "../lib/email";
 import {
   parentContactsTable,
   studentsTable,
@@ -185,6 +186,43 @@ router.post("/parent-contacts", async (req, res): Promise<void> => {
       notificationRequired: notificationRequired ?? false,
       relatedAlertId: relatedAlertId ? Number(relatedAlertId) : null,
     }).returning();
+
+    if (contactMethod === "email") {
+      const recipients = await resolveGuardianRecipients(Number(studentId));
+      const emailRecipient = recipients.find(r => r.email);
+      if (emailRecipient?.email) {
+        const [student] = await db.select({ firstName: studentsTable.firstName, lastName: studentsTable.lastName, schoolId: studentsTable.schoolId })
+          .from(studentsTable).where(eq(studentsTable.id, Number(studentId)));
+        const studentName = student ? `${student.firstName} ${student.lastName}` : `Student #${studentId}`;
+
+        if (followUpNeeded === "yes" && followUpDate) {
+          const schoolRow = student?.schoolId
+            ? await db.select({ name: schoolsTable.name }).from(schoolsTable).where(eq(schoolsTable.id, student.schoolId)).then(r => r[0] ?? null)
+            : null;
+          const emailContent = buildOverdueFollowupEmail({
+            guardianName: emailRecipient.name,
+            studentName,
+            originalSubject: subject,
+            originalContactDate: contactDate,
+            followUpDate,
+            staffName: contactedBy || "Your child's case manager",
+            schoolName: schoolRow?.name ?? "the school",
+          });
+          await sendEmail({
+            studentId: Number(studentId),
+            type: "overdue_followup_reminder",
+            subject: emailContent.subject,
+            bodyHtml: emailContent.html,
+            bodyText: emailContent.text,
+            toEmail: emailRecipient.email,
+            toName: emailRecipient.name,
+            guardianId: emailRecipient.guardianId,
+            linkedContactId: contact.id,
+            metadata: { contactId: contact.id, followUpDate, contactType },
+          }).catch(() => {});
+        }
+      }
+    }
 
     res.status(201).json({
       ...contact,

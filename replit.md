@@ -82,6 +82,15 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   Clerk (for authentication)
 -   Stripe (payment processing via Replit integration, in @workspace/api-server + @workspace/scripts)
 -   stripe-replit-sync (webhook processing and data sync, in @workspace/api-server)
+-   Resend (transactional email delivery, in @workspace/api-server; requires RESEND_API_KEY secret to enable; graceful not_configured fallback when absent)
+
+## Email Delivery & Communication Audit Trail (Task #65)
+-   **Email service:** `artifacts/api-server/src/lib/email.ts` — Resend-backed email delivery with graceful fallback. When `RESEND_API_KEY` is not set, every attempt is recorded to `communication_events` with `status: "not_configured"` so the audit trail is always preserved. Builders: `buildIncidentNotificationEmail()` (603 CMR 46.04 required parent notification), `buildMissedServiceAlertEmail()`, `buildOverdueFollowupEmail()`.
+-   **DB table:** `communication_events` — tracks every email attempt per student with: studentId, guardianId, staffId, channel, status (queued|sent|delivered|failed|bounced|not_configured), type, subject, bodyText, toEmail, toName, providerMessageId, sentAt, deliveredAt, failedAt, failedReason, linkedIncidentId, linkedAlertId, linkedContactId, metadata, createdAt.
+-   **API routes** (require auth; engagement.parent_communication tier): `GET /api/communication-events?[studentId,startDate,endDate,status,type]`, `GET /api/communication-events/student/:studentId`, `GET /api/communication-events/summary`. All responses enriched with staffName, guardianName, studentName.
+-   **Real email sends:** `POST /protective-measures/incidents/:id/send-parent-notification` now calls `sendEmail()` with Resend for email method; response includes `emailResult.{success, communicationEventId, notConfigured, error}`. Parent contacts POST (`/parent-contacts`) triggers follow-up reminder email when `contactMethod === "email"` and `followUpNeeded === "yes"`.
+-   **Frontend audit log:** "Email Audit Log" tab added to the Parent Communication page (`/parent-communication`). Shows all events in a table: date, student, recipient (name + email), subject, type, status (Sent/Failed/Not Configured badges). Tab count shows total events. Lazy-loaded when tab is selected.
+-   **To enable real delivery:** Add `RESEND_API_KEY` secret (from resend.com). Without it, all events are recorded as `not_configured` — no data is lost.
 
 ## Generated Document Pipeline (Task #64)
 -   **DB table:** `generated_documents` — stores rendered HTML snapshots per student with fields: id, studentId, type (incident_report|progress_report|iep_draft), status (draft|finalized|archived), title, htmlSnapshot (full HTML for re-print), linkedRecordId, createdByName, createdAt, updatedAt. Indexes on studentId, type, linkedRecordId.

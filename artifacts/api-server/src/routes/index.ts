@@ -50,6 +50,7 @@ import reportExportsRouter from "./reportExports";
 import rolloverRouter from "./rollover";
 import legalRouter from "./legal";
 import generatedDocumentsRouter from "./generatedDocuments";
+import communicationEventsRouter from "./communicationEvents";
 
 const router: IRouter = Router();
 
@@ -145,5 +146,6 @@ router.use(reportExportsRouter);
 router.use(rolloverRouter);
 router.use(legalRouter);
 router.use(generatedDocumentsRouter);
+router.use(communicationEventsRouter);
 
 export default router;

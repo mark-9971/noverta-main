@@ -5,12 +5,13 @@ import { Link } from "wouter";
 import {
   MessageSquare, Phone, Mail, Users, Calendar, AlertTriangle,
   Plus, X, Filter, Bell, Clock, ChevronDown, ChevronUp, CheckCircle,
-  Search,
+  Search, Send, AlertCircle, Ban,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import { listSpedStudents, listParentContacts, getOverdueFollowups, getNotificationNeeded, updateParentContact, createParentContact, deleteParentContact } from "@workspace/api-client-react";
+import { apiGet } from "@/lib/api";
 
 
 type Contact = {
@@ -43,6 +44,25 @@ type NotificationNeeded = {
   alertDate: string;
   parentNotified: boolean;
   lastContactDate: string | null;
+};
+
+type CommEvent = {
+  id: number;
+  studentId: number;
+  studentName: string | null;
+  guardianName: string | null;
+  staffName: string | null;
+  channel: string;
+  status: string;
+  type: string;
+  subject: string;
+  toEmail: string | null;
+  toName: string | null;
+  sentAt: string | null;
+  failedAt: string | null;
+  failedReason: string | null;
+  createdAt: string;
+  linkedIncidentId: number | null;
 };
 
 const METHOD_ICONS: Record<string, any> = {
@@ -82,7 +102,9 @@ export default function ParentCommunication() {
   const [filterContactType, setFilterContactType] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [tab, setTab] = useState<"all" | "overdue" | "notifications">("all");
+  const [tab, setTab] = useState<"all" | "overdue" | "notifications" | "comms_log">("all");
+  const [commsEvents, setCommsEvents] = useState<CommEvent[]>([]);
+  const [commsLoading, setCommsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     studentId: "",
@@ -130,7 +152,20 @@ export default function ParentCommunication() {
     }).catch(() => setLoading(false));
   }
 
+  function fetchCommsEvents() {
+    setCommsLoading(true);
+    const qp = new URLSearchParams();
+    if (filterStudent) qp.set("studentId", filterStudent);
+    if (filterStartDate) qp.set("startDate", filterStartDate);
+    if (filterEndDate) qp.set("endDate", filterEndDate);
+    apiGet<{ data: CommEvent[] }>(`/communication-events?${qp.toString()}`)
+      .then(r => setCommsEvents(r.data || []))
+      .catch(() => setCommsEvents([]))
+      .finally(() => setCommsLoading(false));
+  }
+
   useEffect(() => { fetchAll(); }, [filterStudent, filterStartDate, filterEndDate, filterFollowUp, filterContactType, selectedSchoolId]);
+  useEffect(() => { if (tab === "comms_log") fetchCommsEvents(); }, [tab, filterStudent, filterStartDate, filterEndDate, selectedSchoolId]);
 
   function resetForm() {
     setFormData({
@@ -261,7 +296,7 @@ export default function ParentCommunication() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           onClick={() => setTab("all")}
           className={`p-4 rounded-xl border transition-colors text-left ${tab === "all" ? "border-emerald-200 bg-emerald-50" : "border-gray-100 bg-white hover:bg-gray-50"}`}
@@ -301,6 +336,20 @@ export default function ParentCommunication() {
             <div>
               <p className="text-2xl font-bold text-gray-800">{unnotifiedCount}</p>
               <p className="text-xs text-gray-400">Notifications Needed</p>
+            </div>
+          </div>
+        </button>
+        <button
+          onClick={() => setTab("comms_log")}
+          className={`p-4 rounded-xl border transition-colors text-left ${tab === "comms_log" ? "border-blue-200 bg-blue-50" : "border-gray-100 bg-white hover:bg-gray-50"}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Send className="w-5 h-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{commsEvents.length}</p>
+              <p className="text-xs text-gray-400">Email Audit Log</p>
             </div>
           </div>
         </button>
@@ -529,6 +578,85 @@ export default function ParentCommunication() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "comms_log" && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+              <Send className="w-4 h-4 text-blue-500" />
+              Email Delivery Audit Log
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {commsLoading ? (
+              <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="w-full h-14" />)}</div>
+            ) : commsEvents.length === 0 ? (
+              <div className="text-center py-10">
+                <Send className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">No email events yet</p>
+                <p className="text-xs text-gray-300 mt-1">Events appear here when parent notifications are sent</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left pb-2 pr-3 text-gray-400 font-medium">Date</th>
+                      <th className="text-left pb-2 pr-3 text-gray-400 font-medium">Student</th>
+                      <th className="text-left pb-2 pr-3 text-gray-400 font-medium">Recipient</th>
+                      <th className="text-left pb-2 pr-3 text-gray-400 font-medium">Subject</th>
+                      <th className="text-left pb-2 pr-3 text-gray-400 font-medium">Type</th>
+                      <th className="text-left pb-2 text-gray-400 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {commsEvents.map(e => (
+                      <tr key={e.id} className="hover:bg-gray-50">
+                        <td className="py-2.5 pr-3 text-gray-500 whitespace-nowrap">
+                          {new Date(e.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </td>
+                        <td className="py-2.5 pr-3 font-medium text-gray-700 whitespace-nowrap">
+                          {e.studentName ?? `#${e.studentId}`}
+                        </td>
+                        <td className="py-2.5 pr-3 text-gray-500">
+                          <div>{e.toName ?? e.guardianName ?? "—"}</div>
+                          {e.toEmail && <div className="text-gray-400">{e.toEmail}</div>}
+                        </td>
+                        <td className="py-2.5 pr-3 text-gray-600 max-w-[200px] truncate">{e.subject}</td>
+                        <td className="py-2.5 pr-3 text-gray-500 whitespace-nowrap">
+                          {e.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                          {e.linkedIncidentId && (
+                            <span className="ml-1 text-gray-400">#{e.linkedIncidentId}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5">
+                          {e.status === "sent" || e.status === "delivered" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">
+                              <CheckCircle className="w-3 h-3" /> Sent
+                            </span>
+                          ) : e.status === "failed" || e.status === "bounced" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium" title={e.failedReason ?? ""}>
+                              <AlertCircle className="w-3 h-3" /> Failed
+                            </span>
+                          ) : e.status === "not_configured" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium" title="Add RESEND_API_KEY to enable real email delivery">
+                              <Ban className="w-3 h-3" /> Not Configured
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                              {e.status}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
