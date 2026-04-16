@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable } from "@workspace/db";
 import { eq, and, sql, isNull, count, sum } from "drizzle-orm";
-import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import { getEnforcedDistrictId, type AuthedRequest, requireRoles } from "../middlewares/auth";
+import { requireTierAccess } from "../middlewares/tierGate";
 import { logAudit } from "../lib/auditLog";
 
 const router = Router();
+router.use(requireRoles("admin", "coordinator"));
+router.use(requireTierAccess("district.caseload_balancing"));
 
 const DEFAULT_THRESHOLDS: Record<string, number> = {
   bcba: 15,
@@ -347,6 +350,70 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
   } catch (err) {
     console.error("POST /caseload-balancing/reassign error:", err);
     res.status(500).json({ error: "Failed to reassign student" });
+  }
+});
+
+router.get("/caseload-balancing/trends", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+
+  try {
+    const months = parseInt(req.query.months as string, 10) || 6;
+    const lookback = new Date();
+    lookback.setMonth(lookback.getMonth() - Math.min(months, 12));
+
+    const monthlyData = await db.execute(sql`
+      WITH district_staff AS (
+        SELECT s.id, s.first_name, s.last_name, s.role
+        FROM staff s
+        INNER JOIN schools sc ON s.school_id = sc.id
+        WHERE sc.district_id = ${districtId} AND s.status = 'active' AND s.deleted_at IS NULL
+      ),
+      months AS (
+        SELECT generate_series(
+          date_trunc('month', ${lookback}::timestamp),
+          date_trunc('month', NOW()),
+          '1 month'::interval
+        ) AS month_start
+      ),
+      monthly_counts AS (
+        SELECT
+          ds.role,
+          m.month_start,
+          COUNT(DISTINCT sa.student_id) AS student_count,
+          COUNT(DISTINCT ds.id) AS provider_count
+        FROM months m
+        CROSS JOIN district_staff ds
+        LEFT JOIN staff_assignments sa ON sa.staff_id = ds.id
+          AND sa.created_at <= (m.month_start + '1 month'::interval)
+        LEFT JOIN students st ON sa.student_id = st.id AND st.status = 'active'
+        GROUP BY ds.role, m.month_start
+      )
+      SELECT
+        role,
+        to_char(month_start, 'YYYY-MM') AS month,
+        student_count::int,
+        provider_count::int,
+        CASE WHEN provider_count > 0 THEN ROUND(student_count::numeric / provider_count, 1) ELSE 0 END AS avg_per_provider
+      FROM monthly_counts
+      ORDER BY month_start, role
+    `);
+
+    const trends: Record<string, Array<{ month: string; studentCount: number; providerCount: number; avgPerProvider: number }>> = {};
+    for (const row of monthlyData.rows as Array<{ role: string; month: string; student_count: number; provider_count: number; avg_per_provider: number }>) {
+      if (!trends[row.role]) trends[row.role] = [];
+      trends[row.role].push({
+        month: row.month,
+        studentCount: Number(row.student_count),
+        providerCount: Number(row.provider_count),
+        avgPerProvider: Number(row.avg_per_provider),
+      });
+    }
+
+    res.json({ trends });
+  } catch (err) {
+    console.error("GET /caseload-balancing/trends error:", err);
+    res.status(500).json({ error: "Failed to load trend data" });
   }
 });
 

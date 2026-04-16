@@ -17,6 +17,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell, Legend,
+  LineChart, Line,
 } from "recharts";
 
 interface ProviderCaseload {
@@ -102,15 +103,26 @@ export default function CaseloadBalancingPage() {
 
   const [thresholdDialog, setThresholdDialog] = useState(false);
   const [editThresholds, setEditThresholds] = useState<Record<string, number>>({});
+  const [customThresholds, setCustomThresholds] = useState<Record<string, number> | null>(null);
+
+  const [trendData, setTrendData] = useState<Record<string, Array<{ month: string; studentCount: number; providerCount: number; avgPerProvider: number }>>>({});
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [showTrend, setShowTrend] = useState(false);
 
   const [reassignDialog, setReassignDialog] = useState<{ student: ProviderStudent; fromProvider: ProviderCaseload } | null>(null);
   const [reassignTarget, setReassignTarget] = useState("");
   const [reassigning, setReassigning] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const buildThresholdParam = useCallback((t: Record<string, number> | null) => {
+    if (!t) return "";
+    return `?thresholds=${encodeURIComponent(JSON.stringify(t))}`;
+  }, []);
+
+  const fetchData = useCallback(async (t?: Record<string, number> | null) => {
     setLoading(true);
     try {
-      const res = await authFetch("/api/caseload-balancing/summary");
+      const param = buildThresholdParam(t ?? customThresholds);
+      const res = await authFetch(`/api/caseload-balancing/summary${param}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setProviders(data.providers);
@@ -122,12 +134,13 @@ export default function CaseloadBalancingPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [customThresholds, buildThresholdParam]);
 
-  const fetchSuggestions = useCallback(async () => {
+  const fetchSuggestions = useCallback(async (t?: Record<string, number> | null) => {
     setSuggestionsLoading(true);
     try {
-      const res = await authFetch("/api/caseload-balancing/suggestions");
+      const param = buildThresholdParam(t ?? customThresholds);
+      const res = await authFetch(`/api/caseload-balancing/suggestions${param}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSuggestions(data.suggestions);
@@ -135,6 +148,20 @@ export default function CaseloadBalancingPage() {
       toast.error("Failed to load suggestions");
     } finally {
       setSuggestionsLoading(false);
+    }
+  }, [customThresholds, buildThresholdParam]);
+
+  const fetchTrends = useCallback(async () => {
+    setTrendLoading(true);
+    try {
+      const res = await authFetch("/api/caseload-balancing/trends?months=6");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setTrendData(data.trends || {});
+    } catch {
+      toast.error("Failed to load trend data");
+    } finally {
+      setTrendLoading(false);
     }
   }, []);
 
@@ -375,6 +402,66 @@ export default function CaseloadBalancingPage() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Caseload Trends
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => { if (!showTrend) fetchTrends(); setShowTrend(!showTrend); }}
+            >
+              {showTrend ? <ChevronUp className="w-3.5 h-3.5 mr-1" /> : <ChevronDown className="w-3.5 h-3.5 mr-1" />}
+              {showTrend ? "Hide" : "Show"} Trends
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        {showTrend && (
+          <CardContent>
+            {trendLoading ? (
+              <Skeleton className="h-64" />
+            ) : Object.keys(trendData).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No trend data available yet</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(trendData).map(([role, data]) => (
+                  <div key={role}>
+                    <p className="text-sm font-medium mb-2">{ROLE_LABELS[role] || role}</p>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={data} margin={{ left: 0, right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.[0]) return null;
+                            const d = payload[0].payload;
+                            return (
+                              <div className="bg-white border rounded-lg shadow-lg p-2 text-xs">
+                                <p className="font-medium">{d.month}</p>
+                                <p>Total Students: {d.studentCount}</p>
+                                <p>Providers: {d.providerCount}</p>
+                                <p>Avg per Provider: {d.avgPerProvider}</p>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Line type="monotone" dataKey="avgPerProvider" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Avg per Provider" />
+                        <Line type="monotone" dataKey="studentCount" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Total Students" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {Object.keys(roleSummary).length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -560,7 +647,7 @@ export default function CaseloadBalancingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setThresholdDialog(false)}>Cancel</Button>
-            <Button onClick={() => { setThresholds(editThresholds); setThresholdDialog(false); fetchData(); }}>
+            <Button onClick={() => { setCustomThresholds(editThresholds); setThresholds(editThresholds); setThresholdDialog(false); fetchData(editThresholds); fetchSuggestions(editThresholds); }}>
               Apply
             </Button>
           </DialogFooter>
