@@ -5,6 +5,8 @@ import PDFDocument from "pdfkit";
 import { logAudit } from "../lib/auditLog";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router = Router();
 router.use(requireTierAccess("clinical.protective_measures"));
@@ -12,7 +14,22 @@ router.use(requireTierAccess("clinical.protective_measures"));
 router.get("/protective-measures/incidents", async (req: Request, res: Response) => {
   const { studentId, status, incidentType, startDate, endDate } = req.query;
 
+  // Mandatory tenant scope — derived from auth token (or test header), never client query string.
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
   const conditions: any[] = [];
+
+  // Enforce district boundary: only incidents whose student belongs to a school in this district.
+  if (districtId !== null) {
+    conditions.push(
+      sql`${restraintIncidentsTable.studentId} IN (
+        SELECT s.id FROM students s
+        JOIN schools sc ON s.school_id = sc.id
+        WHERE sc.district_id = ${districtId}
+      )`
+    );
+  }
+
   if (studentId) conditions.push(eq(restraintIncidentsTable.studentId, Number(studentId)));
   if (status && status !== "all") {
     if (String(status) === "notification_pending") {
@@ -76,12 +93,26 @@ router.get("/protective-measures/incidents/:id", async (req: Request, res: Respo
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
   const [incident] = await db
     .select()
     .from(restraintIncidentsTable)
     .where(eq(restraintIncidentsTable.id, id));
 
   if (!incident) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Verify incident belongs to caller's district when a district context exists
+  if (districtId !== null) {
+    const scopeRows = await db.execute(
+      sql`SELECT sc.district_id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE s.id = ${incident.studentId} LIMIT 1`
+    );
+    const incidentDistrictId = (scopeRows.rows[0] as { district_id: number | null } | undefined)?.district_id ?? null;
+    if (incidentDistrictId === null || Number(incidentDistrictId) !== districtId) {
+      res.status(403).json({ error: "Access denied: incident is outside your district" });
+      return;
+    }
+  }
 
   const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, incident.studentId));
 

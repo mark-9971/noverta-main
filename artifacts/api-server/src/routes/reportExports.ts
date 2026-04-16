@@ -9,8 +9,8 @@ import {
   schoolYearsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
-import { requireRoles } from "../middlewares/auth";
-import { PERMISSIONS } from "../lib/permissions";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
 
@@ -19,7 +19,6 @@ interface BufferedPDFDoc {
 }
 
 const router: IRouter = Router();
-router.use(requireRoles(...PERMISSIONS.reports.export));
 
 function escapeCSV(val: unknown): string {
   const str = String(val ?? "");
@@ -64,14 +63,17 @@ interface ExportScope {
 }
 
 function resolveExportScope(req: Request): ExportScope | { error: string; status: number } {
-  const { districtId, platformAdmin } = getPublicMeta(req);
+  const { platformAdmin } = getPublicMeta(req);
   if (platformAdmin) {
     return { enforcedDistrictId: null, enforcedSchoolId: null, isPlatformAdmin: true };
   }
-  if (districtId === undefined) {
+  // Use getEnforcedDistrictId so test-mode (x-test-district-id header) and
+  // production (Clerk token) both work without requiring a query-string parameter.
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId == null) {
     return { error: "Access denied: your account is not assigned to a district", status: 403 };
   }
-  return { enforcedDistrictId: Number(districtId), enforcedSchoolId: null, isPlatformAdmin: false };
+  return { enforcedDistrictId: districtId, enforcedSchoolId: null, isPlatformAdmin: false };
 }
 
 function assertCSVHeaders(actual: readonly string[], canonical: readonly string[]): void {
@@ -439,19 +441,20 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
   const studentId = parseInt(req.params.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
-  const { districtId: callerDistrictId, platformAdmin } = getPublicMeta(req);
+  const { platformAdmin } = getPublicMeta(req);
 
   if (!platformAdmin) {
+    const callerDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    if (callerDistrictId == null) {
+      res.status(403).json({ error: "Access denied: your account is not assigned to a district" });
+      return;
+    }
     const scopeResult = await db.execute(
       sql`SELECT sc.district_id FROM students st LEFT JOIN schools sc ON sc.id = st.school_id WHERE st.id = ${studentId} LIMIT 1`
     );
     const scopeRow = (scopeResult.rows as Array<{ district_id: number | null }>)[0];
     const studentDistrictId = scopeRow?.district_id ?? null;
-    if (callerDistrictId === undefined) {
-      res.status(403).json({ error: "Access denied: your account is not assigned to a district" });
-      return;
-    }
-    if (studentDistrictId === null || Number(callerDistrictId) !== Number(studentDistrictId)) {
+    if (studentDistrictId === null || callerDistrictId !== Number(studentDistrictId)) {
       res.status(403).json({ error: "Access denied: student is outside your district" });
       return;
     }

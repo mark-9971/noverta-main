@@ -73,6 +73,10 @@ router.use("/staff", requireStaffOnly);
 // Reports router previously had a blanket router.use(requirePrivilegedStaff) with no
 // path, which bled into every subsequent router. Scoped here instead.
 router.use("/reports", requirePrivilegedStaffOnly);
+// Export routes are more restricted than general reports: admin/coordinator/case_manager only.
+// This guard runs AFTER the /reports guard (both apply to /reports/exports/*).
+const requireReportExport = requireRoles("admin", "case_manager", "coordinator");
+router.use("/reports/exports", requireReportExport);
 // Incidents / protective measures — PRIVILEGED_STAFF only (para, provider, sped_student excluded)
 router.use("/protective-measures", requirePrivilegedStaffOnly);
 

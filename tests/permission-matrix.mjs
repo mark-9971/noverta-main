@@ -75,28 +75,17 @@ async function requiresAuth(method, path) {
 }
 
 /**
- * Assert that a role is not blocked by the role guard (200–299 OR a business-logic 4xx).
- * Used for routes that have role guards but also require additional query params.
- * Passes if the response is NOT a 401 (not-authenticated) or a role-level 403
- * (we check the body for the role-rejection message to distinguish from
- * data-access 403s like "district not assigned").
+ * Assert that a route returns an exact HTTP status for a given role.
+ * Used for routes that pass the role guard but have mandatory input requirements
+ * (e.g., student portal requires a studentId — missing it causes 400, not a role failure).
  */
-async function roleAllowed(role, method, path, body) {
+async function assertStatus(expectedStatus, role, method, path, body) {
   const r = await req(role, method, path, body);
-  // A 401 means the role guard failed at auth level — wrong
-  if (r.status === 401) {
-    failed++;
-    failures.push(`FAIL [${method} ${path}] role=${role}: role guard returned 401 (expected 2xx or business 4xx)`);
-    return;
-  }
-  // Read body to detect a role-level 403 vs business-logic 403
-  const text = await r.text();
-  const isRoleDenied = r.status === 403 && text.includes("don't have permission");
-  if (isRoleDenied) {
-    failed++;
-    failures.push(`FAIL [${method} ${path}] role=${role}: role guard returned 403 (expected 2xx or business 4xx), body: ${text.slice(0, 120)}`);
-  } else {
+  if (r.status === expectedStatus) {
     passed++;
+  } else {
+    failed++;
+    failures.push(`FAIL [${method} ${path}] role=${role}: expected ${expectedStatus}, got ${r.status}`);
   }
 }
 
@@ -117,10 +106,7 @@ await requiresAuth("GET", "/api/staff/workload-summary");
 await requiresAuth("GET", "/api/schedule-blocks/uncovered");
 await requiresAuth("GET", "/api/audit-logs");
 
-// ─── 2. Students list — PRIVILEGED_STAFF_ROLES only ─────────────────────────
-// admin, coordinator, case_manager, bcba, sped_teacher can access
-// provider, para, sped_student currently get through (no requireRoles guard;
-//   tracked in Task #99 — path-param ownership audit)
+// ─── 2. Students list — PRIVILEGED_STAFF_ROLES can access ────────────────────
 console.log("2. Students list …");
 for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinator"]) {
   await canAccess(role, "GET", `/api/students?districtId=${DISTRICT_ID}`);
@@ -173,7 +159,7 @@ for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinato
 
 // ─── 9. Incidents (Protective Measures) — PRIVILEGED_STAFF_ROLES ─────────────
 // admin, coordinator, case_manager, bcba, sped_teacher: can access
-// provider, para, sped_student: denied (requireTierAccess + role guards)
+// provider, para, sped_student: denied (path-scoped guard blocks them)
 console.log("9. Incidents / protective measures …");
 for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinator"]) {
   await canAccess(role, "GET", `/api/protective-measures/incidents?districtId=${DISTRICT_ID}`);
@@ -196,20 +182,19 @@ for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinato
 await cannotAccess("sped_student", "GET", `/api/reports/student-minute-summary?districtId=${DISTRICT_ID}`);
 
 // ─── 12. Report Exports — admin, case_manager, coordinator only ───────────────
-// Role guard blocks para, provider, sped_student with 403.
-// Allowed roles pass the role guard; they may get a business-logic 4xx without
-// a real district JWT (handled by a separate assertion).
+// The /reports/exports path has a stricter guard than /reports.
+// sped_teacher and bcba pass the /reports guard but are blocked by /reports/exports.
+// admin, coordinator, case_manager reach the handler and get a real CSV response (200).
 console.log("12. Report exports (role guard) …");
 await cannotAccess("para", "GET", "/api/reports/exports/active-ieps.csv");
 await cannotAccess("provider", "GET", "/api/reports/exports/active-ieps.csv");
 await cannotAccess("sped_student", "GET", "/api/reports/exports/active-ieps.csv");
 await cannotAccess("sped_teacher", "GET", "/api/reports/exports/active-ieps.csv");
 await cannotAccess("bcba", "GET", "/api/reports/exports/active-ieps.csv");
-// Admin, coordinator, case_manager pass the role guard (may get 403 from district check
-// in test mode — not a role-guard failure)
-await roleAllowed("admin", "GET", "/api/reports/exports/active-ieps.csv");
-await roleAllowed("coordinator", "GET", "/api/reports/exports/active-ieps.csv");
-await roleAllowed("case_manager", "GET", "/api/reports/exports/active-ieps.csv");
+// Allowed roles must succeed — district 2 is scoped via x-test-district-id header
+await canAccess("admin", "GET", "/api/reports/exports/active-ieps.csv");
+await canAccess("coordinator", "GET", "/api/reports/exports/active-ieps.csv");
+await canAccess("case_manager", "GET", "/api/reports/exports/active-ieps.csv");
 
 // ─── 13. Audit Log — admin only ───────────────────────────────────────────────
 console.log("13. Audit log (admin only) …");
@@ -222,17 +207,16 @@ await cannotAccess("provider", "GET", `/api/audit-logs?districtId=${DISTRICT_ID}
 await cannotAccess("para", "GET", `/api/audit-logs?districtId=${DISTRICT_ID}`);
 await cannotAccess("sped_student", "GET", `/api/audit-logs?districtId=${DISTRICT_ID}`);
 
-// ─── 14. Student Portal — sped_student and staff (no role denial) ─────────────
-// sped_student: role check passes, returns 400 (no student ID in test headers)
-// staff roles: role check passes, returns 400 (no studentId query param in test)
-// NOTE: sped_student with a real token (tenantStudentId set) would get 200
-console.log("14. Student portal …");
-// Staff should not be blocked by role guard (400 = missing studentId, not role denial)
+// ─── 14. Student Portal — role guard passes for all; input validates separately ─
+// sped_student: role check passes, returns 400 (no student ID bound to test token)
+// Staff roles: role check passes, returns 400 (no studentId query param provided)
+// Both are NOT 403 (role denial) — the route is reachable but requires input.
+console.log("14. Student portal (role guard passes, inputs missing → 400) …");
 for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinator"]) {
-  await roleAllowed(role, "GET", "/api/student-portal/goals");
+  await assertStatus(400, role, "GET", "/api/student-portal/goals");
 }
-// sped_student: should pass role check, get 400 for missing student ID
-await roleAllowed("sped_student", "GET", "/api/student-portal/goals");
+// sped_student must reach the route (not get role-blocked): expect 400, not 403
+await assertStatus(400, "sped_student", "GET", "/api/student-portal/goals");
 
 // ─── Results ─────────────────────────────────────────────────────────────────
 
