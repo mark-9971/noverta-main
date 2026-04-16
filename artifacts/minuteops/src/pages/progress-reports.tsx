@@ -180,31 +180,9 @@ export default function ProgressReportsPage() {
     setLoading(true);
     try {
       const res = await authFetch("/api/progress-reports/all");
-      if (res.ok) {
-        const data: unknown = await res.json();
-        setReports(Array.isArray(data) ? data as ProgressReport[] : []);
-      } else {
-        const res2 = await authFetch("/api/students");
-        if (!res2.ok) throw new Error("Failed to load students");
-        const studentsData: unknown = await res2.json();
-        const allStudents = Array.isArray(studentsData) ? studentsData as StudentOption[] : [];
-        const allReports: ProgressReport[] = [];
-        for (const s of allStudents.slice(0, 50)) {
-          try {
-            const r = await authFetch(`/api/students/${s.id}/progress-reports`);
-            if (r.ok) {
-              const rData: unknown = await r.json();
-              if (Array.isArray(rData)) {
-                allReports.push(...(rData as ProgressReport[]).map(rpt => ({
-                  ...rpt,
-                  studentName: `${s.firstName} ${s.lastName}`,
-                })));
-              }
-            }
-          } catch { /* skip */ }
-        }
-        setReports(allReports);
-      }
+      if (!res.ok) throw new Error("Failed to load reports");
+      const data: unknown = await res.json();
+      setReports(Array.isArray(data) ? data as ProgressReport[] : []);
     } catch {
       toast.error("Failed to load reports");
     }

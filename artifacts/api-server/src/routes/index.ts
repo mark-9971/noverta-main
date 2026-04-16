@@ -115,6 +115,15 @@ router.use("/protective-measures", requirePrivilegedStaffOnly);
 router.use("/progress-reports", requirePrivilegedStaffOnly);
 router.use("/document-workflow", requirePrivilegedStaffOnly);
 
+const isProgressReportPath = (path: string) =>
+  /\/progress-reports/.test(path);
+router.use("/students", (req, _res, next) => {
+  if (isProgressReportPath(req.path)) {
+    return requirePrivilegedStaffOnly(req, _res, next);
+  }
+  next();
+});
+
 router.use(storageRouter);
 
 router.use(schoolsRouter);
