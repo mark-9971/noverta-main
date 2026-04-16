@@ -22,7 +22,8 @@ import {
   ListUncoveredSessionsQueryParams,
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull } from "drizzle-orm";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { getActiveSchoolYearId, getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
@@ -80,11 +81,19 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
     if (params.data.weekOf) conditions.push(eq(scheduleBlocksTable.weekOf, params.data.weekOf));
   }
   if (params.success && params.data.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
-  if (params.success && params.data.districtId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+  {
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
+    } else if (params.success && params.data.districtId) {
+      conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+    }
+  }
 
   // School year isolation: use explicit schoolYearId if provided, otherwise default to active year
   const explicitYearId = params.success ? (params.data.schoolYearId ?? null) : null;
-  const activeYearId = explicitYearId ?? await resolveActiveYearId(req, params.success ? (params.data.districtId ?? null) : null);
+  const enforcedDidForYear = getEnforcedDistrictId(req as AuthedRequest);
+  const activeYearId = explicitYearId ?? await resolveActiveYearId(req, enforcedDidForYear !== null ? enforcedDidForYear : (params.success ? (params.data.districtId ?? null) : null));
   if (activeYearId != null) {
     conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
   }
@@ -464,6 +473,13 @@ router.get("/staff-assignments", async (req, res): Promise<void> => {
   if (params.success) {
     if (params.data.staffId) conditions.push(eq(staffAssignmentsTable.staffId, Number(params.data.staffId)));
     if (params.data.studentId) conditions.push(eq(staffAssignmentsTable.studentId, Number(params.data.studentId)));
+  }
+  // Enforce token-derived district scope on assignments (via student district membership).
+  {
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      conditions.push(sql`${staffAssignmentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
+    }
   }
 
   const assignments = await db

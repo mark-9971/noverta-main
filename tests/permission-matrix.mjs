@@ -132,6 +132,9 @@ await cannotAccess("sped_student", "GET", "/api/sessions");
 await cannotAccess("sped_student", "GET", "/api/staff");
 await cannotAccess("sped_student", "GET", "/api/staff/workload-summary");
 await cannotAccess("sped_student", "GET", "/api/schedule-blocks/uncovered");
+// Schedule blocks and staff-assignments are also staff-only
+await cannotAccess("sped_student", "GET", "/api/schedule-blocks");
+await cannotAccess("sped_student", "GET", "/api/staff-assignments");
 
 // ─── 4. Sessions — all staff roles (including provider and para) ─────────────
 console.log("4. Sessions access for all staff …");
@@ -277,6 +280,12 @@ await assertEmptyFromForeign("admin", "GET", `/api/protective-measures/incidents
 await assertEmptyFromForeign("admin", "GET", `/api/reports/student-minute-summary`);
 await assertEmptyFromForeign("admin", "GET", `/api/reports/missed-sessions`);
 await assertEmptyFromForeign("admin", "GET", `/api/reports/compliance-risk`);
+// Scheduling routes: foreign-district users get empty schedule data, not district 2 blocks
+await assertEmptyFromForeign("admin", "GET", `/api/schedule-blocks`);
+await assertEmptyFromForeign("admin", "GET", `/api/staff-assignments`);
+// Student/staff list cross-tenant isolation
+await assertEmptyFromForeign("admin", "GET", `/api/students`);
+await assertEmptyFromForeign("admin", "GET", `/api/staff`);
 
 // ID-based endpoints: district 99 user trying to fetch a district 2 incident should get 403
 // Incident ID 13 and student ID 51 both belong to district 2 (Jefferson Unified).

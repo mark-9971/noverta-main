@@ -76,6 +76,11 @@ router.use("/staff", requireDistrictScope);
 router.use("/students", requireStaffOnly);
 router.use("/sessions", requireStaffOnly);
 router.use("/staff", requireStaffOnly);
+// Scheduling data is staff-only; sped_students and unauthenticated callers must not see it.
+router.use("/schedule-blocks", requireDistrictScope);
+router.use("/schedule-blocks", requireStaffOnly);
+router.use("/staff-assignments", requireDistrictScope);
+router.use("/staff-assignments", requireStaffOnly);
 // Reports router previously had a blanket router.use(requirePrivilegedStaff) with no
 // path, which bled into every subsequent router. Scoped here instead.
 router.use("/reports", requirePrivilegedStaffOnly);
