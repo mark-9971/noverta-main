@@ -1460,8 +1460,10 @@ router.get("/students/:id/snapshot", async (req, res): Promise<void> => {
               const base = goal.btBaselineValue ? parseFloat(goal.btBaselineValue) : null;
               if (base !== null) {
                 const totalRange = Math.abs(goalVal - base);
-                const progress = Math.abs(latestValue - base);
-                const pct = totalRange > 0 ? progress / totalRange : 0;
+                const movingTowardGoal = targetDir === "decrease"
+                  ? base - latestValue
+                  : latestValue - base;
+                const pct = totalRange > 0 ? Math.max(0, movingTowardGoal) / totalRange : 0;
                 if (pct >= 0.75) progressRating = "sufficient_progress";
                 else if (pct >= 0.25) progressRating = "some_progress";
                 else progressRating = "insufficient_progress";
