@@ -1,0 +1,67 @@
+I want you to act like a product analyst and technical founder explaining this app to an outside investor who has never seen it before.
+
+Your job is to inspect the entire app as it currently exists and produce a thorough, concrete, evidence-based explanation of what the product does today.
+
+Please analyze all of the following:
+- user-facing features
+- workflows
+- pages/screens/modules
+- database structure and core data objects
+- automations/calculations/business logic
+- roles/personas the app appears built for
+- recurring themes in the product design
+- what problem the app is trying to solve
+- what category of software it belongs to
+- what use cases are already supported vs only partially built
+- what looks production-ready vs demo-only vs placeholder
+- what differentiates it from a generic CRUD dashboard
+
+Then give me the output in this exact structure:
+
+1. One-sentence description  
+A single clear sentence explaining what the product is.
+
+2. Elevator pitch  
+A short paragraph explaining what the app does, who it is for, and why it matters.
+
+3. Core customer / user  
+Who is the primary buyer and primary daily user? Be specific.
+
+4. Problems solved  
+List the real operational, financial, compliance, workflow, or staffing problems this app appears to solve.
+
+5. Key features and workflows  
+Describe the main modules and what a user can actually do inside each one.
+
+6. Business value  
+Explain why an organization would pay for this. Focus on time savings, compliance protection, staffing efficiency, documentation quality, risk reduction, reimbursement, or operational visibility.
+
+7. What makes this product unique  
+Compare it conceptually to generic education software, generic ABA software, generic EMRs, and generic case-management tools. Explain what is distinct about this product.
+
+8. Likely market category  
+What software category or categories does this belong to?
+
+9. Comparable products  
+Name the most relevant real-world software products this most resembles, and explain in what ways it is similar or different.
+
+10. Product maturity assessment  
+Separate into:
+- already working now
+- partially built / needs refinement
+- missing but likely important for real deployment
+
+11. Investor-ready summary  
+Write a strong, plain-English paragraph that summarizes what this company is building and why it could matter commercially.
+
+Important instructions:
+- Base this only on what is actually present in the codebase, UI, schema, routes, and workflows.
+- Do not invent features that do not exist.
+- If something appears implied but not fully implemented, label it clearly as partial or inferred.
+- Be specific, concrete, and honest.
+- Write like a sharp product/VC analyst, not like a marketer using fluff.
+- Wherever possible, point to evidence from the codebase or product structure for your conclusions.
+
+At the end, include:
+12. Raw evidence notes  
+A bullet list of the specific app components, tables, workflows, routes, or UI sections that led you to your conclusions.

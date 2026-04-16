@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { toast } from "sonner";
-import { Settings, RotateCcw, Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { Settings, RotateCcw, Calendar, Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { updateSchoolScheduleSettings, listSchools, createScheduleBlock, updateScheduleBlock, deleteScheduleBlock, listServiceTypes, useListSpedStudents } from "@workspace/api-client-react";
 
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -560,7 +561,29 @@ export default function Schedule() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.sort((a: any, b: any) => {
+                {isError ? (
+                  <tr><td colSpan={6} className="py-0"><ErrorBanner message="Failed to load schedule." onRetry={() => refetch()} /></td></tr>
+                ) : isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 6 }).map((_, j) => (
+                        <td key={j} className="px-5 py-3"><Skeleton className="h-4 w-20 rounded" /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-0">
+                      <EmptyState
+                        icon={CalendarDays}
+                        title="No schedule blocks"
+                        description={isAdmin ? "Add recurring blocks to build this school's weekly service schedule." : "No blocks match the current filter."}
+                        compact
+                        action={isAdmin ? { label: "Add Block", onClick: () => setBlockDialogOpen(true) } : undefined}
+                      />
+                    </td>
+                  </tr>
+                ) : filtered.sort((a: any, b: any) => {
                   const colA = scheduleType === "standard" ? WEEKDAYS.indexOf(a.dayOfWeek) : columns.indexOf(a.rotationDay ?? "");
                   const colB = scheduleType === "standard" ? WEEKDAYS.indexOf(b.dayOfWeek) : columns.indexOf(b.rotationDay ?? "");
                   if (colA !== colB) return colA - colB;

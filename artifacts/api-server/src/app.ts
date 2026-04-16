@@ -9,6 +9,7 @@ import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
+import { enforceDistrictScope } from "./middlewares/auth";
 import { captureException, recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 
@@ -93,6 +94,8 @@ app.use(clerkMiddleware());
 
 app.use(healthRouter);
 app.use("/api", requireActiveSubscription);
+// Enforce tenant isolation: in production, overrides districtId query param from auth token
+app.use("/api", enforceDistrictScope);
 app.use("/api", router);
 
 app.use((_req: Request, res: Response) => {

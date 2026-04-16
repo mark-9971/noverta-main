@@ -82,3 +82,9 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   Clerk (for authentication)
 -   Stripe (payment processing via Replit integration, in @workspace/api-server + @workspace/scripts)
 -   stripe-replit-sync (webhook processing and data sync, in @workspace/api-server)
+
+## Security Hardening (Task #62)
+-   **Tenant Isolation:** `AuthedRequest` carries `tenantDistrictId`/`tenantStaffId`/`tenantStudentId` from Clerk token metadata; helpers `getEnforcedDistrictId()` and `enforceDistrictScope()` in `artifacts/api-server/src/middlewares/auth.ts`
+-   **`enforceDistrictScope` middleware:** Applied globally at `app.use("/api", enforceDistrictScope)` (after `requireActiveSubscription`, before router). In production, overwrites `req.query.districtId` from the auth token and removes `schoolId` — prevents tenants from crossing district boundaries via crafted query strings. No-ops in development.
+-   **Role switcher:** Gated on `import.meta.env.DEV` (frontend) and `process.env.NODE_ENV !== "production"` (backend `/api/demo/switch-role`).
+-   **Permission matrix test:** `tests/permission-matrix.mjs` — CI-runnable Node.js script that verifies 403/401/2xx responses for all six roles across critical endpoints. Requires server running with `NODE_ENV=test`. Uses `x-test-user-id` + `x-test-role` + `x-test-district-id` headers (only accepted in test mode).
