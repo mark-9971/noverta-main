@@ -848,6 +848,10 @@ function ReviewStep({ studentName, serviceTypeName, durationMinutes, outcome, no
             </div>
           )}
           <div className="flex justify-between items-center">
+            <span className="text-[13px] text-gray-500">Status</span>
+            <span className={`text-[14px] font-medium capitalize ${outcome === "completed" ? "text-emerald-700" : "text-amber-700"}`}>{outcome}</span>
+          </div>
+          <div className="flex justify-between items-center">
             <span className="text-[13px] text-gray-500">IEP Goals</span>
             <span className="text-[14px] font-medium text-gray-800">0 goals linked</span>
           </div>
