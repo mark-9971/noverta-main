@@ -88,7 +88,10 @@ export default function AccommodationTracking({ studentId }: { studentId: number
     if (!studentId) return;
     setLoading(true);
     authFetch(`/api/students/${studentId}/accommodation-summary`)
-      .then((r: Response) => r.json())
+      .then((r: Response) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d: AccommodationSummary) => setData(d))
       .catch(() => toast.error("Failed to load accommodations"))
       .finally(() => setLoading(false));
@@ -113,8 +116,10 @@ export default function AccommodationTracking({ studentId }: { studentId: number
       setVerifyingId(null);
       setVerifyStatus("verified");
       setVerifyNotes("");
-      const refreshed = await authFetch(`/api/students/${studentId}/accommodation-summary`).then((r: Response) => r.json());
-      setData(refreshed);
+      const refreshRes = await authFetch(`/api/students/${studentId}/accommodation-summary`);
+      if (refreshRes.ok) {
+        setData(await refreshRes.json());
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to verify");
     }
@@ -130,7 +135,8 @@ export default function AccommodationTracking({ studentId }: { studentId: number
     setHistoryLoading(true);
     try {
       const r = await authFetch(`/api/accommodations/${accommodationId}/verifications`);
-      const d = await r.json();
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d: Verification[] = await r.json();
       setHistory(Array.isArray(d) ? d : []);
     } catch {
       setHistory([]);
