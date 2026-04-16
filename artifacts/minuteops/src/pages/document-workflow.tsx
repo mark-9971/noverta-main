@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   FileText, CheckCircle, XCircle, Clock, ArrowRight,
   History, Plus, ChevronDown, ChevronUp, AlertTriangle, RotateCcw,
-  Clipboard, Users, Shield, Send, UserPlus, Timer,
+  Clipboard, Users, Shield, Send, UserPlus, Timer, Settings,
 } from "lucide-react";
 
 interface AgingWorkflow {
@@ -232,7 +232,14 @@ export default function DocumentWorkflowPage() {
   const [versionHistory, setVersionHistory] = useState<DocumentVersion[]>([]);
   const [versionExpanded, setVersionExpanded] = useState(false);
   const [createDialog, setCreateDialog] = useState(false);
+  const ALL_STAGES = [
+    { value: "draft", label: "Draft" },
+    { value: "team_review", label: "Team Review" },
+    { value: "director_signoff", label: "Director Sign-off" },
+    { value: "parent_delivery", label: "Parent Delivery" },
+  ];
   const [createForm, setCreateForm] = useState({ documentType: "iep", documentId: "", studentId: "", title: "" });
+  const [createStages, setCreateStages] = useState<string[]>(["draft", "team_review", "director_signoff", "parent_delivery"]);
   const [createReviewers, setCreateReviewers] = useState<ReviewerAssignment[]>([]);
   const [replyTo, setReplyTo] = useState<{ id: number; workflowId: number; reviewerName: string } | null>(null);
   const [replyComment, setReplyComment] = useState("");
@@ -319,6 +326,7 @@ export default function DocumentWorkflowPage() {
           documentId: parseInt(createForm.documentId, 10),
           studentId: parseInt(createForm.studentId, 10),
           title: createForm.title,
+          stages: createStages.length > 0 ? createStages : undefined,
           reviewers: createReviewers.filter(r => r.userId && r.name && r.stage),
         }),
       });
@@ -330,6 +338,7 @@ export default function DocumentWorkflowPage() {
       toast.success("Approval workflow started");
       setCreateDialog(false);
       setCreateForm({ documentType: "iep", documentId: "", studentId: "", title: "" });
+      setCreateStages(["draft", "team_review", "director_signoff", "parent_delivery"]);
       setCreateReviewers([]);
       fetchData();
     } catch {
@@ -857,7 +866,7 @@ export default function DocumentWorkflowPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) setCreateReviewers([]); }}>
+      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setCreateReviewers([]); setCreateStages(["draft", "team_review", "director_signoff", "parent_delivery"]); } }}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Start Approval Workflow</DialogTitle>
@@ -886,6 +895,32 @@ export default function DocumentWorkflowPage() {
             <div>
               <Label>Title</Label>
               <Input className="mt-1" value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual IEP Review — Jane Doe" />
+            </div>
+
+            <div className="border-t pt-3">
+              <Label className="flex items-center gap-1.5 mb-2">
+                <Settings className="w-3.5 h-3.5" />
+                Workflow Stages
+              </Label>
+              <p className="text-xs text-gray-400 mb-2">Select which stages this workflow should go through. At least one stage is required.</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_STAGES.map(stage => {
+                  const active = createStages.includes(stage.value);
+                  return (
+                    <button
+                      key={stage.value}
+                      type="button"
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${active ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-300"}`}
+                      onClick={() => {
+                        if (active && createStages.length <= 1) return;
+                        setCreateStages(s => active ? s.filter(v => v !== stage.value) : [...s, stage.value]);
+                      }}
+                    >
+                      {active ? "✓ " : ""}{stage.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="border-t pt-3">
@@ -947,7 +982,7 @@ export default function DocumentWorkflowPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateDialog(false); setCreateReviewers([]); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setCreateDialog(false); setCreateReviewers([]); setCreateStages(["draft", "team_review", "director_signoff", "parent_delivery"]); }}>Cancel</Button>
             <Button onClick={handleCreate} disabled={!createForm.documentId || !createForm.studentId || !createForm.title}>
               Start Workflow
             </Button>

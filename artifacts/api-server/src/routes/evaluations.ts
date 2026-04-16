@@ -6,7 +6,8 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, isNull, lte, sql, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import { createAutoVersion } from "../lib/documentVersioning";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { sendEmail, buildOverdueEvaluationEmail } from "../lib/email";
 
@@ -182,6 +183,7 @@ router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise
       }
     }
 
+    const [oldRow] = await db.select().from(evaluationReferralsTable).where(eq(evaluationReferralsTable.id, id));
     const [row] = await db.update(evaluationReferralsTable)
       .set(updates)
       .where(eq(evaluationReferralsTable.id, id))
@@ -189,6 +191,22 @@ router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise
     if (!row) { res.status(404).json({ error: "Referral not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluation_referrals", targetId: id, studentId: row.studentId, summary: `Updated referral #${id}` });
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+    if (districtId) {
+      const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
+      createAutoVersion({
+        documentType: "evaluation_referral",
+        documentId: id,
+        studentId: row.studentId,
+        districtId,
+        authorUserId: authed.userId || "system",
+        authorName: authed.displayName || "System",
+        title: `Evaluation Referral #${id} updated`,
+        oldValues: oldVals,
+        newValues: updates as Record<string, unknown>,
+      });
+    }
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch (err) {
     console.error("PATCH /evaluations/referrals error:", err);
@@ -314,6 +332,7 @@ router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => 
     const id = parseInt(req.params.id);
     const updates = pick(req.body, EVALUATION_PATCH_FIELDS);
 
+    const [oldRow] = await db.select().from(evaluationsTable).where(eq(evaluationsTable.id, id));
     const [row] = await db.update(evaluationsTable)
       .set(updates)
       .where(eq(evaluationsTable.id, id))
@@ -321,6 +340,22 @@ router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => 
     if (!row) { res.status(404).json({ error: "Evaluation not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluations", targetId: id, studentId: row.studentId, summary: `Updated evaluation #${id}` });
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+    if (districtId) {
+      const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
+      createAutoVersion({
+        documentType: "evaluation",
+        documentId: id,
+        studentId: row.studentId,
+        districtId,
+        authorUserId: authed.userId || "system",
+        authorName: authed.displayName || "System",
+        title: `Evaluation #${id} updated`,
+        oldValues: oldVals,
+        newValues: updates as Record<string, unknown>,
+      });
+    }
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch (err) {
     console.error("PATCH /evaluations error:", err);
@@ -407,6 +442,7 @@ router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promi
     const id = parseInt(req.params.id);
     const updates = pick(req.body, ELIGIBILITY_PATCH_FIELDS);
 
+    const [oldRow] = await db.select().from(eligibilityDeterminationsTable).where(eq(eligibilityDeterminationsTable.id, id));
     const [row] = await db.update(eligibilityDeterminationsTable)
       .set(updates)
       .where(eq(eligibilityDeterminationsTable.id, id))
@@ -414,6 +450,22 @@ router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promi
     if (!row) { res.status(404).json({ error: "Eligibility determination not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "eligibility_determinations", targetId: id, studentId: row.studentId, summary: `Updated eligibility determination #${id}` });
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+    if (districtId) {
+      const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
+      createAutoVersion({
+        documentType: "eligibility_determination",
+        documentId: id,
+        studentId: row.studentId,
+        districtId,
+        authorUserId: authed.userId || "system",
+        authorName: authed.displayName || "System",
+        title: `Eligibility Determination #${id} updated`,
+        oldValues: oldVals,
+        newValues: updates as Record<string, unknown>,
+      });
+    }
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch (err) {
     console.error("PATCH /evaluations/eligibility error:", err);

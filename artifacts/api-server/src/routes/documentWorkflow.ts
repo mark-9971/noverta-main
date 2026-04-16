@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, iepMeetingAttendeesTable, schoolsTable, staffTable } from "@workspace/db";
+import { db, documentVersionsTable, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, iepDocumentsTable, priorWrittenNoticesTable, studentsTable, teamMeetingsTable, iepGoalsTable, iepMeetingAttendeesTable, schoolsTable, staffTable, progressReportsTable, evaluationsTable } from "@workspace/db";
 import { eq, and, desc, SQL, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
@@ -23,6 +23,46 @@ function getUserInfo(req: AuthedRequest) {
     userId: req.userId!,
     name: req.displayName || "Unknown",
   };
+}
+
+async function validateDocumentExists(
+  documentType: string,
+  documentId: number,
+  studentId: number,
+): Promise<{ exists: boolean; error?: string }> {
+  try {
+    switch (documentType) {
+      case "iep": {
+        const [doc] = await db.select({ id: iepDocumentsTable.id }).from(iepDocumentsTable)
+          .where(and(eq(iepDocumentsTable.id, documentId), eq(iepDocumentsTable.studentId, studentId)));
+        if (!doc) return { exists: false, error: "IEP document not found for this student" };
+        break;
+      }
+      case "evaluation": {
+        const [doc] = await db.select({ id: evaluationsTable.id }).from(evaluationsTable)
+          .where(and(eq(evaluationsTable.id, documentId), eq(evaluationsTable.studentId, studentId)));
+        if (!doc) return { exists: false, error: "Evaluation not found for this student" };
+        break;
+      }
+      case "progress_report": {
+        const [doc] = await db.select({ id: progressReportsTable.id }).from(progressReportsTable)
+          .where(and(eq(progressReportsTable.id, documentId), eq(progressReportsTable.studentId, studentId)));
+        if (!doc) return { exists: false, error: "Progress report not found for this student" };
+        break;
+      }
+      case "prior_written_notice": {
+        const [doc] = await db.select({ id: priorWrittenNoticesTable.id }).from(priorWrittenNoticesTable)
+          .where(and(eq(priorWrittenNoticesTable.id, documentId), eq(priorWrittenNoticesTable.studentId, studentId)));
+        if (!doc) return { exists: false, error: "Prior Written Notice not found for this student" };
+        break;
+      }
+      default:
+        return { exists: true };
+    }
+    return { exists: true };
+  } catch {
+    return { exists: false, error: "Failed to validate document" };
+  }
 }
 
 function parsePositiveInt(val: unknown): number | null {
@@ -303,6 +343,9 @@ router.post("/document-workflow/workflows", async (req, res) => {
 
   const student = await assertStudentInDistrict(studentId, districtId);
   if (!student) return res.status(404).json({ error: "Student not found in your district" });
+
+  const docCheck = await validateDocumentExists(documentType, documentId, studentId);
+  if (!docCheck.exists) return res.status(404).json({ error: docCheck.error || "Document not found for this student" });
 
   const workflowStages = Array.isArray(stages) && stages.length > 0 && stages.every((s: unknown) => typeof s === "string" && VALID_STAGES.includes(s))
     ? (stages as string[])
