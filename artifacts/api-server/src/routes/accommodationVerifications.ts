@@ -277,19 +277,32 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     ? sql`s.school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})`
     : sql`1=1`;
 
-  const COMPLIANCE_BROAD_ROLES = ["admin", "coordinator"];
-  const isBroadAccess = COMPLIANCE_BROAD_ROLES.includes(callerRole ?? "");
+  const isAdmin = callerRole === "admin";
+  const isCoordinator = callerRole === "coordinator";
 
-  if (!isBroadAccess && !callerStaffId) {
+  if (!isAdmin && !callerStaffId) {
     res.status(403).json({ error: "Staff identity required for caseload-scoped access" });
     return;
   }
 
   let caseloadFilter = sql`1=1`;
-  if (isBroadAccess && req.query.staffId) {
-    const targetStaffId = Number(req.query.staffId);
-    caseloadFilter = sql`(s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
-  } else if (!isBroadAccess && callerStaffId) {
+  if (isAdmin) {
+    if (req.query.staffId) {
+      const targetStaffId = Number(req.query.staffId);
+      caseloadFilter = sql`(s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
+    }
+  } else if (isCoordinator) {
+    const schoolId = callerStaffId
+      ? await db.select({ schoolId: staffTable.schoolId }).from(staffTable).where(eq(staffTable.id, callerStaffId)).then(r => r[0]?.schoolId ?? null)
+      : null;
+    if (schoolId) {
+      caseloadFilter = sql`s.school_id = ${schoolId}`;
+    }
+    if (req.query.staffId) {
+      const targetStaffId = Number(req.query.staffId);
+      caseloadFilter = sql`${caseloadFilter} AND (s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
+    }
+  } else if (callerStaffId) {
     caseloadFilter = sql`(s.case_manager_id = ${callerStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${callerStaffId}))`;
   }
 
