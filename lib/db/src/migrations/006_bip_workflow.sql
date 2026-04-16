@@ -4,7 +4,10 @@
 -- Add new lifecycle columns to behavior_intervention_plans
 ALTER TABLE behavior_intervention_plans
   ADD COLUMN IF NOT EXISTS implementation_start_date date,
-  ADD COLUMN IF NOT EXISTS discontinued_date date;
+  ADD COLUMN IF NOT EXISTS discontinued_date date,
+  ADD COLUMN IF NOT EXISTS version_group_id integer;
+
+CREATE INDEX IF NOT EXISTS bip_version_group_idx ON behavior_intervention_plans(version_group_id);
 
 -- Status transition history
 CREATE TABLE IF NOT EXISTS bip_status_history (
