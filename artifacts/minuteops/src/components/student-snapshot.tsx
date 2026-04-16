@@ -242,9 +242,17 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
               <p className="text-[11px] text-gray-400 font-medium">Compliance</p>
             </div>
             <p className="text-2xl font-bold text-gray-800">{complianceScore}%</p>
-            <p className="text-[10px] text-gray-400 mt-1">
-              {complianceStatus.servicesOnTrack}/{complianceStatus.totalServices} services on track
-            </p>
+            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+              <span className="text-[10px] text-gray-400">
+                {complianceStatus.servicesOnTrack}/{complianceStatus.totalServices} on track
+              </span>
+              {complianceStatus.iepExpiring && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600">IEP expiring</span>
+              )}
+              {complianceStatus.iepStatus === "active" && !complianceStatus.iepExpiring && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600">IEP current</span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
