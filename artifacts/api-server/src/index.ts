@@ -29,6 +29,23 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
+// Publishable key guard — baked into the frontend bundle at build time via VITE_CLERK_PUBLISHABLE_KEY.
+// The server-side alias CLERK_PUBLISHABLE_KEY is used by clerkProxyMiddleware in app.ts.
+// In production both must be live keys (pk_live_*); test keys (pk_test_*) indicate a mis-deployment.
+const clerkPubKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (process.env.NODE_ENV === "production") {
+  if (!clerkPubKey) {
+    logger.error("FATAL: CLERK_PUBLISHABLE_KEY is not set. Cannot start in production.");
+    process.exit(1);
+  }
+  if (clerkPubKey.startsWith("pk_test_")) {
+    logger.error("FATAL: Test Clerk publishable key (pk_test_*) used in production. Set a live key (pk_live_*) and redeploy.");
+    process.exit(1);
+  }
+} else if (clerkPubKey) {
+  logger.info({ keyPrefix: clerkPubKey.startsWith("pk_test_") ? "pk_test_*" : "pk_live_*" }, "Clerk publishable key configured");
+}
+
 process.on("uncaughtException", (err) => {
   logger.error({ err }, "Uncaught exception — process will exit");
   recordError5xx();

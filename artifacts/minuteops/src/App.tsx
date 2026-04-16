@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
@@ -88,11 +87,9 @@ const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher"
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  // Register the Clerk token provider so API calls include the Bearer JWT.
-  // getToken() returns the active Clerk session token; re-registers when it changes.
-  useEffect(() => {
-    registerTokenProvider(() => getToken());
-  }, [getToken]);
+  // Register synchronously in render (before children) so the Clerk Bearer JWT
+  // is available on first mount — child useQuery calls fire before useEffect runs.
+  registerTokenProvider(() => getToken());
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <RedirectToSignIn />;
