@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/auth-fetch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Target, CalendarDays, Clock, Activity, Shield, AlertTriangle,
-  TrendingUp, TrendingDown, Minus, CheckCircle, XCircle,
-  ChevronRight, FileText, Stethoscope
+  TrendingUp, TrendingDown, Minus, CheckCircle,
+  ChevronDown, ChevronUp, FileText, Stethoscope,
+  Plus, StickyNote, Calendar
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -124,6 +126,7 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
   const [data, setData] = useState<SnapshotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -174,6 +177,27 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Link href={`/sessions?studentId=${studentId}`}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+            <Plus className="w-3.5 h-3.5" />
+            Log Session
+          </Button>
+        </Link>
+        <Link href={`/students/${studentId}#sessions`}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 border-gray-200 text-gray-600 hover:bg-gray-50">
+            <StickyNote className="w-3.5 h-3.5" />
+            Add Note
+          </Button>
+        </Link>
+        <Link href={`/team-meetings?studentId=${studentId}`}>
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 border-gray-200 text-gray-600 hover:bg-gray-50">
+            <Calendar className="w-3.5 h-3.5" />
+            Schedule Meeting
+          </Button>
+        </Link>
+      </div>
+
       {hasUrgentDeadlines && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -340,22 +364,46 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
               <p className="text-[12px] text-gray-400 py-3">No recent sessions</p>
             ) : (
               <div className="space-y-1.5">
-                {recentSessions.map(session => (
-                  <div key={session.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${session.status === "completed" ? "bg-emerald-400" : session.status === "cancelled" ? "bg-red-400" : "bg-amber-400"}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-medium text-gray-700 truncate">
-                        {session.serviceTypeName || "Session"}
-                        {session.staffName ? ` · ${session.staffName}` : ""}
-                      </p>
-                      <p className="text-[10px] text-gray-400">{formatDate(session.sessionDate)}</p>
+                {recentSessions.map(session => {
+                  const isExpanded = expandedSessionId === session.id;
+                  return (
+                    <div key={session.id} className={`rounded-lg border transition-colors ${isExpanded ? "border-blue-100 bg-blue-50/30" : "border-gray-50 hover:bg-gray-50/50"}`}>
+                      <button
+                        onClick={() => setExpandedSessionId(isExpanded ? null : session.id)}
+                        className="flex items-center gap-3 py-2 px-2.5 w-full text-left"
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${session.status === "completed" ? "bg-emerald-400" : session.status === "cancelled" ? "bg-red-400" : "bg-amber-400"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-gray-700 truncate">
+                            {session.serviceTypeName || "Session"}
+                            {session.staffName ? ` · ${session.staffName}` : ""}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{formatDate(session.sessionDate)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <span className="text-[11px] text-gray-500">{session.durationMinutes}m</span>
+                          {session.notes ? (
+                            isExpanded ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />
+                          ) : null}
+                        </div>
+                      </button>
+                      {isExpanded && session.notes && (
+                        <div className="px-3 pb-2.5 pt-0">
+                          <div className="flex items-start gap-1.5 p-2 bg-white rounded border border-gray-100">
+                            <FileText className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-[11px] text-gray-600 whitespace-pre-wrap">{session.notes}</p>
+                          </div>
+                        </div>
+                      )}
+                      {isExpanded && !session.notes && (
+                        <div className="px-3 pb-2.5 pt-0">
+                          <p className="text-[10px] text-gray-400 italic">No notes recorded for this session</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Clock className="w-3 h-3 text-gray-400" />
-                      <span className="text-[11px] text-gray-500">{session.durationMinutes}m</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
