@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useUser } from "@clerk/react";
 import { useLocation } from "wouter";
 import { setExtraHeaders } from "@workspace/api-client-react";
+import { setAuthFetchExtraHeaders } from "@/lib/auth-fetch";
 
 export type UserRole =
   | "admin"
@@ -134,9 +135,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         headers["x-demo-guardian-id"] = String(guardianId);
       }
       setExtraHeaders(headers);
+      setAuthFetchExtraHeaders(headers);
     }
     return () => {
-      if (isDevMode) setExtraHeaders(null);
+      if (isDevMode) {
+        setExtraHeaders(null);
+        setAuthFetchExtraHeaders(null);
+      }
     };
   }, [isDevMode, role, guardianId]);
 

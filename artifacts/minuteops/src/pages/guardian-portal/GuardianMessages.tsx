@@ -137,7 +137,6 @@ export default function GuardianMessages() {
       if (!r.ok) throw new Error();
       toast.success(status === "accepted" ? "Conference accepted" : "Conference declined");
       setConfAction(null);
-      setConfNotes("");
       loadData();
     } catch {
       toast.error("Failed to update conference");
