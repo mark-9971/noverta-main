@@ -15,8 +15,20 @@ CREATE TABLE IF NOT EXISTS document_acknowledgments (
   document_id   integer NOT NULL REFERENCES generated_documents(id) ON DELETE CASCADE,
   guardian_id   integer NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
   acknowledged_at timestamptz NOT NULL DEFAULT now(),
-  ip_address    text
+  ip_address    text,
+  CONSTRAINT doc_ack_unique UNIQUE (document_id, guardian_id)
 );
 
 CREATE INDEX IF NOT EXISTS doc_ack_document_idx ON document_acknowledgments(document_id);
 CREATE INDEX IF NOT EXISTS doc_ack_guardian_idx ON document_acknowledgments(guardian_id);
+
+-- Ensure unique constraint exists on already-applied tables (idempotent via DO block)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'doc_ack_unique'
+      AND conrelid = 'document_acknowledgments'::regclass
+  ) THEN
+    ALTER TABLE document_acknowledgments ADD CONSTRAINT doc_ack_unique UNIQUE (document_id, guardian_id);
+  END IF;
+END $$;
