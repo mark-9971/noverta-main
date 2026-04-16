@@ -12,6 +12,22 @@ import { assertStudentAccess } from "../lib/tenantAccess";
 import { getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 
+const VERIFICATION_WINDOW_DAYS = 30;
+
+const VALID_STATUSES = ["verified", "partial", "not_implemented", "not_applicable"] as const;
+
+interface ComplianceRow {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  grade: string | null;
+  totalAccommodations: string;
+  verifiedCount: string;
+  overdueCount: string;
+  verificationRate: string;
+  lastVerifiedAt: string | null;
+}
+
 const router: IRouter = Router();
 
 router.get("/students/:studentId/accommodation-summary", async (req, res): Promise<void> => {
@@ -45,8 +61,8 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     ))
     .orderBy(iepAccommodationsTable.category, iepAccommodationsTable.id);
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - VERIFICATION_WINDOW_DAYS);
 
   const recentVerifications = accommodations.length > 0
     ? await db
@@ -67,7 +83,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
         .leftJoin(staffTable, eq(staffTable.id, accommodationVerificationsTable.verifiedByStaffId))
         .where(and(
           sql`${accommodationVerificationsTable.accommodationId} IN (${sql.join(accommodations.map(a => sql`${a.id}`), sql`, `)})`,
-          gte(accommodationVerificationsTable.createdAt, thirtyDaysAgo),
+          gte(accommodationVerificationsTable.createdAt, windowStart),
         ))
         .orderBy(desc(accommodationVerificationsTable.createdAt))
     : [];
@@ -153,8 +169,7 @@ router.post("/accommodations/:accommodationId/verify", async (req, res): Promise
   }
 
   const { status, notes, periodStart, periodEnd } = req.body ?? {};
-  const validStatuses = ["verified", "partial", "not_implemented", "not_applicable"];
-  const finalStatus = validStatuses.includes(status) ? status : "verified";
+  const finalStatus = (VALID_STATUSES as readonly string[]).includes(status) ? status : "verified";
 
   const [row] = await db.insert(accommodationVerificationsTable).values({
     accommodationId,
@@ -249,7 +264,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
           SELECT COUNT(*)
           FROM accommodation_verifications av
           WHERE av.accommodation_id = ia.id
-            AND av.created_at >= NOW() - INTERVAL '30 days'
+            AND av.created_at >= NOW() - MAKE_INTERVAL(days => ${VERIFICATION_WINDOW_DAYS})
         ) AS recent_verification_count,
         (
           SELECT av.created_at
@@ -283,10 +298,9 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     ORDER BY "overdueCount" DESC, last_name, first_name
   `);
 
-  const totalStudents = rows.rows.length;
-  const fullyVerified = rows.rows.filter((r: any) => Number(r.overdueCount) === 0).length;
-  const partiallyVerified = rows.rows.filter((r: any) => Number(r.overdueCount) > 0 && Number(r.verifiedCount) > 0).length;
-  const noneVerified = rows.rows.filter((r: any) => Number(r.verifiedCount) === 0).length;
+  const typedRows = rows.rows as ComplianceRow[];
+  const totalStudents = typedRows.length;
+  const fullyVerified = typedRows.filter(r => Number(r.overdueCount) === 0).length;
 
   const overallComplianceRate = totalStudents > 0
     ? Math.round(fullyVerified * 100 / totalStudents)
@@ -296,7 +310,8 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     districtId: enforcedDistrictId,
     totalStudents,
     overallComplianceRate,
-    students: rows.rows.map((r: any) => ({
+    verificationWindowDays: VERIFICATION_WINDOW_DAYS,
+    students: typedRows.map(r => ({
       studentId: Number(r.studentId),
       studentName: `${r.firstName} ${r.lastName}`.trim(),
       grade: r.grade,

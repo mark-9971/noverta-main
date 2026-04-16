@@ -115,8 +115,8 @@ export default function AccommodationTracking({ studentId }: { studentId: number
       setVerifyNotes("");
       const refreshed = await authFetch(`/api/students/${studentId}/accommodation-summary`).then((r: Response) => r.json());
       setData(refreshed);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to verify");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to verify");
     }
     setSaving(false);
   }
@@ -337,7 +337,7 @@ export default function AccommodationTracking({ studentId }: { studentId: number
                           <p className="text-xs text-gray-400">No verification history</p>
                         ) : (
                           <div className="space-y-1">
-                            {history.map((v: any, i: number) => (
+                            {history.map((v: Verification, i: number) => (
                               <div key={i} className="text-xs text-gray-600 flex items-center gap-2">
                                 <span className={`px-1 py-0.5 rounded ${STATUS_COLORS[v.status] || "bg-gray-100"}`}>
                                   {STATUS_LABELS[v.status] || v.status}

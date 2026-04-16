@@ -183,7 +183,7 @@ router.use(studentNotesRouter);
 router.use("/accommodations", requireDistrictScope);
 router.use("/accommodations", requireStaffOnly);
 router.use("/accommodation-compliance", requireDistrictScope);
-router.use("/accommodation-compliance", requirePrivilegedStaffOnly);
+router.use("/accommodation-compliance", requireStaffOnly);
 router.use(accommodationVerificationsRouter);
 
 export default router;
