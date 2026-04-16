@@ -40,6 +40,19 @@ async function req(role, method, path, body) {
   return fetch(`${BASE}${path}`, opts);
 }
 
+/** Make a request from a FOREIGN district (district 99 — non-existent) to test cross-tenant isolation. */
+async function reqForeign(role, method, path, body) {
+  const headers = {
+    "Content-Type": "application/json",
+    "x-test-user-id": `test-user-foreign-${role}`,
+    "x-test-role": role,
+    "x-test-district-id": "99",
+  };
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`${BASE}${path}`, opts);
+}
+
 /** Assert that a role can access an endpoint (200–299 expected). */
 async function canAccess(role, method, path, body) {
   const r = await req(role, method, path, body);
@@ -217,6 +230,58 @@ for (const role of ["admin", "case_manager", "bcba", "sped_teacher", "coordinato
 }
 // sped_student must reach the route (not get role-blocked): expect 400, not 403
 await assertStatus(400, "sped_student", "GET", "/api/student-portal/goals");
+
+// ─── 15. Cross-tenant isolation — district 99 (non-existent) cannot see district 2 data ─
+// Proves that switching the district header to a foreign district returns empty data or 403,
+// not records belonging to a different district.
+console.log("15. Cross-tenant isolation …");
+
+/**
+ * Assert that a request from foreign district 99 returns a JSON array with 0 elements.
+ * Used to verify that list endpoints return empty data (not cross-tenanted rows).
+ */
+async function assertEmptyFromForeign(role, method, path) {
+  const r = await reqForeign(role, method, path);
+  if (r.status < 200 || r.status >= 300) {
+    failed++;
+    failures.push(`FAIL cross-tenant [${method} ${path}] role=${role}: expected 2xx, got ${r.status}`);
+    return;
+  }
+  let body;
+  try { body = await r.json(); } catch { body = null; }
+  const isEmpty = Array.isArray(body) && body.length === 0;
+  if (isEmpty) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(`FAIL cross-tenant [${method} ${path}] role=${role}: expected empty array, got ${JSON.stringify(body).slice(0, 100)}`);
+  }
+}
+
+/**
+ * Assert that a request from foreign district 99 is denied with 403.
+ * Used to verify that ID-based resource endpoints reject cross-district access.
+ */
+async function assertForeignForbidden(role, method, path) {
+  const r = await reqForeign(role, method, path);
+  if (r.status === 403) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(`FAIL cross-tenant [${method} ${path}] role=${role}: expected 403, got ${r.status}`);
+  }
+}
+
+// List endpoints: district 99 user should get empty arrays for district 2 data
+await assertEmptyFromForeign("admin", "GET", `/api/protective-measures/incidents`);
+await assertEmptyFromForeign("admin", "GET", `/api/reports/student-minute-summary`);
+await assertEmptyFromForeign("admin", "GET", `/api/reports/missed-sessions`);
+await assertEmptyFromForeign("admin", "GET", `/api/reports/compliance-risk`);
+
+// ID-based endpoints: district 99 user trying to fetch a district 2 incident should get 403
+// Incident ID 13 and student ID 51 both belong to district 2 (Jefferson Unified).
+await assertForeignForbidden("admin", "GET", `/api/protective-measures/incidents/13`);
+await assertForeignForbidden("admin", "GET", `/api/reports/parent-summary/51`);
 
 // ─── Results ─────────────────────────────────────────────────────────────────
 

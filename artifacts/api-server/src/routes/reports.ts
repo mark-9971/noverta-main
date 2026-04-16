@@ -1,6 +1,7 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db } from "@workspace/db";
-import { requireRoles } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable, staffTable, programsTable,
   serviceRequirementsTable, parentContactsTable, schoolsTable, iepDocumentsTable,
@@ -21,7 +22,7 @@ const router: IRouter = Router();
 
 const requireReportExport = requireRoles("admin", "case_manager", "coordinator");
 
-router.get("/reports/student-minute-summary", async (req, res): Promise<void> => {
+router.get("/reports/student-minute-summary", async (req: Request, res): Promise<void> => {
   const params = GetStudentMinuteSummaryReportQueryParams.safeParse(req.query);
   const filters: any = {};
   if (params.success) {
@@ -29,7 +30,11 @@ router.get("/reports/student-minute-summary", async (req, res): Promise<void> =>
     if (params.data.riskStatus) filters.riskStatus = params.data.riskStatus;
   }
 
-  const allProgress = await computeAllActiveMinuteProgress(filters.riskStatus ? { riskStatus: filters.riskStatus } : undefined);
+  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const allProgress = await computeAllActiveMinuteProgress({
+    ...(filters.riskStatus ? { riskStatus: filters.riskStatus } : {}),
+    ...(enforcedDistrictId !== null ? { districtId: enforcedDistrictId } : {}),
+  });
 
   // Enrich with program info
   const studentIds = [...new Set(allProgress.map(p => p.studentId))];
@@ -75,9 +80,17 @@ router.get("/reports/student-minute-summary", async (req, res): Promise<void> =>
   res.json(filtered);
 });
 
-router.get("/reports/missed-sessions", async (req, res): Promise<void> => {
+router.get("/reports/missed-sessions", async (req: Request, res): Promise<void> => {
   const params = GetMissedSessionsReportQueryParams.safeParse(req.query);
   const conditions: any[] = [eq(sessionLogsTable.status, "missed")];
+
+  // Mandatory tenant scope: limit sessions to students in the caller's district.
+  const missedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  if (missedDistrictId !== null) {
+    conditions.push(sql`${sessionLogsTable.studentId} IN (
+      SELECT s.id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE sc.district_id = ${missedDistrictId}
+    )`);
+  }
 
   if (params.success) {
     if (params.data.dateFrom) conditions.push(gte(sessionLogsTable.sessionDate, params.data.dateFrom));
@@ -126,22 +139,28 @@ router.get("/reports/missed-sessions", async (req, res): Promise<void> => {
   })));
 });
 
-router.get("/reports/compliance-risk", async (req, res): Promise<void> => {
-  const allProgress = await computeAllActiveMinuteProgress();
+router.get("/reports/compliance-risk", async (req: Request, res): Promise<void> => {
+  const riskDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const allProgress = await computeAllActiveMinuteProgress(
+    riskDistrictId !== null ? { districtId: riskDistrictId } : undefined
+  );
   const atRisk = allProgress.filter(p =>
     p.riskStatus === "at_risk" || p.riskStatus === "out_of_compliance" || p.riskStatus === "slightly_behind"
   );
   res.json(atRisk);
 });
 
-router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
+router.get("/reports/compliance-trend", async (req: Request, res): Promise<void> => {
   try {
     const parsed = GetComplianceTrendReportQueryParams.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
       return;
     }
-    const { startDate, endDate, granularity, schoolId, districtId, schoolYearId: trendYearId } = req.query;
+    const { startDate, endDate, granularity, schoolId, schoolYearId: trendYearId } = req.query;
+    // Override districtId with the token-derived enforced value — client-supplied param is ignored for scoping.
+    const trendEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = trendEnforcedDistrictId !== null ? String(trendEnforcedDistrictId) : req.query.districtId;
     const gran = (granularity as string) || "weekly";
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
@@ -356,14 +375,17 @@ router.get("/reports/compliance-trend", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/reports/executive-summary", requireReportExport, async (req, res): Promise<void> => {
+router.get("/reports/executive-summary", requireReportExport, async (req: Request, res): Promise<void> => {
   try {
     const parsed = GetExecutiveSummaryReportQueryParams.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
       return;
     }
-    const { schoolId, districtId, startDate, endDate, schoolYearId: execYearId } = req.query;
+    const { schoolId, startDate, endDate, schoolYearId: execYearId } = req.query;
+    // Override districtId with the enforced token-derived value.
+    const execEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = execEnforcedDistrictId !== null ? String(execEnforcedDistrictId) : req.query.districtId;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -541,14 +563,17 @@ router.get("/reports/executive-summary", requireReportExport, async (req, res): 
   }
 });
 
-router.get("/reports/audit-package", requireReportExport, async (req, res): Promise<void> => {
+router.get("/reports/audit-package", requireReportExport, async (req: Request, res): Promise<void> => {
   try {
     const parsed = GetAuditPackageReportQueryParams.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid query parameters", details: parsed.error.flatten() });
       return;
     }
-    const { startDate, endDate, schoolId, districtId, studentId } = req.query;
+    const { startDate, endDate, schoolId, studentId } = req.query;
+    // Override districtId with the enforced token-derived value.
+    const auditEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = auditEnforcedDistrictId !== null ? String(auditEnforcedDistrictId) : req.query.districtId;
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];
     const defaultStart = new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];
@@ -786,10 +811,23 @@ router.get("/reports/audit-package", requireReportExport, async (req, res): Prom
   }
 });
 
-router.get("/reports/parent-summary/:studentId", async (req, res): Promise<void> => {
+router.get("/reports/parent-summary/:studentId", async (req: Request, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+
+    // Tenant scope: verify the requested student belongs to the caller's district.
+    const parentSummaryDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    if (parentSummaryDistrictId !== null) {
+      const rows = await db.execute(
+        sql`SELECT sc.district_id FROM students st LEFT JOIN schools sc ON sc.id = st.school_id WHERE st.id = ${studentId} LIMIT 1`
+      );
+      const sDistrictId = (rows.rows[0] as { district_id: number | null } | undefined)?.district_id ?? null;
+      if (sDistrictId === null || Number(sDistrictId) !== parentSummaryDistrictId) {
+        res.status(403).json({ error: "Access denied: student is outside your district" });
+        return;
+      }
+    }
 
     const parentSafe = req.query.parentSafe === "true" || req.query.parentSafe === "1";
 

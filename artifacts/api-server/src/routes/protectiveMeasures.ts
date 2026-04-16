@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { db, restraintIncidentsTable, incidentSignaturesTable, incidentStatusHistoryTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, gte, lte, sql, count, inArray } from "drizzle-orm";
 import PDFDocument from "pdfkit";
@@ -10,6 +10,36 @@ import type { AuthedRequest } from "../middlewares/auth";
 
 const router = Router();
 router.use(requireTierAccess("clinical.protective_measures"));
+
+/**
+ * Tenant guard for all incident /:id routes (GET, PATCH, DELETE, POST sub-actions).
+ * Runs once per request when Express resolves the :id parameter.
+ * Returns 403 if the incident's student belongs to a different district than the caller.
+ */
+router.param("id", async (req: Request, res: Response, next: NextFunction, idStr: string) => {
+  const id = Number(idStr);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid incident id" }); return; }
+
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId === null) { next(); return; } // no district context — allow (platform admin path)
+
+  const [incident] = await db
+    .select({ id: restraintIncidentsTable.id, studentId: restraintIncidentsTable.studentId })
+    .from(restraintIncidentsTable)
+    .where(eq(restraintIncidentsTable.id, id));
+
+  if (!incident) { res.status(404).json({ error: "Not found" }); return; }
+
+  const scopeRows = await db.execute(
+    sql`SELECT sc.district_id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE s.id = ${incident.studentId} LIMIT 1`
+  );
+  const incidentDistrictId = (scopeRows.rows[0] as { district_id: number | null } | undefined)?.district_id ?? null;
+  if (incidentDistrictId === null || Number(incidentDistrictId) !== districtId) {
+    res.status(403).json({ error: "Access denied: incident is outside your district" });
+    return;
+  }
+  next();
+});
 
 router.get("/protective-measures/incidents", async (req: Request, res: Response) => {
   const { studentId, status, incidentType, startDate, endDate } = req.query;
@@ -90,10 +120,9 @@ router.get("/protective-measures/incidents", async (req: Request, res: Response)
 });
 
 router.get("/protective-measures/incidents/:id", async (req: Request, res: Response) => {
+  // District ownership for :id routes is validated by router.param("id", ...) above.
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
 
   const [incident] = await db
     .select()
@@ -101,18 +130,6 @@ router.get("/protective-measures/incidents/:id", async (req: Request, res: Respo
     .where(eq(restraintIncidentsTable.id, id));
 
   if (!incident) { res.status(404).json({ error: "Not found" }); return; }
-
-  // Verify incident belongs to caller's district when a district context exists
-  if (districtId !== null) {
-    const scopeRows = await db.execute(
-      sql`SELECT sc.district_id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE s.id = ${incident.studentId} LIMIT 1`
-    );
-    const incidentDistrictId = (scopeRows.rows[0] as { district_id: number | null } | undefined)?.district_id ?? null;
-    if (incidentDistrictId === null || Number(incidentDistrictId) !== districtId) {
-      res.status(403).json({ error: "Access denied: incident is outside your district" });
-      return;
-    }
-  }
 
   const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, incident.studentId));
 
@@ -188,6 +205,19 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
 
   const studentId = Number(body.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+
+  // Validate that the student belongs to the caller's district before creating an incident.
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId !== null) {
+    const scopeRows = await db.execute(
+      sql`SELECT sc.district_id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE s.id = ${studentId} LIMIT 1`
+    );
+    const studentDistrictId = (scopeRows.rows[0] as { district_id: number | null } | undefined)?.district_id ?? null;
+    if (studentDistrictId === null || Number(studentDistrictId) !== districtId) {
+      res.status(403).json({ error: "Access denied: student is outside your district" });
+      return;
+    }
+  }
 
   const [student] = await db.select({ id: studentsTable.id }).from(studentsTable).where(eq(studentsTable.id, studentId));
   if (!student) { res.status(404).json({ error: "Student not found" }); return; }
