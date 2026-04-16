@@ -13,9 +13,10 @@ import { Link, useSearch } from "wouter";
 import {
   CalendarDays, Plus, Users, Clock, CheckCircle, XCircle,
   AlertTriangle, ChevronDown, ChevronUp, Pencil, Trash2,
-  FileText, ClipboardCheck, UserCheck, Video, MapPin,
+  FileText, ClipboardCheck, UserCheck, Video, MapPin, ListChecks,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MeetingPrepChecklist, ReadinessIndicator } from "@/components/meeting-prep-checklist";
 
 interface Meeting {
   id: number;
@@ -174,7 +175,8 @@ export default function IepMeetings() {
   const [showAttendeeDialog, setShowAttendeeDialog] = useState(false);
   const [showPwnDialog, setShowPwnDialog] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
-  const [detailTab, setDetailTab] = useState<"overview" | "attendees" | "notices" | "consent">("overview");
+  const [detailTab, setDetailTab] = useState<"overview" | "prep" | "attendees" | "notices" | "consent">("overview");
+  const [meetingReadiness, setMeetingReadiness] = useState<Record<number, number>>({});
   const [statusFilter, setStatusFilter] = useState(urlFilter === "overdue" ? "overdue" : "all");
   const [typeFilter, setTypeFilter] = useState("all");
 
@@ -231,7 +233,20 @@ export default function IepMeetings() {
       if (typeFilter !== "all") params.set("meetingType", typeFilter);
       const qs = params.toString();
       const data = await fetchJson(`/api/iep-meetings${qs ? `?${qs}` : ""}`);
-      setMeetings(Array.isArray(data) ? data : []);
+      const list: Meeting[] = Array.isArray(data) ? data : [];
+      setMeetings(list);
+      const scheduled = list.filter(m => m.status === "scheduled").slice(0, 20);
+      const readinessMap: Record<number, number> = {};
+      await Promise.all(scheduled.map(async (m) => {
+        try {
+          const res = await authFetch(`/api/iep-meetings/${m.id}/prep`);
+          if (res.ok) {
+            const p = await res.json();
+            readinessMap[m.id] = p.readiness?.percentage ?? 0;
+          }
+        } catch { /* skip */ }
+      }));
+      setMeetingReadiness(readinessMap);
     } catch { setMeetings([]); }
     finally { setLoading(false); }
   }
@@ -484,6 +499,9 @@ export default function IepMeetings() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {m.status === "scheduled" && meetingReadiness[m.id] !== undefined && (
+                              <ReadinessIndicator percentage={meetingReadiness[m.id]} />
+                            )}
                             <span className={`text-xs font-medium ${m.status === "scheduled" && m.scheduledDate < new Date().toISOString().split("T")[0] ? "text-red-600" : "text-gray-400"}`}>
                               {m.status === "scheduled" ? daysFromNow(m.scheduledDate) : ""}
                             </span>
@@ -809,7 +827,7 @@ function MeetingDetail({
 }: {
   meeting: Meeting;
   detailTab: string;
-  setDetailTab: (t: "overview" | "attendees" | "notices" | "consent") => void;
+  setDetailTab: (t: "overview" | "prep" | "attendees" | "notices" | "consent") => void;
   onAddAttendee: () => void;
   onAddPwn: () => void;
   onAddConsent: () => void;
@@ -822,6 +840,7 @@ function MeetingDetail({
   const sc = MEETING_STATUS_CONFIG[meeting.status] ?? MEETING_STATUS_CONFIG.scheduled;
   const detailTabs = [
     { id: "overview" as const, label: "Info", icon: CalendarDays },
+    { id: "prep" as const, label: "Prep", icon: ListChecks },
     { id: "attendees" as const, label: `Team (${meeting.attendeeRecords?.length ?? 0})`, icon: Users },
     { id: "notices" as const, label: `PWN (${meeting.priorWrittenNotices?.length ?? 0})`, icon: FileText },
     { id: "consent" as const, label: `Consent (${meeting.consentRecords?.length ?? 0})`, icon: ClipboardCheck },
@@ -873,6 +892,10 @@ function MeetingDetail({
               </div>
             )}
           </div>
+        )}
+
+        {detailTab === "prep" && (
+          <MeetingPrepChecklist meetingId={meeting.id} />
         )}
 
         {detailTab === "attendees" && (

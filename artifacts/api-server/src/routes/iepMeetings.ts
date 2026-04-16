@@ -3,9 +3,12 @@ import { db } from "@workspace/db";
 import {
   teamMeetingsTable, studentsTable, staffTable, schoolsTable,
   iepMeetingAttendeesTable, priorWrittenNoticesTable, meetingConsentRecordsTable,
-  iepDocumentsTable,
+  iepDocumentsTable, meetingPrepItemsTable, iepGoalsTable,
+  iepAccommodationsTable, parentMessagesTable, programDataTable,
+  behaviorDataTable, dataSessionsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, sql, count, inArray } from "drizzle-orm";
+import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
@@ -629,6 +632,328 @@ router.post("/iep-meetings/:id/complete", meetingAccess, async (req, res): Promi
   } catch (e: unknown) {
     console.error("POST /iep-meetings/:id/complete error:", e);
     res.status(500).json({ error: "Failed to complete meeting" });
+  }
+});
+
+const DEFAULT_PREP_ITEMS = [
+  { itemType: "gather_progress_data", label: "Gather progress data", description: "Review recent session data and goal progress for all IEP goals", required: true, sortOrder: 1 },
+  { itemType: "draft_review_goals", label: "Draft/review IEP goals", description: "Ensure all annual goals are drafted or reviewed with current data", required: true, sortOrder: 2 },
+  { itemType: "contact_parent", label: "Contact parent/guardian", description: "Send meeting invitation and confirm parent attendance", required: true, sortOrder: 3 },
+  { itemType: "confirm_attendance", label: "Confirm team attendance", description: "Add all required team members and confirm availability", required: true, sortOrder: 4 },
+  { itemType: "prepare_pwn", label: "Prepare Prior Written Notice", description: "Draft PWN with proposed actions and rationale", required: true, sortOrder: 5 },
+  { itemType: "set_location", label: "Set meeting location", description: "Reserve room or set up virtual meeting link", required: false, sortOrder: 6 },
+  { itemType: "review_accommodations", label: "Review accommodations", description: "Review current accommodations for discussion at meeting", required: false, sortOrder: 7 },
+  { itemType: "prepare_agenda", label: "Prepare meeting agenda", description: "Create or review the meeting agenda items", required: false, sortOrder: 8 },
+];
+
+async function autoDetectPrepItems(meetingId: number, studentId: number): Promise<Record<string, boolean>> {
+  const results: Record<string, boolean> = {};
+  const last90d = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+
+  const [progressCheck, goalsCheck, parentCheck, attendeesCheck, pwnCheck, meetingCheck, accomCheck, agendaCheck] = await Promise.all([
+    db.select({ cnt: count() }).from(dataSessionsTable)
+      .where(and(eq(dataSessionsTable.studentId, studentId), gte(dataSessionsTable.sessionDate, last90d))),
+    db.select({ cnt: count() }).from(iepGoalsTable)
+      .where(and(eq(iepGoalsTable.studentId, studentId), eq(iepGoalsTable.active, true))),
+    db.select({ cnt: count() }).from(parentMessagesTable)
+      .where(and(
+        eq(parentMessagesTable.studentId, studentId),
+        eq(parentMessagesTable.senderType, "staff"),
+        gte(parentMessagesTable.createdAt, new Date(Date.now() - 30 * 86400000)),
+      )),
+    db.select({ cnt: count() }).from(iepMeetingAttendeesTable)
+      .where(eq(iepMeetingAttendeesTable.meetingId, meetingId)),
+    db.select({ cnt: count() }).from(priorWrittenNoticesTable)
+      .where(eq(priorWrittenNoticesTable.meetingId, meetingId)),
+    db.select({ location: teamMeetingsTable.location, agendaItems: teamMeetingsTable.agendaItems })
+      .from(teamMeetingsTable).where(eq(teamMeetingsTable.id, meetingId)),
+    db.select({ cnt: count() }).from(iepAccommodationsTable)
+      .where(eq(iepAccommodationsTable.studentId, studentId)),
+    Promise.resolve(null),
+  ]);
+
+  results.gather_progress_data = (progressCheck[0]?.cnt ?? 0) > 0;
+  results.draft_review_goals = (goalsCheck[0]?.cnt ?? 0) > 0;
+  results.contact_parent = (parentCheck[0]?.cnt ?? 0) > 0;
+  results.confirm_attendance = (attendeesCheck[0]?.cnt ?? 0) >= 2;
+  results.prepare_pwn = (pwnCheck[0]?.cnt ?? 0) > 0;
+  results.set_location = !!(meetingCheck[0]?.location);
+  results.review_accommodations = (accomCheck[0]?.cnt ?? 0) > 0;
+  const agendaArr = meetingCheck[0]?.agendaItems;
+  results.prepare_agenda = Array.isArray(agendaArr) && agendaArr.length > 0;
+
+  return results;
+}
+
+router.get("/iep-meetings/:id/prep", meetingAccess, async (req, res): Promise<void> => {
+  try {
+    const meetingId = parseInt(req.params.id);
+    if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+
+    const [meeting] = await db.select({
+      id: teamMeetingsTable.id,
+      studentId: teamMeetingsTable.studentId,
+      meetingType: teamMeetingsTable.meetingType,
+      scheduledDate: teamMeetingsTable.scheduledDate,
+    }).from(teamMeetingsTable).where(eq(teamMeetingsTable.id, meetingId));
+
+    if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+
+    let items = await db.select().from(meetingPrepItemsTable)
+      .where(eq(meetingPrepItemsTable.meetingId, meetingId))
+      .orderBy(asc(meetingPrepItemsTable.sortOrder));
+
+    if (items.length === 0) {
+      const toInsert = DEFAULT_PREP_ITEMS.map(item => ({
+        meetingId,
+        ...item,
+        autoDetected: false,
+        completedAt: null,
+        completedByStaffId: null,
+        notes: null,
+      }));
+      items = await db.insert(meetingPrepItemsTable).values(toInsert).returning();
+      items.sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+
+    const autoStatus = await autoDetectPrepItems(meetingId, meeting.studentId);
+
+    const now = new Date();
+    for (const item of items) {
+      const detected = autoStatus[item.itemType] ?? false;
+      if (detected && !item.completedAt && !item.autoDetected && !item.manuallyUnchecked) {
+        await db.update(meetingPrepItemsTable)
+          .set({ autoDetected: true, completedAt: now })
+          .where(eq(meetingPrepItemsTable.id, item.id));
+        item.autoDetected = true;
+        item.completedAt = now;
+      }
+    }
+
+    const completedCount = items.filter(i => i.completedAt !== null).length;
+    const requiredItems = items.filter(i => i.required);
+    const requiredCompleted = requiredItems.filter(i => i.completedAt !== null).length;
+
+    res.json({
+      meetingId,
+      studentId: meeting.studentId,
+      meetingType: meeting.meetingType,
+      scheduledDate: meeting.scheduledDate,
+      items: items.map(i => ({
+        ...i,
+        completedAt: i.completedAt?.toISOString() ?? null,
+        createdAt: i.createdAt.toISOString(),
+        updatedAt: i.updatedAt.toISOString(),
+      })),
+      readiness: {
+        total: items.length,
+        completed: completedCount,
+        percentage: items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0,
+        requiredTotal: requiredItems.length,
+        requiredCompleted,
+        requiredPercentage: requiredItems.length > 0 ? Math.round((requiredCompleted / requiredItems.length) * 100) : 0,
+      },
+    });
+  } catch (e: unknown) {
+    console.error("GET /iep-meetings/:id/prep error:", e);
+    res.status(500).json({ error: "Failed to fetch meeting prep" });
+  }
+});
+
+router.patch("/iep-meetings/:id/prep/:itemId", meetingAccess, async (req, res): Promise<void> => {
+  try {
+    const meetingId = parseInt(req.params.id);
+    const itemId = parseInt(req.params.itemId);
+    if (isNaN(meetingId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const { completed, notes } = req.body as { completed?: boolean; notes?: string };
+    const authedReq = req as AuthedRequest;
+
+    const updateData: Record<string, unknown> = {};
+    if (completed === true) {
+      updateData.completedAt = new Date();
+      updateData.completedByStaffId = authedReq.tenantStaffId ?? null;
+      updateData.autoDetected = false;
+      updateData.manuallyUnchecked = false;
+    } else if (completed === false) {
+      updateData.completedAt = null;
+      updateData.completedByStaffId = null;
+      updateData.autoDetected = false;
+      updateData.manuallyUnchecked = true;
+    }
+    if (notes !== undefined) {
+      if (typeof notes === "string" && notes.length > 2000) {
+        res.status(400).json({ error: "Notes must be 2000 characters or less" }); return;
+      }
+      updateData.notes = notes;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ error: "No updates provided" }); return;
+    }
+
+    const [row] = await db.update(meetingPrepItemsTable)
+      .set(updateData)
+      .where(and(eq(meetingPrepItemsTable.id, itemId), eq(meetingPrepItemsTable.meetingId, meetingId)))
+      .returning();
+
+    if (!row) { res.status(404).json({ error: "Prep item not found" }); return; }
+
+    logAudit(req, { action: "update", targetTable: "meeting_prep_items", targetId: itemId, summary: `${completed ? "Completed" : "Unchecked"} prep item: ${row.label}` });
+    res.json({ ...row, completedAt: row.completedAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
+  } catch (e: unknown) {
+    console.error("PATCH prep/:itemId error:", e);
+    res.status(500).json({ error: "Failed to update prep item" });
+  }
+});
+
+router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<void> => {
+  try {
+    const meetingId = parseInt(req.params.id);
+    if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+
+    const [meeting] = await db.select({
+      id: teamMeetingsTable.id,
+      studentId: teamMeetingsTable.studentId,
+      meetingType: teamMeetingsTable.meetingType,
+      scheduledDate: teamMeetingsTable.scheduledDate,
+      scheduledTime: teamMeetingsTable.scheduledTime,
+      location: teamMeetingsTable.location,
+      agendaItems: teamMeetingsTable.agendaItems,
+    }).from(teamMeetingsTable).where(eq(teamMeetingsTable.id, meetingId));
+
+    if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+
+    const [student] = await db.select({
+      firstName: studentsTable.firstName,
+      lastName: studentsTable.lastName,
+      grade: studentsTable.grade,
+    }).from(studentsTable).where(eq(studentsTable.id, meeting.studentId));
+
+    const [goals, attendees, accommodations] = await Promise.all([
+      db.select({
+        id: iepGoalsTable.id,
+        goalArea: iepGoalsTable.goalArea,
+        goalNumber: iepGoalsTable.goalNumber,
+        annualGoal: iepGoalsTable.annualGoal,
+        status: iepGoalsTable.status,
+      }).from(iepGoalsTable)
+        .where(and(eq(iepGoalsTable.studentId, meeting.studentId), eq(iepGoalsTable.active, true)))
+        .orderBy(asc(iepGoalsTable.goalArea), asc(iepGoalsTable.goalNumber)),
+      db.select({
+        id: iepMeetingAttendeesTable.id,
+        name: iepMeetingAttendeesTable.name,
+        role: iepMeetingAttendeesTable.role,
+        rsvpStatus: iepMeetingAttendeesTable.rsvpStatus,
+      }).from(iepMeetingAttendeesTable)
+        .where(eq(iepMeetingAttendeesTable.meetingId, meetingId)),
+      db.select({
+        id: iepAccommodationsTable.id,
+        category: iepAccommodationsTable.category,
+        description: iepAccommodationsTable.description,
+      }).from(iepAccommodationsTable)
+        .where(eq(iepAccommodationsTable.studentId, meeting.studentId)),
+    ]);
+
+    const meetingTypeLabels: Record<string, string> = {
+      annual_review: "Annual IEP Review",
+      initial_iep: "Initial IEP Meeting",
+      amendment: "IEP Amendment Meeting",
+      reevaluation: "Re-evaluation Meeting",
+      transition: "Transition Planning Meeting",
+      manifestation_determination: "Manifestation Determination",
+      eligibility: "Eligibility Determination",
+      progress_review: "Progress Review Meeting",
+      other: "Team Meeting",
+    };
+
+    const sections: { title: string; items: string[] }[] = [
+      {
+        title: "Opening",
+        items: [
+          "Welcome and introductions",
+          "Review purpose and procedural safeguards",
+          "Review meeting agenda",
+        ],
+      },
+      {
+        title: "Current Performance",
+        items: [
+          `Review ${student?.firstName ?? "student"}'s present levels of performance`,
+          `Current goals status: ${goals.length} active goal${goals.length !== 1 ? "s" : ""}`,
+          ...goals.slice(0, 5).map(g => `${g.goalArea} Goal #${g.goalNumber}: ${g.annualGoal?.slice(0, 80)}${(g.annualGoal?.length ?? 0) > 80 ? "..." : ""}`),
+        ],
+      },
+    ];
+
+    if (accommodations.length > 0) {
+      sections.push({
+        title: "Accommodations Review",
+        items: [
+          `Review ${accommodations.length} current accommodation${accommodations.length !== 1 ? "s" : ""}`,
+          "Discuss effectiveness and any needed changes",
+        ],
+      });
+    }
+
+    if (meeting.meetingType === "annual_review" || meeting.meetingType === "initial_iep") {
+      sections.push({
+        title: "Goal Development",
+        items: [
+          "Review and revise annual goals",
+          "Discuss benchmarks and measurement methods",
+          "Determine service delivery needs",
+        ],
+      });
+    }
+
+    if (meeting.meetingType === "transition" || meeting.meetingType === "annual_review") {
+      sections.push({
+        title: "Transition Planning",
+        items: [
+          "Review post-secondary goals",
+          "Discuss transition services and agency referrals",
+        ],
+      });
+    }
+
+    sections.push({
+      title: "Services & Placement",
+      items: [
+        "Review current service delivery model",
+        "Discuss any changes to services or placement",
+        "Review least restrictive environment considerations",
+      ],
+    });
+
+    sections.push({
+      title: "Closing",
+      items: [
+        "Summarize decisions and action items",
+        "Review Prior Written Notice",
+        "Obtain parent consent if applicable",
+        "Schedule follow-up meeting if needed",
+      ],
+    });
+
+    res.json({
+      meetingId,
+      meetingType: meeting.meetingType,
+      meetingTypeLabel: meetingTypeLabels[meeting.meetingType] ?? meeting.meetingType,
+      scheduledDate: meeting.scheduledDate,
+      scheduledTime: meeting.scheduledTime,
+      location: meeting.location,
+      studentName: student ? `${student.firstName} ${student.lastName}` : "Unknown",
+      studentGrade: student?.grade ?? null,
+      attendees: attendees.map(a => ({ name: a.name, role: a.role, rsvpStatus: a.rsvpStatus })),
+      goalsCount: goals.length,
+      accommodationsCount: accommodations.length,
+      sections,
+      customAgendaItems: meeting.agendaItems ?? [],
+    });
+  } catch (e: unknown) {
+    console.error("GET /iep-meetings/:id/agenda error:", e);
+    res.status(500).json({ error: "Failed to generate agenda" });
   }
 });
 
