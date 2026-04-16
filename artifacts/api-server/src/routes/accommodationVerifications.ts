@@ -16,6 +16,8 @@ const VERIFICATION_WINDOW_DAYS = 30;
 
 const VALID_STATUSES = ["verified", "partial", "not_implemented", "not_applicable"] as const;
 
+const COMPLIANT_STATUSES = ["verified", "partial", "not_applicable"] as const;
+
 interface ComplianceRow {
   studentId: string;
   firstName: string;
@@ -115,7 +117,12 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
         }
       : null,
     verificationCount: verificationsByAccommodation.get(a.id)?.length ?? 0,
-    isOverdue: !verificationsByAccommodation.get(a.id)?.length,
+    isCompliant: !!(verificationsByAccommodation.get(a.id)?.some(
+      v => (COMPLIANT_STATUSES as readonly string[]).includes(v.status)
+    )),
+    isOverdue: !(verificationsByAccommodation.get(a.id)?.some(
+      v => (COMPLIANT_STATUSES as readonly string[]).includes(v.status)
+    )),
   }));
 
   const grouped: Record<string, typeof enriched> = {};
@@ -130,7 +137,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     studentName: student ? `${student.firstName} ${student.lastName}` : null,
     studentGrade: student?.grade ?? null,
     totalAccommodations: accommodations.length,
-    verifiedCount: enriched.filter(a => !a.isOverdue).length,
+    verifiedCount: enriched.filter(a => a.isCompliant).length,
     overdueCount: enriched.filter(a => a.isOverdue).length,
     verificationRate: accommodations.length > 0
       ? Math.round((enriched.filter(a => !a.isOverdue).length / accommodations.length) * 100)
@@ -286,6 +293,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
           FROM accommodation_verifications av
           WHERE av.accommodation_id = ia.id
             AND av.created_at >= NOW() - MAKE_INTERVAL(days => ${windowDays})
+            AND av.status IN ('verified', 'partial', 'not_applicable')
         ) AS recent_verification_count,
         (
           SELECT av.created_at
