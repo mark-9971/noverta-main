@@ -142,7 +142,7 @@ export default function StaffCalendar() {
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<StaffSchedule | null>(null);
   const [formData, setFormData] = useState({
-    staffId: "", schoolId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "08:00", endTime: "12:00", label: "", notes: "",
+    staffId: "", schoolId: "", serviceTypeId: "", dayOfWeek: "monday", startTime: "08:00", endTime: "12:00", label: "", notes: "", effectiveFrom: "", effectiveTo: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -241,6 +241,8 @@ export default function StaffCalendar() {
       endTime: "12:00",
       label: "",
       notes: "",
+      effectiveFrom: "",
+      effectiveTo: "",
     });
     setShowForm(true);
   }
@@ -256,6 +258,8 @@ export default function StaffCalendar() {
       endTime: s.end_time,
       label: s.label || "",
       notes: s.notes || "",
+      effectiveFrom: s.effective_from || "",
+      effectiveTo: s.effective_to || "",
     });
     setShowForm(true);
   }
@@ -275,6 +279,8 @@ export default function StaffCalendar() {
         endTime: formData.endTime,
         label: formData.label || null,
         notes: formData.notes || null,
+        effectiveFrom: formData.effectiveFrom || null,
+        effectiveTo: formData.effectiveTo || null,
       };
       const url = editingSchedule ? `/api/staff-schedules/${editingSchedule.id}` : "/api/staff-schedules";
       const method = editingSchedule ? "PUT" : "POST";
@@ -644,6 +650,16 @@ export default function StaffCalendar() {
             <div>
               <Label className="text-xs">Label (optional)</Label>
               <Input value={formData.label} onChange={e => setFormData(p => ({ ...p, label: e.target.value }))} placeholder="e.g. Morning Block" className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Effective From (optional)</Label>
+                <Input type="date" value={formData.effectiveFrom} onChange={e => setFormData(p => ({ ...p, effectiveFrom: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Effective To (optional)</Label>
+                <Input type="date" value={formData.effectiveTo} onChange={e => setFormData(p => ({ ...p, effectiveTo: e.target.value }))} className="mt-1" />
+              </div>
             </div>
             <div>
               <Label className="text-xs">Notes (optional)</Label>

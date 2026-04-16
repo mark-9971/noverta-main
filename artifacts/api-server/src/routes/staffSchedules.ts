@@ -432,7 +432,7 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
       res.status(403).json({ error: "Schedule not found in your district" }); return;
     }
 
-    const { schoolId, dayOfWeek, startTime, endTime, label, notes, effectiveFrom, effectiveTo, serviceTypeId } = req.body;
+    const { staffId, schoolId, dayOfWeek, startTime, endTime, label, notes, effectiveFrom, effectiveTo, serviceTypeId } = req.body;
 
     if (dayOfWeek && !VALID_DAYS.includes(dayOfWeek)) {
       res.status(400).json({ error: "dayOfWeek must be monday through friday" }); return;
@@ -441,10 +441,14 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
     if (schoolId && !(await verifySchoolInDistrict(Number(schoolId), districtId))) {
       res.status(403).json({ error: "School not found in your district" }); return;
     }
+    if (staffId && !(await verifyStaffInDistrict(Number(staffId), districtId))) {
+      res.status(403).json({ error: "Staff member not found in your district" }); return;
+    }
 
     const [existing] = await db.select().from(staffSchedulesTable).where(eq(staffSchedulesTable.id, scheduleId));
     if (!existing) { res.status(404).json({ error: "Schedule not found" }); return; }
 
+    const newStaffId = staffId ? Number(staffId) : existing.staffId;
     const newDay = dayOfWeek || existing.dayOfWeek;
     const newStart = startTime || existing.startTime;
     const newEnd = endTime || existing.endTime;
@@ -457,7 +461,7 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
 
     const overlapResult = await db.execute(sql`
       SELECT id, start_time, end_time, effective_from, effective_to FROM staff_schedules
-      WHERE staff_id = ${existing.staffId} AND day_of_week = ${newDay} AND id != ${scheduleId}
+      WHERE staff_id = ${newStaffId} AND day_of_week = ${newDay} AND id != ${scheduleId}
     `);
     const overlaps = "rows" in overlapResult ? overlapResult.rows : overlapResult;
     if (Array.isArray(overlaps)) {
@@ -474,6 +478,7 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
 
     const [updated] = await db.update(staffSchedulesTable)
       .set({
+        staffId: newStaffId,
         schoolId: schoolId ? Number(schoolId) : existing.schoolId,
         serviceTypeId: serviceTypeId !== undefined ? (serviceTypeId ? Number(serviceTypeId) : null) : existing.serviceTypeId,
         dayOfWeek: newDay,
