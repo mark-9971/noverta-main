@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
@@ -132,16 +132,18 @@ function BoundedRoute({ component: Comp, fallbackTitle, featureKey, ...rest }: {
 
 function HashRedirect({ to }: { to: string }) {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   useEffect(() => {
     const [path, hash] = to.split("#");
-    setLocation(path, { replace: true });
+    const preservedSearch = search ? `?${search}` : "";
+    setLocation(`${path}${preservedSearch}`, { replace: true });
     if (hash) {
       requestAnimationFrame(() => {
         history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${hash}`);
         window.dispatchEvent(new HashChangeEvent("hashchange"));
       });
     }
-  }, [to, setLocation]);
+  }, [to, setLocation, search]);
   return null;
 }
 
