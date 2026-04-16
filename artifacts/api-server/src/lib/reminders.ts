@@ -21,6 +21,7 @@ import {
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
 import { generateReportCSVDirect } from "../routes/reportExports";
+import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -361,6 +362,7 @@ async function runAllReminders(): Promise<void> {
       runDraftTransitionPlans(),
       runComplianceAlertCheck(),
       runScheduledReports(),
+      runCostAvoidanceAlertGeneration(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {

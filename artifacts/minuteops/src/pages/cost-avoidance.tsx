@@ -47,7 +47,7 @@ const URGENCY_CONFIG: Record<UrgencyLevel, { label: string; color: string; bg: s
   watch: { label: "Watch", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-400" },
 };
 
-const CATEGORY_LABELS: Record<string, { label: string; icon: any }> = {
+const CATEGORY_LABELS: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   evaluation_deadline: { label: "Evaluation Deadlines", icon: FileSearch },
   service_shortfall: { label: "Service Shortfalls", icon: Clock },
   iep_annual_review: { label: "IEP Annual Reviews", icon: CalendarDays },

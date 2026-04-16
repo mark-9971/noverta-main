@@ -176,8 +176,8 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
     getIepAnnualReviewRisks(studentIdArray, studentMap, today, horizon90),
   ]);
 
-  const criticalAndHigh = [...evalRisks, ...serviceRisks, ...iepRisks].filter(
-    r => r.urgency === "critical" || r.urgency === "high"
+  const alertableRisks = [...evalRisks, ...serviceRisks, ...iepRisks].filter(
+    r => r.urgency === "critical" || r.urgency === "high" || r.urgency === "medium"
   );
 
   const existingAlerts = await db.select({ message: alertsTable.message })
@@ -191,7 +191,7 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
   let created = 0;
   let skipped = 0;
 
-  for (const risk of criticalAndHigh) {
+  for (const risk of alertableRisks) {
     const message = `[Cost Avoidance] ${risk.title} — Est. exposure: $${risk.estimatedExposure.toLocaleString()}`;
     if (existingMessages.has(message)) {
       skipped++;
@@ -200,7 +200,7 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
 
     await db.insert(alertsTable).values({
       type: "cost_avoidance_risk",
-      severity: risk.urgency === "critical" ? "critical" : "high",
+      severity: risk.urgency,
       studentId: risk.studentId,
       staffId: risk.staffId,
       message,
@@ -210,7 +210,7 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
     created++;
   }
 
-  res.json({ created, skipped, totalRisks: criticalAndHigh.length });
+  res.json({ created, skipped, totalRisks: alertableRisks.length });
 });
 
 function emptySummary() {
@@ -582,7 +582,6 @@ async function getIepAnnualReviewRisks(
     inArray(complianceEventsTable.studentId, iepStudentIds),
     eq(complianceEventsTable.eventType, "annual_review"),
     eq(complianceEventsTable.status, "completed"),
-    gte(complianceEventsTable.completedDate, today),
   ));
   const completedStudents = new Set(annualReviewEvents.map(e => e.studentId));
 
