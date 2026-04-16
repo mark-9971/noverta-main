@@ -1371,7 +1371,8 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
 
   const removeImplementer = async (implId: number) => {
     try {
-      await authFetch(`/api/bip-implementers/${implId}`, { method: "DELETE" });
+      const r = await authFetch(`/api/bip-implementers/${implId}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
       toast.success("Implementer removed");
       if (selectedBip) await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to remove implementer"); }
@@ -1402,7 +1403,8 @@ function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelec
 
   const removeFidelityLog = async (logId: number) => {
     try {
-      await authFetch(`/api/bip-fidelity-logs/${logId}`, { method: "DELETE" });
+      const r = await authFetch(`/api/bip-fidelity-logs/${logId}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
       toast.success("Entry removed");
       if (selectedBip) await loadBipExtras(selectedBip);
     } catch { toast.error("Failed to remove entry"); }

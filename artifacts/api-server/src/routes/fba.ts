@@ -500,6 +500,10 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
         effectiveDate: body.effectiveDate ?? existing.effectiveDate,
         versionGroupId: groupId,
       }).returning();
+      await tx.insert(bipStatusHistoryTable).values({
+        bipId: created.id, fromStatus: "none", toStatus: "draft",
+        changedById, notes: `Version ${created.version} created`,
+      });
       return created;
     });
 
@@ -555,9 +559,12 @@ router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
 
     const strategies = functionStrategies[func] || functionStrategies.attention;
 
+    const authedGen = req as AuthedRequest;
+    const genCreatedBy = authedGen.tenantStaffId ?? null;
     const [bip] = await db.insert(behaviorInterventionPlansTable).values({
       studentId: fba.studentId,
       fbaId: fba.id,
+      createdBy: genCreatedBy,
       targetBehavior: fba.targetBehavior,
       operationalDefinition: fba.operationalDefinition,
       hypothesizedFunction: func,
@@ -570,6 +577,10 @@ router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
       progressCriteria: "Target behavior decreases by 80% from baseline over 4 consecutive weeks. Replacement behavior occurs independently in 80% of opportunities.",
       status: "draft",
     }).returning();
+    await db.insert(bipStatusHistoryTable).values({
+      bipId: bip.id, fromStatus: "none", toStatus: "draft",
+      changedById: genCreatedBy, notes: "BIP generated from FBA",
+    });
 
     res.status(201).json({ ...bip, createdAt: isoDate(bip.createdAt), updatedAt: isoDate(bip.updatedAt) });
   } catch (e: any) {
@@ -734,6 +745,15 @@ router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
     if (!["approved", "active"].includes(bip.status)) {
       res.status(409).json({ error: "Implementers can only be assigned to approved or active BIPs" }); return;
     }
+
+    const [existing] = await db.select({ id: bipImplementersTable.id })
+      .from(bipImplementersTable)
+      .where(and(
+        eq(bipImplementersTable.bipId, id),
+        eq(bipImplementersTable.staffId, parseInt(staffId)),
+        eq(bipImplementersTable.active, true),
+      ));
+    if (existing) { res.status(409).json({ error: "This staff member is already an active implementer for this BIP" }); return; }
 
     const [impl] = await db.insert(bipImplementersTable).values({
       bipId: id,
