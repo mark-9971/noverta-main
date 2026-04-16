@@ -2790,13 +2790,14 @@ function GeneratedDocsPanel({ studentId }: { studentId: number }) {
   async function updateStatus(id: number, status: string) {
     setUpdating(id);
     try {
-      await authFetch(`/api/generated-documents/${id}`, {
+      const res = await authFetch(`/api/generated-documents/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) { toast.error("Could not update document status"); return; }
       setDocs(d => d.map(doc => doc.id === id ? { ...doc, status } : doc));
-    } catch { /* ignore */ }
+    } catch { toast.error("Failed to update status"); }
     setUpdating(null);
   }
 

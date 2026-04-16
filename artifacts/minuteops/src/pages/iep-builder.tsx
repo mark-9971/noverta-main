@@ -346,7 +346,7 @@ export default function IepBuilderPage() {
     saveGeneratedDocument({
       studentId,
       type: "iep_draft",
-      title: `IEP Annual Review Draft — ${escDoc(draft.generatedFor ?? String(new Date().getFullYear()))}`,
+      title: `IEP Annual Review Draft — ${draft.generatedFor ?? String(new Date().getFullYear())}`,
       htmlSnapshot: html,
       status: "draft",
     });
