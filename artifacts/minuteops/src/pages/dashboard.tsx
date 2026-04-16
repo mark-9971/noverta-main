@@ -115,43 +115,47 @@ function CriticalMedicalAlertsBanner() {
   const { data } = useQuery<any[]>({
     queryKey: ["dashboard-critical-medical-alerts"],
     queryFn: () => authFetch("/api/dashboard/critical-medical-alerts").then(r => r.ok ? r.json() : []),
-    staleTime: 120_000,
+    staleTime: 60_000,
   });
 
   if (!data || data.length === 0) return null;
-
-  const lifeThreatening = data.filter((a: any) => a.severity === "life_threatening");
-  const severe = data.filter((a: any) => a.severity === "severe");
 
   return (
     <Card className="border-red-200 bg-red-50/30">
       <CardContent className="py-3 px-5">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <span className="text-sm font-semibold text-red-800">Critical Medical Alerts</span>
+          <span className="text-sm font-semibold text-red-800">Medical Events Today</span>
           <span className="text-xs font-bold rounded-full px-2 py-0.5 bg-red-100 text-red-700">{data.length}</span>
         </div>
         <div className="space-y-1 ml-7">
-          {lifeThreatening.map((a: any) => (
-            <Link key={a.id} href={`/students/${a.studentId}`}>
-              <div className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-red-50 rounded px-1 py-0.5 -mx-1">
-                <span className="font-bold text-red-700">LIFE-THREATENING</span>
+          {data.map((evt: any) => (
+            <Link key={evt.id} href={`/students/${evt.studentId}`}>
+              <div className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-red-50 rounded px-1 py-0.5 -mx-1 flex-wrap">
+                {evt.emergencyServicesCalled && (
+                  <span className="font-bold text-red-700 uppercase">911 Called</span>
+                )}
+                {evt.medicalAttentionRequired && !evt.emergencyServicesCalled && (
+                  <span className="font-bold text-red-600">Medical Attention</span>
+                )}
+                {evt.studentInjury && !evt.emergencyServicesCalled && !evt.medicalAttentionRequired && (
+                  <span className="font-semibold text-orange-600">Student Injury</span>
+                )}
                 <span className="text-gray-400">&middot;</span>
-                <span className="text-gray-700">{a.studentFirst} {a.studentLast} (Gr. {a.studentGrade})</span>
+                <span className="text-gray-700">{evt.studentFirst} {evt.studentLast} (Gr. {evt.studentGrade})</span>
+                {evt.incidentTime && (
+                  <>
+                    <span className="text-gray-400">&middot;</span>
+                    <span className="text-gray-500">{evt.incidentTime}</span>
+                  </>
+                )}
                 <span className="text-gray-400">&middot;</span>
-                <span className="text-gray-600">{a.alertType}: {a.description}</span>
-                {a.epiPenOnFile && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium">EpiPen on file</span>}
-              </div>
-            </Link>
-          ))}
-          {severe.map((a: any) => (
-            <Link key={a.id} href={`/students/${a.studentId}`}>
-              <div className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-red-50 rounded px-1 py-0.5 -mx-1">
-                <span className="font-semibold text-orange-600">Severe</span>
-                <span className="text-gray-400">&middot;</span>
-                <span className="text-gray-700">{a.studentFirst} {a.studentLast}</span>
-                <span className="text-gray-400">&middot;</span>
-                <span className="text-gray-600">{a.alertType}: {a.description}</span>
+                <span className="text-gray-600 truncate max-w-[300px]">
+                  {evt.medicalDetails || evt.studentInjuryDescription || evt.behaviorDescription}
+                </span>
+                {evt.emergencyServicesCalled && (
+                  <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-medium">Requires Follow-Up</span>
+                )}
               </div>
             </Link>
           ))}

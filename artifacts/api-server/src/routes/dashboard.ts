@@ -939,13 +939,19 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
 
 router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void> => {
   try {
-    const { medicalAlertsTable } = await import("@workspace/db");
+    const { restraintIncidentsTable } = await import("@workspace/db");
     const sdFilters = parseSchoolDistrictFilters(req, req.query);
 
+    const today = new Date().toISOString().slice(0, 10);
+
     const conditions: any[] = [
-      sql`${medicalAlertsTable.severity} IN ('severe', 'life_threatening')`,
+      sql`${restraintIncidentsTable.incidentDate} = ${today}`,
+      sql`(
+        ${restraintIncidentsTable.emergencyServicesCalled} = true
+        OR ${restraintIncidentsTable.medicalAttentionRequired} = true
+        OR ${restraintIncidentsTable.studentInjury} = true
+      )`,
       isNull(studentsTable.deletedAt),
-      eq(studentsTable.status, "active"),
     ];
     if (sdFilters.schoolId) {
       conditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
@@ -953,29 +959,37 @@ router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void>
       conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
     }
 
-    const alerts = await db
+    const events = await db
       .select({
-        id: medicalAlertsTable.id,
-        studentId: medicalAlertsTable.studentId,
-        alertType: medicalAlertsTable.alertType,
-        description: medicalAlertsTable.description,
-        severity: medicalAlertsTable.severity,
-        treatmentNotes: medicalAlertsTable.treatmentNotes,
-        epiPenOnFile: medicalAlertsTable.epiPenOnFile,
+        id: restraintIncidentsTable.id,
+        studentId: restraintIncidentsTable.studentId,
+        incidentDate: restraintIncidentsTable.incidentDate,
+        incidentTime: restraintIncidentsTable.incidentTime,
+        incidentType: restraintIncidentsTable.incidentType,
+        behaviorDescription: restraintIncidentsTable.behaviorDescription,
+        emergencyServicesCalled: restraintIncidentsTable.emergencyServicesCalled,
+        medicalAttentionRequired: restraintIncidentsTable.medicalAttentionRequired,
+        medicalDetails: restraintIncidentsTable.medicalDetails,
+        studentInjury: restraintIncidentsTable.studentInjury,
+        studentInjuryDescription: restraintIncidentsTable.studentInjuryDescription,
         studentFirst: studentsTable.firstName,
         studentLast: studentsTable.lastName,
         studentGrade: studentsTable.grade,
       })
-      .from(medicalAlertsTable)
-      .innerJoin(studentsTable, eq(studentsTable.id, medicalAlertsTable.studentId))
+      .from(restraintIncidentsTable)
+      .innerJoin(studentsTable, eq(studentsTable.id, restraintIncidentsTable.studentId))
       .where(and(...conditions))
-      .orderBy(desc(sql`CASE WHEN ${medicalAlertsTable.severity} = 'life_threatening' THEN 0 ELSE 1 END`))
+      .orderBy(
+        desc(restraintIncidentsTable.emergencyServicesCalled),
+        desc(restraintIncidentsTable.medicalAttentionRequired),
+        desc(restraintIncidentsTable.incidentTime)
+      )
       .limit(20);
 
-    res.json(alerts);
+    res.json(events);
   } catch (e: any) {
     console.error("GET /dashboard/critical-medical-alerts error:", e);
-    res.status(500).json({ error: "Failed to fetch critical medical alerts" });
+    res.status(500).json({ error: "Failed to fetch medical event alerts" });
   }
 });
 
