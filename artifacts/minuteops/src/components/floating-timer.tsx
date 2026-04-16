@@ -74,8 +74,9 @@ export function FloatingTimer() {
       ]);
       const sData = await sRes.json();
       const stData = await stRes.json();
-      setStudents(Array.isArray(sData) ? sData : (sData as any)?.data ?? []);
-      setServiceTypes(Array.isArray(stData) ? stData : []);
+      const studentArr = Array.isArray(sData) ? sData : (sData && typeof sData === "object" && "data" in (sData as Record<string, unknown>) ? (sData as Record<string, unknown>).data : []);
+      setStudents(Array.isArray(studentArr) ? studentArr as Student[] : []);
+      setServiceTypes(Array.isArray(stData) ? stData as ServiceType[] : []);
     } catch {}
   }, []);
 

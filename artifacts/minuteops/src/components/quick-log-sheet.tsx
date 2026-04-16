@@ -138,8 +138,9 @@ export function QuickLogSheet({
     if (prefillStudentId) {
       setStudentId(prefillStudentId);
       setStudentName(prefillStudentName ?? "");
-      if (prefillServiceTypeId) {
-        setServiceTypeId(prefillServiceTypeId);
+      const hasServicePrefill = prefillServiceTypeId != null || (prefillServiceTypeName && prefillDurationMinutes);
+      if (hasServicePrefill) {
+        setServiceTypeId(prefillServiceTypeId ?? null);
         setServiceTypeName(prefillServiceTypeName ?? "");
         if (prefillDurationMinutes) {
           setStep("outcome");
