@@ -224,9 +224,9 @@ export default function IepBuilderPage() {
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<{ wizardStep: number; formData: any; updatedAt: string } | null>(null);
+  const [draftResolved, setDraftResolved] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
-  const hasRestoredRef = useRef(false);
 
   const saveDraft = useCallback(async (currentStep: Step, p: ParentQuestionnaire, t: TeacherQuestionnaire, tr: TransitionInput) => {
     if (isSavingRef.current) return;
@@ -268,6 +268,8 @@ export default function IepBuilderPage() {
         if (draftRes && draftRes.formData) {
           setPendingDraft({ wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt });
           setShowResumeDialog(true);
+        } else {
+          setDraftResolved(true);
         }
       } catch {
         if (!cancelled) toast.error("Failed to load student context");
@@ -286,15 +288,16 @@ export default function IepBuilderPage() {
     if (fd.transition) setTransition({ ...EMPTY_TRANSITION, ...fd.transition });
     setStep(pendingDraft.wizardStep as Step);
     setDraftSavedAt(pendingDraft.updatedAt);
-    hasRestoredRef.current = true;
     setShowResumeDialog(false);
     setPendingDraft(null);
+    setDraftResolved(true);
   }
 
   function startFresh() {
     deleteDraft();
     setShowResumeDialog(false);
     setPendingDraft(null);
+    setDraftResolved(true);
   }
 
   const parentRef = useRef(parent);
@@ -306,24 +309,31 @@ export default function IepBuilderPage() {
   transitionRef.current = transition;
   stepRef.current = step;
 
+  const draftResolvedRef = useRef(draftResolved);
+  draftResolvedRef.current = draftResolved;
+
   const scheduleAutoSave = useCallback(() => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
+      if (!draftResolvedRef.current) return;
       saveDraft(stepRef.current, parentRef.current, teacherRef.current, transitionRef.current);
     }, 30000);
   }, [saveDraft]);
 
   useEffect(() => {
+    if (!draftResolved) return;
     scheduleAutoSave();
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [parent, teacher, transition, scheduleAutoSave]);
+  }, [parent, teacher, transition, draftResolved, scheduleAutoSave]);
 
   const changeStep = useCallback((newStep: Step) => {
     setStep(newStep);
-    setTimeout(() => {
-      saveDraft(newStep, parentRef.current, teacherRef.current, transitionRef.current);
-    }, 0);
-    scheduleAutoSave();
+    if (draftResolvedRef.current) {
+      setTimeout(() => {
+        saveDraft(newStep, parentRef.current, teacherRef.current, transitionRef.current);
+      }, 0);
+      scheduleAutoSave();
+    }
   }, [saveDraft, scheduleAutoSave]);
 
   async function generate() {
