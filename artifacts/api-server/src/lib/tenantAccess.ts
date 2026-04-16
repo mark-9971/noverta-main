@@ -40,16 +40,16 @@ export async function assertStudentAccess(req: Request, studentId: number): Prom
   return studentSchoolId === requesterSchoolId;
 }
 
-const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
+const CASELOAD_BROAD_ROLES = ["admin", "coordinator"];
 
 export async function assertCaseloadAccess(req: Request, studentId: number): Promise<boolean> {
   const authed = req as AuthedRequest;
-  if (BROAD_ACCESS_ROLES.includes(authed.trellisRole ?? "")) {
+  if (CASELOAD_BROAD_ROLES.includes(authed.trellisRole ?? "")) {
     return assertStudentAccess(req, studentId);
   }
   const staffId = authed.tenantStaffId;
   if (!staffId) {
-    return process.env.NODE_ENV !== "production";
+    return false;
   }
   const [student] = await db
     .select({ caseManagerId: studentsTable.caseManagerId })

@@ -53,6 +53,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
       setting: iepAccommodationsTable.setting,
       frequency: iepAccommodationsTable.frequency,
       provider: iepAccommodationsTable.provider,
+      verificationScheduleDays: iepAccommodationsTable.verificationScheduleDays,
       active: iepAccommodationsTable.active,
       createdAt: iepAccommodationsTable.createdAt,
     })
@@ -61,10 +62,14 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
       eq(iepAccommodationsTable.studentId, studentId),
       eq(iepAccommodationsTable.active, true),
     ))
-    .orderBy(iepAccommodationsTable.category, iepAccommodationsTable.id);
+    .orderBy(iepAccommodationsTable.setting, iepAccommodationsTable.id);
 
-  const windowStart = new Date();
-  windowStart.setDate(windowStart.getDate() - VERIFICATION_WINDOW_DAYS);
+  const defaultWindowStart = new Date();
+  defaultWindowStart.setDate(defaultWindowStart.getDate() - VERIFICATION_WINDOW_DAYS);
+
+  const maxScheduleDays = Math.max(...accommodations.map(a => a.verificationScheduleDays ?? VERIFICATION_WINDOW_DAYS), VERIFICATION_WINDOW_DAYS);
+  const broadWindowStart = new Date();
+  broadWindowStart.setDate(broadWindowStart.getDate() - maxScheduleDays);
 
   const recentVerifications = accommodations.length > 0
     ? await db
@@ -85,7 +90,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
         .leftJoin(staffTable, eq(staffTable.id, accommodationVerificationsTable.verifiedByStaffId))
         .where(and(
           sql`${accommodationVerificationsTable.accommodationId} IN (${sql.join(accommodations.map(a => sql`${a.id}`), sql`, `)})`,
-          gte(accommodationVerificationsTable.createdAt, windowStart),
+          gte(accommodationVerificationsTable.createdAt, broadWindowStart),
         ))
         .orderBy(desc(accommodationVerificationsTable.createdAt))
     : [];
@@ -104,26 +109,37 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     .where(eq(studentsTable.id, studentId))
     .then(rows => rows[0]);
 
-  const enriched = accommodations.map(a => ({
-    ...a,
-    createdAt: a.createdAt.toISOString(),
-    lastVerification: verificationsByAccommodation.get(a.id)?.[0]
-      ? {
-          ...verificationsByAccommodation.get(a.id)![0],
-          createdAt: verificationsByAccommodation.get(a.id)![0].createdAt.toISOString(),
-          verifierName: verificationsByAccommodation.get(a.id)![0].staffFirst
-            ? `${verificationsByAccommodation.get(a.id)![0].staffFirst} ${verificationsByAccommodation.get(a.id)![0].staffLast}`
-            : null,
-        }
-      : null,
-    verificationCount: verificationsByAccommodation.get(a.id)?.length ?? 0,
-    isCompliant: !!(verificationsByAccommodation.get(a.id)?.some(
+  const enriched = accommodations.map(a => {
+    const scheduleDays = a.verificationScheduleDays ?? VERIFICATION_WINDOW_DAYS;
+    const accWindowStart = new Date();
+    accWindowStart.setDate(accWindowStart.getDate() - scheduleDays);
+
+    const accVerifications = verificationsByAccommodation.get(a.id) ?? [];
+    const inWindowVerifications = accVerifications.filter(v => new Date(v.createdAt) >= accWindowStart);
+
+    const hasCompliant = inWindowVerifications.some(
       v => (COMPLIANT_STATUSES as readonly string[]).includes(v.status)
-    )),
-    isOverdue: !(verificationsByAccommodation.get(a.id)?.some(
-      v => (COMPLIANT_STATUSES as readonly string[]).includes(v.status)
-    )),
-  }));
+    );
+
+    const lastV = accVerifications[0];
+    return {
+      ...a,
+      verificationScheduleDays: scheduleDays,
+      createdAt: a.createdAt.toISOString(),
+      lastVerification: lastV
+        ? {
+            ...lastV,
+            createdAt: lastV.createdAt.toISOString(),
+            verifierName: lastV.staffFirst
+              ? `${lastV.staffFirst} ${lastV.staffLast}`
+              : null,
+          }
+        : null,
+      verificationCount: inWindowVerifications.length,
+      isCompliant: hasCompliant,
+      isOverdue: !hasCompliant,
+    };
+  });
 
   const groupedBySetting: Record<string, typeof enriched> = {};
   for (const a of enriched) {
@@ -261,8 +277,8 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     ? sql`s.school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})`
     : sql`1=1`;
 
-  const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
-  const isBroadAccess = BROAD_ACCESS_ROLES.includes(callerRole ?? "");
+  const COMPLIANCE_BROAD_ROLES = ["admin", "coordinator"];
+  const isBroadAccess = COMPLIANCE_BROAD_ROLES.includes(callerRole ?? "");
 
   if (!isBroadAccess && !callerStaffId) {
     res.status(403).json({ error: "Staff identity required for caseload-scoped access" });
@@ -288,11 +304,12 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
         ia.category,
         ia.description,
         ia.setting,
+        COALESCE(ia.verification_schedule_days, ${windowDays}) AS schedule_days,
         (
           SELECT COUNT(*)
           FROM accommodation_verifications av
           WHERE av.accommodation_id = ia.id
-            AND av.created_at >= NOW() - MAKE_INTERVAL(days => ${windowDays})
+            AND av.created_at >= NOW() - MAKE_INTERVAL(days => COALESCE(ia.verification_schedule_days, ${windowDays}))
             AND av.status IN ('verified', 'partial', 'not_applicable')
         ) AS recent_verification_count,
         (

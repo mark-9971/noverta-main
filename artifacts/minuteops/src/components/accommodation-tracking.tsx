@@ -21,8 +21,10 @@ interface Accommodation {
   setting: string | null;
   frequency: string | null;
   provider: string | null;
+  verificationScheduleDays: number;
   lastVerification: Verification | null;
   verificationCount: number;
+  isCompliant: boolean;
   isOverdue: boolean;
 }
 

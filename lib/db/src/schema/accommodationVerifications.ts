@@ -18,23 +18,3 @@ export const accommodationVerificationsTable = pgTable("accommodation_verificati
 ]);
 
 export type AccommodationVerification = typeof accommodationVerificationsTable.$inferSelect;
-
-export const ACCOMMODATION_CATEGORIES = [
-  "instruction",
-  "assessment",
-  "environment",
-  "materials",
-  "behavioral",
-  "communication",
-  "other",
-] as const;
-
-export const ACCOMMODATION_SETTINGS = [
-  "All settings",
-  "Classroom",
-  "Testing",
-  "Behavioral",
-  "Lunch/Recess",
-  "Specials",
-  "Other",
-] as const;

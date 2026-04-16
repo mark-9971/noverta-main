@@ -12,6 +12,7 @@ export const iepAccommodationsTable = pgTable("iep_accommodations", {
   setting: text("setting"),
   frequency: text("frequency"),
   provider: text("provider"),
+  verificationScheduleDays: integer("verification_schedule_days").default(30),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

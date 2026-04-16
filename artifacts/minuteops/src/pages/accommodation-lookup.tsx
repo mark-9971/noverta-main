@@ -42,6 +42,8 @@ interface AccommodationDetail {
   setting: string | null;
   frequency: string | null;
   provider: string | null;
+  verificationScheduleDays: number;
+  isCompliant: boolean;
   isOverdue: boolean;
   verificationCount: number;
   lastVerification: {
