@@ -13,10 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { useListStaff } from "@workspace/api-client-react";
-import { UserX, UserCheck, AlertTriangle, BarChart2, RefreshCw, Plus, Clock, User } from "lucide-react";
+import { UserX, UserCheck, AlertTriangle, BarChart2, RefreshCw, Plus, Clock, User, History, FileText, ChevronDown, ChevronUp, Shield } from "lucide-react";
 import { useSchoolContext } from "@/lib/school-context";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
+} from "recharts";
 
-type Tab = "uncovered" | "absences" | "workload";
+type Tab = "uncovered" | "absences" | "history" | "report" | "workload";
 
 const ABSENCE_TYPE_LABELS: Record<string, string> = {
   sick: "Sick",
@@ -589,6 +593,289 @@ function WorkloadTab({ schoolId }: { schoolId?: number | null }) {
   );
 }
 
+// ─── Coverage History Tab ──────────────────────────────────────────────────
+function HistoryTab({ schoolId }: { schoolId?: number | null }) {
+  const [entries, setEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(today());
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ startDate, endDate });
+      const r = await authFetch(`/api/coverage/history?${params}`);
+      const data = await r.json();
+      setEntries(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("Failed to load coverage history");
+    } finally {
+      setLoading(false);
+    }
+  }, [startDate, endDate]);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Label className="text-[12px] text-gray-500 whitespace-nowrap">From</Label>
+          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-8 text-[13px] w-36" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-[12px] text-gray-500 whitespace-nowrap">To</Label>
+          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-8 text-[13px] w-36" />
+        </div>
+        <Button variant="outline" size="sm" onClick={loadHistory} className="h-8 gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        </Button>
+        <Badge variant="outline" className="ml-auto text-gray-600 border-gray-200 gap-1">
+          {entries.length} record{entries.length !== 1 ? "s" : ""}
+        </Badge>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+      ) : entries.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <p className="text-[13px]">No covered sessions in this date range.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {entries.map(e => (
+            <div key={e.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-emerald-100 bg-emerald-50/30 text-[13px]">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-gray-800">{e.studentName ?? "No student"}</span>
+                  {e.serviceTypeName && <Badge variant="outline" className="text-[11px] py-0 px-1.5">{e.serviceTypeName}</Badge>}
+                  <span className="text-gray-400 text-[12px]">{e.absenceDate}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 text-gray-500 text-[12px]">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {DAY_LABELS[e.dayOfWeek] ?? e.dayOfWeek} {fmt12(e.startTime)}–{fmt12(e.endTime)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <UserX className="h-3 w-3 text-red-400" />
+                    {e.originalStaffName}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <UserCheck className="h-3 w-3 text-emerald-500" />
+                    {e.substituteStaffName}
+                  </span>
+                  {e.location && <span>· {e.location}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Substitute Usage Report Tab ──────────────────────────────────────────
+function ReportTab({ schoolId }: { schoolId?: number | null }) {
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [months, setMonths] = useState("3");
+  const [view, setView] = useState<"substitutes" | "absences">("substitutes");
+
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await authFetch(`/api/coverage/substitute-report?months=${months}`);
+      const data = await r.json();
+      setReport(data);
+    } catch {
+      toast.error("Failed to load substitute report");
+    } finally {
+      setLoading(false);
+    }
+  }, [months]);
+
+  useEffect(() => { loadReport(); }, [loadReport]);
+
+  const substitutes = report?.substitutes ?? [];
+  const absences = report?.absences ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Label className="text-[12px] text-gray-500 whitespace-nowrap">Period</Label>
+          <Select value={months} onValueChange={setMonths}>
+            <SelectTrigger className="h-8 text-[13px] w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Last month</SelectItem>
+              <SelectItem value="3">Last 3 months</SelectItem>
+              <SelectItem value="6">Last 6 months</SelectItem>
+              <SelectItem value="12">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadReport} className="h-8 gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        </Button>
+        <div className="ml-auto flex gap-1">
+          <Button
+            variant={view === "substitutes" ? "default" : "outline"}
+            size="sm"
+            className={`h-7 text-[12px] ${view === "substitutes" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+            onClick={() => setView("substitutes")}
+          >
+            Substitutes
+          </Button>
+          <Button
+            variant={view === "absences" ? "default" : "outline"}
+            size="sm"
+            className={`h-7 text-[12px] ${view === "absences" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+            onClick={() => setView("absences")}
+          >
+            Absences
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div>
+      ) : view === "substitutes" ? (
+        <>
+          {substitutes.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-[13px]">No substitute coverage data for this period.</p>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={Math.max(150, substitutes.length * 32 + 40)}>
+                <BarChart data={substitutes} layout="vertical" margin={{ left: 100, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={100} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.[0]) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-white border rounded-lg shadow-lg p-2 text-xs">
+                        <p className="font-medium">{d.name}</p>
+                        <p>Sessions covered: {d.sessionsCovered}</p>
+                        <p>Unique dates: {d.uniqueDates}</p>
+                        <p>Providers covered for: {d.providersCoveredFor}</p>
+                      </div>
+                    );
+                  }} />
+                  <Bar dataKey="sessionsCovered" name="Sessions Covered" radius={[0, 4, 4, 0]}>
+                    {substitutes.map((_: any, i: number) => (
+                      <Cell key={i} fill={i === 0 ? "#10b981" : i < 3 ? "#34d399" : "#6ee7b7"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="space-y-1">
+                {substitutes.map((s: any) => (
+                  <div key={s.staffId} className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-100 bg-white text-[13px]">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-800">{s.name}</span>
+                      <span className="ml-1.5 text-[11px] text-gray-400 capitalize">{(s.role ?? "").replace(/_/g, " ")}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[12px] text-gray-500">
+                      <span><strong className="text-gray-700">{s.sessionsCovered}</strong> sessions</span>
+                      <span><strong className="text-gray-700">{s.uniqueDates}</strong> days</span>
+                      <span><strong className="text-gray-700">{s.providersCoveredFor}</strong> providers</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {absences.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p className="text-[13px]">No absence data for this period.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {absences.map((a: any) => (
+                <div key={a.staffId} className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-gray-100 bg-white text-[13px]">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-gray-800">{a.name}</span>
+                    <span className="ml-1.5 text-[11px] text-gray-400 capitalize">{(a.role ?? "").replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-[12px] text-gray-500">
+                    <span><strong className="text-gray-700">{a.absenceDates}</strong> absence days</span>
+                    <span><strong className="text-gray-700">{a.sessionsAffected}</strong> sessions affected</span>
+                    <span>
+                      <strong className={`${a.coverageRate >= 80 ? "text-emerald-600" : a.coverageRate >= 50 ? "text-amber-600" : "text-red-600"}`}>
+                        {a.coverageRate}%
+                      </strong> covered
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Daily Summary Card ───────────────────────────────────────────────────
+function DailySummary() {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await authFetch(`/api/coverage/summary?date=${today()}`);
+        const data = await r.json();
+        setSummary(data);
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) return <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>;
+  if (!summary || summary.totalSessions === 0) return null;
+
+  const items = [
+    { label: "Total Sessions", value: summary.totalSessions, icon: Clock, color: "text-gray-700" },
+    { label: "Covered", value: summary.covered, icon: UserCheck, color: "text-emerald-600" },
+    { label: "Uncovered", value: summary.uncovered, icon: AlertTriangle, color: summary.uncovered > 0 ? "text-amber-600" : "text-gray-400" },
+    { label: "Coverage Rate", value: `${summary.coverageRate}%`, icon: Shield, color: summary.coverageRate >= 80 ? "text-emerald-600" : "text-amber-600" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {items.map(item => {
+        const Icon = item.icon;
+        return (
+          <Card key={item.label} className="shadow-none">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-gray-500 font-medium">{item.label}</p>
+                <Icon className={`h-4 w-4 ${item.color} opacity-60`} />
+              </div>
+              <p className={`text-xl font-semibold mt-1 ${item.color}`}>{item.value}</p>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────
 const COVERAGE_ROLES = ["admin", "coordinator", "case_manager"];
 
@@ -603,21 +890,25 @@ export default function CoveragePage() {
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: "uncovered", label: "Uncovered Sessions", icon: AlertTriangle },
     { key: "absences", label: "Staff Absences", icon: UserX },
-    { key: "workload", label: "Workload Summary", icon: BarChart2 },
+    { key: "history", label: "Coverage Log", icon: History },
+    { key: "report", label: "Usage Report", icon: FileText },
+    { key: "workload", label: "Workload", icon: BarChart2 },
   ];
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-[18px] font-semibold text-gray-900">Coverage</h1>
+        <h1 className="text-[18px] font-semibold text-gray-900">Coverage & Substitutes</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Track staff absences, surface uncovered sessions, and monitor provider workload.
+          Track absences, assign substitutes, and monitor coverage patterns.
         </p>
       </div>
 
+      <DailySummary />
+
       <Card>
         <CardHeader className="pb-0 pt-4 px-4">
-          <div className="flex gap-1 border-b border-gray-100 pb-0 -mb-px">
+          <div className="flex gap-1 border-b border-gray-100 pb-0 -mb-px overflow-x-auto">
             {tabs.map(t => {
               const Icon = t.icon;
               return (
@@ -640,6 +931,8 @@ export default function CoveragePage() {
         <CardContent className="p-4">
           {tab === "uncovered" && <UncoveredTab schoolId={schoolId} />}
           {tab === "absences" && <AbsencesTab schoolId={schoolId} />}
+          {tab === "history" && <HistoryTab schoolId={schoolId} />}
+          {tab === "report" && <ReportTab schoolId={schoolId} />}
           {tab === "workload" && <WorkloadTab schoolId={schoolId} />}
         </CardContent>
       </Card>
