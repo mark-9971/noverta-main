@@ -1399,9 +1399,7 @@ export default function Sessions() {
                       <div><span className="text-gray-500">Duration</span><p className="font-medium text-gray-800">{form.durationMinutes} min</p></div>
                       <div><span className="text-gray-500">Status</span><p className="font-medium text-gray-800 capitalize">{form.status}{form.isMakeup ? " (Makeup)" : ""}</p></div>
                       <div><span className="text-gray-500">Provider</span><p className="font-medium text-gray-800">{staff ? `${staff.firstName} ${staff.lastName}` : "—"}</p></div>
-                      {selectedGoalCount > 0 && (
-                        <div className="col-span-2"><span className="text-gray-500">IEP Goals</span><p className="font-medium text-gray-800">{selectedGoalCount} goal{selectedGoalCount !== 1 ? "s" : ""} linked</p></div>
-                      )}
+                      <div className="col-span-2"><span className="text-gray-500">IEP Goals</span><p className="font-medium text-gray-800">{selectedGoalCount} goal{selectedGoalCount !== 1 ? "s" : ""} linked</p></div>
                       {form.notes && (
                         <div className="col-span-2"><span className="text-gray-500">Notes</span><p className="font-medium text-gray-800 line-clamp-2">{form.notes}</p></div>
                       )}

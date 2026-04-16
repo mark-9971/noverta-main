@@ -847,6 +847,10 @@ function ReviewStep({ studentName, serviceTypeName, durationMinutes, outcome, no
               <span className="text-[14px] font-medium text-amber-700">{missedReasonLabel}</span>
             </div>
           )}
+          <div className="flex justify-between items-center">
+            <span className="text-[13px] text-gray-500">IEP Goals</span>
+            <span className="text-[14px] font-medium text-gray-800">0 goals linked</span>
+          </div>
           {makeupNeeded && (
             <div className="flex justify-between items-center">
               <span className="text-[13px] text-gray-500">Make-up</span>
