@@ -19,6 +19,9 @@ interface DocCard {
   href: string;
 }
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+const docPath = (f: string) => `${BASE}/docs/legal/${f}`;
+
 const DOCS: DocCard[] = [
   {
     title: "Data Processing Agreement (DPA)",
@@ -28,7 +31,7 @@ const DOCS: DocCard[] = [
     fileName: "dpa-template.md",
     badgeLabel: "Requires Signature",
     badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
-    href: "https://github.com/your-org/trellis/blob/main/docs/legal/dpa-template.md",
+    href: docPath("dpa-template.md"),
   },
   {
     title: "Privacy Summary",
@@ -38,7 +41,7 @@ const DOCS: DocCard[] = [
     fileName: "privacy-summary.md",
     badgeLabel: "FERPA",
     badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
-    href: "https://github.com/your-org/trellis/blob/main/docs/legal/privacy-summary.md",
+    href: docPath("privacy-summary.md"),
   },
   {
     title: "Security Overview",
@@ -48,7 +51,7 @@ const DOCS: DocCard[] = [
     fileName: "security-overview.md",
     badgeLabel: "Technical",
     badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    href: "https://github.com/your-org/trellis/blob/main/docs/legal/security-overview.md",
+    href: docPath("security-overview.md"),
   },
   {
     title: "Backup & Data Retention Policy",
@@ -58,7 +61,7 @@ const DOCS: DocCard[] = [
     fileName: "backup-retention.md",
     badgeLabel: "Operational",
     badgeColor: "bg-gray-100 text-gray-700 border-gray-200",
-    href: "https://github.com/your-org/trellis/blob/main/docs/legal/backup-retention.md",
+    href: docPath("backup-retention.md"),
   },
   {
     title: "Incident Response Plan",
@@ -68,7 +71,7 @@ const DOCS: DocCard[] = [
     fileName: "incident-response.md",
     badgeLabel: "FERPA / M.G.L. c.93H",
     badgeColor: "bg-red-50 text-red-700 border-red-200",
-    href: "https://github.com/your-org/trellis/blob/main/docs/legal/incident-response.md",
+    href: docPath("incident-response.md"),
   },
 ];
 
@@ -91,29 +94,42 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
     const data = new FormData(form);
     setSending(true);
 
+    const districtName = String(data.get("districtName") ?? "");
+    const contactName = String(data.get("contactName") ?? "");
+    const contactEmail = String(data.get("contactEmail") ?? "");
+    const contactTitle = String(data.get("contactTitle") ?? "");
+    const notes = String(data.get("notes") ?? "");
+
     try {
       const body = {
-        districtName: data.get("districtName"),
-        contactName: data.get("contactName"),
-        contactEmail: data.get("contactEmail"),
-        contactTitle: data.get("contactTitle"),
-        notes: data.get("notes"),
+        districtName,
+        contactName,
+        contactEmail,
+        contactTitle,
+        notes,
         requestedBy: user.name,
         requestedAt: new Date().toISOString(),
       };
 
-      const res = await fetch("/api/legal/request-dpa", {
+      // Log the request server-side (audit trail)
+      await fetch("/api/legal/request-dpa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        toast.success("DPA request sent — Trellis will follow up within 2 business days.");
-        onClose();
-      } else {
-        toast.error("Something went wrong sending your request. Email us directly at legal@trellis.app.");
-      }
+      // Open pre-filled email to Trellis legal so the notification is sent immediately
+      const emailSubject = encodeURIComponent(`DPA Request — ${districtName}`);
+      const emailBody = encodeURIComponent(
+        `Hello Trellis Team,\n\n${districtName} would like to request a signed Data Processing Agreement.\n\n` +
+        `Contact: ${contactName}\nTitle: ${contactTitle}\nEmail: ${contactEmail}\n` +
+        (notes ? `\nNotes: ${notes}` : "") +
+        `\n\nRequested at: ${new Date().toLocaleString()}\n`
+      );
+      window.open(`mailto:legal@trellis.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
+
+      toast.success("Your email client has opened with a pre-filled request. Trellis will follow up within 2 business days.");
+      onClose();
     } catch {
       toast.error("Could not send request. Please email legal@trellis.app directly.");
     } finally {
