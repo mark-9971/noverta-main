@@ -139,8 +139,6 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
     const authed = req as AuthedRequest;
     const meta = getPublicMeta(req);
     if (meta.platformAdmin) { next(); return; }
-    // sped_parent has its own scope enforcement via requireGuardianScope; no district claim needed.
-    if (authed.trellisRole === "sped_parent") { next(); return; }
     if (authed.tenantDistrictId == null) {
       res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
       return;
