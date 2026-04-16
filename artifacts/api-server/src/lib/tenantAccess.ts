@@ -1,6 +1,6 @@
 import type { Request } from "express";
-import { db, staffTable, studentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, staffTable, studentsTable, staffAssignmentsTable } from "@workspace/db";
+import { eq, or, sql } from "drizzle-orm";
 import { getPublicMeta } from "./clerkClaims";
 import type { AuthedRequest } from "../middlewares/auth";
 
@@ -38,6 +38,34 @@ export async function assertStudentAccess(req: Request, studentId: number): Prom
   }
   const studentSchoolId = await getStudentSchoolId(studentId);
   return studentSchoolId === requesterSchoolId;
+}
+
+const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
+
+export async function assertCaseloadAccess(req: Request, studentId: number): Promise<boolean> {
+  const authed = req as AuthedRequest;
+  if (BROAD_ACCESS_ROLES.includes(authed.trellisRole ?? "")) {
+    return assertStudentAccess(req, studentId);
+  }
+  const staffId = authed.tenantStaffId;
+  if (!staffId) {
+    return process.env.NODE_ENV !== "production";
+  }
+  const [student] = await db
+    .select({ caseManagerId: studentsTable.caseManagerId })
+    .from(studentsTable)
+    .where(eq(studentsTable.id, studentId))
+    .limit(1);
+  if (!student) return false;
+  if (student.caseManagerId === staffId) return true;
+  const [assignment] = await db
+    .select({ id: staffAssignmentsTable.id })
+    .from(staffAssignmentsTable)
+    .where(
+      sql`${staffAssignmentsTable.staffId} = ${staffId} AND ${staffAssignmentsTable.studentId} = ${studentId}`
+    )
+    .limit(1);
+  return !!assignment;
 }
 
 /**

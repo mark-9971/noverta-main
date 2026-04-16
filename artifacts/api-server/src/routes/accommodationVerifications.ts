@@ -8,7 +8,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, isNull, gte } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
-import { assertStudentAccess } from "../lib/tenantAccess";
+import { assertCaseloadAccess } from "../lib/tenantAccess";
 import { getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 
@@ -37,7 +37,7 @@ router.get("/students/:studentId/accommodation-summary", async (req, res): Promi
     return;
   }
 
-  if (!await assertStudentAccess(req, studentId)) {
+  if (!await assertCaseloadAccess(req, studentId)) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -156,7 +156,7 @@ router.post("/accommodations/:accommodationId/verify", async (req, res): Promise
     return;
   }
 
-  if (!await assertStudentAccess(req, accommodation.studentId)) {
+  if (!await assertCaseloadAccess(req, accommodation.studentId)) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -208,7 +208,7 @@ router.get("/accommodations/:accommodationId/verifications", async (req, res): P
     return;
   }
 
-  if (!await assertStudentAccess(req, accommodation.studentId)) {
+  if (!await assertCaseloadAccess(req, accommodation.studentId)) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -352,7 +352,7 @@ router.get("/students/:studentId/accommodation-card", async (req, res): Promise<
     return;
   }
 
-  if (!await assertStudentAccess(req, studentId)) {
+  if (!await assertCaseloadAccess(req, studentId)) {
     res.status(403).json({ error: "Access denied" });
     return;
   }
