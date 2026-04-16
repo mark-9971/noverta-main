@@ -448,6 +448,10 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
 
     const body = req.body || {};
     const authed = req as AuthedRequest;
+    const role = authed.trellisRole ?? "";
+    if (!BIP_APPROVER_ROLES.includes(role)) {
+      res.status(403).json({ error: "Only BCBA or admin can create a new BIP version" }); return;
+    }
     const changedById = authed.tenantStaffId ?? null;
 
     // Determine version group: all BIPs in this chain share the same groupId (the root BIP's id).
@@ -641,7 +645,7 @@ router.post("/bips/:id/transition", async (req, res): Promise<void> => {
   }
 });
 
-const CLINICAL_ROLES = ["admin", "bcba", "case_manager", "coordinator", "teacher", "para"];
+const CLINICAL_ROLES = ["admin", "bcba", "case_manager", "coordinator", "sped_teacher", "provider", "para"];
 
 router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
   try {
