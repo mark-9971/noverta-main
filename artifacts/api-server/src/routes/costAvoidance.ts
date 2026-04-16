@@ -182,22 +182,32 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
 
   const existingAlerts = await db.select({ message: alertsTable.message })
     .from(alertsTable)
+    .innerJoin(studentsTable, eq(alertsTable.studentId, studentsTable.id))
     .where(and(
       eq(alertsTable.resolved, false),
       eq(alertsTable.type, "cost_avoidance_risk"),
+      sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`,
     ));
-  const existingMessages = new Set(existingAlerts.map(a => a.message));
+  const existingKeys = new Set<string>();
+  for (const a of existingAlerts) {
+    const match = a.message?.match(/\[dedupe:([^\]]+)\]/);
+    if (match) existingKeys.add(match[1]);
+  }
 
   let created = 0;
   let skipped = 0;
 
   for (const risk of alertableRisks) {
-    const message = `[Cost Avoidance] ${risk.title} — Est. exposure: $${risk.estimatedExposure.toLocaleString()}`;
-    if (existingMessages.has(message)) {
+    const days = risk.daysRemaining;
+    const window = days < 0 ? "overdue" : days <= 7 ? "7" : days <= 14 ? "14" : "30";
+    const dedupeKey = `${risk.category}:${risk.studentId}:${risk.id}:${window}`;
+
+    if (existingKeys.has(dedupeKey)) {
       skipped++;
       continue;
     }
 
+    const message = `[Cost Avoidance] ${risk.title} — Est. exposure: $${risk.estimatedExposure.toLocaleString()} [dedupe:${dedupeKey}]`;
     await db.insert(alertsTable).values({
       type: "cost_avoidance_risk",
       severity: risk.urgency,
@@ -208,6 +218,7 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
       resolved: false,
     });
     created++;
+    existingKeys.add(dedupeKey);
   }
 
   res.json({ created, skipped, totalRisks: alertableRisks.length });
