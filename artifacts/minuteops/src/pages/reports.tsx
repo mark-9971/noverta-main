@@ -102,6 +102,22 @@ function ComplianceExportsTab() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; emails: string } | null>(null);
+  const [providers, setProviders] = useState<{ id: number; name: string }[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<{ id: number; name: string }[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("all");
+  const [selectedServiceTypeId, setSelectedServiceTypeId] = useState<string>("all");
+  const [complianceFilter, setComplianceFilter] = useState<string>("all");
+
+  useEffect(() => {
+    authFetch("/api/staff?limit=200").then(r => r.ok ? r.json() : []).then((data: any) => {
+      const list = Array.isArray(data) ? data : data?.data ?? [];
+      setProviders(list.map((s: any) => ({ id: s.id, name: `${s.lastName}, ${s.firstName}` })));
+    }).catch(() => {});
+    authFetch("/api/service-types").then(r => r.ok ? r.json() : []).then((data: any) => {
+      const list = Array.isArray(data) ? data : [];
+      setServiceTypes(list.map((s: any) => ({ id: s.id, name: s.name })));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeYear && selectedYearId === "all") {
@@ -181,6 +197,10 @@ function ComplianceExportsTab() {
   const scopeParams = `${schoolParam}${districtParam}`;
   const yearParam = selectedYearId !== "all" ? `&schoolYearId=${selectedYearId}` : "";
   const dateParams = `startDate=${startDate}&endDate=${endDate}`;
+  const providerParam = selectedProviderId !== "all" ? `&providerId=${selectedProviderId}` : "";
+  const serviceTypeParam = selectedServiceTypeId !== "all" ? `&serviceTypeId=${selectedServiceTypeId}` : "";
+  const complianceParam = complianceFilter !== "all" ? `&complianceStatus=${complianceFilter}` : "";
+  const extraFilters = `${providerParam}${serviceTypeParam}${complianceParam}`;
 
   const REPORT_TYPE_LABELS: Record<string, string> = {
     "compliance-summary": "Compliance Summary",
@@ -197,8 +217,8 @@ function ComplianceExportsTab() {
       key: "compliance-summary",
       label: "Compliance Summary",
       description: "Per-student compliance status with service delivery breakdown. Ideal for school committee presentations.",
-      csvUrl: `/api/reports/exports/compliance-summary.csv?${dateParams}${scopeParams}`,
-      pdfUrl: `/api/reports/exports/compliance-summary.pdf?${dateParams}${scopeParams}`,
+      csvUrl: `/api/reports/exports/compliance-summary.csv?${dateParams}${scopeParams}${serviceTypeParam}${complianceParam}`,
+      pdfUrl: `/api/reports/exports/compliance-summary.pdf?${dateParams}${scopeParams}${serviceTypeParam}${complianceParam}`,
       csvFile: `Compliance_Summary_${startDate}_${endDate}.csv`,
       pdfFile: `Compliance_Summary_${startDate}_${endDate}.pdf`,
     },
@@ -206,8 +226,8 @@ function ComplianceExportsTab() {
       key: "services-by-provider",
       label: "Services by Provider",
       description: "Session counts, minutes delivered, and students served by each provider. For superintendent review.",
-      csvUrl: `/api/reports/exports/services-by-provider.csv?${dateParams}${scopeParams}`,
-      pdfUrl: `/api/reports/exports/services-by-provider.pdf?${dateParams}${scopeParams}`,
+      csvUrl: `/api/reports/exports/services-by-provider.csv?${dateParams}${scopeParams}${providerParam}${serviceTypeParam}`,
+      pdfUrl: `/api/reports/exports/services-by-provider.pdf?${dateParams}${scopeParams}${providerParam}${serviceTypeParam}`,
       csvFile: `Services_By_Provider_${startDate}_${endDate}.csv`,
       pdfFile: `Services_By_Provider_${startDate}_${endDate}.pdf`,
     },
@@ -293,6 +313,52 @@ function ComplianceExportsTab() {
                 </Select>
               </div>
             )}
+            {providers.length > 0 && (
+              <div>
+                <label className="text-[11px] text-gray-500 font-medium block mb-1">Provider</label>
+                <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+                  <SelectTrigger className="h-8 text-[12px] bg-white w-[160px]">
+                    <SelectValue placeholder="Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Providers</SelectItem>
+                    {providers.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {serviceTypes.length > 0 && (
+              <div>
+                <label className="text-[11px] text-gray-500 font-medium block mb-1">Service Type</label>
+                <Select value={selectedServiceTypeId} onValueChange={setSelectedServiceTypeId}>
+                  <SelectTrigger className="h-8 text-[12px] bg-white w-[160px]">
+                    <SelectValue placeholder="Service Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {serviceTypes.map(st => (
+                      <SelectItem key={st.id} value={String(st.id)}>{st.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <label className="text-[11px] text-gray-500 font-medium block mb-1">Compliance</label>
+              <Select value={complianceFilter} onValueChange={setComplianceFilter}>
+                <SelectTrigger className="h-8 text-[12px] bg-white w-[130px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="compliant">Compliant</SelectItem>
+                  <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                  <SelectItem value="at-risk">At Risk</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -387,10 +453,13 @@ function ComplianceExportsTab() {
                     <th className="text-right px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase">Records</th>
                     <th className="text-left px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase">File</th>
                     <th className="text-left px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase">Generated</th>
+                    <th className="text-center px-4 py-2 text-[11px] font-semibold text-gray-400 uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {history.map((h: any) => (
+                  {history.map((h: any) => {
+                    const canRedownload = h.format === "csv" && ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"].includes(h.reportType);
+                    return (
                     <tr key={h.id} className="hover:bg-gray-50/50">
                       <td className="px-4 py-2 text-[13px] text-gray-700 font-medium">{h.reportLabel}</td>
                       <td className="px-4 py-2">
@@ -401,8 +470,19 @@ function ComplianceExportsTab() {
                       <td className="px-4 py-2 text-[13px] text-gray-600 text-right font-mono">{h.recordCount}</td>
                       <td className="px-4 py-2 text-[11px] text-gray-400 font-mono max-w-[200px] truncate">{h.fileName}</td>
                       <td className="px-4 py-2 text-[12px] text-gray-500">{h.createdAt ? new Date(h.createdAt).toLocaleString() : ""}</td>
+                      <td className="px-4 py-2 text-center">
+                        {canRedownload && (
+                          <Button size="sm" variant="ghost" className="text-[11px] gap-1 h-7 px-2"
+                            onClick={() => downloadAuthFile(`/api/reports/exports/history/${h.id}/download`, h.fileName || `${h.reportType}.csv`)}
+                            disabled={downloading === (h.fileName || `${h.reportType}.csv`)}>
+                            <Download className="w-3 h-3" />
+                            Re-download
+                          </Button>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

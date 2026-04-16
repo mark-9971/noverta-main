@@ -294,7 +294,16 @@ async function runScheduledReports(): Promise<void> {
       const label = REPORT_TYPE_LABELS[reportType] ?? reportType;
       const today = now.toISOString().split("T")[0];
 
-      const result = await generateReportCSVDirect(reportType, schedule.districtId);
+      const storedFilters = (schedule.filters as Record<string, unknown>) ?? {};
+      const reportFilters = {
+        startDate: storedFilters.startDate as string | undefined,
+        endDate: storedFilters.endDate as string | undefined,
+        schoolId: storedFilters.schoolId ? Number(storedFilters.schoolId) : undefined,
+        providerId: storedFilters.providerId ? Number(storedFilters.providerId) : undefined,
+        serviceTypeId: storedFilters.serviceTypeId ? Number(storedFilters.serviceTypeId) : undefined,
+        complianceStatus: storedFilters.complianceStatus as string | undefined,
+      };
+      const result = await generateReportCSVDirect(reportType, schedule.districtId, reportFilters);
       if (!result) {
         console.error(`[ScheduledReports] Failed to generate ${reportType} for schedule #${schedule.id}`);
         continue;

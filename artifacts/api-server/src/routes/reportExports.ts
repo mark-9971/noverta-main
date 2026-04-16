@@ -917,7 +917,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { schoolId, startDate, endDate } = req.query;
+    const { schoolId, startDate, endDate, serviceTypeId, complianceStatus } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -943,6 +943,12 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const sIds = students.map(s => s.id);
     const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
 
+    const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+    if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
+
+    const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
+
     const [reqs, sessions] = await Promise.all([
       db.select({
         studentId: serviceRequirementsTable.studentId,
@@ -951,7 +957,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
         intervalType: serviceRequirementsTable.intervalType,
       }).from(serviceRequirementsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
-        .where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+        .where(and(...reqConditions)),
 
       db.select({
         studentId: sessionLogsTable.studentId,
@@ -960,7 +966,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
         durationMinutes: sessionLogsTable.durationMinutes,
       }).from(sessionLogsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-        .where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+        .where(and(...sessConditions)),
     ]);
 
     const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
@@ -978,6 +984,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
       reqsByStudent.get(r.studentId)!.push(r);
     }
 
+    const statusMapping: Record<string, string> = { "compliant": "On Track", "at-risk": "At Risk", "non-compliant": "Out of Compliance" };
     const headers = ["Student", "School", "Grade", "Service", "Required Min/Wk", "Delivered Min", "Compliance %", "Status"];
     const csvRows: unknown[][] = [];
     for (const student of students) {
@@ -988,6 +995,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
         const totalSessions = sm.completed + sm.missed;
         const pct = totalSessions > 0 ? Math.round((sm.completed / totalSessions) * 100) : 100;
         const status = pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance";
+        if (complianceStatus && statusMapping[complianceStatus as string] && status !== statusMapping[complianceStatus as string]) continue;
         csvRows.push([
           `${student.lastName}, ${student.firstName}`, student.schoolName ?? "", student.grade ?? "",
           req.serviceTypeName ?? "", `${req.requiredMinutes ?? ""}/${req.intervalType ?? "week"}`,
@@ -997,7 +1005,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     }
 
     const filename = `Compliance_Summary_${start}_${end}.csv`;
-    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end, schoolId } });
+    recordExport(req, { reportType: "compliance-summary", reportLabel: "Compliance Summary", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end, schoolId, serviceTypeId, complianceStatus } });
     logAudit(req, { action: "read", targetTable: "service_requirements", summary: `Exported compliance summary CSV (${csvRows.length} rows)`, metadata: { reportType: "compliance-summary-csv", rowCount: csvRows.length } });
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -1135,7 +1143,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
-    const { startDate, endDate, schoolId } = req.query;
+    const { startDate, endDate, schoolId, providerId, serviceTypeId } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -1145,6 +1153,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
     }
     if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
+    if (providerId) staffConditions.push(eq(staffTable.id, Number(providerId)));
 
     const staffMembers = await db.select({
       id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
@@ -1163,6 +1172,13 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     const staffIds = staffMembers.map(s => s.id);
     const staffIdList = sql.join(staffIds.map(id => sql`${id}`), sql`, `);
 
+    const sessConditions: any[] = [
+      sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
+      gte(sessionLogsTable.sessionDate, start),
+      lte(sessionLogsTable.sessionDate, end),
+    ];
+    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
+
     const sessionData = await db.select({
       staffId: sessionLogsTable.staffId,
       serviceTypeName: serviceTypesTable.name,
@@ -1171,11 +1187,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
       studentId: sessionLogsTable.studentId,
     }).from(sessionLogsTable)
       .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-      .where(and(
-        sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
-        gte(sessionLogsTable.sessionDate, start),
-        lte(sessionLogsTable.sessionDate, end),
-      ));
+      .where(and(...sessConditions));
 
     const providerMap = new Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }>();
     for (const s of sessionData) {
@@ -1203,7 +1215,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     csvRows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
 
     const filename = `Services_By_Provider_${start}_${end}.csv`;
-    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end } });
+    recordExport(req, { reportType: "services-by-provider", reportLabel: "Services by Provider", format: "csv", fileName: filename, recordCount: csvRows.length, parameters: { start, end, schoolId, providerId, serviceTypeId } });
     logAudit(req, { action: "read", targetTable: "session_logs", summary: `Exported services-by-provider CSV (${csvRows.length} rows)`, metadata: { reportType: "services-by-provider-csv" } });
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -1617,6 +1629,56 @@ router.get("/reports/exports/history", async (req: Request, res: Response): Prom
   }
 });
 
+router.get("/reports/exports/history/:id/download", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const conditions: ReturnType<typeof eq>[] = [eq(exportHistoryTable.id, id)];
+    if (scope.enforcedDistrictId !== null) {
+      conditions.push(eq(exportHistoryTable.districtId, scope.enforcedDistrictId));
+    }
+
+    const [entry] = await db.select().from(exportHistoryTable).where(and(...conditions));
+    if (!entry) { res.status(404).json({ error: "Export not found" }); return; }
+
+    const validTypes = ["compliance-summary", "services-by-provider", "student-roster", "caseload-distribution"];
+    if (!validTypes.includes(entry.reportType)) {
+      res.status(400).json({ error: "Report type does not support regeneration" });
+      return;
+    }
+
+    if (entry.format !== "csv") {
+      res.status(400).json({ error: "Re-download is only supported for CSV exports" });
+      return;
+    }
+
+    const params = (entry.parameters as Record<string, unknown>) ?? {};
+    const reportFilters: ReportFilters = {
+      startDate: params.start as string | undefined,
+      endDate: params.end as string | undefined,
+      schoolId: params.schoolId ? Number(params.schoolId) : undefined,
+      providerId: params.providerId ? Number(params.providerId) : undefined,
+      serviceTypeId: params.serviceTypeId ? Number(params.serviceTypeId) : undefined,
+      complianceStatus: params.complianceStatus as string | undefined,
+    };
+
+    const result = await generateReportCSVDirect(entry.reportType, entry.districtId ?? 0, reportFilters);
+    if (!result) { res.status(500).json({ error: "Failed to regenerate report" }); return; }
+
+    const filename = entry.fileName || `${entry.reportType}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(result.csv);
+  } catch (e: unknown) {
+    console.error("GET /reports/exports/history/:id/download error:", e);
+    res.status(500).json({ error: "Failed to regenerate report" });
+  }
+});
+
 router.get("/reports/exports/scheduled", async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = resolveExportScope(req);
@@ -1718,7 +1780,16 @@ router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Respon
   }
 });
 
-export async function generateReportCSVDirect(reportType: string, districtId: number): Promise<{ csv: string; rowCount: number } | null> {
+export interface ReportFilters {
+  startDate?: string;
+  endDate?: string;
+  schoolId?: number;
+  providerId?: number;
+  serviceTypeId?: number;
+  complianceStatus?: string;
+}
+
+export async function generateReportCSVDirect(reportType: string, districtId: number, filters?: ReportFilters): Promise<{ csv: string; rowCount: number } | null> {
   try {
     const dc = districtId > 0
       ? sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
@@ -1726,10 +1797,11 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
 
     if (reportType === "compliance-summary") {
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
-      const end = now.toISOString().split("T")[0];
+      const start = filters?.startDate || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+      const end = filters?.endDate || now.toISOString().split("T")[0];
       const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
       if (dc) conditions.push(dc);
+      if (filters?.schoolId) conditions.push(eq(studentsTable.schoolId, filters.schoolId));
 
       const students = await db.select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName, grade: studentsTable.grade, schoolName: schoolsTable.name })
         .from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId)).where(and(...conditions)).orderBy(asc(studentsTable.lastName));
@@ -1738,11 +1810,18 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
 
       const sIds = students.map(s => s.id);
       const idList = sql.join(sIds.map(id => sql`${id}`), sql`, `);
+
+      const reqConditions: any[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
+      if (filters?.serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId));
+
+      const sessConditions: any[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
+
       const [reqs, sessions] = await Promise.all([
         db.select({ studentId: serviceRequirementsTable.studentId, serviceTypeName: serviceTypesTable.name, requiredMinutes: serviceRequirementsTable.requiredMinutes, intervalType: serviceRequirementsTable.intervalType })
-          .from(serviceRequirementsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId)).where(and(eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`)),
+          .from(serviceRequirementsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId)).where(and(...reqConditions)),
         db.select({ studentId: sessionLogsTable.studentId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes })
-          .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))),
+          .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(...sessConditions)),
       ]);
 
       const sessionMap = new Map<string, { delivered: number; completed: number; missed: number }>();
@@ -1757,12 +1836,15 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
 
       const rows: unknown[][] = [];
       for (const student of students) {
-        for (const req of (reqsByStudent.get(student.id) ?? [])) {
-          const key = `${student.id}|${req.serviceTypeName ?? ""}`;
+        for (const r of (reqsByStudent.get(student.id) ?? [])) {
+          const key = `${student.id}|${r.serviceTypeName ?? ""}`;
           const sm = sessionMap.get(key) ?? { delivered: 0, completed: 0, missed: 0 };
           const total = sm.completed + sm.missed;
           const pct = total > 0 ? Math.round((sm.completed / total) * 100) : 100;
-          rows.push([`${student.lastName}, ${student.firstName}`, student.schoolName ?? "", student.grade ?? "", req.serviceTypeName ?? "", `${req.requiredMinutes ?? ""}/${req.intervalType ?? "week"}`, sm.delivered, `${pct}%`, pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance"]);
+          const status = pct >= 90 ? "On Track" : pct >= 75 ? "At Risk" : "Out of Compliance";
+          const complianceMapping: Record<string, string> = { "compliant": "On Track", "at-risk": "At Risk", "non-compliant": "Out of Compliance" };
+          if (filters?.complianceStatus && complianceMapping[filters.complianceStatus] && status !== complianceMapping[filters.complianceStatus]) continue;
+          rows.push([`${student.lastName}, ${student.firstName}`, student.schoolName ?? "", student.grade ?? "", r.serviceTypeName ?? "", `${r.requiredMinutes ?? ""}/${r.intervalType ?? "week"}`, sm.delivered, `${pct}%`, status]);
         }
       }
       return { csv: buildCSV(["Student", "School", "Grade", "Service", "Required", "Delivered", "Compliance %", "Status"], rows), rowCount: rows.length };
@@ -1771,6 +1853,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
     if (reportType === "student-roster") {
       const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
       if (dc) conditions.push(dc);
+      if (filters?.schoolId) conditions.push(eq(studentsTable.schoolId, filters.schoolId));
       const students = await db.select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName, grade: studentsTable.grade, status: studentsTable.status, disabilityCategory: studentsTable.disabilityCategory, placementType: studentsTable.placementType, schoolName: schoolsTable.name, dateOfBirth: studentsTable.dateOfBirth, enrolledAt: studentsTable.enrolledAt })
         .from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId)).where(and(...conditions)).orderBy(asc(studentsTable.lastName));
       const rows = students.map(s => [s.lastName, s.firstName, s.grade ?? "", s.schoolName ?? "", s.status ?? "", s.disabilityCategory ?? "", s.placementType ?? "", fmtDate(s.dateOfBirth), fmtDate(s.enrolledAt)]);
@@ -1780,6 +1863,8 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
     if (reportType === "services-by-provider" || reportType === "caseload-distribution") {
       const staffConditions: any[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
       if (districtId) staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`);
+      if (filters?.schoolId) staffConditions.push(eq(staffTable.schoolId, filters.schoolId));
+      if (filters?.providerId) staffConditions.push(eq(staffTable.id, filters.providerId));
       const staffMembers = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName, role: staffTable.role, schoolName: schoolsTable.name })
         .from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId)).where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
 
@@ -1795,12 +1880,14 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       }
 
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
-      const end = now.toISOString().split("T")[0];
+      const start = filters?.startDate || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
+      const end = filters?.endDate || now.toISOString().split("T")[0];
       const staffIds = staffMembers.map(s => s.id);
       const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
+      const sessConditions: any[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
       const sessionData = staffIds.length > 0 ? await db.select({ staffId: sessionLogsTable.staffId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes, studentId: sessionLogsTable.studentId })
-        .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end))) : [];
+        .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(...sessConditions)) : [];
       const providerMap = new Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }>();
       for (const s of sessionData) {
         const key = `${s.staffId}|${s.serviceTypeName ?? "Other"}`;
