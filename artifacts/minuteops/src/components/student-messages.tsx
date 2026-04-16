@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import { MessageSquare, Send, ChevronDown, ChevronUp, Clock, Check, CheckCheck, FileText, Calendar, Plus, X, Search } from "lucide-react";
