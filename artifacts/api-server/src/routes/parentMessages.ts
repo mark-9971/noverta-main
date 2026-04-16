@@ -1,0 +1,550 @@
+import { Router, type Request, type Response } from "express";
+import { db, parentMessagesTable, messageTemplatesTable, conferenceRequestsTable, guardiansTable, staffTable, studentsTable } from "@workspace/db";
+import { eq, and, desc, or, isNull, sql } from "drizzle-orm";
+import { getPublicMeta } from "../lib/clerkClaims";
+import { logAudit } from "../lib/auditLog";
+import { requireGuardianScope } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+
+const router = Router();
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+function getStaffId(req: Request): number | null {
+  const meta = getPublicMeta(req);
+  const id = meta.staffId;
+  if (id) return id;
+  if (!IS_PRODUCTION) return 77;
+  return null;
+}
+
+async function verifyStudentInDistrict(req: Request, studentId: number): Promise<boolean> {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId === null) return true;
+  const result = await db.execute(sql`
+    SELECT 1 FROM students
+    WHERE id = ${studentId}
+      AND school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})
+  `);
+  return ((result as any).rows ?? result).length > 0;
+}
+
+async function verifyGuardianBelongsToStudent(guardianId: number, studentId: number): Promise<boolean> {
+  const rows = await db.select({ id: guardiansTable.id })
+    .from(guardiansTable)
+    .where(and(eq(guardiansTable.id, guardianId), eq(guardiansTable.studentId, studentId)));
+  return rows.length > 0;
+}
+
+router.get("/message-templates", async (req: Request, res: Response) => {
+  try {
+    const templates = await db
+      .select()
+      .from(messageTemplatesTable)
+      .orderBy(messageTemplatesTable.name);
+    res.json(templates);
+  } catch (err) {
+    console.error("GET /message-templates error:", err);
+    res.status(500).json({ error: "Failed to load templates" });
+  }
+});
+
+router.get("/students/:studentId/messages", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const messages = await db.execute(sql`
+      SELECT
+        pm.id, pm.student_id as "studentId", pm.sender_type as "senderType",
+        pm.sender_staff_id as "senderStaffId", pm.sender_guardian_id as "senderGuardianId",
+        pm.recipient_guardian_id as "recipientGuardianId", pm.recipient_staff_id as "recipientStaffId",
+        pm.thread_id as "threadId", pm.template_id as "templateId",
+        pm.category, pm.subject, pm.body, pm.read_at as "readAt",
+        pm.is_archived as "isArchived", pm.metadata, pm.created_at as "createdAt",
+        s.first_name as "senderStaffFirst", s.last_name as "senderStaffLast",
+        COALESCE(rg.name, sg.name) as "guardianName"
+      FROM parent_messages pm
+      LEFT JOIN staff s ON s.id = pm.sender_staff_id
+      LEFT JOIN guardians rg ON rg.id = pm.recipient_guardian_id
+      LEFT JOIN guardians sg ON sg.id = pm.sender_guardian_id
+      WHERE pm.student_id = ${studentId}
+      ORDER BY pm.created_at DESC
+    `);
+
+    const grouped = new Map<number, any[]>();
+
+    for (const m of (messages as any).rows ?? messages) {
+      const msg = {
+        ...m,
+        senderName: m.senderType === "staff"
+          ? (m.senderStaffFirst ? `${m.senderStaffFirst} ${m.senderStaffLast}` : "Staff")
+          : (m.guardianName ?? "Guardian"),
+        createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : m.createdAt,
+        readAt: m.readAt ? (m.readAt instanceof Date ? m.readAt.toISOString() : m.readAt) : null,
+      };
+      const tid = m.threadId ?? m.id;
+      if (!grouped.has(tid)) grouped.set(tid, []);
+      grouped.get(tid)!.push(msg);
+    }
+
+    const threads = Array.from(grouped.entries()).map(([threadId, msgs]) => {
+      msgs.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return {
+        threadId,
+        subject: msgs[0].subject,
+        category: msgs[0].category,
+        messageCount: msgs.length,
+        lastMessageAt: msgs[msgs.length - 1].createdAt,
+        hasUnread: msgs.some((m: any) => !m.readAt && m.senderType === "guardian"),
+        messages: msgs,
+      };
+    });
+
+    threads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+
+    res.json({ threads });
+  } catch (err) {
+    console.error("GET /students/:studentId/messages error:", err);
+    res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
+router.post("/students/:studentId/messages", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+    const staffId = getStaffId(req);
+    if (!staffId) { res.status(403).json({ error: "Staff identity required" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const { guardianId, subject, body, category, templateId, threadId } = req.body;
+
+    if (!guardianId || !subject || !body) {
+      res.status(400).json({ error: "guardianId, subject, and body are required" });
+      return;
+    }
+
+    const gId = Number(guardianId);
+    if (!(await verifyGuardianBelongsToStudent(gId, studentId))) {
+      res.status(400).json({ error: "Guardian does not belong to this student" }); return;
+    }
+
+    const validCategories = ["general", "prior_written_notice", "iep_meeting", "progress_update", "conference_request"];
+    const cat = category || "general";
+    if (!validCategories.includes(cat)) {
+      res.status(400).json({ error: "Invalid message category" }); return;
+    }
+
+    const [message] = await db.insert(parentMessagesTable).values({
+      studentId,
+      senderType: "staff",
+      senderStaffId: staffId,
+      recipientGuardianId: gId,
+      category: cat,
+      subject,
+      body,
+      templateId: templateId ? Number(templateId) : null,
+      threadId: threadId ? Number(threadId) : null,
+    }).returning();
+
+    if (!message.threadId) {
+      await db.update(parentMessagesTable)
+        .set({ threadId: message.id })
+        .where(eq(parentMessagesTable.id, message.id));
+      message.threadId = message.id;
+    }
+
+    logAudit(req, {
+      action: "create",
+      targetTable: "parent_messages",
+      targetId: message.id,
+      studentId,
+      summary: `Sent message to guardian: ${subject}`,
+      newValues: { guardianId, subject, category },
+    });
+
+    res.status(201).json({ ...message, createdAt: message.createdAt.toISOString(), updatedAt: message.updatedAt.toISOString() });
+  } catch (err) {
+    console.error("POST /students/:studentId/messages error:", err);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+router.post("/students/:studentId/conference-requests", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+    const staffId = getStaffId(req);
+    if (!staffId) { res.status(403).json({ error: "Staff identity required" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const { guardianId, title, description, proposedTimes, location } = req.body;
+
+    if (!guardianId || !title || !proposedTimes?.length) {
+      res.status(400).json({ error: "guardianId, title, and at least one proposed time are required" });
+      return;
+    }
+
+    const gId = Number(guardianId);
+    if (!(await verifyGuardianBelongsToStudent(gId, studentId))) {
+      res.status(400).json({ error: "Guardian does not belong to this student" }); return;
+    }
+
+    if (!Array.isArray(proposedTimes) || !proposedTimes.every((t: any) => typeof t === "string" && !isNaN(Date.parse(t)))) {
+      res.status(400).json({ error: "proposedTimes must be an array of valid date strings" }); return;
+    }
+
+    const [guardian] = await db.select({ name: guardiansTable.name }).from(guardiansTable).where(eq(guardiansTable.id, Number(guardianId)));
+    const [student] = await db.select({ firstName: studentsTable.firstName, lastName: studentsTable.lastName }).from(studentsTable).where(eq(studentsTable.id, studentId));
+
+    const timesFormatted = proposedTimes.map((t: string) => {
+      const d = new Date(t);
+      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }).join("\n• ");
+
+    const msgBody = `Dear ${guardian?.name ?? "Guardian"},\n\nI would like to schedule a conference to discuss ${student?.firstName ?? ""} ${student?.lastName ?? ""}'s educational program.\n\nPurpose: ${title}\n${description ? `\nDetails: ${description}\n` : ""}\nProposed Times:\n• ${timesFormatted}\n${location ? `\nLocation: ${location}` : ""}\n\nPlease respond in your portal to accept a time or suggest an alternative.\n\nBest regards`;
+
+    const [message] = await db.insert(parentMessagesTable).values({
+      studentId,
+      senderType: "staff",
+      senderStaffId: staffId,
+      recipientGuardianId: Number(guardianId),
+      category: "conference_request",
+      subject: `Conference Request — ${student?.firstName ?? ""} ${student?.lastName ?? ""}`,
+      body: msgBody,
+    }).returning();
+
+    await db.update(parentMessagesTable).set({ threadId: message.id }).where(eq(parentMessagesTable.id, message.id));
+
+    const [conf] = await db.insert(conferenceRequestsTable).values({
+      studentId,
+      staffId,
+      guardianId: Number(guardianId),
+      messageId: message.id,
+      title,
+      description: description || null,
+      proposedTimes,
+      location: location || null,
+      status: "proposed",
+    }).returning();
+
+    logAudit(req, {
+      action: "create",
+      targetTable: "conference_requests",
+      targetId: conf.id,
+      studentId,
+      summary: `Created conference request: ${title}`,
+      newValues: { guardianId, title, proposedTimes },
+    });
+
+    res.status(201).json({ conference: { ...conf, createdAt: conf.createdAt.toISOString(), updatedAt: conf.updatedAt.toISOString() }, message: { ...message, createdAt: message.createdAt.toISOString() } });
+  } catch (err) {
+    console.error("POST /students/:studentId/conference-requests error:", err);
+    res.status(500).json({ error: "Failed to create conference request" });
+  }
+});
+
+router.get("/students/:studentId/conference-requests", async (req: Request, res: Response) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+    if (!(await verifyStudentInDistrict(req, studentId))) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+
+    const conferences = await db
+      .select({
+        id: conferenceRequestsTable.id,
+        studentId: conferenceRequestsTable.studentId,
+        staffId: conferenceRequestsTable.staffId,
+        guardianId: conferenceRequestsTable.guardianId,
+        messageId: conferenceRequestsTable.messageId,
+        title: conferenceRequestsTable.title,
+        description: conferenceRequestsTable.description,
+        proposedTimes: conferenceRequestsTable.proposedTimes,
+        selectedTime: conferenceRequestsTable.selectedTime,
+        status: conferenceRequestsTable.status,
+        location: conferenceRequestsTable.location,
+        guardianNotes: conferenceRequestsTable.guardianNotes,
+        createdAt: conferenceRequestsTable.createdAt,
+        staffFirst: staffTable.firstName,
+        staffLast: staffTable.lastName,
+        guardianName: guardiansTable.name,
+      })
+      .from(conferenceRequestsTable)
+      .leftJoin(staffTable, eq(staffTable.id, conferenceRequestsTable.staffId))
+      .leftJoin(guardiansTable, eq(guardiansTable.id, conferenceRequestsTable.guardianId))
+      .where(eq(conferenceRequestsTable.studentId, studentId))
+      .orderBy(desc(conferenceRequestsTable.createdAt));
+
+    res.json(conferences.map(c => ({
+      ...c,
+      staffName: c.staffFirst ? `${c.staffFirst} ${c.staffLast}` : null,
+      createdAt: c.createdAt.toISOString(),
+      selectedTime: c.selectedTime?.toISOString() ?? null,
+    })));
+  } catch (err) {
+    console.error("GET /students/:studentId/conference-requests error:", err);
+    res.status(500).json({ error: "Failed to load conference requests" });
+  }
+});
+
+const guardianMessagesRouter = Router();
+guardianMessagesRouter.use(requireGuardianScope);
+
+async function resolveGuardianId(req: Request): Promise<number | null> {
+  const authed = req as AuthedRequest;
+  return authed.tenantGuardianId ?? null;
+}
+
+guardianMessagesRouter.get("/messages", async (req: Request, res: Response) => {
+  try {
+    const guardianId = await resolveGuardianId(req);
+    if (!guardianId) { res.status(403).json({ error: "No guardian identity" }); return; }
+
+    const messages = await db
+      .select({
+        id: parentMessagesTable.id,
+        studentId: parentMessagesTable.studentId,
+        senderType: parentMessagesTable.senderType,
+        senderStaffId: parentMessagesTable.senderStaffId,
+        senderGuardianId: parentMessagesTable.senderGuardianId,
+        threadId: parentMessagesTable.threadId,
+        category: parentMessagesTable.category,
+        subject: parentMessagesTable.subject,
+        body: parentMessagesTable.body,
+        readAt: parentMessagesTable.readAt,
+        createdAt: parentMessagesTable.createdAt,
+        senderStaffFirst: staffTable.firstName,
+        senderStaffLast: staffTable.lastName,
+        studentFirst: studentsTable.firstName,
+        studentLast: studentsTable.lastName,
+      })
+      .from(parentMessagesTable)
+      .leftJoin(staffTable, eq(staffTable.id, parentMessagesTable.senderStaffId))
+      .leftJoin(studentsTable, eq(studentsTable.id, parentMessagesTable.studentId))
+      .where(or(
+        eq(parentMessagesTable.recipientGuardianId, guardianId),
+        eq(parentMessagesTable.senderGuardianId, guardianId),
+      ))
+      .orderBy(desc(parentMessagesTable.createdAt));
+
+    const grouped = new Map<number, any[]>();
+    for (const m of messages) {
+      const msg = {
+        ...m,
+        senderName: m.senderType === "staff"
+          ? (m.senderStaffFirst ? `${m.senderStaffFirst} ${m.senderStaffLast}` : "Staff")
+          : "You",
+        studentName: m.studentFirst ? `${m.studentFirst} ${m.studentLast}` : null,
+        createdAt: m.createdAt.toISOString(),
+        readAt: m.readAt?.toISOString() ?? null,
+      };
+      const tid = m.threadId ?? m.id;
+      if (!grouped.has(tid)) grouped.set(tid, []);
+      grouped.get(tid)!.push(msg);
+    }
+
+    const threads = Array.from(grouped.entries()).map(([threadId, msgs]) => {
+      msgs.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const unreadCount = msgs.filter((m: any) => !m.readAt && m.senderType === "staff").length;
+      return {
+        threadId,
+        subject: msgs[0].subject,
+        category: msgs[0].category,
+        studentName: msgs[0].studentName,
+        messageCount: msgs.length,
+        unreadCount,
+        lastMessageAt: msgs[msgs.length - 1].createdAt,
+        messages: msgs,
+      };
+    });
+
+    threads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+
+    res.json({ threads, unreadTotal: threads.reduce((s, t) => s + t.unreadCount, 0) });
+  } catch (err) {
+    console.error("GET /guardian-portal/messages error:", err);
+    res.status(500).json({ error: "Failed to load messages" });
+  }
+});
+
+guardianMessagesRouter.patch("/messages/:id/read", async (req: Request, res: Response) => {
+  try {
+    const guardianId = await resolveGuardianId(req);
+    if (!guardianId) { res.status(403).json({ error: "No guardian identity" }); return; }
+
+    const msgId = Number(req.params.id);
+    if (isNaN(msgId)) { res.status(400).json({ error: "Invalid message ID" }); return; }
+
+    const [msg] = await db.select({ id: parentMessagesTable.id, recipientGuardianId: parentMessagesTable.recipientGuardianId })
+      .from(parentMessagesTable)
+      .where(and(eq(parentMessagesTable.id, msgId), eq(parentMessagesTable.recipientGuardianId, guardianId)));
+
+    if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+
+    await db.update(parentMessagesTable).set({ readAt: new Date() }).where(eq(parentMessagesTable.id, msgId));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("PATCH /guardian-portal/messages/:id/read error:", err);
+    res.status(500).json({ error: "Failed to mark as read" });
+  }
+});
+
+guardianMessagesRouter.post("/messages/:id/reply", async (req: Request, res: Response) => {
+  try {
+    const guardianId = await resolveGuardianId(req);
+    if (!guardianId) { res.status(403).json({ error: "No guardian identity" }); return; }
+
+    const parentMsgId = Number(req.params.id);
+    if (isNaN(parentMsgId)) { res.status(400).json({ error: "Invalid message ID" }); return; }
+
+    const { body } = req.body;
+    if (!body?.trim()) { res.status(400).json({ error: "Reply body is required" }); return; }
+
+    const [original] = await db.select()
+      .from(parentMessagesTable)
+      .where(and(
+        eq(parentMessagesTable.id, parentMsgId),
+        or(eq(parentMessagesTable.recipientGuardianId, guardianId), eq(parentMessagesTable.senderGuardianId, guardianId)),
+      ));
+
+    if (!original) { res.status(404).json({ error: "Original message not found" }); return; }
+
+    const threadId = original.threadId ?? original.id;
+    const recipientStaffId = original.senderStaffId ?? original.recipientStaffId;
+
+    const [reply] = await db.insert(parentMessagesTable).values({
+      studentId: original.studentId,
+      senderType: "guardian",
+      senderGuardianId: guardianId,
+      recipientStaffId,
+      threadId,
+      category: original.category,
+      subject: original.subject.startsWith("Re: ") ? original.subject : `Re: ${original.subject}`,
+      body: body.trim(),
+    }).returning();
+
+    res.status(201).json({ ...reply, createdAt: reply.createdAt.toISOString(), updatedAt: reply.updatedAt.toISOString() });
+  } catch (err) {
+    console.error("POST /guardian-portal/messages/:id/reply error:", err);
+    res.status(500).json({ error: "Failed to send reply" });
+  }
+});
+
+guardianMessagesRouter.get("/conferences", async (req: Request, res: Response) => {
+  try {
+    const guardianId = await resolveGuardianId(req);
+    if (!guardianId) { res.status(403).json({ error: "No guardian identity" }); return; }
+
+    const conferences = await db
+      .select({
+        id: conferenceRequestsTable.id,
+        studentId: conferenceRequestsTable.studentId,
+        title: conferenceRequestsTable.title,
+        description: conferenceRequestsTable.description,
+        proposedTimes: conferenceRequestsTable.proposedTimes,
+        selectedTime: conferenceRequestsTable.selectedTime,
+        status: conferenceRequestsTable.status,
+        location: conferenceRequestsTable.location,
+        createdAt: conferenceRequestsTable.createdAt,
+        staffFirst: staffTable.firstName,
+        staffLast: staffTable.lastName,
+        studentFirst: studentsTable.firstName,
+        studentLast: studentsTable.lastName,
+      })
+      .from(conferenceRequestsTable)
+      .leftJoin(staffTable, eq(staffTable.id, conferenceRequestsTable.staffId))
+      .leftJoin(studentsTable, eq(studentsTable.id, conferenceRequestsTable.studentId))
+      .where(eq(conferenceRequestsTable.guardianId, guardianId))
+      .orderBy(desc(conferenceRequestsTable.createdAt));
+
+    res.json(conferences.map(c => ({
+      ...c,
+      staffName: c.staffFirst ? `${c.staffFirst} ${c.staffLast}` : null,
+      studentName: c.studentFirst ? `${c.studentFirst} ${c.studentLast}` : null,
+      createdAt: c.createdAt.toISOString(),
+      selectedTime: c.selectedTime?.toISOString() ?? null,
+    })));
+  } catch (err) {
+    console.error("GET /guardian-portal/conferences error:", err);
+    res.status(500).json({ error: "Failed to load conferences" });
+  }
+});
+
+guardianMessagesRouter.patch("/conferences/:id", async (req: Request, res: Response) => {
+  try {
+    const guardianId = await resolveGuardianId(req);
+    if (!guardianId) { res.status(403).json({ error: "No guardian identity" }); return; }
+
+    const confId = Number(req.params.id);
+    if (isNaN(confId)) { res.status(400).json({ error: "Invalid conference ID" }); return; }
+
+    const { status, selectedTime, guardianNotes } = req.body;
+
+    const [conf] = await db.select()
+      .from(conferenceRequestsTable)
+      .where(and(eq(conferenceRequestsTable.id, confId), eq(conferenceRequestsTable.guardianId, guardianId)));
+
+    if (!conf) { res.status(404).json({ error: "Conference not found" }); return; }
+
+    const updates: any = {};
+    if (status === "accepted" && selectedTime) {
+      updates.status = "accepted";
+      updates.selectedTime = new Date(selectedTime);
+    } else if (status === "declined") {
+      updates.status = "declined";
+    }
+    if (guardianNotes !== undefined) updates.guardianNotes = guardianNotes;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid updates provided" });
+      return;
+    }
+
+    const [updated] = await db.update(conferenceRequestsTable)
+      .set(updates)
+      .where(eq(conferenceRequestsTable.id, confId))
+      .returning();
+
+    if (conf.messageId) {
+      const statusText = updates.status === "accepted"
+        ? `Conference accepted for ${new Date(selectedTime).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+        : "Conference request declined";
+
+      await db.insert(parentMessagesTable).values({
+        studentId: conf.studentId,
+        senderType: "guardian",
+        senderGuardianId: guardianId,
+        recipientStaffId: conf.staffId,
+        threadId: conf.messageId,
+        category: "conference_request",
+        subject: `Re: Conference Request — ${conf.title}`,
+        body: `${statusText}${guardianNotes ? `\n\nNote: ${guardianNotes}` : ""}`,
+      });
+    }
+
+    res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(), selectedTime: updated.selectedTime?.toISOString() ?? null });
+  } catch (err) {
+    console.error("PATCH /guardian-portal/conferences/:id error:", err);
+    res.status(500).json({ error: "Failed to update conference" });
+  }
+});
+
+export { guardianMessagesRouter };
+export default router;

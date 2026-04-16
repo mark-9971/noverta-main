@@ -85,3 +85,4 @@ export * from "./bipStatusHistory";
 export * from "./bipImplementers";
 export * from "./bipFidelityLogs";
 export * from "./iepBuilderDrafts";
+export * from "./parentMessages";

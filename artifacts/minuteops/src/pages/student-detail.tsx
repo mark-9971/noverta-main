@@ -14,6 +14,7 @@ import { RISK_CONFIG } from "@/lib/constants";
 import BipManagement from "@/components/bip-management";
 import StudentDocuments from "@/components/student-documents";
 import { StudentGuardians } from "@/components/student-guardians";
+import StudentMessages from "@/components/student-messages";
 import { useRole } from "@/lib/role-context";
 import { AbaGraph, IoaSummary } from "@/components/aba-graph";
 import { getStudentPhaseChanges, listBehaviorTargets, listProgramTargets, getBehaviorDataTrends, getProgramDataTrends, listDataSessions, getStudentProtectiveMeasures, getStudentMinutesTrend, getCompensatorySummaryByStudent, getDataSession, getSession, getStudentProgressSummary, createProgressShareLink, createServiceRequirement, updateServiceRequirement, deleteServiceRequirement, listServiceTypes, listStaff, createStaffAssignment, deleteStaffAssignment } from "@workspace/api-client-react";
@@ -138,6 +139,8 @@ export default function StudentDetail() {
   const [archiveSaving, setArchiveSaving] = useState(false);
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [reactivateSaving, setReactivateSaving] = useState(false);
+  const [messageGuardians, setMessageGuardians] = useState<{ id: number; name: string; relationship: string; email: string | null }[]>([]);
+
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [addEventSaving, setAddEventSaving] = useState(false);
   const [addEventForm, setAddEventForm] = useState({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
@@ -173,6 +176,10 @@ export default function StudentDetail() {
         .then((d: MedicalAlertRecord[]) => setMedicalAlerts(Array.isArray(d) ? d : []))
         .catch(() => {})
         .finally(() => setMedicalAlertsLoading(false));
+      authFetch(`/api/students/${studentId}/guardians`)
+        .then((r: Response) => r.ok ? r.json() : [])
+        .then((d: any) => setMessageGuardians(Array.isArray(d) ? d : []))
+        .catch(() => {});
     }
   }, [studentId]);
 
@@ -449,6 +456,7 @@ export default function StudentDetail() {
     { id: "clinical", label: "Clinical" },
     { id: "sessions", label: "Sessions" },
     { id: "safety", label: "Safety" },
+    { id: "messages", label: "Messages" },
     { id: "enrollment", label: "Enrollment" },
   ] as const;
 
@@ -2002,6 +2010,13 @@ export default function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      <div id="messages" ref={setSectionRef("messages")} className="scroll-mt-16" />
+      <StudentMessages
+        studentId={studentId}
+        studentName={student ? `${student.firstName} ${student.lastName}` : ""}
+        guardians={messageGuardians}
+      />
 
       <div id="enrollment" ref={setSectionRef("enrollment")} className="scroll-mt-16" />
       <Card>

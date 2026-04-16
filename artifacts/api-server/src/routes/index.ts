@@ -52,6 +52,7 @@ import legalRouter from "./legal";
 import generatedDocumentsRouter from "./generatedDocuments";
 import communicationEventsRouter from "./communicationEvents";
 import guardianPortalRouter from "./guardianPortal";
+import parentMessagesRouter, { guardianMessagesRouter } from "./parentMessages";
 
 const router: IRouter = Router();
 
@@ -67,6 +68,7 @@ router.use(requireAuth);
 // Must be path-scoped so requireGuardianScope inside the sub-router doesn't bleed
 // into all other routes.
 router.use("/guardian-portal", guardianPortalRouter);
+router.use("/guardian-portal", guardianMessagesRouter);
 
 // Global district scope enforcement: non-platform-admin users without a district claim
 // in their token are blocked from all authenticated data routes. Platform admins pass through.
@@ -155,5 +157,6 @@ router.use(rolloverRouter);
 router.use(legalRouter);
 router.use(generatedDocumentsRouter);
 router.use(communicationEventsRouter);
+router.use(parentMessagesRouter);
 
 export default router;

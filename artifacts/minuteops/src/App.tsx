@@ -53,6 +53,7 @@ const GuardianPortalHome = lazy(() => import("@/pages/guardian-portal/GuardianPo
 const GuardianDocuments = lazy(() => import("@/pages/guardian-portal/GuardianDocuments"));
 const GuardianMeetings = lazy(() => import("@/pages/guardian-portal/GuardianMeetings"));
 const GuardianContactHistory = lazy(() => import("@/pages/guardian-portal/GuardianContactHistory"));
+const GuardianMessages = lazy(() => import("@/pages/guardian-portal/GuardianMessages"));
 const IepSuggestions = lazy(() => import("@/pages/iep-suggestions"));
 const DistrictOverview = lazy(() => import("@/pages/district-overview"));
 const BehaviorAssessmentPage = lazy(() => import("@/pages/behavior-assessment"));
@@ -224,6 +225,7 @@ function GuardianPortalRouter() {
       <BoundedRoute path="/guardian-portal/documents" component={GuardianDocuments} fallbackTitle="Documents error" />
       <BoundedRoute path="/guardian-portal/meetings" component={GuardianMeetings} fallbackTitle="Meetings error" />
       <BoundedRoute path="/guardian-portal/contact-history" component={GuardianContactHistory} fallbackTitle="Contact history error" />
+      <BoundedRoute path="/guardian-portal/messages" component={GuardianMessages} fallbackTitle="Messages error" />
       <Route>{() => <Redirect to="/guardian-portal" />}</Route>
     </Switch>
   );

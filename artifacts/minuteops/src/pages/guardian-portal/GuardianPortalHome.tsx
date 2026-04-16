@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { FileText, Calendar, MessageSquare, User, ShieldCheck } from "lucide-react";
+import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox } from "lucide-react";
 import { Link } from "wouter";
 
 interface GuardianMe {
@@ -25,6 +25,13 @@ export default function GuardianPortalHome() {
     enabled: !!data,
   });
 
+  const { data: msgData } = useQuery<{ threads: any[]; unreadTotal: number }>({
+    queryKey: ["guardian-portal-messages"],
+    queryFn: ({ signal }) =>
+      authFetch("/api/guardian-portal/messages", { signal }).then(r => r.ok ? r.json() : { threads: [], unreadTotal: 0 }),
+    enabled: !!data,
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -45,6 +52,7 @@ export default function GuardianPortalHome() {
   const { guardian, student } = data;
   const docs = docsData?.documents ?? [];
   const pendingAck = docs.filter(d => !d.acknowledgedAt).length;
+  const unreadMessages = msgData?.unreadTotal ?? 0;
   const studentName = student ? `${student.firstName} ${student.lastName}` : "your child";
 
   return (
@@ -60,17 +68,35 @@ export default function GuardianPortalHome() {
               {guardian.relationship ? `${guardian.relationship} of ` : ""}{studentName}
               {student?.grade ? ` · Grade ${student.grade}` : ""}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Read-only portal — for questions contact your school team directly</p>
+            <p className="text-xs text-gray-400 mt-1">Secure portal — view documents, messages, and respond to your school team</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link href="/guardian-portal/documents">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link href="/guardian-portal/messages">
           <a className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer block group">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-emerald-600" />
+                <Inbox className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="font-semibold text-gray-800 text-sm group-hover:text-emerald-700 transition-colors">Messages</span>
+            </div>
+            <p className="text-xs text-gray-500">
+              {unreadMessages > 0 ? (
+                <span className="text-emerald-600 font-medium">{unreadMessages} unread</span>
+              ) : (
+                "View inbox"
+              )}
+            </p>
+          </a>
+        </Link>
+
+        <Link href="/guardian-portal/documents">
+          <a className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer block group">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-amber-600" />
               </div>
               <span className="font-semibold text-gray-800 text-sm group-hover:text-emerald-700 transition-colors">Documents</span>
             </div>
@@ -112,9 +138,9 @@ export default function GuardianPortalHome() {
 
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
         <p className="text-xs text-emerald-800">
-          <span className="font-semibold">This portal is read-only.</span>{" "}
-          To make requests or ask questions, contact your school's SPED team directly.
-          All documents shared here are official records from your child's education team.
+          <span className="font-semibold">Your secure parent portal.</span>{" "}
+          View documents, meetings, and messages from your child's education team.
+          You can reply to messages and respond to conference requests directly through the portal.
         </p>
       </div>
     </div>
