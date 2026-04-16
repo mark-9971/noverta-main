@@ -26,14 +26,14 @@ function getDistrictId(req: AuthedRequest): number | null {
 
 async function getContractedProviderIds(districtId: number): Promise<Set<number>> {
   const contractedLinks = await db.selectDistinct({
-    providerId: sessionLogsTable.providerId,
+    providerId: sessionLogsTable.staffId,
   }).from(contractSessionLinksTable)
     .innerJoin(sessionLogsTable, eq(contractSessionLinksTable.sessionLogId, sessionLogsTable.id))
     .innerJoin(studentsTable, eq(sessionLogsTable.studentId, studentsTable.id))
     .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
     .where(and(
       eq(schoolsTable.districtId, districtId),
-      sql`${sessionLogsTable.providerId} IS NOT NULL`,
+      sql`${sessionLogsTable.staffId} IS NOT NULL`,
     ));
   return new Set(contractedLinks.map(c => c.providerId!));
 }
@@ -431,7 +431,7 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
   const delivered = await db.select({
     month: sql<string>`to_char(${sessionLogsTable.sessionDate}::date, 'YYYY-MM')`,
     serviceTypeId: sessionLogsTable.serviceTypeId,
-    providerId: sessionLogsTable.providerId,
+    providerId: sessionLogsTable.staffId,
     totalMinutes: sql<number>`coalesce(sum(${sessionLogsTable.durationMinutes}), 0)::int`,
   }).from(sessionLogsTable).where(and(
     inArray(sessionLogsTable.studentId, studentIds),
@@ -441,7 +441,7 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
   )).groupBy(
     sql`to_char(${sessionLogsTable.sessionDate}::date, 'YYYY-MM')`,
     sessionLogsTable.serviceTypeId,
-    sessionLogsTable.providerId,
+    sessionLogsTable.staffId,
   );
 
   const svcReqIds = [...new Set(accrued.filter(a => a.serviceReqId).map(a => a.serviceReqId!))];
