@@ -123,6 +123,7 @@ const adminNav: NavSection[] = [
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/coverage", label: "Coverage", icon: UserX },
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
     ],

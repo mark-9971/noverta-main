@@ -53,6 +53,7 @@ import generatedDocumentsRouter from "./generatedDocuments";
 import communicationEventsRouter from "./communicationEvents";
 import guardianPortalRouter from "./guardianPortal";
 import parentMessagesRouter, { guardianMessagesRouter } from "./parentMessages";
+import staffSchedulesRouter from "./staffSchedules";
 
 const router: IRouter = Router();
 
@@ -98,6 +99,8 @@ router.use("/schedule-blocks", requireDistrictScope);
 router.use("/schedule-blocks", requireStaffOnly);
 router.use("/staff-assignments", requireDistrictScope);
 router.use("/staff-assignments", requireStaffOnly);
+router.use("/staff-schedules", requireDistrictScope);
+router.use("/staff-schedules", requireStaffOnly);
 // Reports router previously had a blanket router.use(requirePrivilegedStaff) with no
 // path, which bled into every subsequent router. Scoped here instead.
 router.use("/reports", requirePrivilegedStaffOnly);
@@ -158,5 +161,6 @@ router.use(legalRouter);
 router.use(generatedDocumentsRouter);
 router.use(communicationEventsRouter);
 router.use(parentMessagesRouter);
+router.use(staffSchedulesRouter);
 
 export default router;

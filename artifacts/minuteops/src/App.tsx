@@ -28,6 +28,7 @@ const Dashboard = lazy(() => import("@/pages/dashboard"));
 const Students = lazy(() => import("@/pages/students"));
 const Sessions = lazy(() => import("@/pages/sessions"));
 const Schedule = lazy(() => import("@/pages/schedule"));
+const StaffCalendar = lazy(() => import("@/pages/staff-calendar"));
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const Compliance = lazy(() => import("@/pages/compliance"));
@@ -158,6 +159,7 @@ function StaffRouter() {
       <BoundedRoute path="/students" component={Students} fallbackTitle="Students page error" />
       <BoundedRoute path="/sessions" component={Sessions} fallbackTitle="Sessions error" />
       <BoundedRoute path="/schedule" component={Schedule} fallbackTitle="Schedule error" />
+      <BoundedRoute path="/staff-calendar" component={StaffCalendar} fallbackTitle="Staff calendar error" />
       <BoundedRoute path="/coverage" component={CoveragePage} fallbackTitle="Coverage error" />
       <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
