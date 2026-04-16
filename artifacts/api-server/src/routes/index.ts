@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRoles } from "../middlewares/auth";
 import healthRouter from "./health";
 import schoolsRouter from "./schools";
 import studentsRouter from "./students";
@@ -57,6 +57,24 @@ router.use(documentsRouter);
 router.use(demoRequestsRouter);
 
 router.use(requireAuth);
+
+// Path-scoped role guards — applied before their respective routers so they only
+// block sped_student (and where appropriate, lower-privilege roles) from staff-facing
+// resources without leaking middleware across unrelated sub-routers.
+const requireStaffOnly = requireRoles(
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para",
+);
+const requirePrivilegedStaffOnly = requireRoles(
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator",
+);
+router.use("/students", requireStaffOnly);
+router.use("/sessions", requireStaffOnly);
+router.use("/staff", requireStaffOnly);
+// Reports router previously had a blanket router.use(requirePrivilegedStaff) with no
+// path, which bled into every subsequent router. Scoped here instead.
+router.use("/reports", requirePrivilegedStaffOnly);
+// Incidents / protective measures — PRIVILEGED_STAFF only (para, provider, sped_student excluded)
+router.use("/protective-measures", requirePrivilegedStaffOnly);
 
 router.use(storageRouter);
 

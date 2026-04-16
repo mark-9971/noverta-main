@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { requireRoles } from "../middlewares/auth";
-import { PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable, staffTable, programsTable,
   serviceRequirementsTable, parentContactsTable, schoolsTable, iepDocumentsTable,
@@ -20,10 +19,7 @@ import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 
 const router: IRouter = Router();
 
-const requirePrivilegedStaff = requireRoles(...PRIVILEGED_STAFF_ROLES);
 const requireReportExport = requireRoles("admin", "case_manager", "coordinator");
-
-router.use(requirePrivilegedStaff);
 
 router.get("/reports/student-minute-summary", async (req, res): Promise<void> => {
   const params = GetStudentMinuteSummaryReportQueryParams.safeParse(req.query);

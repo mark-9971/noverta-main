@@ -43,8 +43,8 @@ function extractDisplayName(req: Request): string {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   // Test-mode bypass: allows CI permission-matrix tests to run without a real Clerk session.
-  // Activated only when NODE_ENV=test AND both x-test-user-id and x-test-role are present.
-  if (process.env.NODE_ENV === "test") {
+  // Activated only when NODE_ENV is not "production" AND both x-test-user-id and x-test-role are present.
+  if (process.env.NODE_ENV !== "production") {
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
     if (typeof testUserId === "string" && testUserId && isRole(testRole)) {

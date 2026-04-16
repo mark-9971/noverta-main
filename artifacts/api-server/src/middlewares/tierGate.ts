@@ -53,6 +53,17 @@ async function resolveDistrictTier(req: Request): Promise<DistrictTier> {
 
 export function requireTierAccess(featureKey: FeatureKey) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // Test-mode bypass: mirrors the pattern in requireAuth.
+    // Allows the permission-matrix test suite to reach routes gated behind this middleware
+    // without a real Clerk session. Requires NODE_ENV !== "production" AND x-test-user-id header.
+    if (process.env.NODE_ENV !== "production") {
+      const testUserId = req.headers["x-test-user-id"];
+      if (typeof testUserId === "string" && testUserId) {
+        next();
+        return;
+      }
+    }
+
     const auth = getAuth(req);
     if (!auth?.userId) {
       res.status(401).json({ error: "Unauthenticated", code: "UNAUTHENTICATED" });

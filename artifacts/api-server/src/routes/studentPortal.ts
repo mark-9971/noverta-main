@@ -25,12 +25,14 @@ async function resolveAuthorizedStudentId(req: Request, res: Response): Promise<
   const meta = getPublicMeta(req);
   const authed = req as AuthedRequest;
 
-  if (meta.role === "sped_student") {
-    if (!meta.studentId) {
+  if (authed.trellisRole === "sped_student") {
+    // Prefer token-resolved ID (works in both production and test-bypass mode)
+    const studentId = authed.tenantStudentId ?? meta.studentId ?? null;
+    if (!studentId) {
       res.status(400).json({ error: "No student ID associated with your account" });
       return null;
     }
-    return meta.studentId;
+    return studentId;
   }
 
   if (!STAFF_ROLES.includes(authed.trellisRole)) {
