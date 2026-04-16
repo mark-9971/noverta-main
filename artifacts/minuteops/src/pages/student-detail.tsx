@@ -1308,12 +1308,28 @@ export default function StudentDetail() {
                 <Gift className="w-4 h-4 text-emerald-600" />
                 Compensatory Services
               </CardTitle>
-              <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                View All
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link href="/compensatory-finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  Financial View
+                </Link>
+                <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  View All
+                </Link>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
+            {compSummary.totalRemaining > 0 && (
+              <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-amber-800">Est. Financial Exposure</p>
+                  <p className="text-sm font-bold text-amber-900">
+                    ${((compSummary.totalRemaining / 60) * 75).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+                <p className="text-[10px] text-amber-600 mt-0.5">Based on default rate · See Financial View for configured rates</p>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="bg-gray-50 rounded-lg p-3 text-center">
                 <p className="text-lg font-bold text-gray-800">{compSummary.totalRemaining}</p>

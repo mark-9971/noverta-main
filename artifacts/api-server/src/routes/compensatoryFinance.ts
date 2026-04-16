@@ -11,6 +11,7 @@ import {
   serviceRateConfigsTable,
   agencyContractsTable,
   agenciesTable,
+  contractSessionLinksTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, inArray, desc, asc, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
@@ -20,11 +21,30 @@ const router = Router();
 const DEFAULT_HOURLY_RATE = 75;
 
 function getDistrictId(req: AuthedRequest): number | null {
-  try {
-    return getEnforcedDistrictId(req);
-  } catch {
-    return null;
-  }
+  return getEnforcedDistrictId(req);
+}
+
+async function getContractedProviderIds(districtId: number): Promise<Set<number>> {
+  const contractedLinks = await db.selectDistinct({
+    providerId: sessionLogsTable.providerId,
+  }).from(contractSessionLinksTable)
+    .innerJoin(sessionLogsTable, eq(contractSessionLinksTable.sessionLogId, sessionLogsTable.id))
+    .innerJoin(studentsTable, eq(sessionLogsTable.studentId, studentsTable.id))
+    .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .where(and(
+      eq(schoolsTable.districtId, districtId),
+      sql`${sessionLogsTable.providerId} IS NOT NULL`,
+    ));
+  return new Set(contractedLinks.map(c => c.providerId!));
+}
+
+function resolveRate(
+  rateMap: Map<number, { inHouse: number; contracted: number }>,
+  serviceTypeId: number,
+  isContracted: boolean,
+): number {
+  const rates = rateMap.get(serviceTypeId) || { inHouse: DEFAULT_HOURLY_RATE, contracted: DEFAULT_HOURLY_RATE };
+  return isContracted ? rates.contracted : rates.inHouse;
 }
 
 async function getRateMap(districtId: number): Promise<Map<number, { inHouse: number; contracted: number }>> {
@@ -109,7 +129,10 @@ router.get("/compensatory-finance/overview", async (req, res): Promise<void> => 
     return;
   }
 
-  const rateMap = await getRateMap(districtId);
+  const [rateMap, contractedProviders] = await Promise.all([
+    getRateMap(districtId),
+    getContractedProviderIds(districtId),
+  ]);
 
   const obligations = await db.select({
     id: compensatoryObligationsTable.id,
@@ -130,7 +153,12 @@ router.get("/compensatory-finance/overview", async (req, res): Promise<void> => 
       serviceTypeId: serviceRequirementsTable.serviceTypeId,
       providerId: serviceRequirementsTable.providerId,
       studentId: serviceRequirementsTable.studentId,
-    }).from(serviceRequirementsTable).where(inArray(serviceRequirementsTable.id, svcReqIds));
+    }).from(serviceRequirementsTable).where(
+      and(
+        inArray(serviceRequirementsTable.id, svcReqIds),
+        inArray(serviceRequirementsTable.studentId, studentIds),
+      )
+    );
     svcReqMap = new Map(reqs.map(r => [r.id, r]));
   }
 
@@ -154,9 +182,17 @@ router.get("/compensatory-finance/overview", async (req, res): Promise<void> => 
   const providerIds = [...new Set([...svcReqMap.values()].filter(v => v.providerId).map(v => v.providerId!))];
   let providerNameMap = new Map<number, string>();
   if (providerIds.length > 0) {
-    const providers = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
-      .from(staffTable).where(inArray(staffTable.id, providerIds));
-    providerNameMap = new Map(providers.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
+    const districtStaffIds = await db.select({ id: staffTable.id })
+      .from(staffTable)
+      .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+      .where(eq(schoolsTable.districtId, districtId))
+      .then(r => new Set(r.map(s => s.id)));
+    const scopedProviderIds = providerIds.filter(id => districtStaffIds.has(id));
+    if (scopedProviderIds.length > 0) {
+      const providers = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
+        .from(staffTable).where(inArray(staffTable.id, scopedProviderIds));
+      providerNameMap = new Map(providers.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
+    }
   }
 
   let totalMinutesOwed = 0;
@@ -171,8 +207,8 @@ router.get("/compensatory-finance/overview", async (req, res): Promise<void> => 
   for (const ob of obligations) {
     const svcReq = ob.serviceRequirementId ? svcReqMap.get(ob.serviceRequirementId) : null;
     const serviceTypeId = svcReq?.serviceTypeId || 0;
-    const rates = rateMap.get(serviceTypeId) || { inHouse: DEFAULT_HOURLY_RATE, contracted: DEFAULT_HOURLY_RATE };
-    const rate = rates.inHouse;
+    const isContracted = svcReq?.providerId ? contractedProviders.has(svcReq.providerId) : false;
+    const rate = resolveRate(rateMap, serviceTypeId, isContracted);
 
     const owedDollars = minutesToDollars(ob.minutesOwed, rate);
     const deliveredDollars = minutesToDollars(ob.minutesDelivered, rate);
@@ -252,7 +288,10 @@ router.get("/compensatory-finance/students", async (req, res): Promise<void> => 
 
   const studentMap = new Map(districtStudents.map(s => [s.id, s]));
 
-  const rateMap = await getRateMap(districtId);
+  const [rateMap, contractedProviders] = await Promise.all([
+    getRateMap(districtId),
+    getContractedProviderIds(districtId),
+  ]);
 
   const obligations = await db.select({
     studentId: compensatoryObligationsTable.studentId,
@@ -267,12 +306,18 @@ router.get("/compensatory-finance/students", async (req, res): Promise<void> => 
   );
 
   const svcReqIds = [...new Set(obligations.filter(o => o.serviceRequirementId).map(o => o.serviceRequirementId!))];
-  let svcReqMap = new Map<number, { serviceTypeId: number }>();
+  let svcReqMap = new Map<number, { serviceTypeId: number; providerId: number | null }>();
   if (svcReqIds.length > 0) {
     const reqs = await db.select({
       id: serviceRequirementsTable.id,
       serviceTypeId: serviceRequirementsTable.serviceTypeId,
-    }).from(serviceRequirementsTable).where(inArray(serviceRequirementsTable.id, svcReqIds));
+      providerId: serviceRequirementsTable.providerId,
+    }).from(serviceRequirementsTable).where(
+      and(
+        inArray(serviceRequirementsTable.id, svcReqIds),
+        inArray(serviceRequirementsTable.studentId, studentIds),
+      )
+    );
     svcReqMap = new Map(reqs.map(r => [r.id, r]));
   }
 
@@ -311,8 +356,8 @@ router.get("/compensatory-finance/students", async (req, res): Promise<void> => 
     const entry = perStudent[ob.studentId];
     const svcReq = ob.serviceRequirementId ? svcReqMap.get(ob.serviceRequirementId) : null;
     const serviceTypeId = svcReq?.serviceTypeId || 0;
-    const rates = rateMap.get(serviceTypeId) || { inHouse: DEFAULT_HOURLY_RATE, contracted: DEFAULT_HOURLY_RATE };
-    const rate = rates.inHouse;
+    const isContracted = svcReq?.providerId ? contractedProviders.has(svcReq.providerId) : false;
+    const rate = resolveRate(rateMap, serviceTypeId, isContracted);
 
     const owedDollars = minutesToDollars(ob.minutesOwed, rate);
     const deliveredDollars = minutesToDollars(ob.minutesDelivered, rate);
@@ -473,7 +518,10 @@ router.get("/compensatory-finance/export.csv", async (req, res): Promise<void> =
   const studentIds = districtStudents.map(s => s.id);
   const studentMap = new Map(districtStudents.map(s => [s.id, s]));
 
-  const rateMap = await getRateMap(districtId);
+  const [rateMap, contractedProviders] = await Promise.all([
+    getRateMap(districtId),
+    getContractedProviderIds(districtId),
+  ]);
 
   const schools = await db.select({ id: schoolsTable.id, name: schoolsTable.name })
     .from(schoolsTable).where(eq(schoolsTable.districtId, districtId));
@@ -505,7 +553,12 @@ router.get("/compensatory-finance/export.csv", async (req, res): Promise<void> =
       id: serviceRequirementsTable.id,
       serviceTypeId: serviceRequirementsTable.serviceTypeId,
       providerId: serviceRequirementsTable.providerId,
-    }).from(serviceRequirementsTable).where(inArray(serviceRequirementsTable.id, svcReqIds));
+    }).from(serviceRequirementsTable).where(
+      and(
+        inArray(serviceRequirementsTable.id, svcReqIds),
+        inArray(serviceRequirementsTable.studentId, studentIds),
+      )
+    );
     svcReqMap = new Map(reqs.map(r => [r.id, r]));
   }
 
@@ -533,8 +586,8 @@ router.get("/compensatory-finance/export.csv", async (req, res): Promise<void> =
     const student = studentMap.get(ob.studentId);
     const svcReq = ob.serviceRequirementId ? svcReqMap.get(ob.serviceRequirementId) : null;
     const serviceTypeId = svcReq?.serviceTypeId || 0;
-    const rates = rateMap.get(serviceTypeId) || { inHouse: DEFAULT_HOURLY_RATE, contracted: DEFAULT_HOURLY_RATE };
-    const rate = rates.inHouse;
+    const isContracted = svcReq?.providerId ? contractedProviders.has(svcReq.providerId) : false;
+    const rate = resolveRate(rateMap, serviceTypeId, isContracted);
     const dollarsOwed = minutesToDollars(ob.minutesOwed, rate);
     const dollarsDelivered = minutesToDollars(ob.minutesDelivered, rate);
     const remaining = ob.minutesOwed - ob.minutesDelivered;
