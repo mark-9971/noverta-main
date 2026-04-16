@@ -241,13 +241,26 @@ router.get("/accommodations/:accommodationId/verifications", async (req, res): P
 });
 
 router.get("/accommodation-compliance", async (req, res): Promise<void> => {
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const authed = req as AuthedRequest;
+  const enforcedDistrictId = getEnforcedDistrictId(authed);
+  const callerRole = authed.trellisRole;
+  const callerStaffId = authed.tenantStaffId;
+
+  const windowDays = req.query.windowDays
+    ? Math.min(Math.max(Number(req.query.windowDays), 1), 365)
+    : VERIFICATION_WINDOW_DAYS;
 
   const districtConditions = enforcedDistrictId !== null
     ? sql`s.school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDistrictId})`
     : sql`1=1`;
 
-  const staffIdFilter = req.query.staffId ? Number(req.query.staffId) : null;
+  const BROAD_ACCESS_ROLES = ["admin", "coordinator", "case_manager"];
+  let staffIdFilter: number | null = null;
+  if (req.query.staffId) {
+    staffIdFilter = Number(req.query.staffId);
+  } else if (callerStaffId && !BROAD_ACCESS_ROLES.includes(callerRole ?? "")) {
+    staffIdFilter = callerStaffId;
+  }
 
   const rows = await db.execute(sql`
     WITH student_accommodations AS (
@@ -264,7 +277,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
           SELECT COUNT(*)
           FROM accommodation_verifications av
           WHERE av.accommodation_id = ia.id
-            AND av.created_at >= NOW() - MAKE_INTERVAL(days => ${VERIFICATION_WINDOW_DAYS})
+            AND av.created_at >= NOW() - MAKE_INTERVAL(days => ${windowDays})
         ) AS recent_verification_count,
         (
           SELECT av.created_at
@@ -310,7 +323,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     districtId: enforcedDistrictId,
     totalStudents,
     overallComplianceRate,
-    verificationWindowDays: VERIFICATION_WINDOW_DAYS,
+    verificationWindowDays: windowDays,
     students: typedRows.map(r => ({
       studentId: Number(r.studentId),
       studentName: `${r.firstName} ${r.lastName}`.trim(),
