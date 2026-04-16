@@ -6,7 +6,7 @@ import {
   serviceRequirementsTable, serviceTypesTable,
   complianceEventsTable, iepDocumentsTable, teamMeetingsTable,
   agencyContractsTable, agenciesTable, districtsTable, schoolsTable,
-  restraintIncidentsTable,
+  restraintIncidentsTable, coverageInstancesTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, count, sql, asc, desc, isNull, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
@@ -180,6 +180,20 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     .where(and(...renewalConditions))
     .orderBy(asc(agencyContractsTable.endDate));
 
+  const uncoveredConditions: any[] = [
+    eq(coverageInstancesTable.absenceDate, todayStr),
+    eq(coverageInstancesTable.isCovered, false),
+  ];
+  if (sdFilters.schoolId) {
+    uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id = ${sdFilters.schoolId})`);
+  } else if (sdFilters.districtId) {
+    uncoveredConditions.push(sql`${coverageInstancesTable.originalStaffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+  }
+  const [uncoveredResult] = await db
+    .select({ count: count() })
+    .from(coverageInstancesTable)
+    .where(and(...uncoveredConditions));
+
   res.json({
     totalActiveStudents: activeStudentsResult?.count ?? 0,
     trackedStudents,
@@ -189,7 +203,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     outOfComplianceStudents: outOfCompliance,
     missedSessionsThisWeek: missedThisWeek?.count ?? 0,
     openMakeupObligations: openMakeups?.count ?? 0,
-    uncoveredBlocksToday: 0,
+    uncoveredBlocksToday: uncoveredResult?.count ?? 0,
     scheduleConflictsToday: conflictsCount,
     openAlerts: alertCounts[0]?.total ?? 0,
     criticalAlerts: alertCounts[0]?.critical ?? 0,
@@ -917,6 +931,48 @@ router.get("/dashboard/needs-attention", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("GET /dashboard/needs-attention error:", e);
     res.status(500).json({ error: "Failed to fetch needs-attention data" });
+  }
+});
+
+router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void> => {
+  try {
+    const { medicalAlertsTable } = await import("@workspace/db");
+    const sdFilters = parseSchoolDistrictFilters(req, req.query);
+
+    const conditions: any[] = [
+      sql`${medicalAlertsTable.severity} IN ('severe', 'life_threatening')`,
+      isNull(studentsTable.deletedAt),
+      eq(studentsTable.status, "active"),
+    ];
+    if (sdFilters.schoolId) {
+      conditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
+    } else if (sdFilters.districtId) {
+      conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId})`);
+    }
+
+    const alerts = await db
+      .select({
+        id: medicalAlertsTable.id,
+        studentId: medicalAlertsTable.studentId,
+        alertType: medicalAlertsTable.alertType,
+        description: medicalAlertsTable.description,
+        severity: medicalAlertsTable.severity,
+        treatmentNotes: medicalAlertsTable.treatmentNotes,
+        epiPenOnFile: medicalAlertsTable.epiPenOnFile,
+        studentFirst: studentsTable.firstName,
+        studentLast: studentsTable.lastName,
+        studentGrade: studentsTable.grade,
+      })
+      .from(medicalAlertsTable)
+      .innerJoin(studentsTable, eq(studentsTable.id, medicalAlertsTable.studentId))
+      .where(and(...conditions))
+      .orderBy(desc(sql`CASE WHEN ${medicalAlertsTable.severity} = 'life_threatening' THEN 0 ELSE 1 END`))
+      .limit(20);
+
+    res.json(alerts);
+  } catch (e: any) {
+    console.error("GET /dashboard/critical-medical-alerts error:", e);
+    res.status(500).json({ error: "Failed to fetch critical medical alerts" });
   }
 });
 

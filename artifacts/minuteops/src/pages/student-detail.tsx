@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing, MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout, Archive, ArchiveRestore, History, Phone, Mail, Stethoscope, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, TrendingDown, FileText, Activity, BookOpen, ArrowUpRight, ArrowDownRight, Minus, Shield, AlertTriangle, ChevronDown, ChevronUp, Clock, MapPin, Monitor, Target, Maximize2, Gift, Share2, Copy, ExternalLink, Plus, Pencil, Trash2, UserPlus, UserMinus, Sprout, Archive, ArchiveRestore, History, Phone, Mail, Stethoscope, ShieldAlert, Sparkles, CalendarDays, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Area, AreaChart } from "recharts";
@@ -545,6 +545,14 @@ export default function StudentDetail() {
   }
   const riskCfg = RISK_CONFIG[worstRisk] ?? RISK_CONFIG.on_track;
 
+  const latestEnrollment = enrollmentHistory.length > 0 ? enrollmentHistory[0] : null;
+  const enrolledEvent = enrollmentHistory.find((e: any) => e.eventType === "enrolled");
+  const enrollmentDate = enrolledEvent?.eventDate ?? s?.createdAt?.substring(0, 10);
+
+  const atRiskServices = progressList.filter((p: any) =>
+    p.riskStatus === "at_risk" || p.riskStatus === "slightly_behind" || p.riskStatus === "out_of_compliance"
+  );
+
   const chartData = progressList.map((p: any) => ({
     name: p.serviceTypeName?.split(" ").slice(0, 2).join(" ") ?? "Service",
     delivered: p.deliveredMinutes ?? 0,
@@ -723,6 +731,19 @@ export default function StudentDetail() {
               <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">{s.firstName} {s.lastName}</h1>
               <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate">
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
+                {enrollmentDate && (() => {
+                  const statusDate = s.status === "active"
+                    ? enrollmentDate
+                    : latestEnrollment?.eventDate ?? enrollmentDate;
+                  const statusLabel = s.status === "active" ? "Enrolled"
+                    : latestEnrollment?.eventType === "withdrawn" ? "Withdrawn"
+                    : latestEnrollment?.eventType === "graduated" ? "Graduated"
+                    : latestEnrollment?.eventType?.startsWith("transferred") ? "Transferred"
+                    : "Inactive";
+                  return (
+                    <> · <CalendarDays className="w-3 h-3 inline -mt-0.5" /> {statusLabel} {new Date(statusDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</>
+                  );
+                })()}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
@@ -818,6 +839,38 @@ export default function StudentDetail() {
             <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
               View Evaluations →
             </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {atRiskServices.length > 0 && (
+        <Card className={worstRisk === "out_of_compliance" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
+          <CardContent className="py-3 px-5">
+            <div className="flex items-center gap-3 mb-2">
+              <Bell className={`w-5 h-5 flex-shrink-0 ${worstRisk === "out_of_compliance" ? "text-red-500" : "text-amber-500"}`} />
+              <p className={`text-[13px] font-semibold ${worstRisk === "out_of_compliance" ? "text-red-700" : "text-amber-700"}`}>
+                {worstRisk === "out_of_compliance" ? "Service Minutes — Compliance Alert" : "Service Minutes — Approaching Shortfall"}
+              </p>
+            </div>
+            <div className="space-y-1 ml-8">
+              {atRiskServices.map((p: any) => {
+                const pct = p.requiredMinutes > 0 ? Math.round((p.deliveredMinutes / p.requiredMinutes) * 100) : 0;
+                const deficit = (p.requiredMinutes ?? 0) - (p.deliveredMinutes ?? 0);
+                const statusLabel = p.riskStatus === "out_of_compliance" ? "Out of Compliance" : p.riskStatus === "at_risk" ? "At Risk" : "Slightly Behind";
+                const statusColor = p.riskStatus === "out_of_compliance" ? "text-red-600" : p.riskStatus === "at_risk" ? "text-amber-600" : "text-yellow-600";
+                return (
+                  <div key={p.serviceRequirementId} className="flex items-center gap-2 text-[11px]">
+                    <span className={`font-semibold ${statusColor}`}>{statusLabel}</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-gray-600">{p.serviceTypeName}</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-gray-500">{p.deliveredMinutes}/{p.requiredMinutes} min ({pct}%)</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-gray-500">{deficit} min remaining</span>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
