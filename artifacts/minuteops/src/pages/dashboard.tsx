@@ -14,9 +14,10 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
-import { useState, useEffect } from "react";
-import { authFetch } from "@/lib/auth-fetch";
 import { FileSearch, Sprout, CalendarDays as MeetingIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/auth-fetch";
+import { useMemo } from "react";
 
 interface NeedsAttentionData {
   total: number;
@@ -27,14 +28,11 @@ interface NeedsAttentionData {
 }
 
 function NeedsAttentionPanel() {
-  const [data, setData] = useState<NeedsAttentionData | null>(null);
-
-  useEffect(() => {
-    authFetch("/api/dashboard/needs-attention")
-      .then(r => { if (r.ok) return r.json(); throw new Error(); })
-      .then((d: unknown) => setData(d as NeedsAttentionData))
-      .catch(() => {});
-  }, []);
+  const { data } = useQuery<NeedsAttentionData>({
+    queryKey: ["dashboard-needs-attention"],
+    queryFn: () => authFetch("/api/dashboard/needs-attention").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
 
   if (!data || data.total === 0) return null;
 
@@ -113,40 +111,21 @@ export default function Dashboard() {
   const academics = _academicsData as any;
   const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
-  interface EvalDashboardSummary {
-    overdueEvaluations: number;
-    upcomingReEvaluations: number;
-    openReferrals: number;
-    overdueReEvaluations: number;
-  }
-  const [evalDash, setEvalDash] = useState<EvalDashboardSummary | null>(null);
-  interface TransitionDashboardSummary {
-    totalTransitionAge: number;
-    missingPlan: number;
-    incompletePlans: number;
-    approachingTransitionAge: number;
-    overdueFollowups: number;
-  }
-  const [transitionDash, setTransitionDash] = useState<TransitionDashboardSummary | null>(null);
-  interface MeetingDashboardSummary {
-    overdueCount: number;
-    thisWeekCount: number;
-    pendingConsentCount: number;
-    overdueAnnualReviews: number;
-  }
-  const [meetingDash, setMeetingDash] = useState<MeetingDashboardSummary | null>(null);
-  useEffect(() => {
-    authFetch("/api/evaluations/dashboard")
-      .then((d: unknown) => setEvalDash(d as EvalDashboardSummary))
-      .catch(() => {});
-    authFetch("/api/transitions/dashboard")
-      .then((d: unknown) => setTransitionDash(d as TransitionDashboardSummary))
-      .catch(() => {});
-    authFetch("/api/iep-meetings/dashboard")
-      .then(r => { if (r.ok) return r.json(); throw new Error(); })
-      .then((d: unknown) => setMeetingDash(d as MeetingDashboardSummary))
-      .catch(() => {});
-  }, []);
+  const { data: evalDash } = useQuery({
+    queryKey: ["evaluations-dashboard"],
+    queryFn: () => authFetch("/api/evaluations/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
+  const { data: transitionDash } = useQuery({
+    queryKey: ["transitions-dashboard"],
+    queryFn: () => authFetch("/api/transitions/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
+  const { data: meetingDash } = useQuery({
+    queryKey: ["meetings-dashboard"],
+    queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
 
   const deadlines = (() => {
     const items: any[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : (deadlinesRaw as any)?.events ?? [];

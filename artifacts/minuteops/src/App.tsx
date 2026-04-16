@@ -12,77 +12,90 @@ import { TierProvider } from "@/lib/tier-context";
 import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/dashboard";
-import Students from "@/pages/students";
-import Sessions from "@/pages/sessions";
-import Schedule from "@/pages/schedule";
-import StaffPage from "@/pages/staff";
-import AlertsPage from "@/pages/alerts";
-import Compliance from "@/pages/compliance";
-import ComplianceChecklist from "@/pages/compliance-checklist";
-import Reports from "@/pages/reports";
-import StudentDetail from "@/pages/student-detail";
-import ImportData from "@/pages/import-data";
-import ProgramDataPage from "@/pages/program-data";
-import StudentIepPage from "@/pages/student-iep";
-import ComplianceTimelinePage from "@/pages/compliance-timeline";
-import StaffDetailPage from "@/pages/staff-detail";
-import IepSearchPage from "@/pages/iep-search";
-import ProtectiveMeasuresPage from "@/pages/protective-measures";
-import AnalyticsPage from "@/pages/analytics";
-import StateReportingPage from "@/pages/state-reporting";
+import { lazy, Suspense } from "react";
 
-import SpedStudentDashboard from "@/pages/sped-student/SpedStudentDashboard";
-import SpedStudentGoals from "@/pages/sped-student/SpedStudentGoals";
-import SpedStudentSessions from "@/pages/sped-student/SpedStudentSessions";
-import SpedStudentServices from "@/pages/sped-student/SpedStudentServices";
-import SpedStudentCheckIn from "@/pages/sped-student/SpedStudentCheckIn";
-import SpedStudentWins from "@/pages/sped-student/SpedStudentWins";
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+      <p className="text-sm text-gray-400">Loading...</p>
+    </div>
+  </div>
+);
 
-import GuardianPortalHome from "@/pages/guardian-portal/GuardianPortalHome";
-import GuardianDocuments from "@/pages/guardian-portal/GuardianDocuments";
-import GuardianMeetings from "@/pages/guardian-portal/GuardianMeetings";
-import GuardianContactHistory from "@/pages/guardian-portal/GuardianContactHistory";
-import IepSuggestions from "@/pages/iep-suggestions";
-import DistrictOverview from "@/pages/district-overview";
-import BehaviorAssessmentPage from "@/pages/behavior-assessment";
-import IepBuilderPage from "@/pages/iep-builder";
-import ExecutiveDashboard from "@/pages/executive-dashboard";
-import IepCalendarPage from "@/pages/iep-calendar";
-import ResourceManagement from "@/pages/resource-management";
-import CompensatoryServices from "@/pages/compensatory-services";
-import ParentCommunication from "@/pages/parent-communication";
-import Supervision from "@/pages/supervision";
-import ParaMyDayPage from "@/pages/para-my-day";
-import AuditLogPage from "@/pages/audit-log";
-import RecentlyDeletedPage from "@/pages/recently-deleted";
-import SetupPage from "@/pages/setup";
-import MyCaseloadPage from "@/pages/my-caseload";
-import EvaluationsPage from "@/pages/evaluations";
-import TransitionsPage from "@/pages/transitions";
-import IepMeetingsPage from "@/pages/iep-meetings";
-import SisSettingsPage from "@/pages/sis-settings";
-import AgenciesPage from "@/pages/agencies";
-import AgencyDetailPage from "@/pages/agency-detail";
-import ContractUtilizationPage from "@/pages/contract-utilization";
-import BillingPage from "@/pages/billing";
-import TenantsPage from "@/pages/tenants";
-import SystemStatusPage from "@/pages/system-status";
-import LegalCompliancePage from "@/pages/legal-compliance";
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Students = lazy(() => import("@/pages/students"));
+const Sessions = lazy(() => import("@/pages/sessions"));
+const Schedule = lazy(() => import("@/pages/schedule"));
+const StaffPage = lazy(() => import("@/pages/staff"));
+const AlertsPage = lazy(() => import("@/pages/alerts"));
+const Compliance = lazy(() => import("@/pages/compliance"));
+const ComplianceChecklist = lazy(() => import("@/pages/compliance-checklist"));
+const Reports = lazy(() => import("@/pages/reports"));
+const StudentDetail = lazy(() => import("@/pages/student-detail"));
+const ImportData = lazy(() => import("@/pages/import-data"));
+const ProgramDataPage = lazy(() => import("@/pages/program-data"));
+const StudentIepPage = lazy(() => import("@/pages/student-iep"));
+const ComplianceTimelinePage = lazy(() => import("@/pages/compliance-timeline"));
+const StaffDetailPage = lazy(() => import("@/pages/staff-detail"));
+const IepSearchPage = lazy(() => import("@/pages/iep-search"));
+const ProtectiveMeasuresPage = lazy(() => import("@/pages/protective-measures"));
+const AnalyticsPage = lazy(() => import("@/pages/analytics"));
+const StateReportingPage = lazy(() => import("@/pages/state-reporting"));
 
-import CoveragePage from "@/pages/coverage";
-import SchoolYearPage from "@/pages/school-year";
-import SignInPage from "@/pages/sign-in";
-import SignUpPage from "@/pages/sign-up";
-import SignDocumentPage from "@/pages/sign-document";
-import PricingPage from "@/pages/pricing";
+const SpedStudentDashboard = lazy(() => import("@/pages/sped-student/SpedStudentDashboard"));
+const SpedStudentGoals = lazy(() => import("@/pages/sped-student/SpedStudentGoals"));
+const SpedStudentSessions = lazy(() => import("@/pages/sped-student/SpedStudentSessions"));
+const SpedStudentServices = lazy(() => import("@/pages/sped-student/SpedStudentServices"));
+const SpedStudentCheckIn = lazy(() => import("@/pages/sped-student/SpedStudentCheckIn"));
+const SpedStudentWins = lazy(() => import("@/pages/sped-student/SpedStudentWins"));
+
+const GuardianPortalHome = lazy(() => import("@/pages/guardian-portal/GuardianPortalHome"));
+const GuardianDocuments = lazy(() => import("@/pages/guardian-portal/GuardianDocuments"));
+const GuardianMeetings = lazy(() => import("@/pages/guardian-portal/GuardianMeetings"));
+const GuardianContactHistory = lazy(() => import("@/pages/guardian-portal/GuardianContactHistory"));
+const IepSuggestions = lazy(() => import("@/pages/iep-suggestions"));
+const DistrictOverview = lazy(() => import("@/pages/district-overview"));
+const BehaviorAssessmentPage = lazy(() => import("@/pages/behavior-assessment"));
+const IepBuilderPage = lazy(() => import("@/pages/iep-builder"));
+const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
+const IepCalendarPage = lazy(() => import("@/pages/iep-calendar"));
+const ResourceManagement = lazy(() => import("@/pages/resource-management"));
+const CompensatoryServices = lazy(() => import("@/pages/compensatory-services"));
+const ParentCommunication = lazy(() => import("@/pages/parent-communication"));
+const Supervision = lazy(() => import("@/pages/supervision"));
+const ParaMyDayPage = lazy(() => import("@/pages/para-my-day"));
+const AuditLogPage = lazy(() => import("@/pages/audit-log"));
+const RecentlyDeletedPage = lazy(() => import("@/pages/recently-deleted"));
+const SetupPage = lazy(() => import("@/pages/setup"));
+const MyCaseloadPage = lazy(() => import("@/pages/my-caseload"));
+const EvaluationsPage = lazy(() => import("@/pages/evaluations"));
+const TransitionsPage = lazy(() => import("@/pages/transitions"));
+const IepMeetingsPage = lazy(() => import("@/pages/iep-meetings"));
+const SisSettingsPage = lazy(() => import("@/pages/sis-settings"));
+const AgenciesPage = lazy(() => import("@/pages/agencies"));
+const AgencyDetailPage = lazy(() => import("@/pages/agency-detail"));
+const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"));
+const BillingPage = lazy(() => import("@/pages/billing"));
+const TenantsPage = lazy(() => import("@/pages/tenants"));
+const SystemStatusPage = lazy(() => import("@/pages/system-status"));
+const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
+
+const CoveragePage = lazy(() => import("@/pages/coverage"));
+const SchoolYearPage = lazy(() => import("@/pages/school-year"));
+const SignInPage = lazy(() => import("@/pages/sign-in"));
+const SignUpPage = lazy(() => import("@/pages/sign-up"));
+const SignDocumentPage = lazy(() => import("@/pages/sign-document"));
+const PricingPage = lazy(() => import("@/pages/pricing"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30000,
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -92,11 +105,16 @@ const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher"
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
-  // Register synchronously in render (before children) so the Clerk Bearer JWT
-  // is available on first mount — child useQuery calls fire before useEffect runs.
   registerTokenProvider(() => getToken());
 
-  if (!isLoaded) return null;
+  if (!isLoaded) return (
+    <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <p className="text-sm text-gray-400 font-medium">Loading Trellis...</p>
+      </div>
+    </div>
+  );
   if (!isSignedIn) return <RedirectToSignIn />;
   return <>{children}</>;
 }
@@ -106,13 +124,15 @@ function BoundedRoute({ component: Comp, fallbackTitle, featureKey, ...rest }: {
     <Route {...rest}>
       {(params: any) => (
         <ErrorBoundary fallbackTitle={fallbackTitle}>
-          {featureKey ? (
-            <FeatureGate featureKey={featureKey}>
+          <Suspense fallback={<PageLoader />}>
+            {featureKey ? (
+              <FeatureGate featureKey={featureKey}>
+                <Comp {...params} />
+              </FeatureGate>
+            ) : (
               <Comp {...params} />
-            </FeatureGate>
-          ) : (
-            <Comp {...params} />
-          )}
+            )}
+          </Suspense>
         </ErrorBoundary>
       )}
     </Route>

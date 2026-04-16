@@ -153,8 +153,8 @@ const mutationLimiter = rateLimit({
 app.use("/api", readLimiter);
 app.use("/api", mutationLimiter);
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 app.use(clerkMiddleware());
 

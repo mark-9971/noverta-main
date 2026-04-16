@@ -15,6 +15,12 @@ router.use(requireTierAccess("compliance.evaluations"));
 
 const evalAccess = requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba");
 
+function parsePagination(query: any, defaultLimit = 100, maxLimit = 500) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || defaultLimit, 1), maxLimit);
+  const offset = Math.max(parseInt(query.offset) || 0, 0);
+  return { limit, offset };
+}
+
 interface TimelineRule {
   state: string;
   schoolDays: number;
@@ -88,6 +94,7 @@ router.get("/evaluations/timeline-rules", evalAccess, async (_req, res): Promise
 
 router.get("/evaluations/referrals", evalAccess, async (_req, res): Promise<void> => {
   try {
+    const { limit, offset } = parsePagination(_req.query);
     const rows = await db.select({
       referral: evaluationReferralsTable,
       studentFirstName: studentsTable.firstName,
@@ -101,7 +108,9 @@ router.get("/evaluations/referrals", evalAccess, async (_req, res): Promise<void
       .leftJoin(staffTable, eq(staffTable.id, evaluationReferralsTable.assignedEvaluatorId))
       .leftJoin(schoolsTable, eq(schoolsTable.id, evaluationReferralsTable.schoolId))
       .where(isNull(evaluationReferralsTable.deletedAt))
-      .orderBy(desc(evaluationReferralsTable.createdAt));
+      .orderBy(desc(evaluationReferralsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     const result = rows.map(r => ({
       ...r.referral,
@@ -189,6 +198,7 @@ router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise
 
 router.get("/evaluations", evalAccess, async (_req, res): Promise<void> => {
   try {
+    const { limit, offset } = parsePagination(_req.query);
     const rows = await db.select({
       evaluation: evaluationsTable,
       studentFirstName: studentsTable.firstName,
@@ -200,7 +210,9 @@ router.get("/evaluations", evalAccess, async (_req, res): Promise<void> => {
       .leftJoin(studentsTable, eq(studentsTable.id, evaluationsTable.studentId))
       .leftJoin(staffTable, eq(staffTable.id, evaluationsTable.leadEvaluatorId))
       .where(isNull(evaluationsTable.deletedAt))
-      .orderBy(desc(evaluationsTable.createdAt));
+      .orderBy(desc(evaluationsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     const result = rows.map(r => ({
       ...r.evaluation,
@@ -318,6 +330,7 @@ router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => 
 
 router.get("/evaluations/eligibility", evalAccess, async (_req, res): Promise<void> => {
   try {
+    const { limit, offset } = parsePagination(_req.query);
     const rows = await db.select({
       determination: eligibilityDeterminationsTable,
       studentFirstName: studentsTable.firstName,
@@ -326,7 +339,9 @@ router.get("/evaluations/eligibility", evalAccess, async (_req, res): Promise<vo
     }).from(eligibilityDeterminationsTable)
       .leftJoin(studentsTable, eq(studentsTable.id, eligibilityDeterminationsTable.studentId))
       .where(isNull(eligibilityDeterminationsTable.deletedAt))
-      .orderBy(desc(eligibilityDeterminationsTable.createdAt));
+      .orderBy(desc(eligibilityDeterminationsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     const result = rows.map(r => ({
       ...r.determination,
