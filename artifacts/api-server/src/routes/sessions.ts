@@ -21,6 +21,8 @@ import { eq, and, gte, lte, desc, asc, sql, inArray, isNull } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres";
 import { logAudit } from "../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
+import { getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 
 type GoalEntry = {
   iepGoalId: number;
@@ -79,7 +81,14 @@ router.get("/sessions", async (req, res): Promise<void> => {
     if (params.data.dateFrom) conditions.push(gte(sessionLogsTable.sessionDate, params.data.dateFrom));
     if (params.data.dateTo) conditions.push(lte(sessionLogsTable.sessionDate, params.data.dateTo));
     if (params.data.schoolId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
-    if (params.data.districtId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+    {
+      const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+      if (enforcedDid !== null) {
+        conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
+      } else if (params.data.districtId) {
+        conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
+      }
+    }
   }
   const schoolYearId = req.query.schoolYearId ? Number(req.query.schoolYearId) : null;
   if (schoolYearId) conditions.push(eq(sessionLogsTable.schoolYearId, schoolYearId));

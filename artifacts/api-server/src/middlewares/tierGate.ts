@@ -53,10 +53,17 @@ async function resolveDistrictTier(req: Request): Promise<DistrictTier> {
 
 export function requireTierAccess(featureKey: FeatureKey) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // Test-mode bypass: mirrors the pattern in requireAuth.
-    // Allows the permission-matrix test suite to reach routes gated behind this middleware
-    // without a real Clerk session. Requires NODE_ENV !== "production" AND x-test-user-id header.
-    if (process.env.NODE_ENV !== "production") {
+    // Production: explicitly reject dev-only test headers.
+    if (process.env.NODE_ENV === "production") {
+      if (req.headers["x-test-user-id"] || req.headers["x-test-role"] || req.headers["x-test-district-id"]) {
+        res.status(400).json({ error: "Dev-only headers are not accepted in production" });
+        return;
+      }
+    }
+
+    // Test-mode bypass: strictly NODE_ENV === "test" only (not "development" or staging).
+    // Allows the permission-matrix test suite to reach tier-gated routes without a real Clerk session.
+    if (process.env.NODE_ENV === "test") {
       const testUserId = req.headers["x-test-user-id"];
       if (typeof testUserId === "string" && testUserId) {
         next();
@@ -70,9 +77,10 @@ export function requireTierAccess(featureKey: FeatureKey) {
       return;
     }
 
-    // In non-production, always grant enterprise-level access so dev/demo logins
+    // In test mode, always grant enterprise-level access so dev/demo logins
     // can reach every feature without a real subscription tier in the DB.
-    if (process.env.NODE_ENV !== "production") {
+    // In production, tier is resolved from the DB.
+    if (process.env.NODE_ENV === "test") {
       next();
       return;
     }

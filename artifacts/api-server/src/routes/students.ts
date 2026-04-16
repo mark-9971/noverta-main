@@ -23,6 +23,7 @@ import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { logAudit, diffObjects } from "../lib/auditLog";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { assertStudentAccess } from "../lib/tenantAccess";
+import { getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -62,7 +63,14 @@ router.get("/students", async (req, res): Promise<void> => {
     }
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)));
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)));
-    if (params.data.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+    {
+      const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+      if (enforcedDid !== null) {
+        conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
+      } else if (params.data.districtId) {
+        conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+      }
+    }
     if (params.data.caseManagerId) conditions.push(eq(studentsTable.caseManagerId, Number(params.data.caseManagerId)));
     if (params.data.grade) conditions.push(eq(studentsTable.grade, params.data.grade));
     if ((params.data as any).type === "sped") {
@@ -183,7 +191,14 @@ router.post("/students", async (req, res): Promise<void> => {
 router.get("/sped-students", async (req, res): Promise<void> => {
   const conditions: any[] = [eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)];
   if (req.query.schoolId) conditions.push(eq(studentsTable.schoolId, Number(req.query.schoolId)));
-  if (req.query.districtId) conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(req.query.districtId)})`);
+  {
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
+    } else if (req.query.districtId) {
+      conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(req.query.districtId)})`);
+    }
+  }
 
   const students = await db.selectDistinct({
     id: studentsTable.id,

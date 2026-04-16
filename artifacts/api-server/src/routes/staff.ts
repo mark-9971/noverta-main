@@ -17,7 +17,8 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
+import type { AuthedRequest } from "../middlewares/auth";
 import { getActiveSchoolYearId } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
 import type { Request } from "express";
@@ -48,7 +49,14 @@ router.get("/staff", async (req, res): Promise<void> => {
   if (params.success && params.data.role) conditions.push(eq(staffTable.role, params.data.role));
   if (params.success && params.data.status) conditions.push(eq(staffTable.status, params.data.status));
   if (params.success && params.data.schoolId) conditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
-  if (params.success && params.data.districtId) conditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+  {
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      conditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
+    } else if (params.success && params.data.districtId) {
+      conditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+    }
+  }
 
   const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
@@ -80,11 +88,17 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
   if (params.success && params.data.schoolId) {
     staffConditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
   }
-  if (params.success && params.data.districtId) {
-    staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+  {
+    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    if (enforcedDid !== null) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
+    } else if (params.success && params.data.districtId) {
+      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)})`);
+    }
   }
 
-  const activeYearId = await resolveWorkloadYearId(req, params.success ? (params.data.districtId ?? null) : null);
+  const enforcedDidForYear = getEnforcedDistrictId(req as AuthedRequest);
+  const activeYearId = await resolveWorkloadYearId(req, enforcedDidForYear !== null ? enforcedDidForYear : (params.success ? (params.data.districtId ?? null) : null));
 
   // Block-level join conditions (only active recurring blocks in effective window)
   const blockJoinConditions = and(

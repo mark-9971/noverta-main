@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireRoles } from "../middlewares/auth";
+import { requireAuth, requireRoles, requireDistrictScope } from "../middlewares/auth";
 import healthRouter from "./health";
 import schoolsRouter from "./schools";
 import studentsRouter from "./students";
@@ -67,6 +67,12 @@ const requireStaffOnly = requireRoles(
 const requirePrivilegedStaffOnly = requireRoles(
   "admin", "case_manager", "bcba", "sped_teacher", "coordinator",
 );
+// District scope: regular users without a district claim in their token are denied
+// before reaching any student/session/staff data. Platform admins pass through.
+router.use("/students", requireDistrictScope);
+router.use("/sessions", requireDistrictScope);
+router.use("/staff", requireDistrictScope);
+// Role guards applied after district scope.
 router.use("/students", requireStaffOnly);
 router.use("/sessions", requireStaffOnly);
 router.use("/staff", requireStaffOnly);
