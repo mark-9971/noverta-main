@@ -4,10 +4,10 @@ import {
   teamMeetingsTable, studentsTable, staffTable, schoolsTable,
   iepMeetingAttendeesTable, priorWrittenNoticesTable, meetingConsentRecordsTable,
   iepDocumentsTable, meetingPrepItemsTable, iepGoalsTable,
-  iepAccommodationsTable, parentMessagesTable, programDataTable,
-  behaviorDataTable, dataSessionsTable,
+  iepAccommodationsTable, parentMessagesTable, dataSessionsTable,
+  programDataTable, behaviorDataTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, gte, lte, sql, count, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, count, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
@@ -650,7 +650,7 @@ async function autoDetectPrepItems(meetingId: number, studentId: number): Promis
   const results: Record<string, boolean> = {};
   const last90d = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
 
-  const [progressCheck, goalsCheck, parentCheck, attendeesCheck, pwnCheck, meetingCheck, accomCheck, agendaCheck] = await Promise.all([
+  const [progressCheck, goalsCheck, parentCheck, attendeesCheck, pwnCheck, meetingCheck, accomCheck] = await Promise.all([
     db.select({ cnt: count() }).from(dataSessionsTable)
       .where(and(eq(dataSessionsTable.studentId, studentId), gte(dataSessionsTable.sessionDate, last90d))),
     db.select({ cnt: count() }).from(iepGoalsTable)
@@ -669,7 +669,6 @@ async function autoDetectPrepItems(meetingId: number, studentId: number): Promis
       .from(teamMeetingsTable).where(eq(teamMeetingsTable.id, meetingId)),
     db.select({ cnt: count() }).from(iepAccommodationsTable)
       .where(eq(iepAccommodationsTable.studentId, studentId)),
-    Promise.resolve(null),
   ]);
 
   results.gather_progress_data = (progressCheck[0]?.cnt ?? 0) > 0;
@@ -830,6 +829,8 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
       grade: studentsTable.grade,
     }).from(studentsTable).where(eq(studentsTable.id, meeting.studentId));
 
+    const last90d = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+
     const [goals, attendees, accommodations] = await Promise.all([
       db.select({
         id: iepGoalsTable.id,
@@ -837,6 +838,11 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
         goalNumber: iepGoalsTable.goalNumber,
         annualGoal: iepGoalsTable.annualGoal,
         status: iepGoalsTable.status,
+        programTargetId: iepGoalsTable.programTargetId,
+        behaviorTargetId: iepGoalsTable.behaviorTargetId,
+        baseline: iepGoalsTable.baseline,
+        targetCriterion: iepGoalsTable.targetCriterion,
+        measurementMethod: iepGoalsTable.measurementMethod,
       }).from(iepGoalsTable)
         .where(and(eq(iepGoalsTable.studentId, meeting.studentId), eq(iepGoalsTable.active, true)))
         .orderBy(asc(iepGoalsTable.goalArea), asc(iepGoalsTable.goalNumber)),
@@ -854,6 +860,69 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
       }).from(iepAccommodationsTable)
         .where(eq(iepAccommodationsTable.studentId, meeting.studentId)),
     ]);
+
+    const programTargetIds = goals.filter(g => g.programTargetId).map(g => g.programTargetId as number);
+    const behaviorTargetIds = goals.filter(g => g.behaviorTargetId).map(g => g.behaviorTargetId as number);
+
+    const [programDataRows, behaviorDataRows] = await Promise.all([
+      programTargetIds.length > 0
+        ? db.select({
+            targetId: programDataTable.programTargetId,
+            value: programDataTable.percentCorrect,
+            date: dataSessionsTable.sessionDate,
+          })
+          .from(programDataTable)
+          .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
+          .where(and(
+            inArray(programDataTable.programTargetId, programTargetIds),
+            gte(dataSessionsTable.sessionDate, last90d),
+          ))
+          .orderBy(desc(dataSessionsTable.sessionDate))
+        : Promise.resolve([]),
+      behaviorTargetIds.length > 0
+        ? db.select({
+            targetId: behaviorDataTable.behaviorTargetId,
+            value: behaviorDataTable.value,
+            date: dataSessionsTable.sessionDate,
+          })
+          .from(behaviorDataTable)
+          .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
+          .where(and(
+            inArray(behaviorDataTable.behaviorTargetId, behaviorTargetIds),
+            gte(dataSessionsTable.sessionDate, last90d),
+          ))
+          .orderBy(desc(dataSessionsTable.sessionDate))
+        : Promise.resolve([]),
+    ]);
+
+    const progressByGoalId: Record<number, { dataPoints: number; latestValue: number | null; trend: string }> = {};
+    for (const goal of goals) {
+      let dataPoints: { value: number | null; date: string }[] = [];
+      if (goal.programTargetId) {
+        dataPoints = programDataRows
+          .filter(r => r.targetId === goal.programTargetId)
+          .map(r => ({ value: r.value !== null ? parseFloat(String(r.value)) : null, date: r.date }));
+      } else if (goal.behaviorTargetId) {
+        dataPoints = behaviorDataRows
+          .filter(r => r.targetId === goal.behaviorTargetId)
+          .map(r => ({ value: r.value !== null ? parseFloat(String(r.value)) : null, date: r.date }));
+      }
+      const count = dataPoints.length;
+      const latestValue = count > 0 ? dataPoints[0].value : null;
+      let trend = "no_data";
+      if (count >= 3) {
+        const recent = dataPoints.slice(0, 3).filter(d => d.value !== null).map(d => d.value as number);
+        const older = dataPoints.slice(Math.max(0, count - 3)).filter(d => d.value !== null).map(d => d.value as number);
+        if (recent.length > 0 && older.length > 0) {
+          const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+          const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
+          trend = recentAvg > olderAvg + 5 ? "improving" : recentAvg < olderAvg - 5 ? "declining" : "stable";
+        }
+      } else if (count > 0) {
+        trend = "limited_data";
+      }
+      progressByGoalId[goal.id] = { dataPoints: count, latestValue, trend };
+    }
 
     const meetingTypeLabels: Record<string, string> = {
       annual_review: "Annual IEP Review",
@@ -877,11 +946,16 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
         ],
       },
       {
-        title: "Current Performance",
+        title: "Current Performance & Progress Summary",
         items: [
           `Review ${student?.firstName ?? "student"}'s present levels of performance`,
           `Current goals status: ${goals.length} active goal${goals.length !== 1 ? "s" : ""}`,
-          ...goals.slice(0, 5).map(g => `${g.goalArea} Goal #${g.goalNumber}: ${g.annualGoal?.slice(0, 80)}${(g.annualGoal?.length ?? 0) > 80 ? "..." : ""}`),
+          ...goals.slice(0, 8).map(g => {
+            const p = progressByGoalId[g.id];
+            const trendLabel = p?.trend === "improving" ? "↑ Improving" : p?.trend === "declining" ? "↓ Declining" : p?.trend === "stable" ? "→ Stable" : p?.trend === "limited_data" ? "Limited data" : "No data";
+            const valueStr = p?.latestValue !== null && p?.latestValue !== undefined ? ` (latest: ${p.latestValue}%)` : "";
+            return `${g.goalArea} Goal #${g.goalNumber}: ${g.annualGoal?.slice(0, 60)}${(g.annualGoal?.length ?? 0) > 60 ? "..." : ""} — ${trendLabel}${valueStr}`;
+          }),
         ],
       },
     ];
@@ -936,6 +1010,23 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
       ],
     });
 
+    const goalProgressSummaries = goals.map(g => {
+      const p = progressByGoalId[g.id];
+      return {
+        goalId: g.id,
+        goalArea: g.goalArea,
+        goalNumber: g.goalNumber,
+        annualGoal: g.annualGoal,
+        status: g.status,
+        baseline: g.baseline,
+        targetCriterion: g.targetCriterion,
+        measurementMethod: g.measurementMethod,
+        dataPoints: p?.dataPoints ?? 0,
+        latestValue: p?.latestValue ?? null,
+        trend: p?.trend ?? "no_data",
+      };
+    });
+
     res.json({
       meetingId,
       meetingType: meeting.meetingType,
@@ -949,6 +1040,7 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
       goalsCount: goals.length,
       accommodationsCount: accommodations.length,
       sections,
+      goalProgressSummaries,
       customAgendaItems: meeting.agendaItems ?? [],
     });
   } catch (e: unknown) {

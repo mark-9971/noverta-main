@@ -38,6 +38,20 @@ interface AgendaSection {
   items: string[];
 }
 
+interface GoalProgressSummary {
+  goalId: number;
+  goalArea: string;
+  goalNumber: number;
+  annualGoal: string | null;
+  status: string;
+  baseline: string | null;
+  targetCriterion: string | null;
+  measurementMethod: string | null;
+  dataPoints: number;
+  latestValue: number | null;
+  trend: string;
+}
+
 interface Agenda {
   meetingId: number;
   meetingTypeLabel: string;
@@ -50,6 +64,7 @@ interface Agenda {
   goalsCount: number;
   accommodationsCount: number;
   sections: AgendaSection[];
+  goalProgressSummaries: GoalProgressSummary[];
   customAgendaItems: string[];
 }
 
@@ -295,6 +310,37 @@ export function MeetingPrepChecklist({ meetingId }: { meetingId: number }) {
               </ul>
             </div>
           ))}
+
+          {agenda.goalProgressSummaries && agenda.goalProgressSummaries.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-800 mb-2">Goal Progress Summaries</h4>
+              <div className="space-y-1.5">
+                {agenda.goalProgressSummaries.map(g => {
+                  const trendColor = g.trend === "improving" ? "text-emerald-600" : g.trend === "declining" ? "text-red-600" : g.trend === "stable" ? "text-blue-600" : "text-gray-400";
+                  const trendIcon = g.trend === "improving" ? "↑" : g.trend === "declining" ? "↓" : g.trend === "stable" ? "→" : "—";
+                  return (
+                    <div key={g.goalId} className="bg-gray-50 rounded p-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-medium text-gray-700">{g.goalArea} Goal #{g.goalNumber}</span>
+                        <div className="flex items-center gap-1.5">
+                          {g.latestValue !== null && (
+                            <span className="text-[10px] font-medium text-gray-600">{g.latestValue}%</span>
+                          )}
+                          <span className={`text-[10px] font-medium ${trendColor}`}>{trendIcon} {g.trend.replace("_", " ")}</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{g.annualGoal}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[9px] text-gray-400">
+                        <span>{g.dataPoints} data point{g.dataPoints !== 1 ? "s" : ""} (90d)</span>
+                        {g.baseline && <span>Baseline: {g.baseline}</span>}
+                        {g.targetCriterion && <span>Target: {g.targetCriterion}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
