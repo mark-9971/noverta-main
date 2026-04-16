@@ -285,22 +285,30 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     return;
   }
 
+  const rawStaffId = req.query.staffId;
+  let parsedTargetStaffId: number | null = null;
+  if (rawStaffId) {
+    parsedTargetStaffId = Number(rawStaffId);
+    if (!Number.isFinite(parsedTargetStaffId) || parsedTargetStaffId <= 0) {
+      res.status(400).json({ error: "Invalid staffId parameter" });
+      return;
+    }
+  }
+
   let caseloadFilter = sql`1=1`;
   if (isAdmin) {
-    if (req.query.staffId) {
-      const targetStaffId = Number(req.query.staffId);
-      caseloadFilter = sql`(s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
+    if (parsedTargetStaffId) {
+      caseloadFilter = sql`(s.case_manager_id = ${parsedTargetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${parsedTargetStaffId}))`;
     }
   } else if (isCoordinator) {
-    const schoolId = callerStaffId
-      ? await db.select({ schoolId: staffTable.schoolId }).from(staffTable).where(eq(staffTable.id, callerStaffId)).then(r => r[0]?.schoolId ?? null)
-      : null;
-    if (schoolId) {
-      caseloadFilter = sql`s.school_id = ${schoolId}`;
+    const schoolRow = await db.select({ schoolId: staffTable.schoolId }).from(staffTable).where(eq(staffTable.id, callerStaffId!)).then(r => r[0] ?? null);
+    if (!schoolRow?.schoolId) {
+      res.status(403).json({ error: "Unable to resolve school for coordinator access" });
+      return;
     }
-    if (req.query.staffId) {
-      const targetStaffId = Number(req.query.staffId);
-      caseloadFilter = sql`${caseloadFilter} AND (s.case_manager_id = ${targetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${targetStaffId}))`;
+    caseloadFilter = sql`s.school_id = ${schoolRow.schoolId}`;
+    if (parsedTargetStaffId) {
+      caseloadFilter = sql`${caseloadFilter} AND (s.case_manager_id = ${parsedTargetStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${parsedTargetStaffId}))`;
     }
   } else if (callerStaffId) {
     caseloadFilter = sql`(s.case_manager_id = ${callerStaffId} OR s.id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${callerStaffId}))`;
