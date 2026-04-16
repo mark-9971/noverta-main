@@ -8,26 +8,26 @@ import { ensureDbConstraints } from "./lib/activeSchoolYear";
 
 initSentry();
 
-// ─── Clerk configuration guard ────────────────────────────────────────────────
-// Trellis uses Clerk for production authentication. Session claims must include
-// publicMetadata with: role, staffId (or studentId), and districtId.
-// Configure separate Clerk apps for dev/staging and production, then set:
-//   CLERK_SECRET_KEY        — server-side secret (Replit Secret)
-//   CLERK_PUBLISHABLE_KEY   — used by clerkProxyMiddleware
-//   VITE_CLERK_PUBLISHABLE_KEY — frontend publishable key (Replit Secret)
+// Clerk key guard: hard-fail in production when keys are absent or misconfigured.
+// In production, a test key (sk_test_*) is a mis-config — fail closed rather than
+// silently serving unauthenticated requests.
 const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
-if (!clerkSecretKey) {
-  logger.warn("CLERK_SECRET_KEY is not set — authentication will fail for real Clerk sessions");
-} else if (clerkSecretKey.startsWith("sk_test_")) {
-  logger.info("Clerk: using test/development key (sk_test_*)");
-} else if (clerkSecretKey.startsWith("sk_live_")) {
-  logger.info("Clerk: using production key (sk_live_*)");
+if (process.env.NODE_ENV === "production") {
+  if (!clerkSecretKey) {
+    logger.error("FATAL: CLERK_SECRET_KEY is not set. Cannot start in production without Clerk auth.");
+    process.exit(1);
+  }
+  if (clerkSecretKey.startsWith("sk_test_")) {
+    logger.error("FATAL: Test Clerk key (sk_test_*) used in production. Set a live key (sk_live_*) and restart.");
+    process.exit(1);
+  }
+} else {
+  if (!clerkSecretKey) {
+    logger.warn("CLERK_SECRET_KEY is not set — Clerk auth will not validate real sessions");
+  } else {
+    logger.info({ keyPrefix: clerkSecretKey.startsWith("sk_test_") ? "sk_test_*" : "sk_live_*" }, "Clerk auth configured");
+  }
 }
-if (!clerkPublishableKey) {
-  logger.warn("CLERK_PUBLISHABLE_KEY / VITE_CLERK_PUBLISHABLE_KEY is not set");
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 process.on("uncaughtException", (err) => {
   logger.error({ err }, "Uncaught exception — process will exit");

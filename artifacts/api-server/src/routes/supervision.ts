@@ -6,9 +6,9 @@ import {
   sessionLogsTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, asc } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { WRITE_SUPERVISION_ROLES, PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
+import { getPublicMeta } from "../lib/clerkClaims";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
@@ -24,9 +24,7 @@ function isPrivileged(req: AuthedRequest): boolean {
 }
 
 function getClerkStaffId(req: AuthedRequest): number | null {
-  const auth = getAuth(req);
-  const meta = (auth?.sessionClaims as Record<string, Record<string, unknown>> | undefined)?.publicMetadata;
-  const id = meta?.staffId ? Number(meta.staffId) : null;
+  const id = getPublicMeta(req).staffId ?? null;
   return id && Number.isFinite(id) ? id : null;
 }
 
