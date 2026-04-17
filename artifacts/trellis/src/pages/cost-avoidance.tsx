@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DollarSign, AlertTriangle, TrendingDown, Shield, Clock,
+  DollarSign, AlertTriangle, TrendingDown, TrendingUp, Shield, Clock,
   ChevronDown, ChevronRight, ExternalLink, Bell, FileSearch,
-  CalendarDays, Activity, Users, CalendarX, UserMinus
+  CalendarDays, Activity, Users, CalendarX, UserMinus, Minus
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, LineChart, Line, ReferenceLine } from "recharts";
 import { Link } from "wouter";
 import { toast } from "sonner";
 
@@ -63,12 +63,181 @@ const CATEGORY_COLORS: Record<string, string> = {
   iep_annual_review: "#6366f1",
 };
 
+interface Snapshot {
+  id: number;
+  districtId: number;
+  weekStart: string;
+  totalRisks: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  watchCount: number;
+  totalExposure: number;
+  studentsAtRisk: number;
+  unpricedRiskCount: number;
+  capturedAt: string;
+}
+
 function formatDollars(amount: number): string {
   if (amount >= 1000) return `$${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1)}k`;
   return `$${amount.toLocaleString()}`;
 }
 
-function ExposureBanner({ summary }: { summary: RiskSummary }) {
+function formatWeekLabel(weekStart: string): string {
+  const d = new Date(weekStart);
+  return `${d.toLocaleString("default", { month: "short" })} ${d.getDate()}`;
+}
+
+function WeekOverWeekBadge({ current, previous }: { current: number; previous: number | undefined }) {
+  if (previous == null) return null;
+  const diff = current - previous;
+  const pct = previous > 0 ? Math.round((Math.abs(diff) / previous) * 100) : 0;
+  if (diff === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+        <Minus className="w-3 h-3" /> Unchanged vs last week
+      </span>
+    );
+  }
+  const improved = diff < 0;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${improved ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50"}`}>
+      {improved ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+      {improved ? "↓" : "↑"}{pct}% vs last week
+    </span>
+  );
+}
+
+function ExposureTrendChart({ snapshots }: { snapshots: Snapshot[] }) {
+  if (snapshots.length < 2) {
+    return (
+      <Card className="border-gray-200/60">
+        <CardHeader className="pb-0">
+          <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-indigo-400" />
+            Exposure Trend — last 12 weeks
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="flex flex-col items-center justify-center h-[180px] text-center">
+            <Activity className="w-8 h-8 text-gray-200 mb-2" />
+            <p className="text-xs text-gray-400">
+              Trend data builds over time.<br />
+              Snapshots are captured weekly — check back next week.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const data = snapshots.map(s => ({
+    week: formatWeekLabel(s.weekStart),
+    exposure: s.totalExposure,
+    risks: s.totalRisks,
+    critical: s.criticalCount,
+  }));
+
+  return (
+    <Card className="border-gray-200/60">
+      <CardHeader className="pb-0">
+        <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-indigo-400" />
+          Exposure Trend — last 12 weeks
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="week" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis
+              tick={{ fontSize: 10, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+              width={48}
+            />
+            <Tooltip
+              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
+              formatter={(value: number, name: string) => {
+                if (name === "exposure") return [`$${value.toLocaleString()}`, "Exposure"];
+                if (name === "risks") return [value, "Total Risks"];
+                return [value, name];
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="exposure"
+              stroke="#6366f1"
+              strokeWidth={2}
+              dot={{ fill: "#6366f1", r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        <div className="flex items-center gap-4 mt-2 px-1 justify-between text-[11px] text-gray-500">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-0.5 bg-indigo-500 rounded" />
+            <span>Financial exposure ($)</span>
+          </div>
+          <span className="text-gray-400">
+            {data.length} weekly snapshot{data.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RisksOverTimeMiniChart({ snapshots }: { snapshots: Snapshot[] }) {
+  if (snapshots.length < 2) return null;
+
+  const data = snapshots.map(s => ({
+    week: formatWeekLabel(s.weekStart),
+    critical: s.criticalCount,
+    high: s.highCount,
+    medium: s.mediumCount,
+    watch: s.watchCount,
+  }));
+
+  return (
+    <Card className="border-gray-200/60">
+      <CardHeader className="pb-0">
+        <CardTitle className="text-sm font-semibold text-gray-600">Risk Count Trend</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={14}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <XAxis dataKey="week" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={24} />
+            <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }} />
+            <Bar dataKey="critical" stackId="a" fill="#ef4444" name="Critical" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="high" stackId="a" fill="#f59e0b" name="High" />
+            <Bar dataKey="medium" stackId="a" fill="#fb923c" name="Medium" />
+            <Bar dataKey="watch" stackId="a" fill="#60a5fa" name="Watch" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="flex items-center gap-4 mt-2 justify-center flex-wrap">
+          {[
+            { key: "critical", color: "#ef4444", label: "Critical" },
+            { key: "high", color: "#f59e0b", label: "High" },
+            { key: "medium", color: "#fb923c", label: "Medium" },
+            { key: "watch", color: "#60a5fa", label: "Watch" },
+          ].map(d => (
+            <div key={d.key} className="flex items-center gap-1.5 text-[11px]">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: d.color }} />
+              <span className="text-gray-500">{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExposureBanner({ summary, previousSnapshot }: { summary: RiskSummary; previousSnapshot?: Snapshot }) {
   const urgencyItems = [
     { key: "critical" as UrgencyLevel, ...summary.byUrgency.critical },
     { key: "high" as UrgencyLevel, ...summary.byUrgency.high },
@@ -84,13 +253,17 @@ function ExposureBanner({ summary }: { summary: RiskSummary }) {
             <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 mb-1">
               Total Financial Exposure If No Action Taken
             </p>
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-3xl md:text-4xl font-bold text-gray-900">
                 ${summary.totalExposure.toLocaleString()}
               </span>
               <span className="text-sm text-gray-500">
                 across {summary.studentsAtRisk} students
               </span>
+              <WeekOverWeekBadge
+                current={summary.totalExposure}
+                previous={previousSnapshot?.totalExposure}
+              />
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -523,6 +696,15 @@ export default function CostAvoidanceDashboard() {
     staleTime: 60_000,
   });
 
+  const { data: snapshotData } = useQuery<{ snapshots: Snapshot[] }>({
+    queryKey: ["cost-avoidance-snapshots"],
+    queryFn: () => authFetch("/api/cost-avoidance/snapshots?weeks=12").then(r => {
+      if (!r.ok) throw new Error("Failed to load snapshots");
+      return r.json();
+    }),
+    staleTime: 5 * 60_000,
+  });
+
   const alertMutation = useMutation({
     mutationFn: () => authFetch("/api/cost-avoidance/generate-alerts", {
       method: "POST",
@@ -542,6 +724,8 @@ export default function CostAvoidanceDashboard() {
 
   const risks = data?.risks ?? [];
   const summary = data?.summary ?? null;
+  const snapshots = snapshotData?.snapshots ?? [];
+  const previousSnapshot = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : undefined;
 
   const filteredRisks = useMemo(() => {
     if (!categoryFilter) return risks;
@@ -608,7 +792,12 @@ export default function CostAvoidanceDashboard() {
         </Button>
       </div>
 
-      <ExposureBanner summary={summary} />
+      <ExposureBanner summary={summary} previousSnapshot={previousSnapshot} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ExposureTrendChart snapshots={snapshots} />
+        <RisksOverTimeMiniChart snapshots={snapshots} />
+      </div>
 
       <ForecastSection />
 

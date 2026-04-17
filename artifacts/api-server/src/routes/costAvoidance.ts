@@ -11,11 +11,13 @@ import {
   sessionLogsTable,
   staffTable,
   alertsTable,
+  costAvoidanceSnapshotsTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, gte, lte, isNull, or, inArray, ne } from "drizzle-orm";
+import { eq, and, sql, gte, lte, isNull, or, inArray, ne, desc } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { generateAlertsForDistrict } from "../lib/costAvoidanceAlerts";
+import { captureSnapshotForDistrict } from "../lib/costAvoidanceSnapshots";
 
 const router = Router();
 
@@ -146,6 +148,41 @@ router.get("/cost-avoidance/summary", async (req, res): Promise<void> => {
   const allRisks = [...evalRisks, ...serviceRisks, ...iepRisks];
   res.json(buildSummary(allRisks));
 });
+
+router.get("/cost-avoidance/snapshots", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+
+  const weeksBack = Math.min(parseInt(String(req.query.weeks ?? "12"), 10) || 12, 52);
+  const cutoff = new Date(Date.now() - weeksBack * 7 * 24 * 60 * 60 * 1000);
+
+  const snapshots = await db.select()
+    .from(costAvoidanceSnapshotsTable)
+    .where(and(
+      eq(costAvoidanceSnapshotsTable.districtId, districtId),
+      gte(costAvoidanceSnapshotsTable.weekStart, cutoff),
+    ))
+    .orderBy(costAvoidanceSnapshotsTable.weekStart);
+
+  res.json({ snapshots });
+});
+
+router.post(
+  "/cost-avoidance/capture-snapshot",
+  requireRoles("admin", "coordinator"),
+  async (req, res): Promise<void> => {
+    const districtId = getDistrictId(req as AuthedRequest);
+    if (!districtId) {
+      res.status(403).json({ error: "District context required" });
+      return;
+    }
+    await captureSnapshotForDistrict(districtId);
+    res.json({ ok: true });
+  },
+);
 
 router.post(
   "/cost-avoidance/generate-alerts",
