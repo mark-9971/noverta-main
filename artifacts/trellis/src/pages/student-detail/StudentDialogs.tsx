@@ -164,16 +164,11 @@ export default function StudentDialogs(props: StudentDialogsProps) {
                   <SelectTrigger className="h-9 text-[13px] bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[
-                      { value: "enrolled", label: "Enrolled" },
-                      { value: "reactivated", label: "Reactivated" },
-                      { value: "withdrawn", label: "Withdrawn" },
-                      { value: "transferred_in", label: "Transferred In" },
-                      { value: "transferred_out", label: "Transferred Out" },
-                      { value: "program_change", label: "Program Change" },
-                      { value: "graduated", label: "Graduated" },
-                      { value: "suspended", label: "Suspended" },
+                      { value: "transferred_out", label: "Transfer" },
+                      { value: "graduated", label: "Graduation" },
                       { value: "leave_of_absence", label: "Leave of Absence" },
-                      { value: "note", label: "Note" },
+                      { value: "reactivated", label: "Return" },
+                      { value: "note", label: "Other" },
                     ].map(o => <SelectItem key={o.value} value={o.value} className="text-[13px]">{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>

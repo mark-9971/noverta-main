@@ -31,11 +31,7 @@ export const ENROLLMENT_EVENT_TYPES = [
 
 export type EnrollmentEventType = typeof ENROLLMENT_EVENT_TYPES[number];
 
-export const ENROLLMENT_EVENT_SOURCES = [
-  "manual",
-  "sis_sync",
-] as const;
-
+export const ENROLLMENT_EVENT_SOURCES = ["system", "manual", "sis_sync"] as const;
 export type EnrollmentEventSource = typeof ENROLLMENT_EVENT_SOURCES[number];
 
 export const enrollmentEventsTable = pgTable("enrollment_events", {
