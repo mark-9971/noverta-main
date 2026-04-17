@@ -593,17 +593,53 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
   }
 
   if (staffIds.length > 0) {
-    // Mop up any stragglers (e.g. sessions for sample staff serving non-sample students).
-    await db.delete(sessionLogsTable).where(inArray(sessionLogsTable.staffId, staffIds));
-    await db.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.staffId, staffIds));
-    // Drop FK references on remaining service requirements / students.
-    await db.update(serviceRequirementsTable)
-      .set({ providerId: null })
-      .where(inArray(serviceRequirementsTable.providerId, staffIds));
-    await db.update(studentsTable)
-      .set({ caseManagerId: null })
-      .where(inArray(studentsTable.caseManagerId, staffIds));
-    await db.delete(staffTable).where(inArray(staffTable.id, staffIds));
+    // Sample-only mop-up. We must NOT broad-delete by staffId alone — a
+    // sample staff member may have legitimately served a real (non-sample)
+    // student before the admin clicked teardown, and those records must
+    // survive cleanup.
+    //
+    // Sessions/blocks tied to sample students were already deleted above
+    // (studentIds branch). Anything left that points at sample staff is
+    // tied to real students and must be preserved.
+
+    // session_logs.staff_id is nullable — detach the staff pointer on any
+    // remaining real-student sessions so the staff row can be deleted while
+    // the historical session is kept for audit.
+    await db.update(sessionLogsTable)
+      .set({ staffId: null })
+      .where(inArray(sessionLogsTable.staffId, staffIds));
+
+    // schedule_blocks.staff_id is NOT NULL. We can't orphan-detach. So we
+    // (a) delete only the blocks that are clearly sample-only (no student
+    // OR student is also sample — already deleted above), and (b) for any
+    // blocks tied to real students, "graduate" the sample staff member —
+    // unset their is_sample flag so they remain in the district as a real
+    // staff record alongside the real-student schedule blocks.
+    const realStudentBlocks = await db.select({ staffId: scheduleBlocksTable.staffId })
+      .from(scheduleBlocksTable)
+      .where(inArray(scheduleBlocksTable.staffId, staffIds));
+    const stillReferencedStaffIds = [...new Set(realStudentBlocks.map(b => b.staffId))];
+    const safelyDeletableStaffIds = staffIds.filter(id => !stillReferencedStaffIds.includes(id));
+
+    // Drop FK references on real service requirements / students that
+    // happened to point at a sample staff that we ARE deleting.
+    if (safelyDeletableStaffIds.length > 0) {
+      await db.update(serviceRequirementsTable)
+        .set({ providerId: null })
+        .where(inArray(serviceRequirementsTable.providerId, safelyDeletableStaffIds));
+      await db.update(studentsTable)
+        .set({ caseManagerId: null })
+        .where(inArray(studentsTable.caseManagerId, safelyDeletableStaffIds));
+      await db.delete(staffTable).where(inArray(staffTable.id, safelyDeletableStaffIds));
+    }
+
+    // Graduate any remaining sample staff to real staff so their real-student
+    // schedule blocks keep working.
+    if (stillReferencedStaffIds.length > 0) {
+      await db.update(staffTable)
+        .set({ isSample: false })
+        .where(inArray(staffTable.id, stillReferencedStaffIds));
+    }
   }
 
   await db.update(districtsTable)
