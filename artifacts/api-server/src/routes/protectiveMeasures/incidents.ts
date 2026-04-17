@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable } from "@workspace/db";
-import { eq, sql, inArray } from "drizzle-orm";
+import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
+import { eq, sql, inArray, and, gte, lte } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
@@ -9,6 +9,185 @@ import { registerIncidentIdParam, getFullIncidentData, INCIDENT_TYPE_LABELS, BOD
 
 const router: IRouter = Router();
 registerIncidentIdParam(router);
+
+router.get("/protective-measures/incidents/dese-export-bulk", async (req: Request, res: Response) => {
+  const monthParam = String(req.query.month || "");
+  if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+    res.status(400).json({ error: "month param must be in YYYY-MM format" });
+    return;
+  }
+  const [yearStr, monthStr] = monthParam.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (month < 1 || month > 12) {
+    res.status(400).json({ error: "Invalid month" });
+    return;
+  }
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
+  let incidentsQuery = db
+    .select()
+    .from(restraintIncidentsTable)
+    .leftJoin(studentsTable, eq(restraintIncidentsTable.studentId, studentsTable.id))
+    .leftJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+    .where(and(
+      eq(restraintIncidentsTable.status, "dese_reported"),
+      gte(restraintIncidentsTable.incidentDate, startDate),
+      lte(restraintIncidentsTable.incidentDate, endDate),
+      ...(districtId !== null ? [eq(schoolsTable.districtId, districtId)] : []),
+    ))
+    .orderBy(restraintIncidentsTable.incidentDate);
+
+  const allRows = await incidentsQuery;
+
+  const staffIds = new Set<number>();
+  for (const row of allRows) {
+    const inc = row.restraint_incidents;
+    if (inc.primaryStaffId) staffIds.add(inc.primaryStaffId);
+    if (inc.adminReviewedBy) staffIds.add(inc.adminReviewedBy);
+    if (inc.parentNotifiedBy) staffIds.add(inc.parentNotifiedBy);
+    if (Array.isArray(inc.additionalStaffIds)) (inc.additionalStaffIds as number[]).forEach(id => staffIds.add(id));
+    if (Array.isArray(inc.observerStaffIds)) (inc.observerStaffIds as number[]).forEach(id => staffIds.add(id));
+  }
+  type StaffRow = typeof staffTable.$inferSelect;
+  let staffMap: Record<number, StaffRow> = {};
+  if (staffIds.size > 0) {
+    const allStaff = await db.select().from(staffTable).where(inArray(staffTable.id, [...staffIds]));
+    for (const s of allStaff) staffMap[s.id] = s;
+  }
+
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }) : "";
+  const fmtTime = (t: string | null | undefined) => {
+    if (!t) return "";
+    const [h, m] = t.split(":");
+    const hr = parseInt(h ?? "0");
+    return `${hr > 12 ? hr - 12 : hr || 12}:${m ?? "00"} ${hr >= 12 ? "PM" : "AM"}`;
+  };
+  const yesNo = (v: boolean | null | undefined) => (v ? "Yes" : "No");
+  const csvEsc = (v: string | number | null | undefined) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const staffFullName = (id: number | null | undefined) => {
+    if (!id || !staffMap[id]) return "";
+    return `${staffMap[id].firstName} ${staffMap[id].lastName}`;
+  };
+  const staffNames = (ids: number[] | null | undefined) => {
+    if (!ids || !Array.isArray(ids)) return "";
+    return ids.map(id => staffFullName(id)).filter(Boolean).join("; ");
+  };
+
+  const headers = [
+    "Incident ID", "School Name", "School Year",
+    "Student Name", "Student ID", "Student Grade", "Student Date of Birth", "Disability Category",
+    "Incident Date", "Incident Time", "End Time", "Duration (minutes)", "Incident Type", "Location",
+    "Primary Staff", "BIP in Place", "Physical Escort Only", "Restraint Type", "Body Position",
+    "Continued Over 20 Min", "Over 20 Min Approver",
+    "Behavior Description", "Trigger / Antecedent", "Preceding Activity",
+    "De-escalation Attempts", "Alternatives Attempted", "Justification",
+    "Additional Staff", "Observer Staff",
+    "Student Injury", "Student Injury Description",
+    "Staff Injury", "Staff Injury Description",
+    "Medical Attention Required", "Medical Details",
+    "Emergency Services Called",
+    "Parent Verbal Notification", "Parent Verbal Notification Date",
+    "Parent Notified", "Parent Notified Date", "Parent Notification Method",
+    "Written Report Sent", "Written Report Sent Date", "Written Report Method",
+    "Parent Comment Opportunity Given",
+    "Admin Reviewed By", "Admin Review Date",
+    "DESE Report Required", "DESE Report Sent Date", "30-Day Log Sent to DESE",
+    "Status", "Incident Record Created",
+  ];
+
+  const csvRows = allRows.map(row => {
+    const inc = row.restraint_incidents;
+    const student = row.students;
+    const school = row.schools;
+    const studentName = student ? `${student.firstName} ${student.lastName}` : `Student #${inc.studentId}`;
+    const schoolYear = (() => {
+      if (!inc.incidentDate) return "";
+      const y = new Date(inc.incidentDate).getFullYear();
+      const mo = new Date(inc.incidentDate).getMonth() + 1;
+      return mo >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+    })();
+    return [
+      inc.id,
+      csvEsc(school?.name),
+      csvEsc(schoolYear),
+      csvEsc(studentName),
+      inc.studentId,
+      csvEsc(student?.grade),
+      fmtDate(student?.dateOfBirth),
+      csvEsc(student?.disabilityCategory),
+      fmtDate(inc.incidentDate),
+      fmtTime(inc.incidentTime),
+      fmtTime(inc.endTime),
+      inc.durationMinutes ?? "",
+      csvEsc(INCIDENT_TYPE_LABELS[inc.incidentType] ?? inc.incidentType),
+      csvEsc(inc.location),
+      csvEsc(staffFullName(inc.primaryStaffId)),
+      yesNo(inc.bipInPlace),
+      yesNo(inc.physicalEscortOnly),
+      csvEsc(inc.restraintType),
+      csvEsc(inc.bodyPosition),
+      yesNo(inc.continuedOver20Min),
+      csvEsc(inc.over20MinApproverName),
+      csvEsc(inc.behaviorDescription),
+      csvEsc(inc.triggerDescription),
+      csvEsc(inc.precedingActivity),
+      csvEsc(inc.deescalationAttempts),
+      csvEsc(inc.alternativesAttempted),
+      csvEsc(inc.justification),
+      csvEsc(staffNames(inc.additionalStaffIds as number[] | null)),
+      csvEsc(staffNames(inc.observerStaffIds as number[] | null)),
+      yesNo(inc.studentInjury),
+      csvEsc(inc.studentInjuryDescription),
+      yesNo(inc.staffInjury),
+      csvEsc(inc.staffInjuryDescription),
+      yesNo(inc.medicalAttentionRequired),
+      csvEsc(inc.medicalDetails),
+      yesNo(inc.emergencyServicesCalled),
+      yesNo(inc.parentVerbalNotification),
+      fmtDate(inc.parentVerbalNotificationAt),
+      yesNo(inc.parentNotified),
+      fmtDate(inc.parentNotifiedAt),
+      csvEsc(inc.parentNotificationMethod),
+      yesNo(inc.writtenReportSent),
+      fmtDate(inc.writtenReportSentAt),
+      csvEsc(inc.writtenReportSentMethod),
+      yesNo(inc.parentCommentOpportunityGiven),
+      csvEsc(staffFullName(inc.adminReviewedBy)),
+      fmtDate(inc.adminReviewedAt),
+      yesNo(inc.deseReportRequired),
+      fmtDate(inc.deseReportSentAt),
+      yesNo(inc.thirtyDayLogSentToDese),
+      csvEsc(inc.status),
+      fmtDate(inc.createdAt),
+    ].join(",");
+  });
+
+  const csv = [headers.join(","), ...csvRows].join("\r\n");
+
+  const monthLabel = new Date(`${monthParam}-01`).toLocaleDateString("en-US", { year: "numeric", month: "long" }).replace(" ", "-");
+  const filename = `dese-monthly-log-${monthLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    summary: `Generated bulk DESE monthly CSV export for ${monthParam} (${allRows.length} incidents)`,
+    metadata: { reportType: "dese-export-bulk", month: monthParam, count: allRows.length },
+  });
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
+});
 
 router.get("/protective-measures/incidents/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id);

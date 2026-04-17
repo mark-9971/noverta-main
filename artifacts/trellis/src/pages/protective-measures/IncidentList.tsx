@@ -26,10 +26,15 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
 }) {
   const { role } = useRole();
   const showTrends = role === "admin" || role === "coordinator";
+  const showDeseExports = role === "admin" || role === "coordinator";
   const [exportYear, setExportYear] = useState(() => {
     const now = new Date();
     const y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
     return `${y}-${y + 1}`;
+  });
+  const [exportMonth, setExportMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
   const { data: incidents = [], isLoading } = useQuery({
@@ -59,6 +64,10 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
     window.open(`/api/protective-measures/dese-export?schoolYear=${exportYear}`, "_blank");
   };
 
+  const handleMonthlyDeseExport = () => {
+    window.open(`/api/protective-measures/incidents/dese-export-bulk?month=${exportMonth}`, "_blank");
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -69,7 +78,22 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
           </h1>
           <p className="text-sm text-gray-500 mt-1">Restraint & seclusion tracking · 603 CMR 46.00</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {showDeseExports && (
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+              <input
+                type="month"
+                value={exportMonth}
+                onChange={e => setExportMonth(e.target.value)}
+                className="text-xs bg-transparent border-none focus:outline-none text-gray-600"
+              />
+              <button onClick={handleMonthlyDeseExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-medium hover:bg-emerald-700 transition-colors"
+                title="Download 30-day DESE incident log for selected month (603 CMR 46.03(3))">
+                <Download className="w-3.5 h-3.5" /> Monthly DESE Log
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
             <select value={exportYear} onChange={e => setExportYear(e.target.value)}
               className="text-xs bg-transparent border-none focus:outline-none text-gray-600">
