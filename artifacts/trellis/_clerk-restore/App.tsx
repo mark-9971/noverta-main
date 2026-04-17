@@ -2,8 +2,8 @@
  * CLERK APP (restore version)
  *
  * To restore:
- *   cp artifacts/minuteops/_clerk-restore/App.tsx \
- *      artifacts/minuteops/src/App.tsx
+ *   cp artifacts/trellis/_clerk-restore/App.tsx \
+ *      artifacts/trellis/src/App.tsx
  *
  * Requires VITE_CLERK_PUBLISHABLE_KEY env var set in Replit Secrets.
  * Also restore:

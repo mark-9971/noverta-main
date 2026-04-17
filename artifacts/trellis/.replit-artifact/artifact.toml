@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "MinuteOps"
+title = "Trellis"
 version = "1.0.0"
 id = "artifacts/minuteops"
 router = "path"
@@ -15,11 +15,11 @@ paths = [ "/" ]
 localPort = 22248
 
 [services.development]
-run = "pnpm --filter @workspace/minuteops run dev"
+run = "pnpm --filter @workspace/trellis run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/minuteops", "run", "build" ]
-publicDir = "artifacts/minuteops/dist/public"
+build = [ "pnpm", "--filter", "@workspace/trellis", "run", "build" ]
+publicDir = "artifacts/trellis/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]
