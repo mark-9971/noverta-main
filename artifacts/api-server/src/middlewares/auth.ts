@@ -3,7 +3,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { db, staffTable, schoolsTable } from "@workspace/db";
-import { sql, eq, isNull, and } from "drizzle-orm";
+import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -186,7 +186,7 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
       .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
       .where(and(
         isNull(staffTable.deletedAt),
-        sql`lower(${staffTable.email}) = ANY(${emails})`,
+        inArray(sql`lower(${staffTable.email})`, emails),
       ))
       .limit(1);
     const districtId = rows[0]?.districtId ?? null;
