@@ -541,11 +541,18 @@ export default function CompliancePage() {
           <p className="text-xs md:text-sm text-gray-400 mt-1">Required vs. delivered minutes · shortfall tracking · compensatory exposure</p>
         </div>
         {activeTab === "minutes" && (
-          <Link href="/compliance-risk-report">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Printer className="w-3.5 h-3.5" /> Print Full Report
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/weekly-compliance-summary">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Printer className="w-3.5 h-3.5" /> Weekly Summary
+              </Button>
+            </Link>
+            <Link href="/compliance-risk-report">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Printer className="w-3.5 h-3.5" /> Full Report
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 

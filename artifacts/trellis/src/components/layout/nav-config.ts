@@ -140,6 +140,7 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     items: [
       { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
+      { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },

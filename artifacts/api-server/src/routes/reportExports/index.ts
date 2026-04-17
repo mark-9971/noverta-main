@@ -6,6 +6,7 @@ import complianceReportsRouter from "./complianceReports";
 import providerReportsRouter from "./providerReports";
 import historyAndScheduledRouter from "./historyAndScheduled";
 import complianceRiskReportRouter from "./complianceRiskReport";
+import weeklyComplianceSummaryRouter from "./weeklyComplianceSummary";
 
 export { generateReportCSVDirect } from "./historyAndScheduled";
 export type { ReportFilters } from "./utils";
@@ -20,5 +21,6 @@ router.use(complianceReportsRouter);
 router.use(providerReportsRouter);
 router.use(historyAndScheduledRouter);
 router.use(complianceRiskReportRouter);
+router.use(weeklyComplianceSummaryRouter);
 
 export default router;

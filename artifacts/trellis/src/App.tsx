@@ -80,6 +80,7 @@ const BillingPage = lazy(() => import("@/pages/billing"));
 const MedicaidBillingPage = lazy(() => import("@/pages/medicaid-billing"));
 const CostAvoidancePage = lazy(() => import("@/pages/cost-avoidance"));
 const ComplianceRiskReportPage = lazy(() => import("@/pages/compliance-risk-report"));
+const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance-summary"));
 const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
@@ -217,6 +218,7 @@ function StaffRouter() {
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
       <BoundedRoute path="/compliance-risk-report" component={ComplianceRiskReportPage} fallbackTitle="Compliance risk report error" />
+      <BoundedRoute path="/weekly-compliance-summary" component={WeeklyComplianceSummaryPage} fallbackTitle="Weekly compliance summary error" />
       <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <Route component={NotFound} />
