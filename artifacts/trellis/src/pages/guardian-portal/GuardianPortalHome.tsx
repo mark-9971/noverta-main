@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { buildDocumentHtml, openPrintWindow, esc, fmtDate } from "@/lib/print-document";
-import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox, Download, Loader2 } from "lucide-react";
+import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox, Download, Loader2, Info } from "lucide-react";
 import { Link } from "wouter";
 import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 
@@ -130,17 +130,36 @@ export default function GuardianPortalHome() {
     enabled: !!data,
   });
 
+  const { data: reportData, isError: reportFetchError, refetch: refetchReport } = useQuery<ParentSummaryReport | null>({
+    queryKey: ["parent-summary-report", data?.student?.id],
+    queryFn: async ({ signal }) => {
+      const res = await authFetch(`/api/reports/parent-summary/${data!.student!.id}?parentSafe=true`, { signal });
+      if (!res.ok) {
+        const body: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      return res.json();
+    },
+    enabled: !!data?.student?.id,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const hasReport = reportData !== undefined && reportData !== null && reportData.reportingPeriod !== null;
+
   async function handleDownloadReport() {
     if (!data?.student?.id) return;
     setIsDownloading(true);
     setDownloadError(null);
     try {
-      const res = await authFetch(`/api/reports/parent-summary/${data.student.id}?parentSafe=true`);
-      if (!res.ok) {
-        const body: { error?: string } = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Request failed (${res.status})`);
-      }
-      const report: ParentSummaryReport = await res.json();
+      const report: ParentSummaryReport = reportData ?? await (async () => {
+        const res = await authFetch(`/api/reports/parent-summary/${data.student!.id}?parentSafe=true`);
+        if (!res.ok) {
+          const body: { error?: string } = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `Request failed (${res.status})`);
+        }
+        return res.json();
+      })();
       const html = buildParentReportHtml(report);
       openPrintWindow(html);
     } catch (e: unknown) {
@@ -279,17 +298,40 @@ export default function GuardianPortalHome() {
                 <p className="text-xs text-gray-500">Download a family-friendly summary of {student.firstName}'s goals and services</p>
               </div>
             </div>
-            <button
-              onClick={handleDownloadReport}
-              disabled={isDownloading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex-shrink-0"
-            >
-              {isDownloading
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <Download className="w-4 h-4" />}
-              {isDownloading ? "Loading…" : "Download Progress Report"}
-            </button>
+            {reportFetchError ? null : reportData === undefined ? (
+              <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+              </div>
+            ) : hasReport ? (
+              <button
+                onClick={handleDownloadReport}
+                disabled={isDownloading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex-shrink-0"
+              >
+                {isDownloading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Download className="w-4 h-4" />}
+                {isDownloading ? "Loading…" : "Download Progress Report"}
+              </button>
+            ) : null}
           </div>
+          {reportFetchError && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5">
+              <p className="text-xs text-red-700">Could not load report availability. Please try again.</p>
+              <button
+                onClick={() => refetchReport()}
+                className="text-xs text-red-700 font-medium underline underline-offset-2 hover:text-red-900 flex-shrink-0"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {!reportFetchError && reportData !== undefined && !hasReport && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5">
+              <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700">No report available yet — check back after the first reporting period.</p>
+            </div>
+          )}
           {downloadError && (
             <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{downloadError}</p>
           )}
