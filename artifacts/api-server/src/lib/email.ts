@@ -68,6 +68,7 @@ export type EmailType =
   | "overdue_evaluation_reminder"
   | "overdue_session_log_reminder"
   | "progress_report"
+  | "cost_avoidance_risk_alert"
   | "general";
 
 export interface SendEmailParams {
@@ -435,6 +436,86 @@ export function buildOverdueEvaluationEmail(opts: {
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.\n\n${schoolName}`;
+  return { subject, html, text };
+}
+
+export function buildCostAvoidanceRiskEmail(opts: {
+  staffName: string;
+  studentName: string;
+  studentId: number;
+  riskTitle: string;
+  riskDescription: string;
+  daysRemaining: number;
+  estimatedExposure: number | null;
+  exposureBasis: string;
+  actionNeeded: string;
+  category: string;
+  appBaseUrl?: string;
+}): { subject: string; html: string; text: string } {
+  const {
+    staffName, studentName, studentId, riskTitle, riskDescription,
+    daysRemaining, estimatedExposure, exposureBasis, actionNeeded,
+    category, appBaseUrl,
+  } = opts;
+
+  const categoryLabel = category === "evaluation_deadline"
+    ? "Evaluation Deadline"
+    : category === "iep_annual_review"
+    ? "IEP Annual Review"
+    : "Service Shortfall";
+
+  const overdue = daysRemaining < 0;
+  const absDays = Math.abs(daysRemaining);
+  const daysLabel = overdue
+    ? `${absDays} day${absDays !== 1 ? "s" : ""} overdue`
+    : daysRemaining === 0
+    ? "Due today"
+    : `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`;
+
+  const exposureRow = estimatedExposure != null
+    ? `<li><strong>Estimated exposure:</strong> $${estimatedExposure.toLocaleString()}</li>`
+    : `<li><strong>Risk basis:</strong> ${exposureBasis}</li>`;
+
+  const studentLink = appBaseUrl
+    ? `${appBaseUrl}/students/${studentId}`
+    : null;
+  const linkHtml = studentLink
+    ? `<p style="margin-top:20px"><a href="${studentLink}" style="background:#dc2626;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View Student Record →</a></p>`
+    : "";
+  const linkText = studentLink ? `\nView student record: ${studentLink}\n` : "";
+
+  const subject = `[Critical Risk] ${riskTitle} — ${studentName}`;
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#7f1d1d;color:#fff;padding:20px 24px}.body{padding:24px}.alert{background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:14px 18px;margin-bottom:20px}.badge{display:inline-block;background:#dc2626;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.5px;margin-bottom:8px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header">
+  <h1 style="margin:0;font-size:17px">Critical Cost Avoidance Risk</h1>
+  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Compliance — Automated Risk Alert</p>
+</div>
+<div class="body">
+<div class="alert">
+  <span class="badge">CRITICAL</span>
+  <p style="margin:0;font-size:15px;font-weight:600">${riskTitle}</p>
+  <p style="margin:6px 0 0;color:#7f1d1d;font-size:13px">${categoryLabel} · ${daysLabel}</p>
+</div>
+<p>Dear ${staffName},</p>
+<p>A critical compliance risk has been identified for one of your students that requires immediate attention:</p>
+<ul>
+  <li><strong>Student:</strong> ${studentName}</li>
+  <li><strong>Risk type:</strong> ${categoryLabel}</li>
+  <li><strong>Status:</strong> ${daysLabel}</li>
+  ${exposureRow}
+</ul>
+<p style="background:#fef9c3;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;font-size:13px"><strong>Description:</strong> ${riskDescription}</p>
+<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;font-size:13px"><strong>Action needed:</strong> ${actionNeeded}</p>
+${linkHtml}
+</div>
+<div class="footer"><p>This is an automated alert from Trellis SPED Compliance Platform. Risk alerts are rate-limited to one email per item per 7 days. Manage alert preferences in Trellis Settings.</p></div>
+</div></body></html>`;
+
+  const text = `CRITICAL COST AVOIDANCE RISK ALERT\n\nDear ${staffName},\n\nA critical compliance risk has been identified:\n\nStudent: ${studentName}\nRisk: ${riskTitle}\nCategory: ${categoryLabel}\nStatus: ${daysLabel}\n${estimatedExposure != null ? `Estimated exposure: $${estimatedExposure.toLocaleString()}` : `Risk basis: ${exposureBasis}`}\n\nDescription: ${riskDescription}\n\nAction needed: ${actionNeeded}\n${linkText}\nThis is an automated alert from Trellis SPED Compliance Platform.`;
+
   return { subject, html, text };
 }
 

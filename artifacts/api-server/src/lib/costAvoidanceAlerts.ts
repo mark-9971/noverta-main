@@ -11,19 +11,24 @@ import {
   alertsTable,
   schoolsTable,
   districtsTable,
+  staffTable,
+  communicationEventsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, inArray, ne } from "drizzle-orm";
+import { sendEmail, buildCostAvoidanceRiskEmail } from "./email";
 
 type UrgencyWindow = "overdue" | "7" | "14" | "30";
 
 interface AlertableRisk {
   studentId: number;
+  studentName: string;
   staffId: number | null;
   urgency: "critical" | "high" | "medium";
   category: string;
   dedupeKey: string;
   title: string;
   actionNeeded: string;
+  daysRemaining: number;
   // Dollar exposure is only set when a real billing rate is configured.
   // For non-service risks (eval/IEP) this is always null and the alert
   // message uses a non-dollar urgency framing instead.
@@ -56,22 +61,26 @@ export async function runCostAvoidanceAlertGeneration(): Promise<void> {
 
   let totalCreated = 0;
   let totalSkipped = 0;
+  let totalEmailsSent = 0;
 
   for (const district of districts) {
-    const { created, skipped } = await generateAlertsForDistrict(district.id);
+    const { created, skipped, emailsSent } = await generateAlertsForDistrict(district.id);
     totalCreated += created;
     totalSkipped += skipped;
+    totalEmailsSent += emailsSent;
   }
 
-  console.log(`[CostAvoidance] Alert generation complete: ${totalCreated} created, ${totalSkipped} skipped`);
+  console.log(`[CostAvoidance] Alert generation complete: ${totalCreated} created, ${totalSkipped} skipped, ${totalEmailsSent} critical emails sent`);
 }
 
-export async function generateAlertsForDistrict(districtId: number): Promise<{ created: number; skipped: number }> {
+export async function generateAlertsForDistrict(districtId: number): Promise<{ created: number; skipped: number; emailsSent: number }> {
   const today = new Date().toISOString().slice(0, 10);
   const horizon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const activeStudents = await db.select({
     id: studentsTable.id,
+    firstName: studentsTable.firstName,
+    lastName: studentsTable.lastName,
     caseManagerId: studentsTable.caseManagerId,
   })
     .from(studentsTable)
@@ -81,16 +90,17 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
       eq(schoolsTable.districtId, districtId),
     ));
 
-  if (activeStudents.length === 0) return { created: 0, skipped: 0 };
+  if (activeStudents.length === 0) return { created: 0, skipped: 0, emailsSent: 0 };
 
   const studentIds = activeStudents.map(s => s.id);
   const studentCaseManagers = new Map(activeStudents.map(s => [s.id, s.caseManagerId]));
+  const studentNames = new Map(activeStudents.map(s => [s.id, `${s.firstName} ${s.lastName}`]));
 
   const risks: AlertableRisk[] = [];
 
-  await collectEvaluationRisks(risks, studentIds, studentCaseManagers, today);
-  await collectServiceShortfallRisks(risks, studentIds, studentCaseManagers, today);
-  await collectIepAnnualReviewRisks(risks, studentIds, studentCaseManagers, today, horizon);
+  await collectEvaluationRisks(risks, studentIds, studentCaseManagers, studentNames, today);
+  await collectServiceShortfallRisks(risks, studentIds, studentCaseManagers, studentNames, today);
+  await collectIepAnnualReviewRisks(risks, studentIds, studentCaseManagers, studentNames, today, horizon);
 
   const existingAlerts = await db.select({
     studentId: alertsTable.studentId,
@@ -111,8 +121,37 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
     if (match) existingKeys.add(match[1]);
   }
 
+  // Rate-limit: fetch communication events for cost avoidance risk emails sent
+  // in the last 7 days so we can avoid flooding the same staff member.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Only count successfully accepted/delivered emails toward the rate limit.
+  // Failed or not_configured events should not suppress retry emails.
+  const recentEmailEvents = await db.select({
+    metadata: communicationEventsTable.metadata,
+  })
+    .from(communicationEventsTable)
+    .where(and(
+      eq(communicationEventsTable.type, "cost_avoidance_risk_alert"),
+      gte(communicationEventsTable.createdAt, sevenDaysAgo),
+      inArray(communicationEventsTable.status, ["accepted", "delivered", "sent"]),
+    ));
+
+  const recentlyEmailedBaseKeys = new Set<string>();
+  for (const ev of recentEmailEvents) {
+    const meta = ev.metadata as Record<string, unknown> | null;
+    if (meta?.riskBaseKey && typeof meta.riskBaseKey === "string") {
+      recentlyEmailedBaseKeys.add(meta.riskBaseKey);
+    }
+  }
+
+  // Collect staff info for email lookup
+  const staffEmailCache = new Map<number, { name: string; email: string | null }>();
+
+  const appBaseUrl = process.env.APP_BASE_URL ?? null;
+
   let created = 0;
   let skipped = 0;
+  let emailsSent = 0;
 
   for (const risk of risks) {
     if (existingKeys.has(risk.dedupeKey)) {
@@ -125,7 +164,7 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
       : risk.exposureBasis;
     const message = `[Cost Avoidance] ${risk.title} — ${exposureText} [dedupe:${risk.dedupeKey}]`;
 
-    await db.insert(alertsTable).values({
+    const [inserted] = await db.insert(alertsTable).values({
       type: "cost_avoidance_risk",
       severity: risk.urgency,
       studentId: risk.studentId,
@@ -133,18 +172,80 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
       message,
       suggestedAction: risk.actionNeeded,
       resolved: false,
-    });
+    }).returning({ id: alertsTable.id });
+
     created++;
     existingKeys.add(risk.dedupeKey);
+
+    // Send email only for critical risks to responsible staff member
+    if (risk.urgency !== "critical" || !risk.staffId) continue;
+
+    // Derive the base key (strip urgency window suffix) for 7-day rate limiting
+    const riskBaseKey = risk.dedupeKey.replace(/:[^:]+$/, "");
+    if (recentlyEmailedBaseKeys.has(riskBaseKey)) continue;
+
+    // Look up staff email (cache to avoid repeat queries)
+    if (!staffEmailCache.has(risk.staffId)) {
+      const [staffRow] = await db.select({
+        firstName: staffTable.firstName,
+        lastName: staffTable.lastName,
+        email: staffTable.email,
+      }).from(staffTable).where(eq(staffTable.id, risk.staffId));
+      if (staffRow) {
+        staffEmailCache.set(risk.staffId, {
+          name: `${staffRow.firstName} ${staffRow.lastName}`,
+          email: staffRow.email,
+        });
+      }
+    }
+
+    const staffInfo = staffEmailCache.get(risk.staffId);
+    if (!staffInfo?.email) continue;
+
+    const { subject, html, text } = buildCostAvoidanceRiskEmail({
+      staffName: staffInfo.name,
+      studentName: risk.studentName,
+      studentId: risk.studentId,
+      riskTitle: risk.title,
+      riskDescription: risk.exposureBasis,
+      daysRemaining: risk.daysRemaining,
+      estimatedExposure: risk.estimatedExposure,
+      exposureBasis: risk.exposureBasis,
+      actionNeeded: risk.actionNeeded,
+      category: risk.category,
+      appBaseUrl: appBaseUrl ?? undefined,
+    });
+
+    const emailResult = await sendEmail({
+      studentId: risk.studentId,
+      type: "cost_avoidance_risk_alert",
+      subject,
+      bodyHtml: html,
+      bodyText: text,
+      toEmail: staffInfo.email,
+      toName: staffInfo.name,
+      staffId: risk.staffId,
+      linkedAlertId: inserted?.id,
+      metadata: { riskBaseKey, dedupeKey: risk.dedupeKey, category: risk.category },
+    });
+
+    // Only suppress future emails for this risk if the provider accepted the send.
+    // A failed or not_configured result leaves the base key unclaimed so the
+    // next alert generation run can retry delivery.
+    if (emailResult.success) {
+      recentlyEmailedBaseKeys.add(riskBaseKey);
+      emailsSent++;
+    }
   }
 
-  return { created, skipped };
+  return { created, skipped, emailsSent };
 }
 
 async function collectEvaluationRisks(
   risks: AlertableRisk[],
   studentIds: number[],
   caseManagers: Map<number, number | null>,
+  studentNames: Map<number, string>,
   today: string,
 ): Promise<void> {
   const referrals = await db.select({
@@ -173,12 +274,14 @@ async function collectEvaluationRisks(
 
     risks.push({
       studentId: ref.studentId,
+      studentName: studentNames.get(ref.studentId) ?? "Unknown Student",
       staffId: ref.assignedEvaluatorId || caseManagers.get(ref.studentId) || null,
       urgency,
       category: "evaluation_deadline",
       dedupeKey: `eval:${ref.studentId}:${ref.id}:${window}`,
       title: overdue ? `Evaluation ${absDays} days overdue` : `Evaluation deadline in ${days} days`,
       actionNeeded: overdue ? "Complete evaluation immediately" : "Ensure evaluation is on track",
+      daysRemaining: days,
       estimatedExposure: null,
       exposureBasis: overdue
         ? `${absDays} days past statutory evaluation deadline`
@@ -210,12 +313,14 @@ async function collectEvaluationRisks(
 
     risks.push({
       studentId: ce.studentId,
+      studentName: studentNames.get(ce.studentId) ?? "Unknown Student",
       staffId: caseManagers.get(ce.studentId) || null,
       urgency,
       category: "evaluation_deadline",
       dedupeKey: `ce-eval:${ce.studentId}:${ce.id}:${window}`,
       title: overdue ? `${ce.title || ce.eventType} ${absDays} days overdue` : `${ce.title || ce.eventType} due in ${days} days`,
       actionNeeded: overdue ? "Schedule and complete evaluation immediately" : "Ensure evaluation is progressing on schedule",
+      daysRemaining: days,
       estimatedExposure: null,
       exposureBasis: overdue
         ? `${absDays} days past statutory ${ce.eventType.replace(/_/g, " ")} deadline`
@@ -228,6 +333,7 @@ async function collectServiceShortfallRisks(
   risks: AlertableRisk[],
   studentIds: number[],
   caseManagers: Map<number, number | null>,
+  studentNames: Map<number, string>,
   today: string,
 ): Promise<void> {
   const requirements = await db.select({
@@ -315,12 +421,14 @@ async function collectServiceShortfallRisks(
         const weekKey = currentWeekStart.toISOString().slice(0, 10);
         risks.push({
           studentId: req.studentId,
+          studentName: studentNames.get(req.studentId) ?? "Unknown Student",
           staffId: req.providerId || caseManagers.get(req.studentId) || null,
           urgency: deliveredMinutes === 0 ? "critical" : "high",
           category: "service_shortfall",
           dedupeKey: `svc-wk:${req.studentId}:${req.id}:${weekKey}`,
           title: `${svcName}: ${shortfall} min shortfall this week`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
+          daysRemaining: daysLeftInWeek,
           estimatedExposure,
           exposureBasis: estimatedExposure != null
             ? `${shortfall} min shortfall × $${hourlyRate}/hr configured rate`
@@ -347,12 +455,14 @@ async function collectServiceShortfallRisks(
 
         risks.push({
           studentId: req.studentId,
+          studentName: studentNames.get(req.studentId) ?? "Unknown Student",
           staffId: req.providerId || caseManagers.get(req.studentId) || null,
           urgency,
           category: "service_shortfall",
           dedupeKey: `svc-mo:${req.studentId}:${req.id}:${currentMonth}`,
           title: `${svcName}: trending ${projectedShortfall} min short`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
+          daysRemaining: daysLeft,
           estimatedExposure,
           exposureBasis: estimatedExposure != null
             ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr configured rate`
@@ -367,6 +477,7 @@ async function collectIepAnnualReviewRisks(
   risks: AlertableRisk[],
   studentIds: number[],
   caseManagers: Map<number, number | null>,
+  studentNames: Map<number, string>,
   today: string,
   horizon: string,
 ): Promise<void> {
@@ -425,12 +536,14 @@ async function collectIepAnnualReviewRisks(
 
     risks.push({
       studentId: iep.studentId,
+      studentName: studentNames.get(iep.studentId) ?? "Unknown Student",
       staffId: iep.preparedBy || caseManagers.get(iep.studentId) || null,
       urgency,
       category: "iep_annual_review",
       dedupeKey: `iep:${iep.studentId}:${iep.id}:${window}`,
       title: overdue ? `IEP annual review ${absDays} days overdue` : `IEP annual review due in ${days} days`,
       actionNeeded: overdue ? "Schedule emergency IEP team meeting immediately" : "Schedule annual review team meeting",
+      daysRemaining: days,
       estimatedExposure: null,
       exposureBasis: overdue
         ? `IEP expired ${absDays} days ago — out-of-compliance for entire active service plan`
