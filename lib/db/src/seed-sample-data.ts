@@ -241,7 +241,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   const insertedIeps = await db.insert(iepDocumentsTable).values(iepRows).returning();
   const iepByStudent = new Map(insertedIeps.map(d => [d.studentId, d.id]));
 
-  const goalRows: any[] = [];
+  const goalRows: (typeof iepGoalsTable.$inferInsert)[] = [];
   for (const s of insertedStudents) {
     for (let g = 0; g < 2; g++) {
       goalRows.push({
@@ -260,7 +260,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   await db.insert(iepGoalsTable).values(goalRows);
 
   // 5. Service requirements (one per student per service type)
-  const srRows: any[] = [];
+  const srRows: (typeof serviceRequirementsTable.$inferInsert)[] = [];
   for (const spec of studentSpecs) {
     for (const stId of spec.serviceTypeIds) {
       // Round-robin a provider
@@ -290,7 +290,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
 
   // 6. Session logs across the last 14 weekdays. Healthy ≈90% completion,
   //    shortfall ≈60%, urgent ≈30%, compensatory_risk ≈45%.
-  const sessionRows: any[] = [];
+  const sessionRows: (typeof sessionLogsTable.$inferInsert)[] = [];
   const now = new Date();
   const dates: string[] = [];
   for (let i = 14; i >= 1; i--) {
@@ -340,7 +340,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
 
   // 7. Schedule blocks (recurring weekly slots for each requirement)
   const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-  const blockRows: any[] = [];
+  const blockRows: (typeof scheduleBlocksTable.$inferInsert)[] = [];
   for (const sr of insertedSrs) {
     if (!sr.providerId) continue;
     const day = pick(DAYS);
@@ -372,7 +372,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     { category: "environmental", description: "Access to sensory tools (fidget, weighted lap pad)" },
     { category: "behavioral", description: "Daily check-in with case manager" },
   ];
-  const accomRows: any[] = [];
+  const accomRows: (typeof iepAccommodationsTable.$inferInsert)[] = [];
   for (const s of insertedStudents) {
     const chosen = [...accomBank].sort(() => Math.random() - 0.5).slice(0, 3);
     for (const a of chosen) {
@@ -389,8 +389,8 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   await db.insert(iepAccommodationsTable).values(accomRows);
 
   // 9. Guardians + 1 emergency contact per student
-  const guardianRows: any[] = [];
-  const emergencyRows: any[] = [];
+  const guardianRows: (typeof guardiansTable.$inferInsert)[] = [];
+  const emergencyRows: (typeof emergencyContactsTable.$inferInsert)[] = [];
   for (const s of insertedStudents) {
     guardianRows.push({
       studentId: s.id,
@@ -415,7 +415,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   await db.insert(emergencyContactsTable).values(emergencyRows);
 
   // 10. Alerts for non-healthy students (drives compliance-risk surfaces)
-  const alertRows: any[] = [];
+  const alertRows: (typeof alertsTable.$inferInsert)[] = [];
   for (const spec of studentSpecs) {
     if (spec.scenario === "urgent") {
       alertRows.push({
@@ -449,7 +449,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   if (alertRows.length > 0) await db.insert(alertsTable).values(alertRows);
 
   // 11. Compensatory obligations for urgent + compensatory_risk
-  const compRows: any[] = [];
+  const compRows: (typeof compensatoryObligationsTable.$inferInsert)[] = [];
   for (const spec of studentSpecs) {
     if (spec.scenario !== "urgent" && spec.scenario !== "compensatory_risk") continue;
     const srs = srByStudent.get(spec.id) ?? [];

@@ -200,7 +200,14 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
       {onboarding?.isComplete ? (
         <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
       ) : (
-        <PilotOnboardingChecklist variant="full" />
+        <>
+          <PilotOnboardingChecklist variant="full" />
+          {/* Co-dominant readiness audit: surfaces alongside the setup checklist
+              for as long as the district is pre-ready. Once isComplete = true,
+              both collapse and PilotReadinessPanel falls back to its lower
+              section position below. */}
+          <PilotReadinessPanel />
+        </>
       )}
 
       {/* 1. Are we compliant? */}
@@ -388,7 +395,10 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         </ol>
       </section>
 
-      <PilotReadinessPanel />
+      {/* Render the readiness panel at its lower position only after onboarding
+          completes — pre-ready, it lives at the top alongside the setup
+          checklist (see above) so first-login users see it immediately. */}
+      {onboarding?.isComplete && <PilotReadinessPanel />}
 
       {/* Footer note */}
       <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">
