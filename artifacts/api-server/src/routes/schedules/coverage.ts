@@ -13,6 +13,10 @@ import { eq, and } from "drizzle-orm";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { requireAdmin } from "./shared";
+import {
+  assertScheduleBlockInCallerDistrict,
+  assertStaffInCallerDistrict,
+} from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -93,6 +97,14 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = AssignSubstituteBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Body-IDOR defense: both the schedule block (via its assigned staff) and the
+  // substitute staff id must belong to the caller's district. Without this an
+  // admin in District A could attach a District B substitute to a District B
+  // block by passing crafted ids.
+  const authed = req as AuthedRequest;
+  if (!(await assertScheduleBlockInCallerDistrict(authed, params.data.id, res))) return;
+  if (!(await assertStaffInCallerDistrict(authed, parsed.data.substituteStaffId, res))) return;
 
   const [sub] = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
     .from(staffTable).where(eq(staffTable.id, parsed.data.substituteStaffId));

@@ -11,6 +11,12 @@ import {
 import { eq, and, gte, lte, desc, sql, inArray, isNull } from "drizzle-orm";
 import { pool } from "@workspace/db";
 import { requireTierAccess } from "../middlewares/tierGate";
+import type { AuthedRequest } from "../middlewares/auth";
+import {
+  assertStudentInCallerDistrict, assertStaffInCallerDistrict,
+  assertServiceRequirementInCallerDistrict,
+  assertCompensatoryObligationInCallerDistrict,
+} from "../lib/districtScope";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   ListCompensatoryObligationsQueryParams,
@@ -146,6 +152,12 @@ router.post("/compensatory-obligations", async (req, res): Promise<void> => {
   }
   const { studentId, serviceRequirementId, periodStart, periodEnd, minutesOwed, notes, agreedDate, agreedWith, source } = bodyParsed.data;
 
+  // Body-IDOR defense: studentId + serviceRequirementId must be in caller's district.
+  const authed = req as AuthedRequest;
+  if (!(await assertStudentInCallerDistrict(authed, Number(studentId), res))) return;
+  if (serviceRequirementId != null
+    && !(await assertServiceRequirementInCallerDistrict(authed, Number(serviceRequirementId), res))) return;
+
   const [row] = await db.insert(compensatoryObligationsTable).values({
     studentId: Number(studentId),
     serviceRequirementId: serviceRequirementId ? Number(serviceRequirementId) : null,
@@ -167,6 +179,8 @@ router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> =>
   const paramsParsed = UpdateCompensatoryObligationParams.safeParse(req.params);
   if (!paramsParsed.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const id = paramsParsed.data.id;
+
+  if (!(await assertCompensatoryObligationInCallerDistrict(req as AuthedRequest, id, res))) return;
 
   const bodyParsed = UpdateCompensatoryObligationBody.safeParse(req.body);
   if (!bodyParsed.success) {
@@ -210,6 +224,7 @@ router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> =>
 router.delete("/compensatory-obligations/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!(await assertCompensatoryObligationInCallerDistrict(req as AuthedRequest, id, res))) return;
   await db.delete(compensatoryObligationsTable).where(eq(compensatoryObligationsTable.id, id));
   res.sendStatus(204);
 });
@@ -217,6 +232,12 @@ router.delete("/compensatory-obligations/:id", async (req, res): Promise<void> =
 router.post("/compensatory-obligations/:id/sessions", async (req, res): Promise<void> => {
   const obligationId = Number(req.params.id);
   if (isNaN(obligationId)) { res.status(400).json({ error: "Invalid obligation id" }); return; }
+
+  // Tenant guard on the parent obligation + body-supplied staffId.
+  const authed = req as AuthedRequest;
+  if (!(await assertCompensatoryObligationInCallerDistrict(authed, obligationId, res))) return;
+  if (req.body?.staffId != null
+    && !(await assertStaffInCallerDistrict(authed, Number(req.body.staffId), res))) return;
 
   const { sessionDate, durationMinutes, staffId, serviceTypeId, startTime, endTime, notes, location } = req.body;
   if (!sessionDate || !durationMinutes) {
@@ -406,6 +427,18 @@ router.post("/compensatory-obligations/generate-from-shortfalls", async (req, re
   if (!shortfalls || !Array.isArray(shortfalls) || shortfalls.length === 0) {
     res.status(400).json({ error: "shortfalls array is required" });
     return;
+  }
+
+  // Body-IDOR defense: every shortfall row's studentId AND serviceRequirementId
+  // must belong to the caller's district. Without this, a privileged caller
+  // could spam-create compensatory obligations against students in any district
+  // by submitting crafted shortfall payloads.
+  const authed = req as AuthedRequest;
+  for (const sf of shortfalls) {
+    if (sf?.studentId == null
+      || !(await assertStudentInCallerDistrict(authed, Number(sf.studentId), res))) return;
+    if (sf?.serviceRequirementId != null
+      && !(await assertServiceRequirementInCallerDistrict(authed, Number(sf.serviceRequirementId), res))) return;
   }
 
   const created: any[] = [];

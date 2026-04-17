@@ -9,6 +9,11 @@ import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { meetingAccess, MEETING_TYPES, MEETING_STATUSES, pick } from "./shared";
+import {
+  assertStudentInCallerDistrict, assertSchoolInCallerDistrict,
+  assertIepDocumentInCallerDistrict, assertTeamMeetingInCallerDistrict,
+  allStaffInCallerDistrict,
+} from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -131,6 +136,26 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       return;
     }
 
+    // Body-IDOR defense: every body-supplied FK (student/school/iepDoc/invitees[].staffId)
+    // must belong to caller's district before we accept the write.
+    const authed = req as AuthedRequest;
+    if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
+    if (body.schoolId != null
+      && !(await assertSchoolInCallerDistrict(authed, Number(body.schoolId), res))) return;
+    if (body.iepDocumentId != null
+      && !(await assertIepDocumentInCallerDistrict(authed, Number(body.iepDocumentId), res))) return;
+    if (Array.isArray(body.invitees)) {
+      const inviteeStaffIds = body.invitees
+        .map((inv: Record<string, unknown>) => inv?.staffId)
+        .filter((v): v is number | string => v != null)
+        .map((v) => Number(v))
+        .filter((n) => Number.isFinite(n));
+      if (inviteeStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, inviteeStaffIds))) {
+        res.status(403).json({ error: "One or more invitees are not in your district" });
+        return;
+      }
+    }
+
     const [student] = await db.select({ id: studentsTable.id, schoolId: studentsTable.schoolId })
       .from(studentsTable)
       .where(eq(studentsTable.id, body.studentId));
@@ -188,6 +213,12 @@ router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void>
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
 
+    // Tenant guard: meeting itself + any iepDocumentId swap must be in district.
+    const authed = req as AuthedRequest;
+    if (!(await assertTeamMeetingInCallerDistrict(authed, id, res))) return;
+    if (req.body?.iepDocumentId != null
+      && !(await assertIepDocumentInCallerDistrict(authed, Number(req.body.iepDocumentId), res))) return;
+
     const allowed = [
       "scheduledDate", "scheduledTime", "endTime", "duration", "location",
       "meetingFormat", "status", "agendaItems", "notes", "actionItems",
@@ -232,6 +263,9 @@ router.delete("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+
+    // Tenant guard before destructive cascade.
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const [meeting] = await db.select({ id: teamMeetingsTable.id, studentId: teamMeetingsTable.studentId })
       .from(teamMeetingsTable).where(eq(teamMeetingsTable.id, id));

@@ -10,6 +10,33 @@ import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../midd
 import { createAutoVersion } from "../lib/documentVersioning";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { sendEmail, buildOverdueEvaluationEmail } from "../lib/email";
+import {
+  assertStudentInCallerDistrict, assertStaffInCallerDistrict,
+  assertSchoolInCallerDistrict, assertReferralInCallerDistrict,
+  assertEvaluationInCallerDistrict, assertEligibilityInCallerDistrict,
+  allStaffInCallerDistrict,
+} from "../lib/districtScope";
+
+/**
+ * Extract numeric staff ids from a teamMembers payload.
+ * The teamMembers field is JSON; entries may be strings, numbers, or
+ * `{ staffId, role, name }` objects. Only validate ids we recognize as numeric;
+ * free-text member names (e.g. "Parent: Jane Doe") are allowed through.
+ */
+function extractTeamMemberStaffIds(teamMembers: unknown): number[] {
+  if (!Array.isArray(teamMembers)) return [];
+  const ids: number[] = [];
+  for (const m of teamMembers) {
+    if (typeof m === "number" && Number.isFinite(m)) {
+      ids.push(m);
+    } else if (m && typeof m === "object") {
+      const candidate = (m as Record<string, unknown>).staffId;
+      if (typeof candidate === "number" && Number.isFinite(candidate)) ids.push(candidate);
+      else if (typeof candidate === "string" && /^\d+$/.test(candidate)) ids.push(Number(candidate));
+    }
+  }
+  return ids;
+}
 
 const router: IRouter = Router();
 router.use("/evaluations", requireTierAccess("compliance.evaluations"));
@@ -137,6 +164,14 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
       res.status(400).json({ error: "studentId, referralDate, and reason are required" });
       return;
     }
+    // Body-IDOR defense: every body-supplied foreign key must belong to caller's district.
+    const authed = req as AuthedRequest;
+    if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
+    if (body.assignedEvaluatorId != null
+      && !(await assertStaffInCallerDistrict(authed, Number(body.assignedEvaluatorId), res))) return;
+    if (body.schoolId != null
+      && !(await assertSchoolInCallerDistrict(authed, Number(body.schoolId), res))) return;
+
     let evaluationDeadline = body.evaluationDeadline ?? null;
     if (body.consentReceivedDate && !evaluationDeadline) {
       evaluationDeadline = calcDeadline(body.consentReceivedDate, body.timelineRule ?? undefined);
@@ -171,7 +206,16 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
 router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid referral id" }); return; }
+
+    // Tenant guard on the referral itself, then on any body-supplied FK swap.
+    const authed = req as AuthedRequest;
+    if (!(await assertReferralInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, REFERRAL_PATCH_FIELDS);
+    if (updates.assignedEvaluatorId != null
+      && !(await assertStaffInCallerDistrict(authed, Number(updates.assignedEvaluatorId), res))) return;
+    if (updates.schoolId != null
+      && !(await assertSchoolInCallerDistrict(authed, Number(updates.schoolId), res))) return;
 
     if (updates.consentReceivedDate && !updates.evaluationDeadline) {
       updates.evaluationDeadline = calcDeadline(
@@ -191,7 +235,6 @@ router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise
     if (!row) { res.status(404).json({ error: "Referral not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluation_referrals", targetId: id, studentId: row.studentId, summary: `Updated referral #${id}` });
-    const authed = req as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     if (districtId) {
       const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
@@ -260,6 +303,20 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
       res.status(400).json({ error: `evaluationType must be one of: ${validEvalTypes.join(", ")}` });
       return;
     }
+
+    // Body-IDOR defense: validate every cross-tenant FK before insert.
+    const authed = req as AuthedRequest;
+    if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
+    if (body.referralId != null
+      && !(await assertReferralInCallerDistrict(authed, Number(body.referralId), res))) return;
+    if (body.leadEvaluatorId != null
+      && !(await assertStaffInCallerDistrict(authed, Number(body.leadEvaluatorId), res))) return;
+    const teamStaffIds = extractTeamMemberStaffIds(body.teamMembers);
+    if (teamStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, teamStaffIds))) {
+      res.status(403).json({ error: "One or more team members are not in your district" });
+      return;
+    }
+
     const [row] = await db.insert(evaluationsTable).values({
       studentId: body.studentId,
       referralId: body.referralId ?? null,
@@ -330,7 +387,20 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
 router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid evaluation id" }); return; }
+
+    const authed = req as AuthedRequest;
+    if (!(await assertEvaluationInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, EVALUATION_PATCH_FIELDS);
+    if (updates.leadEvaluatorId != null
+      && !(await assertStaffInCallerDistrict(authed, Number(updates.leadEvaluatorId), res))) return;
+    if (updates.teamMembers !== undefined) {
+      const teamStaffIds = extractTeamMemberStaffIds(updates.teamMembers);
+      if (teamStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, teamStaffIds))) {
+        res.status(403).json({ error: "One or more team members are not in your district" });
+        return;
+      }
+    }
 
     const [oldRow] = await db.select().from(evaluationsTable).where(eq(evaluationsTable.id, id));
     const [row] = await db.update(evaluationsTable)
@@ -340,7 +410,6 @@ router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => 
     if (!row) { res.status(404).json({ error: "Evaluation not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "evaluations", targetId: id, studentId: row.studentId, summary: `Updated evaluation #${id}` });
-    const authed = req as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     if (districtId) {
       const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
@@ -400,6 +469,18 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
       res.status(400).json({ error: "studentId and meetingDate are required" });
       return;
     }
+
+    // Body-IDOR defense: student/evaluation FK + team-member staff ids must be in district.
+    const authed = req as AuthedRequest;
+    if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
+    if (body.evaluationId != null
+      && !(await assertEvaluationInCallerDistrict(authed, Number(body.evaluationId), res))) return;
+    const teamStaffIds = extractTeamMemberStaffIds(body.teamMembers);
+    if (teamStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, teamStaffIds))) {
+      res.status(403).json({ error: "One or more team members are not in your district" });
+      return;
+    }
+
     let nextReEvalDate = body.nextReEvalDate ?? null;
     if (body.eligible && body.meetingDate && !nextReEvalDate) {
       const d = new Date(body.meetingDate + "T12:00:00");
@@ -440,7 +521,18 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
 router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid eligibility id" }); return; }
+
+    const authed = req as AuthedRequest;
+    if (!(await assertEligibilityInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, ELIGIBILITY_PATCH_FIELDS);
+    if (updates.teamMembers !== undefined) {
+      const teamStaffIds = extractTeamMemberStaffIds(updates.teamMembers);
+      if (teamStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, teamStaffIds))) {
+        res.status(403).json({ error: "One or more team members are not in your district" });
+        return;
+      }
+    }
 
     const [oldRow] = await db.select().from(eligibilityDeterminationsTable).where(eq(eligibilityDeterminationsTable.id, id));
     const [row] = await db.update(eligibilityDeterminationsTable)
@@ -450,7 +542,6 @@ router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promi
     if (!row) { res.status(404).json({ error: "Eligibility determination not found" }); return; }
 
     logAudit(req, { action: "update", targetTable: "eligibility_determinations", targetId: id, studentId: row.studentId, summary: `Updated eligibility determination #${id}` });
-    const authed = req as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     if (districtId) {
       const oldVals = oldRow ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldRow as Record<string, unknown>)[k]]))) : null;
