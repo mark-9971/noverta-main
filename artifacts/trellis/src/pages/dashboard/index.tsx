@@ -4,7 +4,7 @@ import {
   useGetComplianceDeadlines,
 } from "@workspace/api-client-react";
 import { AlertTriangle, Users, Clock, Bell, CheckCircle, Shield, Clipboard, ArrowRight, FileBarChart, DollarSign, ListChecks } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import PilotAdminHome from "./PilotAdminHome";
 import { useSchoolContext } from "@/lib/school-context";
@@ -26,7 +26,8 @@ export default function Dashboard() {
   const { role } = useRole();
   const isAdmin = role === "admin" || role === "coordinator";
   const [, navigate] = useLocation();
-  const fullView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "full";
+  const search = useSearch();
+  const fullView = new URLSearchParams(search).get("view") === "full";
 
   if (isAdmin && !fullView) {
     return <PilotAdminHome onShowFull={() => navigate("/?view=full")} />;

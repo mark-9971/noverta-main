@@ -1,12 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, exportHistoryTable } from "@workspace/db";
-import { desc, sql } from "drizzle-orm";
-import { requireRoles } from "../../middlewares/auth";
+import { desc, eq, sql } from "drizzle-orm";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { getAuth } from "@clerk/express";
 import { ADMIN_ROLES, buildCsv } from "./shared";
 import { TEMPLATES } from "./templates";
 
-// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/state-reports/templates", requireRoles(...ADMIN_ROLES), async (_req, res): Promise<void> => {
@@ -99,12 +98,14 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
 
     const auth = getAuth(req);
     const userId = auth?.userId ?? "unknown";
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
 
     await db.insert(exportHistoryTable).values({
       reportType: template.key,
       reportLabel: template.label,
       exportedBy: userId,
       schoolId: schoolId ? Number(schoolId) : null,
+      districtId: districtId ?? null,
       parameters: { schoolId, dateFrom, dateTo, errorCount } as Record<string, unknown>,
       recordCount: rows.length,
       warningCount: warnCount,
@@ -124,17 +125,20 @@ router.get("/state-reports/history", requireRoles(...ADMIN_ROLES), async (req, r
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Number(req.query.offset) || 0;
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
 
     const rows = await db
       .select()
       .from(exportHistoryTable)
+      .where(districtId != null ? eq(exportHistoryTable.districtId, districtId) : undefined)
       .orderBy(desc(exportHistoryTable.createdAt))
       .limit(limit)
       .offset(offset);
 
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(exportHistoryTable);
+      .from(exportHistoryTable)
+      .where(districtId != null ? eq(exportHistoryTable.districtId, districtId) : undefined);
 
     res.json({ rows, total: count });
   } catch (err: unknown) {

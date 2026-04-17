@@ -413,12 +413,12 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         <ol className="divide-y divide-gray-100">
           {actions.map((a, i) => {
             const inner = (
-              <div className="px-5 md:px-6 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer" data-testid={`action-${i}`}>
+              <div className={`px-5 md:px-6 py-3 flex items-center gap-3 cursor-pointer transition-colors ${a.tone === "primary" ? "hover:bg-emerald-50/40" : "hover:bg-gray-50"}`} data-testid={`action-${i}`}>
                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 ${a.tone === "primary" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                   {i + 1}
                 </span>
-                <span className={`flex-1 text-sm ${a.tone === "primary" ? "text-gray-900" : "text-gray-600"}`}>{a.label}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
+                <span className={`flex-1 text-sm ${a.tone === "primary" ? "text-gray-900 font-medium" : "text-gray-500 hover:text-gray-700"}`}>{a.label}</span>
+                <ArrowRight className={`w-3.5 h-3.5 flex-shrink-0 ${a.tone === "primary" ? "text-emerald-500" : "text-gray-400"}`} />
               </div>
             );
             if (a.href) return <li key={i}><Link href={a.href}>{inner}</Link></li>;
