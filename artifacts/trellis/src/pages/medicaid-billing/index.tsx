@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { FileText, Edit, TrendingUp, Download } from "lucide-react";
+import { FileText, Edit, TrendingUp, Download, BarChart2 } from "lucide-react";
 import { Tabs } from "./shared";
 import { ClaimsQueueTab } from "./ClaimsQueueTab";
 import { CptMappingsTab } from "./CptMappingsTab";
 import { RevenueDashboardTab } from "./RevenueDashboardTab";
 import { ExportTab } from "./ExportTab";
+import { BillingReportsTab } from "./BillingReportsTab";
 
 export default function MedicaidBillingPage() {
   const [activeTab, setActiveTab] = useState("claims");
@@ -13,6 +14,7 @@ export default function MedicaidBillingPage() {
     { key: "claims", label: "Claims Queue", icon: FileText },
     { key: "mappings", label: "CPT Mappings", icon: Edit },
     { key: "revenue", label: "Revenue Dashboard", icon: TrendingUp },
+    { key: "reports", label: "Billing Reports", icon: BarChart2 },
     { key: "export", label: "Export", icon: Download },
   ];
 
@@ -34,6 +36,7 @@ export default function MedicaidBillingPage() {
       {activeTab === "claims" && <ClaimsQueueTab />}
       {activeTab === "mappings" && <CptMappingsTab />}
       {activeTab === "revenue" && <RevenueDashboardTab />}
+      {activeTab === "reports" && <BillingReportsTab />}
       {activeTab === "export" && <ExportTab />}
     </div>
   );
