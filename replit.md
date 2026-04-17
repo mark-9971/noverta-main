@@ -78,6 +78,33 @@ Rules currently implemented:
 
 To add a new rule: add a branch in `buildRecommendations`, append a matching entry to `RECOMMENDATION_RULES`, and update this table. New rules must be deterministic (no LLM/heuristic calls) and grounded in an existing endpoint — do not market the panel as AI.
 
+## District Onboarding Checklist
+
+Trellis ships with a deterministic, completion-based onboarding checklist that walks a district from a blank workspace to a usable pilot. **No item is "checked off" by a button click — each one is derived from real database state**, so the panel always reflects what's actually been set up.
+
+**Component:** `artifacts/trellis/src/components/onboarding/PilotOnboardingChecklist.tsx`. The exported constant `PILOT_CHECKLIST_ITEMS` is the source of truth for the eight steps and their action links.
+
+**Data source:** `GET /api/onboarding/status` (in `artifacts/api-server/src/routes/onboarding.ts`). The endpoint returns a `pilotChecklist` object plus a `counts` object; the legacy `isComplete`/`completedCount`/`totalSteps` fields at the top level still drive the older 4-step `SetupChecklist` widget and are intentionally unchanged.
+
+| # | Step (key) | Trigger (true when…) | Action link |
+|---|---|---|---|
+| 1 | District profile configured (`districtProfileConfigured`) | `district_confirmed` step recorded **AND** ≥1 school **AND** ≥1 service type | `/settings` |
+| 2 | School year configured (`schoolYearConfigured`) | ≥1 row in `school_years` for the district, OR `district_confirmed` metadata contains a `schoolYear` | `/school-year` |
+| 3 | Staff imported (`staffImported`) | ≥1 non-deleted row in `staff` | `/staff` |
+| 4 | Students imported (`studentsImported`) | ≥1 non-deleted row in `students` | `/import` |
+| 5 | Service requirements imported (`serviceRequirementsImported`) | ≥1 active row in `service_requirements` | `/students` |
+| 6 | Providers assigned (`providersAssigned`) | ≥1 active row in `service_requirements` with `provider_id` not null | `/staff` |
+| 7 | First sessions logged (`firstSessionsLogged`) | ≥1 non-deleted row in `session_logs` | `/sessions` |
+| 8 | Compliance dashboard active (`complianceDashboardActive`) | Derived: students > 0 **AND** active requirements > 0 **AND** sessions > 0 | `/compliance` |
+
+**Where the checklist appears:**
+- **Pilot admin home (`/`)** — rendered as `<PilotOnboardingChecklist variant="compact" />` near the top of `PilotAdminHome.tsx`. Auto-collapses once `isComplete` is true and shows the next outstanding step inline.
+- **Dedicated `/onboarding` page** — full-width `<PilotOnboardingChecklist variant="full" />` (always visible, even when complete), backed by `artifacts/trellis/src/pages/onboarding.tsx` and registered in `App.tsx`.
+
+**Honesty guarantee:** if `/api/onboarding/status` fails, the compact variant renders nothing (silent on the dashboard) and the full variant renders an amber error card — it never falsely shows "Pilot ready" when the underlying data could not be loaded.
+
+To add a new step: add a row to `pilotChecklist` in `onboarding.ts`, append a matching entry to `PILOT_CHECKLIST_ITEMS`, and update the table above.
+
 ## User Preferences
 
 I want iterative development and detailed explanations of your thought process. Ask clarifying questions before making major architectural changes or implementing complex features. Do not change the fundamental project structure or core technologies without explicit approval.

@@ -86,6 +86,7 @@ const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance
 const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
+const OnboardingPage = lazy(() => import("@/pages/onboarding"));
 const CoveragePage = lazy(() => import("@/pages/coverage"));
 const DocumentWorkflowPage = lazy(() => import("@/pages/document-workflow"));
 const AccommodationLookupPage = lazy(() => import("@/pages/accommodation-lookup"));
@@ -203,6 +204,7 @@ function StaffRouter() {
       <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
       <BoundedRoute path="/settings" component={SettingsHubPage} fallbackTitle="Settings error" />
+      <BoundedRoute path="/onboarding" component={OnboardingPage} fallbackTitle="Onboarding error" />
       <Route path="/audit-log">{() => <HashRedirect to="/settings#audit-log" />}</Route>
       <Route path="/recently-deleted">{() => <HashRedirect to="/settings#recently-deleted" />}</Route>
       <Route path="/system-status">{() => <HashRedirect to="/settings#system-status" />}</Route>

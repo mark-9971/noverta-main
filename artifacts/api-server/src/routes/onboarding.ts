@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 import {
   db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
   studentsTable, onboardingProgressTable, sisConnectionsTable,
-  districtSubscriptionsTable,
+  districtSubscriptionsTable, serviceRequirementsTable, sessionLogsTable,
+  schoolYearsTable,
 } from "@workspace/db";
-import { count, isNull, eq, and } from "drizzle-orm";
+import { count, isNull, eq, and, isNotNull, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { encryptCredentials } from "../lib/sis/credentials";
@@ -78,15 +79,75 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
     const schoolIds = schools.map(s => s.id);
 
     const [serviceTypeCount] = await db.select({ value: count() }).from(serviceTypesTable);
-    const [staffCount] = await db.select({ value: count() }).from(staffTable).where(isNull(staffTable.deletedAt));
+
+    // District-scoped counts. Students and staff carry a `schoolId` that
+    // resolves back to the district via `schools`. When the user has no
+    // resolved district yet, every count is 0 so the checklist starts blank.
+    const [staffCount] = schoolIds.length > 0
+      ? await db.select({ value: count() }).from(staffTable)
+          .where(and(isNull(staffTable.deletedAt), inArray(staffTable.schoolId, schoolIds)))
+      : [{ value: 0 }];
+    const [studentCount] = schoolIds.length > 0
+      ? await db.select({ value: count() }).from(studentsTable)
+          .where(and(isNull(studentsTable.deletedAt), inArray(studentsTable.schoolId, schoolIds)))
+      : [{ value: 0 }];
+    const districtStudentIdsRows = schoolIds.length > 0
+      ? await db.select({ id: studentsTable.id }).from(studentsTable)
+          .where(and(isNull(studentsTable.deletedAt), inArray(studentsTable.schoolId, schoolIds)))
+      : [];
+    const districtStudentIds = districtStudentIdsRows.map(r => r.id);
+    const [serviceRequirementCount] = districtStudentIds.length > 0
+      ? await db.select({ value: count() }).from(serviceRequirementsTable)
+          .where(and(eq(serviceRequirementsTable.active, true), inArray(serviceRequirementsTable.studentId, districtStudentIds)))
+      : [{ value: 0 }];
+    const [requirementsWithProviderCount] = districtStudentIds.length > 0
+      ? await db.select({ value: count() }).from(serviceRequirementsTable)
+          .where(and(
+            eq(serviceRequirementsTable.active, true),
+            isNotNull(serviceRequirementsTable.providerId),
+            inArray(serviceRequirementsTable.studentId, districtStudentIds),
+          ))
+      : [{ value: 0 }];
+    const [sessionCount] = districtStudentIds.length > 0
+      ? await db.select({ value: count() }).from(sessionLogsTable)
+          .where(and(isNull(sessionLogsTable.deletedAt), inArray(sessionLogsTable.studentId, districtStudentIds)))
+      : [{ value: 0 }];
+    const schoolYearRows = districtId
+      ? await db.select({ id: schoolYearsTable.id, label: schoolYearsTable.label, isActive: schoolYearsTable.isActive })
+          .from(schoolYearsTable)
+          .where(eq(schoolYearsTable.districtId, districtId))
+      : [];
 
     let sisConnected = false;
     let districtConfirmed = false;
+    let districtConfirmedMeta: { schoolYear?: string } | null = null;
 
     if (districtId) {
       sisConnected = await getStepStatus(districtId, "sis_connected");
       districtConfirmed = await getStepStatus(districtId, "district_confirmed");
+      const [confirmedRow] = await db.select().from(onboardingProgressTable)
+        .where(and(
+          eq(onboardingProgressTable.districtId, districtId),
+          eq(onboardingProgressTable.stepKey, "district_confirmed"),
+        ));
+      if (confirmedRow?.metadata) {
+        try { districtConfirmedMeta = JSON.parse(confirmedRow.metadata); } catch { /* ignore */ }
+      }
     }
+
+    const studentsImported = studentCount.value > 0;
+    const serviceRequirementsImported = serviceRequirementCount.value > 0;
+    // Step is "complete" only when every active requirement has a provider
+    // assigned (matching the UI promise of "Assign a provider to *each*
+    // requirement"). Requires at least one requirement to exist so we don't
+    // mark this complete prematurely.
+    const providersAssigned = serviceRequirementCount.value > 0
+      && requirementsWithProviderCount.value === serviceRequirementCount.value;
+    const firstSessionsLogged = sessionCount.value > 0;
+    const schoolYearConfigured = schoolYearRows.length > 0 || !!districtConfirmedMeta?.schoolYear;
+    // Derived: dashboard can compute meaningful numbers when all upstream
+    // sources have at least one row.
+    const complianceDashboardActive = studentsImported && serviceRequirementsImported && firstSessionsLogged;
 
     const steps = {
       sisConnected: sisConnected || (!!districtId && schools.length > 0),
@@ -94,6 +155,12 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
       schoolsConfigured: schools.length > 0,
       serviceTypesConfigured: serviceTypeCount.value > 0,
       staffInvited: staffCount.value > 0,
+      studentsImported,
+      serviceRequirementsImported,
+      providersAssigned,
+      firstSessionsLogged,
+      schoolYearConfigured,
+      complianceDashboardActive,
     };
 
     const coreSteps = [steps.sisConnected, steps.schoolsConfigured, steps.serviceTypesConfigured];
@@ -102,19 +169,53 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_r
     const totalSteps = 4;
     const isComplete = coreSteps.every(Boolean);
 
+    // Pilot-readiness checklist (8 user-facing steps). This is independent of
+    // the legacy 4-step `completedCount`/`totalSteps`/`isComplete` above so we
+    // do not break the existing SetupChecklist widget.
+    const pilotChecklist = {
+      districtProfileConfigured: districtConfirmed && steps.schoolsConfigured && steps.serviceTypesConfigured,
+      schoolYearConfigured,
+      staffImported: steps.staffInvited,
+      studentsImported,
+      serviceRequirementsImported,
+      providersAssigned,
+      firstSessionsLogged,
+      complianceDashboardActive,
+    };
+    const pilotCompletedCount = Object.values(pilotChecklist).filter(Boolean).length;
+    const pilotTotalSteps = Object.keys(pilotChecklist).length;
+    const pilotIsComplete = pilotCompletedCount === pilotTotalSteps;
+
     res.json({
       ...steps,
       completedCount,
       totalSteps,
       isComplete,
+      pilotChecklist: {
+        ...pilotChecklist,
+        completedCount: pilotCompletedCount,
+        totalSteps: pilotTotalSteps,
+        isComplete: pilotIsComplete,
+      },
       counts: {
         districts: districtId ? 1 : 0,
         schools: schools.length,
         serviceTypes: serviceTypeCount.value,
         staff: staffCount.value,
+        students: studentCount.value,
+        serviceRequirements: serviceRequirementCount.value,
+        requirementsWithProvider: requirementsWithProviderCount.value,
+        sessions: sessionCount.value,
+        schoolYears: schoolYearRows.length,
       },
       district,
       schools,
+      schoolYears: schoolYearRows,
+      activeSchoolYearLabel:
+        schoolYearRows.find(y => y.isActive)?.label
+          ?? schoolYearRows[0]?.label
+          ?? districtConfirmedMeta?.schoolYear
+          ?? null,
     });
   } catch (err) {
     console.error("Onboarding status error:", err);

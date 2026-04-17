@@ -8,7 +8,7 @@ import {
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
-import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
+import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import { getGreeting } from "./types";
 
@@ -190,7 +190,7 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         )}
       </div>
 
-      {onboarding && !onboarding.isComplete && <SetupChecklist />}
+      <PilotOnboardingChecklist variant="compact" defaultExpanded={!onboarding?.isComplete} />
 
       {/* 1. Are we compliant? */}
       <section
