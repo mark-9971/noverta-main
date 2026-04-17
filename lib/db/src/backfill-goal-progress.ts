@@ -258,13 +258,18 @@ async function createSessionsAndData(
   }
 
   // Idempotent per (student, date) — fills any missing dates without dups.
+  // 180-day window, weekdays only (skip Sat=6/Sun=0). Yields ~128 sessions
+  // per student which, combined with ~22 targets each, lands every student
+  // around 2.5–3k data points.
   const sessionsResult = await db.execute(sql`
     WITH session_dates AS (
-      SELECT generate_series(
-        (CURRENT_DATE - INTERVAL '90 days')::date,
+      SELECT d::date AS d
+      FROM generate_series(
+        (CURRENT_DATE - INTERVAL '180 days')::date,
         CURRENT_DATE,
-        INTERVAL '3 days'
-      )::date AS d
+        INTERVAL '1 day'
+      ) AS d
+      WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5
     ),
     candidates AS (
       -- Materialize one random start-minute offset (0..345 in 15-min steps,
@@ -321,60 +326,111 @@ async function createSessionsAndData(
     WHERE ds.id = nt.id
   `);
 
-  // Program data — one row per (sample session × program_target) for the student.
+  // Program data — one row per (sample session × program_target).
+  //
+  // Trajectory varies per target so the demo doesn't look uniformly
+  // "everything is on track":
+  //   bucket = pt.id % 10
+  //     0..5  (60%)  PROGRESSING — improves over the 180-day window
+  //     6..7  (20%)  REGRESSING  — starts ok, drifts downward
+  //     8..9  (20%)  INSUFFICIENT — only data in the most recent 14 days
+  //
+  // `progress` is normalized 0..1 across the window (1.0 = today,
+  // 0.0 = 180 days ago). Random jitter keeps the lines noisy/realistic.
   const programDataResult = await db.execute(sql`
     INSERT INTO program_data
       (data_session_id, program_target_id, trials_correct, trials_total,
        percent_correct, prompt_level_used, notes)
     SELECT
       ds.id, pt.id,
-      GREATEST(0, LEAST(10,
-        ROUND(4 + ((90 - (CURRENT_DATE - ds.session_date::date))::numeric / 90.0) * 5
-              + (random() * 2 - 1))
-      ))::int,
+      CASE bucket
+        WHEN 0 THEN GREATEST(0, LEAST(10, ROUND(4 + progress * 5 + (random()*2 - 1))))::int
+        WHEN 1 THEN GREATEST(0, LEAST(10, ROUND(8 - progress * 5 + (random()*2 - 1))))::int
+        ELSE        GREATEST(0, LEAST(10, ROUND(5 + progress * 4 + (random()*2 - 1))))::int
+      END,
       10,
-      GREATEST(20, LEAST(100,
-        ROUND(40 + ((90 - (CURRENT_DATE - ds.session_date::date))::numeric / 90.0) * 50
-              + (random() * 10 - 5))
-      ))::numeric,
+      CASE bucket
+        WHEN 0 THEN GREATEST(20, LEAST(100, ROUND(40 + progress * 50 + (random()*10 - 5))))::numeric
+        WHEN 1 THEN GREATEST(20, LEAST(100, ROUND(80 - progress * 45 + (random()*10 - 5))))::numeric
+        ELSE        GREATEST(20, LEAST(100, ROUND(50 + progress * 40 + (random()*10 - 5))))::numeric
+      END,
       'independent',
       'Sample data point'
     FROM data_sessions ds
     JOIN program_targets pt ON pt.student_id = ds.student_id AND pt.active = true
+    CROSS JOIN LATERAL (
+      SELECT
+        CASE
+          WHEN (pt.id % 10) < 6 THEN 0   -- progressing
+          WHEN (pt.id % 10) < 8 THEN 1   -- regressing
+          ELSE 2                         -- insufficient
+        END                                     AS bucket,
+        ((180 - (CURRENT_DATE - ds.session_date::date))::numeric / 180.0) AS progress,
+        (CURRENT_DATE - ds.session_date::date)  AS days_ago
+    ) calc
     WHERE ds.notes = 'Sample session'
       AND ds.student_id IN ${intList(studentIds)}
+      AND (bucket <> 2 OR days_ago <= 14)  -- insufficient bucket: only last 14 days
       AND NOT EXISTS (
         SELECT 1 FROM program_data pd2
         WHERE pd2.data_session_id = ds.id AND pd2.program_target_id = pt.id
       )
   `);
 
-  // Behavior data — one row per (sample session × behavior_target) for the student.
+  // Behavior data — same trajectory bucketing (by bt.id % 10).
+  // For target_direction='increase': progressing = baseline → goal,
+  // regressing = drifts back from goal toward baseline.
+  // For 'decrease': progressing = baseline → lower goal,
+  // regressing = climbs back up from goal toward baseline.
   const behaviorDataResult = await db.execute(sql`
     INSERT INTO behavior_data
       (data_session_id, behavior_target_id, value, notes)
     SELECT
       ds.id, bt.id,
-      CASE WHEN bt.target_direction = 'increase' THEN
-        GREATEST(0, LEAST(100,
-          (COALESCE(bt.baseline_value, 30)::numeric +
-            (COALESCE(bt.goal_value, 85)::numeric - COALESCE(bt.baseline_value, 30)::numeric)
-            * ((90 - (CURRENT_DATE - ds.session_date::date))::numeric / 90.0)
-          ) + (random() * 8 - 4)
-        ))::numeric
-      ELSE
-        GREATEST(0,
-          (COALESCE(bt.baseline_value, 8)::numeric -
-            (COALESCE(bt.baseline_value, 8)::numeric - COALESCE(bt.goal_value, 2)::numeric)
-            * ((90 - (CURRENT_DATE - ds.session_date::date))::numeric / 90.0)
-          ) + (random() * 2 - 1)
-        )::numeric
+      CASE
+        WHEN bt.target_direction = 'increase' THEN
+          GREATEST(0, LEAST(100,
+            CASE bucket
+              WHEN 1 THEN  -- regressing: started near goal, drifts back
+                COALESCE(bt.goal_value, 85)::numeric -
+                  (COALESCE(bt.goal_value, 85)::numeric - COALESCE(bt.baseline_value, 30)::numeric)
+                  * progress + (random()*8 - 4)
+              ELSE        -- progressing / insufficient: baseline → goal
+                COALESCE(bt.baseline_value, 30)::numeric +
+                  (COALESCE(bt.goal_value, 85)::numeric - COALESCE(bt.baseline_value, 30)::numeric)
+                  * progress + (random()*8 - 4)
+            END
+          ))::numeric
+        ELSE
+          GREATEST(0,
+            CASE bucket
+              WHEN 1 THEN  -- regressing decrease: drifts back up toward baseline
+                COALESCE(bt.goal_value, 2)::numeric +
+                  (COALESCE(bt.baseline_value, 8)::numeric - COALESCE(bt.goal_value, 2)::numeric)
+                  * progress + (random()*2 - 1)
+              ELSE
+                COALESCE(bt.baseline_value, 8)::numeric -
+                  (COALESCE(bt.baseline_value, 8)::numeric - COALESCE(bt.goal_value, 2)::numeric)
+                  * progress + (random()*2 - 1)
+            END
+          )::numeric
       END,
       'Sample data point'
     FROM data_sessions ds
     JOIN behavior_targets bt ON bt.student_id = ds.student_id AND bt.active = true
+    CROSS JOIN LATERAL (
+      SELECT
+        CASE
+          WHEN (bt.id % 10) < 6 THEN 0
+          WHEN (bt.id % 10) < 8 THEN 1
+          ELSE 2
+        END                                     AS bucket,
+        ((180 - (CURRENT_DATE - ds.session_date::date))::numeric / 180.0) AS progress,
+        (CURRENT_DATE - ds.session_date::date)  AS days_ago
+    ) calc
     WHERE ds.notes = 'Sample session'
       AND ds.student_id IN ${intList(studentIds)}
+      AND (bucket <> 2 OR days_ago <= 14)
       AND NOT EXISTS (
         SELECT 1 FROM behavior_data bd2
         WHERE bd2.data_session_id = ds.id AND bd2.behavior_target_id = bt.id

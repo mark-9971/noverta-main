@@ -28,6 +28,11 @@ import {
   iepAccommodationsTable,
   alertsTable, compensatoryObligationsTable,
   guardiansTable, emergencyContactsTable,
+  programTargetsTable, behaviorTargetsTable,
+  dataSessionsTable, programDataTable, behaviorDataTable,
+  fbasTable, fbaObservationsTable, functionalAnalysesTable,
+  behaviorInterventionPlansTable,
+  medicalAlertsTable, parentMessagesTable,
 } from "./schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -526,23 +531,65 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
 
   // Delete in dependency order. Each table is keyed by studentId or staffId
   // via FK; sweeping by these IDs is enough to remove all sample-derived data.
+  // The backfill step in seedSampleDataForDistrict creates rows in many
+  // additional tables that don't cascade on student delete, so we explicitly
+  // sweep them here. Wrapped in a transaction so a partial failure rolls back
+  // and leaves teardown re-runnable.
   if (studentIds.length > 0) {
-    // Sessions reference both student and staff; clear by student first.
-    await db.delete(sessionLogsTable).where(inArray(sessionLogsTable.studentId, studentIds));
-    await db.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.studentId, studentIds));
-    await db.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, studentIds));
-    await db.delete(alertsTable).where(inArray(alertsTable.studentId, studentIds));
-    await db.delete(serviceRequirementsTable).where(inArray(serviceRequirementsTable.studentId, studentIds));
-    await db.delete(iepAccommodationsTable).where(inArray(iepAccommodationsTable.studentId, studentIds));
-    await db.delete(iepGoalsTable).where(inArray(iepGoalsTable.studentId, studentIds));
-    await db.delete(iepDocumentsTable).where(inArray(iepDocumentsTable.studentId, studentIds));
-    await db.delete(guardiansTable).where(inArray(guardiansTable.studentId, studentIds));
-    await db.delete(emergencyContactsTable).where(inArray(emergencyContactsTable.studentId, studentIds));
-    // Detach case-manager refs before deleting students/staff to avoid FK errors.
-    await db.update(studentsTable)
-      .set({ caseManagerId: null })
-      .where(inArray(studentsTable.id, studentIds));
-    await db.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
+    await db.transaction(async (tx) => {
+      // Backfill-created data first (children before parents).
+      // program_data / behavior_data cascade on data_sessions, but be explicit.
+      await tx.execute(sql`
+        DELETE FROM program_data
+        WHERE data_session_id IN (
+          SELECT id FROM data_sessions WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")}
+        )
+      `);
+      await tx.execute(sql`
+        DELETE FROM behavior_data
+        WHERE data_session_id IN (
+          SELECT id FROM data_sessions WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")}
+        )
+      `);
+      await tx.delete(dataSessionsTable).where(inArray(dataSessionsTable.studentId, studentIds));
+
+      // BIPs reference fbas + behavior_targets + students; delete BIPs before fbas/targets.
+      await tx.delete(behaviorInterventionPlansTable).where(inArray(behaviorInterventionPlansTable.studentId, studentIds));
+      // FBA sub-tables before fbas.
+      await tx.execute(sql`
+        DELETE FROM fba_observations
+        WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")})
+      `);
+      await tx.execute(sql`
+        DELETE FROM functional_analyses
+        WHERE fba_id IN (SELECT id FROM fbas WHERE student_id IN ${sql.raw("(" + studentIds.join(",") + ")")})
+      `);
+      await tx.delete(fbasTable).where(inArray(fbasTable.studentId, studentIds));
+
+      // Sessions/schedule/etc.
+      await tx.delete(sessionLogsTable).where(inArray(sessionLogsTable.studentId, studentIds));
+      await tx.delete(scheduleBlocksTable).where(inArray(scheduleBlocksTable.studentId, studentIds));
+      await tx.delete(compensatoryObligationsTable).where(inArray(compensatoryObligationsTable.studentId, studentIds));
+      await tx.delete(alertsTable).where(inArray(alertsTable.studentId, studentIds));
+      await tx.delete(serviceRequirementsTable).where(inArray(serviceRequirementsTable.studentId, studentIds));
+      await tx.delete(iepAccommodationsTable).where(inArray(iepAccommodationsTable.studentId, studentIds));
+      // IEP goals reference program/behavior targets — delete goals first, then targets.
+      await tx.delete(iepGoalsTable).where(inArray(iepGoalsTable.studentId, studentIds));
+      await tx.delete(programTargetsTable).where(inArray(programTargetsTable.studentId, studentIds));
+      await tx.delete(behaviorTargetsTable).where(inArray(behaviorTargetsTable.studentId, studentIds));
+      await tx.delete(iepDocumentsTable).where(inArray(iepDocumentsTable.studentId, studentIds));
+      // Parent messages + medical alerts cascade on student delete, but be explicit
+      // so the operation fails loudly here (transaction) rather than mid-cascade.
+      await tx.delete(parentMessagesTable).where(inArray(parentMessagesTable.studentId, studentIds));
+      await tx.delete(medicalAlertsTable).where(inArray(medicalAlertsTable.studentId, studentIds));
+      await tx.delete(guardiansTable).where(inArray(guardiansTable.studentId, studentIds));
+      await tx.delete(emergencyContactsTable).where(inArray(emergencyContactsTable.studentId, studentIds));
+      // Detach case-manager refs before deleting students/staff to avoid FK errors.
+      await tx.update(studentsTable)
+        .set({ caseManagerId: null })
+        .where(inArray(studentsTable.id, studentIds));
+      await tx.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
+    });
   }
 
   if (staffIds.length > 0) {
