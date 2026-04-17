@@ -9,7 +9,7 @@ import {
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
   Printer, ArrowRight, CheckCircle,
 } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Link } from "wouter";
@@ -186,9 +186,22 @@ function ServiceMinutesContent() {
     return (
       <EmptyState
         icon={ClipboardCheck}
-        title="No service requirements found"
-        description="Add students with active IEPs and service requirements to start tracking compliance."
-      />
+        title="No Compliance Data Yet"
+        action={{ label: "Go to Students", href: "/students" }}
+        secondaryAction={{ label: "Import Data", href: "/import", variant: "outline" }}
+      >
+        <EmptyStateDetail>
+          This dashboard tracks whether your district is delivering every minute of IEP-mandated services. It monitors required vs. delivered minutes, flags students falling behind, calculates compensatory exposure, and shows provider delivery rates — the data a SPED director needs before every team meeting.
+        </EmptyStateDetail>
+        <EmptyStateHeading>Before this dashboard can show data, you need:</EmptyStateHeading>
+        <EmptyStateStep number={1}><strong>Students</strong> — Add your SPED roster (manually or via SIS import).</EmptyStateStep>
+        <EmptyStateStep number={2}><strong>IEP Documents</strong> — Create an IEP for each student with start/end dates.</EmptyStateStep>
+        <EmptyStateStep number={3}><strong>Service Requirements</strong> — Define what each IEP mandates (e.g., "Speech-Language Therapy, 120 min/month").</EmptyStateStep>
+        <EmptyStateStep number={4}><strong>Session Logs</strong> — Providers log completed, missed, or cancelled sessions against those requirements.</EmptyStateStep>
+        <EmptyStateDetail>
+          Once sessions are flowing, this dashboard updates in real time — no manual report generation needed.
+        </EmptyStateDetail>
+      </EmptyState>
     );
   }
 

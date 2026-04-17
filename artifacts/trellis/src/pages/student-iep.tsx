@@ -280,12 +280,24 @@ export default function StudentIepPage() {
             <Card>
               <CardContent className="p-8 text-center">
                 <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">No IEP Goals Yet</p>
-                <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
-                  {programTargets.length > 0 || behaviorTargets.length > 0
-                    ? `You have ${programTargets.length} program targets and ${behaviorTargets.length} behavior targets. Click "Auto-Create from Data Targets" to generate IEP goals from your existing data tracking.`
-                    : "Add program and behavior targets in the Data page first, then create IEP goals from them."}
-                </p>
+                <p className="text-sm font-medium text-gray-600">No IEP Goals Defined</p>
+                {programTargets.length > 0 || behaviorTargets.length > 0 ? (
+                  <div className="text-xs text-gray-500 mt-2 max-w-lg mx-auto space-y-2 text-left">
+                    <p>This student has <strong>{programTargets.length} program target{programTargets.length !== 1 ? "s" : ""}</strong> and <strong>{behaviorTargets.length} behavior target{behaviorTargets.length !== 1 ? "s" : ""}</strong> from data tracking.</p>
+                    <p className="font-medium text-gray-600">You can:</p>
+                    <p>1. Click <strong>"Auto-Create from Data Targets"</strong> to generate measurable IEP goals from existing targets — Trellis maps each target to a goal with baselines, benchmarks, and measurement criteria.</p>
+                    <p>2. Click <strong>"Add Goal"</strong> to write a custom goal manually.</p>
+                    <p>3. Use the <strong>Goal Bank</strong> for Massachusetts-aligned goal templates by service area.</p>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-500 mt-2 max-w-lg mx-auto space-y-2 text-left">
+                    <p>IEP goals define what this student should achieve — measurable objectives tied to their disability-related needs. Massachusetts requires annual IEP goals with clear baselines, benchmarks, and progress measurement criteria.</p>
+                    <p className="font-medium text-gray-600">To add goals:</p>
+                    <p>1. Click <strong>"Add Goal"</strong> to create a goal manually with area, description, baseline, and target.</p>
+                    <p>2. Use the <strong>Goal Bank</strong> for research-based goal templates organized by service area (Speech, OT, Behavior, Academic, etc.).</p>
+                    <p>3. Or go to the <strong>Data</strong> tab first to set up program and behavior targets — then auto-create goals from those targets.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -316,7 +328,12 @@ export default function StudentIepPage() {
           {goals.length === 0 && (
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-sm text-gray-400">Create IEP goals first before generating progress reports.</p>
+                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-600">Progress Reports Require IEP Goals</p>
+                <div className="text-xs text-gray-500 mt-2 max-w-md mx-auto space-y-1.5 text-left">
+                  <p>Massachusetts requires progress reports on each IEP goal at intervals specified in the IEP (typically quarterly, aligned with report card periods).</p>
+                  <p>Switch to the <strong>Goals</strong> tab to create IEP goals first — then you can generate progress reports that pull data directly from your session logs and data tracking.</p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -325,8 +342,11 @@ export default function StudentIepPage() {
             <Card>
               <CardContent className="p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">No Progress Reports Yet</p>
-                <p className="text-xs text-gray-400 mt-1">Click "Generate Report" to auto-populate a progress report from your data collection sessions.</p>
+                <p className="text-sm font-medium text-gray-600">No Progress Reports Generated Yet</p>
+                <div className="text-xs text-gray-500 mt-2 max-w-md mx-auto space-y-1.5 text-left">
+                  <p>This student has <strong>{goals.length} IEP goal{goals.length !== 1 ? "s" : ""}</strong> ready for reporting. Click <strong>"Generate Report"</strong> to create a progress report that auto-populates from session logs and data collection.</p>
+                  <p>Each report captures the student's current performance level, rate of progress, and whether they're on track to meet annual goals — formatted for parent distribution and compliance documentation.</p>
+                </div>
               </CardContent>
             </Card>
           )}

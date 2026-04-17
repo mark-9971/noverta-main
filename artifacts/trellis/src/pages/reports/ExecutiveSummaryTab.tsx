@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { Printer, BarChart3, Calendar, Users } from "lucide-react";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
@@ -43,6 +44,25 @@ export function ExecutiveSummaryTab() {
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>;
   if (isError || !data) return <ErrorBanner message="Failed to load executive summary." />;
+
+  if (data.serviceDelivery.totalRequired === 0 && data.riskCounts.onTrack === 0 && data.riskCounts.atRisk === 0 && data.riskCounts.outOfCompliance === 0) {
+    return (
+      <EmptyState
+        icon={BarChart3}
+        title="Executive Summary Has No Data Yet"
+        action={{ label: "Go to Students", href: "/students" }}
+        secondaryAction={{ label: "View Compliance Dashboard", href: "/compliance", variant: "outline" }}
+      >
+        <EmptyStateDetail>
+          The Executive Summary gives SPED leadership a single-page overview of district compliance health — overall delivery rate, risk distribution, IEP deadline status, and service delivery breakdowns. It's designed to print cleanly for board presentations and administrative reviews.
+        </EmptyStateDetail>
+        <EmptyStateHeading>To populate this summary:</EmptyStateHeading>
+        <EmptyStateStep number={1}>Add students with active IEPs and define their service requirements.</EmptyStateStep>
+        <EmptyStateStep number={2}>Have providers log sessions against those requirements.</EmptyStateStep>
+        <EmptyStateStep number={3}>Return here — the summary aggregates all compliance data automatically.</EmptyStateStep>
+      </EmptyState>
+    );
+  }
 
   const sd = data.serviceDelivery;
   const rc = data.riskCounts;

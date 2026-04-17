@@ -11,6 +11,7 @@ import {
 import { Link } from "wouter";
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 
 interface StudentShortfall {
   studentId: number;
@@ -397,7 +398,24 @@ export default function WeeklyComplianceSummaryPage() {
         <Card><CardContent className="py-10 text-center text-red-600">Failed to load report data. Please try again.</CardContent></Card>
       )}
 
-      {data && (
+      {data && data.summary.totalStudents === 0 && (
+        <EmptyState
+          icon={AlertTriangle}
+          title="No Weekly Data Available"
+          action={{ label: "Go to Students", href: "/students" }}
+          secondaryAction={{ label: "View Compliance Dashboard", href: "/compliance", variant: "outline" }}
+        >
+          <EmptyStateDetail>
+            The Weekly Compliance Summary is a meeting-ready report for SPED directors. Each week it surfaces the most critical compliance gaps, flags providers with missed sessions, and tracks delivery trends over 8 weeks — all updated automatically from session logs.
+          </EmptyStateDetail>
+          <EmptyStateHeading>To generate a meaningful weekly summary:</EmptyStateHeading>
+          <EmptyStateStep number={1}>Add students with active IEPs and service requirements.</EmptyStateStep>
+          <EmptyStateStep number={2}>Have providers log their sessions (completed, missed, or cancelled).</EmptyStateStep>
+          <EmptyStateStep number={3}>Come back each week — the report builds trend data over time for deeper insight.</EmptyStateStep>
+        </EmptyState>
+      )}
+
+      {data && data.summary.totalStudents > 0 && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="border-l-4 border-l-gray-400">

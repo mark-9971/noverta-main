@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays, Users } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { Link } from "wouter";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
@@ -257,13 +257,30 @@ export default function Students() {
         ) : loading ? (
           [...Array(8)].map((_, i) => <Skeleton key={i} className="w-full h-[72px] rounded-xl" />)
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No students found"
-            description={role === "admin" ? "Add students to start tracking services and compliance." : "No students match your current filters."}
-            action={role === "admin" ? { label: "Add Student", href: "/students/new" } : undefined}
-            compact
-          />
+          role === "admin" ? (
+            <EmptyState
+              icon={Users}
+              title="No Students in Your Roster"
+              compact
+              action={{ label: "Add a Student", href: "/students/new" }}
+              secondaryAction={{ label: "Import from SIS", href: "/sis-settings", variant: "outline" }}
+            >
+              <EmptyStateDetail>
+                Your student roster is the foundation of SPED compliance tracking. Every student with an active IEP needs to be here so Trellis can monitor service delivery, flag shortfalls, and calculate compensatory exposure.
+              </EmptyStateDetail>
+              <EmptyStateHeading>Get started:</EmptyStateHeading>
+              <EmptyStateStep number={1}>Connect your Student Information System (SIS) under Settings to auto-import students, schools, and enrollments.</EmptyStateStep>
+              <EmptyStateStep number={2}>Or add students manually — you'll need their name, grade, school, and disability category.</EmptyStateStep>
+              <EmptyStateStep number={3}>Once students are added, create IEP documents and service requirements for each student to begin tracking.</EmptyStateStep>
+            </EmptyState>
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="No students match your filters"
+              description="Try adjusting the search, school, or year filters above."
+              compact
+            />
+          )
         ) : filtered.map(s => {
           const isSped = spedIds.has(s.id);
           const risk = studentRisk[s.id] ?? "on_track";

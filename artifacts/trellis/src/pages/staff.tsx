@@ -2,11 +2,12 @@ import { useListStaff, useGetProviderDashboardSummary, useGetParaDashboardSummar
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight, Stethoscope, HandHelping, ClipboardList } from "lucide-react";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 
 export default function Staff() {
   const { typedFilter } = useSchoolContext();
@@ -80,6 +81,22 @@ export default function Staff() {
           <Card>
             <div className="divide-y divide-gray-100">
               {isLoading ? [...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 m-4" />) :
+                clinicians.length === 0 ? (
+                  <EmptyState
+                    icon={Stethoscope}
+                    title="No Clinicians Added Yet"
+                    compact
+                    action={{ label: "Add Staff Member", href: "/setup" }}
+                  >
+                    <EmptyStateDetail>
+                      Clinicians are your licensed service providers — SLPs, OTs, PTs, BCBAs, and counselors who deliver IEP-mandated services. Adding them here lets Trellis track their caseloads, session delivery rates, and compliance performance.
+                    </EmptyStateDetail>
+                    <EmptyStateHeading>To add clinicians:</EmptyStateHeading>
+                    <EmptyStateStep number={1}>Go to Setup and add staff members with their role (SLP, OT, PT, BCBA, or Counselor).</EmptyStateStep>
+                    <EmptyStateStep number={2}>Assign them to students via service requirements on each student's IEP.</EmptyStateStep>
+                    <EmptyStateStep number={3}>Once assigned, their delivery metrics appear here automatically.</EmptyStateStep>
+                  </EmptyState>
+                ) :
                 clinicians.map(m => <StaffRow key={m.id} member={m} summary={providerMap[m.id]} />)}
             </div>
           </Card>
@@ -89,6 +106,20 @@ export default function Staff() {
           <Card>
             <div className="divide-y divide-gray-100">
               {isLoading ? [...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 m-4" />) :
+                parasList.length === 0 ? (
+                  <EmptyState
+                    icon={HandHelping}
+                    title="No Paraprofessionals Added Yet"
+                    compact
+                    action={{ label: "Add Staff Member", href: "/setup" }}
+                  >
+                    <EmptyStateDetail>
+                      Paraprofessionals (paras) provide direct support to students during the school day — 1:1 aides, small-group support, behavioral intervention. Many IEPs mandate specific para support hours that need to be tracked for compliance.
+                    </EmptyStateDetail>
+                    <EmptyStateStep number={1}>Add paraprofessionals in Setup with the "Paraprofessional" role.</EmptyStateStep>
+                    <EmptyStateStep number={2}>Link them to students who have para support in their IEP service requirements.</EmptyStateStep>
+                  </EmptyState>
+                ) :
                 parasList.map(m => <StaffRow key={m.id} member={m} summary={providerMap[m.id]} />)}
             </div>
           </Card>
@@ -97,7 +128,22 @@ export default function Staff() {
         <TabsContent value="case_managers" className="mt-4">
           <Card>
             <div className="divide-y divide-gray-100">
-              {caseManagers.map(cm => (
+              {isLoading ? [...Array(6)].map((_, i) => <Skeleton key={i} className="h-16 m-4" />) :
+              caseManagers.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="No Case Managers Added Yet"
+                  compact
+                  action={{ label: "Add Staff Member", href: "/setup" }}
+                >
+                  <EmptyStateDetail>
+                    Case managers coordinate each student's IEP — scheduling team meetings, tracking deadlines, communicating with families, and ensuring all services are delivered. They're the hub of every student's SPED program.
+                  </EmptyStateDetail>
+                  <EmptyStateStep number={1}>Add case managers in Setup with the "Case Manager" role.</EmptyStateStep>
+                  <EmptyStateStep number={2}>Assign them as the case manager on individual student records.</EmptyStateStep>
+                </EmptyState>
+              ) :
+              caseManagers.map(cm => (
                 <div key={cm.id} className="flex items-center gap-4 p-4">
                   <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 text-[13px] font-bold flex-shrink-0">
                     {cm.firstName?.[0]}{cm.lastName?.[0]}

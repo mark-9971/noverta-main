@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { CheckCircle, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Target, Phone, Calendar } from "lucide-react";
 import { formatDate } from "./utils";
@@ -99,11 +99,22 @@ export function SessionList(props: Props) {
         {!isLoading && filtered.length === 0 && (
           <EmptyState
             icon={Calendar}
-            title="No sessions found"
-            description="Log a service session to start tracking minutes and progress."
-            action={{ label: "Log Session", onClick: onAddSession }}
+            title="No Service Sessions Logged Yet"
             compact
-          />
+            action={{ label: "Log a Session", onClick: onAddSession }}
+          >
+            <EmptyStateDetail>
+              Session logs are the core evidence of IEP service delivery. Every speech therapy session, OT visit, counseling appointment, and para support block should be recorded here to prove compliance with each student's IEP mandate.
+            </EmptyStateDetail>
+            <EmptyStateHeading>Why this matters:</EmptyStateHeading>
+            <EmptyStateDetail>
+              Massachusetts requires districts to deliver 100% of IEP-mandated services. Unlogged sessions look like undelivered services — creating compliance gaps, compensatory liability, and audit risk.
+            </EmptyStateDetail>
+            <EmptyStateHeading>To get started:</EmptyStateHeading>
+            <EmptyStateStep number={1}>Click "Log a Session" to record a completed, missed, or cancelled service session.</EmptyStateStep>
+            <EmptyStateStep number={2}>Each session links to a student, provider, and service type — Trellis matches it against IEP requirements automatically.</EmptyStateStep>
+            <EmptyStateStep number={3}>Providers can also log sessions from their own dashboard for faster day-to-day entry.</EmptyStateStep>
+          </EmptyState>
         )}
         <div className="flex items-center justify-between pt-2">
           <p className="text-[11px] text-gray-400">{filtered.length} sessions</p>

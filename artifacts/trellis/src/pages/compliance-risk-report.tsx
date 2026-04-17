@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, DollarSign, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
+import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 
 interface StudentRow {
   studentId: number;
@@ -331,7 +332,27 @@ export default function ComplianceRiskReportPage() {
         <Card><CardContent className="py-10 text-center text-red-600">Failed to load report data. Please try again.</CardContent></Card>
       )}
 
-      {data && (
+      {data && data.summary.totalStudents === 0 && (
+        <EmptyState
+          icon={AlertTriangle}
+          title="No Compliance Data Available"
+          action={{ label: "Go to Students", href: "/students" }}
+          secondaryAction={{ label: "View Compliance Dashboard", href: "/compliance", variant: "outline" }}
+        >
+          <EmptyStateDetail>
+            The Compliance Risk Report is designed for SPED directors and coordinators preparing for team meetings, audits, or administrative reviews. It aggregates delivery gaps across your entire district and highlights the students and providers who need immediate attention.
+          </EmptyStateDetail>
+          <EmptyStateHeading>This report needs data from:</EmptyStateHeading>
+          <EmptyStateStep number={1}><strong>Students with active IEPs</strong> and service requirements defining what's mandated.</EmptyStateStep>
+          <EmptyStateStep number={2}><strong>Session logs</strong> showing what's actually been delivered by each provider.</EmptyStateStep>
+          <EmptyStateStep number={3}><strong>Service type rates</strong> (optional) for calculating dollar exposure estimates.</EmptyStateStep>
+          <EmptyStateDetail>
+            Once your providers begin logging sessions, this report will show compliance rates, shortfalls, risk rankings, and compensatory exposure — ready to print or export for any meeting.
+          </EmptyStateDetail>
+        </EmptyState>
+      )}
+
+      {data && data.summary.totalStudents > 0 && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="border-l-4 border-l-blue-500">
