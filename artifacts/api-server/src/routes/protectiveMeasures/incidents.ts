@@ -326,7 +326,26 @@ router.get("/protective-measures/incidents/:id/dese-export", async (req: Request
     return;
   }
 
-  const { incident, student, school, primaryStaff, adminReviewer } = data;
+  const { student, school, primaryStaff, adminReviewer } = data;
+  let { incident } = data;
+
+  if (!incident.deseReportSentAt) {
+    const stampedAt = new Date().toISOString();
+    const [updated] = await db
+      .update(restraintIncidentsTable)
+      .set({ deseReportSentAt: stampedAt })
+      .where(eq(restraintIncidentsTable.id, id))
+      .returning();
+    incident = updated;
+    logAudit(req, {
+      action: "update",
+      targetTable: "restraint_incidents",
+      targetId: id,
+      studentId: incident.studentId ?? undefined,
+      summary: `Auto-stamped DESE report sent date for incident ${id}`,
+      newValues: { deseReportSentAt: stampedAt },
+    });
+  }
 
   const fmtDate = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }) : "";

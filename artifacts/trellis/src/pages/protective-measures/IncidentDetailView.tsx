@@ -172,6 +172,7 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("DESE report exported");
+      invalidateAll();
     } catch (err: any) {
       toast.error(err.message || "Failed to export DESE report");
     } finally {
