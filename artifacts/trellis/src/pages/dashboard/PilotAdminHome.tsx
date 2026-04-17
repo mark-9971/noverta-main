@@ -10,6 +10,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
+import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 import { getGreeting } from "./types";
 
 interface ComplianceRiskReport {
@@ -376,6 +377,8 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
           })}
         </ol>
       </section>
+
+      <PilotReadinessPanel />
 
       {/* Footer note */}
       <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">

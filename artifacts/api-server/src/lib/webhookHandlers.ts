@@ -1,6 +1,8 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
-import { db, districtSubscriptionsTable, subscriptionPlansTable } from '@workspace/db';
+import { db, districtSubscriptionsTable, districtsTable, subscriptionPlansTable } from '@workspace/db';
 import { eq, sql } from 'drizzle-orm';
+
+const VALID_DISTRICT_TIERS = new Set(['essentials', 'professional', 'enterprise']);
 
 interface StripeEvent {
   type: string;
@@ -92,6 +94,23 @@ async function projectSubscriptionToTenant(event: StripeEvent): Promise<void> {
       billingCycle,
     })
     .where(eq(districtSubscriptionsTable.id, existing.id));
+
+  // Project the active plan tier onto the district itself so feature-gating
+  // (tierGate.ts reads districts.tier) reflects the paid plan immediately.
+  // Only sync valid enum values; on cancellation we drop back to essentials.
+  if (existing.districtId) {
+    if (status === 'canceled') {
+      await db
+        .update(districtsTable)
+        .set({ tier: 'essentials' })
+        .where(eq(districtsTable.id, existing.districtId));
+    } else if (VALID_DISTRICT_TIERS.has(planTier)) {
+      await db
+        .update(districtsTable)
+        .set({ tier: planTier as 'essentials' | 'professional' | 'enterprise' })
+        .where(eq(districtsTable.id, existing.districtId));
+    }
+  }
 
   console.log(`[Webhook] Updated district_subscription ${existing.id}: status=${status}, tier=${planTier}`);
 }

@@ -51,10 +51,31 @@ export default function BillingPage() {
   const params = new URLSearchParams(location.split("?")[1] || "");
   const showSuccess = params.get("success") === "true";
   const showCanceled = params.get("canceled") === "true";
+  const requestedPlan = params.get("plan");
+  const [autoCheckoutAttempted, setAutoCheckoutAttempted] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // If the visitor arrives from /pricing with ?plan=<tier>, auto-launch Stripe
+  // Checkout for the matching monthly price as soon as plans are loaded. This
+  // closes the loop between the marketing pricing page and self-serve checkout.
+  useEffect(() => {
+    if (autoCheckoutAttempted) return;
+    if (loading || !requestedPlan || plans.length === 0) return;
+    if (subscription?.stripeSubscriptionId) return; // already paying
+    const plan = plans.find((p) => {
+      const meta = typeof p.metadata === "string" ? JSON.parse(p.metadata) : p.metadata;
+      return meta?.tier === requestedPlan;
+    });
+    const monthly = plan?.prices.find((pr) => pr.recurring?.interval === "month");
+    if (monthly) {
+      setAutoCheckoutAttempted(true);
+      handleCheckout(monthly.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, plans, requestedPlan, subscription?.stripeSubscriptionId]);
 
   async function loadData() {
     try {
@@ -131,10 +152,21 @@ export default function BillingPage() {
 
   const tierLabels: Record<string, string> = {
     trial: "Trial",
-    starter: "Starter",
+    essentials: "Essentials",
+    starter: "Essentials", // legacy seed value
     professional: "Professional",
     enterprise: "Enterprise",
   };
+
+  // Days remaining on the Stripe-managed free trial. We compute from
+  // currentPeriodEnd because Stripe treats the trial end as the period end
+  // until the first invoice posts.
+  const trialDaysRemaining = (() => {
+    if (subscription?.status !== "trialing" || !subscription.currentPeriodEnd) return null;
+    const ms = new Date(subscription.currentPeriodEnd).getTime() - Date.now();
+    if (ms <= 0) return 0;
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  })();
 
   return (
     <div className="space-y-6">
@@ -142,6 +174,30 @@ export default function BillingPage() {
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3">
           <CheckCircle className="h-5 w-5 text-emerald-600" />
           <p className="text-sm text-emerald-800">Subscription activated successfully! Your account is now upgraded.</p>
+        </div>
+      )}
+      {trialDaysRemaining !== null && billingMode?.mode === "trial" && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 flex items-start gap-3">
+          <Crown className="h-5 w-5 text-blue-600 mt-0.5" />
+          <div className="flex-1 text-sm text-blue-900">
+            <p className="font-medium">
+              {trialDaysRemaining > 0
+                ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left in your free trial`
+                : "Your free trial ends today"}
+            </p>
+            <p className="text-blue-800 mt-0.5">
+              Your card will be charged automatically when the trial ends. Cancel anytime from the billing portal.
+            </p>
+          </div>
+          {subscription?.stripeCustomerId && (
+            <button
+              onClick={handlePortal}
+              disabled={portalLoading}
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              Manage
+            </button>
+          )}
         </div>
       )}
       {showCanceled && (

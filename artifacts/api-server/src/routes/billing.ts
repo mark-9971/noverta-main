@@ -187,6 +187,10 @@ router.post("/billing/checkout", adminOnly, async (req: Request, res: Response):
     }
 
     const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    // Self-serve checkout always grants a 14-day free trial. The trial runs in
+    // Stripe (status=trialing) and is mirrored into district_subscriptions by the
+    // webhook, where deriveDistrictMode → "trial". The customer's card is collected
+    // up-front but no charge occurs until the trial ends.
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -194,6 +198,10 @@ router.post("/billing/checkout", adminOnly, async (req: Request, res: Response):
       mode: 'subscription',
       success_url: `${baseUrl}/billing?success=true`,
       cancel_url: `${baseUrl}/billing?canceled=true`,
+      subscription_data: {
+        trial_period_days: 14,
+        metadata: { districtId: String(districtId) },
+      },
       metadata: { districtId: String(districtId) },
     });
 
@@ -371,6 +379,18 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
         stripePriceId: priceId ?? null,
       })
       .where(eq(districtSubscriptionsTable.id, sub.id));
+
+    // Mirror plan tier onto the district itself so feature-gating reflects the
+    // active subscription immediately. This makes manual sync match the webhook.
+    const VALID_TIERS = new Set(["essentials", "professional", "enterprise"]);
+    if (stripeSub.status === "canceled") {
+      await db.update(districtsTable).set({ tier: "essentials" }).where(eq(districtsTable.id, districtId));
+    } else if (VALID_TIERS.has(planTier)) {
+      await db
+        .update(districtsTable)
+        .set({ tier: planTier as "essentials" | "professional" | "enterprise" })
+        .where(eq(districtsTable.id, districtId));
+    }
 
     res.json({ synced: true });
   } catch (err) {

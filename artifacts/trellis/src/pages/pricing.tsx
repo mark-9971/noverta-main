@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUser } from "@clerk/react";
 import { Check, X, ArrowRight, Sprout, Building2, Shield, ChevronDown, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,11 +80,12 @@ const TIER_MODULES: Record<string, string[]> = {
 };
 
 interface TierConfig {
-  key: string;
+  key: "essentials" | "professional" | "enterprise";
   name: string;
   tagline: string;
-  priceRange: string;
+  price: string;
   priceUnit: string;
+  trialNote?: string;
   highlighted: boolean;
   cta: string;
   ctaVariant: "default" | "outline";
@@ -95,8 +97,9 @@ const TIERS: TierConfig[] = [
     key: "essentials",
     name: "Essentials",
     tagline: "Service-minute tracking and state-required reporting",
-    priceRange: "$8–12",
+    price: "$10",
     priceUnit: "per student / year",
+    trialNote: "Starts with a 14-day free trial",
     highlighted: false,
     cta: "Get Started",
     ctaVariant: "outline",
@@ -106,8 +109,9 @@ const TIERS: TierConfig[] = [
     key: "professional",
     name: "Professional",
     tagline: "Adds clinical data and family communication",
-    priceRange: "$15–22",
+    price: "$18",
     priceUnit: "per student / year",
+    trialNote: "Starts with a 14-day free trial",
     highlighted: true,
     cta: "Get Started",
     ctaVariant: "default",
@@ -117,8 +121,9 @@ const TIERS: TierConfig[] = [
     key: "enterprise",
     name: "Enterprise",
     tagline: "Adds district-wide operations and finance",
-    priceRange: "$25–35",
+    price: "$30",
     priceUnit: "per student / year",
+    trialNote: "Custom procurement, multi-district, and premium implementation",
     highlighted: false,
     cta: "Contact Sales",
     ctaVariant: "outline",
@@ -207,10 +212,13 @@ function TierCard({ tier, onCta }: { tier: TierConfig; onCta: (tier: string) => 
         <CardTitle className="text-xl font-semibold text-gray-900">{tier.name}</CardTitle>
         <p className="text-sm text-gray-500 mt-1">{tier.tagline}</p>
         <div className="mt-4">
-          <span className="text-3xl font-bold text-gray-900">{tier.priceRange}</span>
-          <span className="text-sm text-gray-500 ml-1">/ {tier.priceUnit}</span>
+          <span className="text-3xl font-bold text-gray-900">{tier.price}</span>
+          <span className="text-sm text-gray-500 ml-1">{tier.priceUnit}</span>
         </div>
         <p className="text-xs text-gray-400 mt-1">{tier.schoolLimit}</p>
+        {tier.trialNote && (
+          <p className="text-[11px] text-emerald-700 mt-2 font-medium">{tier.trialNote}</p>
+        )}
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col">
@@ -396,18 +404,35 @@ function DemoRequestForm({ defaultTier, onSuccess }: { defaultTier?: string; onS
 }
 
 export default function PricingPage() {
+  const { isSignedIn, isLoaded: authLoaded } = useUser();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showDemoForm, setShowDemoForm] = useState(false);
   const [selectedTier, setSelectedTier] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const handleCta = (tierKey: string) => {
-    setSelectedTier(tierKey);
-    setShowDemoForm(true);
-    setSubmitted(false);
-    setTimeout(() => {
-      document.getElementById("demo-form-section")?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
+    // Enterprise → demo / sales conversation. Self-serve checkout is not offered
+    // for Enterprise because procurement, BAAs, and PO billing are negotiated.
+    if (tierKey === "enterprise") {
+      setSelectedTier(tierKey);
+      setShowDemoForm(true);
+      setSubmitted(false);
+      setTimeout(() => {
+        document.getElementById("demo-form-section")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+      return;
+    }
+
+    // Essentials / Professional → real Stripe Checkout. The billing page reads
+    // the ?plan=<tier> query param and auto-launches Checkout for the matching
+    // monthly price. If the visitor is signed out, route through Clerk first.
+    const target = `${BASE_URL}billing?plan=${tierKey}`;
+    if (authLoaded && isSignedIn) {
+      window.location.href = target;
+    } else {
+      const redirect = encodeURIComponent(target);
+      window.location.href = `${BASE_URL}sign-in?redirect_url=${redirect}`;
+    }
   };
 
   return (
@@ -488,12 +513,12 @@ export default function PricingPage() {
           <div className="text-center mb-8">
             <Building2 className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
             <h2 className="text-2xl font-bold text-gray-900">
-              {showDemoForm ? "Request a Demo" : "Ready to get started?"}
+              {showDemoForm ? "Talk to Sales — Enterprise" : "Multi-district or Enterprise?"}
             </h2>
             <p className="text-sm text-gray-500 mt-2">
               {showDemoForm
-                ? `Tell us about your district and we'll set up a personalized walkthrough${selectedTier ? ` of the ${TIERS.find((t) => t.key === selectedTier)?.name} plan` : ""}.`
-                : "Choose a plan above, or request a demo to see Trellis in action."}
+                ? "Tell us about your district and we'll set up a personalized walkthrough of the Enterprise plan, including procurement, BAA, and PO billing."
+                : "Essentials and Professional are self-serve — start your 14-day free trial directly from the plan cards above. Enterprise (multi-district, custom procurement, dedicated implementation) goes through sales."}
             </p>
           </div>
 
@@ -501,9 +526,9 @@ export default function PricingPage() {
             <div className="text-center">
               <Button
                 className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => { setShowDemoForm(true); setSubmitted(false); }}
+                onClick={() => handleCta("enterprise")}
               >
-                Request a Demo
+                Contact Enterprise Sales
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -566,11 +591,7 @@ export default function PricingPage() {
       <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-gray-200 p-3 z-50">
         <Button
           className="w-full bg-emerald-600 hover:bg-emerald-700"
-          onClick={() => {
-            setShowDemoForm(true);
-            setSubmitted(false);
-            document.getElementById("demo-form-section")?.scrollIntoView({ behavior: "smooth" });
-          }}
+          onClick={() => handleCta("enterprise")}
         >
           Request a Demo
           <ArrowRight className="w-4 h-4 ml-2" />

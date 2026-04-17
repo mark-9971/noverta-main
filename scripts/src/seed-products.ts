@@ -14,13 +14,13 @@ interface PlanConfig {
 
 const plans: PlanConfig[] = [
   {
-    name: 'Starter',
-    description: 'For small districts — up to 10 staff seats',
-    tier: 'starter',
+    name: 'Essentials',
+    description: 'Service-minute tracking and state-required reporting — up to 10 staff seats',
+    tier: 'essentials',
     seatLimit: 10,
     monthlyAmount: 9900,
     yearlyAmount: 99900,
-    features: 'Up to 10 staff seats,Full compliance tracking,IEP management & reporting',
+    features: 'Up to 10 staff seats,Service-minute tracking,State reporting (603 CMR),Compliance dashboards',
     sortOrder: 1,
   },
   {
