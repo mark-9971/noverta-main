@@ -6562,6 +6562,10 @@ components:
           type: ["integer", "null"]
         caseManagerName:
           type: ["string", "null"]
+        enrolledAt:
+          type: ["string", "null"]
+        withdrawnAt:
+          type: ["string", "null"]
         riskStatus:
           type: ["string", "null"]
         activeRequirementsCount:
@@ -6637,6 +6641,10 @@ components:
         tags:
           type: ["string", "null"]
         medicaidId:
+          type: ["string", "null"]
+        enrolledAt:
+          type: ["string", "null"]
+        withdrawnAt:
           type: ["string", "null"]
         schoolName:
           type: ["string", "null"]

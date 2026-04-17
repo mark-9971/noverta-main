@@ -71,6 +71,10 @@ export interface StudentSummary {
   /** @nullable */
   caseManagerName?: string | null;
   /** @nullable */
+  enrolledAt?: string | null;
+  /** @nullable */
+  withdrawnAt?: string | null;
+  /** @nullable */
   riskStatus?: string | null;
   activeRequirementsCount: number;
   onTrackCount: number;
@@ -333,6 +337,10 @@ export interface StudentDetail {
   tags?: string | null;
   /** @nullable */
   medicaidId?: string | null;
+  /** @nullable */
+  enrolledAt?: string | null;
+  /** @nullable */
+  withdrawnAt?: string | null;
   /** @nullable */
   schoolName?: string | null;
   /** @nullable */
