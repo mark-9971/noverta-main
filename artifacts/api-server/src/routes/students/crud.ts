@@ -361,6 +361,8 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     schoolId: student.schoolId,
     programId: student.programId,
     caseManagerId: student.caseManagerId,
+    enrolledAt: student.enrolledAt,
+    withdrawnAt: student.withdrawnAt,
     notes: student.notes,
     tags: student.tags,
     medicaidId: student.medicaidId,
