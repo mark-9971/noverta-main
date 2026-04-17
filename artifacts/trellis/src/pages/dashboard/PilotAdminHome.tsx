@@ -203,7 +203,7 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         admin sees their next step immediately, then the checklist collapses to a
         compact summary once isComplete = true.
        */}
-      <div data-tour-id="readiness-checklist">
+      <div data-tour-id="readiness-checklist" className="space-y-4">
         {onboardingComplete ? (
           <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
         ) : (
@@ -215,6 +215,21 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
                 section position below. */}
             <PilotReadinessPanel />
           </>
+        )}
+        {/* Pointer to the unified first-run hub — the canonical page that
+            walks an admin through sample data → checklist → readiness →
+            first value → next actions in one coherent flow. */}
+        {!onboardingComplete && (
+          <div className="text-xs text-gray-500">
+            Prefer a single guided page?{" "}
+            <Link
+              href="/onboarding"
+              className="text-emerald-700 hover:text-emerald-800 font-medium"
+              data-testid="link-first-run-hub"
+            >
+              Open the first-run hub <ArrowRight className="inline w-3 h-3 -mt-0.5" />
+            </Link>
+          </div>
         )}
       </div>
 

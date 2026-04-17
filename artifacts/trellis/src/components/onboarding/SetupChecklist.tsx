@@ -1,3 +1,12 @@
+/**
+ * @deprecated Legacy 4-step setup checklist. Superseded by the canonical
+ * 8-step `PilotOnboardingChecklist` (see ./PilotOnboardingChecklist.tsx),
+ * which is the single source of truth for first-run progress and is
+ * rendered on PilotAdminHome, the unified `/onboarding` hub, and inside
+ * DashboardFull. This file is retained so existing imports keep
+ * compiling but is no longer wired into any page. Do not add new
+ * call-sites — use PilotOnboardingChecklist instead.
+ */
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { authFetch } from "@/lib/auth-fetch";

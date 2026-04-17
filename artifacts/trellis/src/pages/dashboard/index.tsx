@@ -9,7 +9,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import PilotAdminHome from "./PilotAdminHome";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
-import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
+import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useMemo } from "react";
@@ -144,7 +144,10 @@ function DashboardFull() {
         </div>
       </div>
 
-      {isAdmin && <SetupChecklist />}
+      {/* Unified first-run checklist (replaces the legacy SetupChecklist).
+          Single canonical 8-step tracker, hidden once the district is
+          pilot-ready. Full first-run path lives at /onboarding. */}
+      {isAdmin && <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />}
 
       {/*
         Wedge banner: even on the "full operational" view, an admin's first
