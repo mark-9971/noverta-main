@@ -504,7 +504,15 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
 
 export interface TeardownSampleResult {
   studentsRemoved: number;
+  /** Sample staff rows fully deleted (had no real-student schedule blocks). */
   staffRemoved: number;
+  /**
+   * Sample staff rows that could not be deleted because they were assigned to
+   * REAL student schedule blocks; we cleared their `is_sample` flag instead so
+   * the real-student blocks (NOT NULL FK) keep working. Admins can review and
+   * delete these manually if desired.
+   */
+  staffGraduated: number;
 }
 
 export async function teardownSampleData(districtId: number): Promise<TeardownSampleResult> {
@@ -516,7 +524,7 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
     await db.update(districtsTable)
       .set({ hasSampleData: false })
       .where(eq(districtsTable.id, districtId));
-    return { studentsRemoved: 0, staffRemoved: 0 };
+    return { studentsRemoved: 0, staffRemoved: 0, staffGraduated: 0 };
   }
 
   const sampleStudentRows = await db.select({ id: studentsTable.id })
@@ -528,6 +536,8 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
 
   const studentIds = sampleStudentRows.map(r => r.id);
   const staffIds = sampleStaffRows.map(r => r.id);
+  let _safelyDeletableStaffIdsCount = 0;
+  let _stillReferencedStaffIdsCount = 0;
 
   // Delete in dependency order. Each table is keyed by studentId or staffId
   // via FK; sweeping by these IDs is enough to remove all sample-derived data.
@@ -620,6 +630,8 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
       .where(inArray(scheduleBlocksTable.staffId, staffIds));
     const stillReferencedStaffIds = [...new Set(realStudentBlocks.map(b => b.staffId))];
     const safelyDeletableStaffIds = staffIds.filter(id => !stillReferencedStaffIds.includes(id));
+    _safelyDeletableStaffIdsCount = safelyDeletableStaffIds.length;
+    _stillReferencedStaffIdsCount = stillReferencedStaffIds.length;
 
     // Drop FK references on real service requirements / students that
     // happened to point at a sample staff that we ARE deleting.
@@ -646,5 +658,9 @@ export async function teardownSampleData(districtId: number): Promise<TeardownSa
     .set({ hasSampleData: false })
     .where(eq(districtsTable.id, districtId));
 
-  return { studentsRemoved: studentIds.length, staffRemoved: staffIds.length };
+  return {
+    studentsRemoved: studentIds.length,
+    staffRemoved: _safelyDeletableStaffIdsCount,
+    staffGraduated: _stillReferencedStaffIdsCount,
+  };
 }

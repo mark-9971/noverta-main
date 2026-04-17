@@ -9,7 +9,7 @@
  */
 import { Router, type IRouter } from "express";
 import { logger } from "../lib/logger";
-import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
+import { requireRoles, requireDistrictScope, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import {
   seedSampleDataForDistrict,
@@ -19,7 +19,7 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/sample-data", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+router.get("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
@@ -34,7 +34,7 @@ router.get("/sample-data", requireRoles("admin", "coordinator"), async (req, res
   }
 });
 
-router.post("/sample-data", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
@@ -60,7 +60,7 @@ router.post("/sample-data", requireRoles("admin", "coordinator"), async (req, re
   }
 });
 
-router.delete("/sample-data", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
