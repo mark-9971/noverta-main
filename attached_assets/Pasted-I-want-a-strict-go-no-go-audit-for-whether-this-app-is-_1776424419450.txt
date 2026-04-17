@@ -1,0 +1,69 @@
+I want a strict go/no-go audit for whether this app is now safe to charge real customers for.
+
+Re-inspect the CURRENT codebase only. Ignore prior conclusions unless they are still true in the code.
+
+Your job is to answer one question:
+IS TRELLIS NOW SAFE ENOUGH TO TAKE MONEY FOR A PILOT OR EARLY PAID DISTRICT?
+
+Evaluate these areas in depth:
+
+1. REVENUE-PATH CORRECTNESS
+- verify session logging, minute aggregation, deletions, edits, compensatory calculations, and any billing-related math
+- explicitly check whether deleted or corrected sessions can still inflate reported or billed minutes
+- identify any remaining correctness bugs that could undermine trust or invoicing
+
+2. AUTH / ACCESS RELIABILITY
+- inspect all router-level middleware usage for path-scoping mistakes or hidden permission leaks
+- identify any routes that may wrongly 403 legitimate users
+- tell me whether access control now feels reliable enough for pilots
+
+3. PRODUCTION TRUST INFRASTRUCTURE
+- verify whether RESEND is actually configured and whether the UI can still imply messages were sent when they were not
+- verify whether Sentry is actually active and whether production error visibility is now real
+- identify any remaining silent-failure patterns
+
+4. PRICING AND CHECKOUT READINESS
+- inspect the pricing page and billing flow
+- tell me whether pricing is now concrete, credible, and easy to buy
+- verify whether “Get Started” now leads to real checkout for the appropriate plans
+- identify any mismatch between marketing pricing and Stripe implementation
+
+5. WEDGE CLARITY
+- inspect whether the app and pricing page now lead with the compliance/service-delivery wedge or still present as a broad SPED suite
+- identify what still muddies the sales story
+- tell me whether the product now looks easier to understand and buy
+
+6. TIME-TO-AHA FOR NEW DISTRICTS
+- inspect onboarding, sample/demo district setup, readiness indicators, and first-run admin experience
+- determine whether a brand-new district can understand value quickly without heavy handholding
+- identify what still slows down first value realization
+
+7. TRUST / SALES RISK CHECK
+I want a final list of anything that would still make a paying district hesitate or churn early, including:
+- misleading claims
+- unverified integrations
+- thin modules still too visible
+- brittle pilot flows
+- support burdens hidden in the current product
+
+8. FINAL VERDICT
+Give me:
+- GO / NO-GO for taking money
+- GO / NO-GO for self-serve checkout
+- GO / NO-GO for friendly paid pilots
+- the top 5 remaining blockers
+- the top 5 strongest reasons this is now sellable
+- the next 10 highest-leverage tasks only if money collection is still premature
+
+Use this exact structure:
+
+1. Revenue-path correctness
+2. Auth and access reliability
+3. Production trust infrastructure
+4. Pricing and checkout readiness
+5. Wedge clarity now
+6. Time-to-aha for new districts
+7. Remaining sales and trust risks
+8. Final go/no-go verdict
+
+Be strict. Do not give startup platitudes. I want to know whether taking money right now would be responsible.

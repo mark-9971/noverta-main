@@ -608,12 +608,23 @@ async function createSupportingContent(
 async function tuneComplianceForStudents(
   studentIds: number[],
   staffPool: number[],
-): Promise<{ minuteLogsCreated: number }> {
+): Promise<{
+  minuteLogsCreated: number;
+  missedLogsCreated: number;
+  linkedDataSessions: number;
+  linkedDataPoints: number;
+}> {
   if (studentIds.length === 0 || staffPool.length === 0) {
-    return { minuteLogsCreated: 0 };
+    return {
+      minuteLogsCreated: 0,
+      missedLogsCreated: 0,
+      linkedDataSessions: 0,
+      linkedDataPoints: 0,
+    };
   }
 
-  const result = await db.execute(sql`
+  // ── Pass A: completed session_logs to hit target_pct of required minutes ──
+  const completedRes = await db.execute(sql`
     WITH params AS (
       SELECT
         s.id  AS student_id,
@@ -668,7 +679,7 @@ async function tuneComplianceForStudents(
     ),
     schedule AS (
       SELECT
-        p.student_id, p.req_id,
+        p.student_id, p.req_id, gs.idx,
         -- Cycle through available weekdays so several sessions can share a
         -- date without trampling each other (one student can have multi
         -- service-type sessions on the same day in real life).
@@ -686,19 +697,193 @@ async function tuneComplianceForStudents(
     )
     INSERT INTO session_logs
       (student_id, service_requirement_id, staff_id, session_date,
-       duration_minutes, status, notes)
+       start_time, end_time, duration_minutes, status, notes)
     SELECT
       sched.student_id,
       sched.req_id,
       (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
       TO_CHAR(sched.d, 'YYYY-MM-DD'),
+      -- Stagger 09:00, 10:00, 11:00, 13:00, 14:00 across the day so multiple
+      -- requirements on the same date don't overlap.
+      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':00',
+      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':' ||
+        LPAD(LEAST(59, sched.dur)::text, 2, '0'),
       sched.dur,
       'completed',
       'Sample minute log'
     FROM schedule sched
   `);
 
-  return { minuteLogsCreated: result.rowCount ?? 0 };
+  // ── Pass B: missed session_logs to fill the gap from target to required ──
+  const missedRes = await db.execute(sql`
+    WITH params AS (
+      SELECT
+        s.id  AS student_id,
+        sr.id AS req_id,
+        sr.required_minutes,
+        CASE
+          WHEN (s.id % 20) <  3 THEN 1.10 + (((s.id * 37) % 100) / 100.0) * 0.15
+          WHEN (s.id % 20) < 13 THEN 0.85 + (((s.id * 37) % 100) / 100.0) * 0.15
+          WHEN (s.id % 20) < 18 THEN 0.65 + (((s.id * 37) % 100) / 100.0) * 0.20
+          ELSE                       0.50 + (((s.id * 37) % 100) / 100.0) * 0.15
+        END AS target_pct
+      FROM students s
+      JOIN service_requirements sr
+        ON sr.student_id = s.id AND sr.active = true
+      WHERE s.id IN ${intList(studentIds)}
+        AND sr.required_minutes > 0
+    ),
+    needs AS (
+      -- Missed minutes = required - whatever target landed at. For students
+      -- already over 100% target, no missed sessions are recorded.
+      SELECT student_id, req_id,
+        GREATEST(
+          0,
+          required_minutes - ROUND(required_minutes * target_pct)::int
+        ) AS missed_minutes
+      FROM params
+    ),
+    weekdays AS (
+      SELECT d::date AS d,
+             ROW_NUMBER() OVER (ORDER BY d) - 1 AS rn
+      FROM generate_series(
+        date_trunc('month', CURRENT_DATE)::date,
+        CURRENT_DATE,
+        INTERVAL '1 day'
+      ) AS d
+      WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5
+    ),
+    plan AS (
+      SELECT n.student_id, n.req_id, n.missed_minutes,
+             GREATEST(1, CEIL(n.missed_minutes / 30.0)::int) AS num_sessions
+      FROM needs n
+      WHERE n.missed_minutes > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM session_logs sl
+          WHERE sl.service_requirement_id = n.req_id
+            AND sl.notes = 'Sample missed log'
+            AND sl.session_date >= TO_CHAR(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD')
+        )
+    ),
+    schedule AS (
+      SELECT
+        p.student_id, p.req_id, gs.idx,
+        (SELECT w.d FROM weekdays w
+          WHERE w.rn = (gs.idx % (SELECT COUNT(*) FROM weekdays))) AS d,
+        CASE
+          WHEN gs.idx = p.num_sessions - 1
+            THEN p.missed_minutes - (p.num_sessions - 1) * 30
+          ELSE 30
+        END AS dur
+      FROM plan p
+      CROSS JOIN LATERAL generate_series(0, p.num_sessions - 1) AS gs(idx)
+    ),
+    reasons AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id) - 1 AS rn,
+             COUNT(*) OVER () AS total
+      FROM missed_reasons
+    )
+    INSERT INTO session_logs
+      (student_id, service_requirement_id, staff_id, session_date,
+       start_time, end_time, duration_minutes, status, missed_reason_id, notes)
+    SELECT
+      sched.student_id,
+      sched.req_id,
+      (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
+      TO_CHAR(sched.d, 'YYYY-MM-DD'),
+      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':00',
+      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':' ||
+        LPAD(LEAST(59, sched.dur)::text, 2, '0'),
+      sched.dur,
+      'missed',
+      (SELECT id FROM reasons WHERE rn = ((sched.req_id + sched.idx) % (SELECT total FROM reasons LIMIT 1))),
+      'Sample missed log'
+    FROM schedule sched
+  `);
+
+  // ── Pass C: link a data_session to every completed sample minute log ──
+  const linkRes = await db.execute(sql`
+    INSERT INTO data_sessions
+      (student_id, staff_id, session_date, start_time, end_time,
+       session_log_id, session_type, notes)
+    SELECT
+      sl.student_id, sl.staff_id, sl.session_date,
+      sl.start_time, sl.end_time, sl.id,
+      'acquisition', 'Sample data session'
+    FROM session_logs sl
+    WHERE sl.notes = 'Sample minute log'
+      AND sl.student_id IN ${intList(studentIds)}
+      AND NOT EXISTS (
+        SELECT 1 FROM data_sessions ds WHERE ds.session_log_id = sl.id
+      )
+  `);
+
+  // ── Pass D: program_data + behavior_data points inside each linked session
+  const progDataRes = await db.execute(sql`
+    WITH new_sessions AS (
+      SELECT ds.id AS data_session_id, ds.student_id
+      FROM data_sessions ds
+      WHERE ds.notes = 'Sample data session'
+        AND ds.student_id IN ${intList(studentIds)}
+        AND NOT EXISTS (
+          SELECT 1 FROM program_data pd WHERE pd.data_session_id = ds.id
+        )
+    ),
+    target_pick AS (
+      -- Pick one program_target per (student, session) deterministically.
+      SELECT DISTINCT ON (ns.data_session_id)
+        ns.data_session_id, pt.id AS target_id
+      FROM new_sessions ns
+      JOIN program_targets pt
+        ON pt.student_id = ns.student_id AND pt.active = true
+      ORDER BY ns.data_session_id, pt.id
+    )
+    INSERT INTO program_data
+      (data_session_id, program_target_id, trials_correct, trials_total,
+       prompted, percent_correct, notes)
+    SELECT
+      tp.data_session_id, tp.target_id,
+      8 + ((tp.data_session_id * 7) % 3),
+      10,
+      ((tp.data_session_id * 11) % 3),
+      ROUND((80 + ((tp.data_session_id * 7) % 21))::numeric, 1),
+      'Sample minute-log data point'
+    FROM target_pick tp
+  `);
+
+  const behavDataRes = await db.execute(sql`
+    WITH new_sessions AS (
+      SELECT ds.id AS data_session_id, ds.student_id
+      FROM data_sessions ds
+      WHERE ds.notes = 'Sample data session'
+        AND ds.student_id IN ${intList(studentIds)}
+        AND NOT EXISTS (
+          SELECT 1 FROM behavior_data bd WHERE bd.data_session_id = ds.id
+        )
+    ),
+    target_pick AS (
+      SELECT DISTINCT ON (ns.data_session_id)
+        ns.data_session_id, bt.id AS target_id
+      FROM new_sessions ns
+      JOIN behavior_targets bt
+        ON bt.student_id = ns.student_id AND bt.active = true
+      ORDER BY ns.data_session_id, bt.id
+    )
+    INSERT INTO behavior_data
+      (data_session_id, behavior_target_id, value, notes)
+    SELECT
+      tp.data_session_id, tp.target_id,
+      ROUND((1 + ((tp.data_session_id * 13) % 5))::numeric, 1),
+      'Sample minute-log data point'
+    FROM target_pick tp
+  `);
+
+  return {
+    minuteLogsCreated: completedRes.rowCount ?? 0,
+    missedLogsCreated: missedRes.rowCount ?? 0,
+    linkedDataSessions: linkRes.rowCount ?? 0,
+    linkedDataPoints: (progDataRes.rowCount ?? 0) + (behavDataRes.rowCount ?? 0),
+  };
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
