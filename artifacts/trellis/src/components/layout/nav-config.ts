@@ -84,6 +84,7 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/compliance/trends", label: "Compliance Trends", icon: FileBarChart, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
       { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
