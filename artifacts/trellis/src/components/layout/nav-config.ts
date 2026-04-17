@@ -40,6 +40,29 @@ export const platformAdminSection: NavSection = {
   ],
 };
 
+// Top-level admin IA is hard-trimmed to the real wedge:
+//   1) Overview        — daily landing surface (Dashboard + Alerts)
+//   2) Compliance      — the core product wedge
+//   3) Caseload & Service Delivery — students, sessions, scheduling, IEP work
+//   4) Reports         — cross-cutting reporting surface
+//   5) Billing         — Medicaid + compensatory finance + plan billing
+//   6) Settings        — district configuration and data import
+//
+// Everything else is grouped under a single collapsed "More tools" section
+// (defaultOpen: false) so admins can still get to it from the sidebar but it
+// does not compete for attention with the core wedge. No code or routes are
+// removed — items are only re-grouped/demoted.
+//
+// Specifically demoted (per the IA trim):
+//   - Agencies, Accommodations lookup, Data Health, Cost Avoidance,
+//     Leadership Packet, Parent Comms, District Overview, Executive
+//     Dashboard, Contract Utilization, Restraint & Seclusion (P&S),
+//     Programs & Behaviors, FBA/BIP, Transition Planning, Catalog
+//     Matches, Supervision, Resource Management, Analytics, Staff
+//     Directory.
+// Pages that are not in primary nav today (recently-deleted, legal-
+// compliance) remain reachable from the dashboard / settings entry points
+// and are intentionally not promoted into the sidebar.
 export const adminNav: NavSection[] = [
   {
     label: "Overview",
@@ -52,33 +75,6 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Students",
-    icon: GraduationCap,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/students", label: "Student List", icon: Users, primary: true },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-    ],
-  },
-  {
-    label: "Service Delivery",
-    icon: Calendar,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/sessions", label: "Sessions", icon: Clipboard },
-      { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
-      { href: "/coverage", label: "Coverage", icon: UserCheck },
-    ],
-  },
-  {
     label: "Compliance",
     icon: ListChecks,
     collapsible: true,
@@ -86,7 +82,6 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/compliance/trends", label: "Compliance Trends", icon: FileBarChart, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
       { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
@@ -95,44 +90,52 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Clinical",
-    icon: Stethoscope,
+    label: "Caseload & Service Delivery",
+    icon: Calendar,
     collapsible: true,
+    defaultOpen: true,
     items: [
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
-    ],
-  },
-  {
-    label: "District",
-    icon: Building2,
-    collapsible: true,
-    items: [
-      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
-      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/students", label: "Student List", icon: Users, primary: true },
+      { href: "/sessions", label: "Sessions", icon: Clipboard },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/coverage", label: "Coverage", icon: UserCheck },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+    ],
+  },
+  {
+    label: "Reports",
+    icon: BarChart3,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Billing",
+    icon: CreditCard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
-      { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
       { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
+      { href: "/billing", label: "Billing", icon: CreditCard },
     ],
   },
   {
-    label: "People",
-    icon: Contact,
+    label: "Settings",
+    icon: Settings,
     collapsible: true,
+    defaultOpen: true,
     items: [
-      { href: "/staff", label: "Staff Directory", icon: UserCheck },
-      { href: "/agencies", label: "Agencies", icon: Truck },
-    ],
-  },
-  {
-    label: "Communication",
-    icon: MessageSquare,
-    collapsible: true,
-    items: [
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+      { href: "/import", label: "Data Import", icon: Upload },
+      { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
   {
@@ -141,6 +144,21 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
+      // Demoted from primary nav per IA trim. Routes still live, pages still
+      // work, command palette and dashboard cards still link to them.
+      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
+      { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
+      { href: "/agencies", label: "Agencies", icon: Truck },
+      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/staff", label: "Staff Directory", icon: UserCheck },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
@@ -148,23 +166,17 @@ export const adminNav: NavSection[] = [
       { href: "/analytics", label: "Analytics", icon: PieChart },
     ],
   },
-  {
-    label: "Admin",
-    icon: Settings,
-    collapsible: true,
-    items: [
-      { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/import", label: "Data Import", icon: Upload },
-      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
-      { href: "/billing", label: "Billing", icon: CreditCard },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
 ];
 
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["District", "Admin"]);
+// Mirrors the previous behavior: SPED teachers historically did not see the
+// "District" or "Admin" groups. After the IA trim those groups no longer
+// exist; the equivalent admin-only surfaces now live in "Reports", "Billing",
+// and "Settings". "More tools" stays visible because it still hosts items
+// teachers/BCBAs use day-to-day (Parent Comms, Programs & Behaviors, FBA/BIP,
+// Restraint & Seclusion, Supervision).
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Reports", "Billing", "Settings"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
-  "Students": "My Students",
+  "Caseload & Service Delivery": "My Caseload",
 };
 const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
   "Student List": "My Students",
