@@ -59,3 +59,9 @@ id = "JLWYhK6s3-hFVehO9Pmb8"
 uri = "file://.local/demo-readiness-audit.md"
 type = "text"
 title = "Trellis Demo-Readiness Audit Report"
+
+[[outputs]]
+id = "wPEN4XiOR07u61s8--AfA"
+uri = "file://.local/trellis-audit-report.md"
+type = "text"
+title = "Trellis Full Audit Report"
