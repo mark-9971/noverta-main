@@ -5,7 +5,10 @@ import { requireRoles } from "../../middlewares/auth";
 export const requireAdmin = requireRoles("admin");
 
 export function parseCsvRows(csvData: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = csvData.trim().split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  const isTsv = csvData.includes("\t") && !csvData.split("\n")[0].includes(",");
+  if (isTsv) return parseTsvRows(csvData);
+
+  const lines = csvData.trim().split("\n").map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith("#"));
   if (lines.length < 2) return { headers: [], rows: [] };
 
   const parseRow = (line: string): string[] => {
@@ -263,7 +266,7 @@ export function detectGoalType(rawType: string, goalName: string): "behavior" | 
 }
 
 export function parseTsvRows(tsvData: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = tsvData.trim().split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.length > 0);
+  const lines = tsvData.trim().split("\n").map(l => l.replace(/\r$/, "")).filter(l => l.length > 0 && !l.startsWith("#"));
   if (lines.length < 2) return { headers: [], rows: [] };
   const headers = lines[0].split("\t").map(h => h.trim().toLowerCase().replace(/[^a-z0-9_\-\/]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, ""));
   const rows = lines.slice(1).map(line => {
