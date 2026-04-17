@@ -86,8 +86,26 @@ export interface SendEmailParams {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Public delivery-state values returned to API consumers and persisted in
+ * `communication_events.status`. Match the lifecycle documented on the
+ * schema. `sent` is kept as a read-side alias for legacy rows.
+ */
+export type EmailStatus =
+  | "queued"
+  | "accepted"
+  | "delivered"
+  | "bounced"
+  | "complained"
+  | "failed"
+  | "not_configured"
+  | "sent"; // legacy alias for `accepted`; never written by new code
+
 export interface SendEmailResult {
   success: boolean;
+  /** Lifecycle state at the moment sendEmail returned. Synchronous calls
+   *  cannot reach `delivered` — that requires a provider webhook. */
+  status: EmailStatus;
   communicationEventId: number;
   providerMessageId?: string;
   error?: string;
@@ -156,7 +174,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       failedAt: now,
       failedReason: "RESEND_API_KEY not configured",
     }).returning();
-    return { success: false, communicationEventId: event.id, notConfigured: true, error: "Email provider not configured — add RESEND_API_KEY to enable real delivery" };
+    return { success: false, status: "not_configured", communicationEventId: event.id, notConfigured: true, error: "Email provider not configured — add RESEND_API_KEY to enable real delivery" };
   }
 
   const [pending] = await db.insert(communicationEventsTable).values({
@@ -201,14 +219,24 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
         await db.update(communicationEventsTable)
           .set({ status: "failed", failedAt: failNow, failedReason: `${errMsg} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`, updatedAt: failNow })
           .where(eq(communicationEventsTable.id, pending.id));
-        return { success: false, communicationEventId: pending.id, error: errMsg };
+        return { success: false, status: "failed", communicationEventId: pending.id, error: errMsg };
       }
 
-      const sentNow = new Date();
+      // Provider accepted the request. We are NOT yet "delivered" — that
+      // requires the email.delivered webhook. Set both `acceptedAt` (the
+      // honest term) and `sentAt` (legacy column kept in sync) so existing
+      // reports continue to work while the new UI can prefer `acceptedAt`.
+      const acceptedNow = new Date();
       await db.update(communicationEventsTable)
-        .set({ status: "sent", providerMessageId: result.data?.id ?? null, sentAt: sentNow, updatedAt: sentNow })
+        .set({
+          status: "accepted",
+          providerMessageId: result.data?.id ?? null,
+          acceptedAt: acceptedNow,
+          sentAt: acceptedNow,
+          updatedAt: acceptedNow,
+        })
         .where(eq(communicationEventsTable.id, pending.id));
-      return { success: true, communicationEventId: pending.id, providerMessageId: result.data?.id };
+      return { success: true, status: "accepted", communicationEventId: pending.id, providerMessageId: result.data?.id };
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -220,7 +248,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       await db.update(communicationEventsTable)
         .set({ status: "failed", failedAt: failNow, failedReason: `${msg} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`, updatedAt: failNow })
         .where(eq(communicationEventsTable.id, pending.id));
-      return { success: false, communicationEventId: pending.id, error: msg };
+      return { success: false, status: "failed", communicationEventId: pending.id, error: msg };
     }
   }
 
@@ -228,7 +256,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   await db.update(communicationEventsTable)
     .set({ status: "failed", failedAt: failNow, failedReason: `Max retries exceeded: ${lastError}`, updatedAt: failNow })
     .where(eq(communicationEventsTable.id, pending.id));
-  return { success: false, communicationEventId: pending.id, error: `Delivery failed after ${MAX_RETRIES + 1} attempts: ${lastError}` };
+  return { success: false, status: "failed", communicationEventId: pending.id, error: `Delivery failed after ${MAX_RETRIES + 1} attempts: ${lastError}` };
 }
 
 export function buildIncidentNotificationEmail(opts: {

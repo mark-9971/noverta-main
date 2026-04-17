@@ -168,9 +168,21 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
     setForm(f => ({ ...f, templateId, subject, body, category: tmpl.category }));
   }
 
+  // Mirrors api-server EmailStatus union. Includes legacy `sent` alias for
+  // older API responses; treats it as `accepted` in copy.
   type EmailDelivery = {
     attempted: boolean;
-    status: "sent" | "not_configured" | "failed" | "no_email_on_file" | "skipped";
+    status:
+      | "queued"
+      | "accepted"
+      | "delivered"
+      | "bounced"
+      | "complained"
+      | "failed"
+      | "not_configured"
+      | "no_email_on_file"
+      | "skipped"
+      | "sent"; // legacy
     error?: string;
     communicationEventId?: number;
   };
@@ -182,9 +194,32 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
       });
       return;
     }
-    if (delivery.status === "sent") {
-      toast.success(`${savedLabel} sent to guardian's email`, {
-        description: "Handed off to the email provider. Delivery confirmation appears here when the provider reports back.",
+    // accepted/queued/sent: handed to provider; do NOT claim delivery yet.
+    if (delivery.status === "accepted" || delivery.status === "sent" || delivery.status === "queued") {
+      toast.success(`${savedLabel} accepted by email provider`, {
+        description: "Awaiting delivery confirmation. The audit log updates when the provider confirms inbox delivery, a bounce, or a spam complaint.",
+      });
+      return;
+    }
+    // Already-delivered (rare in the synchronous response, but possible if the
+    // webhook landed before the API round-trip completed in tests/sandbox).
+    if (delivery.status === "delivered") {
+      toast.success(`${savedLabel} delivered to guardian's inbox`, {
+        description: "Provider confirmed delivery.",
+      });
+      return;
+    }
+    if (delivery.status === "bounced") {
+      toast.warning(`${savedLabel} bounced — recipient rejected the email`, {
+        description: "Saved to the portal. Verify the guardian's email address before retrying.",
+        duration: 8000,
+      });
+      return;
+    }
+    if (delivery.status === "complained") {
+      toast.warning(`${savedLabel} flagged as spam by recipient`, {
+        description: "Saved to the portal. Reach out by another channel; further emails to this address may be blocked.",
+        duration: 8000,
       });
       return;
     }

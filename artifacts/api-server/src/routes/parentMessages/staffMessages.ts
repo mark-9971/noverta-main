@@ -229,9 +229,11 @@ router.post("/students/:studentId/messages", async (req: Request, res: Response)
     const [guardianRow] = await db.select({ email: guardiansTable.email, name: guardiansTable.name })
       .from(guardiansTable).where(eq(guardiansTable.id, gId));
 
+    // `accepted` = handed to provider, awaiting delivery confirmation via
+    // webhook. UI must NOT say "delivered" until that webhook arrives.
     let emailDelivery: {
       attempted: boolean;
-      status: "sent" | "not_configured" | "failed" | "no_email_on_file" | "skipped";
+      status: "queued" | "accepted" | "delivered" | "bounced" | "complained" | "failed" | "not_configured" | "sent" | "no_email_on_file" | "skipped";
       communicationEventId?: number;
       error?: string;
     } = { attempted: false, status: "no_email_on_file" };
@@ -251,7 +253,7 @@ router.post("/students/:studentId/messages", async (req: Request, res: Response)
         });
         emailDelivery = {
           attempted: true,
-          status: result.success ? "sent" : (result.notConfigured ? "not_configured" : "failed"),
+          status: result.status,
           communicationEventId: result.communicationEventId,
           error: result.success ? undefined : result.error,
         };

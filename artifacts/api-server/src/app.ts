@@ -105,17 +105,106 @@ app.post(
         return;
       }
       const now = new Date();
-      if (event.type === 'email.delivered') {
-        await db.update(communicationEventsTable)
-          .set({ status: 'delivered', deliveredAt: now, updatedAt: now })
-          .where(eq(communicationEventsTable.providerMessageId, providerMessageId));
-      } else if (event.type === 'email.bounced' || event.type === 'email.complained') {
-        await db.update(communicationEventsTable)
-          .set({ status: 'bounced', failedAt: now, failedReason: event.type, updatedAt: now })
-          .where(eq(communicationEventsTable.providerMessageId, providerMessageId));
-      } else {
-        logger.info({ eventType: event.type }, 'Resend webhook: unhandled event type — no DB update');
+      const eventType = String(event.type ?? '');
+
+      // Look up the row first so we can enforce monotonic-state semantics
+      // (a late `email.sent` after `email.delivered` must NOT downgrade us
+      //  back to accepted).
+      const [existing] = await db
+        .select({ id: communicationEventsTable.id, status: communicationEventsTable.status })
+        .from(communicationEventsTable)
+        .where(eq(communicationEventsTable.providerMessageId, providerMessageId))
+        .limit(1);
+
+      if (!existing) {
+        logger.info({ providerMessageId, eventType }, 'Resend webhook: no matching communication_event row');
+        res.status(200).json({ ok: true, note: 'unknown email_id' });
+        return;
       }
+
+      // Strict monotonicity: once a row reaches a terminal state we DO NOT
+      // overwrite the status field. Late or out-of-order webhooks (e.g. a
+      // `email.bounced` arriving after `email.failed`, or a duplicate
+      // `email.delivered`) only update auxiliary timestamps + lastWebhook*.
+      // This is the legally important invariant: the visible status of a
+      // delivered email cannot silently flip to "bounced", and vice versa.
+      //
+      // Exception: a `email.complained` after `email.delivered` keeps status
+      // as `delivered` but records `complainedAt` so the UI can surface the
+      // spam-flag without retroactively claiming non-delivery. The audit
+      // log component reads `complainedAt`/`bouncedAt` independently of
+      // `status` to render the correct badge.
+      const TERMINAL = new Set(['delivered', 'bounced', 'complained', 'failed']);
+      const PRE_TERMINAL = new Set(['queued', 'accepted', 'sent']); // 'sent' = legacy alias
+
+      // Always stamp last-webhook fields so ops can see provider activity
+      // even when we do not change status. updatedAt is bumped to make
+      // activity visible in audit-log queries.
+      const baseSet = { lastWebhookEventType: eventType, lastWebhookAt: now, updatedAt: now };
+
+      if (eventType === 'email.sent') {
+        // Resend's `email.sent` mirrors our synchronous accept; treat as a
+        // no-op state-wise unless we somehow missed the API ack and the row
+        // is still queued. Never downgrade a terminal status.
+        const set: Record<string, unknown> = { ...baseSet };
+        if (existing.status === 'queued') {
+          set.status = 'accepted';
+          set.acceptedAt = now;
+          set.sentAt = now;
+        }
+        await db.update(communicationEventsTable).set(set).where(eq(communicationEventsTable.id, existing.id));
+      } else if (eventType === 'email.delivered') {
+        // Idempotent: only flip status from a pre-terminal state.
+        const set: Record<string, unknown> = { ...baseSet };
+        if (PRE_TERMINAL.has(existing.status)) {
+          set.status = 'delivered';
+          set.deliveredAt = now;
+        }
+        await db.update(communicationEventsTable).set(set).where(eq(communicationEventsTable.id, existing.id));
+      } else if (eventType === 'email.delivery_delayed') {
+        // Provider is still trying. Don't change status — just record activity.
+        await db.update(communicationEventsTable).set(baseSet).where(eq(communicationEventsTable.id, existing.id));
+      } else if (eventType === 'email.bounced') {
+        // Terminal: never overwrite delivered, complained, or failed.
+        const set: Record<string, unknown> = { ...baseSet };
+        // bouncedAt is recorded regardless so ops can see the provider event,
+        // but the visible status only flips from a pre-terminal state.
+        set.bouncedAt = now;
+        if (PRE_TERMINAL.has(existing.status)) {
+          set.status = 'bounced';
+          set.failedAt = now;
+          set.failedReason = eventType;
+        }
+        await db.update(communicationEventsTable).set(set).where(eq(communicationEventsTable.id, existing.id));
+      } else if (eventType === 'email.complained') {
+        // Spam complaint — record complainedAt unconditionally so the UI can
+        // surface a "Marked spam" badge even when the email was delivered
+        // first. Status only flips from pre-terminal; we deliberately do
+        // NOT downgrade `delivered` to `complained` (the email did reach
+        // the inbox), the UI keys off complainedAt to show the warning.
+        const set: Record<string, unknown> = { ...baseSet };
+        set.complainedAt = now;
+        if (PRE_TERMINAL.has(existing.status)) {
+          set.status = 'complained';
+          set.failedAt = now;
+          set.failedReason = eventType;
+        }
+        await db.update(communicationEventsTable).set(set).where(eq(communicationEventsTable.id, existing.id));
+      } else if (eventType === 'email.failed') {
+        const set: Record<string, unknown> = { ...baseSet };
+        if (PRE_TERMINAL.has(existing.status)) {
+          set.status = 'failed';
+          set.failedAt = now;
+          set.failedReason = eventType;
+        }
+        await db.update(communicationEventsTable).set(set).where(eq(communicationEventsTable.id, existing.id));
+      } else {
+        // email.opened / email.clicked / unknown — don't change status,
+        // just leave a trail.
+        await db.update(communicationEventsTable).set(baseSet).where(eq(communicationEventsTable.id, existing.id));
+        logger.info({ eventType }, 'Resend webhook: informational event — no status change');
+      }
+
       res.status(200).json({ ok: true });
     } catch (err: unknown) {
       logger.error({ err }, 'Resend webhook DB update error');

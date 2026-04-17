@@ -45,8 +45,14 @@ export type CommEvent = {
   toEmail: string | null;
   toName: string | null;
   sentAt: string | null;
+  acceptedAt: string | null;
+  deliveredAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
   failedAt: string | null;
   failedReason: string | null;
+  lastWebhookEventType: string | null;
+  lastWebhookAt: string | null;
   createdAt: string;
   linkedIncidentId: number | null;
 };
