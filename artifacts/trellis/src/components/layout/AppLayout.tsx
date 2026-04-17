@@ -13,6 +13,7 @@ import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { DemoBanner } from "@/components/DemoBanner";
 import { SampleDataBanner } from "@/components/SampleDataBanner";
+import { SampleDataTour } from "@/components/SampleDataTour";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { FloatingTimer } from "@/components/floating-timer";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
@@ -401,6 +402,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         <DemoBanner />
         <SampleDataBanner />
+        <SampleDataTour />
         <SubscriptionBanner />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">
           <SubscriptionGate>{children}</SubscriptionGate>

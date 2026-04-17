@@ -203,18 +203,20 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         admin sees their next step immediately, then the checklist collapses to a
         compact summary once isComplete = true.
        */}
-      {onboardingComplete ? (
-        <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
-      ) : (
-        <>
-          <PilotOnboardingChecklist variant="full" />
-          {/* Co-dominant readiness audit: surfaces alongside the setup checklist
-              for as long as the district is pre-ready. Once isComplete = true,
-              both collapse and PilotReadinessPanel falls back to its lower
-              section position below. */}
-          <PilotReadinessPanel />
-        </>
-      )}
+      <div data-tour-id="readiness-checklist">
+        {onboardingComplete ? (
+          <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
+        ) : (
+          <>
+            <PilotOnboardingChecklist variant="full" />
+            {/* Co-dominant readiness audit: surfaces alongside the setup checklist
+                for as long as the district is pre-ready. Once isComplete = true,
+                both collapse and PilotReadinessPanel falls back to its lower
+                section position below. */}
+            <PilotReadinessPanel />
+          </>
+        )}
+      </div>
 
       {/* 1. Are we compliant? */}
       <section

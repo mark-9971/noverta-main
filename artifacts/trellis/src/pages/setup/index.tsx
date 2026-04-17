@@ -289,6 +289,15 @@ function SampleDataCta() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
+      try {
+        // Trigger the guided tour on the next page load. Cleared on dismiss
+        // or completion. Read by SampleDataTour.
+        window.localStorage.setItem("trellis.sampleTour.start", "1");
+        window.localStorage.removeItem("trellis.sampleTour.v1");
+      } catch {
+        /* localStorage unavailable; tour will still fire via the
+           "hasSampleData && !seen" fallback */
+      }
       navigate("/compliance-risk-report");
     },
     onError: (e: unknown) => {

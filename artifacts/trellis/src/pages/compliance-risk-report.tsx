@@ -354,7 +354,7 @@ export default function ComplianceRiskReportPage() {
 
       {data && data.summary.totalStudents > 0 && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour-id="compliance-summary">
             <Card className="border-l-4 border-l-blue-500">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -385,7 +385,7 @@ export default function ComplianceRiskReportPage() {
                 <div className="text-xs text-muted-foreground">{data.summary.studentsOutOfCompliance} out of compliance, {data.summary.studentsAtRisk} at risk</div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-red-500">
+            <Card className="border-l-4 border-l-red-500" data-tour-id="cost-risk">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   <DollarSign className="h-3.5 w-3.5" />
@@ -421,7 +421,11 @@ export default function ComplianceRiskReportPage() {
                     </thead>
                     <tbody>
                       {data.needsAttention.map((r, i) => (
-                        <tr key={`${r.studentId}-${r.service}-${i}`} className="border-t hover:bg-gray-50/50">
+                        <tr
+                          key={`${r.studentId}-${r.service}-${i}`}
+                          className="border-t hover:bg-gray-50/50"
+                          {...(i === 0 ? { "data-tour-id": "shortfall-student" } : {})}
+                        >
                           <td className="px-3 py-2 font-medium">{r.studentName}</td>
                           <td className="px-3 py-2 text-muted-foreground">{r.school}</td>
                           <td className="px-3 py-2">{r.service}</td>
