@@ -1,8 +1,8 @@
+// tenant-scope: district-join
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { sendEmail, buildOverdueFollowupEmail } from "../../lib/email";
 import {
-// tenant-scope: district-join
   parentContactsTable,
   studentsTable,
   alertsTable,

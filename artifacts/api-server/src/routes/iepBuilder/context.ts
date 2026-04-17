@@ -1,7 +1,7 @@
+// tenant-scope: district-join
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-// tenant-scope: district-join
   studentsTable, iepGoalsTable, progressReportsTable, serviceRequirementsTable,
   serviceTypesTable, programTargetsTable, behaviorTargetsTable,
   dataSessionsTable, iepDocumentsTable, iepAccommodationsTable,

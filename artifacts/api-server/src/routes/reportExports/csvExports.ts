@@ -1,7 +1,7 @@
+// tenant-scope: district-join
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
-// tenant-scope: district-join
   studentsTable, iepDocumentsTable, serviceRequirementsTable, serviceTypesTable,
   sessionLogsTable, schoolsTable, restraintIncidentsTable, schoolYearsTable,
 } from "@workspace/db";

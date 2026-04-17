@@ -1,7 +1,7 @@
+// tenant-scope: student
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
-// tenant-scope: student
   iepGoalsTable,
   sessionLogsTable,
   sessionGoalDataTable,

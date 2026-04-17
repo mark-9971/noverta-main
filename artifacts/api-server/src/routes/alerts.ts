@@ -1,8 +1,8 @@
+// tenant-scope: district-join
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { alertsTable, studentsTable, staffTable } from "@workspace/db";
 import {
-// tenant-scope: district-join
   ListAlertsQueryParams,
   ResolveAlertParams,
   ResolveAlertBody,

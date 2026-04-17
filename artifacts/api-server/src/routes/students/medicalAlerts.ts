@@ -1,7 +1,7 @@
+// tenant-scope: district-join
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-// tenant-scope: district-join
   medicalAlertsTable, MEDICAL_ALERT_TYPES, MEDICAL_ALERT_SEVERITIES,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";

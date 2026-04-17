@@ -1,6 +1,6 @@
+// tenant-scope: district-join
 import { Router } from "express";
 import {
-// tenant-scope: district-join
   db,
   studentsTable,
   iepGoalsTable,

@@ -1,3 +1,4 @@
+// tenant-scope: public
 /**
  * Public, unauthenticated parent-facing share-link consumption route.
  *
@@ -16,7 +17,6 @@ import { Router, type IRouter } from "express";
 import { db, shareLinkAccessLogTable, shareLinksTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
-// tenant-scope: public
   getClientIp,
   hashToken,
   ipRateLimiter,
