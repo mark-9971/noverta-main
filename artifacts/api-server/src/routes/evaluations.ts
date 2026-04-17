@@ -12,7 +12,7 @@ import { requireTierAccess } from "../middlewares/tierGate";
 import { sendEmail, buildOverdueEvaluationEmail } from "../lib/email";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("compliance.evaluations"));
+router.use("/evaluations", requireTierAccess("compliance.evaluations"));
 
 const evalAccess = requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba");
 

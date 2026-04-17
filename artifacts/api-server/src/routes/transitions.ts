@@ -11,7 +11,7 @@ import { requireTierAccess } from "../middlewares/tierGate";
 import { sendEmail, buildIncompleteTransitionEmail } from "../lib/email";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("compliance.transitions"));
+router.use("/transitions", requireTierAccess("compliance.transitions"));
 
 const transitionAccess = requireRoles("admin", "coordinator", "case_manager", "sped_teacher");
 

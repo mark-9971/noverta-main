@@ -8,7 +8,14 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("clinical.iep_suggestions"));
+router.use(
+  [
+    "/students/:studentId/iep-suggestions",
+    "/students/:studentId/apply-suggestions",
+    "/iep-suggestions",
+  ],
+  requireTierAccess("clinical.iep_suggestions"),
+);
 
 const BEHAVIOR_CATALOG: Array<{
   name: string; measurementType: string; targetDirection: string;

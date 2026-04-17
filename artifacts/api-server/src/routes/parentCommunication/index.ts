@@ -4,7 +4,14 @@ import contactsRouter from "./contacts";
 import progressSharingRouter from "./progressSharing";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("engagement.parent_communication"));
+router.use(
+  [
+    "/parent-contacts",
+    "/students/:studentId/progress-summary",
+    "/shared/progress",
+  ],
+  requireTierAccess("engagement.parent_communication"),
+);
 router.use(contactsRouter);
 router.use(progressSharingRouter);
 

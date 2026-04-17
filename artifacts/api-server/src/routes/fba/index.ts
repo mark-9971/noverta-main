@@ -6,7 +6,17 @@ import functionalAnalysisRouter from "./functionalAnalysis";
 import bipManagementRouter from "./bipManagement";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("clinical.fba_bip"));
+router.use(
+  [
+    "/students/:studentId/fbas",
+    "/fbas",
+    "/observations",
+    "/fa-sessions",
+    "/students/:studentId/bips",
+    "/bips",
+  ],
+  requireTierAccess("clinical.fba_bip"),
+);
 
 router.use(fbaCrudRouter);
 router.use(abcDataRouter);

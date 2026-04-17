@@ -100,7 +100,7 @@ router.get("/admin/rollover/preview", requireAdmin, async (req, res): Promise<vo
           db.select({ count: count() }).from(scheduleBlocksTable)
             .where(and(inArray(scheduleBlocksTable.studentId, studentIds), eq(scheduleBlocksTable.schoolYearId, activeYear.id))),
           db.select({ count: count() }).from(sessionLogsTable)
-            .where(and(inArray(sessionLogsTable.studentId, studentIds), eq(sessionLogsTable.schoolYearId, activeYear.id))),
+            .where(and(inArray(sessionLogsTable.studentId, studentIds), eq(sessionLogsTable.schoolYearId, activeYear.id), isNull(sessionLogsTable.deletedAt))),
           db.select({ count: count() }).from(teamMeetingsTable)
             .where(and(inArray(teamMeetingsTable.studentId, studentIds), eq(teamMeetingsTable.schoolYearId, activeYear.id))),
         ]);

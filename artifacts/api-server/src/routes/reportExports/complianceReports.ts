@@ -48,7 +48,7 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
     if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
 
-    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const [reqs, sessions] = await Promise.all([
@@ -146,7 +146,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
     if (serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, Number(serviceTypeId)));
 
-    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const [reqs, sessions] = await Promise.all([

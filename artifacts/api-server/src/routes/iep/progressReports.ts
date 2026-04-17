@@ -8,7 +8,7 @@ import {
   iepDocumentsTable, schoolsTable, districtsTable,
 } from "@workspace/db";
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
-import { eq, desc, and, gte, lte, asc, count, sum } from "drizzle-orm";
+import { eq, desc, and, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { createAutoVersion } from "../../lib/documentVersioning";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
@@ -492,6 +492,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         eq(sessionLogsTable.status, "completed"),
         gte(sessionLogsTable.sessionDate, periodStart),
         lte(sessionLogsTable.sessionDate, periodEnd),
+        isNull(sessionLogsTable.deletedAt),
       ));
     const missedSessionLogs = await db.select({ cnt: count() }).from(sessionLogsTable)
       .where(and(
@@ -499,6 +500,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
         eq(sessionLogsTable.status, "missed"),
         gte(sessionLogsTable.sessionDate, periodStart),
         lte(sessionLogsTable.sessionDate, periodEnd),
+        isNull(sessionLogsTable.deletedAt),
       ));
 
     const serviceBreakdown: ServiceDeliveryBreakdown[] = [];
@@ -522,6 +524,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
           eq(sessionLogsTable.status, "completed"),
           gte(sessionLogsTable.sessionDate, periodStart),
           lte(sessionLogsTable.sessionDate, periodEnd),
+          isNull(sessionLogsTable.deletedAt),
         ));
       const missed = await db.select({ cnt: count() }).from(sessionLogsTable)
         .where(and(
@@ -530,6 +533,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
           eq(sessionLogsTable.status, "missed"),
           gte(sessionLogsTable.sessionDate, periodStart),
           lte(sessionLogsTable.sessionDate, periodEnd),
+          isNull(sessionLogsTable.deletedAt),
         ));
 
       const deliveredMin = parseInt(String(completed[0]?.totalMin ?? "0"));
@@ -846,10 +850,12 @@ router.post("/progress-reports/batch-generate", async (req, res): Promise<void> 
 
         const completedSessionLogs = await db.select({ cnt: count() }).from(sessionLogsTable)
           .where(and(eq(sessionLogsTable.studentId, studentId), eq(sessionLogsTable.status, "completed"),
-            gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd)));
+            gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd),
+            isNull(sessionLogsTable.deletedAt)));
         const missedSessionLogs = await db.select({ cnt: count() }).from(sessionLogsTable)
           .where(and(eq(sessionLogsTable.studentId, studentId), eq(sessionLogsTable.status, "missed"),
-            gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd)));
+            gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd),
+            isNull(sessionLogsTable.deletedAt)));
 
         const serviceBreakdown: ServiceDeliveryBreakdown[] = [];
         const svcReqs = await db.select({
@@ -864,10 +870,12 @@ router.post("/progress-reports/batch-generate", async (req, res): Promise<void> 
         for (const sr of svcReqs) {
           const completed = await db.select({ cnt: count(), totalMin: sum(sessionLogsTable.durationMinutes) }).from(sessionLogsTable)
             .where(and(eq(sessionLogsTable.studentId, studentId), eq(sessionLogsTable.serviceRequirementId, sr.id),
-              eq(sessionLogsTable.status, "completed"), gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd)));
+              eq(sessionLogsTable.status, "completed"), gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd),
+              isNull(sessionLogsTable.deletedAt)));
           const missed = await db.select({ cnt: count() }).from(sessionLogsTable)
             .where(and(eq(sessionLogsTable.studentId, studentId), eq(sessionLogsTable.serviceRequirementId, sr.id),
-              eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd)));
+              eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, periodStart), lte(sessionLogsTable.sessionDate, periodEnd),
+              isNull(sessionLogsTable.deletedAt)));
 
           const deliveredMin = parseInt(String(completed[0]?.totalMin ?? "0"));
           const weeks = Math.max(1, Math.round((new Date(periodEnd).getTime() - new Date(periodStart).getTime()) / (7 * 86400000)));

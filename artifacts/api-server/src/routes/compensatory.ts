@@ -23,7 +23,7 @@ import {
 const VALID_STATUSES = ["pending", "in_progress", "completed", "waived"];
 
 const router: IRouter = Router();
-router.use(requireTierAccess("compliance.compensatory"));
+router.use("/compensatory-obligations", requireTierAccess("compliance.compensatory"));
 
 router.get("/compensatory-obligations", async (req, res): Promise<void> => {
   const queryParsed = ListCompensatoryObligationsQueryParams.safeParse(req.query);

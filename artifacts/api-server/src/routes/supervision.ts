@@ -5,14 +5,17 @@ import {
   staffTable,
   sessionLogsTable,
 } from "@workspace/db";
-import { eq, and, desc, gte, lte, sql, asc } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, asc, isNull } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { WRITE_SUPERVISION_ROLES, PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("clinical.supervision"));
+router.use(
+  ["/supervision-sessions", "/supervision"],
+  requireTierAccess("clinical.supervision"),
+);
 
 const VALID_TYPES = ["individual", "group", "direct_observation"];
 const VALID_STATUSES = ["completed", "scheduled", "cancelled"];
@@ -349,7 +352,8 @@ router.get("/supervision/compliance-summary", requireWriteRole, async (req, res)
         and(
           sql`${sessionLogsTable.staffId} IN (${sql.join(superviseeIds.map(id => sql`${id}`), sql`, `)})`,
           gte(sessionLogsTable.sessionDate, cutoff30),
-          eq(sessionLogsTable.status, "completed")
+          eq(sessionLogsTable.status, "completed"),
+          isNull(sessionLogsTable.deletedAt)
         )
       )
       .groupBy(sessionLogsTable.staffId);
@@ -445,7 +449,8 @@ router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void
         and(
           eq(sessionLogsTable.staffId, staffId),
           gte(sessionLogsTable.sessionDate, cutoff30),
-          eq(sessionLogsTable.status, "completed")
+          eq(sessionLogsTable.status, "completed"),
+          isNull(sessionLogsTable.deletedAt)
         )
       );
 

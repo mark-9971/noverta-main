@@ -4,7 +4,7 @@ import {
   studentsTable, iepDocumentsTable, serviceRequirementsTable, serviceTypesTable,
   sessionLogsTable, schoolsTable, restraintIncidentsTable, schoolYearsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, lte, gte, sql } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, isNull, sql } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import {
   resolveExportScope, buildCSV, assertCSVHeaders, fmtDate, daysUntil,
@@ -180,6 +180,7 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
           sql`${sessionLogsTable.studentId} IN (${idList})`,
           gte(sessionLogsTable.sessionDate, start),
           lte(sessionLogsTable.sessionDate, end),
+          isNull(sessionLogsTable.deletedAt),
           ...(schoolYearId ? [eq(sessionLogsTable.schoolYearId, Number(schoolYearId))] : []),
         )),
     ]);

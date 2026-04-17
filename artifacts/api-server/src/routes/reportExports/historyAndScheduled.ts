@@ -231,7 +231,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       const reqConditions: SQL[] = [eq(serviceRequirementsTable.active, true), sql`${serviceRequirementsTable.studentId} IN (${idList})`];
       if (filters?.serviceTypeId) reqConditions.push(eq(serviceRequirementsTable.serviceTypeId, filters.serviceTypeId));
 
-      const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      const sessConditions: SQL[] = [sql`${sessionLogsTable.studentId} IN (${idList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
       if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
 
       const [reqs, sessions] = await Promise.all([
@@ -302,7 +302,7 @@ export async function generateReportCSVDirect(reportType: string, districtId: nu
       const end = filters?.endDate || now.toISOString().split("T")[0];
       const staffIds = staffMembers.map(s => s.id);
       const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-      const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+      const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
       if (filters?.serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, filters.serviceTypeId));
       const sessionData = staffIds.length > 0 ? await db.select({ staffId: sessionLogsTable.staffId, serviceTypeName: serviceTypesTable.name, status: sessionLogsTable.status, durationMinutes: sessionLogsTable.durationMinutes, studentId: sessionLogsTable.studentId })
         .from(sessionLogsTable).leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId)).where(and(...sessConditions)) : [];

@@ -53,6 +53,7 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
       sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
       gte(sessionLogsTable.sessionDate, start),
       lte(sessionLogsTable.sessionDate, end),
+      isNull(sessionLogsTable.deletedAt),
     ];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
@@ -129,7 +130,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const staffIds = staffMembers.map(s => s.id);
     const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
 
-    const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end)];
+    const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
     if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
 
     const sessionData = await db.select({

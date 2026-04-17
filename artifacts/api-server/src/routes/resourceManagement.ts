@@ -4,14 +4,17 @@ import {
   staffTable, studentsTable, serviceRequirementsTable,
   sessionLogsTable, serviceTypesTable, schoolsTable,
 } from "@workspace/db";
-import { eq, and, sql, gte, lte, count, sum, type SQL } from "drizzle-orm";
+import { eq, and, sql, gte, lte, count, sum, isNull, type SQL } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import type { Request } from "express";
 
 const router: IRouter = Router();
-router.use(requireTierAccess("district.resource_management"));
+router.use(
+  ["/resource-management", "/staff/:id/rates"],
+  requireTierAccess("district.resource_management"),
+);
 
 function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>) {
   // Token-derived district always takes precedence over client query param.
@@ -345,6 +348,7 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
     eq(sessionLogsTable.status, "completed"),
     gte(sessionLogsTable.sessionDate, yearStart),
     lte(sessionLogsTable.sessionDate, today),
+    isNull(sessionLogsTable.deletedAt),
   ];
   if (filters.schoolId) sessionConditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${filters.schoolId})`);
   if (filters.districtId) sessionConditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${filters.districtId}))`);

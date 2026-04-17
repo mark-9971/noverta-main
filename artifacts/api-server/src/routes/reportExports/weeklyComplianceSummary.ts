@@ -5,7 +5,7 @@ import {
   studentsTable, schoolsTable, sessionLogsTable,
   staffTable, compensatoryObligationsTable, districtsTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { eq, and, sql, gte, lte, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
@@ -224,7 +224,7 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
     .from(sessionLogsTable)
     .innerJoin(studentsTable, eq(sessionLogsTable.studentId, studentsTable.id))
     .innerJoin(schoolsTable, schoolJoinCondition!)
-    .where(gte(sessionLogsTable.sessionDate, eightWeeksAgo))
+    .where(and(gte(sessionLogsTable.sessionDate, eightWeeksAgo), isNull(sessionLogsTable.deletedAt)))
     .groupBy(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`)
     .orderBy(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`);
 
@@ -257,6 +257,7 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
     .where(and(
       gte(sessionLogsTable.sessionDate, currentWeek.start),
       lte(sessionLogsTable.sessionDate, currentWeek.end),
+      isNull(sessionLogsTable.deletedAt),
     ))
     .groupBy(staffTable.id, staffTable.firstName, staffTable.lastName, staffTable.role)
     .orderBy(sql`count(*) filter (where ${sessionLogsTable.status} = 'missed') desc`);
