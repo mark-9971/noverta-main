@@ -23,6 +23,10 @@ interface ComplianceRiskReport {
     studentsAtRisk: number;
     studentsOnTrack: number;
     totalShortfallMinutes: number;
+    paceShortfall: number;
+    paceAheadBy: number;
+    paceComplianceRate: number;
+    totalExpectedByNow: number;
   };
   needsAttention: {
     studentId: number;

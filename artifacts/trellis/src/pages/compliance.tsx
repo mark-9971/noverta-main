@@ -76,6 +76,10 @@ interface RiskReportData {
     totalDeliveredMinutes: number;
     totalShortfallMinutes: number;
     overallComplianceRate: number;
+    totalExpectedByNow: number;
+    paceShortfall: number;
+    paceAheadBy: number;
+    paceComplianceRate: number;
     totalCurrentExposure: number;
     existingCompensatoryExposure: number | null;
     combinedExposure: number;
@@ -243,7 +247,12 @@ function ServiceMinutesContent() {
               <Clock className="h-3 w-3" /> Required
             </div>
             <div className="text-2xl font-bold text-gray-900 mt-1">{fmtNum(s?.totalRequiredMinutes ?? 0)}</div>
-            <div className="text-[11px] text-gray-400 mt-0.5">minutes this period</div>
+            <div className="text-[11px] text-gray-400 mt-0.5">
+              minutes this period
+              {s?.totalExpectedByNow != null && s.totalExpectedByNow > 0 && (
+                <span className="ml-1 text-gray-300">· {fmtNum(s.totalExpectedByNow)} expected so far</span>
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">
@@ -252,20 +261,38 @@ function ServiceMinutesContent() {
               <CheckCircle className="h-3 w-3" /> Delivered
             </div>
             <div className="text-2xl font-bold text-emerald-700 mt-1">{fmtNum(s?.totalDeliveredMinutes ?? 0)}</div>
-            <div className="text-[11px] text-gray-400 mt-0.5">{s?.overallComplianceRate ?? 0}% of required</div>
+            <div className="text-[11px] text-gray-400 mt-0.5">
+              {s?.overallComplianceRate ?? 0}% of period total
+              {s?.paceComplianceRate != null && s.paceComplianceRate !== s.overallComplianceRate && (
+                <span className={`ml-1 font-medium ${s.paceComplianceRate >= 100 ? "text-emerald-600" : s.paceComplianceRate >= 85 ? "text-amber-600" : "text-red-600"}`}>
+                  · {s.paceComplianceRate}% on pace
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
-        <Card className={`border-l-4 ${(s?.totalShortfallMinutes ?? 0) > 0 ? "border-l-red-500" : "border-l-emerald-500"}`}>
-          <CardContent className="p-3.5">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-              <TrendingDown className="h-3 w-3" /> Shortfall
-            </div>
-            <div className={`text-2xl font-bold mt-1 ${(s?.totalShortfallMinutes ?? 0) > 0 ? "text-red-700" : "text-emerald-700"}`}>
-              {fmtNum(s?.totalShortfallMinutes ?? 0)}
-            </div>
-            <div className="text-[11px] text-gray-400 mt-0.5">minutes behind</div>
-          </CardContent>
-        </Card>
+        {(() => {
+          const paceShortfall = s?.paceShortfall ?? 0;
+          const paceAheadBy = s?.paceAheadBy ?? 0;
+          const onPace = paceShortfall === 0;
+          return (
+            <Card className={`border-l-4 ${onPace ? "border-l-emerald-500" : paceShortfall > 0 ? "border-l-red-500" : "border-l-emerald-500"}`}>
+              <CardContent className="p-3.5">
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <TrendingDown className="h-3 w-3" /> {onPace ? "Pace" : "Behind Pace"}
+                </div>
+                <div className={`text-2xl font-bold mt-1 ${onPace ? "text-emerald-700" : "text-red-700"}`}>
+                  {onPace ? (paceAheadBy > 0 ? `+${fmtNum(paceAheadBy)}` : "On pace") : fmtNum(paceShortfall)}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {onPace
+                    ? paceAheadBy > 0 ? "min ahead of schedule" : "on schedule"
+                    : "minutes behind schedule"}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
         <Card className={`border-l-4 ${(s?.studentsAtRisk ?? 0) + (s?.studentsOutOfCompliance ?? 0) > 0 ? "border-l-amber-500" : "border-l-emerald-500"}`}>
           <CardContent className="p-3.5">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">

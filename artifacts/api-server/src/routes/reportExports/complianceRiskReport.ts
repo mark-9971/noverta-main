@@ -111,6 +111,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
 
     let totalRequired = 0;
     let totalDelivered = 0;
+    let totalExpectedByNow = 0;
     let totalExposure = 0;
     const uniqueStudents = new Set<number>();
     const providerMap = new Map<string, {
@@ -136,6 +137,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
 
       totalRequired += p.requiredMinutes;
       totalDelivered += p.deliveredMinutes;
+      totalExpectedByNow += p.expectedMinutesByNow;
       if (exposureValue != null) {
         totalExposure += exposureValue;
       } else if (shortfall > 0) {
@@ -210,6 +212,9 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
 
     const totalShortfall = Math.max(0, totalRequired - totalDelivered);
     const overallComplianceRate = totalRequired > 0 ? Math.round((totalDelivered / totalRequired) * 1000) / 10 : 100;
+    const paceShortfall = Math.max(0, Math.round(totalExpectedByNow - totalDelivered));
+    const paceAheadBy = Math.max(0, Math.round(totalDelivered - totalExpectedByNow));
+    const paceComplianceRate = totalExpectedByNow > 0 ? Math.min(100, Math.round((totalDelivered / totalExpectedByNow) * 1000) / 10) : 100;
 
     const today = new Date();
     const intervalLabel = progress.length > 0
@@ -230,6 +235,10 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         totalDeliveredMinutes: totalDelivered,
         totalShortfallMinutes: totalShortfall,
         overallComplianceRate,
+        totalExpectedByNow: Math.round(totalExpectedByNow),
+        paceShortfall,
+        paceAheadBy,
+        paceComplianceRate,
         totalCurrentExposure: totalExposure,
         unpricedShortfallMinutes,
         unpricedShortfallServiceTypes: [...unpricedServiceTypes],

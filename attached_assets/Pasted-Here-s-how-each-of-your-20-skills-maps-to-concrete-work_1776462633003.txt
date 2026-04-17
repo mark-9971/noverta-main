@@ -1,0 +1,33 @@
+Here's how each of your 20 skills maps to concrete work you can actually request for Trellis — grouped into 10 high-value plays:
+
+1. Run a full site audit before the MetroWest pilot
+The audit-website skill runs 230+ rules across security, performance, broken links, accessibility, and technical SEO. Just say "audit the Trellis app" and it'll produce a prioritized report of real issues before MetroWest Collaborative ever logs in.
+
+2. Generate downloadable PDF compliance reports
+The pdf skill can take the Executive Summary, Compliance Risk Report, or Weekly Summary data and produce a real PDF that district admins can download, print, and bring to board meetings. Say "generate a downloadable PDF for the compliance risk report page."
+
+3. Accelerate any feature idea with brainstorming first
+The brainstorming skill is designed to run before implementation — it explores your intent, edge cases, and requirements before a single line is written. Before you add the next pilot hardening task, say "brainstorm the idle timeout feature for the Trellis pilot" and it'll surface tradeoffs you wouldn't have thought of.
+
+4. Upgrade the UI with the 5 improvements we already identified
+The ui-ux-pro-max and frontend-design skills can implement those 5 UI/UX suggestions (nav contrast, sidebar collapsing, action queue hierarchy, skeleton loading, mobile nav). Just say "implement the UI improvements we discussed" and they'll use the design skill to execute them properly.
+
+5. Automate end-to-end testing of pilot user flows
+The browser-use skill can drive a real browser. You can say "test the full flow: log in as an admin, navigate to the compliance page, verify the student risk table loads, then log a session." This goes beyond what the current Playwright tests cover and catches real rendering/interaction bugs.
+
+6. Optimize slow database queries
+The supabase-postgres-best-practices skill has deep Postgres optimization guidance. The compliance minute calculation (computeAllActiveMinuteProgress) runs on every dashboard load and touches session logs, service requirements, and students. Say "review and optimize the minuteCalc queries for the Trellis database."
+
+7. Write polished copy for the demo and pilot
+The copywriting skill can rewrite the login page tagline, the demo banner text, the empty state messages ("No sessions logged yet"), and the onboarding checklist. Better copy makes the MetroWest demo feel more polished and professional — say "improve the copy across the Trellis app for the pilot."
+
+8. Create React components the right way
+The vercel-react-best-practices and vercel-composition-patterns skills enforce proper patterns — memoization, avoiding unnecessary re-renders, compound components, and clean context usage. Useful when we refactor the student detail page or the compliance dashboard, which are already getting complex. Say "review the compliance dashboard component for React performance issues."
+
+9. Turn pitch decks and reports into real slide files
+The pptx skill can take your existing Trellis demo or investor pitch decks and export them as actual .pptx files ready to email to MetroWest Collaborative or investors. It can also read uploaded .pptx files and import their content back into the app.
+
+10. Build your own reusable skills for Trellis-specific work
+The skill-creator skill lets you save any repeatable workflow as a new skill. For example, you could create a "SPED compliance audit" skill that knows how to check service minute calculations, verify tenant isolation on new routes, and run the test suite — so future sessions automatically follow the same hardening process without you having to re-explain it.
+
+The three you'll get the most immediate value from for the pilot are audit-website (catch issues now), pdf (pilot deliverable), and brainstorming (front-load thinking on the remaining 8 hardening tasks). Want me to kick off any of them?
