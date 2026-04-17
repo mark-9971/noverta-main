@@ -92,15 +92,20 @@ router.post("/students/:studentId/iep-builder/generate", async (req, res): Promi
 
     const serviceRecs = services.map(s => {
       const compliance = serviceCompliance.find((sc: any) => sc.serviceType === s.serviceTypeName);
-      const pct = compliance?.compliancePercent ?? 100;
+      const hasComplianceData = compliance != null && compliance.compliancePercent != null;
+      const pct: number | null = hasComplianceData ? compliance.compliancePercent : null;
       const missed = compliance?.missedSessions ?? 0;
       let action: "continue" | "increase" | "review" | "decrease" = "continue";
-      let rationale = `Service delivery was ${pct}% compliant. Recommend continuing at current frequency.`;
+      let rationale = !hasComplianceData
+        ? `No service-delivery data was logged for this service in the review period. The IEP Team should verify whether the service is being delivered before continuing the recommendation.`
+        : `Service delivery was ${pct}% compliant. Recommend continuing at current frequency.`;
 
-      if (pct < 70) {
+      if (!hasComplianceData) {
+        action = "review";
+      } else if (pct! < 70) {
         action = "review";
         rationale = `Service compliance was ${pct}% (${missed} missed sessions). The IEP Team should review scheduling barriers and consider adjusting delivery model or time.`;
-      } else if (pct < 85 && missed > 3) {
+      } else if (pct! < 85 && missed > 3) {
         action = "review";
         rationale = `Service compliance was ${pct}% with ${missed} missed sessions. The team should address barriers to consistent delivery.`;
       }

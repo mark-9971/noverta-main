@@ -163,7 +163,14 @@ export default function ProgressReportsPage() {
       const data: unknown = await res.json();
       const summary = (data as Record<string, unknown>).summary as { total: number; succeeded: number; failed: number };
       setBatchProgress(summary);
-      toast.success(`Generated ${summary.succeeded} of ${summary.total} reports`);
+      const msg = `Generated ${summary.succeeded} of ${summary.total} reports`;
+      if (summary.succeeded === 0) {
+        toast.warning(msg, { description: `${summary.failed} failed. Open the report list to see per-student errors.` });
+      } else if (summary.failed > 0) {
+        toast.warning(msg, { description: `${summary.failed} failed. Open the report list to see per-student errors.` });
+      } else {
+        toast.success(msg);
+      }
       await loadReports();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Batch generation failed");

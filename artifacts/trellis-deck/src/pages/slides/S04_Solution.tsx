@@ -27,7 +27,7 @@ export default function S04_Solution() {
           </div>
 
           <div className="font-body uppercase tracking-[0.3em] text-[0.9vw] text-muted">
-            Built for K-12 · Massachusetts-first · SOC 2 Type II in progress
+            Built for K-12 · Massachusetts-first · SOC 2 Type II on roadmap
           </div>
         </div>
 

@@ -44,7 +44,12 @@ export function ClaimsQueueTab() {
     }).then(r => r.json()),
     onSuccess: (data) => {
       const noDx = (data.skippedDetails ?? []).filter((s: any) => s.reason === "no_diagnosis_on_student").length;
-      toast.success(`Generated ${data.generated} claims (${data.skipped} skipped)`);
+      const msg = `Generated ${data.generated} claims (${data.skipped} skipped)`;
+      if (data.generated > 0) {
+        toast.success(msg);
+      } else {
+        toast.warning(msg, { description: "No claims were created. Review the skipped sessions below before re-running." });
+      }
       if (noDx > 0) {
         toast.error(
           `${noDx} session(s) skipped: student record has no diagnosis. Add the diagnosis to the student before re-running claim generation.`,

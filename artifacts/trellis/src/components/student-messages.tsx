@@ -183,7 +183,9 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
       return;
     }
     if (delivery.status === "sent") {
-      toast.success(`${savedLabel} sent — email delivered to guardian`);
+      toast.success(`${savedLabel} sent to guardian's email`, {
+        description: "Handed off to the email provider. Delivery confirmation appears here when the provider reports back.",
+      });
       return;
     }
     if (delivery.status === "not_configured") {

@@ -311,7 +311,12 @@ export default function CostAvoidanceDashboard() {
       headers: { "Content-Type": "application/json" },
     }).then(r => r.json()),
     onSuccess: (d) => {
-      toast.success(`Created ${d.created} alerts (${d.skipped} duplicates skipped)`);
+      const msg = `Created ${d.created} alerts (${d.skipped} duplicates skipped)`;
+      if (d.created > 0) {
+        toast.success(msg);
+      } else {
+        toast.info(msg, { description: "No new risks above threshold — existing alerts are already in place." });
+      }
       queryClient.invalidateQueries({ queryKey: ["cost-avoidance-risks"] });
     },
     onError: () => toast.error("Failed to generate alerts"),

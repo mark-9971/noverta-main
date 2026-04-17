@@ -14,7 +14,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, or, inArray, ne } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
-import { getEnforcedDistrictId } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { generateAlertsForDistrict } from "../lib/costAvoidanceAlerts";
 
 const router = Router();
@@ -147,16 +147,20 @@ router.get("/cost-avoidance/summary", async (req, res): Promise<void> => {
   res.json(buildSummary(allRisks));
 });
 
-router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
-  if (!districtId) {
-    res.status(403).json({ error: "District context required" });
-    return;
-  }
+router.post(
+  "/cost-avoidance/generate-alerts",
+  requireRoles("admin", "coordinator", "case_manager"),
+  async (req, res): Promise<void> => {
+    const districtId = getDistrictId(req as AuthedRequest);
+    if (!districtId) {
+      res.status(403).json({ error: "District context required" });
+      return;
+    }
 
-  const result = await generateAlertsForDistrict(districtId);
-  res.json(result);
-});
+    const result = await generateAlertsForDistrict(districtId);
+    res.json(result);
+  },
+);
 
 function emptySummary() {
   return {

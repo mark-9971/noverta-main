@@ -125,7 +125,13 @@ export default function IepSuggestions() {
           behaviors: [...selected.behaviors].map(name => ({ name })),
           programs: [...selected.programs].map(name => ({ name })),
         });
-      toast.success(`Created ${result.behaviorsCreated} behavior targets and ${result.programsCreated} programs`);
+      const total = (result.behaviorsCreated ?? 0) + (result.programsCreated ?? 0);
+      const msg = `Created ${result.behaviorsCreated} behavior targets and ${result.programsCreated} programs`;
+      if (total > 0) {
+        toast.success(msg);
+      } else {
+        toast.warning(msg, { description: "Nothing new was added. The selected items may already exist on this student." });
+      }
       loadDetail(detail.student.id);
     } catch {
       toast.error("Failed to apply suggestions");
