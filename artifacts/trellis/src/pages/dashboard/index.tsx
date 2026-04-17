@@ -4,8 +4,9 @@ import {
   useGetComplianceDeadlines,
 } from "@workspace/api-client-react";
 import { AlertTriangle, Users, Clock, Bell, CalendarDays, CheckCircle, Shield, Clipboard, FileText } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import PilotAdminHome from "./PilotAdminHome";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import { SetupChecklist } from "@/components/onboarding/SetupChecklist";
@@ -21,6 +22,18 @@ import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, 
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 
 export default function Dashboard() {
+  const { role } = useRole();
+  const isAdmin = role === "admin" || role === "coordinator";
+  const [, navigate] = useLocation();
+  const fullView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "full";
+
+  if (isAdmin && !fullView) {
+    return <PilotAdminHome onShowFull={() => navigate("/?view=full")} />;
+  }
+  return <DashboardFull />;
+}
+
+function DashboardFull() {
   const { role, user, teacherId } = useRole();
   const isAdmin = role === "admin" || role === "coordinator";
   const firstName = user.name?.split(" ")[0] || "";
