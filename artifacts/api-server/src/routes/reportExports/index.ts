@@ -15,7 +15,7 @@ const router: IRouter = Router();
 // Path-scoped: a path-less router.use() would block every router mounted after this one in
 // routes/index.ts, since Express enters this sub-router for every request that reaches it.
 // All sub-routes live under `/reports/*` (exports, compliance-risk-report, weekly-compliance-summary).
-router.use("/reports", requireDistrictScope, requireRoles("admin", "case_manager", "coordinator"));
+router.use("/reports", requireDistrictScope, requireRoles("admin", "case_manager", "coordinator", "provider"));
 
 router.use(csvExportsRouter);
 router.use(fullRecordPdfRouter);

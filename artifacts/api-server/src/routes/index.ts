@@ -116,8 +116,9 @@ router.use("/reports", requireRoles("admin", "coordinator", "case_manager", "spe
 // Export routes inherit the /reports guard above; this is a parallel allowlist, not narrower.
 const requireReportExport = requireRoles("admin", "case_manager", "coordinator", "provider");
 router.use("/reports/exports", requireReportExport);
-// Incidents / protective measures — PRIVILEGED_STAFF only (para, provider, sped_student excluded)
-router.use("/protective-measures", requirePrivilegedStaffOnly);
+// Incidents / protective measures — privileged staff plus providers (providers respond to and
+// log behavioral incidents on their assigned students).
+router.use("/protective-measures", requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba", "provider"));
 router.use("/progress-reports", requirePrivilegedStaffOnly);
 router.use("/document-workflow", requirePrivilegedStaffOnly);
 
