@@ -32,6 +32,8 @@ Backend routes refactored into sub-module directories (index.ts mounts sub-route
 
 **Pitch Deck:** 14-slide investor/district/SIS partner pitch deck at `artifacts/trellis-pitch` with slides covering problem, why now, solution, product depth, platform demo, market opportunity, competitive landscape, business model, traction & roadmap, implementation & pilot, SIS partnership, team approach, and closing CTA.
 
+**Demo Deck:** 25-slide demo/walkthrough deck at `artifacts/trellis-demo` (previewPath `/trellis-demo`, port 20180) explaining what Trellis does, why it matters, and the market opportunity. Includes real product screenshots (dashboard, student list, student detail, compliance, alerts, sessions) and AI-generated imagery. Uses Source Serif 4 + DM Sans fonts with emerald green (#059669) palette. Shareable to anyone without app access. Covers: title, what is Trellis, the problem, problem stats, product walkthrough (6 screenshots), features, differentiators, competitor comparison, TAM/market, MA beachhead, pricing, unit economics, why now, roadmap, founder story, and closing.
+
 The brand uses an "Ink & Air" theme with pure white/near-white backgrounds, near-black typography, neutral grays, and emerald green accents (primary: HSL 160 84% 39%), creating a clean, airy, and editorial aesthetic.
 
 ## User Preferences

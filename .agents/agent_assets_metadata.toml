@@ -12,6 +12,36 @@ uri = "file://artifacts/trellis-pitch/public/network.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "6ArD9cBXag4edTVNJnRLJ"
+uri = "file://artifacts/trellis-demo/public/hero-teacher.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "zaiVLMrEnwv5DG1TWM5mf"
+uri = "file://artifacts/trellis-demo/public/network-tree.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "a4YQQMECcqY9DenDwOCNq"
+uri = "file://artifacts/trellis-demo/public/overwhelmed-admin.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "2-uLkvUSzlJpjLaXKLMYy"
+uri = "file://artifacts/trellis-demo/public/team-collab.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "fN-74oDtsxCB6mysPewwQ"
+uri = "file://artifacts/trellis-demo/public/parent-child-school.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "t6I71PV2TrHJP7g2vXgRR"
 uri = "file://Trellis-Business-Analysis.md"

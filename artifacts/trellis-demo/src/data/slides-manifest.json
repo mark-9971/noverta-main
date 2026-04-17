@@ -1,0 +1,202 @@
+[
+  {
+    "id": "a1b2c3d4-0001-4000-8000-000000000001",
+    "position": 1,
+    "filepath": "src/pages/slides/S01_Title.tsx",
+    "title": "Trellis — Built to Support",
+    "description": "Title slide with hero image and tagline.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0002-4000-8000-000000000002",
+    "position": 2,
+    "filepath": "src/pages/slides/S02_WhoAmI.tsx",
+    "title": "What is Trellis?",
+    "description": "Overview of the project and what it replaces.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0003-4000-8000-000000000003",
+    "position": 3,
+    "filepath": "src/pages/slides/S03_TheProblem.tsx",
+    "title": "The Problem",
+    "description": "Special education is drowning in compliance.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0004-4000-8000-000000000004",
+    "position": 4,
+    "filepath": "src/pages/slides/S04_ProblemDetails.tsx",
+    "title": "Every Missed Minute is a Liability",
+    "description": "Three key statistics about SPED compliance pain.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0005-4000-8000-000000000005",
+    "position": 5,
+    "filepath": "src/pages/slides/S05_SectionProduct.tsx",
+    "title": "The Product",
+    "description": "Section divider for product walkthrough.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0006-4000-8000-000000000006",
+    "position": 6,
+    "filepath": "src/pages/slides/S06_Dashboard.tsx",
+    "title": "District Command Center",
+    "description": "Dashboard screenshot with compliance overview.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0007-4000-8000-000000000007",
+    "position": 7,
+    "filepath": "src/pages/slides/S07_StudentList.tsx",
+    "title": "Full Caseload Visibility",
+    "description": "Student list screenshot with compliance filters.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0008-4000-8000-000000000008",
+    "position": 8,
+    "filepath": "src/pages/slides/S08_StudentProfile.tsx",
+    "title": "360-Degree Student View",
+    "description": "Student profile screenshot with goals and data.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0009-4000-8000-000000000009",
+    "position": 9,
+    "filepath": "src/pages/slides/S09_Compliance.tsx",
+    "title": "Real-Time Compliance Tracking",
+    "description": "Compliance dashboard screenshot with service breakdowns.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0010-4000-8000-000000000010",
+    "position": 10,
+    "filepath": "src/pages/slides/S10_Alerts.tsx",
+    "title": "Proactive Risk Detection",
+    "description": "Alerts system screenshot with cost avoidance warnings.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0011-4000-8000-000000000011",
+    "position": 11,
+    "filepath": "src/pages/slides/S11_Sessions.tsx",
+    "title": "Session Logging Made Simple",
+    "description": "Session log screenshot with provider and goal data.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0012-4000-8000-000000000012",
+    "position": 12,
+    "filepath": "src/pages/slides/S12_KeyFeatures.tsx",
+    "title": "Everything in One Place",
+    "description": "Three key features: IEP tracking, behavior analytics, AI import.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0013-4000-8000-000000000013",
+    "position": 13,
+    "filepath": "src/pages/slides/S13_MoreFeatures.tsx",
+    "title": "Depth Competitors Can't Match",
+    "description": "Additional features: Medicaid, scheduling, RBAC.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0014-4000-8000-000000000014",
+    "position": 14,
+    "filepath": "src/pages/slides/S14_SectionDifferentiator.tsx",
+    "title": "What Makes It Different",
+    "description": "Section divider for competitive positioning.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0015-4000-8000-000000000015",
+    "position": 15,
+    "filepath": "src/pages/slides/S15_Differentiators.tsx",
+    "title": "Why Trellis Wins",
+    "description": "Four key competitive advantages.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0016-4000-8000-000000000016",
+    "position": 16,
+    "filepath": "src/pages/slides/S16_Competition.tsx",
+    "title": "How Trellis Compares",
+    "description": "Feature comparison matrix against competitors.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0017-4000-8000-000000000017",
+    "position": 17,
+    "filepath": "src/pages/slides/S17_SectionMarket.tsx",
+    "title": "The Market",
+    "description": "Section divider for market analysis.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0018-4000-8000-000000000018",
+    "position": 18,
+    "filepath": "src/pages/slides/S18_TAM.tsx",
+    "title": "A Multi-Billion Dollar Market",
+    "description": "TAM/SAM/SOM with market size data.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0019-4000-8000-000000000019",
+    "position": 19,
+    "filepath": "src/pages/slides/S19_Massachusetts.tsx",
+    "title": "Starting in Massachusetts",
+    "description": "Beachhead market: 400 districts, 185K students.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0020-4000-8000-000000000020",
+    "position": 20,
+    "filepath": "src/pages/slides/S20_Revenue.tsx",
+    "title": "SaaS Pricing That Scales",
+    "description": "Three-tier pricing model.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0021-4000-8000-000000000021",
+    "position": 21,
+    "filepath": "src/pages/slides/S21_UnitEconomics.tsx",
+    "title": "The Numbers Work",
+    "description": "Back-of-napkin revenue math for MA and national.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0022-4000-8000-000000000022",
+    "position": 22,
+    "filepath": "src/pages/slides/S22_WhyNow.tsx",
+    "title": "Why Now?",
+    "description": "Market timing: post-COVID, IDEA audits, AI capabilities.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0023-4000-8000-000000000023",
+    "position": 23,
+    "filepath": "src/pages/slides/S23_Roadmap.tsx",
+    "title": "Roadmap",
+    "description": "Product timeline: Now through 2028+.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0024-4000-8000-000000000024",
+    "position": 24,
+    "filepath": "src/pages/slides/S24_WhyMe.tsx",
+    "title": "Why I'm Building This",
+    "description": "Founder story and what's been built solo.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1b2c3d4-0025-4000-8000-000000000025",
+    "position": 25,
+    "filepath": "src/pages/slides/S25_Closing.tsx",
+    "title": "Built to Support",
+    "description": "Closing slide with mission statement.",
+    "speakerNotes": ""
+  }
+]

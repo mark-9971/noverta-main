@@ -50,11 +50,11 @@ import StudentDialogs from "./student-detail/StudentDialogs";
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
 
 function StudentMedicaidField({ student, onSave }: { student: any; onSave: () => void }) {
-  const [mid, setMid] = useState(student.medicaidId || "");
+  const [mid, setMid] = useState(student?.medicaidId || "");
   const [saving, setSaving] = useState(false);
-  const dirty = mid !== (student.medicaidId || "");
+  const dirty = mid !== (student?.medicaidId || "");
 
-  useEffect(() => { setMid(student.medicaidId || ""); }, [student.medicaidId]);
+  useEffect(() => { setMid(student?.medicaidId || ""); }, [student?.medicaidId]);
 
   async function handleSave() {
     setSaving(true);
@@ -983,7 +983,7 @@ export default function StudentDetail() {
         </Card>
       </div>
 
-      {(role === "admin" || role === "coordinator") && (
+      {(role === "admin" || role === "coordinator") && s && (
         <StudentMedicaidField student={s} onSave={() => refetchStudent()} />
       )}
 
