@@ -10,6 +10,7 @@ import type { AuthedRequest } from "../middlewares/auth";
 import { requireRoles } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { assertStudentAccess, getStudentSchoolId, tenantObjectPrefix } from "../lib/tenantAccess";
+import { assertStudentInCallerDistrict } from "../lib/districtScope";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
@@ -232,6 +233,7 @@ router.patch("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: Re
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
 
     const [updated] = await db
       .update(documentsTable)
@@ -268,6 +270,7 @@ router.delete("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: R
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
 
     await db
       .update(documentsTable)
@@ -308,6 +311,7 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, doc.studentId, res))) return;
 
     const token = randomBytes(32).toString("hex");
 

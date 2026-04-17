@@ -8,6 +8,7 @@ import { eq, and, desc, asc, isNull, gte, lte, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
 import { assertStudentAccess } from "../lib/tenantAccess";
+import { assertStudentInCallerDistrict } from "../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -242,6 +243,7 @@ router.patch("/students/:studentId/notes/:noteId", async (req, res) => {
     const authed = req as AuthedRequest;
     const ok = await assertStudentAccess(req, studentId);
     if (!ok) { res.status(403).json({ error: "Access denied" }); return; }
+    if (!(await assertStudentInCallerDistrict(authed, studentId, res))) return;
 
     const [existing] = await db.select().from(studentNotesTable)
       .where(and(eq(studentNotesTable.id, noteId), eq(studentNotesTable.studentId, studentId), isNull(studentNotesTable.deletedAt)));
@@ -312,6 +314,7 @@ router.delete("/students/:studentId/notes/:noteId", async (req, res) => {
     const authed = req as AuthedRequest;
     const ok = await assertStudentAccess(req, studentId);
     if (!ok) { res.status(403).json({ error: "Access denied" }); return; }
+    if (!(await assertStudentInCallerDistrict(authed, studentId, res))) return;
 
     const [existing] = await db.select().from(studentNotesTable)
       .where(and(eq(studentNotesTable.id, noteId), eq(studentNotesTable.studentId, studentId), isNull(studentNotesTable.deletedAt)));
