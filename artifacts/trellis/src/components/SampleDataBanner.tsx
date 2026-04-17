@@ -26,6 +26,7 @@ export function SampleDataBanner() {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [removedNotice, setRemovedNotice] = useState(false);
+  const [alreadySeededNotice, setAlreadySeededNotice] = useState(false);
   const isAdmin = role === "admin" || role === "coordinator";
 
   const { data } = useQuery<SampleStatus>({
@@ -60,8 +61,9 @@ export function SampleDataBanner() {
       if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
       return body;
     },
-    onSuccess: () => {
+    onSuccess: (body) => {
       setRemovedNotice(false);
+      setAlreadySeededNotice(Boolean(body?.alreadySeeded));
       queryClient.invalidateQueries();
       // Land back on the value-moment surface so the freshly seeded
       // dashboards aren't empty.
@@ -78,7 +80,42 @@ export function SampleDataBanner() {
     return () => clearTimeout(t);
   }, [removedNotice]);
 
+  useEffect(() => {
+    if (!alreadySeededNotice) return;
+    const t = setTimeout(() => setAlreadySeededNotice(false), REMOVED_NOTICE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [alreadySeededNotice]);
+
   if (!isAdmin) return null;
+
+  if (alreadySeededNotice) {
+    return (
+      <div
+        role="status"
+        aria-label="Sample data already present"
+        data-testid="banner-sample-data-already-seeded"
+        className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-sky-50 border-b border-sky-200 text-[12px] text-sky-900"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-sky-700" />
+        <span className="font-semibold">Sample data was already present</span>
+        <span className="text-sky-800">
+          No new rows added — your workspace already had{" "}
+          <span className="font-medium">{data?.sampleStudents ?? 0}</span> sample student
+          {data?.sampleStudents === 1 ? "" : "s"} and {data?.sampleStaff ?? 0} sample staff.
+        </span>
+        <div className="ml-auto">
+          <button
+            onClick={() => setAlreadySeededNotice(false)}
+            className="px-2 py-0.5 rounded text-sky-800 hover:text-sky-900"
+            aria-label="Dismiss"
+            data-testid="button-dismiss-already-seeded-notice"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (removedNotice) {
     const reseedError = reseed.error instanceof Error ? reseed.error.message : null;

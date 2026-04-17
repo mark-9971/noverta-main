@@ -148,6 +148,7 @@ function SampleDataRestoreFooter() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [alreadySeededNotice, setAlreadySeededNotice] = useState<string | null>(null);
   const isAdmin = role === "admin" || role === "coordinator";
 
   const { data, isLoading } = useQuery<SampleStatus>({
@@ -168,8 +169,16 @@ function SampleDataRestoreFooter() {
       if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
       return body;
     },
-    onSuccess: () => {
+    onSuccess: (body) => {
       queryClient.invalidateQueries();
+      if (body?.alreadySeeded) {
+        const students = body?.sampleStudents ?? 0;
+        const staff = body?.sampleStaff ?? 0;
+        setAlreadySeededNotice(
+          `Sample data was already present — no new rows added (${students} sample student${students === 1 ? "" : "s"}, ${staff} sample staff).`,
+        );
+        return;
+      }
       navigate("/compliance-risk-report");
     },
     onError: (e: unknown) => {
@@ -177,7 +186,8 @@ function SampleDataRestoreFooter() {
     },
   });
 
-  if (!isAdmin || isLoading || !data || data.hasSampleData) return null;
+  if (!isAdmin || isLoading || !data) return null;
+  if (data.hasSampleData && !alreadySeededNotice) return null;
 
   return (
     <div
@@ -191,10 +201,18 @@ function SampleDataRestoreFooter() {
           Add 10 sample students, 5 providers, and 2 weeks of sessions. Removable any time.
         </p>
         {error && <p className="text-[11px] text-red-600 mt-0.5">{error}</p>}
+        {alreadySeededNotice && (
+          <p
+            className="text-[11px] text-sky-700 mt-0.5"
+            data-testid="text-already-seeded-notice"
+          >
+            {alreadySeededNotice}
+          </p>
+        )}
       </div>
       <button
-        onClick={() => { setError(null); seed.mutate(); }}
-        disabled={seed.isPending}
+        onClick={() => { setError(null); setAlreadySeededNotice(null); seed.mutate(); }}
+        disabled={seed.isPending || data.hasSampleData}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-md hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
         data-testid="button-add-sample-data"
       >
