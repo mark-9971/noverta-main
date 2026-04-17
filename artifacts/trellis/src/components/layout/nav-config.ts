@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, UserCheck, Upload, Activity,
-  Search, Shield, PieChart, Building2,
+  Search, Shield, ShieldCheck, PieChart, Building2,
   Star, Clock, Sparkles, Sun,
   Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
@@ -144,6 +144,7 @@ export const adminNav: NavSection[] = [
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },
+      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],

@@ -36,6 +36,7 @@ const Compliance = lazy(() => import("@/pages/compliance"));
 const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
 const ImportData = lazy(() => import("@/pages/import-data"));
+const DataHealthPage = lazy(() => import("@/pages/data-health"));
 const ProgramDataPage = lazy(() => import("@/pages/program-data"));
 const StudentIepPage = lazy(() => import("@/pages/student-iep"));
 const StaffDetailPage = lazy(() => import("@/pages/staff-detail"));
@@ -185,6 +186,7 @@ function StaffRouter() {
       <BoundedRoute path="/document-workflow" component={DocumentWorkflowPage} fallbackTitle="Document workflow error" />
       <BoundedRoute path="/accommodation-lookup" component={AccommodationLookupPage} fallbackTitle="Accommodation lookup error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
+      <BoundedRoute path="/data-health" component={DataHealthPage} fallbackTitle="Data health error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
       <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="clinical.protective_measures" />
