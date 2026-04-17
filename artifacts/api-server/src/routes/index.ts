@@ -29,6 +29,7 @@ import resourceManagementRouter from "./resourceManagement";
 import caseloadBalancingRouter from "./caseloadBalancing";
 import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
+import sharedProgressPublicRouter from "./parentCommunication/sharedProgressPublic";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
@@ -72,6 +73,12 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(documentsRouter);
 router.use(demoRequestsRouter);
+
+// Public, unauthenticated parent share-link consumption. Mounted BEFORE
+// requireAuth because the random token IS the capability — parents have no
+// Clerk session. All hardening (rate limits, atomic claim, audit log) lives
+// inside the router.
+router.use(sharedProgressPublicRouter);
 
 router.use(requireAuth);
 
