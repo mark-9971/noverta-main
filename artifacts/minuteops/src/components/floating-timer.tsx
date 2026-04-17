@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Play, Square, X, Clock, ChevronUp, ChevronDown, Trash2, Plus } from "lucide-react";
+import { Play, Square, X, Clock, ChevronUp, ChevronDown, Trash2, Plus, Target, ExternalLink } from "lucide-react";
 import { useSessionTimers, type TimerEntry } from "@/lib/session-timer-context";
 import { useRole } from "@/lib/role-context";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
+import { LiveDataPanel } from "@/components/live-data-panel";
+import type { CollectedGoalEntry } from "@/components/live-data-panel/types";
+import { usePopupWindow } from "@/components/live-data-panel/useDataPanelPopup";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface ServiceType { id: number; name: string; }
+
+const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
 
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -32,12 +37,64 @@ function TimerTick({ startedAt }: { startedAt: number }) {
   return <span className="font-mono text-lg font-bold tabular-nums">{formatElapsed(elapsed)}</span>;
 }
 
+function entriesToObj(entries: Map<number, CollectedGoalEntry>): Record<string, CollectedGoalEntry> {
+  const obj: Record<string, CollectedGoalEntry> = {};
+  entries.forEach((v, k) => { obj[String(k)] = v; });
+  return obj;
+}
+
+function objToEntries(obj: Record<string, CollectedGoalEntry>): Map<number, CollectedGoalEntry> {
+  const map = new Map<number, CollectedGoalEntry>();
+  Object.entries(obj).forEach(([k, v]) => map.set(Number(k), v));
+  return map;
+}
+
+function DataCollectionOverlay({
+  timer,
+  entries,
+  onClose,
+  onPopOut,
+  onEntriesChange,
+}: {
+  timer: TimerEntry;
+  entries: Map<number, CollectedGoalEntry>;
+  onClose: () => void;
+  onPopOut: () => void;
+  onEntriesChange: (entries: Map<number, CollectedGoalEntry>) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 bg-white rounded-t-2xl md:rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="absolute top-3 right-12 z-10">
+          <button
+            onClick={onPopOut}
+            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+            title="Open in separate window"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </button>
+        </div>
+        <LiveDataPanel
+          studentId={timer.studentId}
+          studentName={timer.studentName}
+          timerStartedAt={timer.startedAt}
+          onClose={onClose}
+          collectedEntries={entries}
+          onEntriesChange={onEntriesChange}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function FloatingTimer() {
-  const { timers, completedTimers, startTimer, stopTimer, removeTimer, dismissCompleted } = useSessionTimers();
+  const { timers, completedTimers, startTimer, stopTimer, removeTimer, dismissCompleted, updateTimerData } = useSessionTimers();
   const { teacherId, role } = useRole();
 
   const [expanded, setExpanded] = useState(false);
   const [showStart, setShowStart] = useState(false);
+  const [dataTimerId, setDataTimerId] = useState<string | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
@@ -57,8 +114,57 @@ export function FloatingTimer() {
     endTime?: string;
     sessionDate?: string;
   }>({});
+  const [quickLogGoalData, setQuickLogGoalData] = useState<CollectedGoalEntry[]>([]);
 
+  const { openPopup, closePopup, isPopupOpen } = usePopupWindow();
   const searchRef = useRef<HTMLInputElement>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+
+  const [liveEntries, setLiveEntries] = useState<Map<number, CollectedGoalEntry>>(() => new Map());
+  const liveEntriesTimerIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const ch = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      channelRef.current = ch;
+      ch.onmessage = (e: MessageEvent) => {
+        const msg = e.data;
+        if (msg.type === "data-update" && msg.entries) {
+          const map = objToEntries(msg.entries);
+          setLiveEntries(map);
+          updateTimerData(msg.timerId, msg.entries);
+        }
+        if (msg.type === "popup-ready" && msg.timerId) {
+          const timer = timers.find(t => t.id === msg.timerId);
+          if (timer?.collectedData) {
+            ch.postMessage({ type: "data-update", timerId: msg.timerId, entries: timer.collectedData });
+          }
+        }
+      };
+      return () => { ch.close(); channelRef.current = null; };
+    } catch {
+      return;
+    }
+  }, [updateTimerData]);
+
+  const getEntriesForTimer = useCallback((timer: TimerEntry): Map<number, CollectedGoalEntry> => {
+    if (dataTimerId === timer.id && liveEntries.size > 0) {
+      return liveEntries;
+    }
+    if (timer.collectedData) {
+      return objToEntries(timer.collectedData);
+    }
+    return new Map();
+  }, [dataTimerId, liveEntries]);
+
+  const handleLocalEntriesChange = useCallback((timerId: string, newEntries: Map<number, CollectedGoalEntry>) => {
+    setLiveEntries(newEntries);
+    const obj = entriesToObj(newEntries);
+    updateTimerData(timerId, obj);
+    if (channelRef.current) {
+      channelRef.current.postMessage({ type: "data-update", timerId, entries: obj });
+    }
+  }, [updateTimerData]);
 
   const staffRoles = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
   if (!staffRoles.includes(role)) return null;
@@ -126,11 +232,20 @@ export function FloatingTimer() {
     };
   }
 
+  function extractGoalData(entry: TimerEntry): CollectedGoalEntry[] {
+    if (!entry.collectedData) return [];
+    return Object.values(entry.collectedData);
+  }
+
   const handleStop = (timer: TimerEntry) => {
+    const goalData = extractGoalData(timer);
     const stopped = stopTimer(timer.id);
     if (!stopped || !stopped.stoppedAt) return;
+    if (isPopupOpen) closePopup();
+    setDataTimerId(null);
     setLoggingTimerId(stopped.id);
     setQuickLogPrefill(buildPrefill(stopped as TimerEntry & { stoppedAt: number }));
+    setQuickLogGoalData(goalData);
     setQuickLogOpen(true);
   };
 
@@ -138,6 +253,7 @@ export function FloatingTimer() {
     if (!timer.stoppedAt) return;
     setLoggingTimerId(timer.id);
     setQuickLogPrefill(buildPrefill(timer as TimerEntry & { stoppedAt: number }));
+    setQuickLogGoalData(extractGoalData(timer));
     setQuickLogOpen(true);
   };
 
@@ -147,16 +263,40 @@ export function FloatingTimer() {
     }
     setLoggingTimerId(null);
     setQuickLogOpen(false);
+    setQuickLogGoalData([]);
   };
 
   const handleLogClose = () => {
     setLoggingTimerId(null);
     setQuickLogOpen(false);
+    setQuickLogGoalData([]);
   };
 
   const handleDiscard = (id: string) => {
     removeTimer(id);
+    if (dataTimerId === id) { setDataTimerId(null); closePopup(); }
     toast("Timer discarded");
+  };
+
+  const handleOpenData = (timer: TimerEntry) => {
+    setDataTimerId(timer.id);
+    liveEntriesTimerIdRef.current = timer.id;
+    if (timer.collectedData) {
+      setLiveEntries(objToEntries(timer.collectedData));
+    } else {
+      setLiveEntries(new Map());
+    }
+  };
+
+  const handlePopOut = (timer: TimerEntry) => {
+    const opened = openPopup(timer.id, timer.studentId, timer.studentName, timer.startedAt);
+    if (opened) {
+      setDataTimerId(null);
+      liveEntriesTimerIdRef.current = timer.id;
+      toast.success("Data panel opened in new window");
+    } else {
+      toast.error("Popup blocked — using overlay instead");
+    }
   };
 
   const filteredStudents = studentSearch.trim()
@@ -164,6 +304,8 @@ export function FloatingTimer() {
         `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase())
       )
     : students;
+
+  const dataTimer = dataTimerId ? timers.find(t => t.id === dataTimerId) : null;
 
   if (!hasActivity && !showStart) {
     return (
@@ -260,6 +402,16 @@ export function FloatingTimer() {
         </div>
       )}
 
+      {dataTimer && (
+        <DataCollectionOverlay
+          timer={dataTimer}
+          entries={getEntriesForTimer(dataTimer)}
+          onClose={() => setDataTimerId(null)}
+          onPopOut={() => handlePopOut(dataTimer)}
+          onEntriesChange={(newEntries) => handleLocalEntriesChange(dataTimer.id, newEntries)}
+        />
+      )}
+
       <div className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-80 flex flex-col gap-2">
         {expanded && completedTimers.length > 0 && (
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -269,11 +421,15 @@ export function FloatingTimer() {
             <div className="max-h-40 overflow-y-auto">
               {completedTimers.slice(0, 5).map(t => {
                 const durationMs = (t.stoppedAt ?? 0) - t.startedAt;
+                const goalCount = t.collectedData ? Object.keys(t.collectedData).length : 0;
                 return (
                   <div key={t.id} className="px-3 py-2 flex items-center gap-2 border-b border-gray-50 last:border-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-700 truncate">{t.studentName}</p>
-                      <p className="text-[10px] text-gray-400">{t.serviceTypeName} &middot; {formatMinutes(durationMs)} min</p>
+                      <p className="text-[10px] text-gray-400">
+                        {t.serviceTypeName} &middot; {formatMinutes(durationMs)} min
+                        {goalCount > 0 && <span className="text-emerald-600 font-semibold"> &middot; {goalCount} goal{goalCount !== 1 ? "s" : ""}</span>}
+                      </p>
                     </div>
                     <button
                       onClick={() => handleLogCompleted(t)}
@@ -294,33 +450,47 @@ export function FloatingTimer() {
           </div>
         )}
 
-        {expanded && timers.map(timer => (
-          <div key={timer.id} className="bg-white rounded-xl shadow-lg border border-emerald-200 overflow-hidden">
-            <div className="px-3 py-2.5 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">{timer.studentName}</p>
-                <p className="text-[11px] text-gray-400">{timer.serviceTypeName}</p>
+        {expanded && timers.map(timer => {
+          const goalCount = timer.collectedData ? Object.keys(timer.collectedData).length : 0;
+          return (
+            <div key={timer.id} className="bg-white rounded-xl shadow-lg border border-emerald-200 overflow-hidden">
+              <div className="px-3 py-2.5 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{timer.studentName}</p>
+                  <p className="text-[11px] text-gray-400">{timer.serviceTypeName}</p>
+                </div>
+                <TimerTick startedAt={timer.startedAt} />
               </div>
-              <TimerTick startedAt={timer.startedAt} />
+              <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-2">
+                <button
+                  onClick={() => handleOpenData(timer)}
+                  className={`flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-all active:scale-[0.97] ${
+                    goalCount > 0
+                      ? "bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <Target className="w-3 h-3" />
+                  {goalCount > 0 ? `${goalCount} Goal${goalCount !== 1 ? "s" : ""}` : "Collect"}
+                </button>
+                <button
+                  onClick={() => handleStop(timer)}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
+                >
+                  <Square className="w-3 h-3" /> Stop & Log
+                </button>
+                <button
+                  onClick={() => handleDiscard(timer.id)}
+                  className="h-8 px-3 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs transition-colors"
+                  title="Discard timer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-2">
-              <button
-                onClick={() => handleStop(timer)}
-                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
-              >
-                <Square className="w-3 h-3" /> Stop & Log
-              </button>
-              <button
-                onClick={() => handleDiscard(timer.id)}
-                className="h-8 px-3 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs transition-colors"
-                title="Discard timer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="flex gap-2">
           <button
@@ -371,6 +541,7 @@ export function FloatingTimer() {
         prefillStartTime={quickLogPrefill.startTime}
         prefillEndTime={quickLogPrefill.endTime}
         sessionDate={quickLogPrefill.sessionDate}
+        collectedGoalData={quickLogGoalData}
       />
     </>
   );

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useRole } from "@/lib/role-context";
+import type { CollectedGoalEntry } from "@/components/live-data-panel/types";
 
 export interface TimerEntry {
   id: string;
@@ -9,6 +10,7 @@ export interface TimerEntry {
   serviceTypeName: string;
   startedAt: number;
   stoppedAt: number | null;
+  collectedData?: Record<string, CollectedGoalEntry>;
 }
 
 interface SessionTimerContextValue {
@@ -19,6 +21,7 @@ interface SessionTimerContextValue {
   removeTimer: (id: string) => void;
   clearCompleted: () => void;
   dismissCompleted: (id: string) => void;
+  updateTimerData: (id: string, data: Record<string, CollectedGoalEntry>) => void;
 }
 
 const SessionTimerContext = createContext<SessionTimerContextValue | null>(null);
@@ -26,11 +29,11 @@ const SessionTimerContext = createContext<SessionTimerContextValue | null>(null)
 const MAX_COMPLETED = 10;
 
 function storageKey(userId: string) {
-  return `trellis_session_timers_v2_${userId}`;
+  return `trellis_session_timers_v3_${userId}`;
 }
 
 function completedKey(userId: string) {
-  return `trellis_session_timers_completed_v2_${userId}`;
+  return `trellis_session_timers_completed_v3_${userId}`;
 }
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -100,8 +103,12 @@ export function SessionTimerProvider({ children }: { children: ReactNode }) {
     setCompletedTimers(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const updateTimerData = useCallback((id: string, data: Record<string, CollectedGoalEntry>) => {
+    setTimers(prev => prev.map(t => t.id === id ? { ...t, collectedData: data } : t));
+  }, []);
+
   return (
-    <SessionTimerContext.Provider value={{ timers, completedTimers, startTimer, stopTimer, removeTimer, clearCompleted, dismissCompleted }}>
+    <SessionTimerContext.Provider value={{ timers, completedTimers, startTimer, stopTimer, removeTimer, clearCompleted, dismissCompleted, updateTimerData }}>
       {children}
     </SessionTimerContext.Provider>
   );

@@ -89,6 +89,7 @@ const SignInPage = lazy(() => import("@/pages/sign-in"));
 const SignUpPage = lazy(() => import("@/pages/sign-up"));
 const SignDocumentPage = lazy(() => import("@/pages/sign-document"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
+const DataPanelPage = lazy(() => import("@/pages/data-panel"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -282,6 +283,15 @@ function App() {
               <Route path="/sign-up" component={SignUpPage} />
               <Route path="/sign-up/:rest*" component={SignUpPage} />
               <Route path="/sign/:token" component={SignDocumentPage} />
+              <Route path="/data-panel">
+                <ProtectedRoutes>
+                  <RoleProvider>
+                    <Suspense fallback={<PageLoader />}>
+                      <DataPanelPage />
+                    </Suspense>
+                  </RoleProvider>
+                </ProtectedRoutes>
+              </Route>
               <Route>
                 <ProtectedRoutes>
                   <RoleProvider>

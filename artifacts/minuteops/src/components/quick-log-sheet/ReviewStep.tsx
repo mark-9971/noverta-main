@@ -1,6 +1,6 @@
 import { Check, AlertTriangle, Clock } from "lucide-react";
 
-export function ReviewStep({ studentName, serviceTypeName, durationMinutes, outcome, note, makeupNeeded, missedReasonLabel, sessionDate, onSubmit, submitting }: {
+export function ReviewStep({ studentName, serviceTypeName, durationMinutes, outcome, note, makeupNeeded, missedReasonLabel, sessionDate, goalCount, onSubmit, submitting }: {
   studentName: string;
   serviceTypeName: string;
   durationMinutes: number;
@@ -9,6 +9,7 @@ export function ReviewStep({ studentName, serviceTypeName, durationMinutes, outc
   makeupNeeded: boolean;
   missedReasonLabel: string | null;
   sessionDate: string;
+  goalCount?: number;
   onSubmit: () => void;
   submitting: boolean;
 }) {
@@ -59,7 +60,7 @@ export function ReviewStep({ studentName, serviceTypeName, durationMinutes, outc
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[13px] text-gray-500">IEP Goals</span>
-            <span className="text-[14px] font-medium text-gray-800">0 goals linked</span>
+            <span className={`text-[14px] font-medium ${(goalCount || 0) > 0 ? "text-emerald-700" : "text-gray-800"}`}>{goalCount || 0} goal{(goalCount || 0) !== 1 ? "s" : ""} linked</span>
           </div>
           {makeupNeeded && (
             <div className="flex justify-between items-center">

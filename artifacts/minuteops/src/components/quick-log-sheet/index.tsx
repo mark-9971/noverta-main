@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
+import type { CollectedGoalEntry } from "@/components/live-data-panel/types";
 import {
   type QuickLogDefaults, type Student, type ServiceType, type MissedReason, type Step,
   loadDefaults, saveDefaults, pushRecent,
@@ -23,6 +24,7 @@ interface QuickLogSheetProps {
   prefillEndTime?: string;
   sessionDate?: string;
   skipToMissed?: boolean;
+  collectedGoalData?: CollectedGoalEntry[];
 }
 
 export function QuickLogSheet({
@@ -30,7 +32,7 @@ export function QuickLogSheet({
   prefillStudentId, prefillStudentName,
   prefillServiceTypeId, prefillServiceTypeName,
   prefillDurationMinutes, prefillStartTime, prefillEndTime,
-  sessionDate, skipToMissed,
+  sessionDate, skipToMissed, collectedGoalData,
 }: QuickLogSheetProps) {
   const [step, setStep] = useState<Step>("student");
   const [studentId, setStudentId] = useState<number | null>(prefillStudentId ?? null);
@@ -195,6 +197,7 @@ export function QuickLogSheet({
         studentId, staffId, outcome, serviceTypeId, durationMinutes,
         missedReasonId, missedReasonLabel, makeupNeeded, note,
         sessionDate: today, prefillStartTime, prefillEndTime,
+        collectedGoalData: collectedGoalData,
       });
       saveDefaults(staffId, {
         recentStudentIds: pushRecent(defaults.recentStudentIds, studentId),
@@ -203,7 +206,12 @@ export function QuickLogSheet({
           : defaults.recentServiceTypeIds,
         lastDurationMinutes: durationMinutes,
       });
-      toast.success(outcome === "completed" ? "Session logged!" : "Missed session recorded.");
+      const goalCount = collectedGoalData?.length || 0;
+      toast.success(
+        outcome === "completed"
+          ? `Session logged!${goalCount > 0 ? ` ${goalCount} goal${goalCount !== 1 ? "s" : ""} tracked.` : ""}`
+          : "Missed session recorded."
+      );
       reset();
       onSuccess();
       onClose();
@@ -273,6 +281,7 @@ export function QuickLogSheet({
         sessionDate={today}
         onSubmit={handleSubmit}
         submitting={submitting}
+        goalCount={collectedGoalData?.length}
       />
     </div>
   );

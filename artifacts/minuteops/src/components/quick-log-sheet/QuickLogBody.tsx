@@ -39,6 +39,7 @@ export interface QuickLogBodyProps {
   sessionDate: string;
   onSubmit: () => void;
   submitting: boolean;
+  goalCount?: number;
 }
 
 export function QuickLogBody(p: QuickLogBodyProps) {
@@ -112,6 +113,7 @@ export function QuickLogBody(p: QuickLogBodyProps) {
           makeupNeeded={p.makeupNeeded}
           missedReasonLabel={p.missedReasonLabel}
           sessionDate={p.sessionDate}
+          goalCount={p.goalCount}
           onSubmit={p.onSubmit}
           submitting={p.submitting}
         />
