@@ -203,7 +203,7 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         admin sees their next step immediately, then the checklist collapses to a
         compact summary once isComplete = true.
        */}
-      {onboarding?.isComplete ? (
+      {onboardingComplete ? (
         <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
       ) : (
         <>
@@ -404,7 +404,7 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
       {/* Render the readiness panel at its lower position only after onboarding
           completes — pre-ready, it lives at the top alongside the setup
           checklist (see above) so first-login users see it immediately. */}
-      {onboarding?.isComplete && <PilotReadinessPanel />}
+      {onboardingComplete && <PilotReadinessPanel />}
 
       {/* Footer note */}
       <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">

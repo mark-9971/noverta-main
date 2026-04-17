@@ -331,17 +331,12 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
 
     const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
 
-    // Only consider schools the CSV actually names. We do NOT auto-create a
-    // placeholder "Main Campus" / "Sample Elementary" — that historically
-    // produced orphaned schools and confused new admins. If any row references
-    // a school the district hasn't configured yet, fail loudly with a list.
+    // School handling: we no longer auto-create a placeholder "Main Campus"
+    // when the CSV is silent — that historically produced orphaned schools.
+    // But for first-time tenants the CSV is the bootstrap path, so if the
+    // CSV explicitly names schools we DO create those (only those). We refuse
+    // only when the district has no schools AND the CSV provided none.
     const existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, district.id));
-    if (existingSchools.length === 0) {
-      res.status(400).json({
-        error: "Add at least one school for this district before uploading a roster.",
-      });
-      return;
-    }
     const existingSchoolNames = new Set(existingSchools.map(s => s.name.toLowerCase()));
 
     const csvSchoolNames = [...new Set(
@@ -349,15 +344,26 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
         .map((r: { school?: string }) => (typeof r.school === "string" ? r.school.trim() : ""))
         .filter(Boolean) as string[],
     )];
-    const unknownSchools = csvSchoolNames.filter(n => !existingSchoolNames.has(n.toLowerCase()));
-    if (unknownSchools.length > 0) {
+
+    if (existingSchools.length === 0 && csvSchoolNames.length === 0) {
       res.status(400).json({
-        error: `CSV references schools that don't exist in this district: ${unknownSchools.join(", ")}. Add them in the wizard first.`,
-        unknownSchools,
+        error: "No schools defined. Either add schools in the wizard first, or include a 'school' column in your CSV.",
       });
       return;
     }
-    const allSchools = existingSchools;
+
+    const newSchoolNames = csvSchoolNames.filter(n => !existingSchoolNames.has(n.toLowerCase()));
+    let allSchools = existingSchools;
+    if (newSchoolNames.length > 0) {
+      const inserted = await db.insert(schoolsTable).values(
+        newSchoolNames.map(name => ({
+          name,
+          districtId: district.id,
+          district: trimmedDistrictName,
+        })),
+      ).returning();
+      allSchools = [...existingSchools, ...inserted];
+    }
 
     const schoolMap = new Map(allSchools.map(s => [s.name.toLowerCase(), s.id]));
 
