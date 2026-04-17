@@ -114,11 +114,17 @@ router.use("/staff", requireDistrictScope);
 router.use("/students", requireStaffOnly);
 router.use("/sessions", requireStaffOnly);
 router.use("/staff", requireStaffOnly);
-// Legal acceptance required before any route that may expose student PII.
-// This is the API-layer equivalent of the frontend LegalAcceptanceGate.
-router.use("/students", requireLegalAcceptance);
-router.use("/sessions", requireLegalAcceptance);
-router.use("/iep", requireLegalAcceptance);
+// Legal acceptance gate — must come after requireDistrictScope but before any data routers.
+// Exempt /legal/* so users can check status and submit acceptance without a circular block.
+// Exempt /guardian-portal/* (guardian accounts handle their own consent flow).
+// sped_parent and sped_student role exemptions are handled inside the middleware.
+router.use((req, res, next) => {
+  const path = req.path;
+  if (path.startsWith("/legal/") || path.startsWith("/guardian-portal/")) {
+    return next();
+  }
+  return requireLegalAcceptance(req, res, next);
+});
 // Scheduling data is staff-only; sped_students and unauthenticated callers must not see it.
 router.use("/schedule-blocks", requireDistrictScope);
 router.use("/schedule-blocks", requireStaffOnly);
