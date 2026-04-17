@@ -33,6 +33,7 @@ const StaffCalendar = lazy(() => import("@/pages/staff-calendar"));
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const Compliance = lazy(() => import("@/pages/compliance"));
+const ComplianceTrendsPage = lazy(() => import("@/pages/compliance-trends"));
 const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
 const ImportData = lazy(() => import("@/pages/import-data"));
@@ -181,6 +182,7 @@ function StaffRouter() {
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>
+      <BoundedRoute path="/compliance/trends" component={ComplianceTrendsPage} fallbackTitle="Compliance trends error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
