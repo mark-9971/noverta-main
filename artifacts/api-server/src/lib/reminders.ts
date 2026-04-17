@@ -526,14 +526,8 @@ function getWeekStartStr(d: Date): string {
 }
 
 async function runComplianceRiskAlerts(): Promise<void> {
-  // Gate to weekly cadence: only generate alerts on Mondays.
-  // The 6-hour scheduler still calls this function multiple times per week,
-  // but all non-Monday calls return early to match the weekly spec.
   const today = new Date();
-  if (today.getDay() !== 1) {
-    console.log("[Reminders] Compliance risk alerts: skipped (not Monday)");
-    return;
-  }
+  const isMonday = today.getDay() === 1;
 
   try {
     const districts = await db
@@ -543,6 +537,7 @@ async function runComplianceRiskAlerts(): Promise<void> {
     const weekStart = getWeekStartStr(today);
     let totalCreated = 0;
     let totalSkipped = 0;
+    let totalResolved = 0;
 
     for (const district of districts) {
       const threshold = district.complianceMinuteThreshold ?? 85;
@@ -560,6 +555,41 @@ async function runComplianceRiskAlerts(): Promise<void> {
           worstByStudent.set(p.studentId, p);
         }
       }
+
+      // Auto-resolve stale compliance_risk alerts on every scheduler run.
+      // A student is "recovered" if we have current progress data for them
+      // but they are no longer below the threshold (not in worstByStudent).
+      const allActiveStudentIds = [...new Set(progressItems.map(p => p.studentId))];
+      const recoveredStudentIds = allActiveStudentIds.filter(id => !worstByStudent.has(id));
+
+      if (recoveredStudentIds.length > 0) {
+        const staleAlerts = await db
+          .select({ id: alertsTable.id })
+          .from(alertsTable)
+          .where(
+            and(
+              eq(alertsTable.type, "compliance_risk"),
+              eq(alertsTable.resolved, false),
+              inArray(alertsTable.studentId, recoveredStudentIds),
+            )
+          );
+
+        if (staleAlerts.length > 0) {
+          const staleIds = staleAlerts.map(a => a.id);
+          await db
+            .update(alertsTable)
+            .set({
+              resolved: true,
+              resolvedAt: new Date(),
+              resolvedNote: `Student is now meeting or exceeding the ${threshold}% compliance threshold. Alert auto-resolved when student caught up.`,
+            })
+            .where(inArray(alertsTable.id, staleIds));
+          totalResolved += staleAlerts.length;
+        }
+      }
+
+      // New alert creation is gated to Mondays only (weekly cadence).
+      if (!isMonday) continue;
 
       if (worstByStudent.size === 0) continue;
 
@@ -611,7 +641,11 @@ async function runComplianceRiskAlerts(): Promise<void> {
       }
     }
 
-    console.log(`[Reminders] Compliance risk alerts: ${totalCreated} created, ${totalSkipped} skipped`);
+    if (isMonday) {
+      console.log(`[Reminders] Compliance risk alerts: ${totalCreated} created, ${totalSkipped} skipped, ${totalResolved} auto-resolved`);
+    } else {
+      console.log(`[Reminders] Compliance risk alerts: ${totalResolved} auto-resolved (creation skipped — not Monday)`);
+    }
   } catch (err) {
     console.error("[Reminders] Compliance risk alert check error:", err);
   }
