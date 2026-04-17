@@ -127,12 +127,12 @@ function BillingPageInner() {
   async function loadData() {
     try {
       const [subRes, plansRes, modeRes] = await Promise.all([
-        apiGet<{ subscription: Subscription }>("/billing/subscription"),
+        apiGet<{ subscription: Subscription }>("/billing/subscription").catch(() => ({ subscription: null })),
         apiGet<{ plans: Plan[] }>("/billing/plans").catch(() => ({ plans: [] })),
         apiGet<BillingMode>("/billing/status").catch(() => null),
       ]);
-      setSubscription(subRes.subscription);
-      setPlans(plansRes.plans);
+      setSubscription((subRes as any)?.subscription ?? null);
+      setPlans(Array.isArray((plansRes as any)?.plans) ? (plansRes as any).plans : []);
       setBillingMode(modeRes);
     } catch (err) {
       console.error("Failed to load billing data:", err);
