@@ -4508,31 +4508,6 @@ paths:
               schema:
                 type: object
 
-  /protective-measures/incidents/{id}/admin-review:
-    post:
-      operationId: adminReviewIncident
-      tags: [protective-measures]
-      summary: Admin review of incident
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: Reviewed
-          content:
-            application/json:
-              schema:
-                type: object
-
   /protective-measures/incidents/{id}/parent-notification:
     post:
       operationId: parentNotifyIncident

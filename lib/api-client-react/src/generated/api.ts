@@ -19,8 +19,6 @@ import type {
 import type {
   AcceptScheduleBody,
   AcceptScheduleResult,
-  AdminReviewIncident200,
-  AdminReviewIncidentBody,
   Alert,
   AlertsSummary,
   AmendIepDocument201,
@@ -17780,93 +17778,6 @@ export const useDeleteProtectiveIncident = <
   TContext
 > => {
   return useMutation(getDeleteProtectiveIncidentMutationOptions(options));
-};
-
-/**
- * @summary Admin review of incident
- */
-export const getAdminReviewIncidentUrl = (id: number) => {
-  return `/api/protective-measures/incidents/${id}/admin-review`;
-};
-
-export const adminReviewIncident = async (
-  id: number,
-  adminReviewIncidentBody: AdminReviewIncidentBody,
-  options?: RequestInit,
-): Promise<AdminReviewIncident200> => {
-  return customFetch<AdminReviewIncident200>(getAdminReviewIncidentUrl(id), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(adminReviewIncidentBody),
-  });
-};
-
-export const getAdminReviewIncidentMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof adminReviewIncident>>,
-    TError,
-    { id: number; data: BodyType<AdminReviewIncidentBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof adminReviewIncident>>,
-  TError,
-  { id: number; data: BodyType<AdminReviewIncidentBody> },
-  TContext
-> => {
-  const mutationKey = ["adminReviewIncident"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof adminReviewIncident>>,
-    { id: number; data: BodyType<AdminReviewIncidentBody> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return adminReviewIncident(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type AdminReviewIncidentMutationResult = NonNullable<
-  Awaited<ReturnType<typeof adminReviewIncident>>
->;
-export type AdminReviewIncidentMutationBody = BodyType<AdminReviewIncidentBody>;
-export type AdminReviewIncidentMutationError = ErrorType<unknown>;
-
-/**
- * @summary Admin review of incident
- */
-export const useAdminReviewIncident = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof adminReviewIncident>>,
-    TError,
-    { id: number; data: BodyType<AdminReviewIncidentBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof adminReviewIncident>>,
-  TError,
-  { id: number; data: BodyType<AdminReviewIncidentBody> },
-  TContext
-> => {
-  return useMutation(getAdminReviewIncidentMutationOptions(options));
 };
 
 /**

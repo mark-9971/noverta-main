@@ -105,58 +105,13 @@ router.get("/protective-measures/incidents/:id/status-history", async (req: Requ
   res.json(history);
 });
 
-router.post("/protective-measures/incidents/:id/admin-review", async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-
-  const actorStaffId = getPublicMeta(req).staffId ?? null;
-  if (!actorStaffId) {
-    res.status(401).json({ error: "Authenticated actor identity required to perform admin review." });
-    return;
-  }
-
-  const { notes, signature } = req.body;
-  if (!notes || !String(notes).trim()) {
-    res.status(400).json({ error: "Review notes are required." });
-    return;
-  }
-
-  const [existing] = await db.select().from(restraintIncidentsTable).where(eq(restraintIncidentsTable.id, id));
-  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-
-  if (existing.status !== "open") {
-    res.status(400).json({ error: `Admin review requires incident to be in 'open' status. Current status: '${existing.status}'.` });
-    return;
-  }
-
-  const now = new Date().toISOString();
-  const [updated] = await db.update(restraintIncidentsTable).set({
-    adminReviewedBy: Number(actorStaffId),
-    adminReviewedAt: now.split("T")[0],
-    adminReviewNotes: String(notes).trim(),
-    adminSignature: signature || null,
-    adminSignedAt: signature ? now : null,
-    status: "under_review",
-  }).where(eq(restraintIncidentsTable.id, id)).returning();
-
-  await db.insert(incidentStatusHistoryTable).values({
-    incidentId: id,
-    fromStatus: existing.status,
-    toStatus: "under_review",
-    note: String(notes).trim(),
-    actorStaffId: Number(actorStaffId),
+// DEPRECATED — use POST /protective-measures/incidents/:id/transition with { toStatus: "under_review", note }
+// Kept as 410 Gone so any stale clients get a clear error instead of a silent failure.
+router.post("/protective-measures/incidents/:id/admin-review", (_req: Request, res: Response) => {
+  res.status(410).json({
+    error: "This endpoint has been removed. Use POST /protective-measures/incidents/:id/transition with { toStatus: \"under_review\", note } instead.",
+    replacement: "/protective-measures/incidents/:id/transition",
   });
-
-  logAudit(req, {
-    action: "update",
-    targetTable: "restraint_incidents",
-    targetId: id,
-    studentId: existing.studentId,
-    summary: `Admin review of restraint incident #${id}`,
-    oldValues: { status: existing.status, adminReviewedBy: existing.adminReviewedBy } as Record<string, unknown>,
-    newValues: { status: "under_review", adminReviewedBy: Number(actorStaffId) } as Record<string, unknown>,
-  });
-  res.json(updated);
 });
 
 router.post("/protective-measures/incidents/:id/dese-report", async (req: Request, res: Response) => {

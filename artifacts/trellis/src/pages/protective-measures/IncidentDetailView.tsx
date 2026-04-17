@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  adminReviewIncident, deseReportIncident, getProtectiveIncident,
+  deseReportIncident, getProtectiveIncident,
   listStaff, parentNotifyIncident, parentNotificationDraftIncident,
   sendParentNotificationIncident, signIncidentSignature, updateProtectiveIncident,
   writtenReportIncident,
@@ -42,9 +42,20 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
   };
 
   const reviewMutation = useMutation({
-    mutationFn: (data: { adminStaffId: number; notes: string; signature: string }) =>
-      adminReviewIncident(id, data),
-    onSuccess: invalidateAll,
+    mutationFn: ({ notes }: { notes: string }) =>
+      authFetch(`/api/protective-measures/incidents/${id}/transition`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toStatus: "under_review", note: notes }),
+      }).then(async r => {
+        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e as { error?: string }).error || "Review failed"); }
+        return r.json();
+      }),
+    onSuccess: () => {
+      invalidateAll();
+      queryClient.invalidateQueries({ queryKey: ["incident-status-history", id] });
+    },
+    onError: (err: Error) => { toast.error(err.message || "Failed to submit review"); },
   });
 
   const notifyMutation = useMutation({
@@ -148,7 +159,7 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
   const [showTransition, setShowTransition] = useState(false);
   const [notifyForm, setNotifyForm] = useState({ staffId: "", method: "phone" });
   const [writtenMethod, setWrittenMethod] = useState("email");
-  const [reviewForm, setReviewForm] = useState({ adminStaffId: "", notes: "", signature: "" });
+  const [reviewForm, setReviewForm] = useState({ notes: "" });
   const [commentForm, setCommentForm] = useState({ parentComment: "", studentComment: "" });
 
   if (isLoading || !incident) return <div className="p-12 text-center text-sm text-gray-400">Loading...</div>;
@@ -513,21 +524,15 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
             )}
             {showReview && !incident.adminReviewedBy && (
               <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
-                <select value={reviewForm.adminStaffId} onChange={e => setReviewForm(f => ({ ...f, adminStaffId: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white">
-                  <option value="">Reviewer...</option>
-                  {staff.filter((s: Staff) => s.role === "admin" || s.role === "case_manager").map((s: Staff) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
-                </select>
+                <p className="text-xs text-emerald-700">Review will be recorded under your account. Add notes below.</p>
                 <textarea value={reviewForm.notes} onChange={e => setReviewForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Review notes..." rows={2} className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white resize-none" />
-                <input type="text" placeholder="Admin signature (type full name)" value={reviewForm.signature} onChange={e => setReviewForm(f => ({ ...f, signature: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white italic" />
+                  placeholder="Review notes (required)..." rows={3} className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white resize-none" />
                 <div className="flex gap-2">
                   <button onClick={() => setShowReview(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
-                  <button onClick={() => { if (reviewForm.adminStaffId) reviewMutation.mutate({ adminStaffId: Number(reviewForm.adminStaffId), notes: reviewForm.notes, signature: reviewForm.signature }); }}
-                    disabled={!reviewForm.adminStaffId || reviewMutation.isPending}
+                  <button onClick={() => { if (reviewForm.notes.trim()) reviewMutation.mutate({ notes: reviewForm.notes }); }}
+                    disabled={!reviewForm.notes.trim() || reviewMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
-                    {reviewMutation.isPending ? "..." : "Submit Review"}
+                    {reviewMutation.isPending ? "Submitting…" : "Submit Review"}
                   </button>
                 </div>
               </div>
