@@ -18,6 +18,7 @@ import { NeedsAttentionPanel, CriticalMedicalAlertsBanner } from "./AlertBanners
 import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
 import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, ContractRenewalsCard, DeadlinesSection } from "./SecondarySections";
+import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 
 export default function Dashboard() {
   const { role, user, teacherId } = useRole();
@@ -127,6 +128,8 @@ export default function Dashboard() {
       </div>
 
       {isAdmin && <SetupChecklist />}
+
+      {isAdmin && <CostRiskPanel />}
 
       <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
