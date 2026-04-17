@@ -492,6 +492,165 @@ async function seedTransitionPlans(districtId: number) {
   console.log(`Transition: ${plansInserted} plans, ${goalsInserted} goals, ${refsInserted} agency referrals inserted.`);
 }
 
+async function seedRestraintLifecycle(districtId: number) {
+  // Tag-based idempotency: a status-history row with our marker means
+  // we've shaped lifecycle on this incident set already.
+  const tagged = await count(sql`
+    SELECT COUNT(*)::int AS c FROM incident_status_history h
+    JOIN restraint_incidents ri ON ri.id=h.incident_id
+    JOIN students s ON s.id=ri.student_id JOIN schools sc ON sc.id=s.school_id
+    WHERE sc.district_id=${districtId} AND h.note LIKE ${'%' + TAG + '%'}
+  `);
+  if (tagged > 0) { console.log(`Restraint lifecycle: already shaped (${tagged} history rows), skipping.`); return; }
+
+  const incidents = (await db.execute(sql`
+    SELECT ri.id, ri.primary_staff_id, ri.parent_notified_by
+    FROM restraint_incidents ri
+    JOIN students s ON s.id=ri.student_id JOIN schools sc ON sc.id=s.school_id
+    WHERE sc.district_id=${districtId}
+    ORDER BY ri.id
+  `)).rows as Array<{ id: number; primary_staff_id: number | null; parent_notified_by: number | null }>;
+  if (incidents.length === 0) { console.log("Restraint lifecycle: no incidents."); return; }
+
+  const admin = (await db.execute(sql`
+    SELECT st.id FROM staff st JOIN schools sc ON sc.id=st.school_id
+    WHERE sc.district_id=${districtId} AND st.role='admin' AND st.deleted_at IS NULL
+    ORDER BY st.id LIMIT 1
+  `)).rows[0] as { id: number } | undefined;
+
+  // Spread the 5 incidents across the lifecycle:
+  // [0] draft, [1] open + pending admin sig, [2] under_review, [3] closed, [4] closed.
+  // Each status promotion writes a status_history row tagged with TAG.
+  const lifecycles: Array<{ status: string; transitions: Array<{ from: string; to: string; note: string }>; sigStatus: "pending" | "signed" }> = [
+    { status: "draft", sigStatus: "pending", transitions: [
+      { from: "draft", to: "draft", note: "Initial entry by reporting staff. " + TAG },
+    ] },
+    { status: "open", sigStatus: "pending", transitions: [
+      { from: "draft", to: "open", note: "Submitted for admin review; parent notified within 24h. " + TAG },
+    ] },
+    { status: "under_review", sigStatus: "pending", transitions: [
+      { from: "draft",  to: "open",         note: "Submitted for admin review. " + TAG },
+      { from: "open",   to: "under_review", note: "Admin reviewing 24-hour written report and follow-up plan. " + TAG },
+    ] },
+    { status: "closed", sigStatus: "signed", transitions: [
+      { from: "draft",        to: "open",         note: "Submitted for admin review. " + TAG },
+      { from: "open",         to: "under_review", note: "Admin reviewing 24-hour written report. " + TAG },
+      { from: "under_review", to: "closed",       note: "Admin signed; parent notified; written report on file. " + TAG },
+    ] },
+    { status: "closed", sigStatus: "signed", transitions: [
+      { from: "draft",        to: "open",         note: "Submitted for admin review. " + TAG },
+      { from: "open",         to: "under_review", note: "Admin reviewing 24-hour written report. " + TAG },
+      { from: "under_review", to: "closed",       note: "Admin signed; parent notified by phone and written report mailed. " + TAG },
+    ] },
+  ];
+
+  let updates = 0, sigs = 0, hist = 0;
+  for (let i = 0; i < incidents.length && i < lifecycles.length; i++) {
+    const inc = incidents[i];
+    const lc = lifecycles[i];
+    // Set the canonical status + admin/parent fields consistent with where in the lifecycle we are.
+    const adminReviewed = lc.status === "closed";
+    const parentNotified = lc.status !== "draft";
+    await db.execute(sql`
+      UPDATE restraint_incidents
+      SET status=${lc.status},
+          parent_notified=${parentNotified},
+          parent_notified_at=CASE WHEN ${parentNotified} THEN (CURRENT_DATE - INTERVAL '7 days')::text ELSE NULL END,
+          parent_notification_method=CASE WHEN ${parentNotified} THEN 'phone_and_written' ELSE NULL END,
+          parent_notified_by=COALESCE(parent_notified_by, ${admin?.id ?? null}::int),
+          written_report_sent=${parentNotified},
+          written_report_sent_at=CASE WHEN ${parentNotified} THEN (CURRENT_DATE - INTERVAL '7 days')::text ELSE NULL END,
+          admin_reviewed_by=CASE WHEN ${adminReviewed} THEN ${admin?.id ?? null}::int ELSE NULL END,
+          admin_reviewed_at=CASE WHEN ${adminReviewed} THEN (CURRENT_DATE - INTERVAL '5 days')::text ELSE NULL END,
+          admin_review_notes=CASE WHEN ${adminReviewed} THEN ${'Reviewed and approved per district restraint policy. ' + TAG} ELSE admin_review_notes END,
+          notes=${TAG + ' lifecycle shaping'}
+      WHERE id=${inc.id}
+    `);
+    updates++;
+
+    for (const t of lc.transitions) {
+      await db.execute(sql`
+        INSERT INTO incident_status_history (incident_id, from_status, to_status, note, actor_staff_id, created_at)
+        VALUES (${inc.id}, ${t.from}, ${t.to}, ${t.note}, ${admin?.id ?? null},
+                NOW() - (${lc.transitions.indexOf(t) + 1} || ' days')::interval)
+      `);
+      hist++;
+    }
+
+    if (admin?.id) {
+      // Admin signature row — pending for open/under_review, signed for closed.
+      const requestedAt = sql`(NOW() - INTERVAL '6 days')::text`;
+      const signedAt    = lc.sigStatus === "signed" ? sql`(NOW() - INTERVAL '5 days')::text` : sql`NULL`;
+      const sigName     = lc.sigStatus === "signed" ? "Ellen Donahue (Principal)" : null;
+      await db.execute(sql`
+        INSERT INTO incident_signatures (incident_id, staff_id, role, signature_name, signed_at, requested_at, status, notes)
+        VALUES (${inc.id}, ${admin.id}, 'admin', ${sigName}, ${signedAt}, ${requestedAt}, ${lc.sigStatus}, ${TAG})
+      `);
+      sigs++;
+    }
+  }
+  console.log(`Restraint lifecycle: ${updates} incidents shaped, ${hist} history rows, ${sigs} admin signatures (mix of pending/signed).`);
+}
+
+async function seedDocumentAcknowledgments(districtId: number) {
+  const existing = await count(sql`
+    SELECT COUNT(*)::int AS c FROM generated_documents gd
+    JOIN students s ON s.id=gd.student_id JOIN schools sc ON sc.id=s.school_id
+    WHERE sc.district_id=${districtId} AND gd.created_by_name LIKE ${'%' + TAG + '%'}
+  `);
+  if (existing > 0) { console.log(`Document acknowledgments: already seeded (${existing} docs), skipping.`); return; }
+
+  const students = (await db.execute(sql`
+    SELECT s.id, s.first_name, s.last_name FROM students s JOIN schools sc ON sc.id=s.school_id
+    WHERE sc.district_id=${districtId} AND s.deleted_at IS NULL
+    ORDER BY s.id LIMIT 6
+  `)).rows as Array<{ id: number; first_name: string; last_name: string }>;
+
+  const docVariants = [
+    { type: "prior_written_notice", title: "Prior Written Notice — Service Amendment",       acknowledged: true  },
+    { type: "iep_amendment",        title: "IEP Amendment — Add 2x30 Occupational Therapy", acknowledged: true  },
+    { type: "behavior_plan",        title: "Behavior Intervention Plan — March 2026",        acknowledged: false },
+    { type: "progress_report",      title: "Q2 Progress Report — IEP Goals",                 acknowledged: true  },
+    { type: "meeting_notes",        title: "Annual IEP Review — Meeting Summary",            acknowledged: false },
+  ];
+
+  let docs = 0, acks = 0;
+  for (let i = 0; i < Math.min(docVariants.length, students.length); i++) {
+    const stu = students[i];
+    const v = docVariants[i];
+    const docRow = await db.execute(sql`
+      INSERT INTO generated_documents (student_id, type, status, title, html_snapshot, created_by_name, guardian_visible, shared_at, shared_by_name)
+      VALUES (
+        ${stu.id}, ${v.type}, 'finalized',
+        ${v.title + ' — ' + stu.first_name + ' ' + stu.last_name},
+        ${'<h1>' + v.title + '</h1><p>Demo snapshot for ' + stu.first_name + ' ' + stu.last_name + '.</p>'},
+        ${'Demo Seeder ' + TAG},
+        true,
+        (NOW() - INTERVAL '3 days'),
+        'Ellen Donahue'
+      )
+      RETURNING id
+    `);
+    const docId = (docRow.rows[0] as { id: number }).id;
+    docs++;
+
+    if (v.acknowledged) {
+      const guardian = (await db.execute(sql`
+        SELECT id FROM guardians WHERE student_id=${stu.id} ORDER BY contact_priority ASC, id ASC LIMIT 1
+      `)).rows[0] as { id: number } | undefined;
+      if (guardian) {
+        await db.execute(sql`
+          INSERT INTO document_acknowledgments (document_id, guardian_id, acknowledged_at, ip_address)
+          VALUES (${docId}, ${guardian.id}, NOW() - INTERVAL '1 day', '192.0.2.30')
+          ON CONFLICT DO NOTHING
+        `);
+        acks++;
+      }
+    }
+  }
+  console.log(`Documents: ${docs} guardian-visible documents inserted, ${acks} parent acknowledgments recorded.`);
+}
+
 async function seedExportHistory(districtId: number) {
   const existing = await count(sql`SELECT COUNT(*)::int AS c FROM export_history WHERE district_id=${districtId} AND file_name LIKE ${'%' + TAG + '%'}`);
   if (existing > 0) { console.log(`Export history: already present (${existing}), skipping.`); return; }
@@ -549,6 +708,8 @@ async function main() {
   await seedShareLinks(districtId);
   await seedSignatureRequests(districtId);
   await seedTransitionPlans(districtId);
+  await seedRestraintLifecycle(districtId);
+  await seedDocumentAcknowledgments(districtId);
   await seedExportHistory(districtId);
   await tally(districtId);
 }
