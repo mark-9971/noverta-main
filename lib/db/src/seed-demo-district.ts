@@ -1891,4 +1891,19 @@ export async function seedDemoDistrict() {
   console.log("  • Provider caseloads balanced across staff");
   console.log("  • Student names reflect MetroWest MA demographic diversity");
   console.log("");
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 21: Backfill goal→target linkage and progress data so the
+  // student-detail "IEP Goal Progress" charts populate for every student.
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 21: Backfill goal→target linkage and progress data points...");
+  const { backfillGoalProgressForDistrict } = await import("./backfill-goal-progress");
+  const fill = await backfillGoalProgressForDistrict(district.id);
+  console.log(`  Program targets created: ${fill.programTargetsCreated}`);
+  console.log(`  Behavior targets created: ${fill.behaviorTargetsCreated}`);
+  console.log(`  Goals linked → program targets: ${fill.goalsLinkedToProgram}`);
+  console.log(`  Goals linked → behavior targets: ${fill.goalsLinkedToBehavior}`);
+  console.log(`  Sample data sessions created: ${fill.sessionsCreated}`);
+  console.log(`  Program data points: ${fill.programDataPoints}`);
+  console.log(`  Behavior data points: ${fill.behaviorDataPoints}`);
 }
