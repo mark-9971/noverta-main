@@ -64,6 +64,21 @@ async function resolveClerkEmail(userId: string): Promise<string | null> {
  */
 router.get("/legal/acceptance-status", requireAuth, async (req, res) => {
   const authed = req as AuthedRequest;
+
+  // Exempt roles: consistent with frontend gate and middleware.
+  const EXEMPT_ROLES = ["sped_parent", "sped_student"];
+  if (authed.trellisRole && EXEMPT_ROLES.includes(authed.trellisRole)) {
+    const documents = Object.entries(LEGAL_VERSIONS).map(([documentType, documentVersion]) => ({
+      documentType,
+      documentLabel: LEGAL_DOC_LABELS[documentType] ?? documentType,
+      documentVersion,
+      required: false,
+      acceptedAt: null,
+    }));
+    res.json({ required: false, documents });
+    return;
+  }
+
   try {
     const documents = await getAcceptanceStatus(authed.userId);
     const required = documents.some(d => d.required);
@@ -154,6 +169,8 @@ router.get(
     }
 
     try {
+      // Include ALL active staff — including those without email (they will show as
+      // "unresolvable" in the report since acceptance is matched by email).
       const staff = await db
         .select({
           name: sql<string>`${staffTable.firstName} || ' ' || ${staffTable.lastName}`,
@@ -166,23 +183,24 @@ router.get(
           and(
             eq(schoolsTable.districtId, districtId),
             sql`${staffTable.deletedAt} IS NULL`,
-            sql`${staffTable.email} IS NOT NULL`,
           ),
         );
 
+      // Only query acceptances for staff who have a resolvable email.
       const emails = staff
         .map(s => s.email?.toLowerCase())
         .filter((e): e is string => !!e);
 
       // DISTINCT ON (user_email, document_type) ordered by accepted_at DESC gives the
       // latest acceptance per (staff member, document) — correct even after version bumps.
+      // Uses parameterized query (no sql.raw) to safely pass the emails array.
       type LatestAccRow = { user_email: string; document_type: string; document_version: string; accepted_at: Date };
       const allAcceptances: LatestAccRow[] = emails.length
         ? (await db.execute<LatestAccRow>(sql`
             SELECT DISTINCT ON (lower(user_email), document_type)
               user_email, document_type, document_version, accepted_at
             FROM legal_acceptances
-            WHERE lower(user_email) = ANY(ARRAY[${sql.raw(emails.map(e => `'${e.replace(/'/g, "''")}'`).join(","))}]::text[])
+            WHERE lower(user_email) = ANY(${emails}::text[])
             ORDER BY lower(user_email), document_type, accepted_at DESC
           `)).rows
         : [];
