@@ -4,8 +4,8 @@ import { z } from "zod/v4";
 
 export const importsTable = pgTable("imports", {
   id: serial("id").primaryKey(),
-  /** District that initiated this import. NULL for rows created before this column was added. */
-  districtId: integer("district_id"),
+  /** District that initiated this import. NOT NULL enforced at DB level by migration 021. */
+  districtId: integer("district_id").notNull(),
   importType: text("import_type").notNull(), // students | requirements | sessions | para_schedules | provider_schedules
   fileName: text("file_name"),
   status: text("status").notNull().default("pending"), // pending | processing | completed | failed
