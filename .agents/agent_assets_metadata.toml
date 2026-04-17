@@ -65,3 +65,9 @@ id = "wPEN4XiOR07u61s8--AfA"
 uri = "file://.local/trellis-audit-report.md"
 type = "text"
 title = "Trellis Full Audit Report"
+
+[[outputs]]
+id = "AVyiZYePHj2c202J82380"
+uri = "file://.local/exports/trellis-go-no-go-audit.txt"
+type = "text"
+title = "Trellis Go/No-Go Audit"
