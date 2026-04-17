@@ -1,0 +1,89 @@
+I want a strict progress audit of the CURRENT codebase after the recent implementation tasks.
+
+Your job is to tell me:
+1. what was actually completed
+2. what is partially completed
+3. what is still not done
+4. what improved materially
+5. what still blocks revenue or trust
+
+IMPORTANT:
+- Re-inspect the CURRENT codebase only.
+- Do not assume tasks were completed just because they were requested.
+- Verify actual implementation and current behavior from code.
+- Be skeptical and specific.
+- Cite exact files, routes, pages, components, middleware, and logic paths.
+
+Evaluate progress against these areas:
+
+1. auth and tenant isolation
+2. body-ID ownership checks
+3. Medicaid diagnosis fallback removal
+4. Medicaid copy / filing honesty
+5. pricing/security claim honesty
+6. AI claim honesty
+7. email delivery-state honesty
+8. cost/risk fallback rate handling
+9. SIS messaging consistency
+10. admin nav focus
+11. compliance-risk-report centrality
+12. onboarding consolidation
+13. non-admin first-run empty states
+14. export label honesty
+15. import claim honesty
+16. support/admin tooling
+17. single-district fallback removal
+18. regression test coverage
+19. remaining misleading claims / dangerous defaults
+20. overall readiness
+
+For each area, classify it as:
+- DONE
+- MOSTLY DONE
+- PARTIALLY DONE
+- NOT DONE
+- DONE BUT RISKY
+
+For each area include:
+- what changed
+- code evidence
+- what still remains
+- business consequence if incomplete
+
+Then give me these sections:
+
+1. Executive progress summary
+- one paragraph on overall progress
+- top 5 things materially improved
+- top 5 things still concerning
+
+2. Task-by-task status table
+- all 20 areas with status labels
+
+3. Revenue and trust blockers still remaining
+- rank the remaining blockers by severity
+
+4. What is now ready
+- demos
+- friendly pilots
+- paid pilots
+- public self-serve trial
+- public self-serve paid signup
+
+Use:
+- GO
+- CONDITIONAL GO
+- NO-GO
+
+5. What changed most commercially
+- what now makes the product easier to sell
+- what still weakens the sales story
+
+6. Final verdict
+Answer clearly:
+- Is Trellis materially safer and more honest now?
+- Is it ready for a friendly paid pilot?
+- Is it ready for public self-serve?
+- What are the next 10 highest-leverage tasks now?
+
+Be blunt. I do not want optimistic language. I want the real current state.
