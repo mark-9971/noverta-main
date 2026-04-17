@@ -98,3 +98,4 @@ export * from "./accommodationVerifications";
 export * from "./cptCodeMappings";
 export * from "./medicaidClaims";
 export * from "./serviceRateConfigs";
+export * from "./legalAcceptances";

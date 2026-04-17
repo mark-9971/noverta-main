@@ -13,6 +13,7 @@ import { SessionTimerProvider } from "@/lib/session-timer-context";
 import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LegalAcceptanceGate } from "@/components/LegalAcceptanceGate";
 import { lazy, Suspense, useEffect } from "react";
 
 const PageLoader = () => (
@@ -265,6 +266,15 @@ function GuardianPortalRouter() {
   );
 }
 
+function GatedContent() {
+  const { role } = useRole();
+  return (
+    <LegalAcceptanceGate currentRole={role}>
+      <AppRouter />
+    </LegalAcceptanceGate>
+  );
+}
+
 function AppRouter() {
   const { role } = useRole();
   const isStaff = (STAFF_ROLES as string[]).includes(role);
@@ -315,7 +325,7 @@ function App() {
                       <SchoolProvider>
                         <TierProvider>
                           <SessionTimerProvider>
-                            <AppRouter />
+                            <GatedContent />
                           </SessionTimerProvider>
                         </TierProvider>
                       </SchoolProvider>

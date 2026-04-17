@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Shield, FileText, Database, AlertTriangle, Scale,
   ExternalLink, Download, Mail, ChevronRight, Lock, CheckCircle2,
+  Users, CheckCircle, Clock, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface DocCard {
   title: string;
@@ -24,12 +26,22 @@ const docPath = (f: string) => `${BASE}/docs/legal/${f}`;
 
 const DOCS: DocCard[] = [
   {
+    title: "Terms of Service",
+    description:
+      "Governs authorized use of the Trellis platform by district staff. Covers acceptable use, account security, student data handling, and intellectual property. All staff must accept before accessing the app.",
+    icon: FileText,
+    fileName: "terms-of-service.md",
+    badgeLabel: "Required Acceptance",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    href: docPath("terms-of-service.md"),
+  },
+  {
     title: "Data Processing Agreement (DPA)",
     description:
       "The contract that governs how Trellis processes your district's student and staff data. Defines sub-processors, data subject rights, deletion obligations, and breach notification. Review with district counsel before signing.",
     icon: Scale,
     fileName: "dpa-template.md",
-    badgeLabel: "Requires Signature",
+    badgeLabel: "Required Acceptance",
     badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
     href: docPath("dpa-template.md"),
   },
@@ -84,6 +96,159 @@ const COMMITMENTS = [
   "FERPA breach notification within 72 hours of confirmed disclosure",
 ];
 
+interface AcceptanceReportStaff {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  allAccepted: boolean;
+  documents: Array<{
+    documentType: string;
+    documentLabel: string;
+    currentVersion: string;
+    acceptedVersion: string | null;
+    acceptedAt: string | null;
+    isCurrent: boolean;
+  }>;
+}
+
+interface AcceptanceReport {
+  staff: AcceptanceReportStaff[];
+  versions: Record<string, string>;
+  docLabels: Record<string, string>;
+}
+
+function StaffAcceptanceReport() {
+  const { data, isLoading, error } = useQuery<AcceptanceReport>({
+    queryKey: ["legal-acceptance-report"],
+    queryFn: async () => {
+      const r = await authFetch(`${BASE}/api/legal/acceptance-report`);
+      if (!r.ok) throw new Error("Failed to load report");
+      return r.json();
+    },
+    staleTime: 2 * 60_000,
+  });
+
+  const allStaff = data?.staff ?? [];
+  const totalStaff = allStaff.length;
+  const acceptedAll = allStaff.filter(s => s.allAccepted).length;
+  const pending = totalStaff - acceptedAll;
+
+  function exportCsv() {
+    if (!data) return;
+    const docTypes = Object.keys(data.versions);
+    const header = ["Name", "Email", "Role", "All Accepted", ...docTypes.map(d => `${data.docLabels[d] ?? d} (Accepted At)`)];
+    const rows = data.staff.map(s => [
+      s.name,
+      s.email,
+      s.role,
+      s.allAccepted ? "Yes" : "No",
+      ...docTypes.map(d => {
+        const doc = s.documents.find(x => x.documentType === d);
+        return doc?.acceptedAt ? new Date(doc.acceptedAt).toLocaleDateString() : "Pending";
+      }),
+    ]);
+    const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `legal-acceptance-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-gray-400">
+        <div className="w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
+        Loading acceptance report…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="py-4 text-sm text-gray-400">Could not load acceptance report.</div>
+    );
+  }
+
+  const docLabels = data?.docLabels ?? {};
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+          <div className="text-xl font-bold text-gray-900">{totalStaff}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Total staff</div>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3">
+          <div className="text-xl font-bold text-emerald-700">{acceptedAll}</div>
+          <div className="text-xs text-emerald-600 mt-0.5">All docs accepted</div>
+        </div>
+        <div className={`rounded-lg border px-4 py-3 ${pending > 0 ? "border-amber-200 bg-amber-50/50" : "border-gray-200 bg-white"}`}>
+          <div className={`text-xl font-bold ${pending > 0 ? "text-amber-700" : "text-gray-400"}`}>{pending}</div>
+          <div className={`text-xs mt-0.5 ${pending > 0 ? "text-amber-600" : "text-gray-400"}`}>
+            {pending > 0 ? "Pending acceptance" : "None pending"}
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Staff</span>
+          <div className="flex items-center gap-4">
+            {Object.entries(docLabels).map(([type, label]) => (
+              <span key={type} className="text-xs font-medium text-gray-500">{label}</span>
+            ))}
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              <Download className="w-3 h-3" />
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+          {allStaff.length === 0 && (
+            <div className="py-8 text-center text-sm text-gray-400">No staff records found.</div>
+          )}
+          {allStaff.map(s => (
+            <div key={s.userId} className="flex items-center px-4 py-3 hover:bg-gray-50/50 gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900 truncate">{s.name || "(unnamed)"}</div>
+                <div className="text-xs text-gray-400 truncate">{s.email} · {s.role}</div>
+              </div>
+              {s.documents.map(doc => (
+                <div key={doc.documentType} className="flex-shrink-0 flex items-center gap-1">
+                  {doc.isCurrent ? (
+                    <div className="flex items-center gap-1 text-emerald-600" title={`Accepted ${new Date(doc.acceptedAt!).toLocaleDateString()}`}>
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-xs hidden sm:inline">{new Date(doc.acceptedAt!).toLocaleDateString()}</span>
+                    </div>
+                  ) : doc.acceptedAt ? (
+                    <div className="flex items-center gap-1 text-amber-500" title={`Accepted old version — v${doc.acceptedVersion} (current: v${doc.currentVersion})`}>
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-xs hidden sm:inline">Outdated</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-gray-400" title="Not yet accepted">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-xs hidden sm:inline">Pending</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RequestDpaModal({ onClose }: { onClose: () => void }) {
   const { user } = useRole();
   const [sending, setSending] = useState(false);
@@ -111,8 +276,7 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
         requestedAt: new Date().toISOString(),
       };
 
-      // Log the request server-side (audit trail)
-      const res = await fetch("/api/legal/request-dpa", {
+      const res = await authFetch(`${BASE}/api/legal/request-dpa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -122,13 +286,12 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      // Open pre-filled email to Trellis legal so the notification is sent immediately
       const emailSubject = encodeURIComponent(`DPA Request — ${districtName}`);
       const emailBody = encodeURIComponent(
         `Hello Trellis Team,\n\n${districtName} would like to request a signed Data Processing Agreement.\n\n` +
         `Contact: ${contactName}\nTitle: ${contactTitle}\nEmail: ${contactEmail}\n` +
         (notes ? `\nNotes: ${notes}` : "") +
-        `\n\nRequested at: ${new Date().toLocaleString()}\n`
+        `\n\nRequested at: ${new Date().toLocaleString()}\n`,
       );
       window.open(`mailto:legal@trellis.app?subject=${emailSubject}&body=${emailBody}`, "_blank");
 
@@ -242,6 +405,22 @@ export default function LegalCompliancePage() {
         </CardContent>
       </Card>
 
+      <Card className="border-gray-200/70">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-gray-500" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Staff Legal Acceptance Report</CardTitle>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Tracks which staff members have accepted the current version of each required legal document.
+            Required for district compliance with FERPA staff-training obligations.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <StaffAcceptanceReport />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4">
         {DOCS.map((doc) => (
           <Card key={doc.fileName} className="border-gray-200/70 hover:shadow-sm transition-shadow">
@@ -261,7 +440,7 @@ export default function LegalCompliancePage() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   <a
-                    href={`/docs/legal/${doc.fileName}`}
+                    href={`${BASE}/docs/legal/${doc.fileName}`}
                     download={doc.fileName}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
                     title={`Download ${doc.fileName}`}
@@ -275,7 +454,6 @@ export default function LegalCompliancePage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors"
-                    title="View on GitHub"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     View
@@ -334,7 +512,7 @@ export default function LegalCompliancePage() {
       </Card>
 
       <p className="text-[11px] text-gray-400 text-center pb-2">
-        These documents are templates and operational policies. They do not constitute legal advice. 
+        These documents are templates and operational policies. They do not constitute legal advice.
         Trellis recommends district counsel review the DPA before signing.
         Questions? Email <a href="mailto:legal@trellis.app" className="underline hover:text-gray-600">legal@trellis.app</a>
       </p>
