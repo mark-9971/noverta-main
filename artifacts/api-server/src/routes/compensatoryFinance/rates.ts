@@ -49,12 +49,12 @@ router.post("/compensatory-finance/rates", async (req, res): Promise<void> => {
     res.status(400).json({ error: "serviceTypeId must be a positive integer" });
     return;
   }
-  if (inHouseRate !== undefined && inHouseRate !== null && (isNaN(Number(inHouseRate)) || Number(inHouseRate) < 0)) {
-    res.status(400).json({ error: "inHouseRate must be a non-negative number" });
+  if (inHouseRate !== undefined && inHouseRate !== null && (isNaN(Number(inHouseRate)) || Number(inHouseRate) <= 0)) {
+    res.status(400).json({ error: "inHouseRate must be a positive number greater than zero" });
     return;
   }
-  if (contractedRate !== undefined && contractedRate !== null && (isNaN(Number(contractedRate)) || Number(contractedRate) < 0)) {
-    res.status(400).json({ error: "contractedRate must be a non-negative number" });
+  if (contractedRate !== undefined && contractedRate !== null && (isNaN(Number(contractedRate)) || Number(contractedRate) <= 0)) {
+    res.status(400).json({ error: "contractedRate must be a positive number greater than zero" });
     return;
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {

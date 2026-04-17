@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign } from "lucide-react";
 
 const SetupPage = lazy(() => import("@/pages/setup"));
 const SchoolYearPage = lazy(() => import("@/pages/school-year"));
@@ -8,10 +8,12 @@ const AuditLogPage = lazy(() => import("@/pages/audit-log"));
 const RecentlyDeletedPage = lazy(() => import("@/pages/recently-deleted"));
 const SystemStatusPage = lazy(() => import("@/pages/system-status"));
 const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
+const BillingRatesPage = lazy(() => import("@/pages/billing-rates"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
   { key: "school-year", label: "School Year", icon: CalendarDays },
+  { key: "billing-rates", label: "Billing Rates", icon: DollarSign },
   { key: "sis", label: "SIS Integration", icon: Database },
   { key: "audit-log", label: "Audit Log", icon: Shield },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
@@ -92,6 +94,7 @@ export default function SettingsHubPage() {
       <Suspense fallback={<TabLoader />}>
         {activeTab === "general" && <SetupPage />}
         {activeTab === "school-year" && <SchoolYearPage />}
+        {activeTab === "billing-rates" && <BillingRatesPage />}
         {activeTab === "sis" && <SisSettingsPage />}
         {activeTab === "audit-log" && <AuditLogPage />}
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}

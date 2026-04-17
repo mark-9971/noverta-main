@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { serviceTypesTable, serviceRequirementsTable, staffTable, studentsTable } from "@workspace/db";
 import {
   CreateServiceTypeBody,
+  UpdateServiceTypeParams,
+  UpdateServiceTypeBody,
   ListServiceRequirementsQueryParams,
   CreateServiceRequirementBody,
   GetServiceRequirementParams,
@@ -44,6 +46,61 @@ router.post("/service-types", requireServiceAdmin, async (req, res): Promise<voi
   }
   const [type] = await db.insert(serviceTypesTable).values(parsed.data).returning();
   res.status(201).json({ ...type, createdAt: type.createdAt.toISOString() });
+});
+
+// Platform-admin-only endpoint: edits the global service type catalog row.
+// District admins should configure per-district rates via POST /compensatory-finance/rates.
+router.patch("/service-types/:id", requireServiceAdmin, async (req, res): Promise<void> => {
+  // Only platform admins (no enforced district) may edit global service type rows.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null) {
+    res.status(403).json({
+      error: "District admins cannot edit global service types. Use POST /api/compensatory-finance/rates to configure district-specific billing rates.",
+    });
+    return;
+  }
+
+  const params = UpdateServiceTypeParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const parsed = UpdateServiceTypeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const updateData: Partial<typeof serviceTypesTable.$inferInsert> = {};
+  if (parsed.data.name != null) updateData.name = parsed.data.name;
+  if (parsed.data.category != null) updateData.category = parsed.data.category;
+  if (parsed.data.color !== undefined) updateData.color = parsed.data.color ?? null;
+  if (parsed.data.description !== undefined) updateData.description = parsed.data.description ?? null;
+  if (parsed.data.defaultIntervalType !== undefined) updateData.defaultIntervalType = parsed.data.defaultIntervalType ?? null;
+  if (parsed.data.cptCode !== undefined) updateData.cptCode = parsed.data.cptCode ?? null;
+  if (parsed.data.defaultBillingRate !== undefined) {
+    const rate = parsed.data.defaultBillingRate;
+    if (rate !== null) {
+      const parsed2 = parseFloat(rate);
+      if (!Number.isFinite(parsed2) || parsed2 <= 0) {
+        res.status(400).json({ error: "defaultBillingRate must be a positive number" });
+        return;
+      }
+    }
+    updateData.defaultBillingRate = rate;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [type] = await db.update(serviceTypesTable).set(updateData).where(eq(serviceTypesTable.id, params.data.id)).returning();
+  if (!type) {
+    res.status(404).json({ error: "Service type not found" });
+    return;
+  }
+  res.json({ ...type, createdAt: type.createdAt.toISOString() });
 });
 
 router.get("/service-requirements", async (req, res): Promise<void> => {

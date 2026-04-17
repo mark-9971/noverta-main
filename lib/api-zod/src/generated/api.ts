@@ -1072,6 +1072,23 @@ export const CreateServiceTypeBody = zod.object({
 });
 
 /**
+ * @summary Update service type (billing rate and other fields)
+ */
+export const UpdateServiceTypeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateServiceTypeBody = zod.object({
+  name: zod.string().nullish(),
+  category: zod.string().nullish(),
+  color: zod.string().nullish(),
+  description: zod.string().nullish(),
+  defaultIntervalType: zod.string().nullish(),
+  cptCode: zod.string().nullish(),
+  defaultBillingRate: zod.string().nullish(),
+});
+
+/**
  * @summary List service requirements
  */
 export const ListServiceRequirementsQueryParams = zod.object({

@@ -3,6 +3,7 @@ import {
   studentsTable,
   serviceRequirementsTable,
   serviceTypesTable,
+  serviceRateConfigsTable,
   complianceEventsTable,
   evaluationReferralsTable,
   iepDocumentsTable,
@@ -14,7 +15,7 @@ import {
   staffTable,
   communicationEventsTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, gte, lte, isNull, inArray, ne } from "drizzle-orm";
+import { eq, and, sql, gte, lte, isNull, inArray, ne, desc } from "drizzle-orm";
 import { sendEmail, buildCostAvoidanceRiskEmail } from "./email";
 
 type UrgencyWindow = "overdue" | "7" | "14" | "30";
@@ -99,7 +100,7 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   const risks: AlertableRisk[] = [];
 
   await collectEvaluationRisks(risks, studentIds, studentCaseManagers, studentNames, today);
-  await collectServiceShortfallRisks(risks, studentIds, studentCaseManagers, studentNames, today);
+  await collectServiceShortfallRisks(risks, studentIds, studentCaseManagers, studentNames, today, districtId);
   await collectIepAnnualReviewRisks(risks, studentIds, studentCaseManagers, studentNames, today, horizon);
 
   const existingAlerts = await db.select({
@@ -329,12 +330,15 @@ async function collectEvaluationRisks(
   }
 }
 
+const SYSTEM_DEFAULT_HOURLY_RATE = 75;
+
 async function collectServiceShortfallRisks(
   risks: AlertableRisk[],
   studentIds: number[],
   caseManagers: Map<number, number | null>,
   studentNames: Map<number, string>,
   today: string,
+  districtId: number,
 ): Promise<void> {
   const requirements = await db.select({
     id: serviceRequirementsTable.id,
@@ -350,17 +354,52 @@ async function collectServiceShortfallRisks(
 
   if (requirements.length === 0) return;
 
-  const serviceTypes = await db.select({
-    id: serviceTypesTable.id,
-    name: serviceTypesTable.name,
-    defaultBillingRate: serviceTypesTable.defaultBillingRate,
-  }).from(serviceTypesTable);
+  // Load global service type catalog and district-specific rate overrides in parallel.
+  const [serviceTypes, districtRateRows] = await Promise.all([
+    db.select({
+      id: serviceTypesTable.id,
+      name: serviceTypesTable.name,
+      defaultBillingRate: serviceTypesTable.defaultBillingRate,
+    }).from(serviceTypesTable),
+
+    db.select({
+      serviceTypeId: serviceRateConfigsTable.serviceTypeId,
+      inHouseRate: serviceRateConfigsTable.inHouseRate,
+      contractedRate: serviceRateConfigsTable.contractedRate,
+    }).from(serviceRateConfigsTable)
+      .where(eq(serviceRateConfigsTable.districtId, districtId))
+      .orderBy(desc(serviceRateConfigsTable.effectiveDate)),
+  ]);
+
+  // Most-recent district rate per service type.
+  const districtRateMap = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
+  for (const r of districtRateRows) {
+    if (!districtRateMap.has(r.serviceTypeId)) {
+      districtRateMap.set(r.serviceTypeId, { inHouseRate: r.inHouseRate, contractedRate: r.contractedRate });
+    }
+  }
+
   const svcMap = new Map(serviceTypes.map(t => {
-    const parsed = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
-    return [t.id, {
-      name: t.name,
-      hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
-    }] as const;
+    const dr = districtRateMap.get(t.id);
+    const inHouse = dr?.inHouseRate ? parseFloat(dr.inHouseRate) : NaN;
+    const contracted = dr?.contractedRate ? parseFloat(dr.contractedRate) : NaN;
+    const global = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
+
+    let hourlyRate: number;
+    let isDefaultRate: boolean;
+
+    let rateSource: 'district' | 'catalog' | 'system';
+    if (Number.isFinite(inHouse) && inHouse > 0) {
+      hourlyRate = inHouse; rateSource = 'district';
+    } else if (Number.isFinite(contracted) && contracted > 0) {
+      hourlyRate = contracted; rateSource = 'district';
+    } else if (Number.isFinite(global) && global > 0) {
+      hourlyRate = global; rateSource = 'catalog';
+    } else {
+      hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE; rateSource = 'system';
+    }
+    isDefaultRate = rateSource === 'system';
+    return [t.id, { name: t.name, hourlyRate, isDefaultRate, rateSource }] as const;
   }));
 
   const now = new Date();
@@ -394,7 +433,8 @@ async function collectServiceShortfallRisks(
   for (const req of requirements) {
     const svcType = svcMap.get(req.serviceTypeId);
     const svcName = svcType?.name || "Unknown Service";
-    const hourlyRate: number | null = svcType?.hourlyRate ?? null;
+    const hourlyRate: number = svcType?.hourlyRate ?? SYSTEM_DEFAULT_HOURLY_RATE;
+    const rateSource = svcType?.rateSource ?? 'system';
 
     if (req.intervalType === "weekly") {
       const weekSessionTotals = await db.select({
@@ -414,9 +454,7 @@ async function collectServiceShortfallRisks(
       if (daysLeftInWeek <= 1 && deliveredMinutes < req.requiredMinutes * 0.5) {
         const shortfall = req.requiredMinutes - deliveredMinutes;
         if (shortfall < 15) continue;
-        const estimatedExposure = hourlyRate != null
-          ? Math.round((shortfall / 60) * hourlyRate)
-          : null;
+        const estimatedExposure = Math.round((shortfall / 60) * hourlyRate);
 
         const weekKey = currentWeekStart.toISOString().slice(0, 10);
         risks.push({
@@ -430,9 +468,11 @@ async function collectServiceShortfallRisks(
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           daysRemaining: daysLeftInWeek,
           estimatedExposure,
-          exposureBasis: estimatedExposure != null
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr configured rate`
-            : `${shortfall} min shortfall (${svcName} rate not configured)`,
+          exposureBasis: rateSource === 'system'
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default rate)`
+            : rateSource === 'catalog'
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : `${shortfall} min shortfall × $${hourlyRate}/hr (district-configured rate)`,
         });
       }
     } else {
@@ -444,9 +484,7 @@ async function collectServiceShortfallRisks(
       if (projectedShortfall > 0 && deliveredMinutes < expectedByNow * 0.85) {
         const daysLeft = daysInMonth - dayOfMonth;
         if (projectedShortfall < 15) continue;
-        const estimatedExposure = hourlyRate != null
-          ? Math.round((projectedShortfall / 60) * hourlyRate)
-          : null;
+        const estimatedExposure = Math.round((projectedShortfall / 60) * hourlyRate);
 
         const pctDelivered = req.requiredMinutes > 0 ? Math.round((deliveredMinutes / req.requiredMinutes) * 100) : 0;
         const urgency = pctDelivered < 30 && monthProgress > 0.5 ? "critical" as const :
@@ -464,9 +502,11 @@ async function collectServiceShortfallRisks(
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           daysRemaining: daysLeft,
           estimatedExposure,
-          exposureBasis: estimatedExposure != null
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr configured rate`
-            : `${projectedShortfall} min projected shortfall (${svcName} rate not configured)`,
+          exposureBasis: rateSource === 'system'
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default rate)`
+            : rateSource === 'catalog'
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district-configured rate)`,
         });
       }
     }

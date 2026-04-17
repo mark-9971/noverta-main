@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, AlertTriangle, TrendingDown, TrendingUp, Shield, Clock,
   ChevronDown, ChevronRight, ExternalLink, Bell, FileSearch,
-  CalendarDays, Activity, Users, CalendarX, UserMinus, Minus
+  CalendarDays, Activity, Users, CalendarX, UserMinus, Minus, Info, Settings
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, LineChart, Line, ReferenceLine } from "recharts";
 import { Link } from "wouter";
@@ -26,10 +26,11 @@ interface RiskItem {
   title: string;
   description: string;
   daysRemaining: number;
-  // Null when the risk has no priced dollar exposure (either non-financial like
-  // evaluation/IEP deadlines, or service shortfalls whose service type has no
-  // configured hourly rate). The non-dollar reason is in exposureBasis.
+  // Null when the risk has no priced dollar exposure (evaluation/IEP deadlines).
   estimatedExposure: number | null;
+  // True when the exposure was estimated using the system default $75/hr rate
+  // rather than a district-configured rate for this service type.
+  isUsingDefaultRate?: boolean;
   exposureBasis: string;
   actionNeeded: string;
   serviceTypeName?: string;
@@ -38,10 +39,13 @@ interface RiskItem {
 
 interface RiskSummary {
   totalExposure: number;
+  unpricedRiskCount: number;
+  defaultRateCount: number;
   totalRisks: number;
   studentsAtRisk: number;
-  byUrgency: Record<UrgencyLevel, { count: number; exposure: number }>;
-  byCategory: Record<string, { count: number; exposure: number }>;
+  byUrgency: Record<UrgencyLevel, { count: number; exposure: number; unpricedCount: number }>;
+  byCategory: Record<string, { count: number; exposure: number; unpricedCount: number }>;
+  rateConfigNote: string | null;
 }
 
 const URGENCY_CONFIG: Record<UrgencyLevel, { label: string; color: string; bg: string; border: string; dot: string }> = {
@@ -425,17 +429,20 @@ function RiskRow({ risk }: { risk: RiskItem }) {
               <h4 className="text-[13px] font-semibold text-gray-800 truncate">{risk.title}</h4>
               <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{risk.description}</p>
             </div>
-            <div className="text-right flex-shrink-0 max-w-[180px]">
+            <div className="text-right flex-shrink-0 max-w-[200px]">
               {risk.estimatedExposure != null ? (
                 <>
                   <span className="text-sm font-bold text-gray-900">${risk.estimatedExposure.toLocaleString()}</span>
                   <p className="text-[10px] text-gray-400 mt-0.5">est. exposure</p>
+                  {risk.isUsingDefaultRate && (
+                    <p className="text-[10px] text-amber-600 mt-0.5">default rate</p>
+                  )}
                 </>
               ) : (
                 <>
-                  <span className="text-[11px] font-semibold text-amber-700">Not priced</span>
-                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                    {risk.exposureBasis || "non-financial risk"}
+                  <span className="text-[11px] font-semibold text-gray-500">Non-financial</span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                    {risk.exposureBasis || "no dollar exposure"}
                   </p>
                 </>
               )}
@@ -798,6 +805,21 @@ export default function CostAvoidanceDashboard() {
         <ExposureTrendChart snapshots={snapshots} />
         <RisksOverTimeMiniChart snapshots={snapshots} />
       </div>
+
+      {summary.rateConfigNote && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3">
+          <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-amber-800">{summary.rateConfigNote}</p>
+          </div>
+          <Link href="/settings#billing-rates">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:text-amber-900 whitespace-nowrap cursor-pointer">
+              <Settings className="w-3 h-3" />
+              Configure Rates
+            </span>
+          </Link>
+        </div>
+      )}
 
       <ForecastSection />
 
