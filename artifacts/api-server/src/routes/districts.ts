@@ -49,8 +49,15 @@ router.get("/districts", async (req, res): Promise<void> => {
     if (sc.districtId != null) schoolCountMap.set(sc.districtId, sc.count);
   }
 
+  const districtIds = districts.map(d => d.id);
+  const thresholds = districtIds.length > 0
+    ? await db.select({ id: districtsTable.id, complianceMinuteThreshold: districtsTable.complianceMinuteThreshold }).from(districtsTable).where(inArray(districtsTable.id, districtIds))
+    : [];
+  const thresholdMap = new Map(thresholds.map(t => [t.id, t.complianceMinuteThreshold]));
+
   res.json(districts.map(d => ({
     ...d,
+    complianceMinuteThreshold: thresholdMap.get(d.id) ?? 85,
     schoolCount: schoolCountMap.get(d.id) ?? 0,
     createdAt: d.createdAt.toISOString(),
   })));
@@ -120,6 +127,15 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   if (req.body.name != null) updateData.name = req.body.name;
   if (req.body.state !== undefined) updateData.state = req.body.state;
   if (req.body.region !== undefined) updateData.region = req.body.region;
+
+  if (req.body.complianceMinuteThreshold !== undefined) {
+    const t = Number(req.body.complianceMinuteThreshold);
+    if (!Number.isInteger(t) || t < 1 || t > 100) {
+      res.status(400).json({ error: "complianceMinuteThreshold must be an integer between 1 and 100" });
+      return;
+    }
+    updateData.complianceMinuteThreshold = t;
+  }
 
   if (req.body.tier !== undefined || req.body.tierOverride !== undefined) {
     if (!meta.platformAdmin) {

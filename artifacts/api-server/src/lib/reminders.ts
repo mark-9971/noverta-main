@@ -14,8 +14,11 @@ import {
   sessionLogsTable,
   alertsTable,
   serviceTypesTable,
+  districtsTable,
+  type InsertAlert,
 } from "@workspace/db";
 import { eq, and, lt, ne, sql, isNull, or, lte, inArray } from "drizzle-orm";
+import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import {
   sendEmail,
   sendReportEmail,
@@ -515,6 +518,105 @@ async function runComplianceAlertCheck(): Promise<void> {
   }
 }
 
+function getWeekStartStr(d: Date): string {
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+  return monday.toISOString().substring(0, 10);
+}
+
+async function runComplianceRiskAlerts(): Promise<void> {
+  // Gate to weekly cadence: only generate alerts on Mondays.
+  // The 6-hour scheduler still calls this function multiple times per week,
+  // but all non-Monday calls return early to match the weekly spec.
+  const today = new Date();
+  if (today.getDay() !== 1) {
+    console.log("[Reminders] Compliance risk alerts: skipped (not Monday)");
+    return;
+  }
+
+  try {
+    const districts = await db
+      .select({ id: districtsTable.id, complianceMinuteThreshold: districtsTable.complianceMinuteThreshold })
+      .from(districtsTable);
+
+    const weekStart = getWeekStartStr(today);
+    let totalCreated = 0;
+    let totalSkipped = 0;
+
+    for (const district of districts) {
+      const threshold = district.complianceMinuteThreshold ?? 85;
+
+      const progressItems = await computeAllActiveMinuteProgress({ districtId: district.id });
+      if (progressItems.length === 0) continue;
+
+      // Collect the worst (lowest percentComplete) failing service per student.
+      // One alert per student per week — deduped by student + week.
+      const worstByStudent = new Map<number, typeof progressItems[number]>();
+      for (const p of progressItems) {
+        if (p.requiredMinutes <= 0 || p.percentComplete >= threshold) continue;
+        const current = worstByStudent.get(p.studentId);
+        if (!current || p.percentComplete < current.percentComplete) {
+          worstByStudent.set(p.studentId, p);
+        }
+      }
+
+      if (worstByStudent.size === 0) continue;
+
+      const studentIds = [...worstByStudent.keys()];
+
+      // Dedupe against ALL compliance_risk alerts for these students this week
+      // (resolved or unresolved) — one alert per student per week.
+      const existingAlerts = await db
+        .select({ studentId: alertsTable.studentId, message: alertsTable.message })
+        .from(alertsTable)
+        .where(
+          and(
+            eq(alertsTable.type, "compliance_risk"),
+            inArray(alertsTable.studentId, studentIds),
+            sql`${alertsTable.message} LIKE ${`%[week:${weekStart}]%`}`,
+          )
+        );
+
+      const alreadyAlertedStudents = new Set<number>(
+        existingAlerts.map(a => a.studentId).filter((id): id is number => id != null)
+      );
+
+      const alertsToInsert: InsertAlert[] = [];
+      for (const [studentId, p] of worstByStudent.entries()) {
+        if (alreadyAlertedStudents.has(studentId)) {
+          totalSkipped++;
+          continue;
+        }
+
+        const pct = Math.round(p.percentComplete);
+        const severity = pct < 50 ? "critical" : pct < 70 ? "high" : "medium";
+
+        alertsToInsert.push({
+          type: "compliance_risk",
+          severity,
+          studentId: p.studentId,
+          staffId: p.providerId ?? null,
+          serviceRequirementId: p.serviceRequirementId,
+          message: `${p.studentName} is at ${pct}% of required ${p.serviceTypeName} minutes (${p.deliveredMinutes}/${p.requiredMinutes} min delivered this ${p.intervalType} period, threshold: ${threshold}%) [week:${weekStart}]`,
+          suggestedAction: `Review service delivery for ${p.studentName}. Schedule sessions to reach the ${threshold}% compliance threshold. ${p.remainingMinutes} minutes still needed for ${p.serviceTypeName}.`,
+          resolved: false,
+        });
+        alreadyAlertedStudents.add(studentId);
+      }
+
+      if (alertsToInsert.length > 0) {
+        await db.insert(alertsTable).values(alertsToInsert);
+        totalCreated += alertsToInsert.length;
+      }
+    }
+
+    console.log(`[Reminders] Compliance risk alerts: ${totalCreated} created, ${totalSkipped} skipped`);
+  } catch (err) {
+    console.error("[Reminders] Compliance risk alert check error:", err);
+  }
+}
+
 const REPORT_TYPE_LABELS: Record<string, string> = {
   "compliance-summary": "Compliance Summary",
   "services-by-provider": "Services by Provider",
@@ -613,6 +715,7 @@ async function runAllReminders(): Promise<void> {
       runOverdueSessionLogCheck(),
       runScheduledReports(),
       runCostAvoidanceAlertGeneration(),
+      runComplianceRiskAlerts(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {
