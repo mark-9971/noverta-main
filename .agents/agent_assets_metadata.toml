@@ -95,3 +95,15 @@ id = "lueQhhqLn1UO3qxHnCKJm"
 uri = "file://.local/audits/trellis-audit-2026-04-17.md"
 type = "text"
 title = "Trellis — Brutally Honest Audit (2026-04-17)"
+
+[[outputs]]
+id = "qIQTstHyrHxwxLRzqg7fu"
+uri = "file://.local/tasks/pilot-blocker-execution-plan.md"
+type = "text"
+title = "Pilot Blocker Execution Plan"
+
+[[outputs]]
+id = "c-_ZlonwCW9QODNV7DXKi"
+uri = "file://.local/tasks/wave1-implementation-packet.md"
+type = "text"
+title = "Wave 1 Implementation Packet + 4 Power Mode Prompts"

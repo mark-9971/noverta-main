@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { useFeatureAccess } from "@/lib/tier-context";
+import { useFeatureAccess, useTier } from "@/lib/tier-context";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { Lock, ArrowUpCircle, Sparkles } from "lucide-react";
 import { Link } from "wouter";
@@ -12,8 +12,12 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ featureKey, children, title, description }: FeatureGateProps) {
-  const { accessible, requiredTier, requiredTierLabel, moduleName, moduleDescription } = useFeatureAccess(featureKey);
+  const { loading } = useTier();
+  const { accessible, requiredTierLabel, moduleName, moduleDescription } = useFeatureAccess(featureKey);
 
+  // Don't block while the tier is still resolving — avoids a flash of the
+  // lock screen for demo/pilot users whose mode hasn't returned from the API yet.
+  if (loading) return <>{children}</>;
   if (accessible) return <>{children}</>;
 
   return (

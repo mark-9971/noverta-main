@@ -28,6 +28,7 @@ import { db, staffTable, schoolsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
 import { getPublicMeta } from "./clerkClaims";
+import { clerkClient, getAuth } from "@clerk/express";
 
 const DEV_FORCED_DISTRICT_ID: number | null =
   process.env.NODE_ENV !== "production" && process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
@@ -72,6 +73,32 @@ export async function resolveDistrictForCaller(req: Request): Promise<DistrictRe
       .limit(1);
     if (row?.districtId) {
       return { districtId: row.districtId, source: "staff_join" };
+    }
+  }
+
+  // Fallback: look up the staff record by the user's Clerk email address.
+  // This lets demo and pilot accounts whose Clerk metadata wasn't pre-stamped
+  // with staffId/districtId still resolve their district automatically.
+  const userId = getAuth(req)?.userId;
+  if (userId) {
+    try {
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const primaryEmail = clerkUser.emailAddresses.find(
+        (e) => e.id === clerkUser.primaryEmailAddressId
+      )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+      if (primaryEmail) {
+        const [row] = await db
+          .select({ districtId: schoolsTable.districtId })
+          .from(staffTable)
+          .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+          .where(eq(staffTable.email, primaryEmail.toLowerCase()))
+          .limit(1);
+        if (row?.districtId) {
+          return { districtId: row.districtId, source: "staff_join" };
+        }
+      }
+    } catch {
+      // Clerk API unavailable or user not found — fall through to unresolved.
     }
   }
 

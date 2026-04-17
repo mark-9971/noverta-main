@@ -200,6 +200,55 @@ function BillingPageInner() {
     );
   }
 
+  // Demo and pilot districts get a clean "full access" billing page with no
+  // Stripe UI — there's nothing to upgrade or pay for, and rendering the plans
+  // grid with an empty array would be confusing (and historically caused a crash).
+  if (billingMode?.mode === "demo" || billingMode?.mode === "pilot") {
+    const isPilot = billingMode.mode === "pilot";
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Billing & Subscription</h1>
+          <p className="text-sm text-gray-500 mt-1">Your district's plan and access status</p>
+        </div>
+        <div className={`rounded-xl border p-6 flex items-start gap-4 ${isPilot ? "bg-sky-50 border-sky-200" : "bg-violet-50 border-violet-200"}`}>
+          {isPilot
+            ? <FlaskConical className="h-6 w-6 text-sky-600 mt-0.5 flex-shrink-0" />
+            : <Sparkles className="h-6 w-6 text-violet-600 mt-0.5 flex-shrink-0" />
+          }
+          <div>
+            <p className={`font-semibold text-lg ${isPilot ? "text-sky-900" : "text-violet-900"}`}>
+              {isPilot ? "Pilot Program — All Features Included" : "Demo District — All Features Unlocked"}
+            </p>
+            <p className={`text-sm mt-1 ${isPilot ? "text-sky-800" : "text-violet-800"}`}>
+              {isPilot
+                ? "Your district is enrolled in the Trellis pilot program. Every feature is included at no cost for the duration of the pilot. Reach out to your Trellis contact when you're ready to convert to a paid plan."
+                : "You're viewing a demonstration district. All features are fully unlocked for evaluation — no payment required."}
+            </p>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <Crown className="h-5 w-5 text-emerald-600" />
+            <h2 className="font-medium text-gray-900">Current Access</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-emerald-500" />
+            <span className="text-sm text-gray-700">Enterprise plan — all modules enabled</span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <CheckCircle className="h-5 w-5 text-emerald-500" />
+            <span className="text-sm text-gray-700">Compliance tracking, IEP management, reporting</span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <CheckCircle className="h-5 w-5 text-emerald-500" />
+            <span className="text-sm text-gray-700">Transitions, Medicaid billing, analytics</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const statusConfig: Record<string, { icon: typeof CheckCircle; color: string; label: string }> = {
     active: { icon: CheckCircle, color: "text-emerald-600", label: "Active" },
     trialing: { icon: Crown, color: "text-blue-600", label: "Trial" },
