@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, Plus, Ban, Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import { STATUS_COLORS, type ClaimStatus } from "./shared";
+import { STATUS_COLORS, STATUS_LABELS, STATUS_FILTERS, type ClaimStatus } from "./shared";
 
 export function ClaimsQueueTab() {
   const queryClient = useQueryClient();
@@ -130,29 +130,33 @@ export function ClaimsQueueTab() {
       <Card className="border-gray-200/60">
         <CardContent className="py-4 px-5">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold text-gray-700">Generate Claims</span>
+            <span className="text-sm font-semibold text-gray-700">Generate Claim Drafts</span>
             <Input type="date" value={genDateFrom} onChange={e => setGenDateFrom(e.target.value)} className="w-36 h-8 text-xs" />
             <span className="text-xs text-gray-400">to</span>
             <Input type="date" value={genDateTo} onChange={e => setGenDateTo(e.target.value)} className="w-36 h-8 text-xs" />
             <Button size="sm" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs">
               <Plus className="w-3 h-3 mr-1" />
-              {generateMutation.isPending ? "Generating..." : "Generate"}
+              {generateMutation.isPending ? "Generating..." : "Generate Drafts"}
             </Button>
+            <span className="text-[11px] text-gray-400 ml-auto">
+              Builds local claim drafts only. Filing happens in your Medicaid billing system.
+            </span>
           </div>
         </CardContent>
       </Card>
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1">
-          {(["pending", "approved", "rejected", "exported", "void", ""] as const).map(s => (
+          {STATUS_FILTERS.map(({ value, label, title }) => (
             <button
-              key={s}
-              onClick={() => { setStatusFilter(s); setSelectedIds(new Set()); }}
+              key={value}
+              title={title}
+              onClick={() => { setStatusFilter(value); setSelectedIds(new Set()); }}
               className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                statusFilter === s ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                statusFilter === value ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
-              {s || "All"}
+              {label}
             </button>
           ))}
         </div>
@@ -233,8 +237,8 @@ export function ClaimsQueueTab() {
                       <Input value={editForm.billedAmount} onChange={e => setEditForm(f => ({ ...f, billedAmount: e.target.value }))} className="w-20 h-6 text-[11px] text-right px-1" placeholder="0.00" />
                     </td>
                     <td className="py-2 px-3">
-                      <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status as ClaimStatus] || "bg-gray-100 text-gray-500"}`}>
-                        {c.status}
+                      <span title={STATUS_LABELS[c.status as ClaimStatus]?.title} className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status as ClaimStatus] || "bg-gray-100 text-gray-500"}`}>
+                        {STATUS_LABELS[c.status as ClaimStatus]?.label || c.status}
                       </span>
                     </td>
                     <td className="py-2 px-3 font-mono text-gray-500 text-[11px]">{c.studentMedicaidId || <span className="text-red-400">Missing</span>}</td>
@@ -263,8 +267,8 @@ export function ClaimsQueueTab() {
                     <td className="py-2 px-3 text-right text-gray-700">{c.units}</td>
                     <td className="py-2 px-3 text-right font-medium text-gray-800">${parseFloat(c.billedAmount).toFixed(2)}</td>
                     <td className="py-2 px-3">
-                      <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status as ClaimStatus] || "bg-gray-100 text-gray-500"}`}>
-                        {c.status}
+                      <span title={STATUS_LABELS[c.status as ClaimStatus]?.title} className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${STATUS_COLORS[c.status as ClaimStatus] || "bg-gray-100 text-gray-500"}`}>
+                        {STATUS_LABELS[c.status as ClaimStatus]?.label || c.status}
                       </span>
                     </td>
                     <td className="py-2 px-3 font-mono text-gray-500 text-[11px]">

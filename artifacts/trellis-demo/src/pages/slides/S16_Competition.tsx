@@ -46,7 +46,7 @@ export default function S16_Competition() {
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-red-500">None</div>
           </div>
           <div className="grid grid-cols-6">
-            <div className="p-[1vw] font-body text-[1.2vw] text-text">Medicaid Billing</div>
+            <div className="p-[1vw] font-body text-[1.2vw] text-text">Medicaid Claim Prep</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center bg-primary/5 text-primary font-bold">Built-in</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-muted">Add-on</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-muted">Partner</div>

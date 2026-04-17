@@ -143,10 +143,10 @@ const TIERS: TierConfig[] = [
 
 const ADD_ONS = [
   {
-    title: "Medicaid Revenue Recovery",
-    description: "Automated Medicaid claiming with compliant documentation. We handle the filing — you keep the revenue.",
-    pricing: "Revenue share model",
-    detail: "No upfront cost. Pay only on successful claims.",
+    title: "Medicaid Claim Prep",
+    description: "Turns logged service minutes into a Medicaid-ready claim queue: CPT/HCPCS code mapping, unit calculation, diagnosis validation, and admin review. Exports a CSV your district (or your billing vendor / clearinghouse) uploads to your state Medicaid system. Trellis does not file claims, generate true X12 837P EDI, or follow up on adjudication.",
+    pricing: "Included in Professional and Enterprise",
+    detail: "No revenue share. Filing, clearinghouse fees, and reimbursement remain with the district or its billing vendor.",
     icon: "💰",
   },
   {

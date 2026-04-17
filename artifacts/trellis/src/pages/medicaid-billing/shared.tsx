@@ -8,6 +8,26 @@ export const STATUS_COLORS: Record<ClaimStatus, string> = {
   void: "bg-gray-100 text-gray-500",
 };
 
+// Honest, non-Medicaid-implying labels. None of these statuses reflect any
+// communication with Medicaid — Trellis never files claims or receives
+// adjudication. Every status describes only what happened inside this tool.
+export const STATUS_LABELS: Record<ClaimStatus, { label: string; title: string }> = {
+  pending: { label: "Draft", title: "Generated from session logs. Awaiting internal review by your billing admin." },
+  approved: { label: "Internal OK", title: "An admin in Trellis approved this draft for export. This is NOT a Medicaid approval — Medicaid has not seen it." },
+  rejected: { label: "Internal Reject", title: "An admin in Trellis rejected or flagged this draft. It will not be included in the next export." },
+  exported: { label: "Exported", title: "The CSV/JSON file containing this draft was downloaded from Trellis. Trellis does not know whether it has been uploaded to or accepted by Medicaid." },
+  void: { label: "Voided", title: "Marked void in Trellis (e.g. duplicate or no longer billable). Not exported and not filed." },
+};
+
+export const STATUS_FILTERS: { value: string; label: string; title: string }[] = [
+  { value: "pending", label: "Draft", title: STATUS_LABELS.pending.title },
+  { value: "approved", label: "Internal OK", title: STATUS_LABELS.approved.title },
+  { value: "rejected", label: "Internal Reject", title: STATUS_LABELS.rejected.title },
+  { value: "exported", label: "Exported", title: STATUS_LABELS.exported.title },
+  { value: "void", label: "Voided", title: STATUS_LABELS.void.title },
+  { value: "", label: "All", title: "Show all draft claims regardless of internal status." },
+];
+
 export function Tabs({ tabs, active, onChange }: { tabs: { key: string; label: string; icon: any }[]; active: string; onChange: (k: string) => void }) {
   return (
     <div className="flex gap-1 border-b border-gray-200 mb-6">

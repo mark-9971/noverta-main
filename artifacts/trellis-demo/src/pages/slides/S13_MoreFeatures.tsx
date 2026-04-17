@@ -8,8 +8,8 @@ export default function S13_MoreFeatures() {
         <div className="grid grid-cols-3 gap-[2.5vw]">
           <div className="bg-white rounded-[1vw] p-[2vw] border border-gray-100 shadow-sm">
             <div className="w-[3vw] h-[0.4vh] bg-primary rounded-full mb-[1.5vh]" />
-            <p className="font-body text-[1.5vw] font-semibold text-text mb-[0.5vh]">Medicaid Billing</p>
-            <p className="font-body text-[1.3vw] text-muted">Auto-capture billable minutes with student Medicaid ID management.</p>
+            <p className="font-body text-[1.5vw] font-semibold text-text mb-[0.5vh]">Medicaid Claim Prep</p>
+            <p className="font-body text-[1.3vw] text-muted">Auto-capture billable minutes, CPT mapping, and a CSV export the district uploads to its Medicaid billing system.</p>
           </div>
           <div className="bg-white rounded-[1vw] p-[2vw] border border-gray-100 shadow-sm">
             <div className="w-[3vw] h-[0.4vh] bg-warm rounded-full mb-[1.5vh]" />

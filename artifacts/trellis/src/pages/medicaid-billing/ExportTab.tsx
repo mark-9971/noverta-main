@@ -62,12 +62,18 @@ export function ExportTab() {
     <div className="space-y-6 max-w-2xl">
       <Card className="border-gray-200/60">
         <CardHeader className="pb-0">
-          <CardTitle className="text-sm font-semibold text-gray-600">Export Approved Claims</CardTitle>
+          <CardTitle className="text-sm font-semibold text-gray-600">Export Reviewed Claim Drafts</CardTitle>
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
+          <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+            <b>This is a data export, not a Medicaid submission.</b> Trellis does not transmit claims to Medicaid,
+            does not produce true X12 837P EDI, and does not receive adjudication responses. Download the file
+            and upload it through your district's Medicaid billing system or clearinghouse.
+          </div>
           <p className="text-[13px] text-gray-500">
-            Export all <b className="text-gray-800">{approvedCount} approved</b> claims for upload to your district's Medicaid billing system.
-            Exported claims will be marked as "exported" to prevent double-billing.
+            Export all <b className="text-gray-800">{approvedCount} internally-approved</b> claim drafts.
+            Once exported, drafts are marked <b className="text-gray-800">exported</b> in Trellis so the same
+            draft is not exported twice — this status reflects what Trellis sent to you, not what Medicaid received.
           </p>
 
           <div>
@@ -76,8 +82,8 @@ export function ExportTab() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" checked={format === "csv"} onChange={() => setFormat("csv")} className="text-emerald-600" />
                 <div>
-                  <span className="text-sm font-medium text-gray-700">CSV (837P-style)</span>
-                  <p className="text-[10px] text-gray-400">Standard billing CSV for most systems</p>
+                  <span className="text-sm font-medium text-gray-700">CSV (837P field reference)</span>
+                  <p className="text-[10px] text-gray-400">Flat CSV mapping to common 837P fields — not a true X12 EDI file</p>
                 </div>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -108,8 +114,8 @@ export function ExportTab() {
         <CardContent className="pt-4">
           <div className="text-[12px] text-gray-500 space-y-2">
             <p><b className="text-gray-700">CSV columns:</b> ClaimID, PatientMedicaidID, PatientLastName, PatientFirstName, PatientDOB, ProviderNPI, ProviderMedicaidID, ServiceDate, CPTCode, Modifier, PlaceOfService, Units, BilledAmount, DiagnosisCode, ServiceDescription</p>
-            <p><b className="text-gray-700">837P compatibility:</b> The CSV format includes all fields needed for standard Medicaid professional claims. Map columns to your billing system's import template.</p>
-            <p><b className="text-gray-700">Audit trail:</b> Each export creates a batch ID linking claims to the export event for reconciliation.</p>
+            <p><b className="text-gray-700">837P field mapping (not EDI):</b> Columns line up with the common professional-claim fields used by 837P, so a billing analyst or vendor can map them into their import template. Trellis does not generate the X12 837P EDI envelope itself; the conversion to EDI and the actual transmission to Medicaid happen in your billing system or at your clearinghouse.</p>
+            <p><b className="text-gray-700">Audit trail:</b> Each export creates a batch ID linking the exported drafts to the export event so you can reconcile internally. This batch ID is <b>not</b> a Medicaid claim control number.</p>
           </div>
         </CardContent>
       </Card>

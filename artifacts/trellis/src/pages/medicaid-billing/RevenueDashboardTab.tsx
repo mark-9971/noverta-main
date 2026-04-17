@@ -31,17 +31,30 @@ export function RevenueDashboardTab() {
 
   const fmt = (v: string) => parseFloat(v || "0").toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  // Honesty note: every dollar figure here is the *prepared* claim amount
+  // (units × rate from CPT mappings). Trellis does not file claims with
+  // Medicaid and never receives an adjudication or remittance, so we cannot
+  // and do not display actual reimbursement, payment, or revenue. "Approved"
+  // = an admin clicked Approve in this tool; "Exported" = the CSV was
+  // downloaded for upload elsewhere.
   const kpis = [
-    { label: "Total Billed", value: `$${fmt(summary.totalBilled)}`, icon: DollarSign, accent: "emerald", sub: `${summary.totalClaims || 0} claims` },
-    { label: "Pending Review", value: `$${fmt(summary.pendingAmount)}`, icon: Clock, accent: "amber", sub: `${summary.pendingCount || 0} claims` },
-    { label: "Approved / Exported", value: `$${(parseFloat(summary.approvedAmount || "0") + parseFloat(summary.exportedAmount || "0")).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: CheckCircle, accent: "emerald", sub: `${(summary.approvedCount || 0) + (summary.exportedCount || 0)} claims` },
-    { label: "Rejected", value: `$${fmt(summary.rejectedAmount)}`, icon: XCircle, accent: "red", sub: `${summary.rejectedCount || 0} claims` },
+    { label: "Prepared (Estimated Value)", value: `$${fmt(summary.totalBilled)}`, icon: DollarSign, accent: "emerald", sub: `${summary.totalClaims || 0} draft claims` },
+    { label: "Pending Internal Review", value: `$${fmt(summary.pendingAmount)}`, icon: Clock, accent: "amber", sub: `${summary.pendingCount || 0} drafts` },
+    { label: "Internally Approved / Exported", value: `$${(parseFloat(summary.approvedAmount || "0") + parseFloat(summary.exportedAmount || "0")).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: CheckCircle, accent: "emerald", sub: `${(summary.approvedCount || 0) + (summary.exportedCount || 0)} drafts` },
+    { label: "Internally Rejected", value: `$${fmt(summary.rejectedAmount)}`, icon: XCircle, accent: "red", sub: `${summary.rejectedCount || 0} drafts` },
   ];
 
   const accents: Record<string, string> = { emerald: "bg-emerald-50 text-emerald-600", amber: "bg-amber-50 text-amber-600", red: "bg-red-50 text-red-500" };
 
   return (
     <div className="space-y-6">
+      <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+        <b>Estimated values, not booked revenue.</b> All amounts below are calculated from CPT/HCPCS mappings × units on
+        Trellis-prepared claim drafts. Trellis does not file claims, does not receive Medicaid adjudication or
+        remittance, and cannot show actual reimbursement. Use this to forecast and to prioritize internal review,
+        not to recognize revenue.
+      </div>
+
       <div className="flex items-center gap-3">
         <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36 h-8 text-xs" />
         <span className="text-xs text-gray-400">to</span>
@@ -89,7 +102,7 @@ export function RevenueDashboardTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-gray-200/60">
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-gray-600">Revenue by Month</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-600">Prepared Claim Value by Month (estimated)</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             {byMonth.length > 0 ? (
@@ -99,8 +112,8 @@ export function RevenueDashboardTab() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v: number) => [`$${parseFloat(String(v)).toLocaleString(undefined, { minimumFractionDigits: 2 })}`, ""]} />
-                  <Bar dataKey="totalBilled" name="Total Billed" fill="#10b981" radius={[4, 4, 0, 0]} barSize={28} />
-                  <Bar dataKey="approvedAmount" name="Approved" fill="#059669" radius={[4, 4, 0, 0]} barSize={28} />
+                  <Bar dataKey="totalBilled" name="Prepared (estimated)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={28} />
+                  <Bar dataKey="approvedAmount" name="Internally Approved" fill="#059669" radius={[4, 4, 0, 0]} barSize={28} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                 </BarChart>
               </ResponsiveContainer>
@@ -112,7 +125,7 @@ export function RevenueDashboardTab() {
 
         <Card className="border-gray-200/60">
           <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold text-gray-600">Revenue by Service Type</CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-600">Prepared Claim Value by Service Type (estimated)</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {byService.length > 0 ? byService.map((svc: any) => {
