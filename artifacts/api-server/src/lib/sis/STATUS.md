@@ -23,7 +23,7 @@ A connector can be advertised in pricing/landing copy without an asterisk only i
 5. We have a documented field-mapping doc (e.g. how PowerSchool's `enroll_status` maps to our `status` enum, what `gradeLevel` strings to expect from Skyward, etc.).
 6. There's at least one paying or pilot district willing to be a reference for the connector.
 
-## What changed in Week 1 task #214
+## Recent reconciliation of marketing surfaces
 
 - **Pricing page** (`artifacts/trellis/src/pages/pricing.tsx`): the SIS Integrations bullet no longer claims Aspen as a connector; non-CSV providers are now labeled "in pilot."
 - **Setup wizard** (`artifacts/trellis/src/pages/setup/constants.ts`): non-CSV providers are tagged `inPilot: true` and `SisStep.tsx` renders a "Pilot" badge.

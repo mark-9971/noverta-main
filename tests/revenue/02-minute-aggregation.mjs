@@ -66,11 +66,9 @@ export async function run() {
       );
     }
 
-    // Delete-subtraction (revenue-critical, FIXED in W1 task #214 by adding
-    // isNull(sessionLogsTable.deletedAt) to the minuteCalc.ts aggregation queries):
-    // a deleted session must NOT continue to count toward delivered minutes.
-    // Otherwise duplicate/erroneous sessions that admins delete would still
-    // inflate billed minutes.
+    // Delete-subtraction: a deleted session must NOT continue to count toward
+    // delivered minutes, otherwise admins deleting duplicate/erroneous sessions
+    // would still inflate billed minutes.
     if (made.length > 0) {
       const toDelete = made.shift();
       const del = await req("admin", DISTRICT_ID, "DELETE", `/sessions/${toDelete}`);

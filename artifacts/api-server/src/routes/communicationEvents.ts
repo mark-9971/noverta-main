@@ -5,12 +5,12 @@ import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router = Router();
-// Path-scoped: a path-less router.use() would block every router mounted after this one in
-// routes/index.ts, since Express enters this sub-router for every request that reaches it.
 router.use(
   "/communication-events",
   requireTierAccess("engagement.parent_communication"),
-  requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba"),
+  // provider included: providers send messages to parents/guardians and need to
+  // see the resulting communication-event status on their own outreach.
+  requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba", "provider"),
 );
 
 router.get("/communication-events", async (req: Request, res: Response) => {

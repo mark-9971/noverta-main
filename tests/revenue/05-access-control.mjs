@@ -57,6 +57,20 @@ export async function run() {
     s.expect("no session id overlap across districts", overlap.length === 0, { overlap });
   }
 
+  // 7. Provider access regression: middleware path-scoping must NOT block providers
+  //    from endpoints whose own role policy permits them. These were leak-blocked
+  //    historically by neighbouring routers' guards and must stay 200/non-403.
+  for (const path of [
+    "/compensatory-obligations",
+    "/communication-events?limit=1",
+    "/protective-measures/incidents",
+  ]) {
+    const r = await req("provider", DISTRICT_ID, "GET", path);
+    s.expect(`provider GET ${path} not blocked by neighbouring router guards`,
+      r.status !== 403,
+      { status: r.status, body: r.body });
+  }
+
   return s.summary();
 }
 
