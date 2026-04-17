@@ -75,7 +75,7 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
 
   const isExempt = currentRole ? exemptRoles.includes(currentRole) : false;
 
-  const { data, isLoading } = useQuery<AcceptanceStatusResponse>({
+  const { data, isLoading, isError } = useQuery<AcceptanceStatusResponse>({
     queryKey: ["legal-acceptance-status"],
     queryFn: async () => {
       const r = await authFetch(`${BASE}/api/legal/acceptance-status`);
@@ -115,9 +115,35 @@ export function LegalAcceptanceGate({ children, exemptRoles = ["sped_parent", "s
     );
   }
 
+  // Fail-closed: if the status check errored, block access until it resolves.
+  // Never let children render when acceptance is unconfirmed.
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white rounded-xl shadow border border-gray-200 p-8 max-w-sm w-full text-center">
+          <Shield className="w-8 h-8 text-red-400 mx-auto mb-3" />
+          <h2 className="font-semibold text-gray-900 mb-1">Unable to verify acceptance status</h2>
+          <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+            Trellis could not confirm your legal acceptance status. Please reload to try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const requiredDocs = data?.documents?.filter(d => d.required) ?? [];
 
-  if (!data?.required || requiredDocs.length === 0) return <>{children}</>;
+  // Only pass through once acceptance is positively confirmed as not-required.
+  if (data && !data.required && requiredDocs.length === 0) return <>{children}</>;
+
+  // Still waiting for data (edge case) — keep gate closed.
+  if (!data) return null;
 
   const allChecked = requiredDocs.every(d => checked[d.documentType]);
 

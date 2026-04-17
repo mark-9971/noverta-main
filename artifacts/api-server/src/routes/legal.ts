@@ -12,22 +12,32 @@ const router = Router();
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getAcceptanceStatus(userId: string) {
-  const existing = await db
-    .select()
-    .from(legalAcceptancesTable)
-    .where(eq(legalAcceptancesTable.userId, userId));
+  // Use DISTINCT ON to get the latest acceptance per document type.
+  // Multiple rows may exist for the same (user, documentType) when versions change —
+  // we always want the most recent one to determine currency.
+  const rows = await db.execute<{
+    document_type: string;
+    document_version: string;
+    accepted_at: Date;
+  }>(sql`
+    SELECT DISTINCT ON (document_type)
+      document_type, document_version, accepted_at
+    FROM legal_acceptances
+    WHERE user_id = ${userId}
+    ORDER BY document_type, accepted_at DESC
+  `);
 
-  const acceptedMap = new Map(existing.map(r => [r.documentType, r]));
+  const acceptedMap = new Map(rows.rows.map(r => [r.document_type, r]));
 
   return Object.entries(LEGAL_VERSIONS).map(([docType, currentVersion]) => {
     const row = acceptedMap.get(docType);
-    const required = !row || row.documentVersion !== currentVersion;
+    const required = !row || row.document_version !== currentVersion;
     return {
       documentType: docType,
       documentLabel: LEGAL_DOC_LABELS[docType] ?? docType,
       documentVersion: currentVersion,
       required,
-      acceptedAt: row?.acceptedAt?.toISOString() ?? null,
+      acceptedAt: row?.accepted_at ? new Date(row.accepted_at).toISOString() : null,
     };
   });
 }
@@ -164,36 +174,40 @@ router.get(
         .map(s => s.email?.toLowerCase())
         .filter((e): e is string => !!e);
 
-      const allAcceptances = emails.length
-        ? await db
-            .select()
-            .from(legalAcceptancesTable)
-            .where(
-              sql`lower(${legalAcceptancesTable.userEmail}) = ANY(${sql.raw(`ARRAY[${emails.map(e => `'${e.replace(/'/g, "''")}'`).join(",")}]`)})`,
-            )
+      // DISTINCT ON (user_email, document_type) ordered by accepted_at DESC gives the
+      // latest acceptance per (staff member, document) — correct even after version bumps.
+      type LatestAccRow = { user_email: string; document_type: string; document_version: string; accepted_at: Date };
+      const allAcceptances: LatestAccRow[] = emails.length
+        ? (await db.execute<LatestAccRow>(sql`
+            SELECT DISTINCT ON (lower(user_email), document_type)
+              user_email, document_type, document_version, accepted_at
+            FROM legal_acceptances
+            WHERE lower(user_email) = ANY(ARRAY[${sql.raw(emails.map(e => `'${e.replace(/'/g, "''")}'`).join(","))}]::text[])
+            ORDER BY lower(user_email), document_type, accepted_at DESC
+          `)).rows
         : [];
 
-      const byEmail = new Map<string, typeof allAcceptances>();
+      // Key: lowercase email → Map<documentType, latest row>
+      const byEmail = new Map<string, Map<string, LatestAccRow>>();
       for (const row of allAcceptances) {
-        const key = (row.userEmail ?? "").toLowerCase();
-        if (!byEmail.has(key)) byEmail.set(key, []);
-        byEmail.get(key)!.push(row);
+        const key = (row.user_email ?? "").toLowerCase();
+        if (!byEmail.has(key)) byEmail.set(key, new Map());
+        byEmail.get(key)!.set(row.document_type, row);
       }
 
       const result = staff.map(s => {
         const emailKey = (s.email ?? "").toLowerCase();
-        const userAcc = byEmail.get(emailKey) ?? [];
-        const acceptedMap = new Map(userAcc.map(r => [r.documentType, r]));
+        const userDocMap = byEmail.get(emailKey) ?? new Map<string, LatestAccRow>();
 
         const documents = Object.entries(LEGAL_VERSIONS).map(([docType, currentVersion]) => {
-          const row = acceptedMap.get(docType);
+          const row = userDocMap.get(docType);
           return {
             documentType: docType,
             documentLabel: LEGAL_DOC_LABELS[docType] ?? docType,
             currentVersion,
-            acceptedVersion: row?.documentVersion ?? null,
-            acceptedAt: row?.acceptedAt?.toISOString() ?? null,
-            isCurrent: !!row && row.documentVersion === currentVersion,
+            acceptedVersion: row?.document_version ?? null,
+            acceptedAt: row?.accepted_at ? new Date(row.accepted_at).toISOString() : null,
+            isCurrent: !!row && row.document_version === currentVersion,
           };
         });
 

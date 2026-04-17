@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const legalAcceptancesTable = pgTable("legal_acceptances", {
   id: serial("id").primaryKey(),
@@ -13,6 +13,7 @@ export const legalAcceptancesTable = pgTable("legal_acceptances", {
   index("legal_acc_user_idx").on(table.userId),
   index("legal_acc_type_version_idx").on(table.documentType, table.documentVersion),
   index("legal_acc_user_type_idx").on(table.userId, table.documentType),
+  uniqueIndex("legal_acc_user_doc_ver_uniq").on(table.userId, table.documentType, table.documentVersion),
 ]);
 
 export type LegalAcceptance = typeof legalAcceptancesTable.$inferSelect;
