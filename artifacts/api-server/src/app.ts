@@ -13,7 +13,7 @@ import { enforceDistrictScope } from "./middlewares/auth";
 import { captureException, recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 import { db } from "@workspace/db";
-import { communicationEventsTable } from "@workspace/db";
+import { communicationEventsTable, errorLogsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Webhook as SvixWebhook } from "svix";
 
@@ -280,6 +280,14 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
       districtId = meta.districtId != null ? String(meta.districtId) : undefined;
     } catch {}
     captureException(err, { method: req.method, url: req.url, status, userId, schoolId: districtId });
+    const rawPath = req.url?.split("?")[0] ?? "/";
+    const errPath = rawPath.length > 500 ? rawPath.slice(0, 500) : rawPath;
+    const rawMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = rawMsg.length > 1000 ? rawMsg.slice(0, 1000) : rawMsg;
+    db.insert(errorLogsTable)
+      .values({ httpStatus: status, path: errPath, message: errMsg })
+      .execute()
+      .catch((dbErr) => logger.warn({ err: dbErr }, "Failed to persist error_log row"));
   }
 
   const isProduction = process.env.NODE_ENV === "production";

@@ -11,7 +11,7 @@ interface HealthData {
   uptime: number;
   version: string;
   timestamp: string;
-  errors: { last1h: number };
+  errors: { last1h: number; last24h?: number };
   sentry: "enabled" | "disabled";
 }
 
@@ -59,7 +59,7 @@ export default function SystemStatusPage() {
 
   const apiOk = !isError && data?.status !== undefined;
   const dbOk = data?.db === "connected";
-  const errorCount = data?.errors?.last1h ?? 0;
+  const errorCount = data?.errors?.last24h ?? data?.errors?.last1h ?? 0;
   const errorRateOk = errorCount === 0;
   const overallOk = apiOk && dbOk && errorRateOk;
 
@@ -180,7 +180,7 @@ export default function SystemStatusPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" /> Server Errors (last 1h)
+              <AlertTriangle className="w-4 h-4" /> Server Errors (last 24h)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
@@ -197,8 +197,8 @@ export default function SystemStatusPage() {
             )}
             <p className="text-xs text-gray-400">
               {errorCount === 0
-                ? "No 5xx errors in the last hour"
-                : `5xx errors in the last hour — check server logs`}
+                ? "No 5xx errors in the last 24 hours"
+                : `5xx errors in the last 24 hours — check server logs`}
             </p>
           </CardContent>
         </Card>

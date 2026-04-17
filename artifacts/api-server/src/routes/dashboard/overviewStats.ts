@@ -5,7 +5,7 @@ import {
   studentsTable, alertsTable, sessionLogsTable,
   scheduleBlocksTable, staffTable, staffAssignmentsTable,
   agencyContractsTable, agenciesTable,
-  coverageInstancesTable,
+  coverageInstancesTable, errorLogsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, count, sql, asc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
@@ -44,6 +44,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const alertConditions: any[] = [eq(alertsTable.resolved, false)];
   if (alertFilter) alertConditions.push(alertFilter);
 
+  const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
   const [
     [activeStudentsResult],
     allProgress,
@@ -51,6 +53,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     [openMakeups],
     alertCounts,
     allBlocks,
+    [errorCount24h],
   ] = await Promise.all([
     db.select({ count: count() }).from(studentsTable).where(and(...studentConditions)),
     computeAllActiveMinuteProgress(sdFilters),
@@ -71,6 +74,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
         endTime: scheduleBlocksTable.endTime,
       }).from(scheduleBlocksTable).where(and(...blockConditions));
     })(),
+    db.select({ count: count() }).from(errorLogsTable).where(gte(errorLogsTable.occurredAt, cutoff24h)),
   ]);
 
   const studentRisk = new Map<number, string>();
@@ -161,6 +165,7 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     openAlerts: alertCounts[0]?.total ?? 0,
     criticalAlerts: alertCounts[0]?.critical ?? 0,
     contractRenewals: renewingContracts,
+    errorsLast24h: errorCount24h?.count ?? 0,
   });
 });
 
