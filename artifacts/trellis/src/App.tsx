@@ -266,11 +266,11 @@ function GuardianPortalRouter() {
   );
 }
 
-function GatedContent() {
+function GatedContent({ children }: { children?: React.ReactNode }) {
   const { role } = useRole();
   return (
     <LegalAcceptanceGate currentRole={role}>
-      <AppRouter />
+      {children ?? <AppRouter />}
     </LegalAcceptanceGate>
   );
 }
@@ -312,9 +312,11 @@ function App() {
               <Route path="/data-panel">
                 <ProtectedRoutes>
                   <RoleProvider>
-                    <Suspense fallback={<PageLoader />}>
-                      <DataPanelPage />
-                    </Suspense>
+                    <GatedContent>
+                      <Suspense fallback={<PageLoader />}>
+                        <DataPanelPage />
+                      </Suspense>
+                    </GatedContent>
                   </RoleProvider>
                 </ProtectedRoutes>
               </Route>
