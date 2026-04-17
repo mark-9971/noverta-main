@@ -10,8 +10,11 @@ import { deriveDistrictMode } from "../lib/districtMode";
 
 const router: IRouter = Router();
 
-// All endpoints in this router are platform-admin only.
-router.use(requirePlatformAdmin);
+// All endpoints in this router are platform-admin only. Path-scoped to "/support"
+// so the middleware does NOT leak into other routers mounted after this one in
+// routes/index.ts (a path-less router.use() would block every subsequently-mounted
+// route because Express enters this sub-router for every request that reaches it).
+router.use("/support", requirePlatformAdmin);
 
 function parseDistrictId(req: Request): number | null {
   const raw = req.params.id;
