@@ -78,25 +78,47 @@ router.post("/students/:studentId/conference-requests", async (req: Request, res
       newValues: { guardianId, title, proposedTimes },
     });
 
+    let emailDelivery: {
+      attempted: boolean;
+      status: "sent" | "not_configured" | "failed" | "no_email_on_file" | "skipped";
+      communicationEventId?: number;
+      error?: string;
+    } = { attempted: false, status: "no_email_on_file" };
+
     if (guardian?.name) {
       const [guardianForEmail] = await db.select({ email: guardiansTable.email })
         .from(guardiansTable).where(eq(guardiansTable.id, gId));
       if (guardianForEmail?.email) {
-        sendEmail({
-          studentId,
-          type: "general",
-          subject: `Conference Request: ${title}`,
-          bodyHtml: `<p>You have a new conference request in the Trellis Parent Portal.</p><p>${msgBody.replace(/\n/g, "<br>")}</p><p>Log in to the portal to respond.</p>`,
-          bodyText: `Conference Request: ${title}\n\n${msgBody}\n\nLog in to the Trellis Parent Portal to respond.`,
-          toEmail: guardianForEmail.email,
-          toName: guardian.name,
-          guardianId: gId,
-          staffId,
-        }).catch(err => console.error("Conference email notification failed (non-blocking):", err));
+        try {
+          const result = await sendEmail({
+            studentId,
+            type: "general",
+            subject: `Conference Request: ${title}`,
+            bodyHtml: `<p>You have a new conference request in the Trellis Parent Portal.</p><p>${msgBody.replace(/\n/g, "<br>")}</p><p>Log in to the portal to respond.</p>`,
+            bodyText: `Conference Request: ${title}\n\n${msgBody}\n\nLog in to the Trellis Parent Portal to respond.`,
+            toEmail: guardianForEmail.email,
+            toName: guardian.name,
+            guardianId: gId,
+            staffId,
+          });
+          emailDelivery = {
+            attempted: true,
+            status: result.success ? "sent" : (result.notConfigured ? "not_configured" : "failed"),
+            communicationEventId: result.communicationEventId,
+            error: result.success ? undefined : result.error,
+          };
+        } catch (err) {
+          console.error("Conference email notification threw:", err);
+          emailDelivery = { attempted: true, status: "failed", error: err instanceof Error ? err.message : String(err) };
+        }
       }
     }
 
-    res.status(201).json({ conference: { ...conf, createdAt: conf.createdAt.toISOString(), updatedAt: conf.updatedAt.toISOString() }, message: { ...message, createdAt: message.createdAt.toISOString() } });
+    res.status(201).json({
+      conference: { ...conf, createdAt: conf.createdAt.toISOString(), updatedAt: conf.updatedAt.toISOString() },
+      message: { ...message, createdAt: message.createdAt.toISOString() },
+      emailDelivery,
+    });
   } catch (err) {
     console.error("POST /students/:studentId/conference-requests error:", err);
     res.status(500).json({ error: "Failed to create conference request" });

@@ -228,21 +228,45 @@ router.post("/students/:studentId/messages", async (req: Request, res: Response)
 
     const [guardianRow] = await db.select({ email: guardiansTable.email, name: guardiansTable.name })
       .from(guardiansTable).where(eq(guardiansTable.id, gId));
+
+    let emailDelivery: {
+      attempted: boolean;
+      status: "sent" | "not_configured" | "failed" | "no_email_on_file" | "skipped";
+      communicationEventId?: number;
+      error?: string;
+    } = { attempted: false, status: "no_email_on_file" };
+
     if (guardianRow?.email) {
-      sendEmail({
-        studentId,
-        type: "general",
-        subject: `New Message: ${subject}`,
-        bodyHtml: `<p>You have a new message in the Trellis Parent Portal.</p><p><strong>Subject:</strong> ${subject}</p><p>${body.replace(/\n/g, "<br>")}</p><p>Log in to the portal to reply.</p>`,
-        bodyText: `You have a new message: ${subject}\n\n${body}\n\nLog in to the Trellis Parent Portal to reply.`,
-        toEmail: guardianRow.email,
-        toName: guardianRow.name,
-        guardianId: gId,
-        staffId,
-      }).catch(err => console.error("Email notification failed (non-blocking):", err));
+      try {
+        const result = await sendEmail({
+          studentId,
+          type: "general",
+          subject: `New Message: ${subject}`,
+          bodyHtml: `<p>You have a new message in the Trellis Parent Portal.</p><p><strong>Subject:</strong> ${subject}</p><p>${body.replace(/\n/g, "<br>")}</p><p>Log in to the portal to reply.</p>`,
+          bodyText: `You have a new message: ${subject}\n\n${body}\n\nLog in to the Trellis Parent Portal to reply.`,
+          toEmail: guardianRow.email,
+          toName: guardianRow.name,
+          guardianId: gId,
+          staffId,
+        });
+        emailDelivery = {
+          attempted: true,
+          status: result.success ? "sent" : (result.notConfigured ? "not_configured" : "failed"),
+          communicationEventId: result.communicationEventId,
+          error: result.success ? undefined : result.error,
+        };
+      } catch (err) {
+        console.error("Email notification threw:", err);
+        emailDelivery = { attempted: true, status: "failed", error: err instanceof Error ? err.message : String(err) };
+      }
     }
 
-    res.status(201).json({ ...message, createdAt: message.createdAt.toISOString(), updatedAt: message.updatedAt.toISOString() });
+    res.status(201).json({
+      ...message,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString(),
+      emailDelivery,
+    });
   } catch (err) {
     console.error("POST /students/:studentId/messages error:", err);
     res.status(500).json({ error: "Failed to send message" });

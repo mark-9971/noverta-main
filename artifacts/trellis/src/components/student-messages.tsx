@@ -168,6 +168,37 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
     setForm(f => ({ ...f, templateId, subject, body, category: tmpl.category }));
   }
 
+  type EmailDelivery = {
+    attempted: boolean;
+    status: "sent" | "not_configured" | "failed" | "no_email_on_file" | "skipped";
+    error?: string;
+    communicationEventId?: number;
+  };
+
+  function reportDelivery(savedLabel: string, delivery: EmailDelivery | undefined) {
+    if (!delivery || !delivery.attempted) {
+      toast.success(`${savedLabel} saved to portal`, {
+        description: "No email on file for this guardian — they'll see it next time they sign in.",
+      });
+      return;
+    }
+    if (delivery.status === "sent") {
+      toast.success(`${savedLabel} sent — email delivered to guardian`);
+      return;
+    }
+    if (delivery.status === "not_configured") {
+      toast.warning(`${savedLabel} saved to portal — email not delivered`, {
+        description: "Email provider is not configured. Ask an admin to add RESEND_API_KEY to enable real email delivery.",
+        duration: 8000,
+      });
+      return;
+    }
+    toast.warning(`${savedLabel} saved to portal — email delivery failed`, {
+      description: delivery.error ?? "The guardian will still see the message on their next portal sign-in. Retry from the message thread.",
+      duration: 8000,
+    });
+  }
+
   async function handleSend() {
     if (!form.guardianId || !form.subject.trim() || !form.body.trim()) {
       toast.error("Please select a recipient and fill in the subject and message");
@@ -187,7 +218,8 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         }),
       });
       if (!r.ok) throw new Error();
-      toast.success("Message sent");
+      const data = await r.json().catch(() => ({}));
+      reportDelivery("Message", data?.emailDelivery);
       setComposeOpen(false);
       setForm({ guardianId: "", templateId: "", subject: "", body: "", category: "general" });
       loadData();
@@ -216,7 +248,8 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         }),
       });
       if (!r.ok) throw new Error();
-      toast.success("Reply sent");
+      const data = await r.json().catch(() => ({}));
+      reportDelivery("Reply", data?.emailDelivery);
       setReplyThread(null);
       setReplyBody("");
       loadData();
@@ -246,7 +279,8 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
         }),
       });
       if (!r.ok) throw new Error();
-      toast.success("Conference request sent");
+      const data = await r.json().catch(() => ({}));
+      reportDelivery("Conference request", data?.emailDelivery);
       setConferenceOpen(false);
       setConfForm({ guardianId: "", title: "", description: "", location: "", proposedTimes: ["", "", ""] });
       loadData();
