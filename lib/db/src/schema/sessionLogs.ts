@@ -30,6 +30,11 @@ export const sessionLogsTable = pgTable("session_logs", {
   notes: text("notes"),
   schoolYearId: integer("school_year_id").references(() => schoolYearsTable.id),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  // Auditability: who/when last edited this row. The full edit history lives
+  // in `audit_logs`; these columns are a cheap at-a-glance signal so list/edit
+  // UIs don't have to fetch the audit trail just to show "last edited by".
+  lastEditedByUserId: text("last_edited_by_user_id"),
+  lastEditedAt: timestamp("last_edited_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

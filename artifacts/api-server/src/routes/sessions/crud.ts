@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db, pool } from "@workspace/db";
 import {
   sessionLogsTable, serviceTypesTable, staffTable, studentsTable,
@@ -19,7 +19,9 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, gte, lte, desc, asc, sql, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { logAudit } from "../../lib/auditLog";
+import { logAudit, diffObjects } from "../../lib/auditLog";
+import { auditLogsTable } from "@workspace/db";
+import { hasMinRole, PRIVILEGED_STAFF_ROLES } from "../../lib/permissions";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
@@ -414,6 +416,12 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
   if (parsed.data.isCompensatory !== undefined && parsed.data.isCompensatory !== null) updateData.isCompensatory = parsed.data.isCompensatory;
   if (parsed.data.compensatoryObligationId !== undefined) updateData.compensatoryObligationId = parsed.data.compensatoryObligationId;
 
+  // Stamp the row with who/when last edited it. Audit log retains the full
+  // history; this is just the at-a-glance signal.
+  const editorUserId = (req as AuthedRequest).userId ?? null;
+  if (editorUserId) updateData.lastEditedByUserId = editorUserId;
+  updateData.lastEditedAt = new Date();
+
   const [oldSession] = await db.select({
     id: sessionLogsTable.id,
     isCompensatory: sessionLogsTable.isCompensatory,
@@ -425,6 +433,12 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     sessionDate: sessionLogsTable.sessionDate,
     startTime: sessionLogsTable.startTime,
     endTime: sessionLogsTable.endTime,
+    // Selected for accurate audit-diff: every field that PATCH may set must be
+    // selected here, otherwise diffObjects() sees `undefined` as the old value
+    // and falsely reports a change.
+    notes: sessionLogsTable.notes,
+    location: sessionLogsTable.location,
+    missedReasonId: sessionLogsTable.missedReasonId,
   }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
 
   if (!oldSession) {
@@ -573,14 +587,25 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
       }
 
       await client.query("COMMIT");
+      // Diff to capture only fields that actually changed (so an audit row
+      // for a no-op edit doesn't claim values changed when they didn't). We
+      // exclude the bookkeeping columns we just stamped above.
+      const { lastEditedAt: _lea, lastEditedByUserId: _leb, ...comparable } = updateData as Record<string, unknown>;
+      const oldComparable: Record<string, unknown> = Object.fromEntries(
+        Object.keys(comparable).map(k => [k, (oldSession as Record<string, unknown>)[k]])
+      );
+      const diff = diffObjects(oldComparable, comparable);
       logAudit(req, {
         action: "update",
         targetTable: "session_logs",
         targetId: session.id,
         studentId: session.studentId,
-        summary: `Updated session #${session.id} for student #${session.studentId}`,
-        oldValues: Object.fromEntries(Object.keys(updateData).map(k => [k, (oldSession as Record<string, unknown>)[k]])),
-        newValues: updateData as Record<string, unknown>,
+        summary: diff
+          ? `Updated session #${session.id}: ${Object.keys(diff.new).join(", ")}`
+          : `Touched session #${session.id} (no field changes)`,
+        oldValues: diff?.old ?? null,
+        newValues: diff?.new ?? null,
+        metadata: validatedGoalData !== null ? { goalDataReplaced: true, goalCount: validatedGoalData.length } : null,
       });
       res.json({ ...session, createdAt: session.createdAt.toISOString() });
     } catch (err) {
@@ -659,6 +684,192 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
   });
   res.sendStatus(204);
 });
+
+/**
+ * Tenant + role authorization for /history and /restore. These endpoints
+ * intentionally bypass `sessionIdGuard`'s `deleted_at IS NULL` filter (the
+ * whole point is to inspect/un-delete soft-deleted records), so we re-do the
+ * district-scope check here without that filter.
+ *
+ * Audit trails contain actor identifiers, IPs, and field-level deltas. We
+ * limit history visibility to privileged staff (admin / case_manager /
+ * coordinator / bcba etc.) so a wider provider population can't browse
+ * who-edited-what across the district.
+ */
+async function authorizeHistoryAccess(
+  req: Request,
+  sessionId: number,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const authedReq = req as AuthedRequest;
+  if (!authedReq.trellisRole || !PRIVILEGED_STAFF_ROLES.includes(authedReq.trellisRole)) {
+    return { ok: false, status: 403, error: "Audit history requires privileged staff role" };
+  }
+  const enforcedDistrictId = getEnforcedDistrictId(authedReq);
+  if (enforcedDistrictId !== null) {
+    const rows = await db.execute(sql`
+      SELECT 1 FROM session_logs
+      WHERE id = ${sessionId}
+        AND student_id IN (
+          SELECT id FROM students WHERE school_id IN (
+            SELECT id FROM schools WHERE district_id = ${enforcedDistrictId}
+          )
+        )
+    `);
+    if (!rows.rows.length) {
+      return { ok: false, status: 403, error: "Access denied: session does not belong to your district" };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * GET /sessions/:id/history — returns the audit trail (create/update/delete/
+ * restore actions) for a single session, plus the row's current
+ * lastEditedBy/At signal.
+ *
+ * Works on soft-deleted sessions so admins can audit what happened to a
+ * deleted record. NOT mounted under `router.param("id", sessionIdGuard)` —
+ * uses `historyRouter` below to skip the deleted_at filter and apply its own
+ * tenant + role check.
+ */
+const historyRouter = Router();
+historyRouter.get("/sessions/:id/history", async (req, res): Promise<void> => {
+  const params = GetSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const id = params.data.id;
+
+  const authz = await authorizeHistoryAccess(req, id);
+  if (!authz.ok) {
+    res.status(authz.status).json({ error: authz.error });
+    return;
+  }
+
+  const [session] = await db.select({
+    id: sessionLogsTable.id,
+    studentId: sessionLogsTable.studentId,
+    sessionDate: sessionLogsTable.sessionDate,
+    deletedAt: sessionLogsTable.deletedAt,
+    lastEditedAt: sessionLogsTable.lastEditedAt,
+    lastEditedByUserId: sessionLogsTable.lastEditedByUserId,
+    createdAt: sessionLogsTable.createdAt,
+  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  // Pull all audit rows targeting this session, oldest first.
+  const events = await db.select({
+    id: auditLogsTable.id,
+    action: auditLogsTable.action,
+    actorUserId: auditLogsTable.actorUserId,
+    actorRole: auditLogsTable.actorRole,
+    ipAddress: auditLogsTable.ipAddress,
+    summary: auditLogsTable.summary,
+    oldValues: auditLogsTable.oldValues,
+    newValues: auditLogsTable.newValues,
+    metadata: auditLogsTable.metadata,
+    createdAt: auditLogsTable.createdAt,
+  }).from(auditLogsTable)
+    .where(and(
+      eq(auditLogsTable.targetTable, "session_logs"),
+      eq(auditLogsTable.targetId, String(id)),
+    ))
+    .orderBy(asc(auditLogsTable.createdAt));
+
+  // Note: actorUserId is the Clerk user ID. Staff records are not currently
+  // linked to Clerk users in the schema, so we surface the raw id rather than
+  // pretending to resolve a name we don't actually have. The UI shortens it.
+  res.json({
+    sessionId: session.id,
+    studentId: session.studentId,
+    sessionDate: session.sessionDate,
+    deletedAt: session.deletedAt?.toISOString() ?? null,
+    lastEditedAt: session.lastEditedAt?.toISOString() ?? null,
+    lastEditedByUserId: session.lastEditedByUserId,
+    events: events.map(e => ({
+      ...e,
+      createdAt: e.createdAt.toISOString(),
+    })),
+  });
+});
+
+/**
+ * POST /sessions/:id/restore — admin-only un-delete of a soft-deleted
+ * session. Reversibility is what makes the soft-delete defensible during a
+ * compliance review.
+ *
+ * Compensatory-minute math: when a soft-delete reverted minutes back to the
+ * obligation, this endpoint deliberately does NOT re-apply them. Re-applying
+ * could double-count if the obligation was edited in the interim. Admins who
+ * need the minutes restored should re-edit the session after restore so the
+ * normal PATCH flow handles the obligation update with up-to-date math.
+ */
+historyRouter.post("/sessions/:id/restore", async (req, res): Promise<void> => {
+  const authedReq = req as AuthedRequest;
+  if (!authedReq.trellisRole || !hasMinRole(authedReq.trellisRole, "admin")) {
+    res.status(403).json({ error: "Restore requires admin role" });
+    return;
+  }
+  const params = GetSessionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  // District ownership check (without the deleted_at filter so we can find the
+  // soft-deleted record we're about to restore).
+  const authz = await authorizeHistoryAccess(req, params.data.id);
+  if (!authz.ok) {
+    res.status(authz.status).json({ error: authz.error });
+    return;
+  }
+
+  const [existing] = await db.select({
+    id: sessionLogsTable.id,
+    studentId: sessionLogsTable.studentId,
+    sessionDate: sessionLogsTable.sessionDate,
+    deletedAt: sessionLogsTable.deletedAt,
+  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (!existing.deletedAt) {
+    res.status(400).json({ error: "Session is not deleted" });
+    return;
+  }
+
+  await db.update(sessionLogsTable)
+    .set({
+      deletedAt: null,
+      lastEditedAt: new Date(),
+      lastEditedByUserId: authedReq.userId ?? null,
+    })
+    .where(eq(sessionLogsTable.id, existing.id));
+
+  logAudit(req, {
+    action: "update",
+    targetTable: "session_logs",
+    targetId: existing.id,
+    studentId: existing.studentId,
+    summary: `Restored soft-deleted session #${existing.id}`,
+    oldValues: { deletedAt: existing.deletedAt.toISOString() },
+    newValues: { deletedAt: null },
+    metadata: { restore: true },
+  });
+
+  res.json({ ok: true, sessionId: existing.id });
+});
+
+// Mount the audit-history routes onto the main router. Kept on a separate
+// sub-router so they don't pick up `sessionIdGuard`'s deleted_at filter.
+router.use(historyRouter);
 
 
 export default router;

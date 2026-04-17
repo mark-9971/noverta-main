@@ -16,12 +16,14 @@ import { SessionList } from "./SessionList";
 import { MarkMissedDialog } from "./MarkMissedDialog";
 import { DeleteSessionDialog } from "./DeleteSessionDialog";
 import { EditSessionDialog } from "./EditSessionDialog";
+import { SessionHistoryDialog } from "./SessionHistoryDialog";
 import { LogSessionDialog } from "./LogSessionDialog";
 
 const PAGE_SIZE = 30;
 
 export default function Sessions() {
-  const { teacherId } = useRole();
+  const { teacherId, role } = useRole();
+  const canRestore = role === "admin";
   const { typedFilter } = useSchoolContext();
   const { years: schoolYears, activeYear } = useSchoolYears();
 
@@ -34,6 +36,7 @@ export default function Sessions() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [expandedData, setExpandedData] = useState<any>(null); const [expandLoading, setExpandLoading] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
+  const [historySessionId, setHistorySessionId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ durationMinutes: "", status: "", notes: "", location: "", missedReasonId: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null); const [deleteLoading, setDeleteLoading] = useState(false);
@@ -364,6 +367,15 @@ export default function Sessions() {
         editGoalsLoading={editGoalsLoading}
         editSaving={editSaving}
         onSave={handleEditSave}
+        onViewHistory={editingSession ? () => setHistorySessionId(editingSession.id) : undefined}
+      />
+
+      <SessionHistoryDialog
+        sessionId={historySessionId}
+        open={historySessionId !== null}
+        onClose={() => setHistorySessionId(null)}
+        canRestore={canRestore}
+        onRestored={() => refetch()}
       />
 
       <LogSessionDialog

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Target } from "lucide-react";
+import { Save, Target, History } from "lucide-react";
 import type { EditForm, GoalFormEntry } from "./types";
 
 type Props = {
@@ -18,11 +18,13 @@ type Props = {
   editGoalsLoading: boolean;
   editSaving: boolean;
   onSave: () => void;
+  onViewHistory?: () => void;
 };
 
 export function EditSessionDialog({
   open, onClose, editForm, setEditForm, missedReasonsList,
   editGoalEntries, setEditGoalEntries, editGoalsLoading, editSaving, onSave,
+  onViewHistory,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -103,11 +105,26 @@ export function EditSessionDialog({
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" size="sm" className="text-[12px]" onClick={onClose}>Cancel</Button>
-          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] gap-1" disabled={editSaving} onClick={onSave}>
-            <Save className="w-3.5 h-3.5" /> {editSaving ? "Saving..." : "Save Changes"}
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          <div>
+            {onViewHistory && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-[12px] text-slate-600 gap-1"
+                onClick={onViewHistory}
+              >
+                <History className="w-3.5 h-3.5" /> View History
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="text-[12px]" onClick={onClose}>Cancel</Button>
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[12px] gap-1" disabled={editSaving} onClick={onSave}>
+              <Save className="w-3.5 h-3.5" /> {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
