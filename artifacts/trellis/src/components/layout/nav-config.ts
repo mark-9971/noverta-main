@@ -169,7 +169,11 @@ export const spedTeacherNav: NavSection[] = adminNav
       label: SPED_TEACHER_ITEM_LABEL_MAP[item.label] ?? item.label,
     }));
     if (s.label === "Overview") {
-      items = [...items, { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase }];
+      items = [
+        { href: "/today", label: "Today", icon: Sun, primary: true },
+        ...items,
+        { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
+      ];
     }
     return { ...s, label, items };
   });

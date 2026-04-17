@@ -71,6 +71,7 @@ const ParentCommunication = lazy(() => import("@/pages/parent-communication"));
 const Supervision = lazy(() => import("@/pages/supervision"));
 const ParaMyDayPage = lazy(() => import("@/pages/para-my-day"));
 const MyCaseloadPage = lazy(() => import("@/pages/my-caseload"));
+const TodayPage = lazy(() => import("@/pages/today"));
 const EvaluationsPage = lazy(() => import("@/pages/evaluations"));
 const TransitionsPage = lazy(() => import("@/pages/transitions"));
 const IepMeetingsPage = lazy(() => import("@/pages/iep-meetings"));
@@ -210,6 +211,7 @@ function StaffRouter() {
       <Route path="/sis-settings">{() => <HashRedirect to="/settings#sis" />}</Route>
       <Route path="/setup">{() => <HashRedirect to="/settings" />}</Route>
       <BoundedRoute path="/my-caseload" component={MyCaseloadPage} fallbackTitle="My Caseload error" />
+      <BoundedRoute path="/today" component={TodayPage} fallbackTitle="Today error" />
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" featureKey="compliance.evaluations" />
       <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" featureKey="compliance.transitions" />
       <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
