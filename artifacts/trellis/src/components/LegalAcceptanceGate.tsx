@@ -35,6 +35,51 @@ const DOC_DESCRIPTIONS: Record<string, string> = {
   dpa: "Describes how Trellis processes your district's student data and your FERPA obligations.",
 };
 
+/** Minimal markdown → HTML for trusted local legal docs. Handles headings, bold, lists, paragraphs. */
+function renderMarkdown(md: string): string {
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inList = false;
+
+  const escape = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const inline = (s: string) =>
+    escape(s)
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`(.+?)`/g, "<code>$1</code>");
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    if (line.startsWith("###### ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h6 class="text-[11px] font-semibold text-gray-700 mt-3 mb-1">${inline(line.slice(7))}</h6>`); continue; }
+    if (line.startsWith("##### ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h5 class="text-xs font-semibold text-gray-700 mt-3 mb-1">${inline(line.slice(6))}</h5>`); continue; }
+    if (line.startsWith("#### ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h4 class="text-sm font-semibold text-gray-800 mt-4 mb-1">${inline(line.slice(5))}</h4>`); continue; }
+    if (line.startsWith("### ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h3 class="text-sm font-semibold text-gray-900 mt-5 mb-1.5">${inline(line.slice(4))}</h3>`); continue; }
+    if (line.startsWith("## ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h2 class="text-base font-bold text-gray-900 mt-6 mb-2">${inline(line.slice(3))}</h2>`); continue; }
+    if (line.startsWith("# ")) { if (inList) { out.push("</ul>"); inList = false; } out.push(`<h1 class="text-lg font-bold text-gray-900 mt-6 mb-2">${inline(line.slice(2))}</h1>`); continue; }
+
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      if (!inList) { out.push('<ul class="list-disc pl-5 my-2 space-y-1">'); inList = true; }
+      out.push(`<li class="text-[13px] text-gray-700 leading-relaxed">${inline(line.slice(2))}</li>`);
+      continue;
+    }
+
+    if (line === "") {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push('<div class="mt-2"></div>');
+      continue;
+    }
+
+    if (inList) { out.push("</ul>"); inList = false; }
+    out.push(`<p class="text-[13px] text-gray-700 leading-relaxed my-1.5">${inline(line)}</p>`);
+  }
+  if (inList) out.push("</ul>");
+  return out.join("\n");
+}
+
 function MarkdownDoc({ path }: { path: string }) {
   const [content, setContent] = useState<string | null>(null);
 
@@ -54,9 +99,10 @@ function MarkdownDoc({ path }: { path: string }) {
   }
 
   return (
-    <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-gray-700">
-      {content}
-    </pre>
+    <div
+      className="prose-sm max-w-none"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+    />
   );
 }
 

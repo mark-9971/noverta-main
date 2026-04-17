@@ -97,9 +97,8 @@ const COMMITMENTS = [
 ];
 
 interface AcceptanceReportStaff {
-  userId: string;
   name: string;
-  email: string;
+  email: string | null;
   role: string;
   allAccepted: boolean;
   documents: Array<{
@@ -216,7 +215,7 @@ function StaffAcceptanceReport() {
             <div className="py-8 text-center text-sm text-gray-400">No staff records found.</div>
           )}
           {allStaff.map(s => (
-            <div key={s.userId} className="flex items-center px-4 py-3 hover:bg-gray-50/50 gap-4">
+            <div key={s.email ?? s.name} className="flex items-center px-4 py-3 hover:bg-gray-50/50 gap-4">
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-900 truncate">{s.name || "(unnamed)"}</div>
                 <div className="text-xs text-gray-400 truncate">{s.email} · {s.role}</div>
