@@ -128,7 +128,7 @@ function buildPrintHtml(data: ReportData): string {
 
   const urgentHtml = data.urgentFlags.length > 0 ? `
   <div class="urgent-box">
-    <h3>Urgent Flags</h3>
+    <h3>Urgent Alerts</h3>
     <ul>${data.urgentFlags.map(f => `<li>${esc(f)}</li>`).join("")}</ul>
   </div>` : "";
 
@@ -469,13 +469,13 @@ export default function WeeklyComplianceSummaryPage() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <h2 className="text-sm font-bold text-red-800">Urgent Flags Requiring Intervention</h2>
+                  <h2 className="text-sm font-bold text-red-800">Urgent Alerts Requiring Intervention</h2>
                 </div>
                 <ul className="space-y-1.5">
-                  {data.urgentFlags.map((flag, i) => (
+                  {data.urgentFlags.map((alert, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-red-800">
                       <span className="text-red-400 mt-0.5">•</span>
-                      {flag}
+                      {alert}
                     </li>
                   ))}
                 </ul>
