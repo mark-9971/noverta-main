@@ -1,0 +1,547 @@
+I want an extremely comprehensive, brutally honest audit of the CURRENT state of this website/app based only on the real codebase and current implementation.
+
+This is not a light review. I want a full-stack, product, UX, trust, technical, security, conversion, and commercialization audit of the website as it exists today.
+
+IMPORTANT RULES:
+- Re-inspect the CURRENT codebase from scratch.
+- Do not rely on previous audit conclusions unless they are still clearly true in the code.
+- Base everything on actual implementation, actual routes, actual UI, actual copy, actual config, actual data flow, and actual behavior.
+- Be skeptical. Be concrete. Be evidence-based.
+- Do not flatter. Do not speculate wildly.
+- If something is unclear, say what you found and what remains uncertain.
+- Distinguish clearly between:
+  1. real and working
+  2. partially implemented
+  3. misleading / overstated
+  4. broken / risky
+  5. missing entirely
+
+Your goal is to tell me:
+- what this website actually is today
+- how strong or weak it is
+- how trustworthy it feels
+- how usable it is
+- how sellable it is
+- what is polished vs fragile
+- what would impress a buyer vs what would scare them off
+- what I should fix first if I want this to make money
+
+==================================================
+1. EXECUTIVE TRUTH
+==================================================
+
+Give me:
+- a 1-sentence description of what the website/app actually is today
+- a plain-English paragraph describing what it does today
+- a blunt verdict:
+  - demo
+  - rough MVP
+  - pilot-capable
+  - sellable niche product
+  - scalable commercial product
+- top 5 strengths
+- top 5 weaknesses
+- top 5 trust risks
+- top 5 commercialization opportunities
+
+Then answer:
+- does this feel like a real product or a dressed-up demo?
+- does it feel focused or too broad?
+- what is the clearest value proposition currently visible?
+- what is still muddy?
+
+==================================================
+2. FULL WEBSITE / APP SURFACE INVENTORY
+==================================================
+
+Map the entire current surface area.
+
+Identify and list:
+- all major frontend pages
+- all major backend route groups
+- all major nav sections
+- all settings areas
+- all dashboards
+- all reporting/export surfaces
+- all admin tools
+- all support/internal tools
+- all onboarding/setup flows
+- all billing/pricing/checkout flows
+- all authentication/account areas
+- all communications/email/notification areas
+- all data import/integration areas
+- all mobile-specific or staff-specific interfaces
+- all demo/sample-data areas
+
+For each major area:
+- what it does
+- where it lives in the code
+- who it is for
+- whether it appears real and useful
+- whether it appears complete enough for real users
+- whether it helps or hurts the core product story
+
+==================================================
+3. PRODUCT POSITIONING AUDIT
+==================================================
+
+Tell me what this product currently appears to be from the website and app itself.
+
+Answer:
+- what category it feels like
+- what buyer it appears aimed at
+- what user it appears built for
+- what problem it appears to solve
+- whether the product story is coherent
+- whether the website and the actual in-app experience match
+- whether the wedge is clear
+- whether the app surface area contradicts the positioning
+
+Then tell me:
+- what message the website is sending
+- what message the product experience is sending
+- where those messages align
+- where they conflict
+
+==================================================
+4. CURRENT HOMEPAGE / PRICING / MARKETING AUDIT
+==================================================
+
+Audit the customer-facing marketing surfaces in detail.
+
+Inspect:
+- homepage or landing pages
+- pricing page
+- CTA flows
+- billing pages
+- plan/tier copy
+- feature descriptions
+- add-on descriptions
+- AI claims
+- SIS/integration claims
+- trust/security/compliance copy
+- trial/demo/signup copy
+
+Evaluate:
+- clarity
+- credibility
+- specificity
+- emotional pull
+- buyer relevance
+- overclaim risk
+- trustworthiness
+- conversion friction
+- whether the product sounds more focused or more bloated than it should
+
+I want explicit answers to:
+- what on the marketing site would make a prospect more interested?
+- what would make a prospect skeptical?
+- what language sounds strong?
+- what language sounds inflated or dangerous?
+- what claims should be removed, softened, or rewritten?
+- what should be featured more prominently?
+
+==================================================
+5. UX / IA / NAVIGATION AUDIT
+==================================================
+
+Audit the current information architecture and navigation.
+
+Inspect:
+- top-level nav
+- side nav
+- section grouping
+- menu labels
+- discoverability
+- feature prioritization
+- first-run orientation
+- admin vs provider vs other role experiences
+- whether the app feels calm and focused or crowded and sprawling
+
+Tell me:
+- what the nav currently prioritizes
+- whether the best features are easy to find
+- whether weak/thin modules are too visible
+- whether the app feels like one coherent tool or many stitched-together tools
+- whether a first-time buyer/user would understand where to go
+- what sections should be promoted
+- what sections should be demoted
+- what should be hidden entirely from primary navigation
+
+==================================================
+6. FIRST-RUN / ONBOARDING / TIME-TO-AHA AUDIT
+==================================================
+
+Inspect the first-run experience in detail.
+
+Evaluate:
+- setup wizard
+- onboarding checklist
+- empty states
+- sample/demo data flow
+- admin landing page
+- readiness indicators
+- first-value moment
+- whether a new district/user can understand the product quickly
+- whether the app becomes useful fast or requires too much manual setup
+
+Answer:
+- how fast can a new admin see value?
+- how fast can a provider see value?
+- what is confusing on first use?
+- what is excellent?
+- what still depends too much on handholding?
+- whether a brand-new customer could onboard without a sales engineer
+
+==================================================
+7. CORE WORKFLOW AUDIT
+==================================================
+
+Audit the most important operational workflows end to end.
+
+At minimum inspect:
+- session logging
+- service minute tracking
+- required vs delivered calculations
+- compliance risk reporting
+- compensatory tracking/exposure
+- provider workflows
+- admin workflows
+- reporting/export flows
+- communication flows
+- import flows
+- billing/checkout flows
+
+For each workflow:
+- intended user
+- actual flow
+- where friction appears
+- where trust could break
+- whether it feels production-ready
+- whether it feels monetizable
+- what is strongest
+- what is weakest
+
+Then identify:
+- strongest workflow overall
+- weakest workflow overall
+- workflow most likely to impress a buyer
+- workflow most likely to create churn or support burden
+
+==================================================
+8. TRUST / CREDIBILITY / HONESTY AUDIT
+==================================================
+
+Be ruthless here.
+
+Inspect for:
+- fake analytics
+- mocked KPIs
+- hardcoded demo-only numbers
+- fake or thin AI claims
+- unverified integration claims
+- hidden brittle paths
+- confusing demo vs real mode separation
+- misleading toasts or success states
+- fake-sounding empty states
+- anything that looks real but is not
+- anything that could embarrass me in a live demo or pilot
+
+Then answer:
+- what currently strengthens trust?
+- what currently weakens trust?
+- what feels enterprise-credible?
+- what feels startup-fragile?
+- what must be hidden before showing this to prospects?
+- what must be fixed before letting real customers rely on it?
+
+==================================================
+9. TECHNICAL / IMPLEMENTATION DEPTH AUDIT
+==================================================
+
+Inspect implementation depth across the current app.
+
+Grade each:
+- A strong
+- B decent
+- C thin
+- D fragile
+- F misleading/broken
+
+Audit:
+- auth
+- RBAC / permissions
+- tenant isolation
+- backend route quality
+- validation
+- audit logging
+- session/history tracking
+- import quality
+- export/reporting quality
+- communications/email handling
+- monitoring / observability
+- error handling
+- billing / Stripe
+- pricing implementation
+- plan gating
+- sample/demo mode
+- onboarding architecture
+- integrations
+- state reporting
+- AI-backed features
+- mobile readiness
+- performance/scalability
+- support/admin tooling
+- testing coverage
+- security posture
+
+For each area:
+- grade
+- evidence from code
+- real-world consequence
+- whether it affects demos, pilots, or revenue
+
+==================================================
+10. SECURITY / SAFETY / RISK AUDIT
+==================================================
+
+I want a focused review of anything that could create a serious trust or legal problem.
+
+Inspect for:
+- cross-tenant access risks
+- missing ownership checks
+- IDOR patterns
+- dangerous defaults
+- silent failures
+- over-permissive demo or pilot bypasses
+- fake sends or false confirmation states
+- risky billing/claims behaviors
+- inaccurate clinical/compliance defaults
+- production monitoring gaps
+- any user-visible action that implies something happened when it did not
+
+Then answer:
+- what are the top 10 risk issues right now?
+- which ones are merely polish problems?
+- which ones are true no-go problems?
+- what would make a district or buyer lose trust fastest?
+
+==================================================
+11. COMMERCIALIZATION AUDIT
+==================================================
+
+Assess how ready the website is to make money right now.
+
+Answer:
+- who would realistically pay now?
+- who would still not pay?
+- what exact first customer profile is best now?
+- what problem are they buying it to solve?
+- does the website support that sale well?
+- does the app support that sale well?
+- is pricing credible?
+- is pricing simple enough?
+- is checkout real?
+- is self-serve realistic?
+- is sales-led more appropriate?
+- should this be sold as a pilot, beta, or normal subscription?
+
+Then tell me:
+- what currently helps conversion
+- what currently hurts conversion
+- what would block a free trial conversion
+- what would block a paid pilot conversion
+- what would block public self-serve signup
+
+==================================================
+12. ROLE-BY-ROLE EXPERIENCE AUDIT
+==================================================
+
+Assess current experience separately for:
+- district admin / SPED director
+- school admin
+- provider / therapist
+- para
+- BCBA / clinical lead
+- parent/guardian if relevant
+- student if relevant
+- internal support/admin staff
+
+For each role:
+- what they can currently do
+- what feels polished
+- what feels weak
+- whether the app feels designed for them
+- whether the role should remain central or be deprioritized
+
+==================================================
+13. PAGE-BY-PAGE HIGH-SIGNAL AUDIT
+==================================================
+
+Identify the pages/screens that matter most commercially and operationally.
+
+For each of the most important pages, give:
+- what it does
+- why it matters
+- strengths
+- weaknesses
+- trust issues
+- UX issues
+- copy/messaging issues
+- whether it is demo-ready
+- whether it is pilot-ready
+- whether it is revenue-critical
+
+Prioritize pages like:
+- homepage
+- pricing
+- pilot admin home
+- compliance dashboard
+- compliance risk report
+- setup wizard
+- onboarding checklist
+- import flow
+- billing page
+- checkout entry point
+- provider/mobile logging flow
+- communications/notifications views
+- any admin/reporting/export pages
+
+==================================================
+14. WHAT IS REAL VS PARTIAL VS MISLEADING
+==================================================
+
+Create a truth table with four buckets:
+
+1. Real and strong
+2. Real but still rough
+3. Partial / fragile
+4. Misleading / dangerous / should be hidden
+
+Be aggressive and specific.
+If something looks impressive but is still thin, say so.
+If something is commercially valuable even though rough, say that too.
+
+==================================================
+15. SELLABILITY SCORECARD
+==================================================
+
+Score 1-10, with explanation, for:
+- clarity of value proposition
+- strength of wedge
+- trustworthiness
+- demo quality
+- pilot readiness
+- paid pilot readiness
+- self-serve readiness
+- pricing credibility
+- onboarding quality
+- time-to-aha
+- admin value
+- provider usability
+- differentiation
+- conversion readiness
+- enterprise credibility
+- support burden risk
+
+Then tell me:
+- strongest commercial asset
+- biggest conversion problem
+- biggest trust problem
+- single most important thing to fix next
+- single most important thing to remove or hide
+- single strongest thing to emphasize in sales
+
+==================================================
+16. EXACT RECOMMENDATIONS
+==================================================
+
+Now turn the audit into action.
+
+Give me:
+A. MUST FIX IMMEDIATELY
+B. FIX BEFORE PAID PILOTS
+C. FIX BEFORE PUBLIC SELF-SERVE
+D. DEMOTE / HIDE
+E. REMOVE ENTIRELY
+F. NICE TO HAVE LATER
+
+For every recommendation include:
+- exact issue
+- where it exists
+- why it matters
+- business consequence
+- user consequence
+- rough difficulty
+- whether it affects demos, pilots, checkout, trust, or retention
+
+Then separately give:
+- best 10 tasks to increase trust fastest
+- best 10 tasks to improve conversion fastest
+- best 10 tasks to reduce support burden fastest
+- best 10 tasks to improve actual product value fastest
+
+==================================================
+17. FOUNDER HANDOFF
+==================================================
+
+At the end, provide a founder handoff section I can paste into ChatGPT.
+
+It must include:
+- what the product currently is
+- strongest wedge
+- top 5 strengths
+- top 5 weaknesses
+- top 5 trust risks
+- current go/no-go for:
+  - demos
+  - free pilots
+  - paid pilots
+  - public self-serve
+- best customer profile right now
+- best pricing posture right now
+- next 10 highest-leverage tasks
+
+==================================================
+18. OUTPUT FORMAT
+==================================================
+
+Use this exact structure:
+
+1. Executive truth
+2. Full website/app inventory
+3. Product positioning audit
+4. Marketing / pricing / CTA audit
+5. UX / IA / navigation audit
+6. First-run and onboarding audit
+7. Core workflow audit
+8. Trust / credibility / honesty audit
+9. Technical depth audit
+10. Security / safety / risk audit
+11. Commercialization audit
+12. Role-by-role experience audit
+13. High-signal page-by-page audit
+14. Real vs partial vs misleading
+15. Sellability scorecard
+16. Exact recommendations
+17. Founder handoff
+18. Final verdict: what this website is ready for right now
+
+==================================================
+19. FINAL INSTRUCTIONS
+==================================================
+
+I do not want startup platitudes.
+I do not want generic UI advice.
+I do not want compliments unless they are earned and specific.
+I want a hard current-state audit of the real website and app.
+
+Tell me:
+- what is strong
+- what is weak
+- what is risky
+- what is believable
+- what is misleading
+- what is ready
+- what is not ready
+- and what I should do next if the goal is to make money without damaging trust.
