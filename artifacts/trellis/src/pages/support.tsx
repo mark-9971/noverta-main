@@ -4,7 +4,8 @@ import { useRole } from "@/lib/role-context";
 import {
   Building2, Loader2, Search, AlertTriangle, CheckCircle, XCircle,
   Activity, Database, Users, FileWarning, ArrowLeft, ExternalLink, Clock,
-  Sparkles, FlaskConical, CreditCard,
+  Sparkles, FlaskConical, CreditCard, ShieldOff, ListChecks, Mail, Lock,
+  Layers, UserSearch,
 } from "lucide-react";
 
 type DistrictMode = "demo" | "pilot" | "paid" | "trial" | "unpaid" | "unconfigured";
@@ -64,6 +65,54 @@ interface MetricDebug {
     prev7d: { total: number };
     last30d: { total: number; completed: number; missed: number; distinctLoggers: number };
   };
+}
+
+interface ReadinessCheck { key: string; label: string; status: "ok" | "warn" | "fail" | "info"; message: string; group?: string }
+interface ReadinessReport { districtId: number; summary: { passed: number; warnings: number; failures: number; checksRun: number }; checks: ReadinessCheck[] }
+interface OnboardingStep { stepKey: string; completed: boolean; completedAt: string | null; updatedAt: string | null }
+interface DistrictEmailEvent {
+  id: number; status: string; type: string; subject: string;
+  toEmail: string | null; toName: string | null; failedReason: string | null;
+  sentAt: string | null; deliveredAt: string | null; failedAt: string | null;
+  createdAt: string; studentName: string;
+}
+interface DistrictEmailReport {
+  providerConfigured: boolean;
+  summary: Record<string, number> | null;
+  events: DistrictEmailEvent[];
+}
+interface FeatureAccessReport {
+  districtId: number;
+  isDemo: boolean; isPilot: boolean;
+  baseTier: string; baseTierLabel: string;
+  effectiveTier: string; effectiveTierLabel: string;
+  tierOverridden: boolean;
+  subscriptionPlanTier: string | null;
+  subscriptionStatus: string | null;
+  addOns: string[];
+  grantsAllAccess: boolean;
+  modules: Array<{
+    moduleKey: string; moduleLabel: string;
+    accessible: boolean; accessReason: string;
+    features: Array<{ featureKey: string; accessible: boolean }>;
+  }>;
+}
+interface AccessDenialEntry {
+  at: string; kind: string; status: number; method: string; path: string;
+  actorUserId: string | null; actorRole: string | null; districtId: number | null;
+  ip: string | null; detail: string | null;
+}
+interface EmailStatusReport {
+  providerConfigured: boolean; providerName: string; window: string;
+  summary: Record<string, number>;
+  recentFailures: Array<{ id: number; type: string; subject: string; toEmail: string | null; failedReason: string | null; failedAt: string | null; createdAt: string }>;
+}
+interface UserLookupReport {
+  query: string;
+  staffMatches: Array<{ staffId: number; name: string; email: string; role: string; status: string; schoolName: string | null; districtId: number | null; districtName: string | null; active: boolean }>;
+  clerk: null | { userId: string; primaryEmail: string | null; role: string | null; districtId: number | null; staffId: number | null; platformAdmin: boolean; createdAt: number | null; lastSignInAt: number | null };
+  recentAudit: Array<{ id: number; action: string; targetTable: string | null; targetId: string | number | null; summary: string | null; createdAt: string }>;
+  drift: string[];
 }
 
 const MODE_BADGE: Record<DistrictMode, { label: string; cls: string; icon: typeof Sparkles }> = {
@@ -250,6 +299,259 @@ export default function SupportPage() {
       </div>
 
       <RecentImportsPanel />
+      <EmailServiceStatusPanel />
+      <AccessDenialsPanel />
+      <UserLookupPanel />
+    </div>
+  );
+}
+
+function EmailServiceStatusPanel() {
+  const [data, setData] = useState<EmailStatusReport | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    apiGet<EmailStatusReport>("/support/email-status").then(setData).catch((e) => setErr(String(e)));
+  }, []);
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-gray-500" />
+          <h2 className="text-sm font-semibold text-gray-900">Email service status</h2>
+        </div>
+        {data && (
+          <span className={`text-xs px-2 py-0.5 rounded-full ${data.providerConfigured ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+            {data.providerConfigured ? `${data.providerName}: configured` : "RESEND_API_KEY missing"}
+          </span>
+        )}
+      </div>
+      <div className="p-4 text-sm">
+        {err && <div className="text-red-600">Failed to load: {err}</div>}
+        {!data && !err && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
+        {data && (
+          <>
+            <div className="flex flex-wrap gap-2 mb-3 text-xs">
+              <span className="text-gray-500">{data.window}:</span>
+              {Object.entries(data.summary).length === 0
+                ? <span className="text-gray-500">No events sent.</span>
+                : Object.entries(data.summary).map(([s, n]) => (
+                    <span key={s} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                      {s}: <span className="font-medium">{n}</span>
+                    </span>
+                  ))}
+            </div>
+            {data.recentFailures.length === 0 ? (
+              <div className="text-xs text-gray-500">No recent email failures.</div>
+            ) : (
+              <div className="border border-gray-200 rounded">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-left text-gray-500 uppercase">
+                    <tr>
+                      <th className="px-2 py-1">When</th>
+                      <th className="px-2 py-1">Type</th>
+                      <th className="px-2 py-1">To</th>
+                      <th className="px-2 py-1">Failure reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {data.recentFailures.map((f) => (
+                      <tr key={f.id}>
+                        <td className="px-2 py-1 text-gray-600">{fmtRelative(f.createdAt)}</td>
+                        <td className="px-2 py-1 font-mono">{f.type}</td>
+                        <td className="px-2 py-1">{f.toEmail ?? "—"}</td>
+                        <td className="px-2 py-1 text-red-700">{f.failedReason ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AccessDenialsPanel() {
+  const [data, setData] = useState<{ denials: AccessDenialEntry[]; note: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>("");
+  const refresh = () => {
+    apiGet<{ denials: AccessDenialEntry[]; note: string }>("/support/access-denials?limit=200")
+      .then(setData).catch((e) => setErr(String(e)));
+  };
+  useEffect(() => { refresh(); }, []);
+  const filtered = data?.denials.filter((d) => {
+    if (!filter) return true;
+    const q = filter.toLowerCase();
+    return d.kind.toLowerCase().includes(q)
+      || d.path.toLowerCase().includes(q)
+      || (d.actorUserId ?? "").toLowerCase().includes(q)
+      || (d.actorRole ?? "").toLowerCase().includes(q)
+      || String(d.districtId ?? "").includes(q)
+      || (d.detail ?? "").toLowerCase().includes(q);
+  }) ?? [];
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ShieldOff className="h-4 w-4 text-gray-500" />
+          <h2 className="text-sm font-semibold text-gray-900">Recent access denials (401/403)</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter by path, role, kind, user…"
+            className="text-xs px-2 py-1 border border-gray-300 rounded w-64"
+          />
+          <button onClick={refresh} className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">Refresh</button>
+        </div>
+      </div>
+      <div className="p-4 text-sm">
+        {err && <div className="text-red-600 text-xs">Failed to load: {err}</div>}
+        {!data && !err && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
+        {data && (
+          <>
+            <div className="text-xs text-gray-500 mb-2">{data.note} · Showing {filtered.length} of {data.denials.length}.</div>
+            {filtered.length === 0 ? (
+              <div className="text-xs text-gray-500">No matching denials recorded.</div>
+            ) : (
+              <div className="border border-gray-200 rounded max-h-96 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-left text-gray-500 uppercase sticky top-0">
+                    <tr>
+                      <th className="px-2 py-1">When</th>
+                      <th className="px-2 py-1">Status</th>
+                      <th className="px-2 py-1">Kind</th>
+                      <th className="px-2 py-1">Method/Path</th>
+                      <th className="px-2 py-1">User</th>
+                      <th className="px-2 py-1">Role</th>
+                      <th className="px-2 py-1">District</th>
+                      <th className="px-2 py-1">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filtered.map((d, i) => (
+                      <tr key={`${d.at}-${i}`}>
+                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{fmtRelative(d.at)}</td>
+                        <td className="px-2 py-1">
+                          <span className={`px-1.5 py-0.5 rounded font-medium ${d.status >= 500 ? "bg-red-100 text-red-700" : d.status === 403 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-700"}`}>{d.status}</span>
+                        </td>
+                        <td className="px-2 py-1 font-mono">{d.kind}</td>
+                        <td className="px-2 py-1 font-mono text-gray-700">{d.method} {d.path}</td>
+                        <td className="px-2 py-1 font-mono">{d.actorUserId ?? "—"}</td>
+                        <td className="px-2 py-1">{d.actorRole ?? "—"}</td>
+                        <td className="px-2 py-1">{d.districtId ?? "—"}</td>
+                        <td className="px-2 py-1 text-gray-600 max-w-md truncate" title={d.detail ?? ""}>{d.detail ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserLookupPanel() {
+  const [q, setQ] = useState("");
+  const [data, setData] = useState<UserLookupReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const lookup = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!q.trim()) return;
+    setLoading(true); setErr(null); setData(null);
+    apiGet<UserLookupReport>(`/support/users/lookup?q=${encodeURIComponent(q.trim())}`)
+      .then((r) => { setData(r); setLoading(false); })
+      .catch((e2) => { setErr(String(e2)); setLoading(false); });
+  };
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        <UserSearch className="h-4 w-4 text-gray-500" />
+        <h2 className="text-sm font-semibold text-gray-900">User lookup</h2>
+      </div>
+      <div className="p-4">
+        <form onSubmit={lookup} className="flex gap-2 mb-3">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Email address or Clerk user ID (user_…)"
+            className="flex-1 text-sm px-3 py-1.5 border border-gray-300 rounded"
+          />
+          <button type="submit" className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Look up"}
+          </button>
+        </form>
+        {err && <div className="text-red-600 text-xs">{err}</div>}
+        {data && (
+          <div className="space-y-3">
+            {data.drift.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs space-y-1">
+                <div className="font-medium text-amber-900 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />Discrepancies
+                </div>
+                {data.drift.map((d, i) => <div key={i} className="text-amber-800">• {d}</div>)}
+              </div>
+            )}
+            <div className="grid md:grid-cols-2 gap-3 text-xs">
+              <div className="border border-gray-200 rounded p-3">
+                <div className="font-semibold text-gray-700 mb-2 flex items-center gap-1"><Users className="h-3 w-3" />Staff matches ({data.staffMatches.length})</div>
+                {data.staffMatches.length === 0
+                  ? <div className="text-gray-500">No staff rows found.</div>
+                  : data.staffMatches.map((s) => (
+                      <div key={s.staffId} className="border-t border-gray-100 pt-1 mt-1 first:border-0 first:mt-0 first:pt-0">
+                        <div className="font-medium">{s.name} <span className="font-mono text-gray-500">#{s.staffId}</span></div>
+                        <div className="text-gray-600">{s.email} · {s.role} · {s.active ? "active" : "inactive"}</div>
+                        <div className="text-gray-500">{s.districtName ?? "no district"} → {s.schoolName ?? "no school"}</div>
+                      </div>
+                    ))}
+              </div>
+              <div className="border border-gray-200 rounded p-3">
+                <div className="font-semibold text-gray-700 mb-2 flex items-center gap-1"><Lock className="h-3 w-3" />Clerk record</div>
+                {!data.clerk
+                  ? <div className="text-gray-500">No Clerk user found for this identifier.</div>
+                  : (
+                    <div className="space-y-0.5">
+                      <div><span className="text-gray-500">User ID:</span> <span className="font-mono">{data.clerk.userId}</span></div>
+                      <div><span className="text-gray-500">Email:</span> {data.clerk.primaryEmail ?? "—"}</div>
+                      <div><span className="text-gray-500">Role (metadata):</span> {data.clerk.role ?? "—"}</div>
+                      <div><span className="text-gray-500">District (metadata):</span> {data.clerk.districtId ?? "—"}</div>
+                      <div><span className="text-gray-500">Staff (metadata):</span> {data.clerk.staffId ?? "—"}</div>
+                      <div><span className="text-gray-500">Platform admin:</span> {data.clerk.platformAdmin ? "yes" : "no"}</div>
+                      <div><span className="text-gray-500">Last sign in:</span> {data.clerk.lastSignInAt ? fmtRelative(new Date(data.clerk.lastSignInAt).toISOString()) : "never"}</div>
+                    </div>
+                  )}
+              </div>
+            </div>
+            <div className="border border-gray-200 rounded p-3 text-xs">
+              <div className="font-semibold text-gray-700 mb-2 flex items-center gap-1"><ListChecks className="h-3 w-3" />Recent audit activity ({data.recentAudit.length})</div>
+              {data.recentAudit.length === 0
+                ? <div className="text-gray-500">No audit log entries for this user.</div>
+                : (
+                  <table className="w-full">
+                    <tbody className="divide-y divide-gray-100">
+                      {data.recentAudit.map((a) => (
+                        <tr key={a.id}>
+                          <td className="py-1 text-gray-500 whitespace-nowrap pr-2">{fmtRelative(a.createdAt)}</td>
+                          <td className="py-1 font-mono pr-2">{a.action}</td>
+                          <td className="py-1 text-gray-600 pr-2">{a.targetTable ?? ""}{a.targetId ? `#${a.targetId}` : ""}</td>
+                          <td className="py-1 text-gray-700">{a.summary ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -319,7 +621,13 @@ function DistrictDetailView({ districtId, onBack }: { districtId: number; onBack
   const [inactive, setInactive] = useState<InactiveStaff[] | null>(null);
   const [syncs, setSyncs] = useState<SyncLogEntry[] | null>(null);
   const [metrics, setMetrics] = useState<MetricDebug | null>(null);
-  const [tab, setTab] = useState<"overview" | "health" | "inactive" | "syncs" | "metrics">("overview");
+  const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingStep[] | null>(null);
+  const [emails, setEmails] = useState<DistrictEmailReport | null>(null);
+  const [features, setFeatures] = useState<FeatureAccessReport | null>(null);
+  const [tab, setTab] = useState<
+    "overview" | "health" | "readiness" | "onboarding" | "tier" | "emails" | "inactive" | "syncs" | "metrics"
+  >("overview");
   const [days, setDays] = useState(14);
 
   useEffect(() => {
@@ -327,6 +635,10 @@ function DistrictDetailView({ districtId, onBack }: { districtId: number; onBack
     apiGet<DataHealthReport>(`/support/districts/${districtId}/data-health`).then(setHealth).catch(() => {});
     apiGet<{ syncs: SyncLogEntry[] }>(`/support/districts/${districtId}/recent-syncs`).then((r) => setSyncs(r.syncs)).catch(() => setSyncs([]));
     apiGet<MetricDebug>(`/support/districts/${districtId}/metric-debug`).then(setMetrics).catch(() => {});
+    apiGet<ReadinessReport>(`/support/districts/${districtId}/readiness`).then(setReadiness).catch(() => {});
+    apiGet<{ steps: OnboardingStep[] }>(`/support/districts/${districtId}/onboarding`).then((r) => setOnboarding(r.steps)).catch(() => setOnboarding([]));
+    apiGet<DistrictEmailReport>(`/support/districts/${districtId}/recent-emails?limit=50`).then(setEmails).catch(() => {});
+    apiGet<FeatureAccessReport>(`/support/districts/${districtId}/feature-access`).then(setFeatures).catch(() => {});
   }, [districtId]);
 
   useEffect(() => {
@@ -373,10 +685,14 @@ function DistrictDetailView({ districtId, onBack }: { districtId: number; onBack
         <StatCard label="Last sync" value={fmtRelative(detail.activity.lastSyncAt)} sub={`${detail.activity.sisConnections.length} connection(s)`} />
       </div>
 
-      <div className="border-b border-gray-200 flex gap-1">
+      <div className="border-b border-gray-200 flex gap-1 flex-wrap">
         {([
-          ["overview", "Overview", Activity],
+          ["overview", "Overview", ""],
           ["health", "Data health", health ? `(${health.summary.critical}c/${health.summary.warnings}w)` : ""],
+          ["readiness", "Pilot readiness", readiness ? `(${readiness.summary.failures}f/${readiness.summary.warnings}w)` : ""],
+          ["onboarding", "Onboarding", onboarding ? `(${onboarding.filter(s => s.completed).length}/${onboarding.length})` : ""],
+          ["tier", "Feature access", features ? `(${features.effectiveTier})` : ""],
+          ["emails", "Emails", emails ? `(${emails.summary?.failed ?? 0} failed)` : ""],
           ["inactive", "Inactive providers", inactive ? `(${inactive.length})` : ""],
           ["syncs", "SIS sync log", syncs ? `(${syncs.length})` : ""],
           ["metrics", "Metric debug", ""],
@@ -408,8 +724,230 @@ function DistrictDetailView({ districtId, onBack }: { districtId: number; onBack
       {tab === "metrics" && (
         <MetricsTab metrics={metrics} />
       )}
+      {tab === "readiness" && (
+        <ReadinessTab report={readiness} />
+      )}
+      {tab === "onboarding" && (
+        <OnboardingTab steps={onboarding} />
+      )}
+      {tab === "tier" && (
+        <FeatureAccessTab report={features} />
+      )}
+      {tab === "emails" && (
+        <DistrictEmailsTab report={emails} />
+      )}
     </div>
   );
+}
+
+function ReadinessTab({ report }: { report: ReadinessReport | null }) {
+  if (!report) return <Loader2 className="h-6 w-6 animate-spin text-gray-400" />;
+  const groups = new Map<string, ReadinessCheck[]>();
+  for (const c of report.checks) {
+    const g = c.group || "general";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(c);
+  }
+  const STATUS: Record<ReadinessCheck["status"], { cls: string; icon: typeof CheckCircle; label: string }> = {
+    ok: { cls: "text-emerald-700 bg-emerald-50", icon: CheckCircle, label: "OK" },
+    warn: { cls: "text-amber-700 bg-amber-50", icon: AlertTriangle, label: "Warning" },
+    fail: { cls: "text-red-700 bg-red-50", icon: XCircle, label: "Fail" },
+    info: { cls: "text-gray-700 bg-gray-50", icon: Activity, label: "Info" },
+  };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 text-sm">
+        <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-medium">{report.summary.failures} failures</span>
+        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">{report.summary.warnings} warnings</span>
+        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">{report.summary.passed} passed</span>
+        <span className="text-gray-500">of {report.summary.checksRun} checks</span>
+      </div>
+      {Array.from(groups.entries()).map(([groupName, checks]) => (
+        <div key={groupName} className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-gray-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">{groupName}</div>
+          <ul className="divide-y divide-gray-100">
+            {checks.map((c) => {
+              const s = STATUS[c.status];
+              const SIcon = s.icon;
+              return (
+                <li key={c.key} className="px-3 py-2 flex items-start gap-3">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${s.cls}`}>
+                    <SIcon className="h-3 w-3" />{s.label}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900">{c.label}</div>
+                    <div className="text-xs text-gray-600">{c.message}</div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OnboardingTab({ steps }: { steps: OnboardingStep[] | null }) {
+  if (!steps) return <Loader2 className="h-6 w-6 animate-spin text-gray-400" />;
+  if (steps.length === 0) {
+    return <div className="text-sm text-gray-500">No onboarding progress recorded yet for this district.</div>;
+  }
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+          <tr>
+            <th className="px-3 py-2">Step</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Completed at</th>
+            <th className="px-3 py-2">Last updated</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {steps.map((s) => (
+            <tr key={s.stepKey}>
+              <td className="px-3 py-2 font-mono text-xs">{s.stepKey}</td>
+              <td className="px-3 py-2">
+                {s.completed
+                  ? <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-medium"><CheckCircle className="h-3 w-3" />Done</span>
+                  : <span className="inline-flex items-center gap-1 text-gray-500 text-xs"><Clock className="h-3 w-3" />Pending</span>}
+              </td>
+              <td className="px-3 py-2 text-gray-600">{s.completedAt ? fmtRelative(s.completedAt) : "—"}</td>
+              <td className="px-3 py-2 text-gray-600">{s.updatedAt ? fmtRelative(s.updatedAt) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FeatureAccessTab({ report }: { report: FeatureAccessReport | null }) {
+  if (!report) return <Loader2 className="h-6 w-6 animate-spin text-gray-400" />;
+  return (
+    <div className="space-y-4">
+      <div className="border border-gray-200 rounded-lg p-4 bg-white">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="text-xs text-gray-500">Base tier</div>
+            <div className="font-medium">{report.baseTierLabel}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Effective tier</div>
+            <div className="font-medium">
+              {report.effectiveTierLabel}
+              {report.tierOverridden && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">override</span>}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Subscription</div>
+            <div className="font-medium">{report.subscriptionPlanTier ?? "—"} <span className="text-xs text-gray-500">{report.subscriptionStatus ?? "no row"}</span></div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Add-ons</div>
+            <div className="font-medium">{report.addOns.length === 0 ? "none" : report.addOns.join(", ")}</div>
+          </div>
+        </div>
+        {report.grantsAllAccess && (
+          <div className="mt-3 text-xs text-violet-700 bg-violet-50 inline-flex items-center gap-1 px-2 py-1 rounded">
+            <Sparkles className="h-3 w-3" />
+            {report.isDemo ? "Demo district — all features open regardless of tier." : "Pilot district — all features open regardless of tier."}
+          </div>
+        )}
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-3 py-2">Module</th>
+              <th className="px-3 py-2">Access</th>
+              <th className="px-3 py-2">Reason</th>
+              <th className="px-3 py-2">Features</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {report.modules.map((m) => (
+              <tr key={m.moduleKey}>
+                <td className="px-3 py-2 font-medium">{m.moduleLabel} <span className="block text-xs font-mono text-gray-400">{m.moduleKey}</span></td>
+                <td className="px-3 py-2">
+                  {m.accessible
+                    ? <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-medium"><CheckCircle className="h-3 w-3" />Accessible</span>
+                    : <span className="inline-flex items-center gap-1 text-red-700 text-xs font-medium"><Lock className="h-3 w-3" />Gated</span>}
+                </td>
+                <td className="px-3 py-2 text-xs text-gray-600">{m.accessReason}</td>
+                <td className="px-3 py-2 text-xs text-gray-500">{m.features.length} feature{m.features.length === 1 ? "" : "s"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DistrictEmailsTab({ report }: { report: DistrictEmailReport | null }) {
+  if (!report) return <Loader2 className="h-6 w-6 animate-spin text-gray-400" />;
+  const summary = report.summary ?? {};
+  const summaryEntries = Object.entries(summary);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${report.providerConfigured ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          <Mail className="h-3 w-3" />
+          {report.providerConfigured ? "Email provider configured" : "RESEND_API_KEY missing — emails not sending"}
+        </span>
+        {summaryEntries.length === 0 && <span className="text-xs text-gray-500">No events in last 7 days.</span>}
+        {summaryEntries.map(([status, n]) => (
+          <span key={status} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs">
+            {status}: <span className="font-medium">{n}</span>
+          </span>
+        ))}
+      </div>
+      {report.events.length === 0 ? (
+        <div className="text-sm text-gray-500">No notification events for this district yet.</div>
+      ) : (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-3 py-2">When</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">To</th>
+                <th className="px-3 py-2">Student</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Failure reason</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {report.events.map((e) => (
+                <tr key={e.id}>
+                  <td className="px-3 py-2 text-xs text-gray-600">{fmtRelative(e.createdAt)}</td>
+                  <td className="px-3 py-2 text-xs font-mono">{e.type}</td>
+                  <td className="px-3 py-2 text-xs">{e.toEmail ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">{e.studentName}</td>
+                  <td className="px-3 py-2 text-xs">
+                    <StatusPill status={e.status} />
+                  </td>
+                  <td className="px-3 py-2 text-xs text-red-700">{e.failedReason ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const cls = status === "delivered" ? "bg-emerald-50 text-emerald-700"
+    : status === "sent" ? "bg-sky-50 text-sky-700"
+    : status === "failed" ? "bg-red-50 text-red-700"
+    : status === "not_configured" ? "bg-amber-50 text-amber-700"
+    : "bg-gray-100 text-gray-700";
+  return <span className={`inline-flex px-1.5 py-0.5 rounded font-medium ${cls}`}>{status}</span>;
 }
 
 function StatCard({ label, value, sub, warn }: { label: string; value: string | number; sub?: string; warn?: boolean }) {

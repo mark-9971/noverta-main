@@ -2,6 +2,7 @@ import { type Request, type Response, type NextFunction } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { recordAccessDenial } from "../lib/accessDenials";
 import { db, staffTable, schoolsTable } from "@workspace/db";
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 
@@ -49,6 +50,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   // Production: explicitly reject any dev-only test headers to prevent spoofing.
   if (process.env.NODE_ENV === "production") {
     if (req.headers["x-test-user-id"] || req.headers["x-test-role"] || req.headers["x-test-district-id"]) {
+      recordAccessDenial(req, "dev_headers_in_prod", 400, "x-test-* headers received in production");
       res.status(400).json({ error: "Dev-only headers are not accepted in production" });
       return;
     }
@@ -75,12 +77,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
   const auth = getAuth(req);
   if (!auth?.userId) {
+    recordAccessDenial(req, "unauthenticated", 401, "No Clerk session on request");
     res.status(401).json({ error: "Authentication required" });
     return;
   }
   (req as AuthedRequest).userId = auth.userId;
   const role = extractRole(req);
   if (!role) {
+    recordAccessDenial(req, "no_role", 403, "Authenticated user has no Trellis role in token metadata");
     res.status(403).json({ error: "No role assigned. Contact your administrator." });
     return;
   }
@@ -240,6 +244,7 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
         return;
       }
 
+      recordAccessDenial(req, "no_district_scope", 403, "Authenticated user has no district claim and no matching staff row");
       res.status(403).json({
         error: "Your account isn't linked to a district yet. Ask a district admin to add your email to their staff list, then sign in again.",
       });
@@ -252,6 +257,7 @@ export function requireRoles(...allowedRoles: TrellisRole[]) {
     requireAuth(req, res, () => {
       const authed = req as AuthedRequest;
       if (!allowedRoles.includes(authed.trellisRole)) {
+        recordAccessDenial(req, "role_forbidden", 403, `Role "${authed.trellisRole}" not in allowed list [${allowedRoles.join(", ")}]`);
         res.status(403).json({ error: "You don't have permission to access this resource" });
         return;
       }
@@ -265,6 +271,7 @@ export function requireMinRole(minRole: TrellisRole) {
     requireAuth(req, res, () => {
       const authed = req as AuthedRequest;
       if (ROLE_HIERARCHY[authed.trellisRole] < ROLE_HIERARCHY[minRole]) {
+        recordAccessDenial(req, "role_forbidden", 403, `Role "${authed.trellisRole}" below required minimum "${minRole}"`);
         res.status(403).json({ error: "You don't have permission to access this resource" });
         return;
       }
@@ -277,6 +284,7 @@ export function requirePlatformAdmin(req: Request, res: Response, next: NextFunc
   requireAuth(req, res, () => {
     const meta = getPublicMeta(req);
     if (!meta.platformAdmin) {
+      recordAccessDenial(req, "platform_admin_required", 403, "Non-platform-admin attempted to reach a /support endpoint");
       res.status(403).json({ error: "Platform admin access required" });
       return;
     }
@@ -293,6 +301,7 @@ export function requireGuardianScope(req: Request, res: Response, next: NextFunc
   requireAuth(req, res, () => {
     const authed = req as AuthedRequest;
     if (authed.trellisRole !== "sped_parent") {
+      recordAccessDenial(req, "guardian_scope_required", 403, `Guardian-portal route hit by role "${authed.trellisRole}"`);
       res.status(403).json({ error: "Guardian portal access requires the sped_parent role." });
       return;
     }

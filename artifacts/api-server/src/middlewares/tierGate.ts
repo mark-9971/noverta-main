@@ -7,6 +7,7 @@ import {
   getModuleForFeature,
 } from "@workspace/db";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { recordAccessDenial } from "../lib/accessDenials";
 import { getAuth } from "@clerk/express";
 
 interface DistrictGateContext {
@@ -135,6 +136,7 @@ export function requireTierAccess(featureKey: FeatureKey) {
 
     const auth = getAuth(req);
     if (!auth?.userId) {
+      recordAccessDenial(req, "unauthenticated", 401, `Tier gate hit without auth (feature: ${featureKey})`);
       res.status(401).json({ error: "Unauthenticated", code: "UNAUTHENTICATED" });
       return;
     }
@@ -177,6 +179,8 @@ export function requireTierAccess(featureKey: FeatureKey) {
       }
 
       const requiredTier = getRequiredTierForFeature(featureKey);
+      recordAccessDenial(req, "tier_upgrade_required", 403,
+        `Feature "${featureKey}" requires ${requiredTier}; district is on ${ctx.tier} (add-ons: ${ctx.addOns.length === 0 ? "none" : ctx.addOns.join(",")})`);
       res.status(403).json({
         error: "Feature not available on your current plan",
         code: "TIER_UPGRADE_REQUIRED",
@@ -188,6 +192,7 @@ export function requireTierAccess(featureKey: FeatureKey) {
       });
     } catch (err) {
       console.error("Tier gate error:", err);
+      recordAccessDenial(req, "tier_check_failed", 503, `Tier resolution failed for feature "${featureKey}"`);
       res.status(503).json({
         error: "Unable to verify subscription tier",
         code: "TIER_CHECK_FAILED",

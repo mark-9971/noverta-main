@@ -2,11 +2,17 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, districtsTable, districtSubscriptionsTable, schoolsTable, studentsTable,
   staffTable, sisConnectionsTable, sisSyncLogsTable, importsTable,
+  communicationEventsTable, onboardingProgressTable, auditLogsTable,
+  TIER_MODULES, MODULE_FEATURES, MODULE_LABELS, TIER_LABELS,
+  type DistrictTier, type ProductModule, type FeatureKey,
 } from "@workspace/db";
-import { and, eq, inArray, isNull, sql, desc } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, desc, ilike, or } from "drizzle-orm";
 import { requirePlatformAdmin } from "../middlewares/auth";
 import { runDataHealthChecks } from "../lib/dataHealthChecks";
+import { runDistrictReadinessChecks } from "../lib/pilotReadiness";
 import { deriveDistrictMode } from "../lib/districtMode";
+import { getRecentAccessDenials } from "../lib/accessDenials";
+import { clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -207,8 +213,8 @@ router.get("/support/districts/:id", async (req: Request, res: Response) => {
         id: district.id,
         name: district.name,
         state: district.state,
-        isDemo,
-        isPilot,
+        isDemo: district.isDemo,
+        isPilot: district.isPilot,
         tier: district.tierOverride || district.tier || "essentials",
         createdAt: district.createdAt,
       },
@@ -493,6 +499,389 @@ router.get("/support/districts/:id/metric-debug", async (req: Request, res: Resp
   } catch (err) {
     console.error("[Support] metric-debug error:", err);
     res.status(500).json({ error: "Failed to load metric debug" });
+  }
+});
+
+/**
+ * GET /api/support/districts/:id/readiness
+ * Wraps the in-app pilot-readiness checks (data + config + operations groups)
+ * so support can answer "is this district production-ready?" without asking
+ * the customer admin to log in and run it themselves.
+ */
+router.get("/support/districts/:id/readiness", async (req: Request, res: Response) => {
+  const districtId = parseDistrictId(req);
+  if (!districtId) { res.status(400).json({ error: "Invalid district id" }); return; }
+  try {
+    const report = await runDistrictReadinessChecks(districtId);
+    res.json(report);
+  } catch (err) {
+    console.error("[Support] readiness error:", err);
+    res.status(500).json({ error: "Failed to run readiness checks" });
+  }
+});
+
+/**
+ * GET /api/support/districts/:id/onboarding
+ * Returns the per-step onboarding_progress rows so support can see exactly
+ * which steps a district has skipped (e.g. "they never completed the SIS step,
+ * which is why nothing imported").
+ */
+router.get("/support/districts/:id/onboarding", async (req: Request, res: Response) => {
+  const districtId = parseDistrictId(req);
+  if (!districtId) { res.status(400).json({ error: "Invalid district id" }); return; }
+  try {
+    const rows = await db.select().from(onboardingProgressTable)
+      .where(eq(onboardingProgressTable.districtId, districtId))
+      .orderBy(onboardingProgressTable.stepKey);
+    res.json({
+      districtId,
+      steps: rows.map(r => ({
+        stepKey: r.stepKey,
+        completed: r.completed,
+        completedAt: r.completedAt,
+        updatedAt: r.updatedAt,
+      })),
+    });
+  } catch (err) {
+    console.error("[Support] onboarding error:", err);
+    res.status(500).json({ error: "Failed to load onboarding progress" });
+  }
+});
+
+/**
+ * GET /api/support/districts/:id/feature-access
+ * Resolves the effective tier (override vs base), enumerates which modules
+ * and features are accessible, and flags add-ons. Lets support quickly
+ * confirm whether a missing screen is a tier-gate problem vs a real bug.
+ */
+router.get("/support/districts/:id/feature-access", async (req: Request, res: Response) => {
+  const districtId = parseDistrictId(req);
+  if (!districtId) { res.status(400).json({ error: "Invalid district id" }); return; }
+  try {
+    const [district] = await db.select({
+      tier: districtsTable.tier,
+      tierOverride: districtsTable.tierOverride,
+      isDemo: districtsTable.isDemo,
+      isPilot: districtsTable.isPilot,
+    }).from(districtsTable).where(eq(districtsTable.id, districtId)).limit(1);
+    if (!district) { res.status(404).json({ error: "District not found" }); return; }
+
+    const [sub] = await db.select({
+      addOns: districtSubscriptionsTable.addOns,
+      planTier: districtSubscriptionsTable.planTier,
+      status: districtSubscriptionsTable.status,
+    }).from(districtSubscriptionsTable).where(eq(districtSubscriptionsTable.districtId, districtId)).limit(1);
+
+    const baseTier = (district.tier || "essentials") as DistrictTier;
+    const effectiveTier = (district.tierOverride || district.tier || "essentials") as DistrictTier;
+    const addOns = sub?.addOns ?? [];
+    const includedModules = new Set<ProductModule>(TIER_MODULES[effectiveTier]);
+    const grantsAllAccess = district.isDemo || district.isPilot;
+
+    const modules = (Object.keys(MODULE_FEATURES) as ProductModule[]).map((modKey) => {
+      const includedByTier = includedModules.has(modKey);
+      const includedByAddOn = addOns.includes(modKey);
+      const accessible = grantsAllAccess || includedByTier || includedByAddOn;
+      return {
+        moduleKey: modKey,
+        moduleLabel: MODULE_LABELS[modKey],
+        accessible,
+        accessReason: grantsAllAccess
+          ? (district.isDemo ? "demo district — all access" : "pilot district — all access")
+          : includedByTier
+            ? `included in ${TIER_LABELS[effectiveTier]} tier`
+            : includedByAddOn
+              ? "purchased as add-on"
+              : `requires upgrade or add-on`,
+        features: MODULE_FEATURES[modKey].map(fk => ({ featureKey: fk, accessible })),
+      };
+    });
+
+    res.json({
+      districtId,
+      isDemo: district.isDemo,
+      isPilot: district.isPilot,
+      baseTier,
+      baseTierLabel: TIER_LABELS[baseTier],
+      effectiveTier,
+      effectiveTierLabel: TIER_LABELS[effectiveTier],
+      tierOverridden: !!district.tierOverride,
+      subscriptionPlanTier: sub?.planTier ?? null,
+      subscriptionStatus: sub?.status ?? null,
+      addOns,
+      grantsAllAccess,
+      modules,
+    });
+  } catch (err) {
+    console.error("[Support] feature-access error:", err);
+    res.status(500).json({ error: "Failed to load feature access" });
+  }
+});
+
+/**
+ * GET /api/support/districts/:id/recent-emails?limit=50
+ * Recent communication_events for students in this district, with status,
+ * type, and failure reason. Surfaces "guardian never got the notification"
+ * complaints quickly.
+ */
+router.get("/support/districts/:id/recent-emails", async (req: Request, res: Response) => {
+  const districtId = parseDistrictId(req);
+  if (!districtId) { res.status(400).json({ error: "Invalid district id" }); return; }
+  const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 50));
+  try {
+    const schoolIds = await loadDistrictSchoolIds(districtId);
+    if (schoolIds.length === 0) {
+      res.json({ providerConfigured: !!process.env.RESEND_API_KEY, summary: null, events: [] });
+      return;
+    }
+
+    // Aggregate counts (last 7 days) by status, then list recent events.
+    const summaryRows = await db.execute(sql`
+      SELECT ce.status, COUNT(*)::int AS n
+      FROM communication_events ce
+      JOIN students s ON s.id = ce.student_id
+      WHERE s.school_id = ANY(${schoolIds})
+        AND ce.created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY ce.status
+    `);
+    const summary: Record<string, number> = {};
+    for (const r of summaryRows.rows as Array<Record<string, unknown>>) {
+      summary[String(r.status)] = Number(r.n || 0);
+    }
+
+    const eventsResult = await db.execute(sql`
+      SELECT ce.id, ce.status, ce.type, ce.subject, ce.to_email, ce.to_name,
+             ce.failed_reason, ce.sent_at, ce.delivered_at, ce.failed_at, ce.created_at,
+             s.first_name, s.last_name
+      FROM communication_events ce
+      JOIN students s ON s.id = ce.student_id
+      WHERE s.school_id = ANY(${schoolIds})
+      ORDER BY ce.created_at DESC
+      LIMIT ${limit}
+    `);
+
+    const events = (eventsResult.rows as Array<Record<string, unknown>>).map(r => ({
+      id: Number(r.id),
+      status: r.status as string,
+      type: r.type as string,
+      subject: r.subject as string,
+      toEmail: r.to_email as string | null,
+      toName: r.to_name as string | null,
+      failedReason: r.failed_reason as string | null,
+      sentAt: r.sent_at as string | null,
+      deliveredAt: r.delivered_at as string | null,
+      failedAt: r.failed_at as string | null,
+      createdAt: r.created_at as string,
+      studentName: `${r.first_name} ${r.last_name}`,
+    }));
+
+    res.json({
+      providerConfigured: !!process.env.RESEND_API_KEY,
+      summary,
+      events,
+    });
+  } catch (err) {
+    console.error("[Support] recent-emails error:", err);
+    res.status(500).json({ error: "Failed to load recent emails" });
+  }
+});
+
+/**
+ * GET /api/support/email-status
+ * Global email-provider health: is RESEND_API_KEY configured, 7-day platform-wide
+ * counts by status, and the most recent failures across all districts.
+ */
+router.get("/support/email-status", async (_req: Request, res: Response) => {
+  try {
+    const summaryRows = await db.execute(sql`
+      SELECT status, COUNT(*)::int AS n
+      FROM communication_events
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY status
+    `);
+    const summary: Record<string, number> = {};
+    for (const r of summaryRows.rows as Array<Record<string, unknown>>) {
+      summary[String(r.status)] = Number(r.n || 0);
+    }
+
+    const failures = await db.select({
+      id: communicationEventsTable.id,
+      type: communicationEventsTable.type,
+      subject: communicationEventsTable.subject,
+      toEmail: communicationEventsTable.toEmail,
+      failedReason: communicationEventsTable.failedReason,
+      failedAt: communicationEventsTable.failedAt,
+      createdAt: communicationEventsTable.createdAt,
+    }).from(communicationEventsTable)
+      .where(or(
+        eq(communicationEventsTable.status, "failed"),
+        eq(communicationEventsTable.status, "not_configured"),
+      ))
+      .orderBy(desc(communicationEventsTable.createdAt))
+      .limit(20);
+
+    res.json({
+      providerConfigured: !!process.env.RESEND_API_KEY,
+      providerName: "Resend",
+      window: "last 7 days",
+      summary,
+      recentFailures: failures.map(f => ({
+        id: f.id,
+        type: f.type,
+        subject: f.subject,
+        toEmail: f.toEmail,
+        failedReason: f.failedReason,
+        failedAt: f.failedAt,
+        createdAt: f.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error("[Support] email-status error:", err);
+    res.status(500).json({ error: "Failed to load email status" });
+  }
+});
+
+/**
+ * GET /api/support/access-denials?limit=100
+ * Reads the in-memory ring buffer of recent 401/403 decisions emitted by
+ * auth, role, district-scope, platform-admin, and tier-gate middlewares.
+ * Newest first. Process-local — restarts wipe it. See lib/accessDenials.ts.
+ */
+router.get("/support/access-denials", async (req: Request, res: Response) => {
+  const limit = Math.max(1, Math.min(200, Number(req.query.limit) || 100));
+  try {
+    const denials = getRecentAccessDenials(limit);
+    res.json({
+      note: "In-memory ring buffer (max 200 entries). Cleared on server restart.",
+      denials,
+    });
+  } catch (err) {
+    console.error("[Support] access-denials error:", err);
+    res.status(500).json({ error: "Failed to load access denials" });
+  }
+});
+
+/**
+ * GET /api/support/users/lookup?q=...
+ * Resolves a Trellis user by email or Clerk userId. Returns:
+ *  - matching staff rows (with district + school + role)
+ *  - Clerk public metadata (role / districtId / platformAdmin) if available
+ *  - recent audit log entries by the actor
+ *
+ * Lets support answer "this user says they can't log in / has the wrong role
+ * — what does the system actually think they are?".
+ */
+router.get("/support/users/lookup", async (req: Request, res: Response) => {
+  const q = String(req.query.q || "").trim();
+  if (!q) { res.status(400).json({ error: "q is required (email or Clerk userId)" }); return; }
+
+  try {
+    const looksLikeClerkId = q.startsWith("user_");
+    const lower = q.toLowerCase();
+
+    // Staff matches by email (case-insensitive).
+    const staffRows = await db.select({
+      staffId: staffTable.id,
+      firstName: staffTable.firstName,
+      lastName: staffTable.lastName,
+      email: staffTable.email,
+      role: staffTable.role,
+      status: staffTable.status,
+      schoolId: staffTable.schoolId,
+      schoolName: schoolsTable.name,
+      districtId: schoolsTable.districtId,
+      districtName: districtsTable.name,
+      deletedAt: staffTable.deletedAt,
+    }).from(staffTable)
+      .leftJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+      .leftJoin(districtsTable, eq(schoolsTable.districtId, districtsTable.id))
+      .where(ilike(staffTable.email, lower))
+      .limit(20);
+
+    // Clerk lookup (best-effort — may be missing in dev).
+    let clerk: {
+      userId: string;
+      primaryEmail: string | null;
+      role: string | null;
+      districtId: number | null;
+      staffId: number | null;
+      platformAdmin: boolean;
+      createdAt: number | null;
+      lastSignInAt: number | null;
+    } | null = null;
+    try {
+      let clerkUser = null;
+      if (looksLikeClerkId) {
+        clerkUser = await clerkClient.users.getUser(q).catch(() => null);
+      } else {
+        const list = await clerkClient.users.getUserList({ emailAddress: [lower] }).catch(() => null);
+        clerkUser = list?.data?.[0] ?? null;
+      }
+      if (clerkUser) {
+        const meta = (clerkUser.publicMetadata ?? {}) as Record<string, unknown>;
+        clerk = {
+          userId: clerkUser.id,
+          primaryEmail: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+          role: typeof meta.role === "string" ? meta.role : null,
+          districtId: typeof meta.districtId === "number" ? meta.districtId : null,
+          staffId: typeof meta.staffId === "number" ? meta.staffId : null,
+          platformAdmin: meta.platformAdmin === true,
+          createdAt: clerkUser.createdAt ?? null,
+          lastSignInAt: clerkUser.lastSignInAt ?? null,
+        };
+      }
+    } catch (e) {
+      console.warn("[Support] Clerk lookup failed:", e);
+    }
+
+    // Recent audit log activity by the resolved Clerk user id (if any).
+    const actorUserId = clerk?.userId ?? (looksLikeClerkId ? q : null);
+    const recentAudit = actorUserId
+      ? await db.select({
+          id: auditLogsTable.id,
+          action: auditLogsTable.action,
+          targetTable: auditLogsTable.targetTable,
+          targetId: auditLogsTable.targetId,
+          summary: auditLogsTable.summary,
+          createdAt: auditLogsTable.createdAt,
+        }).from(auditLogsTable)
+          .where(eq(auditLogsTable.actorUserId, actorUserId))
+          .orderBy(desc(auditLogsTable.createdAt))
+          .limit(20)
+      : [];
+
+    // Compare what Clerk says vs what staff table says — surface drift explicitly.
+    const drift: string[] = [];
+    if (clerk && staffRows.length > 0) {
+      const districtIdsFromStaff = new Set(staffRows.map(s => s.districtId).filter(d => d != null));
+      if (clerk.districtId != null && !districtIdsFromStaff.has(clerk.districtId)) {
+        drift.push(`Clerk districtId=${clerk.districtId} does not match any staff row's district (${Array.from(districtIdsFromStaff).join(", ")})`);
+      }
+      if (clerk.staffId != null && !staffRows.some(s => s.staffId === clerk!.staffId)) {
+        drift.push(`Clerk staffId=${clerk.staffId} does not match any staff row found by email`);
+      }
+    }
+    if (clerk && staffRows.length === 0 && !clerk.platformAdmin) {
+      drift.push("Clerk user exists but no staff row matches their email — they will get 'no district scope' on protected routes");
+    }
+    if (!clerk && staffRows.length > 0) {
+      drift.push("Staff row(s) exist but no Clerk user found by this identifier — they cannot sign in yet");
+    }
+
+    res.json({
+      query: q,
+      staffMatches: staffRows.map(s => ({
+        ...s,
+        name: `${s.firstName} ${s.lastName}`,
+        active: !s.deletedAt && s.status === "active",
+      })),
+      clerk,
+      recentAudit,
+      drift,
+    });
+  } catch (err) {
+    console.error("[Support] user lookup error:", err);
+    res.status(500).json({ error: "Failed to look up user" });
   }
 });
 
