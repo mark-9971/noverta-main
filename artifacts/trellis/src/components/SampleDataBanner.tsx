@@ -3,7 +3,32 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { CheckCircle2, FlaskConical, Loader2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, FlaskConical, Loader2, PlayCircle, Sparkles, X } from "lucide-react";
+
+const TOUR_STORAGE_PREFIX = "trellis.sampleTour.v1";
+const TOUR_START_FLAG = "trellis.sampleTour.start";
+
+function armReplayTour() {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(TOUR_STORAGE_PREFIX)) toRemove.push(k);
+    }
+    toRemove.forEach((k) => window.localStorage.removeItem(k));
+    window.localStorage.setItem(TOUR_START_FLAG, "1");
+  } catch {
+    /* localStorage unavailable; tour will still re-arm via the event below */
+  }
+  // Notify a mounted SampleDataTour to reopen at step 0 immediately. The
+  // localStorage flags above also let the tour fire if it mounts later
+  // (e.g. after a route change).
+  try {
+    window.dispatchEvent(new Event("trellis:sampleTour:replay"));
+  } catch {
+    /* no-op */
+  }
+}
 
 interface SampleStatus {
   hasSampleData: boolean;
@@ -177,6 +202,16 @@ export function SampleDataBanner() {
         can explore Trellis with realistic numbers. Replace with your real roster anytime.
       </span>
       <div className="ml-auto flex items-center gap-2">
+        {!confirming && (
+          <button
+            onClick={armReplayTour}
+            className="inline-flex items-center gap-1 text-amber-800 hover:text-amber-900 underline"
+            data-testid="button-replay-tour"
+            title="Reopen the guided product tour from step 1"
+          >
+            <PlayCircle className="w-3 h-3" /> Replay tour
+          </button>
+        )}
         {confirming ? (
           <>
             <span className="text-amber-900 font-medium">Remove all sample data?</span>

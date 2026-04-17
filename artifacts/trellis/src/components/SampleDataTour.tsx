@@ -148,6 +148,20 @@ export function SampleDataTour() {
     }
   }, [clerkLoaded, userId, data?.districtId, isAdmin, data?.hasSampleData, active]);
 
+  // Listen for an explicit "replay tour" request (e.g. from the
+  // SampleDataBanner's "Replay tour" button). The localStorage flags set
+  // by the dispatcher cover the case where this component isn't mounted
+  // yet; this listener handles the case where it already is.
+  useEffect(() => {
+    function onReplay() {
+      if (!isAdmin || !data?.hasSampleData) return;
+      setStepIdx(0);
+      setActive(true);
+    }
+    window.addEventListener("trellis:sampleTour:replay", onReplay);
+    return () => window.removeEventListener("trellis:sampleTour:replay", onReplay);
+  }, [isAdmin, data?.hasSampleData]);
+
   // Auto-close if sample data is removed (e.g. via the banner) while the
   // tour is mid-flight — the surfaces it points at will go empty and the
   // tour would just be confusing.
