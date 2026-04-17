@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, importsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
+import { requireAdmin } from "./shared";
 
 const router: IRouter = Router();
 
-router.get("/imports", async (req, res): Promise<void> => {
+router.get("/imports", requireAdmin, async (req, res): Promise<void> => {
   try {
     const imports = await db.select().from(importsTable).orderBy(desc(importsTable.createdAt));
     res.json(imports.map(i => ({ ...i, createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString() })));
@@ -145,7 +146,7 @@ const templates: Record<string, TemplateConfig> = {
   },
 };
 
-router.get("/imports/templates/:type", async (req, res): Promise<void> => {
+router.get("/imports/templates/:type", requireAdmin, async (req, res): Promise<void> => {
   const { type } = req.params;
 
   const tmpl = templates[type];

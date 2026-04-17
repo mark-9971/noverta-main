@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Download, Loader2, Minus as MinusIcon, Printer, Users } from "lucide-react";
 import { toast } from "sonner";
-import { authFetch } from "@workspace/api-client-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   incident_report: "Incident Report",

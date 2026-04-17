@@ -97,6 +97,37 @@ function autoMapColumns(csvHeaders: string[], importType: string): Record<string
 
 const VALID_ROLES = new Set(["admin", "bcba", "provider", "para", "coordinator", "case_manager", "teacher", "slp", "ot", "pt", "counselor"]);
 
+const ROLE_ALIASES: Record<string, string> = {
+  "speech_language_pathologist": "slp",
+  "speech_pathologist": "slp",
+  "speech_therapist": "slp",
+  "speech": "slp",
+  "occupational_therapist": "ot",
+  "physical_therapist": "pt",
+  "paraprofessional": "para",
+  "paraeducator": "para",
+  "aide": "para",
+  "board_certified_behavior_analyst": "bcba",
+  "behavior_analyst": "bcba",
+  "administrator": "admin",
+  "special_education_coordinator": "coordinator",
+  "sped_coordinator": "coordinator",
+  "teacher_of_record": "teacher",
+  "school_counselor": "counselor",
+  "school_psychologist": "counselor",
+  "social_worker": "counselor",
+};
+
+function normalizeRoleForValidation(raw: string): string | null {
+  const r = raw.toLowerCase().trim().replace(/[\s\-]+/g, "_").replace(/[^a-z_]/g, "").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  if (VALID_ROLES.has(r)) return r;
+  if (ROLE_ALIASES[r]) return ROLE_ALIASES[r];
+  for (const [key, val] of Object.entries(ROLE_ALIASES)) {
+    if (r.includes(key) || key.includes(r)) return val;
+  }
+  return null;
+}
+
 router.post("/imports/validate", requireAdmin, async (req, res): Promise<void> => {
   try {
     const { csvData, importType, columnMapping: userMapping } = req.body;
@@ -116,7 +147,7 @@ router.post("/imports/validate", requireAdmin, async (req, res): Promise<void> =
     }
 
     const autoMapping = autoMapColumns(rawHeaders, importType);
-    const effectiveMapping: Record<string, string> = userMapping || autoMapping;
+    const effectiveMapping: Record<string, string> = { ...autoMapping, ...(userMapping || {}) };
 
     const remappedRows = rawRows.map(row => {
       const mapped: Record<string, string> = {};
@@ -172,12 +203,8 @@ router.post("/imports/validate", requireAdmin, async (req, res): Promise<void> =
         if (!fn || !ln) { messages.push("Missing first_name or last_name"); status = "error"; }
         if (!roleRaw) { messages.push("Missing role"); status = "error"; }
         else {
-          const normalized = roleRaw.toLowerCase().replace(/[^a-z_]/g, "");
-          if (!VALID_ROLES.has(normalized)) {
-            const roleAliases: Record<string, string> = { speech_language_pathologist: "slp", speech: "slp", occupational_therapist: "ot", physical_therapist: "pt", paraprofessional: "para", paraeducator: "para", aide: "para", board_certified_behavior_analyst: "bcba", behavior_analyst: "bcba", administrator: "admin", special_education_coordinator: "coordinator" };
-            const found = Object.entries(roleAliases).some(([k]) => normalized.includes(k));
-            if (!found) { messages.push(`Unknown role "${roleRaw}"`); status = "error"; }
-          }
+          const normalizedRole = normalizeRoleForValidation(roleRaw);
+          if (!normalizedRole) { messages.push(`Unknown role "${roleRaw}" — expected: slp, ot, pt, bcba, para, counselor, case_manager, teacher, coordinator, admin, provider (or common titles like "Speech-Language Pathologist")`); status = "error"; }
         }
         if (fn && ln) {
           const email = row.email || row.email_address || "";

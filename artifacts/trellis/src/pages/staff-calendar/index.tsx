@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
-import { authFetch } from "@workspace/api-client-react";
+import { authFetch } from "@/lib/auth-fetch";
 import { Calendar, Plus, AlertTriangle } from "lucide-react";
 import {
   StaffSchedule, Conflict, CoverageGap, ProviderSummary,

@@ -10,29 +10,32 @@ const VALID_ROLES = new Set([
   "case_manager", "teacher", "slp", "ot", "pt", "counselor",
 ]);
 
+const ROLE_ALIASES: Record<string, string> = {
+  "speech_language_pathologist": "slp",
+  "speech_pathologist": "slp",
+  "speech_therapist": "slp",
+  "speech": "slp",
+  "occupational_therapist": "ot",
+  "physical_therapist": "pt",
+  "paraprofessional": "para",
+  "paraeducator": "para",
+  "aide": "para",
+  "board_certified_behavior_analyst": "bcba",
+  "behavior_analyst": "bcba",
+  "administrator": "admin",
+  "special_education_coordinator": "coordinator",
+  "sped_coordinator": "coordinator",
+  "teacher_of_record": "teacher",
+  "school_counselor": "counselor",
+  "school_psychologist": "counselor",
+  "social_worker": "counselor",
+};
+
 function normalizeRole(raw: string): string | null {
-  const r = raw.toLowerCase().trim().replace(/[^a-z_]/g, "");
+  const r = raw.toLowerCase().trim().replace(/[\s\-]+/g, "_").replace(/[^a-z_]/g, "").replace(/_+/g, "_").replace(/^_|_$/g, "");
   if (VALID_ROLES.has(r)) return r;
-  const aliases: Record<string, string> = {
-    "speech_language_pathologist": "slp",
-    "speech": "slp",
-    "occupational_therapist": "ot",
-    "physical_therapist": "pt",
-    "paraprofessional": "para",
-    "paraeducator": "para",
-    "aide": "para",
-    "board_certified_behavior_analyst": "bcba",
-    "behavior_analyst": "bcba",
-    "administrator": "admin",
-    "special_education_coordinator": "coordinator",
-    "sped_coordinator": "coordinator",
-    "teacher_of_record": "teacher",
-    "school_counselor": "counselor",
-    "school_psychologist": "counselor",
-    "social_worker": "counselor",
-  };
-  if (aliases[r]) return aliases[r];
-  for (const [key, val] of Object.entries(aliases)) {
+  if (ROLE_ALIASES[r]) return ROLE_ALIASES[r];
+  for (const [key, val] of Object.entries(ROLE_ALIASES)) {
     if (r.includes(key) || key.includes(r)) return val;
   }
   return null;
