@@ -13,6 +13,14 @@ import {
 
 // Types mirror /api/compensatory-finance/overview response shape.
 // See artifacts/api-server/src/routes/compensatoryFinance/overview.ts
+interface RateConfigStatus {
+  unconfiguredServiceTypes: { id: number; name: string; minutesOwed: number }[];
+  unpricedMinutesOwed: number;
+  unpricedMinutesDelivered: number;
+  helpUrl: string;
+  helpText: string;
+}
+
 interface CompFinanceOverview {
   totalMinutesOwed: number;
   totalMinutesDelivered: number;
@@ -23,7 +31,8 @@ interface CompFinanceOverview {
   pendingCount: number;
   inProgressCount: number;
   completedCount: number;
-  byServiceType: { serviceTypeId: number; name: string; minutesOwed: number; dollarsOwed: number; count: number }[];
+  rateConfig?: RateConfigStatus;
+  byServiceType: { serviceTypeId: number; name: string; minutesOwed: number; dollarsOwed: number | null; count: number }[];
   bySchool: { schoolId: number; name: string; minutesOwed: number; dollarsOwed: number; count: number }[];
   byProvider: { providerId: number; name: string; minutesOwed: number; dollarsOwed: number; count: number }[];
 }
@@ -152,8 +161,9 @@ export default function CostRiskPanel() {
             </CardTitle>
             <p className="text-[11px] text-gray-400 mt-1">
               Translates open compliance gaps into estimated dollar exposure.
-              All values use real district rate config when present, with the
-              fallback rate noted below.
+              Dollar values are only shown for service types that have a
+              configured hourly rate — unpriced minutes are surfaced separately
+              rather than estimated with a fabricated default.
             </p>
           </div>
           <Link href="/compensatory-finance">
@@ -173,6 +183,35 @@ export default function CostRiskPanel() {
           </div>
         ) : (
           <>
+            {/* Unconfigured-rate banner: real number of minutes that exist in
+                obligations but cannot be priced because no hourly rate has been
+                configured. We do not invent a $ figure for them. */}
+            {overview?.rateConfig && overview.rateConfig.unconfiguredServiceTypes.length > 0 && (
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-900">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-700" />
+                  <div className="flex-1">
+                    <p className="font-semibold">
+                      {fmtNumber(overview.rateConfig.unpricedMinutesOwed)} minutes owed are not priced
+                    </p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      {overview.rateConfig.unconfiguredServiceTypes.length === 1
+                        ? "1 service type has no hourly rate configured"
+                        : `${overview.rateConfig.unconfiguredServiceTypes.length} service types have no hourly rate configured`}
+                      : {overview.rateConfig.unconfiguredServiceTypes.slice(0, 4).map(s => s.name).join(", ")}
+                      {overview.rateConfig.unconfiguredServiceTypes.length > 4 ? ", …" : ""}.
+                      Their minutes are tracked here but excluded from the dollar exposure totals below.
+                    </p>
+                    <Link href={overview.rateConfig.helpUrl}>
+                      <Button variant="ghost" size="sm" className="mt-1 h-6 text-[11px] text-amber-800 px-1">
+                        {overview.rateConfig.helpText} <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Top KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Kpi
@@ -283,6 +322,7 @@ export default function CostRiskPanel() {
                   rows={overview.byServiceType.slice(0, 5).map(r => ({
                     label: r.name,
                     dollars: r.dollarsOwed,
+                    minutes: r.minutesOwed,
                     count: r.count,
                   }))}
                   emptyMsg="No exposure by service type."
@@ -292,6 +332,7 @@ export default function CostRiskPanel() {
                   rows={overview.bySchool.slice(0, 5).map(r => ({
                     label: r.name,
                     dollars: r.dollarsOwed,
+                    minutes: r.minutesOwed,
                     count: r.count,
                   }))}
                   emptyMsg="No exposure by school."
@@ -316,18 +357,22 @@ export default function CostRiskPanel() {
                     <ul className="list-disc pl-4 space-y-1">
                       <li>
                         <b>Estimated exposure</b> = sum of <code>(minutesOwed − minutesDelivered) ÷ 60 × hourlyRate</code>{" "}
-                        across all compensatory obligations for the district. Source:
-                        <code className="mx-1">minutesToDollars()</code> in
+                        across all compensatory obligations <b>whose service type has a configured hourly rate</b>.
+                        Obligations on service types with no configured rate contribute their minutes to the
+                        unpriced banner above but contribute <b>$0</b> to this exposure number — we no longer
+                        fabricate a $75/hr default. Source: <code className="mx-1">minutesToDollars()</code> in
                         <code className="mx-1">api-server/src/routes/compensatoryFinance/shared.ts</code>.
                       </li>
                       <li>
                         <b>Hourly rate</b> resolved per service type via
-                        <code className="mx-1">resolveRate()</code> cascade:
+                        <code className="mx-1">resolveRate()</code> cascade. The first source that returns
+                        a value wins; if all are absent the rate is <code>null</code> and the obligation
+                        is reported as unpriced rather than estimated.
                         <ol className="list-decimal pl-5 mt-0.5">
                           <li>District-specific rate from <code>service_rate_configs</code> (in-house vs contracted)</li>
                           <li>Active <code>agency_contracts.hourly_rate</code> for the service type</li>
                           <li><code>service_types.default_billing_rate</code></li>
-                          <li>Fallback constant <code>DEFAULT_HOURLY_RATE = $75/hr</code></li>
+                          <li><i>No fabricated fallback</i> — unconfigured service types surface as &quot;rate not set&quot;</li>
                         </ol>
                       </li>
                       <li>
@@ -369,10 +414,10 @@ export default function CostRiskPanel() {
                         <code className="mx-1">service_types.default_billing_rate</code>.
                       </li>
                       <li>
-                        Fallback hourly rate (<code>$75</code>) is currently a code constant in
-                        <code className="mx-1">compensatoryFinance/shared.ts</code> and
-                        <code className="mx-1">costAvoidanceAlerts.ts</code>. Not configurable from the UI;
-                        change requires a code edit.
+                        <b>No fabricated fallback rate.</b> Previously a hard-coded
+                        <code className="mx-1">$75/hr</code> constant was used as a final fallback. That has been
+                        removed — unpriced minutes are now surfaced explicitly so districts can&apos;t mistake
+                        a default for a real exposure number.
                       </li>
                       <li>
                         Cost-avoidance alert thresholds (e.g. <code>weekly &lt; 50%</code>,
@@ -402,10 +447,11 @@ export default function CostRiskPanel() {
                         a single day of new data.
                       </li>
                       <li>
-                        <b>Rate cascade falls back silently</b> when a service type has no configured rate.
-                        The total exposure number is only as accurate as the rate config — if your district
-                        hasn&apos;t set rates, every line is priced at $75/hr regardless of provider type.
-                        Use <code>GET /api/compensatory-finance/rates</code> to audit.
+                        <b>Rate cascade now reports unconfigured service types explicitly.</b> The exposure
+                        number above only includes obligations on service types with a real hourly rate; any
+                        service type without a configured rate appears in the amber banner with its raw minutes.
+                        Use <code>GET /api/compensatory-finance/rates</code> to audit which service types still
+                        need rates set.
                       </li>
                       <li>
                         <b>Compensatory delivery is identified by <code>session_logs.is_compensatory = true</code>.</b>{" "}
@@ -451,7 +497,7 @@ function Kpi({ icon: Icon, label, value, sub, tone }: {
 
 function Contributors({ title, rows, emptyMsg }: {
   title: string;
-  rows: { label: string; dollars: number; count: number }[];
+  rows: { label: string; dollars: number | null; minutes: number; count: number }[];
   emptyMsg: string;
 }) {
   return (
@@ -469,7 +515,16 @@ function Contributors({ title, rows, emptyMsg }: {
             <div key={i} className="flex items-center justify-between text-[12px] py-1 border-b border-gray-100 last:border-0">
               <span className="text-gray-700 truncate min-w-0 mr-2">{r.label}</span>
               <span className="flex-shrink-0 text-gray-500 text-[11px]">
-                <span className="font-semibold text-gray-700">{fmtDollars(r.dollars)}</span>
+                {r.dollars == null ? (
+                  <span
+                    className="font-semibold text-amber-700"
+                    title="No hourly rate configured for this service type"
+                  >
+                    {fmtNumber(r.minutes)} min · rate not set
+                  </span>
+                ) : (
+                  <span className="font-semibold text-gray-700">{fmtDollars(r.dollars)}</span>
+                )}
                 <span className="ml-2 text-gray-400">({r.count})</span>
               </span>
             </div>

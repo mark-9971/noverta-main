@@ -8,14 +8,14 @@ import { eq, and, sql, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress, type MinuteProgressResult } from "../../lib/minuteCalc";
-import { getRateMap, DEFAULT_HOURLY_RATE } from "../compensatoryFinance/shared";
+import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
 import { logAudit } from "../../lib/auditLog";
 import { buildCSV, recordExport, fmtDate } from "./utils";
 
 const router = Router();
 
-function minutesToDollars(minutes: number, hourlyRate: number): number {
-  return Math.round((minutes / 60) * hourlyRate * 100) / 100;
+function minutesToDollars(minutes: number, rate: RateInfo): number | null {
+  return sharedMinutesToDollars(minutes, rate);
 }
 
 function riskLabel(status: string): string {
@@ -104,7 +104,8 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
       riskStatus: string;
       riskLabel: string;
       providerName: string;
-      estimatedExposure: number;
+      estimatedExposure: number | null;
+      rateConfigured: boolean;
       missedSessions: number;
     }[] = [];
 
@@ -121,16 +122,26 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
       servicesCount: number;
     }>();
 
+    let unpricedShortfallMinutes = 0;
+    const unpricedServiceTypes = new Set<string>();
     for (const p of progress) {
       const info = schoolMap.get(p.studentId);
       const shortfall = Math.max(0, p.requiredMinutes - p.deliveredMinutes);
       const rates = rateMap.get(p.serviceTypeId);
-      const hourlyRate = rates?.inHouse ?? DEFAULT_HOURLY_RATE;
-      const exposure = shortfall > 0 ? minutesToDollars(shortfall, hourlyRate) : 0;
+      const rateInfo: RateInfo = rates?.inHouse ?? { rate: null, source: "unconfigured" };
+      // Per-row exposure is null (not 0) when the rate is unconfigured, so
+      // downstream consumers can distinguish "actually $0 owed" from "couldn't
+      // compute a dollar value" without re-deriving it from the row contents.
+      const exposureValue: number | null = shortfall > 0 ? minutesToDollars(shortfall, rateInfo) : 0;
 
       totalRequired += p.requiredMinutes;
       totalDelivered += p.deliveredMinutes;
-      totalExposure += exposure;
+      if (exposureValue != null) {
+        totalExposure += exposureValue;
+      } else if (shortfall > 0) {
+        unpricedShortfallMinutes += shortfall;
+        unpricedServiceTypes.add(p.serviceTypeName);
+      }
       uniqueStudents.add(p.studentId);
 
       studentRows.push({
@@ -147,7 +158,8 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         riskStatus: p.riskStatus,
         riskLabel: riskLabel(p.riskStatus),
         providerName: p.providerName ?? "Unassigned",
-        estimatedExposure: exposure,
+        estimatedExposure: exposureValue,
+        rateConfigured: exposureValue != null,
         missedSessions: p.missedSessionsCount,
       });
 
@@ -174,11 +186,15 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
 
     const needsAttention = studentRows.filter(r => r.riskStatus === "out_of_compliance" || r.riskStatus === "at_risk");
 
-    let existingCompExposure = 0;
+    // Existing compensatory obligations are not joined to a service type here,
+    // so we do NOT fabricate a dollar exposure with a default rate. Surface
+    // them as unpriced minutes that the finance UI can highlight separately.
+    let existingCompUnpricedMinutes = 0;
     for (const ob of outstandingObligations) {
       const remaining = (ob.minutesOwed ?? 0) - (ob.minutesDelivered ?? 0);
-      if (remaining > 0) existingCompExposure += minutesToDollars(remaining, DEFAULT_HOURLY_RATE);
+      if (remaining > 0) existingCompUnpricedMinutes += remaining;
     }
+    const existingCompExposure: number | null = null;
 
     const providerSummary = Array.from(providerMap.values())
       .map(p => ({
@@ -215,8 +231,15 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         totalShortfallMinutes: totalShortfall,
         overallComplianceRate,
         totalCurrentExposure: totalExposure,
+        unpricedShortfallMinutes,
+        unpricedShortfallServiceTypes: [...unpricedServiceTypes],
         existingCompensatoryExposure: existingCompExposure,
-        combinedExposure: Math.round((totalExposure + existingCompExposure) * 100) / 100,
+        existingCompensatoryUnpricedMinutes: existingCompUnpricedMinutes,
+        combinedExposure: Math.round(totalExposure * 100) / 100,
+        rateConfigNote:
+          unpricedShortfallMinutes > 0 || existingCompUnpricedMinutes > 0
+            ? "Some service types do not have a configured hourly rate. Their minutes are reported but excluded from dollar exposure totals. Configure rates in Settings → Compensatory Finance → Rates."
+            : null,
         studentsOutOfCompliance: new Set(studentRows.filter(r => r.riskStatus === "out_of_compliance").map(r => r.studentId)).size,
         studentsAtRisk: new Set(studentRows.filter(r => r.riskStatus === "at_risk").map(r => r.studentId)).size,
         studentsOnTrack: new Set(studentRows.filter(r => r.riskStatus === "on_track" || r.riskStatus === "completed").map(r => r.studentId)).size,
@@ -278,14 +301,15 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
         const info = schoolMap.get(p.studentId);
         const shortfall = Math.max(0, p.requiredMinutes - p.deliveredMinutes);
         const rates = rateMap.get(p.serviceTypeId);
-        const hourlyRate = rates?.inHouse ?? DEFAULT_HOURLY_RATE;
-        const exposure = shortfall > 0 ? minutesToDollars(shortfall, hourlyRate) : 0;
+        const rateInfo: RateInfo = rates?.inHouse ?? { rate: null, source: "unconfigured" };
+        const exposure = shortfall > 0 ? minutesToDollars(shortfall, rateInfo) : 0;
+        const exposureCell = exposure == null ? "RATE NOT CONFIGURED" : `$${exposure.toFixed(2)}`;
         return {
           sort: riskSortOrder(p.riskStatus),
           row: [
             p.studentName, info?.schoolName ?? "", info?.grade ?? "", p.serviceTypeName, p.intervalType,
             p.requiredMinutes, p.deliveredMinutes, shortfall, `${p.percentComplete}%`,
-            riskLabel(p.riskStatus), p.providerName ?? "Unassigned", `$${exposure.toFixed(2)}`, p.missedSessionsCount,
+            riskLabel(p.riskStatus), p.providerName ?? "Unassigned", exposureCell, p.missedSessionsCount,
           ],
         };
       })

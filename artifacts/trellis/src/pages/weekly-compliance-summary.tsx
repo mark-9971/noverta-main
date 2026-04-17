@@ -70,7 +70,11 @@ interface ReportData {
     totalShortfallMinutes: number;
     overallComplianceRate: number;
     totalCurrentExposure: number;
-    existingCompensatoryExposure: number;
+    existingCompensatoryExposure: number | null;
+    existingCompensatoryUnpricedMinutes?: number;
+    unpricedShortfallMinutes?: number;
+    unpricedShortfallServiceTypes?: string[];
+    rateConfigNote?: string | null;
     combinedExposure: number;
     riskCounts: {
       out_of_compliance: number;
@@ -241,7 +245,8 @@ function buildPrintHtml(data: ReportData): string {
     <div class="stat-card danger">
       <div class="label">Estimated Exposure</div>
       <div class="value">$${s.combinedExposure.toLocaleString()}</div>
-      <div class="detail">Current $${s.totalCurrentExposure.toLocaleString()} + Prior comp $${s.existingCompensatoryExposure.toLocaleString()}</div>
+      <div class="detail">Current $${s.totalCurrentExposure.toLocaleString()} + Prior comp ${s.existingCompensatoryExposure != null ? `$${s.existingCompensatoryExposure.toLocaleString()}` : `${(s.existingCompensatoryUnpricedMinutes ?? 0).toLocaleString()} min (rate not configured)`}</div>
+      ${s.rateConfigNote ? `<div class="detail" style="margin-top:4px;color:#92400e">${s.rateConfigNote.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>` : ""}
     </div>
   </div>
 
@@ -458,8 +463,16 @@ export default function WeeklyComplianceSummaryPage() {
                   {fmtDollars(data.summary.combinedExposure)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp {fmtDollars(data.summary.existingCompensatoryExposure)}
+                  Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp{" "}
+                  {data.summary.existingCompensatoryExposure != null
+                    ? fmtDollars(data.summary.existingCompensatoryExposure)
+                    : `${(data.summary.existingCompensatoryUnpricedMinutes ?? 0).toLocaleString()} min (rate not configured)`}
                 </div>
+                {data.summary.rateConfigNote && (
+                  <div className="text-[11px] text-amber-700 mt-1 leading-snug">
+                    {data.summary.rateConfigNote}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

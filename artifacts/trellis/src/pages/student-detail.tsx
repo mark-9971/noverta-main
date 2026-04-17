@@ -1044,15 +1044,26 @@ export default function StudentDetail() {
               <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
-                  <p className="text-sm font-bold text-amber-900">
-                    ${(compFinancial
-                      ? compFinancial.exposure
-                      : (compSummary.totalRemaining / 60) * 75
-                    ).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </p>
+                  {compFinancial ? (
+                    <p className="text-sm font-bold text-amber-900">
+                      ${compFinancial.exposure.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  ) : (
+                    <p className="text-xs font-semibold text-amber-900">Rate not configured</p>
+                  )}
                 </div>
                 <p className="text-[10px] text-amber-600 mt-0.5">
-                  {compFinancial ? "Based on configured district rates" : "Based on default rate · See Financial View for configured rates"}
+                  {compFinancial ? (
+                    "Based on configured district rates"
+                  ) : (
+                    <>
+                      {compSummary.totalRemaining} min owed.{" "}
+                      <Link href="/compensatory-finance?tab=rates" className="underline font-medium">
+                        Set hourly rates
+                      </Link>{" "}
+                      to compute dollar exposure.
+                    </>
+                  )}
                 </p>
               </div>
             )}

@@ -52,7 +52,8 @@ interface RiskReportSummary {
   studentsAtRisk: number;
   totalShortfallMinutes: number;
   totalCurrentExposure: number;
-  existingCompensatoryExposure: number;
+  existingCompensatoryExposure: number | null;
+  existingCompensatoryUnpricedMinutes?: number;
   combinedExposure: number;
 }
 
@@ -348,13 +349,26 @@ export function buildRecommendations(inputs: RuleInputs): Recommendation[] {
     }
   }
 
-  // Rule 6: Outstanding compensatory obligations from prior periods
-  if (s && s.existingCompensatoryExposure > 0) {
+  // Rule 6: Outstanding compensatory obligations from prior periods.
+  // Triggers on either a real dollar exposure OR unpriced minutes — we
+  // surface the make-up obligation regardless of whether rates are configured,
+  // and switch the title between dollars and a minutes/rate-not-configured
+  // message so we never fabricate a $0 figure.
+  if (
+    s &&
+    ((s.existingCompensatoryExposure != null && s.existingCompensatoryExposure > 0) ||
+     (s.existingCompensatoryUnpricedMinutes != null && s.existingCompensatoryUnpricedMinutes > 0))
+  ) {
+    const dollars = s.existingCompensatoryExposure;
+    const unpricedMin = s.existingCompensatoryUnpricedMinutes ?? 0;
+    const title = dollars != null && dollars > 0
+      ? `Outstanding compensatory obligations: ${fmtDollars(dollars)} — schedule make-up services`
+      : `Outstanding compensatory obligations: ${unpricedMin.toLocaleString()} min owed (rate not configured) — schedule make-up services`;
     out.push({
       ruleId: "outstanding-compensatory",
       severity: "high",
       icon: ClipboardList,
-      title: `Outstanding compensatory obligations: ${fmtDollars(s.existingCompensatoryExposure)} — schedule make-up services`,
+      title,
       detail: "Prior compensatory minutes have not been delivered. Build a make-up plan.",
       actionLabel: "Open compensatory services",
       actionHref: "/compensatory-services",

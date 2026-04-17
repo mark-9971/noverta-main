@@ -26,7 +26,11 @@ interface RiskItem {
   title: string;
   description: string;
   daysRemaining: number;
-  estimatedExposure: number;
+  // Null when the risk has no priced dollar exposure (either non-financial like
+  // evaluation/IEP deadlines, or service shortfalls whose service type has no
+  // configured hourly rate). The non-dollar reason is in exposureBasis.
+  estimatedExposure: number | null;
+  exposureBasis: string;
   actionNeeded: string;
   serviceTypeName?: string;
   eventType?: string;
@@ -197,7 +201,8 @@ function UrgencyDistributionChart({ summary }: { summary: RiskSummary }) {
 function RiskGroupSection({ urgency, risks }: { urgency: UrgencyLevel; risks: RiskItem[] }) {
   const [open, setOpen] = useState(urgency === "critical" || urgency === "high");
   const cfg = URGENCY_CONFIG[urgency];
-  const totalExposure = risks.reduce((s, r) => s + r.estimatedExposure, 0);
+  const totalExposure = risks.reduce((s, r) => s + (r.estimatedExposure ?? 0), 0);
+  const unpricedCount = risks.filter(r => r.estimatedExposure == null).length;
 
   return (
     <div className={`rounded-xl border ${cfg.border} overflow-hidden`}>
@@ -209,7 +214,14 @@ function RiskGroupSection({ urgency, risks }: { urgency: UrgencyLevel; risks: Ri
         <span className={`text-sm font-semibold ${cfg.color} flex-1`}>
           {cfg.label} — {risks.length} risk{risks.length !== 1 ? "s" : ""}
         </span>
-        <span className="text-sm font-bold text-gray-700">${totalExposure.toLocaleString()}</span>
+        <span className="text-sm font-bold text-gray-700">
+          ${totalExposure.toLocaleString()}
+          {unpricedCount > 0 && (
+            <span className="ml-2 text-[11px] font-medium text-amber-700">
+              + {unpricedCount} unpriced
+            </span>
+          )}
+        </span>
         {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
       </button>
 
@@ -240,9 +252,20 @@ function RiskRow({ risk }: { risk: RiskItem }) {
               <h4 className="text-[13px] font-semibold text-gray-800 truncate">{risk.title}</h4>
               <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{risk.description}</p>
             </div>
-            <div className="text-right flex-shrink-0">
-              <span className="text-sm font-bold text-gray-900">${risk.estimatedExposure.toLocaleString()}</span>
-              <p className="text-[10px] text-gray-400 mt-0.5">est. exposure</p>
+            <div className="text-right flex-shrink-0 max-w-[180px]">
+              {risk.estimatedExposure != null ? (
+                <>
+                  <span className="text-sm font-bold text-gray-900">${risk.estimatedExposure.toLocaleString()}</span>
+                  <p className="text-[10px] text-gray-400 mt-0.5">est. exposure</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-[11px] font-semibold text-amber-700">Not priced</span>
+                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                    {risk.exposureBasis || "non-financial risk"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2 flex-wrap">

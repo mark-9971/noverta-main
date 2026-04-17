@@ -9,15 +9,15 @@ import { eq, and, sql, gte, lte, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
-import { getRateMap, DEFAULT_HOURLY_RATE } from "../compensatoryFinance/shared";
+import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
 import { logAudit } from "../../lib/auditLog";
 import { buildCSV, recordExport, PDF_COLORS, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters } from "./utils";
 import type { BufferedPDFDoc } from "./utils";
 
 const router = Router();
 
-function minutesToDollars(minutes: number, hourlyRate: number): number {
-  return Math.round((minutes / 60) * hourlyRate * 100) / 100;
+function minutesToDollars(minutes: number, rate: RateInfo): number | null {
+  return sharedMinutesToDollars(minutes, rate);
 }
 
 function riskLabel(status: string): string {
@@ -65,8 +65,12 @@ interface ReportData {
     totalShortfallMinutes: number;
     overallComplianceRate: number;
     totalCurrentExposure: number;
-    existingCompensatoryExposure: number;
+    existingCompensatoryExposure: number | null;
+    existingCompensatoryUnpricedMinutes: number;
+    unpricedShortfallMinutes: number;
+    unpricedShortfallServiceTypes: string[];
     combinedExposure: number;
+    rateConfigNote: string | null;
     riskCounts: { out_of_compliance: number; at_risk: number; slightly_behind: number; on_track: number };
   };
   urgentFlags: string[];
@@ -74,7 +78,7 @@ interface ReportData {
     studentId: number; studentName: string; school: string; service: string;
     requiredMinutes: number; deliveredMinutes: number; shortfallMinutes: number;
     percentComplete: number; riskStatus: string; riskLabel: string;
-    providerName: string; estimatedExposure: number;
+    providerName: string; estimatedExposure: number | null; rateConfigured: boolean;
   }[];
   providerSummary: {
     providerName: string; studentsServed: number; totalDelivered: number;
@@ -132,16 +136,26 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
     totalShortfall: number;
   }>();
 
+  let unpricedShortfallMinutes = 0;
+  const unpricedShortfallServiceTypes = new Set<string>();
   for (const p of progress) {
     const info = schoolMap.get(p.studentId);
     const shortfall = Math.max(0, p.requiredMinutes - p.deliveredMinutes);
     const rates = rateMap.get(p.serviceTypeId);
-    const hourlyRate = rates?.inHouse ?? DEFAULT_HOURLY_RATE;
-    const exposure = shortfall > 0 ? minutesToDollars(shortfall, hourlyRate) : 0;
+    const rateInfo: RateInfo = rates?.inHouse ?? { rate: null, source: "unconfigured" };
+    // Per-row exposure stays null when the rate is unconfigured; we no longer
+    // coerce to 0 here because that would conflate "actually no exposure" with
+    // "couldn't be priced" for the JSON consumer.
+    const exposureValue: number | null = shortfall > 0 ? minutesToDollars(shortfall, rateInfo) : 0;
 
     totalRequired += p.requiredMinutes;
     totalDelivered += p.deliveredMinutes;
-    totalExposure += exposure;
+    if (exposureValue != null) {
+      totalExposure += exposureValue;
+    } else if (shortfall > 0) {
+      unpricedShortfallMinutes += shortfall;
+      unpricedShortfallServiceTypes.add(p.serviceTypeName);
+    }
     uniqueStudents.add(p.studentId);
 
     if (shortfall > 0) {
@@ -157,7 +171,8 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
         riskStatus: p.riskStatus,
         riskLabel: riskLabel(p.riskStatus),
         providerName: p.providerName ?? "Unassigned",
-        estimatedExposure: exposure,
+        estimatedExposure: exposureValue,
+        rateConfigured: exposureValue != null,
       });
     }
 
@@ -308,11 +323,15 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
     .innerJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
     .where(and(...compObligationConditions));
 
-  let existingCompExposure = 0;
+  // Existing compensatory obligations are not joined to a service type here,
+  // so we do NOT fabricate a dollar exposure with a default rate. Surface
+  // unpriced minutes separately.
+  let existingCompUnpricedMinutes = 0;
   for (const ob of outstandingObligations) {
     const remaining = (ob.minutesOwed ?? 0) - (ob.minutesDelivered ?? 0);
-    if (remaining > 0) existingCompExposure += minutesToDollars(remaining, DEFAULT_HOURLY_RATE);
+    if (remaining > 0) existingCompUnpricedMinutes += remaining;
   }
+  const existingCompExposure: number | null = null;
 
   const today = new Date();
 
@@ -333,7 +352,14 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
       overallComplianceRate,
       totalCurrentExposure: totalExposure,
       existingCompensatoryExposure: existingCompExposure,
-      combinedExposure: Math.round((totalExposure + existingCompExposure) * 100) / 100,
+      existingCompensatoryUnpricedMinutes: existingCompUnpricedMinutes,
+      unpricedShortfallMinutes,
+      unpricedShortfallServiceTypes: [...unpricedShortfallServiceTypes],
+      combinedExposure: Math.round(totalExposure * 100) / 100,
+      rateConfigNote:
+        unpricedShortfallMinutes > 0 || existingCompUnpricedMinutes > 0
+          ? "Some service types do not have a configured hourly rate. Their minutes are reported but excluded from dollar exposure totals. Configure rates in Settings → Compensatory Finance → Rates."
+          : null,
       riskCounts,
     },
     urgentFlags,
@@ -446,7 +472,14 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
       { label: "REQUIRED MINUTES", value: s.totalRequiredMinutes.toLocaleString(), detail: `${s.totalStudents} students`, accent: "#3b82f6" },
       { label: "COMPLIANCE RATE", value: `${s.overallComplianceRate}%`, detail: `${s.totalDeliveredMinutes.toLocaleString()} delivered`, accent: s.overallComplianceRate >= 90 ? PDF_COLORS.EMERALD : s.overallComplianceRate >= 75 ? "#f59e0b" : "#ef4444" },
       { label: "TOTAL SHORTFALL", value: `${s.totalShortfallMinutes.toLocaleString()} min`, detail: `${s.riskCounts.out_of_compliance} non-compliant, ${s.riskCounts.at_risk} at risk`, accent: "#ef4444" },
-      { label: "EST. EXPOSURE", value: `$${s.combinedExposure.toLocaleString()}`, detail: `Current $${s.totalCurrentExposure.toLocaleString()} + Prior $${s.existingCompensatoryExposure.toLocaleString()}`, accent: "#ef4444" },
+      {
+        label: "EST. EXPOSURE",
+        value: `$${s.combinedExposure.toLocaleString()}`,
+        detail: s.unpricedShortfallMinutes > 0 || s.existingCompensatoryUnpricedMinutes > 0
+          ? `Current $${s.totalCurrentExposure.toLocaleString()} · ${(s.unpricedShortfallMinutes + s.existingCompensatoryUnpricedMinutes).toLocaleString()} min unpriced`
+          : `Current $${s.totalCurrentExposure.toLocaleString()}`,
+        accent: "#ef4444",
+      },
     ];
     for (let i = 0; i < stats.length; i++) {
       const x = statStartX + i * (statBoxW + statGap);
@@ -501,7 +534,7 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
           { text: r.deliveredMinutes.toLocaleString(), width: 42, align: "right" as const },
           { text: r.shortfallMinutes.toLocaleString(), width: 42, align: "right" as const, bold: true },
           { text: r.riskLabel, width: 60 },
-          { text: r.estimatedExposure > 0 ? `$${r.estimatedExposure.toLocaleString()}` : "\u2014", width: 42, align: "right" as const },
+          { text: r.estimatedExposure == null ? "rate not set" : (r.estimatedExposure > 0 ? `$${r.estimatedExposure.toLocaleString()}` : "\u2014"), width: 42, align: "right" as const },
           { text: r.providerName, width: 78 },
         ];
         const rh = estimateRowH(rowData);
@@ -686,7 +719,13 @@ router.get("/reports/weekly-compliance-summary.csv", async (req: Request, res: R
       .map(p => {
         const shortfall = Math.max(0, p.requiredMinutes - p.deliveredMinutes);
         const rates = rateMap.get(p.serviceTypeId);
-        const hourlyRate = rates?.inHouse ?? DEFAULT_HOURLY_RATE;
+        // In-house rate is used for the CSV exposure column. If the service type
+        // has no configured in-house rate we emit "RATE NOT CONFIGURED" instead
+        // of fabricating a $75/hr default — same contract used by the JSON
+        // compliance risk report.
+        const exposure = rates?.inHouse?.rate != null
+          ? sharedMinutesToDollars(shortfall, rates.inHouse)
+          : null;
         return [
           p.studentName,
           schoolMap.get(p.studentId) ?? "",
@@ -697,7 +736,7 @@ router.get("/reports/weekly-compliance-summary.csv", async (req: Request, res: R
           p.percentComplete,
           riskLabel(p.riskStatus),
           p.providerName ?? "Unassigned",
-          minutesToDollars(shortfall, hourlyRate),
+          exposure != null ? exposure : "RATE NOT CONFIGURED",
         ];
       });
 

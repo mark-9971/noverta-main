@@ -77,7 +77,7 @@ interface RiskReportData {
     totalShortfallMinutes: number;
     overallComplianceRate: number;
     totalCurrentExposure: number;
-    existingCompensatoryExposure: number;
+    existingCompensatoryExposure: number | null;
     combinedExposure: number;
     studentsOutOfCompliance: number;
     studentsAtRisk: number;

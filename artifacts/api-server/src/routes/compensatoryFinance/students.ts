@@ -96,7 +96,8 @@ router.get("/compensatory-finance/students", async (req, res): Promise<void> => 
       };
     }
 
-    const entry = perStudent[ob.studentId];
+    const entry = perStudent[ob.studentId] as typeof perStudent[number] & { unpricedMinutesRemaining: number };
+    if (entry.unpricedMinutesRemaining === undefined) entry.unpricedMinutesRemaining = 0;
     const svcReq = ob.serviceRequirementId ? svcReqMap.get(ob.serviceRequirementId) : null;
     const serviceTypeId = svcReq?.serviceTypeId || 0;
     const isContracted = svcReq?.providerId ? contractedProviders.has(svcReq.providerId) : false;
@@ -104,33 +105,53 @@ router.get("/compensatory-finance/students", async (req, res): Promise<void> => 
 
     const owedDollars = minutesToDollars(ob.minutesOwed, rate);
     const deliveredDollars = minutesToDollars(ob.minutesDelivered, rate);
+    const priced = owedDollars != null;
 
     entry.totalMinutesOwed += ob.minutesOwed;
     entry.totalMinutesDelivered += ob.minutesDelivered;
-    entry.totalDollarsOwed += owedDollars;
-    entry.totalDollarsDelivered += deliveredDollars;
+    if (priced) {
+      entry.totalDollarsOwed += owedDollars;
+      entry.totalDollarsDelivered += deliveredDollars ?? 0;
+    } else {
+      entry.unpricedMinutesRemaining += ob.minutesOwed - ob.minutesDelivered;
+    }
     entry.obligationCount++;
     if (ob.status === "pending" || ob.status === "in_progress") entry.pendingCount++;
 
     if (serviceTypeId > 0) {
       if (!entry.services[serviceTypeId]) {
-        entry.services[serviceTypeId] = { name: svcTypeNameMap.get(serviceTypeId) || "Unknown", minutesOwed: 0, minutesDelivered: 0, dollarsOwed: 0 };
+        entry.services[serviceTypeId] = { name: svcTypeNameMap.get(serviceTypeId) || "Unknown", minutesOwed: 0, minutesDelivered: 0, dollarsOwed: 0 } as any;
+        (entry.services[serviceTypeId] as any).rateConfigured = priced;
       }
       entry.services[serviceTypeId].minutesOwed += ob.minutesOwed;
       entry.services[serviceTypeId].minutesDelivered += ob.minutesDelivered;
-      entry.services[serviceTypeId].dollarsOwed += owedDollars;
+      if (priced) entry.services[serviceTypeId].dollarsOwed += owedDollars;
+      else (entry.services[serviceTypeId] as any).rateConfigured = false;
     }
   }
 
   const result = Object.values(perStudent)
-    .map(s => ({
-      ...s,
-      totalDollarsOwed: Math.round(s.totalDollarsOwed * 100) / 100,
-      totalDollarsDelivered: Math.round(s.totalDollarsDelivered * 100) / 100,
-      remainingDollars: Math.round((s.totalDollarsOwed - s.totalDollarsDelivered) * 100) / 100,
-      pctDelivered: s.totalMinutesOwed > 0 ? Math.round((s.totalMinutesDelivered / s.totalMinutesOwed) * 100) : 0,
-      services: Object.entries(s.services).map(([id, v]) => ({ serviceTypeId: Number(id), ...v })),
-    }))
+    .map(s => {
+      const unpriced = (s as any).unpricedMinutesRemaining ?? 0;
+      return {
+        ...s,
+        totalDollarsOwed: Math.round(s.totalDollarsOwed * 100) / 100,
+        totalDollarsDelivered: Math.round(s.totalDollarsDelivered * 100) / 100,
+        remainingDollars: Math.round((s.totalDollarsOwed - s.totalDollarsDelivered) * 100) / 100,
+        unpricedMinutesRemaining: unpriced,
+        hasUnpricedObligations: unpriced > 0,
+        pctDelivered: s.totalMinutesOwed > 0 ? Math.round((s.totalMinutesDelivered / s.totalMinutesOwed) * 100) : 0,
+        services: Object.entries(s.services).map(([id, v]) => {
+          const priced = (v as any).rateConfigured !== false;
+          return {
+            serviceTypeId: Number(id),
+            ...v,
+            dollarsOwed: priced ? (v as any).dollarsOwed : null,
+            rateConfigured: priced,
+          };
+        }),
+      };
+    })
     .sort((a, b) => b.remainingDollars - a.remainingDollars);
 
   res.json(result);

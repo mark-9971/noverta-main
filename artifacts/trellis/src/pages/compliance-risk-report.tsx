@@ -23,7 +23,8 @@ interface StudentRow {
   riskStatus: string;
   riskLabel: string;
   providerName: string;
-  estimatedExposure: number;
+  estimatedExposure: number | null;
+  rateConfigured?: boolean;
   missedSessions: number;
 }
 
@@ -52,7 +53,11 @@ interface ReportData {
     totalShortfallMinutes: number;
     overallComplianceRate: number;
     totalCurrentExposure: number;
-    existingCompensatoryExposure: number;
+    existingCompensatoryExposure: number | null;
+    existingCompensatoryUnpricedMinutes?: number;
+    unpricedShortfallMinutes?: number;
+    unpricedShortfallServiceTypes?: string[];
+    rateConfigNote?: string | null;
     combinedExposure: number;
     studentsOutOfCompliance: number;
     studentsAtRisk: number;
@@ -211,7 +216,8 @@ function buildPrintHtml(data: ReportData): string {
     <div class="stat-card danger">
       <div class="label">Estimated Exposure</div>
       <div class="value">$${s.combinedExposure.toLocaleString()}</div>
-      <div class="detail">Current: $${s.totalCurrentExposure.toLocaleString()} + Prior comp: $${s.existingCompensatoryExposure.toLocaleString()}</div>
+      <div class="detail">Current: $${s.totalCurrentExposure.toLocaleString()} + Prior comp: ${s.existingCompensatoryExposure != null ? `$${s.existingCompensatoryExposure.toLocaleString()}` : `${(s.existingCompensatoryUnpricedMinutes ?? 0).toLocaleString()} min (rate not configured)`}</div>
+      ${s.rateConfigNote ? `<div class="detail" style="margin-top:4px;color:#92400e">${esc(s.rateConfigNote)}</div>` : ""}
     </div>
   </div>
 
@@ -392,7 +398,17 @@ export default function ComplianceRiskReportPage() {
                   Estimated Exposure
                 </div>
                 <div className="text-3xl font-bold mt-1 text-red-700">{fmtDollars(data.summary.combinedExposure)}</div>
-                <div className="text-xs text-muted-foreground">Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp {fmtDollars(data.summary.existingCompensatoryExposure)}</div>
+                <div className="text-xs text-muted-foreground">
+                  Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp{" "}
+                  {data.summary.existingCompensatoryExposure != null
+                    ? fmtDollars(data.summary.existingCompensatoryExposure)
+                    : `${fmtNum(data.summary.existingCompensatoryUnpricedMinutes ?? 0)} min (rate not configured)`}
+                </div>
+                {data.summary.rateConfigNote && (
+                  <div className="text-[11px] text-amber-700 mt-1 leading-snug">
+                    {data.summary.rateConfigNote}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

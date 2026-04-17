@@ -34,7 +34,7 @@ interface ComplianceRiskReport {
     percentComplete: number;
     riskStatus: string;
     riskLabel: string;
-    estimatedExposure: number;
+    estimatedExposure: number | null;
     providerName: string;
   }[];
 }
@@ -301,8 +301,17 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
                   <div className="text-[11px] text-gray-500">min short</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-red-700 tabular-nums">{fmtMoney(s.estimatedExposure)}</div>
-                  <div className="text-[11px] text-gray-500">exposure</div>
+                  {s.estimatedExposure != null ? (
+                    <>
+                      <div className="text-sm font-semibold text-red-700 tabular-nums">{fmtMoney(s.estimatedExposure)}</div>
+                      <div className="text-[11px] text-gray-500">exposure</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-semibold text-amber-700">Not priced</div>
+                      <div className="text-[11px] text-gray-500">rate not configured</div>
+                    </>
+                  )}
                 </div>
               </li>
             ))}

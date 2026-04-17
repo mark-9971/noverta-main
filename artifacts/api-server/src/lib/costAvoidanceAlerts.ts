@@ -14,8 +14,6 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, inArray, ne } from "drizzle-orm";
 
-const DEFAULT_HOURLY_RATE = 75;
-
 type UrgencyWindow = "overdue" | "7" | "14" | "30";
 
 interface AlertableRisk {
@@ -26,7 +24,11 @@ interface AlertableRisk {
   dedupeKey: string;
   title: string;
   actionNeeded: string;
-  estimatedExposure: number;
+  // Dollar exposure is only set when a real billing rate is configured.
+  // For non-service risks (eval/IEP) this is always null and the alert
+  // message uses a non-dollar urgency framing instead.
+  estimatedExposure: number | null;
+  exposureBasis: string;
 }
 
 function daysBetween(dateStr: string, today: string): number {
@@ -118,7 +120,10 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
       continue;
     }
 
-    const message = `[Cost Avoidance] ${risk.title} — Est. exposure: $${risk.estimatedExposure.toLocaleString()} [dedupe:${risk.dedupeKey}]`;
+    const exposureText = risk.estimatedExposure != null
+      ? `Est. exposure: $${risk.estimatedExposure.toLocaleString()}`
+      : risk.exposureBasis;
+    const message = `[Cost Avoidance] ${risk.title} — ${exposureText} [dedupe:${risk.dedupeKey}]`;
 
     await db.insert(alertsTable).values({
       type: "cost_avoidance_risk",
@@ -165,7 +170,6 @@ async function collectEvaluationRisks(
     const urgency = window === "overdue" || window === "7" ? "critical" : window === "14" ? "high" : "medium";
     const overdue = days < 0;
     const absDays = Math.abs(days);
-    const exposure = Math.round((overdue ? Math.max(10, absDays * 0.5) : Math.max(5, (30 - days) * 0.3)) * DEFAULT_HOURLY_RATE);
 
     risks.push({
       studentId: ref.studentId,
@@ -175,7 +179,10 @@ async function collectEvaluationRisks(
       dedupeKey: `eval:${ref.studentId}:${ref.id}:${window}`,
       title: overdue ? `Evaluation ${absDays} days overdue` : `Evaluation deadline in ${days} days`,
       actionNeeded: overdue ? "Complete evaluation immediately" : "Ensure evaluation is on track",
-      estimatedExposure: exposure,
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `${absDays} days past statutory evaluation deadline`
+        : `Evaluation due in ${days} days`,
     });
   }
 
@@ -209,7 +216,10 @@ async function collectEvaluationRisks(
       dedupeKey: `ce-eval:${ce.studentId}:${ce.id}:${window}`,
       title: overdue ? `${ce.title || ce.eventType} ${absDays} days overdue` : `${ce.title || ce.eventType} due in ${days} days`,
       actionNeeded: overdue ? "Schedule and complete evaluation immediately" : "Ensure evaluation is progressing on schedule",
-      estimatedExposure: Math.round((overdue ? Math.max(10, absDays * 0.5) : Math.max(5, (30 - days) * 0.3)) * DEFAULT_HOURLY_RATE),
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `${absDays} days past statutory ${ce.eventType.replace(/_/g, " ")} deadline`
+        : `${ce.eventType.replace(/_/g, " ")} due in ${days} days`,
     });
   }
 }
@@ -239,10 +249,13 @@ async function collectServiceShortfallRisks(
     name: serviceTypesTable.name,
     defaultBillingRate: serviceTypesTable.defaultBillingRate,
   }).from(serviceTypesTable);
-  const svcMap = new Map(serviceTypes.map(t => [t.id, {
-    name: t.name,
-    hourlyRate: t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : DEFAULT_HOURLY_RATE,
-  }]));
+  const svcMap = new Map(serviceTypes.map(t => {
+    const parsed = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
+    return [t.id, {
+      name: t.name,
+      hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+    }] as const;
+  }));
 
   const now = new Date();
   const currentMonth = now.toISOString().slice(0, 7);
@@ -275,7 +288,7 @@ async function collectServiceShortfallRisks(
   for (const req of requirements) {
     const svcType = svcMap.get(req.serviceTypeId);
     const svcName = svcType?.name || "Unknown Service";
-    const hourlyRate = svcType?.hourlyRate || DEFAULT_HOURLY_RATE;
+    const hourlyRate: number | null = svcType?.hourlyRate ?? null;
 
     if (req.intervalType === "weekly") {
       const weekSessionTotals = await db.select({
@@ -294,8 +307,10 @@ async function collectServiceShortfallRisks(
       const daysLeftInWeek = Math.max(0, 5 - dayOfWeek);
       if (daysLeftInWeek <= 1 && deliveredMinutes < req.requiredMinutes * 0.5) {
         const shortfall = req.requiredMinutes - deliveredMinutes;
-        const estimatedExposure = Math.round((shortfall / 60) * hourlyRate);
-        if (estimatedExposure < 10) continue;
+        if (shortfall < 15) continue;
+        const estimatedExposure = hourlyRate != null
+          ? Math.round((shortfall / 60) * hourlyRate)
+          : null;
 
         const weekKey = currentWeekStart.toISOString().slice(0, 10);
         risks.push({
@@ -307,6 +322,9 @@ async function collectServiceShortfallRisks(
           title: `${svcName}: ${shortfall} min shortfall this week`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           estimatedExposure,
+          exposureBasis: estimatedExposure != null
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr configured rate`
+            : `${shortfall} min shortfall (${svcName} rate not configured)`,
         });
       }
     } else {
@@ -317,8 +335,10 @@ async function collectServiceShortfallRisks(
 
       if (projectedShortfall > 0 && deliveredMinutes < expectedByNow * 0.85) {
         const daysLeft = daysInMonth - dayOfMonth;
-        const estimatedExposure = Math.round((projectedShortfall / 60) * hourlyRate);
-        if (estimatedExposure < 10) continue;
+        if (projectedShortfall < 15) continue;
+        const estimatedExposure = hourlyRate != null
+          ? Math.round((projectedShortfall / 60) * hourlyRate)
+          : null;
 
         const pctDelivered = req.requiredMinutes > 0 ? Math.round((deliveredMinutes / req.requiredMinutes) * 100) : 0;
         const urgency = pctDelivered < 30 && monthProgress > 0.5 ? "critical" as const :
@@ -334,6 +354,9 @@ async function collectServiceShortfallRisks(
           title: `${svcName}: trending ${projectedShortfall} min short`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           estimatedExposure,
+          exposureBasis: estimatedExposure != null
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr configured rate`
+            : `${projectedShortfall} min projected shortfall (${svcName} rate not configured)`,
         });
       }
     }
@@ -408,7 +431,10 @@ async function collectIepAnnualReviewRisks(
       dedupeKey: `iep:${iep.studentId}:${iep.id}:${window}`,
       title: overdue ? `IEP annual review ${absDays} days overdue` : `IEP annual review due in ${days} days`,
       actionNeeded: overdue ? "Schedule emergency IEP team meeting immediately" : "Schedule annual review team meeting",
-      estimatedExposure: overdue ? Math.round(Math.max(2000, absDays * 100)) : Math.round(Math.max(500, (30 - days) * 50)),
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `IEP expired ${absDays} days ago — out-of-compliance for entire active service plan`
+        : `Annual review window closes in ${days} days`,
     });
   }
 }

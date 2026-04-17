@@ -98,11 +98,18 @@ router.get("/compensatory-finance/export.csv", async (req, res): Promise<void> =
     const svcReq = ob.serviceRequirementId ? svcReqMap.get(ob.serviceRequirementId) : null;
     const serviceTypeId = svcReq?.serviceTypeId || 0;
     const isContracted = svcReq?.providerId ? contractedProviders.has(svcReq.providerId) : false;
-    const rate = resolveRate(rateMap, serviceTypeId, isContracted);
-    const dollarsOwed = minutesToDollars(ob.minutesOwed, rate);
-    const dollarsDelivered = minutesToDollars(ob.minutesDelivered, rate);
+    const rateInfo = resolveRate(rateMap, serviceTypeId, isContracted);
+    const dollarsOwed = minutesToDollars(ob.minutesOwed, rateInfo);
+    const dollarsDelivered = minutesToDollars(ob.minutesDelivered, rateInfo);
     const remaining = ob.minutesOwed - ob.minutesDelivered;
     const pct = ob.minutesOwed > 0 ? Math.round((ob.minutesDelivered / ob.minutesOwed) * 100) : 0;
+    const rateCell = rateInfo.rate != null ? rateInfo.rate.toFixed(2) : "RATE NOT CONFIGURED";
+    const dollarsOwedCell = dollarsOwed != null ? dollarsOwed.toFixed(2) : "RATE NOT CONFIGURED";
+    const dollarsDeliveredCell = dollarsDelivered != null ? dollarsDelivered.toFixed(2) : "RATE NOT CONFIGURED";
+    const dollarsRemainingCell =
+      dollarsOwed != null && dollarsDelivered != null
+        ? (dollarsOwed - dollarsDelivered).toFixed(2)
+        : "RATE NOT CONFIGURED";
 
     return [
       escapeCSV(student ? `${student.firstName} ${student.lastName}` : ""),
@@ -114,10 +121,10 @@ router.get("/compensatory-finance/export.csv", async (req, res): Promise<void> =
       ob.minutesOwed,
       ob.minutesDelivered,
       remaining,
-      rate.toFixed(2),
-      dollarsOwed.toFixed(2),
-      dollarsDelivered.toFixed(2),
-      (dollarsOwed - dollarsDelivered).toFixed(2),
+      rateCell,
+      dollarsOwedCell,
+      dollarsDeliveredCell,
+      dollarsRemainingCell,
       `${pct}%`,
       escapeCSV(ob.status),
       escapeCSV(ob.source),

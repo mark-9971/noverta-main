@@ -23,8 +23,6 @@ function getDistrictId(req: AuthedRequest): number | null {
   return getEnforcedDistrictId(req);
 }
 
-const DEFAULT_HOURLY_RATE = 75;
-
 type UrgencyLevel = "critical" | "high" | "medium" | "watch";
 
 interface RiskItem {
@@ -38,7 +36,12 @@ interface RiskItem {
   title: string;
   description: string;
   daysRemaining: number;
-  estimatedExposure: number;
+  // Dollar exposure is only set when a real billing rate is available
+  // (service-shortfall risks with a configured per-service rate). For
+  // evaluation deadline and IEP annual review risks we do NOT fabricate
+  // a dollar number — exposureBasis carries the non-dollar signal instead.
+  estimatedExposure: number | null;
+  exposureBasis: string;
   actionNeeded: string;
   serviceTypeName?: string;
   eventType?: string;
@@ -158,46 +161,65 @@ router.post("/cost-avoidance/generate-alerts", async (req, res): Promise<void> =
 function emptySummary() {
   return {
     totalExposure: 0,
+    unpricedRiskCount: 0,
     totalRisks: 0,
-    byUrgency: { critical: { count: 0, exposure: 0 }, high: { count: 0, exposure: 0 }, medium: { count: 0, exposure: 0 }, watch: { count: 0, exposure: 0 } },
+    byUrgency: {
+      critical: { count: 0, exposure: 0, unpricedCount: 0 },
+      high: { count: 0, exposure: 0, unpricedCount: 0 },
+      medium: { count: 0, exposure: 0, unpricedCount: 0 },
+      watch: { count: 0, exposure: 0, unpricedCount: 0 },
+    },
     byCategory: {
-      evaluation_deadline: { count: 0, exposure: 0 },
-      service_shortfall: { count: 0, exposure: 0 },
-      iep_annual_review: { count: 0, exposure: 0 },
+      evaluation_deadline: { count: 0, exposure: 0, unpricedCount: 0 },
+      service_shortfall: { count: 0, exposure: 0, unpricedCount: 0 },
+      iep_annual_review: { count: 0, exposure: 0, unpricedCount: 0 },
     },
     studentsAtRisk: 0,
+    rateConfigNote: null as string | null,
   };
 }
 
 function buildSummary(risks: RiskItem[]) {
-  const totalExposure = risks.reduce((s, r) => s + r.estimatedExposure, 0);
-  const byUrgency: Record<UrgencyLevel, { count: number; exposure: number }> = {
-    critical: { count: 0, exposure: 0 },
-    high: { count: 0, exposure: 0 },
-    medium: { count: 0, exposure: 0 },
-    watch: { count: 0, exposure: 0 },
+  let totalExposure = 0;
+  let unpricedRiskCount = 0;
+  const byUrgency: Record<UrgencyLevel, { count: number; exposure: number; unpricedCount: number }> = {
+    critical: { count: 0, exposure: 0, unpricedCount: 0 },
+    high: { count: 0, exposure: 0, unpricedCount: 0 },
+    medium: { count: 0, exposure: 0, unpricedCount: 0 },
+    watch: { count: 0, exposure: 0, unpricedCount: 0 },
   };
-  const byCategory: Record<string, { count: number; exposure: number }> = {
-    evaluation_deadline: { count: 0, exposure: 0 },
-    service_shortfall: { count: 0, exposure: 0 },
-    iep_annual_review: { count: 0, exposure: 0 },
+  const byCategory: Record<string, { count: number; exposure: number; unpricedCount: number }> = {
+    evaluation_deadline: { count: 0, exposure: 0, unpricedCount: 0 },
+    service_shortfall: { count: 0, exposure: 0, unpricedCount: 0 },
+    iep_annual_review: { count: 0, exposure: 0, unpricedCount: 0 },
   };
 
   const studentIds = new Set<number>();
   for (const r of risks) {
     byUrgency[r.urgency].count++;
-    byUrgency[r.urgency].exposure += r.estimatedExposure;
     byCategory[r.category].count++;
-    byCategory[r.category].exposure += r.estimatedExposure;
+    if (r.estimatedExposure != null) {
+      totalExposure += r.estimatedExposure;
+      byUrgency[r.urgency].exposure += r.estimatedExposure;
+      byCategory[r.category].exposure += r.estimatedExposure;
+    } else {
+      unpricedRiskCount++;
+      byUrgency[r.urgency].unpricedCount++;
+      byCategory[r.category].unpricedCount++;
+    }
     studentIds.add(r.studentId);
   }
 
   return {
     totalExposure: Math.round(totalExposure),
+    unpricedRiskCount,
     totalRisks: risks.length,
     byUrgency,
     byCategory,
     studentsAtRisk: studentIds.size,
+    rateConfigNote: unpricedRiskCount > 0
+      ? "Some risks lack a configured billing rate and are reported without a dollar exposure. Configure rates in Settings → Compensatory Finance → Rates."
+      : null,
   };
 }
 
@@ -217,18 +239,22 @@ async function buildStudentMap(ids: number[]): Promise<Map<number, { name: strin
   return map;
 }
 
-async function buildServiceTypeMap(): Promise<Map<number, { name: string; hourlyRate: number }>> {
+async function buildServiceTypeMap(): Promise<Map<number, { name: string; hourlyRate: number | null }>> {
   const types = await db.select({
     id: serviceTypesTable.id,
     name: serviceTypesTable.name,
     defaultBillingRate: serviceTypesTable.defaultBillingRate,
   }).from(serviceTypesTable);
 
-  const map = new Map<number, { name: string; hourlyRate: number }>();
+  const map = new Map<number, { name: string; hourlyRate: number | null }>();
   for (const t of types) {
+    const parsed = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
     map.set(t.id, {
       name: t.name,
-      hourlyRate: t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : DEFAULT_HOURLY_RATE,
+      // No fabricated fallback. If the service type has no billing rate
+      // configured, hourlyRate stays null and downstream code surfaces a
+      // "rate not configured" state instead of inventing a dollar number.
+      hourlyRate: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
     });
   }
   return map;
@@ -264,8 +290,6 @@ async function getEvaluationDeadlineRisks(
 
     const overdue = days < 0;
     const absDays = Math.abs(days);
-    const estimatedCompHours = overdue ? Math.max(10, absDays * 0.5) : Math.max(5, (30 - Math.min(days, 30)) * 0.3);
-    const estimatedExposure = Math.round(estimatedCompHours * DEFAULT_HOURLY_RATE);
 
     risks.push({
       id: `eval-${ref.id}`,
@@ -282,7 +306,10 @@ async function getEvaluationDeadlineRisks(
         ? `Evaluation for ${student.name} is ${absDays} days past the deadline (${ref.evaluationDeadline}). Compensatory services likely required.`
         : `Evaluation for ${student.name} is due by ${ref.evaluationDeadline}. ${days <= 7 ? "Immediate action required." : "Schedule completion soon."}`,
       daysRemaining: days,
-      estimatedExposure,
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `${absDays} days past statutory evaluation deadline`
+        : `Evaluation due in ${days} days`,
       actionNeeded: overdue
         ? "Complete evaluation immediately and assess compensatory obligation"
         : "Ensure all evaluation components are scheduled and on track for completion",
@@ -315,7 +342,6 @@ async function getEvaluationDeadlineRisks(
 
     const overdue = days < 0;
     const absDays = Math.abs(days);
-    const estimatedExposure = Math.round((overdue ? Math.max(10, absDays * 0.5) : Math.max(5, (30 - Math.min(days, 30)) * 0.3)) * DEFAULT_HOURLY_RATE);
 
     risks.push({
       id: `ce-eval-${ce.id}`,
@@ -330,7 +356,10 @@ async function getEvaluationDeadlineRisks(
         : `${ce.title || ce.eventType} due in ${days} days`,
       description: `${ce.title || ce.eventType} for ${student.name} — deadline: ${ce.dueDate}`,
       daysRemaining: days,
-      estimatedExposure,
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `${absDays} days past statutory ${ce.eventType.replace(/_/g, " ")} deadline`
+        : `${ce.eventType.replace(/_/g, " ")} due in ${days} days`,
       actionNeeded: overdue
         ? "Schedule and complete evaluation immediately"
         : "Ensure evaluation is progressing on schedule",
@@ -344,7 +373,7 @@ async function getEvaluationDeadlineRisks(
 async function getServiceShortfallRisks(
   studentIds: number[],
   studentMap: Map<number, { name: string; caseManagerId: number | null }>,
-  serviceTypeMap: Map<number, { name: string; hourlyRate: number }>,
+  serviceTypeMap: Map<number, { name: string; hourlyRate: number | null }>,
   today: string,
 ): Promise<RiskItem[]> {
   const risks: RiskItem[] = [];
@@ -402,7 +431,7 @@ async function getServiceShortfallRisks(
 
     const svcType = serviceTypeMap.get(req.serviceTypeId);
     const svcName = svcType?.name || "Unknown Service";
-    const hourlyRate = svcType?.hourlyRate || DEFAULT_HOURLY_RATE;
+    const hourlyRate: number | null = svcType?.hourlyRate ?? null;
 
     let requiredForPeriod = req.requiredMinutes;
     let deliveredMinutes = sessionMap.get(`${req.studentId}-${req.serviceTypeId}`) || 0;
@@ -427,8 +456,13 @@ async function getServiceShortfallRisks(
       const daysLeftInWeek = Math.max(0, 5 - dayOfWeek);
       if (daysLeftInWeek <= 1 && deliveredMinutes < requiredForPeriod * 0.5) {
         const shortfall = requiredForPeriod - deliveredMinutes;
-        const estimatedExposure = Math.round((shortfall / 60) * hourlyRate);
-        if (estimatedExposure < 10) continue;
+        // Skip negligible shortfalls (under 15 minutes); previously this gate
+        // depended on a fabricated $75/hr default which let real shortfalls
+        // slip through when no rate was configured.
+        if (shortfall < 15) continue;
+        const estimatedExposure = hourlyRate != null
+          ? Math.round((shortfall / 60) * hourlyRate)
+          : null;
 
         risks.push({
           id: `svc-${req.id}`,
@@ -442,6 +476,9 @@ async function getServiceShortfallRisks(
           description: `${student.name} has received ${deliveredMinutes} of ${requiredForPeriod} required weekly minutes for ${svcName}. ${daysLeftInWeek === 0 ? "Week ends today." : `${daysLeftInWeek} day(s) remaining.`}`,
           daysRemaining: daysLeftInWeek,
           estimatedExposure,
+          exposureBasis: estimatedExposure != null
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr configured rate`
+            : `${shortfall} min shortfall (no billing rate configured for ${svcName})`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           serviceTypeName: svcName,
         });
@@ -453,8 +490,10 @@ async function getServiceShortfallRisks(
 
       if (projectedShortfall > 0 && deliveredMinutes < expectedByNow * 0.85) {
         const daysLeft = daysInMonth - dayOfMonth;
-        const estimatedExposure = Math.round((projectedShortfall / 60) * hourlyRate);
-        if (estimatedExposure < 10) continue;
+        if (projectedShortfall < 15) continue;
+        const estimatedExposure = hourlyRate != null
+          ? Math.round((projectedShortfall / 60) * hourlyRate)
+          : null;
 
         const pctDelivered = requiredForPeriod > 0 ? Math.round((deliveredMinutes / requiredForPeriod) * 100) : 0;
 
@@ -472,6 +511,9 @@ async function getServiceShortfallRisks(
           description: `${student.name} has ${deliveredMinutes} of ${requiredForPeriod} required monthly minutes for ${svcName} (${pctDelivered}% at ${Math.round(monthProgress * 100)}% through month). Projected shortfall: ${projectedShortfall} min.`,
           daysRemaining: daysLeft,
           estimatedExposure,
+          exposureBasis: estimatedExposure != null
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr configured rate`
+            : `${projectedShortfall} min projected shortfall (no billing rate configured for ${svcName})`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           serviceTypeName: svcName,
         });
@@ -549,10 +591,6 @@ async function getIepAnnualReviewRisks(
     const overdue = days < 0;
     const absDays = Math.abs(days);
 
-    const estimatedExposure = overdue
-      ? Math.round(Math.max(2000, absDays * 100))
-      : Math.round(Math.max(500, (30 - Math.min(days, 30)) * 50));
-
     risks.push({
       id: `iep-${iep.id}`,
       category: "iep_annual_review",
@@ -568,7 +606,10 @@ async function getIepAnnualReviewRisks(
         ? `IEP for ${student.name} expired on ${iep.iepEndDate}. No annual review meeting has been scheduled. This is a compliance violation.`
         : `IEP for ${student.name} expires ${iep.iepEndDate}. No annual review meeting is currently scheduled.`,
       daysRemaining: days,
-      estimatedExposure,
+      estimatedExposure: null,
+      exposureBasis: overdue
+        ? `IEP expired ${absDays} days ago — out-of-compliance for entire active service plan`
+        : `Annual review window closes in ${days} days`,
       actionNeeded: overdue
         ? "Schedule emergency IEP team meeting and notify parents immediately"
         : "Schedule annual review team meeting and send parent notice",
