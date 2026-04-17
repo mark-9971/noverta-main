@@ -10,6 +10,11 @@
  */
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { createHash } from "crypto";
+
+function sha256Hex(s: string): string {
+  return createHash("sha256").update(s).digest("hex");
+}
 
 const TAG = "[demo-modules]";
 
@@ -274,7 +279,7 @@ async function seedParentMessageVariety(districtId: number) {
     await db.execute(sql`
       UPDATE parent_messages
       SET category=${v.category}, subject=${v.subject}, body=${v.body},
-          metadata=jsonb_build_object('demoTag', ${TAG})
+          metadata=jsonb_build_object('demoTag', ${TAG}::text)
       WHERE id=${rows[i].id}
     `);
     updated++;
@@ -308,12 +313,13 @@ async function seedShareLinks(districtId: number) {
     const stu = students[i];
     const v = variants[i];
     const rand = `demoshare-${stu.id}-${i}-${Date.now()}`;
+    const tokenHash = sha256Hex(rand);
     await db.execute(sql`
       INSERT INTO share_links (token_hash, student_id, district_id, created_by_user_id, created_by_staff_id,
                                summary, expires_at, view_count, max_views,
                                last_viewed_at, last_viewed_ip, revoked_at, revoked_by_user_id)
       VALUES (
-        encode(digest(${rand},'sha256'),'hex'),
+        ${tokenHash},
         ${stu.id}, ${districtId}, 'demo-admin', ${admin?.id ?? null},
         ${`Q2 progress for ${stu.first_name} ${stu.last_name} ` + TAG + " (" + v.label + ")"},
         NOW() + (${v.offsetDays} || ' days')::interval,
@@ -366,6 +372,7 @@ async function seedSignatureRequests(districtId: number) {
     const v = variants[i];
     const g = guardianFor(doc.student_id);
     const rand = `demosig-${doc.id}-${i}-${Date.now()}`;
+    const tokenHash = sha256Hex(rand);
     await db.execute(sql`
       INSERT INTO signature_requests (
         document_id, recipient_name, recipient_email, token_hash,
@@ -375,7 +382,7 @@ async function seedSignatureRequests(districtId: number) {
         ${doc.id},
         ${g.name + " " + TAG + " (" + v.label + ")"},
         ${g.email},
-        encode(digest(${rand},'sha256'),'hex'),
+        ${tokenHash},
         ${v.status},
         ${v.signed ? sql`NOW() - INTERVAL '${sql.raw(String(v.daysAgo - 2))} days'` : sql`NULL`},
         ${v.signed ? g.name : null},
