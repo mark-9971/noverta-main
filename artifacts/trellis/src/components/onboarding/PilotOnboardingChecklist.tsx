@@ -1,7 +1,7 @@
 /**
- * PilotOnboardingChecklist — eight-step "blank workspace → usable pilot"
+ * PilotOnboardingChecklist — nine-step "blank workspace → usable pilot"
  * checklist for district admins. Every item is completion-based and grounded
- * in real database state served by GET /api/onboarding/status (the
+ * in real database state served by GET /api/onboarding/checklist (the
  * `pilotChecklist` field). See PILOT_CHECKLIST_ITEMS below for the rule set.
  */
 import { useState } from "react";
@@ -10,7 +10,7 @@ import { Link } from "wouter";
 import {
   Building2, CalendarDays, Users, GraduationCap, ListChecks,
   UserCheck, ClipboardCheck, ShieldCheck, CheckCircle2, Circle,
-  ChevronUp, ChevronDown, Rocket, ArrowRight, FileWarning,
+  ChevronUp, ChevronDown, Rocket, ArrowRight, FileWarning, FileText,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,8 @@ type ItemKey =
   | "serviceRequirementsImported"
   | "providersAssigned"
   | "firstSessionsLogged"
-  | "complianceDashboardActive";
+  | "complianceDashboardActive"
+  | "dpaAccepted";
 
 interface PilotChecklistResponse {
   pilotChecklist: Record<ItemKey, boolean> & {
@@ -142,6 +143,17 @@ export const PILOT_CHECKLIST_ITEMS: ItemDef[] = [
       ? "Required vs. delivered minutes are being computed"
       : "Needs students, requirements, and sessions before it can compute",
   },
+  {
+    key: "dpaAccepted",
+    label: "Sign Data Processing Agreement (DPA)",
+    icon: FileText,
+    blurb: "Review and accept the Data Processing Agreement before going live with student data.",
+    actionLabel: "Review & sign",
+    actionHref: "/settings#legal",
+    detail: d => d.pilotChecklist.dpaAccepted
+      ? "DPA accepted — data processing is authorised"
+      : "Required before processing student data in a live environment",
+  },
 ];
 
 interface Props {
@@ -160,8 +172,8 @@ export default function PilotOnboardingChecklist({
   const { data, isLoading, isError } = useQuery<PilotChecklistResponse>({
     queryKey: ["onboarding/pilot-checklist"],
     queryFn: async () => {
-      const r = await authFetch("/api/onboarding/status");
-      if (!r.ok) throw new Error("onboarding/status failed");
+      const r = await authFetch("/api/onboarding/checklist");
+      if (!r.ok) throw new Error("onboarding/checklist failed");
       return r.json();
     },
     staleTime: 30_000,

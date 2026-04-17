@@ -3,13 +3,14 @@ import {
   db, districtsTable, schoolsTable, serviceTypesTable, staffTable,
   studentsTable, onboardingProgressTable, sisConnectionsTable,
   districtSubscriptionsTable, serviceRequirementsTable, sessionLogsTable,
-  schoolYearsTable,
+  schoolYearsTable, legalAcceptancesTable,
 } from "@workspace/db";
 import { count, isNull, eq, and, isNotNull, inArray } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import type { Response } from "express";
 import { encryptCredentials } from "../lib/sis/credentials";
+import { LEGAL_VERSIONS } from "../lib/legalVersions";
 
 const router: IRouter = Router();
 
@@ -85,7 +86,7 @@ async function markStepComplete(districtId: number, stepKey: string, metadata?: 
   }
 }
 
-router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+async function onboardingChecklistHandler(req: import("express").Request, res: Response): Promise<void> {
   try {
     // Tenant-scoped: only return onboarding state for the caller's district.
     // Falling back to "first row" historically leaked another tenant's
@@ -145,6 +146,7 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (re
     let sisConnected = false;
     let districtConfirmed = false;
     let districtConfirmedMeta: { schoolYear?: string } | null = null;
+    let dpaAccepted = false;
 
     if (districtId) {
       sisConnected = await getStepStatus(districtId, "sis_connected");
@@ -157,6 +159,22 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (re
       if (confirmedRow?.metadata) {
         try { districtConfirmedMeta = JSON.parse(confirmedRow.metadata); } catch { /* ignore */ }
       }
+    }
+
+    // DPA acceptance is per-user: check whether the requesting admin has
+    // accepted the current version of the Data Processing Agreement.
+    const authedReq = req as AuthedRequest;
+    if (authedReq.userId) {
+      const dpaVersion = LEGAL_VERSIONS["dpa"];
+      const [dpaRow] = await db.select({ id: legalAcceptancesTable.id })
+        .from(legalAcceptancesTable)
+        .where(and(
+          eq(legalAcceptancesTable.userId, authedReq.userId),
+          eq(legalAcceptancesTable.documentType, "dpa"),
+          eq(legalAcceptancesTable.documentVersion, dpaVersion),
+        ))
+        .limit(1);
+      dpaAccepted = !!dpaRow;
     }
 
     const studentsImported = studentCount.value > 0;
@@ -193,7 +211,7 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (re
     const totalSteps = 4;
     const isComplete = coreSteps.every(Boolean);
 
-    // Pilot-readiness checklist (8 user-facing steps). This is independent of
+    // Pilot-readiness checklist (9 user-facing steps). This is independent of
     // the legacy 4-step `completedCount`/`totalSteps`/`isComplete` above so we
     // do not break the existing SetupChecklist widget.
     const pilotChecklist = {
@@ -205,6 +223,7 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (re
       providersAssigned,
       firstSessionsLogged,
       complianceDashboardActive,
+      dpaAccepted,
     };
     const pilotCompletedCount = Object.values(pilotChecklist).filter(Boolean).length;
     const pilotTotalSteps = Object.keys(pilotChecklist).length;
@@ -245,7 +264,15 @@ router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (re
     console.error("Onboarding status error:", err);
     res.status(500).json({ error: "Failed to fetch onboarding status" });
   }
-});
+}
+
+/**
+ * GET /onboarding/status  — legacy path kept for backwards compat.
+ * GET /onboarding/checklist — canonical task-spec path.
+ * Both return identical payloads from the shared handler above.
+ */
+router.get("/onboarding/status", requireRoles("admin", "coordinator"), onboardingChecklistHandler);
+router.get("/onboarding/checklist", requireRoles("admin", "coordinator"), onboardingChecklistHandler);
 
 router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
