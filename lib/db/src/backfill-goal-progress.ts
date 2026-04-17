@@ -587,6 +587,121 @@ async function createSupportingContent(
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
+/* Compliance tuning                                                         */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Generate `session_logs` rows so that each demo student lands inside one of
+ * four compliance buckets for the current monthly interval, producing a
+ * realistic spread instead of a single uniform "everyone behind" picture:
+ *
+ *   bucket = student.id % 20
+ *     0..2  (15%)  OVER 100%  — caught up + makeups, 110..125% delivered
+ *     3..12 (50%)  ON TRACK   —  85..100%
+ *     13..17 (25%) BEHIND     —  65..85%
+ *     18..19 (10%) AT RISK    —  50..65%
+ *
+ * Idempotent: only inserts the additional minutes needed to close the gap
+ * between currently-delivered minutes and the bucket target. Tagged with
+ * `notes='Sample minute log'` so the rows are easy to find/clear.
+ */
+async function tuneComplianceForStudents(
+  studentIds: number[],
+  staffPool: number[],
+): Promise<{ minuteLogsCreated: number }> {
+  if (studentIds.length === 0 || staffPool.length === 0) {
+    return { minuteLogsCreated: 0 };
+  }
+
+  const result = await db.execute(sql`
+    WITH params AS (
+      SELECT
+        s.id  AS student_id,
+        sr.id AS req_id,
+        sr.required_minutes,
+        -- Deterministic offset within each bucket band, derived from the
+        -- student id so re-runs land on the exact same target_pct (no
+        -- monotonic upward drift on repeated backfill calls).
+        CASE
+          WHEN (s.id % 20) <  3 THEN 1.10 + (((s.id * 37) % 100) / 100.0) * 0.15
+          WHEN (s.id % 20) < 13 THEN 0.85 + (((s.id * 37) % 100) / 100.0) * 0.15
+          WHEN (s.id % 20) < 18 THEN 0.65 + (((s.id * 37) % 100) / 100.0) * 0.20
+          ELSE                       0.50 + (((s.id * 37) % 100) / 100.0) * 0.15
+        END AS target_pct,
+        COALESCE((
+          SELECT SUM(sl.duration_minutes)
+          FROM session_logs sl
+          WHERE sl.service_requirement_id = sr.id
+            AND sl.status IN ('completed','makeup')
+            AND sl.session_date >= TO_CHAR(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD')
+            AND sl.session_date <= TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')
+        ), 0)::int AS delivered_so_far
+      FROM students s
+      JOIN service_requirements sr
+        ON sr.student_id = s.id AND sr.active = true
+      WHERE s.id IN ${intList(studentIds)}
+        AND sr.required_minutes > 0
+    ),
+    needs AS (
+      SELECT *,
+        GREATEST(0, ROUND(required_minutes * target_pct)::int - delivered_so_far) AS minutes_needed
+      FROM params
+    ),
+    weekdays AS (
+      SELECT d::date AS d,
+             ROW_NUMBER() OVER (ORDER BY d) - 1 AS rn,
+             COUNT(*) OVER ()                   AS total
+      FROM generate_series(
+        date_trunc('month', CURRENT_DATE)::date,
+        CURRENT_DATE,
+        INTERVAL '1 day'
+      ) AS d
+      WHERE EXTRACT(DOW FROM d) BETWEEN 1 AND 5
+    ),
+    plan AS (
+      -- One ~30 min session per 30 min of remaining gap. Last session in the
+      -- run takes the remainder so we land exactly on target.
+      SELECT n.student_id, n.req_id, n.minutes_needed,
+             GREATEST(1, CEIL(n.minutes_needed / 30.0)::int) AS num_sessions
+      FROM needs n
+      WHERE n.minutes_needed > 0
+    ),
+    schedule AS (
+      SELECT
+        p.student_id, p.req_id,
+        -- Cycle through available weekdays so several sessions can share a
+        -- date without trampling each other (one student can have multi
+        -- service-type sessions on the same day in real life).
+        (SELECT w.d FROM weekdays w
+          WHERE w.rn = (gs.idx % (SELECT COUNT(*) FROM weekdays))) AS d,
+        -- Last session uses the exact remainder so cumulative inserted
+        -- minutes equal minutes_needed precisely (no overshoot).
+        CASE
+          WHEN gs.idx = p.num_sessions - 1
+            THEN p.minutes_needed - (p.num_sessions - 1) * 30
+          ELSE 30
+        END AS dur
+      FROM plan p
+      CROSS JOIN LATERAL generate_series(0, p.num_sessions - 1) AS gs(idx)
+    )
+    INSERT INTO session_logs
+      (student_id, service_requirement_id, staff_id, session_date,
+       duration_minutes, status, notes)
+    SELECT
+      sched.student_id,
+      sched.req_id,
+      (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
+      TO_CHAR(sched.d, 'YYYY-MM-DD'),
+      sched.dur,
+      'completed',
+      'Sample minute log'
+    FROM schedule sched
+  `);
+
+  return { minuteLogsCreated: result.rowCount ?? 0 };
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
 /* Public entry points                                                       */
 /* ──────────────────────────────────────────────────────────────────────── */
 
@@ -616,12 +731,20 @@ export async function backfillGoalProgressForStudents(
 
   const CHUNK = 25;
   let stats = EMPTY_STATS();
+  let minuteLogsCreated = 0;
   for (let i = 0; i < studentIds.length; i += CHUNK) {
     const slice = studentIds.slice(i, i + CHUNK);
     const t = await createTargetsPerGoal(slice);
     const s = await createSessionsAndData(slice, staffPool);
     const c = await createSupportingContent(slice, staffPool);
+    const m = await tuneComplianceForStudents(slice, staffPool);
+    minuteLogsCreated += m.minuteLogsCreated;
     stats = addStats(stats, { ...t, ...s, ...c });
+  }
+  // Stash the new metric on the existing stats shape to keep the public
+  // BackfillStats type stable; surface via console for the seed runner.
+  if (minuteLogsCreated > 0) {
+    console.log(`[backfill] minute logs created for compliance tuning: ${minuteLogsCreated}`);
   }
   return stats;
 }
@@ -648,16 +771,22 @@ export async function backfillGoalProgressForDistrict(
   // per-goal INSERTs in flight at once.
   const CHUNK = 25;
   let stats = EMPTY_STATS();
+  let minuteLogsCreated = 0;
   for (let i = 0; i < studentIds.length; i += CHUNK) {
     const slice = studentIds.slice(i, i + CHUNK);
     const t = await createTargetsPerGoal(slice);
     const s = await createSessionsAndData(slice, staffPool);
     const c = await createSupportingContent(slice, staffPool);
+    const m = await tuneComplianceForStudents(slice, staffPool);
+    minuteLogsCreated += m.minuteLogsCreated;
     stats = addStats(stats, {
       ...t,
       ...s,
       ...c,
     });
+  }
+  if (minuteLogsCreated > 0) {
+    console.log(`[backfill] minute logs created for compliance tuning: ${minuteLogsCreated}`);
   }
   return stats;
 }
