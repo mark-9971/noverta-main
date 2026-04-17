@@ -6,7 +6,7 @@ import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
-import { enqueueSyncJob } from "../lib/sis/jobQueue";
+import { enqueueSyncJob, cancelSyncJob } from "../lib/sis/jobQueue";
 import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
 import type { SisProvider } from "../lib/sis/types";
 
@@ -367,6 +367,43 @@ router.get("/sis/jobs/:id", requireRoles(...ADMIN_ROLES), async (req: Request, r
   } catch (err) {
     console.error("Failed to fetch sync job:", err);
     res.status(500).json({ error: "Failed to fetch job" });
+  }
+});
+
+/**
+ * POST /sis/jobs/:id/cancel — cancel a queued or running job. The caller
+ * must belong to the same district as the connection that owns the job.
+ * Already-terminal jobs return 409 so the UI can surface a clear message
+ * ("This sync already finished") rather than silently succeeding.
+ */
+router.post("/sis/jobs/:id/cancel", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const districtId = await getDistrictIdForUser(req);
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+    const id = Number(req.params.id);
+    // Ownership check: the job must belong to a connection in this district.
+    const [row] = await db
+      .select({ jobStatus: sisSyncJobsTable.status, connectionDistrictId: sisConnectionsTable.districtId })
+      .from(sisSyncJobsTable)
+      .innerJoin(sisConnectionsTable, eq(sisSyncJobsTable.connectionId, sisConnectionsTable.id))
+      .where(eq(sisSyncJobsTable.id, id))
+      .limit(1);
+    if (!row || row.connectionDistrictId !== districtId) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    const canceled = await cancelSyncJob(id);
+    if (!canceled) {
+      res.status(409).json({ error: "Job is already in a terminal state and cannot be canceled." });
+      return;
+    }
+    res.json({ ok: true, jobId: id, status: "canceled" });
+  } catch (err) {
+    console.error("Failed to cancel sync job:", err);
+    res.status(500).json({ error: "Failed to cancel job" });
   }
 });
 

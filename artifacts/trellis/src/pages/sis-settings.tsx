@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Database, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Trash2, TestTube, Upload, Clock, Plug, Settings2, FileSpreadsheet,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Ban,
 } from "lucide-react";
 
 interface SisProvider {
@@ -143,6 +143,7 @@ function ConnectionCard({
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
   const [enqueueError, setEnqueueError] = useState<string | null>(null);
+  const [canceling, setCanceling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const [csvText, setCsvText] = useState("");
@@ -267,6 +268,25 @@ function ConnectionCard({
     }
   }, [connection.id]);
 
+  const handleCancel = useCallback(async () => {
+    if (!activeJobId) return;
+    setCanceling(true);
+    setEnqueueError(null);
+    try {
+      const res = await authFetch(`/api/sis/jobs/${activeJobId}/cancel`, { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setEnqueueError(body.error ?? "Failed to cancel sync");
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["sis-job", activeJobId] });
+      }
+    } catch (err) {
+      setEnqueueError(err instanceof Error ? err.message : "Failed to cancel sync");
+    } finally {
+      setCanceling(false);
+    }
+  }, [activeJobId, queryClient]);
+
   const handleDelete = useCallback(async () => {
     if (!confirm("Delete this SIS connection? Sync history will also be removed.")) return;
     setDeleting(true);
@@ -382,6 +402,18 @@ function ConnectionCard({
                 >
                   <Upload className="w-3 h-3" />
                   Upload CSV
+                </Button>
+              )}
+              {activeJob && !isTerminalJob(activeJob.status) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={canceling}
+                  className="text-[11px] gap-1 h-7 text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200"
+                >
+                  <Ban className="w-3 h-3" />
+                  {canceling ? "Canceling…" : "Cancel Sync"}
                 </Button>
               )}
               <Button

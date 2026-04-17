@@ -354,4 +354,38 @@ function coerceJobRow(row: unknown): SisSyncJob {
   };
 }
 
+/**
+ * Cancel a queued or running job. Sets status to `canceled` and clears the
+ * lock fields. For a `running` job the in-flight worker will eventually call
+ * `markCompleted` or `markFailed`, both of which are guarded by
+ * `status='running'` — since we've already moved the row to `canceled` those
+ * writes will be no-ops and the canceled state is preserved.
+ *
+ * Returns `true` if the row was found and transitioned, `false` if the job
+ * was already terminal (or didn't exist).
+ */
+export async function cancelSyncJob(jobId: number): Promise<boolean> {
+  const updated = await db
+    .update(sisSyncJobsTable)
+    .set({
+      status: "canceled",
+      completedAt: new Date(),
+      lockedAt: null,
+      lockedBy: null,
+      progress: {
+        phase: "canceled",
+        message: "Canceled by admin.",
+        updatedAt: new Date().toISOString(),
+      },
+    })
+    .where(
+      and(
+        eq(sisSyncJobsTable.id, jobId),
+        inArray(sisSyncJobsTable.status, ["queued", "running"]),
+      ),
+    )
+    .returning({ id: sisSyncJobsTable.id });
+  return updated.length > 0;
+}
+
 export const __test__ = { STALE_RUNNING_THRESHOLD_MS, RETRY_BACKOFF_MS };
