@@ -1,0 +1,21 @@
+1. Nav sidebar contrast fails accessibility (WCAG AA)
+
+In the "open-air" theme, inactive nav icons use text-gray-300 and section labels use text-gray-400 at 10px uppercase. Both fail the 4.5:1 contrast minimum against the white sidebar background. The "Soon" and tier-lock badges sit at text-[9px] — below the 12px minimum for readable body text. Fix: bump inactive icons to text-gray-400, inactive labels to text-gray-500, section labels to text-gray-500 text-[11px], and badges to a minimum text-[11px].
+
+2. Sidebar is overwhelming — too many sections open at once
+
+Six sections (Overview, Compliance, Caseload & Service Delivery, Reports, Billing, Settings) plus "More tools" are all defaultOpen: true, which means a fresh admin sees 20+ nav items before scrolling. The skill's navigation guideline is "predictable, low-cognitive-load nav." Fix: default "Reports", "Billing", and "Settings" to defaultOpen: false. Keep only Overview, Compliance, and Caseload open. Admins find the right section faster, and "More tools" collapses are already working well — apply the same logic to secondary sections.
+
+3. "What should I do next?" — primary and muted actions lack enough visual separation
+
+You recently improved this (good catch), but primary items (urgent work) and muted items (routine actions) still live in the same <ol> with only text color and badge color differentiating them. A user scanning quickly can't immediately tell "items 1–3 need attention now, 4–5 are optional." Fix: add a thin border-t border-gray-100 pt-1 mt-1 divider between the last primary item and the first muted item, or use a faint bg-gray-50/60 background on the muted rows to create a visual "tier 2" zone.
+
+4. No skeleton loading — data-heavy pages flash empty → full
+
+Pages like the dashboard, student list, and compliance report fetch data asynchronously. Right now the pattern is to show nothing or a spinner until data arrives, then the full layout pops in. This creates layout shift (CLS issue per the skill's Priority 3 performance rule). Fix: add shimmer/skeleton placeholders for the metric cards and list rows. Tailwind's animate-pulse bg-gray-100 rounded is already available — a small <SkeletonCard> component in /components/ui/ would cover 80% of use cases and make the app feel significantly faster even when load times are identical.
+
+5. Mobile bottom nav labels too small, touch targets too close together
+
+The mobile bottom nav uses text-[10px] labels below icons on a min-h-[56px] bar. With 5+ items, each touch target compresses to roughly 64px wide, and the 10px labels are hard to read on standard phone resolution. The skill's priority 2 rule requires minimum 44×44px per touch target with 8px+ spacing. Fix: limit the bottom nav to maximum 4 primary items (drop the 5th to the "More" sheet), increase labels to text-[11px], and add a subtle bg-emerald-50 fill behind the active item's icon (not just a color change) to make the active state visually unmistakable.
+
+Which of these would you like me to implement? I can do any or all of them — and I'm also still in the middle of hardening the multi-tenant isolation work in the background, so I can work on these in parallel if you'd like
