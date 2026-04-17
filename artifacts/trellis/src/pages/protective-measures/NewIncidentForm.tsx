@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bell, PenLine, Save, Send } from "lucide-react";
+import { ArrowLeft, Bell, PenLine, Phone, Save, Send } from "lucide-react";
 import {
   listStudents, listStaff, createProtectiveIncident, getProtectiveIncident,
 } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { EmergencyAlertInline } from "@/components/emergency-alert-inline";
+import { StudentQuickView } from "@/components/student-quick-view";
 import { ChecklistField } from "@/pages/protective-measures/IncidentList";
 import {
   Staff,
@@ -286,7 +287,24 @@ export function NewIncidentForm({ onClose, editId }: { onClose: () => void; edit
           {form.studentId && <EmergencyAlertInline studentId={Number(form.studentId)} />}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Student *</label>
+              <div className="flex items-center gap-1.5">
+                <label className={labelCls}>Student *</label>
+                {form.studentId && (() => {
+                  const sel = (students || []).find((s: any) => String(s.id) === String(form.studentId));
+                  return sel ? (
+                    <StudentQuickView
+                      studentId={sel.id}
+                      studentName={`${sel.firstName} ${sel.lastName}`}
+                      grade={sel.grade}
+                      trigger={
+                        <span className="p-0.5 rounded hover:bg-gray-100 transition-colors" title="Quick view: emergency contacts & alerts">
+                          <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                        </span>
+                      }
+                    />
+                  ) : null;
+                })()}
+              </div>
               <select value={form.studentId} onChange={e => set("studentId", e.target.value)} className={inputCls}>
                 <option value="">Select student...</option>
                 {(students || []).map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — Grade {s.grade}</option>)}

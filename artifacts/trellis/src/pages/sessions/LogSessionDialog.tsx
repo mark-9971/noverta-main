@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, Target, Clock, Activity, BarChart3, CheckCircle } from "lucide-react";
+import { RotateCcw, Target, Clock, Activity, BarChart3, CheckCircle, Phone } from "lucide-react";
 import { EmergencyAlertInline } from "@/components/emergency-alert-inline";
+import { StudentQuickView } from "@/components/student-quick-view";
 import { toast } from "sonner";
 import { formatDate } from "./utils";
 import type { SessionForm, GoalFormEntry, LogMakeupFor } from "./types";
@@ -54,7 +55,24 @@ export function LogSessionDialog({
           {form.studentId && <EmergencyAlertInline studentId={Number(form.studentId)} />}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[12px] text-gray-500">Student *</Label>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[12px] text-gray-500">Student *</Label>
+                {form.studentId && (() => {
+                  const sel = studentList.find((s: any) => String(s.id) === form.studentId);
+                  return sel ? (
+                    <StudentQuickView
+                      studentId={sel.id}
+                      studentName={`${sel.firstName} ${sel.lastName}`}
+                      grade={sel.grade}
+                      trigger={
+                        <span className="p-0.5 rounded hover:bg-gray-100 transition-colors" title="Quick view: emergency contacts & alerts">
+                          <Phone className="w-3 h-3 text-gray-400 hover:text-emerald-600" />
+                        </span>
+                      }
+                    />
+                  ) : null;
+                })()}
+              </div>
               <Select value={form.studentId} onValueChange={v => { updateForm("studentId", v); updateForm("serviceRequirementId", ""); }}>
                 <SelectTrigger className="h-10 md:h-9 text-[13px]"><SelectValue placeholder="Select student" /></SelectTrigger>
                 <SelectContent>
