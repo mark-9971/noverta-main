@@ -9,6 +9,12 @@ Trellis dev environment.
   sample data" on `/setup`, lands on `/compliance-risk-report` with
   non-empty content, sees the global `SampleDataBanner` across pages,
   then tears down and confirms counts return to zero.
+- `tests/sample-data-tour.spec.ts` — admin seeds sample data and the
+  guided `SampleDataTour` auto-opens on `/compliance-risk-report`. The
+  test walks through all five steps, asserts the `data-tour-id` anchor
+  for each step exists, then verifies that both "Finish" and "Skip
+  tour" persist the seen flag and prevent the tour from re-appearing on
+  reload while sample data is still loaded.
 
 ## Running locally
 
