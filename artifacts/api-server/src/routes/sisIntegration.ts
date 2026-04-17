@@ -4,7 +4,7 @@ import { sisConnectionsTable, sisSyncLogsTable, districtsTable, staffTable, scho
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
-import { getPublicMeta } from "../lib/clerkClaims";
+import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
 import { runSync } from "../lib/sis/syncEngine";
 import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
@@ -14,32 +14,14 @@ const router: IRouter = Router();
 const ADMIN_ROLES = ["admin"] as const;
 const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv", "sftp"]);
 
+// SIS connections (with stored API keys / SFTP credentials) are scoped to the
+// caller's district. The previous implementation auto-selected the only
+// district in the table when the caller had no Clerk districtId — which would
+// have let an unscoped admin read or rotate another tenant's SIS credentials
+// the moment a second district was added. Resolution now requires explicit
+// scope.
 async function getDistrictIdForUser(req: Request): Promise<number | null> {
-  const meta = getPublicMeta(req);
-
-  if (meta.staffId) {
-    const [staff] = await db.select({ schoolId: staffTable.schoolId })
-      .from(staffTable)
-      .where(eq(staffTable.id, meta.staffId))
-      .limit(1);
-
-    if (staff?.schoolId) {
-      const [school] = await db.select({ districtId: schoolsTable.districtId })
-        .from(schoolsTable)
-        .where(eq(schoolsTable.id, staff.schoolId))
-        .limit(1);
-
-      if (school?.districtId) return school.districtId;
-    }
-  }
-
-  const districts = await db.select({ id: districtsTable.id })
-    .from(districtsTable)
-    .limit(2);
-
-  if (districts.length === 1) return districts[0].id;
-
-  return null;
+  return resolveDistrictIdForCaller(req);
 }
 
 async function assertConnectionOwnership(connectionId: number, districtId: number): Promise<typeof sisConnectionsTable.$inferSelect | null> {

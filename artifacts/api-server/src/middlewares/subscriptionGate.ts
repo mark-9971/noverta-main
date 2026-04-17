@@ -1,7 +1,8 @@
 import { type Request, type Response, type NextFunction } from "express";
-import { db, districtSubscriptionsTable, districtsTable, staffTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getAuth } from "@clerk/express";
 
 const GATED_STATUSES = ["canceled", "unpaid", "past_due"];
@@ -20,37 +21,11 @@ const EXEMPT_PATHS = [
   "/auth",
 ];
 
-async function resolveDistrictId(req: Request): Promise<number | null> {
-  const meta = getPublicMeta(req);
-
-  if (meta.districtId) return meta.districtId;
-
-  if (meta.staffId) {
-    const [staff] = await db
-      .select({ schoolId: staffTable.schoolId })
-      .from(staffTable)
-      .where(eq(staffTable.id, meta.staffId))
-      .limit(1);
-    if (staff?.schoolId) {
-      const result = await db.execute(
-        sql`SELECT district_id FROM schools WHERE id = ${staff.schoolId} LIMIT 1`
-      );
-      const rows = result.rows;
-      if (rows && rows.length > 0) {
-        const row = rows[0] as Record<string, unknown>;
-        return Number(row.district_id);
-      }
-    }
-  }
-
-  const allDistricts = await db.execute(sql`SELECT id FROM districts LIMIT 2`);
-  const rows = allDistricts.rows;
-  if (rows && rows.length === 1) {
-    const row = rows[0] as Record<string, unknown>;
-    return Number(row.id);
-  }
-  return null;
-}
+// District resolution is delegated to the shared resolver. Note: the previous
+// implementation also fell back to "the only district in the table" when the
+// caller had no scope — that was effectively letting an unscoped user inherit
+// another tenant's billing status. That fallback is gone; an unresolved caller
+// now receives a clear DISTRICT_UNRESOLVABLE 403.
 
 export function requireActiveSubscription(req: Request, res: Response, next: NextFunction): void {
   const auth = getAuth(req);
@@ -78,7 +53,7 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
     return;
   }
 
-  resolveDistrictId(req)
+  resolveDistrictIdForCaller(req)
     .then(async (districtId) => {
       if (!districtId) {
         res.status(403).json({

@@ -1,28 +1,20 @@
-import { db } from "@workspace/db";
 import {
   studentsTable, alertsTable, sessionLogsTable,
-  staffTable, districtsTable, schoolsTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
-import { getPublicMeta } from "../../lib/clerkClaims";
+import { sql } from "drizzle-orm";
+import { resolveDistrictIdForCaller } from "../../lib/resolveDistrictForCaller";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import type { Request } from "express";
 
+// Dashboard scope helper. The previous implementation used "if there is only
+// one district in the table, treat it as the caller's." Removed: a brand-new
+// staffer or a misconfigured account would silently see a different
+// district's caseload aggregates the moment a second district was added. Now
+// we return null (caller must have explicit Clerk districtId or staff link)
+// and routes render an empty/zero dashboard instead of borrowed data.
 export async function resolveCallerDistrictId(req: import("express").Request): Promise<number | null> {
-  const meta = getPublicMeta(req);
-  if (meta.staffId) {
-    const [staff] = await db.select({ schoolId: staffTable.schoolId })
-      .from(staffTable).where(eq(staffTable.id, meta.staffId)).limit(1);
-    if (staff?.schoolId) {
-      const [school] = await db.select({ districtId: schoolsTable.districtId })
-        .from(schoolsTable).where(eq(schoolsTable.id, staff.schoolId)).limit(1);
-      if (school?.districtId) return school.districtId;
-    }
-  }
-  const districts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
-  if (districts.length === 1) return districts[0].id;
-  return null;
+  return resolveDistrictIdForCaller(req);
 }
 
 export function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>): { schoolId?: number; districtId?: number } {

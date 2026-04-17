@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { eq, and, count, sql, inArray } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { requirePlatformAdmin, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
@@ -174,24 +175,11 @@ router.get("/district-tier", async (req, res): Promise<void> => {
       if (isNaN(districtId)) { res.status(400).json({ error: "Invalid districtId" }); return; }
     }
   } else {
-    districtId = meta.districtId ?? null;
-
-    if (!districtId && meta.staffId) {
-      const staffResult = await db.execute(
-        sql`SELECT d.id FROM districts d
-            JOIN schools s ON s.district_id = d.id
-            JOIN staff st ON st.school_id = s.id
-            WHERE st.id = ${meta.staffId} LIMIT 1`
-      );
-      if (staffResult.rows.length > 0) {
-        districtId = Number((staffResult.rows[0] as Record<string, unknown>).id);
-      }
-    }
-  }
-
-  if (!districtId) {
-    const allDistricts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
-    if (allDistricts.length === 1) districtId = allDistricts[0].id;
+    // Non-platform-admin: use the shared resolver (Clerk meta → staff join,
+    // no implicit "only district" fallback). An unscoped caller now gets the
+    // explicit "unconfigured" tier shape rather than borrowing the lone
+    // tenant's tier.
+    districtId = await resolveDistrictIdForCaller(req);
   }
 
   if (!districtId) {

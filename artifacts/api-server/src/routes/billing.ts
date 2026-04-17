@@ -2,38 +2,20 @@ import { Router, type Request, type Response } from "express";
 import { db, districtSubscriptionsTable, districtsTable, staffTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireMinRole, requirePlatformAdmin } from "../middlewares/auth";
-import { getPublicMeta } from "../lib/clerkClaims";
+import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getUncachableStripeClient, getStripePublishableKey } from "../lib/stripeClient";
 
 const router = Router();
 const adminOnly = requireMinRole("admin");
 
+// Billing routes always operate on the caller's own district. We previously
+// fell back to "the only district in the table" when neither Clerk metadata
+// nor a staff link gave us a districtId — that meant an admin user from an
+// unlinked account could read or change another tenant's subscription. The
+// shared resolver no longer falls back; routes return 403 when scope is
+// missing rather than guessing.
 async function resolveCallerDistrictId(req: Request): Promise<number | null> {
-  const meta = getPublicMeta(req);
-
-  if (meta.districtId) return meta.districtId;
-
-  if (meta.staffId) {
-    const [staff] = await db
-      .select({ schoolId: staffTable.schoolId })
-      .from(staffTable)
-      .where(eq(staffTable.id, meta.staffId))
-      .limit(1);
-    if (staff?.schoolId) {
-      const result = await db.execute(
-        sql`SELECT district_id FROM schools WHERE id = ${staff.schoolId} LIMIT 1`
-      );
-      const rows = result.rows;
-      if (rows && rows.length > 0) {
-        const row = rows[0] as Record<string, unknown>;
-        return Number(row.district_id);
-      }
-    }
-  }
-
-  const allDistricts = await db.select({ id: districtsTable.id }).from(districtsTable).limit(2);
-  if (allDistricts.length === 1) return allDistricts[0].id;
-  return null;
+  return resolveDistrictIdForCaller(req);
 }
 
 async function countDistrictStaff(districtId: number): Promise<number> {

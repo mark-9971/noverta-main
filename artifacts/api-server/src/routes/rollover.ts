@@ -24,12 +24,15 @@ const requireAdmin = requireRoles("admin");
 async function resolveDistrictId(req: Request): Promise<number | null> {
   const meta = getPublicMeta(req);
   if (meta.districtId) return meta.districtId;
-  // In non-production, fall back to the first district so dev/demo logins work
-  // without Clerk publicMetadata.districtId being configured.
-  if (process.env.NODE_ENV !== "production") {
-    const rows = await db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`);
-    const row = rows.rows[0] as Record<string, unknown> | undefined;
-    return row ? Number(row.id) : null;
+  // Year rollover is destructive (creates next-year placeholders, archives
+  // active IEPs, etc.) so even in dev we will NOT pick a district silently.
+  // Set TRELLIS_DEV_FORCE_DISTRICT_ID to the district you want to roll over
+  // when running locally without Clerk metadata configured.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
+  ) {
+    return Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID);
   }
   return null;
 }

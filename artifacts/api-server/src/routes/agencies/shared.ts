@@ -5,43 +5,25 @@ import {
   agencyContractsTable,
   agencyStaffTable,
   contractSessionLinksTable,
-  staffTable,
   sessionLogsTable,
-  districtsTable,
-  schoolsTable,
 } from "@workspace/db";
 import { eq, and, isNull, gte, lte, inArray } from "drizzle-orm";
 import { requireMinRole } from "../../middlewares/auth";
-import { getPublicMeta } from "../../lib/clerkClaims";
+import { resolveDistrictIdForCaller } from "../../lib/resolveDistrictForCaller";
 
 export const adminOnly = requireMinRole("coordinator");
 
+// Agency contract endpoints (rates, totals, linked sessions) must be scoped
+// to one tenant. The previous "if there's only one district, use it" branch
+// was removed: agency rate cards and contract totals are sensitive enough
+// that we must never surface another tenant's data to an unscoped admin.
 export async function requireDistrictId(req: Request, res: Response): Promise<number | null> {
-  const meta = getPublicMeta(req);
-
-  if (meta.staffId) {
-    const [staff] = await db.select({ schoolId: staffTable.schoolId })
-      .from(staffTable)
-      .where(eq(staffTable.id, meta.staffId))
-      .limit(1);
-
-    if (staff?.schoolId) {
-      const [school] = await db.select({ districtId: schoolsTable.districtId })
-        .from(schoolsTable)
-        .where(eq(schoolsTable.id, staff.schoolId))
-        .limit(1);
-
-      if (school?.districtId) return school.districtId;
-    }
-  }
-
-  const districts = await db.select({ id: districtsTable.id })
-    .from(districtsTable)
-    .limit(2);
-
-  if (districts.length === 1) return districts[0].id;
-
-  res.status(403).json({ error: "Unable to determine district scope" });
+  const districtId = await resolveDistrictIdForCaller(req);
+  if (districtId) return districtId;
+  res.status(403).json({
+    error: "Unable to determine district scope. Your account isn't linked to a district yet.",
+    code: "NO_DISTRICT_SCOPE",
+  });
   return null;
 }
 
