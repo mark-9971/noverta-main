@@ -43,7 +43,14 @@ export function ClaimsQueueTab() {
       body: JSON.stringify({ dateFrom: genDateFrom, dateTo: genDateTo }),
     }).then(r => r.json()),
     onSuccess: (data) => {
+      const noDx = (data.skippedDetails ?? []).filter((s: any) => s.reason === "no_diagnosis_on_student").length;
       toast.success(`Generated ${data.generated} claims (${data.skipped} skipped)`);
+      if (noDx > 0) {
+        toast.error(
+          `${noDx} session(s) skipped: student record has no diagnosis. Add the diagnosis to the student before re-running claim generation.`,
+          { duration: 8000 }
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["medicaid-claims"] });
       queryClient.invalidateQueries({ queryKey: ["medicaid-revenue"] });
     },

@@ -44,6 +44,7 @@ router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
       durationMinutes: sessionLogsTable.durationMinutes,
       status: sessionLogsTable.status,
       studentMedicaidId: studentsTable.medicaidId,
+      studentDisabilityCategory: studentsTable.disabilityCategory,
       providerNpi: staffTable.npiNumber,
       providerMedicaidId: staffTable.medicaidProviderId,
     })
@@ -90,6 +91,17 @@ router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
       continue;
     }
 
+    // HARD STOP: every Medicaid claim must carry an actual diagnosis from the
+    // student record. We previously substituted "F84.0" (Autistic disorder) as
+    // a fallback, which is fraudulent billing. If the student has no
+    // diagnosis on file, refuse to create the claim and surface a clear
+    // actionable reason to the admin.
+    const studentDiagnosis = (session.studentDisabilityCategory ?? "").trim();
+    if (!studentDiagnosis) {
+      skipped.push({ sessionId: session.id, reason: "no_diagnosis_on_student" });
+      continue;
+    }
+
     const duration = session.durationMinutes || 0;
     const mapping = mappings.find(m => {
       if (m.minDurationMinutes && duration < m.minDurationMinutes) return false;
@@ -118,6 +130,7 @@ router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
       studentMedicaidId: session.studentMedicaidId,
       providerNpi: session.providerNpi,
       providerMedicaidId: session.providerMedicaidId,
+      diagnosisCode: studentDiagnosis,
       status: "pending",
       districtId,
     });
@@ -360,6 +373,31 @@ router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
 
   const batchId = `BATCH-${districtId}-${Date.now()}`;
 
+  // SAFETY GATE: before promoting any claim to "exported", quarantine every
+  // approved claim missing a diagnosis code. We must NEVER substitute a
+  // default diagnosis (previously F84.0) into the outbound 837/CSV — that is
+  // false billing. Quarantined claims are flipped back to "rejected" with a
+  // clear, actionable rejectionReason so the admin can fix the student
+  // record and re-approve.
+  const undiagnosed = await db.update(medicaidClaimsTable)
+    .set({
+      status: "rejected",
+      rejectionReason:
+        "Missing diagnosis code on student record. Set the student's diagnosis " +
+        "(disability category / ICD-10) before re-approving this claim. " +
+        "Claim was excluded from export to prevent submitting an unsubstantiated diagnosis.",
+    })
+    .where(and(
+      eq(medicaidClaimsTable.districtId, districtId),
+      eq(medicaidClaimsTable.status, "approved"),
+      sql`(${medicaidClaimsTable.diagnosisCode} IS NULL OR btrim(${medicaidClaimsTable.diagnosisCode}) = '')`,
+    ))
+    .returning({
+      id: medicaidClaimsTable.id,
+      studentId: medicaidClaimsTable.studentId,
+      serviceDate: medicaidClaimsTable.serviceDate,
+    });
+
   const updated = await db.update(medicaidClaimsTable)
     .set({
       status: "exported",
@@ -369,10 +407,30 @@ router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
     .where(and(
       eq(medicaidClaimsTable.districtId, districtId),
       eq(medicaidClaimsTable.status, "approved"),
+      sql`${medicaidClaimsTable.diagnosisCode} IS NOT NULL`,
+      sql`btrim(${medicaidClaimsTable.diagnosisCode}) <> ''`,
     ))
     .returning();
 
   if (updated.length === 0) {
+    if (undiagnosed.length > 0) {
+      logAudit(req, {
+        action: "update",
+        targetTable: "medicaid_claims",
+        targetId: 0,
+        summary: `Export blocked: ${undiagnosed.length} approved claim(s) had no diagnosis code and were quarantined`,
+        newValues: { excludedClaimIds: undiagnosed.map(u => u.id) } as Record<string, unknown>,
+      });
+      res.status(409).json({
+        error:
+          `Export blocked. ${undiagnosed.length} approved claim(s) are missing a diagnosis code ` +
+          `on the student record. They have been moved back to 'rejected' with an explanation. ` +
+          `Add the diagnosis to each affected student, re-approve, then retry export.`,
+        excludedClaimCount: undiagnosed.length,
+        excludedClaims: undiagnosed,
+      });
+      return;
+    }
     res.status(400).json({ error: "No approved claims available for export" });
     return;
   }
@@ -434,9 +492,11 @@ router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
         placeOfService: c.placeOfService,
         units: c.units,
         billedAmount: c.billedAmount,
-        diagnosisCode: c.diagnosisCode || "F84.0",
+        diagnosisCode: c.diagnosisCode,
         serviceDescription: c.serviceTypeName,
       })),
+      excludedClaimCount: undiagnosed.length,
+      excludedClaims: undiagnosed,
     });
   } else {
     const csvEscape = (val: unknown): string => {
@@ -465,7 +525,7 @@ router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
         csvEscape(c.placeOfService),
         c.units,
         c.billedAmount,
-        csvEscape(c.diagnosisCode || "F84.0"),
+        csvEscape(c.diagnosisCode),
         csvEscape(c.serviceTypeName),
       ].join(",")
     );
