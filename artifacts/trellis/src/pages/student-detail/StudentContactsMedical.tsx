@@ -248,12 +248,23 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
                   note: { label: "Note", color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" },
                 };
                 const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType.replace(/_/g, " "), color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
+                const sourceConfig: Record<string, { label: string; cls: string }> = {
+                  manual:  { label: "Manual",  cls: "bg-violet-50 text-violet-700 border-violet-200" },
+                  system:  { label: "System",  cls: "bg-gray-100 text-gray-500 border-gray-200" },
+                  sis:     { label: "SIS",     cls: "bg-sky-50 text-sky-700 border-sky-200" },
+                };
+                const src = ev.source ? (sourceConfig[ev.source] ?? { label: ev.source, cls: "bg-gray-100 text-gray-500 border-gray-200" }) : null;
                 return (
                   <div key={ev.id ?? idx} className="relative flex items-start gap-3">
                     <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0`} />
                     <div className={`flex-1 rounded-lg p-3 ${cfg.bg}`}>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                          {src && (
+                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${src.cls}`}>{src.label}</span>
+                          )}
+                        </div>
                         <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
                       </div>
                       {ev.reasonCode && <p className="text-[11px] text-gray-500 mt-0.5 uppercase tracking-wide">{ev.reasonCode}</p>}
