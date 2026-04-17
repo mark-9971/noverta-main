@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { iepAccommodationsTable } from "@workspace/db";
+import { iepAccommodationsTable, studentsTable, schoolsTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -49,12 +50,25 @@ router.post("/students/:studentId/accommodations", async (req, res): Promise<voi
 
 router.patch("/accommodations/:id", async (req, res): Promise<void> => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
     const id = parseInt(req.params.id);
     const updates: any = {};
     for (const key of ["category","description","setting","frequency","provider","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
-    const [oldAcc] = await db.select().from(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
+    const [existing] = await db.select({
+      acc: iepAccommodationsTable,
+      schoolDistrictId: schoolsTable.districtId,
+    }).from(iepAccommodationsTable)
+      .innerJoin(studentsTable, eq(iepAccommodationsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(eq(iepAccommodationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (districtId && existing.schoolDistrictId !== districtId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const oldAcc = existing.acc;
     const [updated] = await db.update(iepAccommodationsTable).set(updates).where(eq(iepAccommodationsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, {
@@ -74,8 +88,21 @@ router.patch("/accommodations/:id", async (req, res): Promise<void> => {
 
 router.delete("/accommodations/:id", async (req, res): Promise<void> => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
     const id = parseInt(req.params.id);
-    const [oldAcc] = await db.select().from(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
+    const [row] = await db.select({
+      acc: iepAccommodationsTable,
+      schoolDistrictId: schoolsTable.districtId,
+    }).from(iepAccommodationsTable)
+      .innerJoin(studentsTable, eq(iepAccommodationsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(eq(iepAccommodationsTable.id, id));
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    if (districtId && row.schoolDistrictId !== districtId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const oldAcc = row.acc;
     await db.delete(iepAccommodationsTable).where(eq(iepAccommodationsTable.id, id));
     logAudit(req, {
       action: "delete",

@@ -5,9 +5,11 @@ import {
   programTargetsTable, behaviorTargetsTable, programDataTable,
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, programStepsTable,
+  studentsTable, schoolsTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -334,6 +336,7 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
 
 router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
     const id = parseInt(req.params.id);
     const updates: any = {};
     for (const key of ["goalArea","goalNumber","annualGoal","baseline","targetCriterion",
@@ -342,7 +345,19 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
                         "benchmarks","iepDocumentId","notes","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
-    const [oldGoal] = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
+    const [existing] = await db.select({
+      goal: iepGoalsTable,
+      schoolDistrictId: schoolsTable.districtId,
+    }).from(iepGoalsTable)
+      .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(eq(iepGoalsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (districtId && existing.schoolDistrictId !== districtId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const oldGoal = existing.goal;
     const [updated] = await db.update(iepGoalsTable).set(updates).where(eq(iepGoalsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, {
@@ -362,9 +377,21 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
 
 router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
     const id = parseInt(req.params.id);
-    const [existing] = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.id, id));
-    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    const [row] = await db.select({
+      goal: iepGoalsTable,
+      schoolDistrictId: schoolsTable.districtId,
+    }).from(iepGoalsTable)
+      .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(eq(iepGoalsTable.id, id));
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    if (districtId && row.schoolDistrictId !== districtId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const existing = row.goal;
     await db.delete(iepGoalsTable).where(eq(iepGoalsTable.id, id));
     logAudit(req, {
       action: "delete",
