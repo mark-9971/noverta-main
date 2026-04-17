@@ -1828,6 +1828,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/ExecutiveSummaryResponse"
 
+  /reports/pilot-health:
+    get:
+      operationId: getPilotHealthReport
+      tags: [reports]
+      summary: Get pilot health metrics (admin only)
+      responses:
+        "200":
+          description: Pilot health metric values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PilotHealthResponse"
+
   /reports/audit-package:
     get:
       operationId: getAuditPackageReport
@@ -7379,6 +7392,54 @@ components:
               type: integer
           required: [openAlerts, criticalAlerts]
       required: [generatedAt, totalActiveStudents, complianceRate, riskCounts, serviceDelivery, iepDeadlines, alerts]
+
+    PilotHealthMetric:
+      type: object
+      properties:
+        label:
+          type: string
+        description:
+          type: string
+        value:
+          type: number
+        previousValue:
+          type: number
+          nullable: true
+        trend:
+          type: string
+          nullable: true
+          enum: ["up", "down", "flat", null]
+        unit:
+          type: string
+        target:
+          type: number
+        onTrack:
+          type: boolean
+        detail:
+          type: object
+          additionalProperties: true
+      required: [label, description, value, unit, target, onTrack]
+
+    PilotHealthResponse:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+        metrics:
+          type: object
+          properties:
+            iepRosterCoverage:
+              $ref: "#/components/schemas/PilotHealthMetric"
+            serviceLoggingAdoption:
+              $ref: "#/components/schemas/PilotHealthMetric"
+            incidentReportingTimeliness:
+              $ref: "#/components/schemas/PilotHealthMetric"
+            annualReviewVisibility:
+              $ref: "#/components/schemas/PilotHealthMetric"
+            staffEngagement:
+              $ref: "#/components/schemas/PilotHealthMetric"
+          required: [iepRosterCoverage, serviceLoggingAdoption, incidentReportingTimeliness, annualReviewVisibility, staffEngagement]
+      required: [generatedAt, metrics]
 
     AuditStudentSession:
       type: object

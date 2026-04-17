@@ -322,6 +322,7 @@ import type {
   ParentNotifyIncident200,
   ParentNotifyIncidentBody,
   PhaseChange,
+  PilotHealthResponse,
   Program,
   ProgressSummary,
   ProviderDashboardItem,
@@ -7215,6 +7216,81 @@ export function useGetExecutiveSummaryReport<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get pilot health metrics (admin only)
+ */
+export const getGetPilotHealthReportUrl = () => {
+  return `/api/reports/pilot-health`;
+};
+
+export const getPilotHealthReport = async (
+  options?: RequestInit,
+): Promise<PilotHealthResponse> => {
+  return customFetch<PilotHealthResponse>(getGetPilotHealthReportUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPilotHealthReportQueryKey = () => {
+  return [`/api/reports/pilot-health`] as const;
+};
+
+export const getGetPilotHealthReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPilotHealthReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPilotHealthReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPilotHealthReportQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPilotHealthReport>>
+  > = ({ signal }) => getPilotHealthReport({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPilotHealthReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPilotHealthReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPilotHealthReport>>
+>;
+export type GetPilotHealthReportQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get pilot health metrics (admin only)
+ */
+
+export function useGetPilotHealthReport<
+  TData = Awaited<ReturnType<typeof getPilotHealthReport>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPilotHealthReport>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPilotHealthReportQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

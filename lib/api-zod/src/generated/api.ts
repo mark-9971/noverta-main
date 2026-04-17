@@ -2276,6 +2276,105 @@ export const GetExecutiveSummaryReportResponse = zod.object({
 });
 
 /**
+ * @summary Get pilot health metrics (admin only)
+ */
+export const GetPilotHealthReportResponse = zod.object({
+  generatedAt: zod.string(),
+  metrics: zod.object({
+    iepRosterCoverage: zod.object({
+      label: zod.string(),
+      description: zod.string(),
+      value: zod.number(),
+      previousValue: zod.number().nullish(),
+      trend: zod
+        .union([
+          zod.literal("up"),
+          zod.literal("down"),
+          zod.literal("flat"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      unit: zod.string(),
+      target: zod.number(),
+      onTrack: zod.boolean(),
+      detail: zod.record(zod.string(), zod.unknown()).optional(),
+    }),
+    serviceLoggingAdoption: zod.object({
+      label: zod.string(),
+      description: zod.string(),
+      value: zod.number(),
+      previousValue: zod.number().nullish(),
+      trend: zod
+        .union([
+          zod.literal("up"),
+          zod.literal("down"),
+          zod.literal("flat"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      unit: zod.string(),
+      target: zod.number(),
+      onTrack: zod.boolean(),
+      detail: zod.record(zod.string(), zod.unknown()).optional(),
+    }),
+    incidentReportingTimeliness: zod.object({
+      label: zod.string(),
+      description: zod.string(),
+      value: zod.number(),
+      previousValue: zod.number().nullish(),
+      trend: zod
+        .union([
+          zod.literal("up"),
+          zod.literal("down"),
+          zod.literal("flat"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      unit: zod.string(),
+      target: zod.number(),
+      onTrack: zod.boolean(),
+      detail: zod.record(zod.string(), zod.unknown()).optional(),
+    }),
+    annualReviewVisibility: zod.object({
+      label: zod.string(),
+      description: zod.string(),
+      value: zod.number(),
+      previousValue: zod.number().nullish(),
+      trend: zod
+        .union([
+          zod.literal("up"),
+          zod.literal("down"),
+          zod.literal("flat"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      unit: zod.string(),
+      target: zod.number(),
+      onTrack: zod.boolean(),
+      detail: zod.record(zod.string(), zod.unknown()).optional(),
+    }),
+    staffEngagement: zod.object({
+      label: zod.string(),
+      description: zod.string(),
+      value: zod.number(),
+      previousValue: zod.number().nullish(),
+      trend: zod
+        .union([
+          zod.literal("up"),
+          zod.literal("down"),
+          zod.literal("flat"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      unit: zod.string(),
+      target: zod.number(),
+      onTrack: zod.boolean(),
+      detail: zod.record(zod.string(), zod.unknown()).optional(),
+    }),
+  }),
+});
+
+/**
  * @summary Get audit package with per-student detail
  */
 export const GetAuditPackageReportQueryParams = zod.object({

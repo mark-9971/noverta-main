@@ -5,6 +5,7 @@ import complianceTrendRouter from "./complianceTrend";
 import executiveSummaryRouter from "./executiveSummary";
 import auditPackageRouter from "./auditPackage";
 import parentSummaryRouter from "./parentSummary";
+import pilotHealthRouter from "./pilotHealth";
 
 const router: IRouter = Router();
 
@@ -17,5 +18,6 @@ router.use(complianceTrendRouter);
 router.use(executiveSummaryRouter);
 router.use(auditPackageRouter);
 router.use(parentSummaryRouter);
+router.use(pilotHealthRouter);
 
 export default router;

@@ -750,6 +750,43 @@ export interface ExecutiveSummaryResponse {
   alerts: ExecutiveSummaryResponseAlerts;
 }
 
+export type PilotHealthMetricTrend =
+  | (typeof PilotHealthMetricTrend)[keyof typeof PilotHealthMetricTrend]
+  | null;
+
+export const PilotHealthMetricTrend = {
+  up: "up",
+  down: "down",
+  flat: "flat",
+} as const;
+
+export type PilotHealthMetricDetail = { [key: string]: unknown };
+
+export interface PilotHealthMetric {
+  label: string;
+  description: string;
+  value: number;
+  previousValue?: number | null;
+  trend?: PilotHealthMetricTrend;
+  unit: string;
+  target: number;
+  onTrack: boolean;
+  detail?: PilotHealthMetricDetail;
+}
+
+export type PilotHealthResponseMetrics = {
+  iepRosterCoverage: PilotHealthMetric;
+  serviceLoggingAdoption: PilotHealthMetric;
+  incidentReportingTimeliness: PilotHealthMetric;
+  annualReviewVisibility: PilotHealthMetric;
+  staffEngagement: PilotHealthMetric;
+};
+
+export interface PilotHealthResponse {
+  generatedAt: string;
+  metrics: PilotHealthResponseMetrics;
+}
+
 export interface AuditStudentSession {
   date: string;
   /** @nullable */
