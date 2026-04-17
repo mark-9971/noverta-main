@@ -18,7 +18,7 @@
  *
  * This module never TRUNCATEs — it only inserts and tags rows.
  */
-import { db } from "./index";
+import { db } from "./db";
 import {
   districtsTable, schoolsTable, schoolYearsTable,
   studentsTable, staffTable,
@@ -28,7 +28,7 @@ import {
   iepAccommodationsTable,
   alertsTable, compensatoryObligationsTable,
   guardiansTable, emergencyContactsTable,
-} from "./index";
+} from "./schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
 // ──────────────────────────────────────────────────────────────────
@@ -161,18 +161,20 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   if (!schoolYear) {
     const now = new Date();
     const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-    [schoolYear] = await db.insert(schoolYearsTable).values({
+    const schoolYearInsert: typeof schoolYearsTable.$inferInsert = {
       districtId,
       label: `${startYear}-${startYear + 1}`,
       startDate: `${startYear}-08-15`,
       endDate: `${startYear + 1}-06-15`,
       isActive: true,
-    } as any).returning();
+    };
+    [schoolYear] = await db.insert(schoolYearsTable).values(schoolYearInsert).returning();
   }
 
   let serviceTypes = await db.select().from(serviceTypesTable);
   if (serviceTypes.length === 0) {
-    serviceTypes = await db.insert(serviceTypesTable).values(SERVICE_TYPE_DEFAULTS as any).returning();
+    const serviceTypeInserts: (typeof serviceTypesTable.$inferInsert)[] = SERVICE_TYPE_DEFAULTS;
+    serviceTypes = await db.insert(serviceTypesTable).values(serviceTypeInserts).returning();
   }
   // Use the first 4 service types as the sample palette (or all if fewer)
   const samplePalette = serviceTypes.slice(0, 4);
@@ -230,12 +232,12 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
 
   // 4. IEP documents + 2 goals each
   const today = new Date().toISOString().split("T")[0];
-  const iepRows = insertedStudents.map(s => ({
+  const iepRows: (typeof iepDocumentsTable.$inferInsert)[] = insertedStudents.map(s => ({
     studentId: s.id,
     iepStartDate: addDays(today, -rand(90, 200)),
     iepEndDate: addDays(today, rand(120, 240)),
     status: "active",
-  } as any));
+  }));
   const insertedIeps = await db.insert(iepDocumentsTable).values(iepRows).returning();
   const iepByStudent = new Map(insertedIeps.map(d => [d.studentId, d.id]));
 
