@@ -64,6 +64,7 @@ import supportRouter from "./support";
 import medicaidBillingRouter from "./medicaidBilling";
 import costAvoidanceRouter from "./costAvoidance";
 import compensatoryFinanceRouter from "./compensatoryFinance";
+import sampleDataRouter from "./sampleData";
 
 const router: IRouter = Router();
 
@@ -169,6 +170,7 @@ router.use(paraRouter);
 router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
+router.use(sampleDataRouter);
 router.use(evaluationsRouter);
 router.use(transitionsRouter);
 router.use(iepMeetingsRouter);

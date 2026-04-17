@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, FlaskConical, Sparkles } from "lucide-react";
 import {
   type SISProvider, type OnboardingStatus, type StaffInvite,
   DEFAULT_SERVICE_TYPES,
@@ -166,6 +167,8 @@ export default function SetupPage() {
         <p className="text-sm text-gray-500 mt-1">Get your district up and running in a few steps.</p>
       </div>
 
+      <SampleDataCta />
+
       <StepIndicator currentStep={currentStep} status={status} onStepClick={setCurrentStep} />
 
       {error && (
@@ -212,6 +215,85 @@ export default function SetupPage() {
           onSkip={() => navigate("/")} onInvite={handleStaffInvite}
         />
       )}
+    </div>
+  );
+}
+
+interface SampleStatus {
+  hasSampleData: boolean;
+  sampleStudents: number;
+  sampleStaff: number;
+}
+
+/**
+ * Top-of-wizard CTA that lets a brand-new admin populate the workspace with
+ * realistic sample data in one click. Hides itself once sample data already
+ * exists (the global SampleDataBanner takes over from there).
+ */
+function SampleDataCta() {
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<SampleStatus>({
+    queryKey: ["sample-data/status"],
+    queryFn: async () => {
+      const r = await authFetch("/api/sample-data");
+      if (!r.ok) throw new Error("sample-data status failed");
+      return r.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const seed = useMutation({
+    mutationFn: async () => {
+      const r = await authFetch("/api/sample-data", { method: "POST" });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      navigate("/compliance-risk-report");
+    },
+    onError: (e: unknown) => {
+      setError(e instanceof Error ? e.message : "Failed to load sample data");
+    },
+  });
+
+  if (isLoading) return null;
+  if (data?.hasSampleData) return null;
+
+  return (
+    <div
+      className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 md:p-5"
+      data-testid="sample-data-cta"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+          <FlaskConical className="w-5 h-5 text-emerald-700" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-gray-900">
+            See Trellis with realistic data — in 10 seconds
+          </h2>
+          <p className="text-xs text-gray-600 mt-0.5">
+            We'll seed 10 sample students, 5 providers, and 2 weeks of sessions
+            (with a few realistic shortfalls) so your dashboards aren't empty
+            while you set up your real district. Remove anytime.
+          </p>
+          {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
+        </div>
+        <button
+          onClick={() => { setError(null); seed.mutate(); }}
+          disabled={seed.isPending}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2 whitespace-nowrap"
+          data-testid="button-seed-sample-data"
+        >
+          {seed.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          Try with sample data
+        </button>
+      </div>
     </div>
   );
 }

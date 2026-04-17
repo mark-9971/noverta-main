@@ -191,7 +191,17 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         )}
       </div>
 
-      <PilotOnboardingChecklist variant="compact" defaultExpanded={!onboarding?.isComplete} />
+      {/*
+        Setup/readiness is the dominant concern until the district is pilot-ready.
+        We render the full checklist before any compliance signal so a brand-new
+        admin sees their next step immediately, then the checklist collapses to a
+        compact summary once isComplete = true.
+       */}
+      {onboarding?.isComplete ? (
+        <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
+      ) : (
+        <PilotOnboardingChecklist variant="full" />
+      )}
 
       {/* 1. Are we compliant? */}
       <section

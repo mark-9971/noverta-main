@@ -286,3 +286,16 @@ All endpoints/pages are gated by `requirePlatformAdmin` (server) and `useRole().
 -   **Soft-delete safe:** `session_logs.deleted_at IS NOT NULL` rows are excluded from all four series.
 -   **Limitations surfaced in UI footer:** comp accrual month uses `compensatory_obligations.created_at` (when recorded, not when underlying service was missed); compliance % can shift retroactively if a requirement's `requiredMinutes` is edited (recomputed on read).
 -   **Auth:** Inherits district scope via `getEnforcedDistrictId(req)` and the standard `/dashboard/*` mount (`requireAuth` + `requireDistrictScope`).
+
+## Per-tenant sample data (Week 3 — time-to-aha)
+
+To shorten time-to-value for a brand-new tenant, admins/coordinators can one-click seed a small realistic district inside their own tenant.
+
+-   **Flags:** `students.is_sample`, `staff.is_sample`, `districts.has_sample_data` (distinct from the global `districts.is_demo` used for the MetroWest demo tenant).
+-   **Seeder:** `lib/db/src/seed-sample-data.ts` — `seedSampleDataForDistrict(districtId)` is insert-only and creates ~5 staff, 10 students across `healthy` / `shortfall` / `urgent` / `compensatory_risk` scenarios, ~25 service requirements, 2 weeks of sessions with scenario-tuned completion rates, schedule blocks, accommodations, guardians, alerts, comp obligations.
+-   **Teardown:** `teardownSampleData(districtId)` walks dependents by sample student/staff IDs in dependency order, nulls FK refs (`caseManagerId`, `providerId`), then deletes anchors and clears `has_sample_data`. Real (non-sample) rows are never touched.
+-   **API (admin/coordinator):** `GET /api/sample-data` (status), `POST /api/sample-data` (refuses if data already loaded), `DELETE /api/sample-data` (one-click teardown). Mounted in `routes/index.ts` after the standard `requireAuth` + `requireDistrictScope` chain.
+-   **UI surfaces:**
+    -   `SampleDataCta` at top of `/setup` for the seed action; navigates to `/compliance-risk-report` (the "first wow" surface) after seeding.
+    -   `SampleDataBanner` (mounted in `AppLayout`) globally shows "Sample data — N students / N staff … Remove sample data" with an inline confirm flow whenever `has_sample_data` is true.
+    -   `PilotAdminHome` renders `PilotOnboardingChecklist` in `variant="full"` until `onboarding.isComplete`, then collapses to `variant="compact"`.
