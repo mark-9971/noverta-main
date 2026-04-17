@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { Sparkles, X, ArrowRight, ArrowLeft } from "lucide-react";
@@ -10,6 +11,7 @@ interface SampleStatus {
   hasSampleData: boolean;
   sampleStudents: number;
   sampleStaff: number;
+  districtId?: number;
 }
 
 interface TourStep {
@@ -21,8 +23,17 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY = "trellis.sampleTour.v1";
+const STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
 const START_FLAG = "trellis.sampleTour.start";
+
+function storageKeyFor(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): string {
+  const u = userId ?? "anon";
+  const d = districtId != null ? String(districtId) : "nodistrict";
+  return `${STORAGE_KEY_PREFIX}.${d}.${u}`;
+}
 
 const STEPS: TourStep[] = [
   {
@@ -62,17 +73,23 @@ const STEPS: TourStep[] = [
   },
 ];
 
-function readSeen(): boolean {
+function readSeen(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "seen";
+    return window.localStorage.getItem(storageKeyFor(userId, districtId)) === "seen";
   } catch {
     return false;
   }
 }
 
-function markSeen() {
+function markSeen(
+  userId: string | null | undefined,
+  districtId: number | null | undefined,
+) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, "seen");
+    window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
     window.localStorage.removeItem(START_FLAG);
   } catch {
     
@@ -91,6 +108,8 @@ function consumeStartFlag(): boolean {
 
 export function SampleDataTour() {
   const { role } = useRole();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const userId = clerkUser?.id ?? null;
   const [location, navigate] = useLocation();
   const isAdmin = role === "admin" || role === "coordinator";
 
@@ -115,6 +134,7 @@ export function SampleDataTour() {
   // seed (start flag), or once if hasSampleData becomes true and the user
   // has not yet seen it.
   useEffect(() => {
+    if (!clerkLoaded) return;
     if (!isAdmin || !data?.hasSampleData) return;
     if (active) return;
     if (consumeStartFlag()) {
@@ -122,11 +142,11 @@ export function SampleDataTour() {
       setActive(true);
       return;
     }
-    if (!readSeen()) {
+    if (!readSeen(userId, data?.districtId ?? null)) {
       setStepIdx(0);
       setActive(true);
     }
-  }, [isAdmin, data?.hasSampleData, active]);
+  }, [clerkLoaded, userId, data?.districtId, isAdmin, data?.hasSampleData, active]);
 
   // Auto-close if sample data is removed (e.g. via the banner) while the
   // tour is mid-flight — the surfaces it points at will go empty and the
@@ -214,7 +234,7 @@ export function SampleDataTour() {
 
   function dismiss() {
     setActive(false);
-    markSeen();
+    markSeen(userId, data?.districtId ?? null);
   }
 
   function next() {

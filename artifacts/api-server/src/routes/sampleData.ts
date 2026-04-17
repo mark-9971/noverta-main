@@ -27,7 +27,7 @@ router.get("/sample-data", requireDistrictScope, requireRoles("admin", "coordina
   }
   try {
     const status = await getSampleDataStatus(districtId);
-    res.json(status);
+    res.json({ ...status, districtId });
   } catch (err) {
     logger.error({ err }, "sample-data status failed");
     res.status(500).json({ error: "Failed to load sample data status" });
