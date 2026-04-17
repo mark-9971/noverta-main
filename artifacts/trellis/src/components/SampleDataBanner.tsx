@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { FlaskConical, Loader2, X } from "lucide-react";
+import { CheckCircle2, FlaskConical, Loader2, Sparkles, X } from "lucide-react";
 
 interface SampleStatus {
   hasSampleData: boolean;
@@ -10,15 +11,21 @@ interface SampleStatus {
   sampleStaff: number;
 }
 
+const REMOVED_NOTICE_TIMEOUT_MS = 30_000;
+
 /**
  * Banner shown across the app when the current district has sample data
  * loaded. Only visible to admins/coordinators (the only roles who can
- * provision or remove sample data). Includes a one-click teardown.
+ * provision or remove sample data). Includes one-click teardown and a
+ * follow-up "Sample data removed — Restore" notice so admins can put it
+ * back without leaving the page they're on.
  */
 export function SampleDataBanner() {
   const { role } = useRole();
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [removedNotice, setRemovedNotice] = useState(false);
   const isAdmin = role === "admin" || role === "coordinator";
 
   const { data } = useQuery<SampleStatus>({
@@ -39,12 +46,84 @@ export function SampleDataBanner() {
       return r.json();
     },
     onSuccess: () => {
+      setConfirming(false);
+      setRemovedNotice(true);
       // Invalidate everything that may have shown sample rows.
       queryClient.invalidateQueries();
     },
   });
 
-  if (!isAdmin || !data?.hasSampleData) return null;
+  const reseed = useMutation({
+    mutationFn: async () => {
+      const r = await authFetch("/api/sample-data", { method: "POST" });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error || "Failed to load sample data");
+      return body;
+    },
+    onSuccess: () => {
+      setRemovedNotice(false);
+      queryClient.invalidateQueries();
+      // Land back on the value-moment surface so the freshly seeded
+      // dashboards aren't empty.
+      navigate("/compliance-risk-report");
+    },
+  });
+
+  // Auto-dismiss the "removed" notice so it doesn't linger forever; admins
+  // who need it later can use the persistent affordance in the readiness
+  // panel.
+  useEffect(() => {
+    if (!removedNotice) return;
+    const t = setTimeout(() => setRemovedNotice(false), REMOVED_NOTICE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [removedNotice]);
+
+  if (!isAdmin) return null;
+
+  if (removedNotice) {
+    const reseedError = reseed.error instanceof Error ? reseed.error.message : null;
+    return (
+      <div
+        role="status"
+        aria-label="Sample data removed"
+        data-testid="banner-sample-data-removed"
+        className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-emerald-50 border-b border-emerald-200 text-[12px] text-emerald-900"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-emerald-700" />
+        <span className="font-semibold">Sample data removed</span>
+        <span className="text-emerald-800">
+          Your workspace is back to your real roster.
+          {reseedError && <span className="ml-1 text-red-700">{reseedError}</span>}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => reseed.mutate()}
+            disabled={reseed.isPending}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
+            data-testid="button-restore-sample"
+          >
+            {reseed.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3" />
+            )}
+            Restore sample data
+          </button>
+          <button
+            onClick={() => setRemovedNotice(false)}
+            disabled={reseed.isPending}
+            className="px-2 py-0.5 rounded text-emerald-800 hover:text-emerald-900"
+            aria-label="Dismiss"
+            data-testid="button-dismiss-removed-notice"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.hasSampleData) return null;
 
   return (
     <div
