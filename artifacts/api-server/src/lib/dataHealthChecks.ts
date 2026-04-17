@@ -32,7 +32,7 @@ export interface DataHealthReport {
 
 export async function runDataHealthChecks(districtId: number): Promise<DataHealthReport> {
   const districtSchools = await db.select({ id: schoolsTable.id }).from(schoolsTable)
-    .where(and(eq(schoolsTable.districtId, districtId), isNull(schoolsTable.deletedAt)));
+    .where(eq(schoolsTable.districtId, districtId));
   const schoolIds = districtSchools.map(s => s.id);
 
   // Strict district scoping: only include records belonging to one of this district's schools.
