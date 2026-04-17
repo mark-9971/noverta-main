@@ -8,8 +8,14 @@ import {
   alertsTable, compensatoryObligationsTable,
   missedReasonsTable, behaviorTargetsTable, programTargetsTable,
   dataSessionsTable, behaviorDataTable, programDataTable,
+  iepAccommodationsTable, sessionGoalDataTable,
+  guardiansTable, emergencyContactsTable, medicalAlertsTable,
+  fbasTable, functionalAnalysesTable, behaviorInterventionPlansTable,
+  evaluationsTable, teamMeetingsTable, iepMeetingAttendeesTable,
+  progressReportsTable, restraintIncidentsTable, documentsTable,
 } from "./index";
 import { eq, sql, and, isNull, inArray } from "drizzle-orm";
+import type { GoalProgressEntry, ServiceDeliveryBreakdown } from "./schema/progressReports";
 
 function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -225,42 +231,87 @@ const GOAL_TEMPLATES: Record<number, { area: string; goals: string[] }> = {
     "increase compliance with adult-directed tasks from {base}% to {target}% across 3 consecutive sessions",
     "demonstrate functional communication as a replacement for problem behavior in 80% of opportunities",
     "independently follow a visual schedule for daily transitions with no more than 1 verbal prompt",
+    "tolerate denied access to preferred items by accepting a 'first/then' alternative in {target}% of trials",
+    "engage in independent leisure activity for {count} minutes without adult prompting",
+    "wait appropriately for adult attention for up to {count} minutes using a wait-card",
+    "transition between non-preferred and preferred activities within 30 seconds in {target}% of opportunities",
   ]},
   1: { area: "Occupational Therapy", goals: [
     "improve fine motor control for handwriting legibility, forming {target}% of letters correctly",
     "independently manage zipper, buttons, and snaps during dressing routines in 4 out of 5 trials",
     "improve visual-motor integration for copying tasks, scoring at age-level on the Beery VMI",
     "tolerate a range of sensory inputs during classroom activities without dysregulation for 20+ minutes",
+    "use age-appropriate scissor skills to cut along straight and curved lines with {target}% accuracy",
+    "manage lunchroom routines (open containers, use utensils, clean tray) independently in 4 of 5 days",
+    "demonstrate functional keyboarding at {target} WPM with proper hand placement",
   ]},
   2: { area: "Speech-Language", goals: [
     "produce target phonemes (/r/, /s/, /l/ blends) with {target}% accuracy in structured conversation",
     "increase mean length of utterance to {target} morphemes during narrative retell tasks",
     "initiate and maintain a 3-turn conversational exchange with a peer in 4 out of 5 opportunities",
     "follow 2-step classroom directions without repetition in {target}% of opportunities across settings",
+    "answer who/what/where comprehension questions about a short passage with {target}% accuracy",
+    "use a core vocabulary AAC device to request, comment, and protest in {count} novel utterances per session",
+    "produce grammatically complete sentences using past-tense verbs with {target}% accuracy",
   ]},
   3: { area: "Social-Emotional", goals: [
     "identify and apply 3 coping strategies when frustration level exceeds 5/10 on feelings thermometer",
     "initiate positive peer interactions during unstructured time at least {target} times per day",
     "use 'I feel' statements to express emotions instead of physical responses in 80% of conflicts",
     "demonstrate self-advocacy by requesting help or a break using appropriate language in {target}% of opportunities",
+    "accurately identify emotions in self and peers using a feelings chart in {target}% of check-ins",
+    "remain in the classroom for {count} consecutive minutes without an unscheduled break request",
+    "participate in restorative conversation with a peer following a conflict in 3 of 4 opportunities",
   ]},
   4: { area: "Academic Support", goals: [
     "complete grade-level math assignments with {target}% accuracy using visual supports and check-in prompts",
     "read and comprehend grade-level text, answering comprehension questions with {target}% accuracy",
     "independently organize materials and begin assignments within 2 minutes of teacher direction",
     "participate in general education classroom activities with no more than 2 verbal redirections per block",
+    "produce a {count}-paragraph written response using a graphic organizer with {target}% of conventions correct",
+    "solve grade-level word problems involving 2-step operations with {target}% accuracy",
+    "use assistive technology (text-to-speech, dictation) to access grade-level content independently",
+    "track and submit assignments using a planner with {target}% on-time submission rate",
   ]},
   5: { area: "Physical Therapy", goals: [
     "improve dynamic balance to navigate school hallways and stairs with no more than standby assistance",
     "increase core strength and postural stability to maintain seated posture for 20+ minutes",
     "demonstrate age-appropriate gait pattern during school mobility with {target}% correct heel-toe steps",
+    "ascend and descend a full flight of stairs using alternating feet with one rail in {target}% of trials",
+    "participate in age-appropriate gross motor play (running, jumping, throwing) for {count} minutes",
   ]},
   6: { area: "Behavior Consultation", goals: [
     "oversee ABA program implementation ensuring treatment fidelity above 85%",
     "analyze behavior data trends monthly and adjust intervention strategies within 5 business days",
     "coordinate behavior support plan across all school settings with quarterly team review",
+    "train building staff on BIP procedures with {target}% of staff scoring above 80% on procedural fidelity check",
   ]},
 };
+
+const COMMON_GOAL_POOL: Array<{ area: string; goal: string }> = [
+  { area: "Executive Functioning", goal: "use a daily planner to record assignments and check off completed tasks {target}% of school days" },
+  { area: "Executive Functioning", goal: "break a multi-step assignment into 3+ subtasks with timestamps before starting work in 4 of 5 trials" },
+  { area: "Executive Functioning", goal: "self-monitor on-task behavior using a 5-minute timer and rate accuracy at {target}% agreement with adult" },
+  { area: "Self-Regulation", goal: "request a sensory break using appropriate language before reaching dysregulation in {target}% of opportunities" },
+  { area: "Self-Regulation", goal: "use deep-breathing or grounding strategy when prompted to lower arousal level by 2 points on a 1-10 scale" },
+  { area: "Self-Regulation", goal: "remain in assigned area during instructional time for {count} consecutive minutes" },
+  { area: "Self-Help / Daily Living", goal: "complete morning arrival routine (locker, materials, seat) within 5 minutes in 4 of 5 days" },
+  { area: "Self-Help / Daily Living", goal: "independently use restroom and complete hygiene routine without adult prompts in {target}% of opportunities" },
+  { area: "Communication", goal: "use complete sentences with peers and adults rather than single-word responses in {target}% of social exchanges" },
+  { area: "Communication", goal: "initiate a request for clarification when confused by directions in 3 of 4 academic blocks" },
+  { area: "Reading", goal: "read grade-level passages aloud at {target} words correct per minute with appropriate phrasing" },
+  { area: "Reading", goal: "summarize the main idea and 2 supporting details of a grade-level text in {target}% of opportunities" },
+  { area: "Writing", goal: "produce a {count}-sentence paragraph with topic sentence, details, and closing in {target}% of writing samples" },
+  { area: "Writing", goal: "edit own written work for capitalization, punctuation, and spelling using a checklist with {target}% accuracy" },
+  { area: "Math", goal: "solve grade-level multi-digit addition/subtraction problems with regrouping at {target}% accuracy" },
+  { area: "Math", goal: "demonstrate understanding of fractions/decimals with visual models in {target}% of opportunities" },
+  { area: "Math", goal: "apply math concepts to real-world money and time problems with {target}% accuracy" },
+  { area: "Social Skills", goal: "demonstrate appropriate turn-taking during group games and discussions in 4 of 5 opportunities" },
+  { area: "Social Skills", goal: "interpret nonverbal cues (facial expression, tone) and respond appropriately in {target}% of role-plays" },
+  { area: "Vocational/Transition", goal: "complete a structured work task for {count} minutes with no more than 2 prompts" },
+  { area: "Vocational/Transition", goal: "participate in transition planning by identifying 3 post-secondary interests and articulating preferences" },
+  { area: "Health/PE", goal: "participate in adaptive PE activities for {count} consecutive minutes following safety rules" },
+];
 
 const SESSION_NOTE_TEMPLATES: Record<number, string[]> = {
   0: [
@@ -317,6 +368,13 @@ export async function seedDemoDistrict() {
   await db.execute(sql`TRUNCATE TABLE
     program_data, behavior_data, data_sessions,
     session_goal_data, session_logs, schedule_blocks,
+    documents,
+    incident_signatures, incident_status_history, restraint_incidents,
+    bip_status_history, bip_implementers, bip_fidelity_logs,
+    behavior_intervention_plans,
+    functional_analyses, fba_observations, fbas,
+    eligibility_determinations, evaluations, evaluation_referrals,
+    medical_alerts, emergency_contacts, guardians,
     iep_goals, compensatory_obligations, alerts,
     service_requirements, staff_assignments,
     program_targets, behavior_targets,
@@ -631,25 +689,35 @@ export async function seedDemoDistrict() {
   }
   console.log(`  Created ${assignmentCount} staff assignments`);
 
-  console.log("\nStep 8: Create IEP goals...");
+  console.log("\nStep 8: Create IEP goals (target: 20+ per student)...");
   let goalCount = 0;
+  // Map: studentId -> serviceArea -> goalId[]
+  const studentGoalsByArea: Record<number, Record<string, number[]>> = {};
+  // Map: studentId -> all goalIds
+  const studentAllGoals: Record<number, number[]> = {};
+
   for (const sp of studentProfiles) {
+    studentGoalsByArea[sp.id] = {};
+    studentAllGoals[sp.id] = [];
     let goalNum = 1;
+    const TARGET_GOALS = 22;
+
+    // First pass: 4-5 goals per service area covered by student services
     for (const svcTypeId of sp.services) {
       const svcIdx = serviceTypeIds.indexOf(svcTypeId);
       const templates = GOAL_TEMPLATES[svcIdx];
       if (!templates) continue;
 
-      const numGoals = svcIdx === 0 || svcIdx === 4 ? rand(2, 3) : rand(1, 2);
+      const numGoals = Math.min(rand(4, 5), templates.goals.length);
       const shuffled = [...templates.goals].sort(() => Math.random() - 0.5);
 
-      for (let g = 0; g < numGoals && g < shuffled.length; g++) {
+      for (let g = 0; g < numGoals; g++) {
         const goalText = shuffled[g]
           .replace("{base}", String(rand(20, 40)))
           .replace("{target}", String(rand(75, 95)))
-          .replace("{count}", String(rand(3, 8)));
+          .replace(/\{count\}/g, String(rand(3, 8)));
 
-        await db.insert(iepGoalsTable).values({
+        const [row] = await db.insert(iepGoalsTable).values({
           studentId: sp.id,
           goalArea: templates.area,
           goalNumber: goalNum++,
@@ -660,12 +728,43 @@ export async function seedDemoDistrict() {
           serviceArea: templates.area,
           iepDocumentId: iepDocMap[sp.id],
           active: true,
-        } as any);
+        } as any).returning({ id: iepGoalsTable.id });
+
+        (studentGoalsByArea[sp.id][templates.area] ??= []).push(row.id);
+        studentAllGoals[sp.id].push(row.id);
         goalCount++;
       }
     }
+
+    // Top up from common pool until we hit TARGET_GOALS
+    const pool = [...COMMON_GOAL_POOL].sort(() => Math.random() - 0.5);
+    let pi = 0;
+    while (studentAllGoals[sp.id].length < TARGET_GOALS && pi < pool.length) {
+      const tmpl = pool[pi++];
+      const goalText = tmpl.goal
+        .replace("{base}", String(rand(20, 40)))
+        .replace("{target}", String(rand(70, 95)))
+        .replace(/\{count\}/g, String(rand(3, 10)));
+
+      const [row] = await db.insert(iepGoalsTable).values({
+        studentId: sp.id,
+        goalArea: tmpl.area,
+        goalNumber: goalNum++,
+        annualGoal: `Student will ${goalText}.`,
+        baseline: `${rand(15, 45)}%`,
+        targetCriterion: `${rand(70, 90)}% across 3 consecutive measurements`,
+        measurementMethod: pick(["Direct observation", "Work sample analysis", "Curriculum-based measure", "Teacher rating + data probe"]),
+        serviceArea: tmpl.area,
+        iepDocumentId: iepDocMap[sp.id],
+        active: true,
+      } as any).returning({ id: iepGoalsTable.id });
+
+      (studentGoalsByArea[sp.id][tmpl.area] ??= []).push(row.id);
+      studentAllGoals[sp.id].push(row.id);
+      goalCount++;
+    }
   }
-  console.log(`  Created ${goalCount} IEP goals`);
+  console.log(`  Created ${goalCount} IEP goals (avg ${(goalCount / studentProfiles.length).toFixed(1)}/student)`);
 
   console.log("\nStep 9: Generate session logs...");
   const schoolDays: string[] = [];
@@ -827,12 +926,57 @@ export async function seedDemoDistrict() {
     }
   }
 
+  // Service-type-id -> goal area name (for matching sessions to goals)
+  const SVC_AREA_NAME: Record<number, string> = {};
+  for (const stId of serviceTypeIds) {
+    const idx = serviceTypeIds.indexOf(stId);
+    SVC_AREA_NAME[stId] = GOAL_TEMPLATES[idx]?.area || "Academic Support";
+  }
+
+  const insertedSessionRows: Array<{ id: number; studentId: number; serviceTypeId: number | null; status: string }> = [];
   for (let i = 0; i < sessionBatch.length; i += 500) {
-    await db.insert(sessionLogsTable).values(sessionBatch.slice(i, i + 500));
+    const rows = await db.insert(sessionLogsTable)
+      .values(sessionBatch.slice(i, i + 500))
+      .returning({
+        id: sessionLogsTable.id,
+        studentId: sessionLogsTable.studentId,
+        serviceTypeId: sessionLogsTable.serviceTypeId,
+        status: sessionLogsTable.status,
+      });
+    insertedSessionRows.push(...rows);
   }
   const completed = sessionBatch.filter(s => s.status === "completed").length;
   const missed = sessionBatch.filter(s => s.status === "missed").length;
   console.log(`  Inserted ${sessionBatch.length} session logs (${completed} completed, ${missed} missed)`);
+
+  // session_goal_data: link each completed session to 1-2 IEP goals in matching area
+  console.log("  Linking sessions to IEP goals...");
+  const sgdBatch: any[] = [];
+  for (const sess of insertedSessionRows) {
+    if (sess.status !== "completed" || sess.serviceTypeId == null) continue;
+    const areaName = SVC_AREA_NAME[sess.serviceTypeId];
+    let candidateGoals = studentGoalsByArea[sess.studentId]?.[areaName] || [];
+    if (candidateGoals.length === 0) candidateGoals = studentAllGoals[sess.studentId] || [];
+    if (candidateGoals.length === 0) continue;
+
+    const numLinks = Math.min(candidateGoals.length, Math.random() < 0.6 ? 1 : 2);
+    const shuffled = [...candidateGoals].sort(() => Math.random() - 0.5);
+    for (let k = 0; k < numLinks; k++) {
+      const pct = rand(45, 95);
+      const trials = rand(8, 20);
+      const correct = Math.round(trials * pct / 100);
+      const promptLevel = pick(["independent", "verbal", "gestural", "model", "physical"]);
+      sgdBatch.push({
+        sessionLogId: sess.id,
+        iepGoalId: shuffled[k],
+        notes: `${correct}/${trials} trials correct (${pct}%); prompt level: ${promptLevel}.`,
+      });
+    }
+  }
+  for (let i = 0; i < sgdBatch.length; i += 1000) {
+    await db.insert(sessionGoalDataTable).values(sgdBatch.slice(i, i + 1000));
+  }
+  console.log(`  Inserted ${sgdBatch.length} session/goal data points`);
 
   console.log("\nStep 10: Create schedule blocks...");
   const sbStudentSlots: Record<string, Array<[number, number]>> = {};
@@ -1042,6 +1186,657 @@ export async function seedDemoDistrict() {
     }
   }
   console.log(`  Created ${behCount} behavior targets, ${progCount} program targets`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 14: Accommodations (5-10 per student)
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 14: Create accommodations...");
+  const ACCOMMODATION_BANK: Array<{ category: string; description: string; setting?: string; frequency?: string }> = [
+    { category: "instruction", description: "Extended time (1.5x) on classroom assignments and assessments", setting: "All academic settings", frequency: "Daily / as needed" },
+    { category: "instruction", description: "Preferential seating near teacher and away from high-traffic areas", setting: "All classrooms", frequency: "Daily" },
+    { category: "instruction", description: "Chunked assignments — break multi-step tasks into smaller segments", setting: "All academic blocks", frequency: "Daily" },
+    { category: "instruction", description: "Visual schedule and advance notice of transitions/changes in routine", setting: "All settings", frequency: "Daily" },
+    { category: "instruction", description: "Frequent check-ins for understanding (every 10-15 minutes)", setting: "All academic blocks", frequency: "Daily" },
+    { category: "instruction", description: "Use of graphic organizers for written tasks", setting: "ELA, Social Studies, Science", frequency: "All writing tasks" },
+    { category: "instruction", description: "Provide written copy of board notes / teacher slides", setting: "All academic blocks", frequency: "Daily" },
+    { category: "instruction", description: "Reduced number of math problems (focus on mastery, not volume)", setting: "Math", frequency: "Daily" },
+    { category: "assessment", description: "Extended time (2x) on standardized assessments", setting: "Assessment settings", frequency: "All assessments" },
+    { category: "assessment", description: "Small-group testing environment with reduced distractions", setting: "Resource room", frequency: "All assessments" },
+    { category: "assessment", description: "Test directions read aloud and clarified as needed", setting: "Assessment settings", frequency: "All assessments" },
+    { category: "assessment", description: "Use of calculator on math computation (not problem-solving)", setting: "Math assessments", frequency: "As permitted by test rules" },
+    { category: "assessment", description: "Frequent breaks during testing (every 30 minutes)", setting: "Assessment settings", frequency: "All assessments" },
+    { category: "environmental", description: "Access to sensory tools (fidget, chewy, weighted lap pad)", setting: "All settings", frequency: "As needed" },
+    { category: "environmental", description: "Access to a quiet break space when dysregulated", setting: "Counseling office / Resource room", frequency: "As needed" },
+    { category: "environmental", description: "Noise-cancelling headphones available during independent work", setting: "All academic blocks", frequency: "As needed" },
+    { category: "behavioral", description: "Daily behavior check-in/check-out with case manager", setting: "Resource room", frequency: "Daily — start and end of day" },
+    { category: "behavioral", description: "Use of token reinforcement system tied to BIP", setting: "All settings", frequency: "Daily" },
+    { category: "presentation", description: "Text-to-speech for grade-level reading material", setting: "All academic blocks", frequency: "Daily" },
+    { category: "response", description: "Use of speech-to-text/word prediction for written responses", setting: "All academic blocks", frequency: "Daily" },
+  ];
+  let accomCount = 0;
+  for (const sp of studentProfiles) {
+    const numAccom = rand(5, 10);
+    const shuffled = [...ACCOMMODATION_BANK].sort(() => Math.random() - 0.5).slice(0, numAccom);
+    for (const a of shuffled) {
+      await db.insert(iepAccommodationsTable).values({
+        studentId: sp.id,
+        iepDocumentId: iepDocMap[sp.id],
+        category: a.category,
+        description: a.description,
+        setting: a.setting ?? null,
+        frequency: a.frequency ?? null,
+        provider: pick(["Special Education Teacher", "General Education Teacher", "All instructional staff", "Case Manager"]),
+        verificationScheduleDays: 30,
+        active: true,
+      } as any);
+      accomCount++;
+    }
+  }
+  console.log(`  Created ${accomCount} accommodations`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 15: Guardians + Emergency Contacts + Medical Alerts
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 15: Create guardians, emergency contacts, medical alerts...");
+  const RELATIONSHIPS_GUARDIAN = ["Mother", "Father", "Step-Parent", "Grandparent (Legal Guardian)", "Foster Parent"];
+  const RELATIONSHIPS_EMERG = ["Aunt", "Uncle", "Grandparent", "Family Friend", "Neighbor", "Older Sibling"];
+  const FIRST_NAMES_ADULT = ["Maria", "Carla", "Patricia", "Linda", "Michelle", "Jennifer", "Karen", "Susan", "Maria",
+    "John", "Robert", "James", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Daniel", "Mark"];
+  let guardCount = 0, emergCount = 0, medCount = 0;
+  for (const sp of studentProfiles) {
+    const studentRow = await db.select({ lastName: studentsTable.lastName, primaryLanguage: studentsTable.primaryLanguage }).from(studentsTable).where(eq(studentsTable.id, sp.id)).limit(1);
+    const lastName = studentRow[0]?.lastName || "Smith";
+    const primaryLang = studentRow[0]?.primaryLanguage || "English";
+    const interpreterNeeded = primaryLang !== "English" && Math.random() < 0.5;
+
+    // Guardian 1 (primary)
+    const g1Name = `${pick(FIRST_NAMES_ADULT)} ${lastName}`;
+    await db.insert(guardiansTable).values({
+      studentId: sp.id,
+      name: g1Name,
+      relationship: pick(["Mother", "Father"]),
+      email: `${g1Name.toLowerCase().replace(/\s+/g, ".")}${rand(10,99)}@gmail.com`,
+      phone: `(508) ${rand(200, 999)}-${rand(1000, 9999)}`,
+      preferredContactMethod: pick(["email", "phone", "text"]),
+      contactPriority: 1,
+      interpreterNeeded,
+      language: interpreterNeeded ? primaryLang : null,
+      notes: interpreterNeeded ? `Prefers communication in ${primaryLang}. Interpreter available through district language services.` : null,
+    } as any);
+    guardCount++;
+
+    // Guardian 2 (secondary, ~75% of students)
+    if (Math.random() < 0.75) {
+      const g2LastName = Math.random() < 0.85 ? lastName : pick(LAST_NAMES);
+      const g2Name = `${pick(FIRST_NAMES_ADULT)} ${g2LastName}`;
+      await db.insert(guardiansTable).values({
+        studentId: sp.id,
+        name: g2Name,
+        relationship: pick(RELATIONSHIPS_GUARDIAN),
+        email: `${g2Name.toLowerCase().replace(/\s+/g, ".")}${rand(10,99)}@gmail.com`,
+        phone: `(508) ${rand(200, 999)}-${rand(1000, 9999)}`,
+        preferredContactMethod: pick(["email", "phone"]),
+        contactPriority: 2,
+        interpreterNeeded: false,
+      } as any);
+      guardCount++;
+    }
+
+    // Emergency contacts (2-3 per student)
+    const numEmerg = rand(2, 3);
+    for (let i = 0; i < numEmerg; i++) {
+      const ecLast = pick(LAST_NAMES);
+      await db.insert(emergencyContactsTable).values({
+        studentId: sp.id,
+        firstName: pick(FIRST_NAMES_ADULT),
+        lastName: ecLast,
+        relationship: pick(RELATIONSHIPS_EMERG),
+        phone: `(508) ${rand(200, 999)}-${rand(1000, 9999)}`,
+        phoneSecondary: Math.random() < 0.4 ? `(508) ${rand(200, 999)}-${rand(1000, 9999)}` : null,
+        email: Math.random() < 0.6 ? `${ecLast.toLowerCase()}.${pick(["family","home","contact"])}@gmail.com` : null,
+        isAuthorizedForPickup: Math.random() < 0.7,
+        priority: i + 1,
+      } as any);
+      emergCount++;
+    }
+
+    // Medical alerts (~30% of students)
+    if (Math.random() < 0.30) {
+      const numAlerts = rand(1, 2);
+      const alertOptions = [
+        { alertType: "allergy" as const, severity: "severe" as const, description: "Tree nut allergy (anaphylactic)", treatmentNotes: "EpiPen Jr. on file with school nurse. Avoid all tree-nut-containing products.", epiPenOnFile: true, notifyAllStaff: true },
+        { alertType: "allergy" as const, severity: "moderate" as const, description: "Dairy allergy", treatmentNotes: "Avoid milk, cheese, yogurt. Lactaid permitted.", epiPenOnFile: false, notifyAllStaff: false },
+        { alertType: "allergy" as const, severity: "life_threatening" as const, description: "Peanut allergy (anaphylactic)", treatmentNotes: "EpiPen on file. Cafeteria peanut-free table required.", epiPenOnFile: true, notifyAllStaff: true },
+        { alertType: "medication" as const, severity: "moderate" as const, description: "Daily ADHD medication (Concerta) — administered at home", treatmentNotes: "Effects may wear off mid-afternoon. Watch for increased restlessness after 2pm.", epiPenOnFile: false, notifyAllStaff: false },
+        { alertType: "condition" as const, severity: "moderate" as const, description: "Asthma — inhaler in nurse's office", treatmentNotes: "Albuterol inhaler available. Use before PE if needed.", epiPenOnFile: false, notifyAllStaff: true },
+        { alertType: "seizure" as const, severity: "severe" as const, description: "Seizure disorder — focal seizures controlled by medication", treatmentNotes: "Seizure action plan on file. Call 911 if seizure exceeds 5 minutes. Family notified after every event.", epiPenOnFile: false, notifyAllStaff: true },
+        { alertType: "condition" as const, severity: "mild" as const, description: "Type 1 diabetes", treatmentNotes: "Insulin pump. Glucose tabs in nurse's office. Check blood sugar before lunch.", epiPenOnFile: false, notifyAllStaff: true },
+      ];
+      const chosen = [...alertOptions].sort(() => Math.random() - 0.5).slice(0, numAlerts);
+      for (const a of chosen) {
+        await db.insert(medicalAlertsTable).values({
+          studentId: sp.id,
+          alertType: a.alertType,
+          description: a.description,
+          severity: a.severity,
+          treatmentNotes: a.treatmentNotes,
+          epiPenOnFile: a.epiPenOnFile,
+          notifyAllStaff: a.notifyAllStaff,
+        } as any);
+        medCount++;
+      }
+    }
+  }
+  console.log(`  Created ${guardCount} guardians, ${emergCount} emergency contacts, ${medCount} medical alerts`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 16: FBAs + Functional Analyses + BIPs
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 16: Create FBAs, functional analyses, and BIPs...");
+  let fbaCount = 0, faCount = 0, bipCount = 0;
+  const FA_CONDITIONS = ["attention", "escape", "tangible", "alone"];
+  const TARGET_BEHAVIORS = [
+    { behavior: "Verbal aggression", definition: "Yelling, swearing, or threatening language directed at peers or staff lasting >3 seconds.", function: "Escape" },
+    { behavior: "Task refusal", definition: "Verbal refusal ('no', 'I won't') or physical avoidance (head down, walking away) within 30s of a demand.", function: "Escape" },
+    { behavior: "Elopement", definition: "Leaving assigned area without permission for >10 seconds.", function: "Attention/Escape" },
+    { behavior: "Physical aggression", definition: "Hitting, kicking, scratching, or pushing another person with force.", function: "Escape/Tangible" },
+    { behavior: "Property destruction", definition: "Throwing, breaking, or damaging classroom materials or furniture.", function: "Escape" },
+    { behavior: "Self-injurious behavior", definition: "Head-banging, hand-biting, or skin-picking causing visible marks.", function: "Sensory/Escape" },
+  ];
+  for (const sp of studentProfiles) {
+    const eligible = sp.tier === "intensive" || sp.disability === "Autism" || sp.disability === "Emotional Disturbance";
+    if (!eligible) continue;
+
+    const target = pick(TARGET_BEHAVIORS);
+    const conductedBy = pick(staffIds.bcba.length > 0 ? staffIds.bcba : staffIds.case_manager);
+    const referralDate = addDays("2025-09-15", rand(0, 30));
+    const startDate = addDays(referralDate, rand(7, 14));
+    const completionDate = addDays(startDate, rand(21, 35));
+
+    const [fba] = await db.insert(fbasTable).values({
+      studentId: sp.id,
+      conductedBy,
+      targetBehavior: target.behavior,
+      operationalDefinition: target.definition,
+      status: "completed",
+      referralReason: `Classroom team requested FBA following increased frequency of ${target.behavior.toLowerCase()} during academic blocks.`,
+      referralDate,
+      startDate,
+      completionDate,
+      settingDescription: `Behavior occurs primarily in ${pick(["general education classroom", "resource room", "cafeteria", "during transitions"])} during ${pick(["math", "ELA", "non-preferred academic tasks", "unstructured time"])}.`,
+      indirectMethods: "Functional Assessment Interview (FAI) with classroom teacher, parent, and case manager. Motivation Assessment Scale (MAS).",
+      indirectFindings: `Interviews suggest behavior is most likely maintained by ${target.function.toLowerCase()}. Antecedent patterns include task demand, peer denial of access, and unexpected schedule changes.`,
+      directMethods: "ABC data collection across 8 sessions (≥10 hours). Scatterplot analysis across school day.",
+      directFindings: `${rand(35, 65)} occurrences of target behavior recorded across observation period. Peak frequency during ${pick(["math instruction", "morning meeting", "afternoon transitions"])}. Average duration ${rand(2, 8)} minutes.`,
+      hypothesizedFunction: target.function,
+      hypothesisNarrative: `When presented with ${pick(["a non-preferred task", "a demand to transition", "denied access to a preferred item"])}, [Student] engages in ${target.behavior.toLowerCase()} to ${target.function === "Escape" ? "escape or delay the demand" : target.function === "Attention" ? "obtain adult attention" : "access a preferred item or activity"}. The behavior is reinforced by ${target.function === "Escape" ? "removal of the demand or task adjustment" : "delivery of attention/preferred item"}.`,
+      recommendations: `Develop BIP focused on functional communication training (FCT) targeting ${target.function.toLowerCase()}-maintained behavior. Implement antecedent strategies (priming, choice-making, visual schedules). Provide reinforcement for replacement behavior on a dense schedule initially (FR1 → VR3).`,
+    } as any).returning();
+    fbaCount++;
+
+    // Functional analyses (2 sessions per condition = 8 total)
+    const targetFunctions = target.function.toLowerCase().split("/").map(s => s.trim());
+    let faSessionNum = 1;
+    for (const cond of FA_CONDITIONS) {
+      const numSessions = rand(1, 2);
+      for (let s = 0; s < numSessions; s++) {
+        const responseCount = targetFunctions.includes(cond) ? rand(8, 18) : rand(0, 4);
+        await db.insert(functionalAnalysesTable).values({
+          fbaId: fba.id,
+          sessionNumber: faSessionNum++,
+          condition: cond,
+          sessionDate: addDays(startDate, faSessionNum * 2),
+          conductedBy,
+          durationMinutes: 10,
+          responseCount,
+          responseRate: String((responseCount / 10).toFixed(2)),
+          notes: `${cond} condition: ${responseCount} responses observed in 10-minute session. ${responseCount > 5 ? "Elevated rate suggests function alignment." : "Low rate — function less likely."}`,
+        } as any);
+        faCount++;
+      }
+    }
+
+    // BIP linked to FBA
+    const bipCreatedBy = pick(staffIds.bcba.length > 0 ? staffIds.bcba : staffIds.case_manager);
+    await db.insert(behaviorInterventionPlansTable).values({
+      studentId: sp.id,
+      fbaId: fba.id,
+      createdBy: bipCreatedBy,
+      version: 1,
+      status: "active",
+      targetBehavior: target.behavior,
+      operationalDefinition: target.definition,
+      hypothesizedFunction: target.function,
+      replacementBehaviors: `Teach functional communication response: student will request ${target.function === "Escape" ? "a break ('break please' verbally or with break card)" : target.function === "Attention" ? "adult attention ('help please')" : "access to preferred item/activity"}. Response should occur within 30 seconds of the establishing operation.`,
+      preventionStrategies: "Provide visual schedule with embedded breaks. Pre-teach upcoming transitions 5 minutes in advance. Offer choice between two acceptable task options. Modify task difficulty when frustration cues appear (work in chunks of 5-7 minutes).",
+      teachingStrategies: "Direct instruction of FCR using behavioral skills training (instruction → modeling → rehearsal → feedback). Practice across multiple staff and settings. Reinforce all approximations of the target FCR initially.",
+      consequenceStrategies: `For target behavior: ${pick(["planned ignoring + redirect to FCR", "neutral redirect to schedule + minimum verbal interaction", "remove access to attention/escape until FCR is used"])}. Avoid power struggles. Document each occurrence on ABC log.`,
+      reinforcementSchedule: "Phase 1: FR1 reinforcement of FCR with token (immediately exchange for 2-min preferred activity). Phase 2 (after 80% independent FCR for 5 sessions): VR3 schedule. Phase 3: thin to natural reinforcement on VR5.",
+      crisisPlan: "If behavior escalates to physical aggression or safety risk: clear area of other students, signal for backup using classroom radio, follow CPI nonviolent crisis intervention. Document all incidents within 24 hours.",
+      implementationNotes: "All staff working with student must complete BIP fidelity training before implementation. Weekly fidelity checks for first 4 weeks.",
+      dataCollectionMethod: "Frequency count of target behavior + FCR per session. ABC narrative for any incident exceeding 5 minutes.",
+      progressCriteria: "80% reduction in target behavior frequency over 4 consecutive weeks AND independent FCR in ≥75% of opportunities = consider plan revision/fading.",
+      effectiveDate: completionDate,
+      implementationStartDate: completionDate,
+      reviewDate: addDays(completionDate, 90),
+    } as any);
+    bipCount++;
+  }
+  console.log(`  Created ${fbaCount} FBAs, ${faCount} functional analysis sessions, ${bipCount} BIPs`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 17: Evaluations
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 17: Create evaluations...");
+  let evalCount = 0;
+  for (const sp of studentProfiles) {
+    if (Math.random() > 0.45) continue;
+
+    const isInitial = sp.scenario === "new_enrollment";
+    const evalType = isInitial ? "initial" : pick(["3-year reevaluation", "annual review", "extended evaluation"]);
+    const startDate = addDays("2025-09-10", rand(0, 90));
+    const dueDate = addDays(startDate, 45);
+    const status = pick(["completed", "completed", "completed", "in_progress", "pending"]);
+    const completionDate = status === "completed" ? addDays(startDate, rand(20, 40)) : null;
+    const lead = pick(staffIds.case_manager);
+
+    const evalAreas = [
+      { area: "Cognitive/Intellectual", assignedTo: "School Psychologist", status: status === "completed" ? "completed" : "in_progress", completedDate: completionDate || undefined, summary: `WISC-V administered. Full Scale IQ in ${pick(["average", "low average", "borderline"])} range.` },
+      { area: "Academic Achievement", assignedTo: "Special Education Teacher", status: status === "completed" ? "completed" : "in_progress", completedDate: completionDate || undefined, summary: `WJ-IV administered. ${pick(["Reading skills 1.5 grade levels below peers.", "Math computation grade-level; problem solving below.", "Written expression significantly impaired."])}` },
+      { area: "Speech-Language", assignedTo: "Speech-Language Pathologist", status: status === "completed" ? "completed" : "pending", completedDate: completionDate || undefined, summary: status === "completed" ? "CELF-5 administered. Receptive language age-appropriate, expressive language 1.5 SD below mean." : undefined },
+      { area: "Behavioral/Social-Emotional", assignedTo: "School Psychologist", status: status === "completed" ? "completed" : "in_progress", completedDate: completionDate || undefined, summary: status === "completed" ? "BASC-3 completed by parent and teacher. Clinically significant scores in attention and executive functioning." : undefined },
+      { area: "Adaptive Behavior", assignedTo: "Special Education Teacher", status: status === "completed" ? "completed" : "pending", completedDate: completionDate || undefined, summary: status === "completed" ? "Vineland-3 completed via parent interview. Adaptive Behavior Composite in low-average range." : undefined },
+    ];
+
+    const teamMembers = [
+      { name: `Special Education Teacher`, role: "Case Manager", evaluationArea: "Academic" },
+      { name: "Mark Hennessy", role: "School Psychologist", evaluationArea: "Cognitive/Behavioral" },
+      { name: "Rachel Ferreira", role: "Speech-Language Pathologist", evaluationArea: "Speech-Language" },
+      { name: "Jennifer Walsh", role: "Occupational Therapist", evaluationArea: "Fine Motor/Sensory" },
+      { name: "Parent/Guardian", role: "Parent", evaluationArea: "Adaptive (parent interview)" },
+    ];
+
+    await db.insert(evaluationsTable).values({
+      studentId: sp.id,
+      evaluationType: evalType,
+      evaluationAreas: evalAreas as any,
+      teamMembers: teamMembers as any,
+      leadEvaluatorId: lead,
+      startDate,
+      dueDate,
+      completionDate,
+      meetingDate: completionDate ? addDays(completionDate, 7) : null,
+      reportSummary: status === "completed" ? `Comprehensive evaluation completed across ${evalAreas.length} domains. Findings support continued eligibility for special education services under category of ${sp.disability}. See team report for details and updated PLAAFP.` : null,
+      status,
+      notes: status !== "completed" ? "Evaluation in progress; awaiting parent consent forms and completion of remaining areas." : null,
+    } as any);
+    evalCount++;
+  }
+  console.log(`  Created ${evalCount} evaluations`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 18: Team Meetings + Attendees
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 18: Create team meetings and attendees...");
+  let meetingCount = 0, attendeeCount = 0;
+  for (const sp of studentProfiles) {
+    const numMeetings = sp.scenario === "new_enrollment" ? 2 : rand(1, 3);
+    const meetingTypes = ["Annual IEP Review", "IEP Development", "Quarterly Progress Check", "Manifestation Determination", "Parent-Teacher Conference"];
+
+    for (let m = 0; m < numMeetings; m++) {
+      const meetingType = m === 0 ? "Annual IEP Review" : pick(meetingTypes);
+      const scheduledDate = addDays("2025-10-01", rand(0, 180));
+      const isPast = scheduledDate < "2026-04-15";
+      const status = isPast ? pick(["completed", "completed", "completed", "cancelled"]) : "scheduled";
+
+      const cmStaffId = pick(staffIds.case_manager);
+      const cmStaff = await db.select({ firstName: staffTable.firstName, lastName: staffTable.lastName, email: staffTable.email }).from(staffTable).where(eq(staffTable.id, cmStaffId)).limit(1);
+      const cmName = `${cmStaff[0]?.firstName} ${cmStaff[0]?.lastName}`;
+      const studentRow2 = await db.select({ lastName: studentsTable.lastName, schoolId: studentsTable.schoolId }).from(studentsTable).where(eq(studentsTable.id, sp.id)).limit(1);
+      const parentName = `Parent/Guardian ${studentRow2[0]?.lastName || ""}`;
+
+      const attendeesJson = [
+        { name: cmName, role: "Case Manager / Special Education Teacher", present: status === "completed" },
+        { name: parentName, role: "Parent/Guardian", present: status === "completed" && Math.random() < 0.85 },
+        { name: "Ellen Donahue", role: "Director of Student Services", present: status === "completed" && Math.random() < 0.6 },
+        { name: "General Education Teacher", role: "General Education Teacher", present: status === "completed" && Math.random() < 0.9 },
+      ];
+
+      const [meeting] = await db.insert(teamMeetingsTable).values({
+        studentId: sp.id,
+        iepDocumentId: iepDocMap[sp.id],
+        schoolId: studentRow2[0]?.schoolId,
+        meetingType,
+        scheduledDate,
+        scheduledTime: pick(["09:00", "10:00", "13:00", "14:30", "15:30"]),
+        endTime: pick(["10:00", "11:00", "14:00", "15:30", "16:30"]),
+        duration: pick([45, 60, 60, 90]),
+        location: pick(["Conference Room A", "Resource Room", "Virtual (Zoom)", "Special Education Office"]),
+        meetingFormat: Math.random() < 0.25 ? "virtual" : "in_person",
+        status,
+        agendaItems: [
+          "Welcome and introductions",
+          "Review of current performance and progress",
+          "Review of IEP goals and accommodations",
+          "Service delivery summary",
+          "Parent input and questions",
+          "Action items and next steps",
+        ] as any,
+        attendees: attendeesJson as any,
+        notes: status === "completed" ? `Team reviewed student progress across all goal areas. ${pick(["Parent shared positive feedback on home-school communication.", "Discussed need for increased counseling minutes in next IEP.", "Identified need for assistive technology evaluation.", "Reviewed BIP fidelity and discussed next phase of intervention."])} Action items captured.` : null,
+        actionItems: status === "completed" ? [
+          { id: "a1", description: "Send updated progress report to family", assignee: cmName, dueDate: addDays(scheduledDate, 14), status: "completed" as const },
+          { id: "a2", description: "Schedule follow-up team meeting in 90 days", assignee: cmName, dueDate: addDays(scheduledDate, 90), status: "open" as const },
+        ] as any : null,
+        outcome: status === "completed" ? pick(["IEP renewed for one year with no major changes.", "Service minutes adjusted; addendum to follow.", "Team agreed to reconvene in 60 days to review BIP fidelity."]) : null,
+        followUpDate: status === "completed" ? addDays(scheduledDate, rand(60, 120)) : null,
+        minutesFinalized: status === "completed",
+        consentStatus: status === "completed" ? "received" : "pending",
+        noticeSentDate: addDays(scheduledDate, -10),
+        cancelledReason: status === "cancelled" ? pick(["Parent unable to attend; rescheduled.", "Provider absence; rescheduled."]) : null,
+        schoolYearId: schoolYear.id,
+      } as any).returning();
+      meetingCount++;
+
+      // Attendee rows
+      const attendeeRoster = [
+        { staffId: cmStaffId, name: cmName, role: "Case Manager", email: cmStaff[0]?.email, isRequired: true },
+        { staffId: null, name: parentName, role: "Parent/Guardian", email: null, isRequired: true },
+        { staffId: pick(staffIds.admin) ?? null, name: "Ellen Donahue", role: "Director of Student Services", email: "edonahue@metrowestsped.org", isRequired: true },
+        { staffId: null, name: "General Education Teacher", role: "General Education Teacher", email: null, isRequired: true },
+      ];
+      for (const sr of srMap[sp.id].slice(0, 3)) {
+        const provStaff = await db.select({ firstName: staffTable.firstName, lastName: staffTable.lastName, email: staffTable.email, title: staffTable.title }).from(staffTable).where(eq(staffTable.id, sr.providerId)).limit(1);
+        if (provStaff[0]) {
+          attendeeRoster.push({
+            staffId: sr.providerId,
+            name: `${provStaff[0].firstName} ${provStaff[0].lastName}`,
+            role: provStaff[0].title || "Service Provider",
+            email: provStaff[0].email,
+            isRequired: true,
+          });
+        }
+      }
+
+      for (const a of attendeeRoster) {
+        await db.insert(iepMeetingAttendeesTable).values({
+          meetingId: meeting.id,
+          staffId: a.staffId,
+          name: a.name,
+          role: a.role,
+          email: a.email,
+          isRequired: a.isRequired,
+          rsvpStatus: status === "completed" ? pick(["accepted", "accepted", "accepted", "tentative"]) : "pending",
+          attended: status === "completed" ? Math.random() < 0.88 : null,
+        } as any);
+        attendeeCount++;
+      }
+    }
+  }
+  console.log(`  Created ${meetingCount} team meetings, ${attendeeCount} attendee records`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 19: Progress Reports
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 19: Create progress reports...");
+  let prCount = 0;
+  const PROGRESS_CODES = [
+    { code: "P", rating: "Progressing toward goal", trend: "improving" },
+    { code: "S", rating: "Sufficient progress to achieve goal", trend: "improving" },
+    { code: "M", rating: "Mastered / Goal met", trend: "stable" },
+    { code: "N", rating: "Insufficient progress at this time", trend: "variable" },
+    { code: "X", rating: "Goal not introduced this period", trend: "stable" },
+  ];
+  const REPORTING_PERIODS = [
+    { label: "Q1 2025-2026", start: "2025-09-02", end: "2025-11-14" },
+    { label: "Q2 2025-2026", start: "2025-11-15", end: "2026-01-30" },
+    { label: "Q3 2025-2026", start: "2026-02-01", end: "2026-04-15" },
+  ];
+  for (const sp of studentProfiles) {
+    const studentInfo = await db.select({
+      lastName: studentsTable.lastName, firstName: studentsTable.firstName,
+      dateOfBirth: studentsTable.dateOfBirth, grade: studentsTable.grade, schoolId: studentsTable.schoolId,
+    }).from(studentsTable).where(eq(studentsTable.id, sp.id)).limit(1);
+    const schoolName = schools.find(s => s.id === studentInfo[0]?.schoolId)?.name || "";
+
+    // Get this student's goals
+    const goals = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.studentId, sp.id));
+
+    const numReports = sp.scenario === "new_enrollment" ? 1 : rand(1, 2);
+    const periods = [...REPORTING_PERIODS].slice(0, numReports);
+    for (const period of periods) {
+      const goalProgress: GoalProgressEntry[] = goals.map(g => {
+        const code = sp.scenario === "urgent" || sp.scenario === "compensatory_risk"
+          ? pick(["P", "P", "N", "N", "S"])
+          : sp.scenario === "shortfall"
+          ? pick(["P", "P", "P", "S", "N"])
+          : pick(["P", "S", "S", "M", "P"]);
+        const codeInfo = PROGRESS_CODES.find(p => p.code === code) || PROGRESS_CODES[0];
+        return {
+          iepGoalId: g.id,
+          goalArea: g.goalArea,
+          goalNumber: g.goalNumber,
+          annualGoal: g.annualGoal,
+          baseline: g.baseline,
+          targetCriterion: g.targetCriterion,
+          currentPerformance: `Currently performing at ${rand(45, 90)}% accuracy across data collection sessions this period.`,
+          progressRating: codeInfo.rating,
+          progressCode: code,
+          dataPoints: rand(8, 24),
+          trendDirection: codeInfo.trend,
+          promptLevel: pick(["independent", "verbal", "gestural", "model"]),
+          percentCorrect: rand(45, 95),
+          narrative: `Across this reporting period, ${studentInfo[0]?.firstName} has demonstrated ${codeInfo.rating.toLowerCase()}. ${pick(["Skill is generalizing across staff and settings.", "Continued practice in natural environment recommended.", "Will increase reinforcement schedule next quarter.", "Mastery criteria approached; continue monitoring."])} `,
+          measurementMethod: g.measurementMethod,
+          serviceArea: g.serviceArea,
+        };
+      });
+
+      // Service breakdown by service type for this student
+      const serviceBreakdown: ServiceDeliveryBreakdown[] = [];
+      for (const sr of srMap[sp.id]) {
+        const svcDef = SERVICE_TYPE_DEFS[serviceTypeIds.indexOf(sr.serviceTypeId)];
+        const periodSessions = insertedSessionRows.filter(r =>
+          r.studentId === sp.id && r.serviceTypeId === sr.serviceTypeId
+        );
+        const completedSessionsCount = periodSessions.filter(r => r.status === "completed").length;
+        const missedSessionsCount = periodSessions.filter(r => r.status === "missed").length;
+        // Approximate by ratio (1/3 of sessions per period)
+        const periodCompleted = Math.round(completedSessionsCount / 3);
+        const periodMissed = Math.round(missedSessionsCount / 3);
+        const requiredMin = Math.round(sr.requiredMinutes * 2.5); // ~2.5 months per period
+        const deliveredMin = Math.round(requiredMin * (sp.scenario === "urgent" ? 0.45 : sp.scenario === "shortfall" ? 0.7 : sp.scenario === "compensatory_risk" ? 0.55 : 0.92));
+        serviceBreakdown.push({
+          serviceType: svcDef?.name || "Service",
+          requiredMinutes: requiredMin,
+          deliveredMinutes: deliveredMin,
+          missedSessions: periodMissed,
+          completedSessions: periodCompleted,
+          compliancePercent: requiredMin > 0 ? Math.round((deliveredMin / requiredMin) * 100) : 0,
+        });
+      }
+
+      await db.insert(progressReportsTable).values({
+        studentId: sp.id,
+        reportingPeriod: period.label,
+        periodStart: period.start,
+        periodEnd: period.end,
+        preparedBy: pick(staffIds.case_manager),
+        status: pick(["finalized", "finalized", "draft", "sent"]),
+        overallSummary: `${studentInfo[0]?.firstName} continued to make progress across IEP goal areas this reporting period. Strengths include ${pick(["consistent attendance", "engaged participation in therapy", "improved peer interactions", "developing self-advocacy skills"])}. Areas for continued focus include ${pick(["written expression", "behavior regulation during transitions", "math problem solving", "social-pragmatic communication"])}.`,
+        serviceDeliverySummary: `Service delivery this period reflects ${sp.scenario === "urgent" ? "significant gaps requiring compensatory services" : sp.scenario === "shortfall" ? "delivery below target with planned make-ups" : "consistent delivery on or near targets"}. See attached service grid for details.`,
+        recommendations: pick([
+          "Continue current service plan with quarterly review.",
+          "Consider increasing counseling minutes; team meeting requested.",
+          "Add assistive technology support to next IEP amendment.",
+          "Maintain BIP with phase-2 reinforcement schedule.",
+        ]),
+        parentNotes: "Report shared with family; opportunity for input provided.",
+        goalProgress: goalProgress as any,
+        studentDob: studentInfo[0]?.dateOfBirth || null,
+        studentGrade: studentInfo[0]?.grade || null,
+        schoolName,
+        districtName: district.name,
+        iepStartDate: null,
+        iepEndDate: null,
+        serviceBreakdown: serviceBreakdown as any,
+        parentNotificationDate: addDays(period.end, 7),
+        parentNotificationMethod: pick(["email", "mail", "in_person"]),
+        nextReportDate: addDays(period.end, 90),
+      } as any);
+      prCount++;
+    }
+  }
+  console.log(`  Created ${prCount} progress reports`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 20: Restraint Incidents
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 20: Create restraint incidents...");
+  let riCount = 0;
+  for (const sp of studentProfiles) {
+    const eligible = sp.tier === "intensive" && (sp.disability === "Autism" || sp.disability === "Emotional Disturbance" || sp.disability === "Intellectual Disability");
+    if (!eligible) continue;
+    if (Math.random() < 0.4) continue;
+
+    const numIncidents = rand(1, 3);
+    for (let i = 0; i < numIncidents; i++) {
+      const incidentDate = addDays("2025-10-01", rand(0, 180));
+      const startMin = rand(8, 14) * 60 + pick([0, 15, 30, 45]);
+      const continued20 = Math.random() < 0.2;
+      const duration = continued20 ? rand(21, 35) : rand(3, 18);
+      const staffWasInjured = Math.random() < 0.1;
+      const trigger = pick([
+        { preceding: "Math instruction (multi-step word problems)", trigger: "Presented with non-preferred academic task; asked to write response.", behavior: "Student began yelling, threw materials onto floor, attempted to leave classroom." },
+        { preceding: "Transition from preferred activity (recess) to academic block", trigger: "End of recess announcement; verbal redirect to line up.", behavior: "Student dropped to ground, refused to move, escalated to kicking when staff approached." },
+        { preceding: "Lunch in cafeteria", trigger: "Peer denied access to preferred seat at table.", behavior: "Student began swearing loudly, stood on bench, attempted to overturn lunch tray." },
+        { preceding: "Group counseling session", trigger: "Discussion topic became emotionally activating.", behavior: "Student began crying, then escalated to verbal threats and self-injurious head-banging." },
+      ]);
+      const primary = pick(staffIds.bcba.length ? staffIds.bcba : staffIds.case_manager);
+      const observer = pick(staffIds.case_manager);
+      const principal = "Ellen Donahue";
+
+      await db.insert(restraintIncidentsTable).values({
+        studentId: sp.id,
+        incidentDate,
+        incidentTime: minToTime(startMin),
+        endTime: minToTime(startMin + duration),
+        durationMinutes: duration,
+        incidentType: pick(["physical_restraint", "physical_escort"]),
+        location: pick(["General education classroom", "Resource room", "Cafeteria", "Hallway", "Counseling office"]),
+        precedingActivity: trigger.preceding,
+        triggerDescription: trigger.trigger,
+        behaviorDescription: trigger.behavior,
+        deescalationAttempts: "Verbal de-escalation (calm voice, validate emotion). Offered choice (break card / movement break / preferred item). Reduced verbal demands. Provided physical space.",
+        alternativesAttempted: "Visual schedule reminder. Offered preferred seating change. Provided fidget tool. Attempted to redirect to calm-down corner.",
+        justification: "Imminent risk of serious physical injury to self and/or others. Less restrictive interventions had been attempted and were ineffective.",
+        restraintType: pick(["one-person standing escort", "two-person seated hold", "physical escort to safe space"]),
+        restraintDescription: "Trained staff used CPI-approved physical intervention. Student's airway, breathing, and circulation continually monitored. Physical intervention discontinued as soon as student demonstrated safe regulation.",
+        primaryStaffId: primary,
+        additionalStaffIds: [observer] as any,
+        observerStaffIds: [observer] as any,
+        principalNotifiedName: principal,
+        principalNotifiedAt: `${incidentDate}T${minToTime(startMin + duration + 5)}:00`,
+        continuedOver20Min: continued20,
+        over20MinApproverName: continued20 ? principal : null,
+        calmingStrategiesUsed: "Quiet space, sensory tools (weighted blanket, deep pressure), 1:1 calm presence, validating language.",
+        studentStateAfter: pick(["Calm and able to verbally process the incident.", "Tired but regulated; returned to classroom after 20-min break.", "Required 30+ minutes in calming space before returning to academics."]),
+        studentInjury: false,
+        staffInjury: staffWasInjured,
+        staffInjuryDescription: staffWasInjured ? "Minor scratch on forearm; first aid administered, no further treatment required." : null,
+        medicalAttentionRequired: false,
+        parentVerbalNotification: true,
+        parentVerbalNotificationAt: `${incidentDate}T${minToTime(startMin + duration + 30)}:00`,
+        parentNotified: true,
+        parentNotifiedAt: `${incidentDate}T${minToTime(startMin + duration + 30)}:00`,
+        parentNotifiedBy: primary,
+        parentNotificationMethod: pick(["phone", "phone", "in_person"]),
+        writtenReportSent: true,
+        writtenReportSentAt: addDays(incidentDate, 1),
+        writtenReportSentMethod: pick(["email", "mail"]),
+        parentCommentOpportunityGiven: true,
+        deseReportRequired: continued20 || duration > 15,
+        deseReportSentAt: (continued20 || duration > 15) ? addDays(incidentDate, 3) : null,
+        thirtyDayLogSentToDese: false,
+        studentMoved: true,
+        studentMovedTo: pick(["Calming room", "Counseling office", "Quiet area in classroom"]),
+        roomCleared: Math.random() < 0.3,
+        bodyPosition: "Upright / seated",
+        proceduresUsed: ["CPI verbal de-escalation", "CPI nonviolent physical intervention"] as any,
+        deescalationStrategies: ["Validate emotion", "Offer choice", "Redirect to calm space", "Reduce verbal demands"] as any,
+        antecedentCategory: pick(["academic_demand", "transition", "denied_access", "social_conflict"]),
+        emergencyServicesCalled: false,
+        debriefConducted: true,
+        debriefDate: addDays(incidentDate, 1),
+        debriefNotes: "Team reviewed incident timeline, identified successful and less-effective de-escalation strategies, and updated BIP antecedent strategies. Discussed need for refresher training on CPI techniques.",
+        debriefParticipants: [primary, observer] as any,
+        bipInPlace: true,
+        physicalEscortOnly: false,
+        studentReturnedToActivity: pick(["After 20-minute calming break", "After 45 minutes; remainder of day in resource room", "Returned next day"]),
+        timeToCalm: rand(8, 35),
+        terminologyFramework: "ma_dese",
+        reportingStaffSignature: "On file",
+        reportingStaffSignedAt: `${addDays(incidentDate, 1)}T16:00:00`,
+        adminSignature: "On file",
+        adminSignedAt: `${addDays(incidentDate, 2)}T10:00:00`,
+        adminReviewedBy: pick(staffIds.admin) ?? null,
+        adminReviewedAt: `${addDays(incidentDate, 2)}T10:00:00`,
+        adminReviewNotes: "Incident reviewed. Documentation complete. BIP fidelity confirmed. No additional reporting required beyond what is documented.",
+        parentNotificationPdfGenerated: true,
+        status: "closed",
+        followUpPlan: "Continue current BIP. Schedule 90-day BIP review. Monitor for pattern of incidents with similar antecedent.",
+        notes: null,
+        resolutionNote: "Incident closed following debrief and admin review.",
+        resolvedAt: `${addDays(incidentDate, 3)}T16:00:00`,
+        resolvedBy: pick(staffIds.admin) ?? null,
+      } as any);
+      riCount++;
+    }
+  }
+  console.log(`  Created ${riCount} restraint incidents`);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Step 21: Documents (metadata only — synthetic objectPath)
+  // ──────────────────────────────────────────────────────────────────
+  console.log("\nStep 21: Create document records (metadata)...");
+  let docCount = 0;
+  const DOC_TEMPLATES = [
+    { category: "iep", title: "Signed IEP — Annual", fileName: "iep_annual_signed.pdf", contentType: "application/pdf" },
+    { category: "evaluation", title: "Comprehensive Evaluation Report", fileName: "eval_report.pdf", contentType: "application/pdf" },
+    { category: "consent", title: "Parent Consent Form — Evaluation", fileName: "consent_eval.pdf", contentType: "application/pdf" },
+    { category: "consent", title: "Parent Consent Form — Initial Placement", fileName: "consent_placement.pdf", contentType: "application/pdf" },
+    { category: "progress_report", title: "Q1 Progress Report", fileName: "progress_q1.pdf", contentType: "application/pdf" },
+    { category: "medical", title: "Medical Action Plan", fileName: "medical_action_plan.pdf", contentType: "application/pdf" },
+    { category: "behavioral", title: "BIP Document", fileName: "bip.pdf", contentType: "application/pdf" },
+    { category: "correspondence", title: "Prior Written Notice", fileName: "pwn.pdf", contentType: "application/pdf" },
+    { category: "external", title: "Outside Evaluation Report", fileName: "outside_eval.pdf", contentType: "application/pdf" },
+  ];
+  for (const sp of studentProfiles) {
+    const numDocs = rand(3, 5);
+    const chosen = [...DOC_TEMPLATES].sort(() => Math.random() - 0.5).slice(0, numDocs);
+    const uploaderStaff = pick(staffIds.case_manager);
+    const uploaderRow = await db.select({ firstName: staffTable.firstName, lastName: staffTable.lastName }).from(staffTable).where(eq(staffTable.id, uploaderStaff)).limit(1);
+    const uploaderName = `${uploaderRow[0]?.firstName} ${uploaderRow[0]?.lastName}`;
+
+    for (const t of chosen) {
+      await db.insert(documentsTable).values({
+        studentId: sp.id,
+        uploadedByStaffId: uploaderStaff,
+        uploadedByUserId: `staff:${uploaderStaff}`,
+        uploadedByName: uploaderName,
+        category: t.category,
+        title: `${t.title} — Student #${sp.id}`,
+        fileName: t.fileName,
+        contentType: t.contentType,
+        fileSize: rand(80_000, 2_500_000),
+        objectPath: `/demo-seed/students/${sp.id}/${t.fileName}`,
+        status: "active",
+        notes: pick([null, null, "Uploaded during annual review.", "Sent home with parent.", "Retained per district records policy."]),
+      } as any);
+      docCount++;
+    }
+  }
+  console.log(`  Created ${docCount} documents`);
 
   console.log("\n╔══════════════════════════════════════════════════════════════╗");
   console.log("║  SEED COMPLETE — SUMMARY                                   ║");
