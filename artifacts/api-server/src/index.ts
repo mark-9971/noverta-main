@@ -1,4 +1,4 @@
-import { initSentry, captureException, recordError5xx } from "./lib/sentry";
+import { initSentry, captureException, flushSentry, recordError5xx } from "./lib/sentry";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
@@ -53,9 +53,8 @@ if (process.env.NODE_ENV === "production") {
 process.on("uncaughtException", (err) => {
   logger.error({ err }, "Uncaught exception — process will exit");
   recordError5xx();
-  captureException(err, { source: "uncaughtException" }).finally(() => {
-    process.exit(1);
-  });
+  captureException(err, { source: "uncaughtException" });
+  void flushSentry(2000).finally(() => process.exit(1));
 });
 
 process.on("unhandledRejection", (reason) => {

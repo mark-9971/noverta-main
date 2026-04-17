@@ -10,7 +10,8 @@ import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./lib/webhookHandlers";
 import { requireActiveSubscription } from "./middlewares/subscriptionGate";
 import { enforceDistrictScope } from "./middlewares/auth";
-import { captureException, recordError5xx } from "./lib/sentry";
+import * as Sentry from "@sentry/node";
+import { recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 import { db } from "@workspace/db";
 import { communicationEventsTable, errorLogsTable } from "@workspace/db";
@@ -272,14 +273,20 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 
   if (status >= 500) {
     recordError5xx();
-    let userId: string | undefined;
-    let districtId: string | undefined;
-    try {
-      userId = getClerkUserId(req) ?? undefined;
-      const meta = getPublicMeta(req);
-      districtId = meta.districtId != null ? String(meta.districtId) : undefined;
-    } catch {}
-    captureException(err, { method: req.method, url: req.url, status, userId, schoolId: districtId });
+    // Capture within the active request scope so httpIntegration's
+    // AsyncLocalStorage context (URL, method, headers) is automatically
+    // included. Enrich with Clerk user and district identifiers.
+    Sentry.withScope((scope) => {
+      try {
+        const userId = getClerkUserId(req) ?? undefined;
+        if (userId) scope.setUser({ id: userId });
+        const meta = getPublicMeta(req);
+        const districtId = meta.districtId != null ? String(meta.districtId) : undefined;
+        if (districtId) scope.setTag("districtId", districtId);
+      } catch {}
+      scope.setExtra("httpStatus", status);
+      Sentry.captureException(err);
+    });
     const rawPath = req.url?.split("?")[0] ?? "/";
     const errPath = rawPath.length > 500 ? rawPath.slice(0, 500) : rawPath;
     const rawMsg = err instanceof Error ? err.message : String(err);

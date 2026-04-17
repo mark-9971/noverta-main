@@ -1,9 +1,5 @@
+import * as Sentry from "@sentry/node";
 import { logger } from "./logger";
-
-let dsn: string | null = null;
-let projectId: string | null = null;
-let host: string | null = null;
-let publicKey: string | null = null;
 
 const ERROR_BUCKET_WINDOW = 60;
 const errorBuckets: Record<number, number> = {};
@@ -33,26 +29,38 @@ export function getErrorCount1h(): number {
     .reduce((sum, [, v]) => sum + v, 0);
 }
 
-export function initSentry() {
-  const rawDsn = process.env.SENTRY_DSN;
-  if (!rawDsn) {
-    logger.info("SENTRY_DSN not set — Sentry disabled; errors logged to stdout only");
-    return;
-  }
+// Initialize at module-load time so Sentry is active before any route in
+// app.ts is registered (ESM imports execute module-level code before the
+// importing module's body runs).
+const _dsn = process.env.SENTRY_DSN;
+let _initialized = false;
 
-  try {
-    const url = new URL(rawDsn);
-    publicKey = url.username;
-    host = url.host;
-    projectId = url.pathname.replace(/^\//, "");
-    dsn = rawDsn;
-    logger.info({ host, projectId }, "Sentry error monitoring enabled");
-  } catch {
-    logger.warn({ rawDsn }, "Invalid SENTRY_DSN — Sentry disabled");
+if (_dsn) {
+  Sentry.init({
+    dsn: _dsn,
+    environment: process.env.NODE_ENV ?? "development",
+    tracesSampleRate: 0,
+  });
+  _initialized = true;
+}
+
+// Called from index.ts entry point to emit a startup log line.
+export function initSentry() {
+  if (_initialized) {
+    logger.info(
+      { dsn: _dsn!.replace(/\/\/[^@]+@/, "//***@") },
+      "Sentry error monitoring enabled",
+    );
+  } else {
+    logger.info("SENTRY_DSN not set — Sentry disabled; errors logged to stdout only");
   }
 }
 
-export async function captureException(
+// Lightweight wrapper used for non-request-scoped captures (uncaughtException,
+// unhandledRejection). For in-request captures, prefer Sentry.withScope() +
+// Sentry.captureException() directly so httpIntegration request context is
+// preserved on the active scope.
+export function captureException(
   err: unknown,
   context?: {
     method?: string;
@@ -63,89 +71,33 @@ export async function captureException(
     [key: string]: unknown;
   },
 ) {
-  if (!dsn || !publicKey || !host || !projectId) return;
+  if (!_initialized) return;
 
-  const error = err instanceof Error ? err : new Error(String(err));
-  const timestamp = Date.now() / 1000;
+  Sentry.withScope((scope) => {
+    if (context?.userId) scope.setUser({ id: context.userId });
+    if (context?.schoolId) scope.setTag("districtId", context.schoolId);
+    if (context?.method !== undefined) scope.setExtra("method", context.method);
+    if (context?.url !== undefined) scope.setExtra("url", context.url);
+    if (context?.status !== undefined) scope.setExtra("httpStatus", context.status);
 
-  const tags: Record<string, string> = {
-    runtime: "node",
-    environment: process.env.NODE_ENV ?? "development",
-  };
-  if (context?.userId) tags["userId"] = context.userId;
-  if (context?.schoolId) tags["schoolId"] = context.schoolId;
+    const extra = { ...context };
+    delete extra.userId;
+    delete extra.schoolId;
+    delete extra.method;
+    delete extra.url;
+    delete extra.status;
+    for (const [key, val] of Object.entries(extra)) {
+      scope.setExtra(key, val);
+    }
 
-  const user = context?.userId ? { id: context.userId } : undefined;
-
-  const event = {
-    event_id: crypto.randomUUID().replace(/-/g, ""),
-    timestamp,
-    platform: "node",
-    level: "error",
-    user,
-    tags,
-    exception: {
-      values: [
-        {
-          type: error.name,
-          value: error.message,
-          stacktrace: error.stack
-            ? {
-                frames: error.stack
-                  .split("\n")
-                  .slice(1)
-                  .map((line) => {
-                    const match =
-                      line.trim().match(/^at (.+) \((.+):(\d+):(\d+)\)$/) ||
-                      line.trim().match(/^at (.+):(\d+):(\d+)$/);
-                    if (!match) return { filename: line.trim() };
-                    if (match.length === 5) {
-                      return {
-                        function: match[1],
-                        filename: match[2],
-                        lineno: parseInt(match[3], 10),
-                        colno: parseInt(match[4], 10),
-                      };
-                    }
-                    return {
-                      filename: match[1],
-                      lineno: parseInt(match[2], 10),
-                      colno: parseInt(match[3], 10),
-                    };
-                  })
-                  .reverse(),
-              }
-            : undefined,
-        },
-      ],
-    },
-    extra: {
-      method: context?.method,
-      url: context?.url,
-      httpStatus: context?.status,
-    },
-  };
-
-  const envelope = [
-    JSON.stringify({ event_id: event.event_id, sent_at: new Date().toISOString() }),
-    JSON.stringify({ type: "event" }),
-    JSON.stringify(event),
-  ].join("\n");
-
-  const ingestUrl = `https://${host}/api/${projectId}/envelope/`;
-
-  try {
-    await fetch(ingestUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-sentry-envelope",
-        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=trellis/1.0, sentry_key=${publicKey}`,
-      },
-      body: envelope,
-    });
-  } catch (fetchErr) {
-    logger.warn({ err: fetchErr }, "Failed to send error to Sentry");
-  }
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+  });
 }
 
-export const sentryInitialized = () => !!dsn;
+// Flush pending Sentry events — call before process.exit in fatal handlers.
+export function flushSentry(timeoutMs = 2000): Promise<boolean> {
+  if (!_initialized) return Promise.resolve(true);
+  return Sentry.flush(timeoutMs);
+}
+
+export const sentryInitialized = () => _initialized;
