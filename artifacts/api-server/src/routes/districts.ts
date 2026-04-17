@@ -12,8 +12,11 @@ import { requireTierAccess } from "../middlewares/tierGate";
 
 const router: IRouter = Router();
 
-router.get("/districts", async (_req, res): Promise<void> => {
-  const districts = await db
+router.get("/districts", async (req, res): Promise<void> => {
+  // Tenant-scope: non-platform users only see their own district. Platform admins
+  // and unauthenticated dev fallback see all districts.
+  const meta = getPublicMeta(req);
+  const baseSelect = db
     .select({
       id: districtsTable.id,
       name: districtsTable.name,
@@ -21,10 +24,14 @@ router.get("/districts", async (_req, res): Promise<void> => {
       region: districtsTable.region,
       tier: districtsTable.tier,
       tierOverride: districtsTable.tierOverride,
+      isDemo: districtsTable.isDemo,
       createdAt: districtsTable.createdAt,
     })
-    .from(districtsTable)
-    .orderBy(districtsTable.name);
+    .from(districtsTable);
+
+  const districts = (!meta.platformAdmin && meta.districtId != null)
+    ? await baseSelect.where(eq(districtsTable.id, meta.districtId)).orderBy(districtsTable.name)
+    : await baseSelect.orderBy(districtsTable.name);
 
   const schoolCounts = await db
     .select({

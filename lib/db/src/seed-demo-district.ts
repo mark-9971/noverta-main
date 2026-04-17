@@ -299,6 +299,20 @@ export async function seedDemoDistrict() {
   console.log("╚══════════════════════════════════════════════════════════════╝");
   console.log("");
 
+  // Safety guard: refuse to wipe a database that contains real (non-demo) districts
+  // unless the operator explicitly opts in. This prevents accidentally truncating
+  // pilot/production data with this seeder.
+  const existing = await db.select({ id: districtsTable.id, name: districtsTable.name, isDemo: districtsTable.isDemo }).from(districtsTable);
+  const realDistricts = existing.filter(d => !d.isDemo);
+  if (realDistricts.length > 0 && process.env.ALLOW_DEMO_SEED_RESET !== "1") {
+    throw new Error(
+      `Refusing to run demo seeder: database contains ${realDistricts.length} non-demo district(s) ` +
+      `(${realDistricts.map(d => `"${d.name}"`).join(", ")}). ` +
+      `This seeder TRUNCATEs all data. Re-run with ALLOW_DEMO_SEED_RESET=1 only if you are sure ` +
+      `you want to wipe this database.`
+    );
+  }
+
   console.log("Step 0: Clean existing demo data...");
   await db.execute(sql`TRUNCATE TABLE
     program_data, behavior_data, data_sessions,
@@ -322,6 +336,7 @@ export async function seedDemoDistrict() {
     name: "MetroWest Collaborative",
     state: "MA",
     region: "MetroWest",
+    isDemo: true,
   }).returning();
 
   const schoolDefs = [
