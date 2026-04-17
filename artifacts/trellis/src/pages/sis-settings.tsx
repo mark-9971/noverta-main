@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Database, Plus, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Trash2, TestTube, Upload, Clock, Plug, Settings2, FileSpreadsheet,
-  ChevronDown, ChevronRight, Ban,
+  ChevronDown, ChevronRight, Ban, RotateCcw, List,
 } from "lucide-react";
 
 interface SisProvider {
@@ -150,6 +150,7 @@ function ConnectionCard({
   const [csvType, setCsvType] = useState<"students" | "staff">("students");
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showJobHistory, setShowJobHistory] = useState(false);
 
   // On mount (or when the connection id changes) reconcile with the most
   // recent job for this connection. If a sync is already queued/running on
@@ -329,6 +330,28 @@ function ConnectionCard({
     reader.onload = () => setCsvText(reader.result as string);
     reader.readAsText(file);
   }, []);
+
+  const handleRequeue = useCallback(async (syncType: string) => {
+    const validApiTypes = new Set(["full", "students", "staff"]);
+    const type = validApiTypes.has(syncType) ? syncType : "full";
+    setEnqueueError(null);
+    try {
+      const res = await authFetch(`/api/sis/connections/${connection.id}/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ syncType: type }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { jobId?: number; error?: string };
+      if (res.ok && body.jobId) {
+        setActiveJobId(body.jobId);
+        setShowJobHistory(false);
+      } else {
+        setEnqueueError(body.error ?? "Failed to re-enqueue sync");
+      }
+    } catch (err) {
+      setEnqueueError(err instanceof Error ? err.message : "Failed to re-enqueue sync");
+    }
+  }, [connection.id]);
 
   const ProviderIcon = PROVIDER_ICONS[connection.provider] ?? Database;
 
@@ -555,10 +578,169 @@ function ConnectionCard({
                 </Button>
               </div>
             )}
+
+            <div className="pt-1 border-t border-gray-50">
+              <button
+                onClick={() => setShowJobHistory((v) => !v)}
+                className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600 transition-colors font-medium"
+              >
+                <List className="w-3 h-3" />
+                {showJobHistory ? "Hide job history" : "Show job history"}
+                {showJobHistory ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </button>
+              {showJobHistory && (
+                <div className="mt-2">
+                  <SyncJobsHistory connectionId={connection.id} onRequeue={handleRequeue} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const CSV_SYNC_TYPES = new Set(["csv_students", "csv_staff"]);
+
+function durationLabel(startedAt: string | null, completedAt: string | null): string {
+  if (!startedAt || !completedAt) return "";
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 0) return "";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function SyncJobsHistory({
+  connectionId,
+  onRequeue,
+}: {
+  connectionId: number;
+  onRequeue: (syncType: string) => void;
+}) {
+  const [limit, setLimit] = useState(10);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  const { data: jobs, isLoading, refetch } = useQuery<SyncJob[]>({
+    queryKey: ["sis-connection-jobs", connectionId, limit],
+    queryFn: async () => {
+      const res = await authFetch(`/api/sis/connections/${connectionId}/jobs?limit=${limit}`);
+      if (!res.ok) throw new Error("Failed to fetch jobs");
+      return res.json();
+    },
+  });
+
+  const handleRetry = useCallback(async (job: SyncJob) => {
+    setRetryingId(job.id);
+    try {
+      await onRequeue(job.syncType);
+      refetch();
+    } finally {
+      setRetryingId(null);
+    }
+  }, [onRequeue, refetch]);
+
+  if (isLoading) return <Skeleton className="h-24 w-full rounded-lg" />;
+
+  if (!jobs || jobs.length === 0) {
+    return (
+      <p className="text-[11px] text-gray-400 py-2 text-center">No job history for this connection yet.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto rounded-lg border border-gray-100">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-left text-gray-400 bg-gray-50 border-b border-gray-100">
+              <th className="py-1.5 px-2 font-medium">Started</th>
+              <th className="py-1.5 px-2 font-medium">Completed</th>
+              <th className="py-1.5 px-2 font-medium">Type</th>
+              <th className="py-1.5 px-2 font-medium">Status</th>
+              <th className="py-1.5 px-2 font-medium">Attempts</th>
+              <th className="py-1.5 px-2 font-medium">Duration</th>
+              <th className="py-1.5 px-2 font-medium">Error / Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.map((job) => {
+              const isCsvJob = CSV_SYNC_TYPES.has(job.syncType);
+              const canRetry = job.status === "failed" && !isCsvJob;
+              const dur = durationLabel(job.startedAt, job.completedAt);
+              return (
+                <tr key={job.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <td className="py-1.5 px-2 text-gray-500 whitespace-nowrap">
+                    {job.startedAt
+                      ? new Date(job.startedAt).toLocaleString(undefined, {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                        })
+                      : new Date(job.createdAt).toLocaleString(undefined, {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                        })}
+                  </td>
+                  <td className="py-1.5 px-2 text-gray-500 whitespace-nowrap">
+                    {job.completedAt
+                      ? new Date(job.completedAt).toLocaleString(undefined, {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                        })
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="py-1.5 px-2 text-gray-600 whitespace-nowrap">
+                    {job.syncType.replace(/_/g, " ")}
+                  </td>
+                  <td className="py-1.5 px-2 whitespace-nowrap">
+                    <StatusBadge status={job.status} />
+                  </td>
+                  <td className="py-1.5 px-2 text-gray-500 text-center">
+                    {job.attempts}/{job.maxAttempts}
+                  </td>
+                  <td className="py-1.5 px-2 text-gray-400 whitespace-nowrap">
+                    {dur || "—"}
+                  </td>
+                  <td className="py-1.5 px-2 min-w-[160px]">
+                    {job.status === "failed" ? (
+                      <div className="flex items-start gap-1.5 flex-wrap">
+                        <span className="text-red-500 truncate max-w-[100px]" title={job.lastError?.message ?? "Unknown error"}>
+                          {job.lastError?.message ?? "Unknown error"}
+                        </span>
+                        {canRetry ? (
+                          <button
+                            onClick={() => handleRetry(job)}
+                            disabled={retryingId === job.id}
+                            className="flex-shrink-0 flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                            title="Re-enqueue this sync"
+                          >
+                            <RotateCcw className={`w-2.5 h-2.5 ${retryingId === job.id ? "animate-spin" : ""}`} />
+                            Retry
+                          </button>
+                        ) : isCsvJob ? (
+                          <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600" title="Re-upload your CSV file to run this sync again">
+                            Re-upload CSV
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {jobs.length >= limit && (
+        <button
+          onClick={() => setLimit((l) => l + 15)}
+          className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
+        >
+          Show more
+        </button>
+      )}
+    </div>
   );
 }
 
