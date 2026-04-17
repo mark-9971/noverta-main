@@ -12,8 +12,10 @@ export { generateReportCSVDirect } from "./historyAndScheduled";
 export type { ReportFilters } from "./utils";
 
 const router: IRouter = Router();
-router.use(requireDistrictScope);
-router.use(requireRoles("admin", "case_manager", "coordinator"));
+// Path-scoped: a path-less router.use() would block every router mounted after this one in
+// routes/index.ts, since Express enters this sub-router for every request that reaches it.
+// All sub-routes live under `/reports/*` (exports, compliance-risk-report, weekly-compliance-summary).
+router.use("/reports", requireDistrictScope, requireRoles("admin", "case_manager", "coordinator"));
 
 router.use(csvExportsRouter);
 router.use(fullRecordPdfRouter);

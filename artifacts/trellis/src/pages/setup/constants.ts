@@ -26,11 +26,11 @@ export interface StaffInvite {
   role: string;
 }
 
-export const SIS_PROVIDERS = [
-  { id: "powerschool" as SISProvider, name: "PowerSchool", description: "REST API with OAuth2 client credentials" },
-  { id: "infinite_campus" as SISProvider, name: "Infinite Campus", description: "REST API integration" },
-  { id: "skyward" as SISProvider, name: "Skyward", description: "REST/SOAP connector" },
-  { id: "csv" as SISProvider, name: "CSV Upload", description: "Upload a roster file manually" },
+export const SIS_PROVIDERS: Array<{ id: SISProvider; name: string; description: string; inPilot?: boolean }> = [
+  { id: "powerschool", name: "PowerSchool", description: "REST API with OAuth2 client credentials", inPilot: true },
+  { id: "infinite_campus", name: "Infinite Campus", description: "REST API integration", inPilot: true },
+  { id: "skyward", name: "Skyward", description: "REST/SOAP connector", inPilot: true },
+  { id: "csv", name: "CSV Upload", description: "Upload a roster file manually" },
 ];
 
 export const DEFAULT_SERVICE_TYPES = [

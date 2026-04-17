@@ -6,8 +6,9 @@ import { requireTierAccess } from "../middlewares/tierGate";
 import { logAudit } from "../lib/auditLog";
 
 const router = Router();
-router.use(requireRoles("admin", "coordinator"));
-router.use(requireTierAccess("district.caseload_balancing"));
+// Path-scoped: a path-less router.use() would block every router mounted after this one in
+// routes/index.ts, since Express enters this sub-router for every request that reaches it.
+router.use("/caseload-balancing", requireRoles("admin", "coordinator"), requireTierAccess("district.caseload_balancing"));
 
 const DEFAULT_THRESHOLDS: Record<string, number> = {
   bcba: 15,

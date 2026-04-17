@@ -136,7 +136,7 @@ const ADD_ONS = [
   },
   {
     title: "SIS Integrations",
-    description: "Bi-directional sync with your Student Information System. Supports PowerSchool, Infinite Campus, Aspen, and more.",
+    description: "Roster sync from your Student Information System. CSV upload available today; PowerSchool, Infinite Campus, and Skyward connectors are in pilot. Aspen and others by request.",
     pricing: "Per connector",
     detail: "One-time setup + annual maintenance fee.",
     icon: "🔗",

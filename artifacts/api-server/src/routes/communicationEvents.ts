@@ -5,8 +5,13 @@ import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router = Router();
-router.use(requireTierAccess("engagement.parent_communication"));
-router.use(requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba"));
+// Path-scoped: a path-less router.use() would block every router mounted after this one in
+// routes/index.ts, since Express enters this sub-router for every request that reaches it.
+router.use(
+  "/communication-events",
+  requireTierAccess("engagement.parent_communication"),
+  requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba"),
+);
 
 router.get("/communication-events", async (req: Request, res: Response) => {
   const districtId = getEnforcedDistrictId(req);

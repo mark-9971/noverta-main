@@ -11,8 +11,15 @@ const router: IRouter = Router();
 
 // requireDistrictScope: non-platform-admin users without a district claim get 403.
 // Applies before all handlers — guarantees getEnforcedDistrictId() is non-null for regular users.
-router.use(requireDistrictScope);
-router.use(requireTierAccess("clinical.protective_measures"));
+// Path-scoped: a path-less router.use() would block every router mounted after this one in
+// routes/index.ts, since Express enters this sub-router for every request that reaches it.
+// Routes here live under `/protective-measures/*` AND `/students/:id/protective-measures`,
+// so both paths must be covered.
+router.use(
+  ["/protective-measures", "/students/:id/protective-measures"],
+  requireDistrictScope,
+  requireTierAccess("clinical.protective_measures"),
+);
 
 router.use(searchRouter);
 router.use(incidentsRouter);

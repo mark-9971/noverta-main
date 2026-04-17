@@ -367,6 +367,7 @@ router.post("/compensatory-obligations/calculate-shortfalls", async (req, res): 
       gte(sessionLogsTable.sessionDate, periodStart as string),
       lte(sessionLogsTable.sessionDate, periodEnd as string),
       eq(sessionLogsTable.isCompensatory, false),
+      isNull(sessionLogsTable.deletedAt),
     ));
 
   const deliveredByReq = new Map<number, number>();

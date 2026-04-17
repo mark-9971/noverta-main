@@ -384,6 +384,7 @@ async function getServiceShortfallRisks(
     inArray(sessionLogsTable.status, ["completed", "makeup"]),
     gte(sessionLogsTable.sessionDate, monthStart),
     lte(sessionLogsTable.sessionDate, today),
+    isNull(sessionLogsTable.deletedAt),
   )).groupBy(sessionLogsTable.studentId, sessionLogsTable.serviceTypeId);
 
   const sessionMap = new Map<string, number>();
@@ -418,6 +419,7 @@ async function getServiceShortfallRisks(
         inArray(sessionLogsTable.status, ["completed", "makeup"]),
         gte(sessionLogsTable.sessionDate, currentWeekStart.toISOString().slice(0, 10)),
         lte(sessionLogsTable.sessionDate, today),
+        isNull(sessionLogsTable.deletedAt),
       ));
       deliveredMinutes = weekSessionTotals[0]?.totalMinutes || 0;
 

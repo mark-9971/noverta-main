@@ -8,7 +8,9 @@ import parentSummaryRouter from "./parentSummary";
 
 const router: IRouter = Router();
 
-router.use(requireDistrictScope);
+// Path-scoped: a path-less router.use() would block every router mounted after this one in
+// routes/index.ts, since Express enters this sub-router for every request that reaches it.
+router.use("/reports", requireDistrictScope);
 
 router.use(shortReportsRouter);
 router.use(complianceTrendRouter);

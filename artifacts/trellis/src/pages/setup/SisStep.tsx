@@ -63,7 +63,12 @@ export function SisStep(p: SisStepProps) {
                     : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                <p className="text-sm font-semibold text-gray-900">{provider.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900">{provider.name}</p>
+                  {provider.inPilot && (
+                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">Pilot</span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-0.5">{provider.description}</p>
               </button>
             ))}
