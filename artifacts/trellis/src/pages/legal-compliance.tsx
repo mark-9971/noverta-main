@@ -353,9 +353,9 @@ function RequestDpaModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function LegalCompliancePage() {
-  const { user } = useRole();
+  const { role } = useRole();
   const [dpaModalOpen, setDpaModalOpen] = useState(false);
-  const isAdmin = ["admin", "coordinator"].includes(user.role ?? "");
+  const isAdmin = ["admin", "coordinator"].includes(role);
 
   if (!isAdmin) {
     return (
