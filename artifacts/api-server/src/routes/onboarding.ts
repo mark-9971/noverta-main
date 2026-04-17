@@ -605,8 +605,7 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
       }))
     ).returning();
 
-    const districts = await db.select().from(districtsTable).limit(1);
-    if (districts[0]) await markStepComplete(districts[0].id, "staff_invited");
+    if (tenantDistrictId != null) await markStepComplete(tenantDistrictId, "staff_invited");
 
     // Note: this endpoint persists staff rows but does not currently send
     // invitation emails. The wizard UI labels the action accordingly.
