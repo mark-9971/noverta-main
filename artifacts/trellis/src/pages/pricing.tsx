@@ -94,7 +94,7 @@ const TIERS: TierConfig[] = [
   {
     key: "essentials",
     name: "Essentials",
-    tagline: "Everything you need for SPED compliance",
+    tagline: "Service-minute tracking and state-required reporting",
     priceRange: "$8–12",
     priceUnit: "per student / year",
     highlighted: false,
@@ -105,7 +105,7 @@ const TIERS: TierConfig[] = [
   {
     key: "professional",
     name: "Professional",
-    tagline: "Clinical tools and family engagement, built in",
+    tagline: "Adds clinical data and family communication",
     priceRange: "$15–22",
     priceUnit: "per student / year",
     highlighted: true,
@@ -116,7 +116,7 @@ const TIERS: TierConfig[] = [
   {
     key: "enterprise",
     name: "Enterprise",
-    tagline: "Full platform with district-wide operations",
+    tagline: "Adds district-wide operations and finance",
     priceRange: "$25–35",
     priceUnit: "per student / year",
     highlighted: false,
@@ -420,7 +420,7 @@ export default function PricingPage() {
             </div>
             <div>
               <span className="text-lg font-semibold text-gray-900">Trellis</span>
-              <span className="text-xs text-gray-400 ml-2 hidden sm:inline">Built to support.</span>
+              <span className="text-xs text-gray-400 ml-2 hidden sm:inline">Service-minute compliance for SPED.</span>
             </div>
           </div>
           <a href={`${BASE_URL}sign-in`}>
@@ -436,10 +436,10 @@ export default function PricingPage() {
             Purpose-built for Massachusetts SPED
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold text-gray-900 tracking-tight">
-            Compliance without the complexity
+            Make sure every IEP minute gets delivered.
           </h1>
           <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-            Trellis helps special education teams track service minutes, manage IEPs, and stay compliant with 603 CMR 28.00 — so you can focus on what matters most: your students.
+            Trellis helps Massachusetts SPED teams track whether mandated services are actually being delivered, flag compliance gaps early, and reduce compensatory exposure before it grows.
           </p>
         </div>
       </section>
@@ -555,7 +555,7 @@ export default function PricingPage() {
               <Sprout className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-medium text-gray-700">Trellis</span>
-            <span className="text-xs text-gray-400">Built to support.</span>
+            <span className="text-xs text-gray-400">Service-minute compliance for SPED.</span>
           </div>
           <p className="text-xs text-gray-400">
             &copy; {new Date().getFullYear()} Trellis. FERPA compliant. SOC 2 Type II.

@@ -10,7 +10,7 @@ export default function SignInPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-none">Trellis</h1>
-          <p className="text-[12px] text-gray-400 leading-none mt-1">Built to support.</p>
+          <p className="text-[12px] text-gray-400 leading-none mt-1">Service-minute compliance for SPED.</p>
         </div>
       </div>
       <SignIn

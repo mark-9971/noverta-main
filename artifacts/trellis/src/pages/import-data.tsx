@@ -537,11 +537,12 @@ export default function ImportData() {
               <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-600" />
-                  <p className="text-[13px] font-semibold text-blue-800">AI-Powered IEP Import</p>
+                  <p className="text-[13px] font-semibold text-blue-800">Auto-extract from IEP PDFs</p>
                 </div>
                 <p className="text-[12px] text-blue-700 leading-relaxed">
-                  Upload IEP PDF documents and Trellis will automatically extract goals, service requirements,
-                  accommodations, behavior targets, and program targets — no manual entry needed.
+                  Upload an IEP PDF and Trellis pulls out goals, service requirements, accommodations,
+                  behavior targets, and program targets so you don't have to enter them by hand.
+                  Extraction uses an AI model — review the result before saving.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[

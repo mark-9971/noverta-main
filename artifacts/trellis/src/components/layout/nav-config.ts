@@ -248,7 +248,7 @@ const STAFF_NAV_CONFIG = {
     bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
     iconActive: "text-emerald-600",
     label: "Trellis",
-    subtitle: "Built to support.",
+    subtitle: "Service-minute compliance for SPED.",
     homeHref: "/",
   },
   sped_teacher: {
@@ -258,7 +258,7 @@ const STAFF_NAV_CONFIG = {
     bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
     iconActive: "text-emerald-700",
     label: "Trellis",
-    subtitle: "Built to support.",
+    subtitle: "Service-minute compliance for SPED.",
     homeHref: "/",
   },
 } satisfies Record<string, RoleThemeConfig>;
@@ -277,7 +277,7 @@ export const roleConfig: Record<string, RoleThemeConfig> = {
     bgActive: "bg-emerald-50 text-emerald-600 font-semibold",
     iconActive: "text-emerald-600",
     label: "Trellis",
-    subtitle: "Built to support.",
+    subtitle: "Your day, at a glance.",
     homeHref: "/my-day",
   },
   sped_student: {
@@ -287,7 +287,7 @@ export const roleConfig: Record<string, RoleThemeConfig> = {
     bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
     iconActive: "text-emerald-600",
     label: "Trellis",
-    subtitle: "Built to support.",
+    subtitle: "Your goals, sessions, and wins.",
     homeHref: "/sped-portal",
   },
   sped_parent: {

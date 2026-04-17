@@ -2,9 +2,11 @@
 
 ## Overview
 
-Trellis is a SPED operations, service delivery, and compliance risk platform for Massachusetts school districts (603 CMR 28.00/46.00). The pilot wedge: **"Trellis helps SPED teams deliver required services, document what happened, and spot compliance risk before it becomes an audit or parent problem."**
+Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). The product positioning: **"Trellis helps SPED teams track whether mandated services are actually being delivered, flag compliance gaps early, and reduce compensatory risk."**
 
-The platform is NOT a full SIS replacement — it is a focused SPED compliance and clinical management tool.
+The platform is NOT a full SIS replacement — it syncs with SIS systems but its job is the IEP-delivery side: service minutes, missed sessions, compensatory exposure, and the documentation needed to prove delivery. Marketing language must avoid "AI-powered" framing unless the underlying feature actually uses an AI model (the IEP-PDF extraction in `imports/iepDocuments.ts` does — it uses OpenAI gpt-5.2 — and is the only surface where "AI" is mentioned).
+
+**Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
 
 ## Pilot Feature Organization
 
@@ -12,7 +14,9 @@ See `docs/pilot/feature-status.md` for full module classification. Navigation ha
 
 - **CORE (build now):** Dashboard, Alerts, Students, Sessions, Schedule, Staff, Reports, Compliance, Document Workflow, Parent Comms, Settings
 - **DEMO (sell harder):** Compliance Dashboard, Progress Reports, IEP Builder, IEP Meetings, Protective Measures, Executive Dashboard, Clinical tools
-- **RESTORED (full nav):** All previously archived items are now restored to the sidebar: IEP Search, Evaluations, Transition Planning, IEP Calendar (Students); Staff Calendar, Coverage (Service Delivery); Compensatory Services, State Reports (Compliance); IEP Suggestions, Supervision (Clinical); Resource Management, Contract Utilization, Caseload Balancing (District); Agencies (People); Data Import, Billing (Admin)
+- **RESTORED (in primary nav):** IEP Search, Evaluations, IEP Calendar (Students); Staff Calendar, Coverage (Service Delivery); Compensatory Services, State Reports (Compliance); Contract Utilization, Caseload Balancing (District); Agencies (People); Data Import, Billing (Admin)
+- **DEMOTED to "More tools" (collapsed-by-default group at the bottom of the sidebar):** Transition Planning, IEP Suggestions, Supervision, Resource Management, Analytics. Routes and page files are intact; FeatureGate still controls per-role/tier visibility.
+- **PROMOTED into Compliance group (out of Admin):** Compliance Risk Report, Weekly Compliance Summary — co-located with the rest of the wedge story.
 
 **Codebase Refactoring (April 2026):** Major refactoring initiative completed. All monolithic files (1000-3000 lines) have been broken into focused sub-module directories:
 

@@ -361,7 +361,7 @@ export function ComplianceExportsTab() {
                   <div className="flex-1">
                     <p className="text-[13px] font-semibold text-gray-700">Individual Student Record</p>
                     <p className="text-[12px] text-gray-500 mt-0.5 leading-relaxed">
-                      Generates a comprehensive PDF for a single student including IEP, goals, accommodations, progress reports, meetings, incidents, and parent contacts.
+                      Generates a PDF for a single student including IEP, goals, accommodations, progress reports, meetings, incidents, and parent contacts.
                     </p>
                     <p className="text-[12px] text-emerald-700 mt-2">
                       Access from the student's IEP page — use the "Export Full Record" button.

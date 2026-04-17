@@ -300,7 +300,7 @@ export default function LegalCompliancePage() {
             },
             {
               label: "IDEA (Individuals with Disabilities Education Act)",
-              description: "Federal law governing special education services. Trellis is specifically built to support IDEA compliance — IEP delivery, service minutes, compensatory services, transition planning.",
+              description: "Federal law governing special education services. Trellis focuses on the IEP-delivery side: service minutes, missed sessions, compensatory services, and the documentation needed to prove delivery.",
               badge: "Federal",
             },
             {
