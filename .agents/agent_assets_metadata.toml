@@ -89,3 +89,9 @@ id = "AVyiZYePHj2c202J82380"
 uri = "file://.local/exports/trellis-go-no-go-audit.txt"
 type = "text"
 title = "Trellis Go/No-Go Audit"
+
+[[outputs]]
+id = "lueQhhqLn1UO3qxHnCKJm"
+uri = "file://.local/audits/trellis-audit-2026-04-17.md"
+type = "text"
+title = "Trellis — Brutally Honest Audit (2026-04-17)"
