@@ -307,6 +307,176 @@ router.delete("/protective-measures/incidents/:id", async (req: Request, res: Re
   res.json({ success: true });
 });
 
+router.get("/protective-measures/incidents/:id/dese-export", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  let data: Awaited<ReturnType<typeof getFullIncidentData>>;
+  try {
+    data = await getFullIncidentData(id);
+  } catch (e: any) {
+    console.error("DESE export: getFullIncidentData error:", e);
+    res.status(500).json({ error: "Failed to load incident data" });
+    return;
+  }
+  if (!data) { res.status(404).json({ error: "Incident not found" }); return; }
+
+  if (data.incident.status !== "dese_reported") {
+    res.status(400).json({ error: "Incident must be in dese_reported status to export" });
+    return;
+  }
+
+  const { incident, student, school, primaryStaff, adminReviewer } = data;
+
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" }) : "";
+  const fmtTime = (t: string | null | undefined) => {
+    if (!t) return "";
+    const [h, m] = t.split(":");
+    const hr = parseInt(h ?? "0");
+    return `${hr > 12 ? hr - 12 : hr || 12}:${m ?? "00"} ${hr >= 12 ? "PM" : "AM"}`;
+  };
+  const yesNo = (v: boolean | null | undefined) => (v ? "Yes" : "No");
+  const csvEsc = (v: string | null | undefined) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const studentName = student ? `${student.firstName} ${student.lastName}` : `Student #${incident.studentId}`;
+  const primaryStaffName = primaryStaff ? `${primaryStaff.firstName} ${primaryStaff.lastName}` : "";
+  const adminName = adminReviewer ? `${adminReviewer.firstName} ${adminReviewer.lastName}` : "";
+
+  const headers = [
+    "Incident ID",
+    "School Name",
+    "School Year",
+    "Student Name",
+    "Student ID",
+    "Student Grade",
+    "Student Date of Birth",
+    "Disability Category",
+    "Incident Date",
+    "Incident Time",
+    "End Time",
+    "Duration (minutes)",
+    "Incident Type",
+    "Location",
+    "Primary Staff",
+    "BIP in Place",
+    "Physical Escort Only",
+    "Restraint Type",
+    "Body Position",
+    "Continued Over 20 Min",
+    "Over 20 Min Approver",
+    "Behavior Description",
+    "Trigger / Antecedent",
+    "Preceding Activity",
+    "De-escalation Attempts",
+    "Alternatives Attempted",
+    "Justification",
+    "Student Injury",
+    "Student Injury Description",
+    "Staff Injury",
+    "Staff Injury Description",
+    "Medical Attention Required",
+    "Medical Details",
+    "Emergency Services Called",
+    "Parent Verbal Notification",
+    "Parent Verbal Notification Date",
+    "Parent Notified",
+    "Parent Notified Date",
+    "Parent Notification Method",
+    "Written Report Sent",
+    "Written Report Sent Date",
+    "Written Report Method",
+    "Parent Comment Opportunity Given",
+    "Admin Reviewed By",
+    "Admin Review Date",
+    "DESE Report Required",
+    "DESE Report Sent Date",
+    "30-Day Log Sent to DESE",
+    "Status",
+    "Incident Record Created",
+  ];
+
+  const schoolYear = (() => {
+    if (!incident.incidentDate) return "";
+    const year = new Date(incident.incidentDate).getFullYear();
+    const month = new Date(incident.incidentDate).getMonth() + 1;
+    return month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+  })();
+
+  const row = [
+    incident.id,
+    csvEsc(school?.name),
+    csvEsc(schoolYear),
+    csvEsc(studentName),
+    incident.studentId,
+    csvEsc(student?.grade),
+    fmtDate(student?.dateOfBirth),
+    csvEsc(student?.disabilityCategory),
+    fmtDate(incident.incidentDate),
+    fmtTime(incident.incidentTime),
+    fmtTime(incident.endTime),
+    incident.durationMinutes ?? "",
+    csvEsc(INCIDENT_TYPE_LABELS[incident.incidentType] ?? incident.incidentType),
+    csvEsc(incident.location),
+    csvEsc(primaryStaffName),
+    yesNo(incident.bipInPlace),
+    yesNo(incident.physicalEscortOnly),
+    csvEsc(incident.restraintType),
+    csvEsc(incident.bodyPosition),
+    yesNo(incident.continuedOver20Min),
+    csvEsc(incident.over20MinApproverName),
+    csvEsc(incident.behaviorDescription),
+    csvEsc(incident.triggerDescription),
+    csvEsc(incident.precedingActivity),
+    csvEsc(incident.deescalationAttempts),
+    csvEsc(incident.alternativesAttempted),
+    csvEsc(incident.justification),
+    yesNo(incident.studentInjury),
+    csvEsc(incident.studentInjuryDescription),
+    yesNo(incident.staffInjury),
+    csvEsc(incident.staffInjuryDescription),
+    yesNo(incident.medicalAttentionRequired),
+    csvEsc(incident.medicalDetails),
+    yesNo(incident.emergencyServicesCalled),
+    yesNo(incident.parentVerbalNotification),
+    fmtDate(incident.parentVerbalNotificationAt),
+    yesNo(incident.parentNotified),
+    fmtDate(incident.parentNotifiedAt),
+    csvEsc(incident.parentNotificationMethod),
+    yesNo(incident.writtenReportSent),
+    fmtDate(incident.writtenReportSentAt),
+    csvEsc(incident.writtenReportSentMethod),
+    yesNo(incident.parentCommentOpportunityGiven),
+    csvEsc(adminName),
+    fmtDate(incident.adminReviewedAt),
+    yesNo(incident.deseReportRequired),
+    fmtDate(incident.deseReportSentAt),
+    yesNo(incident.thirtyDayLogSentToDese),
+    csvEsc(incident.status),
+    fmtDate(incident.createdAt),
+  ];
+
+  const csv = [headers.join(","), row.join(",")].join("\r\n");
+
+  logAudit(req, {
+    action: "read",
+    targetTable: "restraint_incidents",
+    targetId: id,
+    studentId: incident.studentId ?? undefined,
+    summary: `Generated DESE CSV export for incident ${id}`,
+    metadata: { reportType: "dese-export-csv", incidentId: id },
+  });
+
+  const filename = `dese-report-incident-${id}-${new Date().toISOString().slice(0, 10)}.csv`;
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
+});
+
 router.get("/protective-measures/incidents/:id/report-pdf", async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft, Bell, CheckCircle, ChevronRight, Eye, FileText, History,
+  ArrowLeft, Bell, CheckCircle, ChevronRight, Download, Eye, FileText, History,
   PenLine, Send, User, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -152,6 +152,33 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
     enabled: !!id,
   });
 
+  const [deseDownloading, setDeseDownloading] = useState(false);
+
+  const handleDeseExport = async () => {
+    setDeseDownloading(true);
+    try {
+      const res = await authFetch(`/api/protective-measures/incidents/${id}/dese-export`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error || "Export failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dese-report-incident-${id}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("DESE report exported");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export DESE report");
+    } finally {
+      setDeseDownloading(false);
+    }
+  };
+
   const [showNotify, setShowNotify] = useState(false);
   const [showWritten, setShowWritten] = useState(false);
   const [showReview, setShowReview] = useState(false);
@@ -213,6 +240,16 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
           >
             <ChevronRight className="w-3.5 h-3.5" />
             Advance Status
+          </button>
+        )}
+        {incident.status === "dese_reported" && (
+          <button
+            onClick={handleDeseExport}
+            disabled={deseDownloading}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition-colors flex items-center gap-1.5 disabled:opacity-60"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {deseDownloading ? "Generating..." : "Generate DESE Report"}
           </button>
         )}
         {incident.resolutionNote && (
