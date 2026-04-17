@@ -64,6 +64,8 @@ export async function run() {
     "/compensatory-obligations",
     "/communication-events?limit=1",
     "/protective-measures/incidents",
+    "/reports/compliance-summary",
+    "/reports/exports/csv?type=sessions",
   ]) {
     const r = await req("provider", DISTRICT_ID, "GET", path);
     s.expect(`provider GET ${path} not blocked by neighbouring router guards`,

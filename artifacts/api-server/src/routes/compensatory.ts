@@ -8,7 +8,7 @@ import {
   studentsTable,
   staffTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, inArray, isNull } from "drizzle-orm";
 import { pool } from "@workspace/db";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { drizzle } from "drizzle-orm/node-postgres";
