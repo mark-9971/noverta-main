@@ -5,7 +5,7 @@ import {
   studentsTable, schoolsTable, serviceRequirementsTable,
   compensatoryObligationsTable, sessionLogsTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, gte, inArray } from "drizzle-orm";
+import { eq, and, sql, gte, inArray, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getDistrictId, getContractedProviderIds, getRateMap, minutesToDollars, resolveRate } from "./shared";
 
@@ -56,6 +56,7 @@ router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => 
     eq(sessionLogsTable.isCompensatory, true),
     inArray(sessionLogsTable.status, ["completed", "makeup"]),
     gte(sessionLogsTable.sessionDate, startStr),
+    isNull(sessionLogsTable.deletedAt),
   )).groupBy(
     sql`to_char(${sessionLogsTable.sessionDate}::date, 'YYYY-MM')`,
     sessionLogsTable.serviceTypeId,

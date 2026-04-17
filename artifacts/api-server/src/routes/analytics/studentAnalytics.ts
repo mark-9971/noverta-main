@@ -5,7 +5,7 @@ import {
   studentsTable, behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   behaviorDataTable, programDataTable, sessionLogsTable, serviceTypesTable,
 } from "@workspace/db";
-import { eq, and, count, sql, asc } from "drizzle-orm";
+import { eq, and, count, sql, asc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -44,7 +44,7 @@ router.get("/analytics/student/:studentId", async (req, res): Promise<void> => {
         completedSessions: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'completed')`,
         missedSessions: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
         totalMinutes: sql<number>`coalesce(sum(case when ${sessionLogsTable.status} = 'completed' then ${sessionLogsTable.durationMinutes} else 0 end), 0)`,
-      }).from(sessionLogsTable).where(eq(sessionLogsTable.studentId, studentId)),
+      }).from(sessionLogsTable).where(and(eq(sessionLogsTable.studentId, studentId), isNull(sessionLogsTable.deletedAt))),
 
       db.select({ count: count() }).from(dataSessionsTable).where(eq(dataSessionsTable.studentId, studentId)),
     ]);
@@ -87,7 +87,7 @@ router.get("/analytics/student/:studentId", async (req, res): Promise<void> => {
         totalMinutes: sql<number>`coalesce(sum(case when ${sessionLogsTable.status} = 'completed' then ${sessionLogsTable.durationMinutes} else 0 end), 0)`,
       })
       .from(sessionLogsTable)
-      .where(eq(sessionLogsTable.studentId, studentId))
+      .where(and(eq(sessionLogsTable.studentId, studentId), isNull(sessionLogsTable.deletedAt)))
       .groupBy(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`));
 
@@ -100,7 +100,7 @@ router.get("/analytics/student/:studentId", async (req, res): Promise<void> => {
       })
       .from(sessionLogsTable)
       .innerJoin(serviceTypesTable, eq(sessionLogsTable.serviceTypeId, serviceTypesTable.id))
-      .where(eq(sessionLogsTable.studentId, studentId))
+      .where(and(eq(sessionLogsTable.studentId, studentId), isNull(sessionLogsTable.deletedAt)))
       .groupBy(serviceTypesTable.name);
 
     const promptProgression = await db
@@ -132,7 +132,7 @@ router.get("/analytics/student/:studentId", async (req, res): Promise<void> => {
         totalMinutes: sql<number>`coalesce(sum(case when ${sessionLogsTable.status} = 'completed' then ${sessionLogsTable.durationMinutes} else 0 end), 0)`,
       })
       .from(sessionLogsTable)
-      .where(eq(sessionLogsTable.studentId, studentId))
+      .where(and(eq(sessionLogsTable.studentId, studentId), isNull(sessionLogsTable.deletedAt)))
       .groupBy(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`));
 

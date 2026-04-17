@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import {
   sessionLogsTable, serviceTypesTable, staffTable,
 } from "@workspace/db";
-import { eq, and, count, sql, desc, asc } from "drizzle-orm";
+import { eq, and, count, sql, desc, asc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -19,6 +19,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
+      .where(isNull(sessionLogsTable.deletedAt))
       .groupBy(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`));
 
@@ -31,6 +32,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
+      .where(isNull(sessionLogsTable.deletedAt))
       .innerJoin(serviceTypesTable, eq(sessionLogsTable.serviceTypeId, serviceTypesTable.id))
       .groupBy(serviceTypesTable.name, serviceTypesTable.category);
 
@@ -59,6 +61,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
+      .where(isNull(sessionLogsTable.deletedAt))
       .innerJoin(staffTable, eq(sessionLogsTable.staffId, staffTable.id))
       .groupBy(staffTable.id, staffTable.firstName, staffTable.lastName, staffTable.role)
       .orderBy(desc(sql`sum(case when ${sessionLogsTable.status} = 'completed' then ${sessionLogsTable.durationMinutes} else 0 end)`));
@@ -70,6 +73,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         sessionCount: count(),
       })
       .from(sessionLogsTable)
+      .where(isNull(sessionLogsTable.deletedAt))
       .groupBy(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`));
 
@@ -104,7 +108,8 @@ router.get("/analytics/delivery-heatmap", async (_req, res): Promise<void> => {
       .from(sessionLogsTable)
       .where(and(
         eq(sessionLogsTable.status, "completed"),
-        sql`${sessionLogsTable.startTime} is not null`
+        sql`${sessionLogsTable.startTime} is not null`,
+        isNull(sessionLogsTable.deletedAt)
       ))
       .groupBy(
         sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`,

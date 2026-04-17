@@ -38,6 +38,8 @@ router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_re
       .orderBy(desc(staffTable.deletedAt))
       .limit(50),
 
+    // soft-delete-ok: this endpoint is the forensic "trash" viewer; it
+    // intentionally queries only soft-deleted sessions (deletedAt IS NOT NULL).
     db.select({
       id: sessionLogsTable.id,
       studentId: sessionLogsTable.studentId,

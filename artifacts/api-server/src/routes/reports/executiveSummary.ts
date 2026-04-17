@@ -7,7 +7,7 @@ import {
   serviceRequirementsTable, iepDocumentsTable, alertsTable,
 } from "@workspace/db";
 import { GetExecutiveSummaryReportQueryParams } from "@workspace/api-zod";
-import { eq, and, gte, lte, sql, count } from "drizzle-orm";
+import { eq, and, gte, lte, sql, count, isNull } from "drizzle-orm";
 import { requireReportExport } from "./shared";
 
 const router: IRouter = Router();
@@ -75,6 +75,7 @@ router.get("/reports/executive-summary", requireReportExport, async (req: Reques
         gte(sessionLogsTable.sessionDate, start),
         lte(sessionLogsTable.sessionDate, end),
         sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`,
+        isNull(sessionLogsTable.deletedAt),
         ...(execYearId ? [eq(sessionLogsTable.schoolYearId, Number(execYearId))] : [])
       ));
 

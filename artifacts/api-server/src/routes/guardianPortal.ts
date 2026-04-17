@@ -6,6 +6,9 @@ import { getClientIp } from "../lib/clientIp";
 import type { AuthedRequest } from "../middlewares/auth";
 
 const router = Router();
+// allow-bare-mw: entire router is the guardian portal; every route here is
+// exclusively for authenticated guardians. requireGuardianScope enforces the
+// guardian-JWT tenant boundary on all routes in this module.
 router.use(requireGuardianScope);
 
 /** Resolve the guardian record and their linked student from the auth token. */

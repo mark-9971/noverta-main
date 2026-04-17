@@ -89,6 +89,9 @@ router.get("/reports/audit-package", requireReportExport, async (req: Request, r
         missedReason: missedReasonsTable.label,
         missedReasonCategory: missedReasonsTable.category,
       })
+        // soft-delete-ok: regulatory audit package must include the complete
+        // session history for the audit period, including any sessions that were
+        // subsequently soft-deleted, to satisfy full-history audit requirements.
         .from(sessionLogsTable)
         .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
         .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))

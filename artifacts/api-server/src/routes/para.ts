@@ -7,7 +7,7 @@ import {
   programStepsTable, behaviorInterventionPlansTable, sessionLogsTable,
   dataSessionsTable, sessionGoalDataTable, programDataTable, behaviorDataTable,
 } from "@workspace/db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, isNull } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { STAFF_ROLES } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
@@ -493,7 +493,7 @@ router.patch("/para/sessions/:sessionId/stop", requireStaff, async (req, res): P
     }
 
     const sessions = await db.select().from(sessionLogsTable)
-      .where(eq(sessionLogsTable.id, sessionId)).limit(1);
+      .where(and(eq(sessionLogsTable.id, sessionId), isNull(sessionLogsTable.deletedAt))).limit(1);
 
     if (sessions.length === 0) {
       res.status(404).json({ error: "Session not found" });

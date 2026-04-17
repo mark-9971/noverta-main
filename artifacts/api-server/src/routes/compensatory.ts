@@ -129,7 +129,7 @@ router.get("/compensatory-obligations/:id", async (req, res): Promise<void> => {
     .from(sessionLogsTable)
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
     .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-    .where(eq(sessionLogsTable.compensatoryObligationId, id))
+    .where(and(eq(sessionLogsTable.compensatoryObligationId, id), isNull(sessionLogsTable.deletedAt)))
     .orderBy(desc(sessionLogsTable.sessionDate));
 
   res.json({

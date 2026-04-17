@@ -6,7 +6,7 @@ import {
   studentsTable, sessionLogsTable, serviceRequirementsTable, schoolsTable,
 } from "@workspace/db";
 import { GetComplianceTrendReportQueryParams } from "@workspace/api-zod";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, isNull } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -57,6 +57,7 @@ router.get("/reports/compliance-trend", async (req: Request, res): Promise<void>
         gte(sessionLogsTable.sessionDate, start),
         lte(sessionLogsTable.sessionDate, end),
         sql`${sessionLogsTable.studentId} IN (${sql.join(studentIds.map(id => sql`${id}`), sql`, `)})`,
+        isNull(sessionLogsTable.deletedAt),
         ...(trendYearId ? [eq(sessionLogsTable.schoolYearId, Number(trendYearId))] : [])
       ));
 

@@ -5,7 +5,7 @@ import {
   studentsTable, sessionLogsTable,
   complianceEventsTable, iepDocumentsTable, teamMeetingsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, count, sql, asc } from "drizzle-orm";
+import { eq, and, gte, lte, count, sql, asc, isNull } from "drizzle-orm";
 import {
   parseSchoolDistrictFilters,
   buildSessionStudentFilter,
@@ -29,6 +29,7 @@ router.get("/dashboard/missed-sessions-trend", async (req, res): Promise<void> =
   const trendConditions: any[] = [
     gte(sessionLogsTable.sessionDate, earliestStr),
     lte(sessionLogsTable.sessionDate, todayStr),
+    isNull(sessionLogsTable.deletedAt),
   ];
   if (sessionFilter) trendConditions.push(sessionFilter);
 

@@ -5,7 +5,7 @@ import {
   studentsTable, behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   sessionLogsTable,
 } from "@workspace/db";
-import { eq, count } from "drizzle-orm";
+import { eq, and, count, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -25,9 +25,9 @@ router.get("/analytics/overview", async (_req, res): Promise<void> => {
       db.select({ count: count() }).from(behaviorTargetsTable).where(eq(behaviorTargetsTable.active, true)),
       db.select({ count: count() }).from(programTargetsTable).where(eq(programTargetsTable.active, true)),
       db.select({ count: count() }).from(dataSessionsTable),
-      db.select({ count: count() }).from(sessionLogsTable),
-      db.select({ count: count() }).from(sessionLogsTable).where(eq(sessionLogsTable.status, "completed")),
-      db.select({ count: count() }).from(sessionLogsTable).where(eq(sessionLogsTable.status, "missed")),
+      db.select({ count: count() }).from(sessionLogsTable).where(isNull(sessionLogsTable.deletedAt)),
+      db.select({ count: count() }).from(sessionLogsTable).where(and(eq(sessionLogsTable.status, "completed"), isNull(sessionLogsTable.deletedAt))),
+      db.select({ count: count() }).from(sessionLogsTable).where(and(eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt))),
     ]);
 
     const allProgress = await computeAllActiveMinuteProgress();

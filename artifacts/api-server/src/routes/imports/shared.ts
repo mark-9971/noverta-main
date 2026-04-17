@@ -226,7 +226,8 @@ export async function getOrCreateVagueSession(studentId: number, dateStr: string
     .where(and(
       eq(sessionLogsTable.studentId, studentId),
       eq(sessionLogsTable.sessionDate, dateStr),
-      isNull(sessionLogsTable.staffId)
+      isNull(sessionLogsTable.staffId),
+      isNull(sessionLogsTable.deletedAt)
     ))
     .limit(1);
 

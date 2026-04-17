@@ -35,10 +35,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const studentConditions = [eq(studentsTable.status, "active")];
   if (studentFilter) studentConditions.push(studentFilter as any);
 
-  const missedConditions: any[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr)];
+  const missedConditions: any[] = [eq(sessionLogsTable.status, "missed"), gte(sessionLogsTable.sessionDate, weekStartStr), lte(sessionLogsTable.sessionDate, todayStr), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) missedConditions.push(sessionFilter);
 
-  const makeupConditions: any[] = [eq(sessionLogsTable.status, "missed")];
+  const makeupConditions: any[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
   if (sessionFilter) makeupConditions.push(sessionFilter);
 
   const alertConditions: any[] = [eq(alertsTable.resolved, false)];

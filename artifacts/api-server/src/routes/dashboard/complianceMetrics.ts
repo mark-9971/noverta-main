@@ -8,7 +8,7 @@ import {
   iepDocumentsTable,
   restraintIncidentsTable,
 } from "@workspace/db";
-import { eq, and, count, sql } from "drizzle-orm";
+import { eq, and, count, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { requireTierAccess } from "../../middlewares/tierGate";
 import {
@@ -287,13 +287,14 @@ router.get("/dashboard/pilot-metrics", requireTierAccess("district.executive"), 
         loggedWithin48h: sql<number>`count(*) filter (where ${sessionLogsTable.createdAt} <= (${sessionLogsTable.sessionDate}::timestamp + interval '48 hours'))`,
       })
         .from(sessionLogsTable)
-        .where(
+        .where(and(
+          isNull(sessionLogsTable.deletedAt),
           sdFilters.schoolId
             ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
             : sdFilters.districtId
             ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
             : sql`1=1`
-        ),
+        )),
 
       db.select({
         total: count(),

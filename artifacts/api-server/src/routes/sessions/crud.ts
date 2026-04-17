@@ -441,7 +441,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     notes: sessionLogsTable.notes,
     location: sessionLogsTable.location,
     missedReasonId: sessionLogsTable.missedReasonId,
-  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+  }).from(sessionLogsTable).where(and(eq(sessionLogsTable.id, params.data.id), isNull(sessionLogsTable.deletedAt)));
 
   if (!oldSession) {
     res.status(404).json({ error: "Session not found" });
@@ -638,7 +638,7 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
     compensatoryObligationId: sessionLogsTable.compensatoryObligationId,
     durationMinutes: sessionLogsTable.durationMinutes,
     status: sessionLogsTable.status,
-  }).from(sessionLogsTable).where(eq(sessionLogsTable.id, params.data.id));
+  }).from(sessionLogsTable).where(and(eq(sessionLogsTable.id, params.data.id), isNull(sessionLogsTable.deletedAt)));
 
   if (!existing) {
     res.status(404).json({ error: "Session not found" });
@@ -750,6 +750,8 @@ historyRouter.get("/sessions/:id/history", async (req, res): Promise<void> => {
     return;
   }
 
+  // soft-delete-ok: audit log endpoint must show session metadata even when
+  // the session has been soft-deleted, so reviewers can trace the deletion event.
   const [session] = await db.select({
     id: sessionLogsTable.id,
     studentId: sessionLogsTable.studentId,
@@ -832,6 +834,9 @@ historyRouter.post("/sessions/:id/restore", async (req, res): Promise<void> => {
     return;
   }
 
+  // soft-delete-ok: restore endpoint must read a session that IS soft-deleted;
+  // it checks existing.deletedAt to confirm the record is in the trash before
+  // clearing the field.
   const [existing] = await db.select({
     id: sessionLogsTable.id,
     studentId: sessionLogsTable.studentId,

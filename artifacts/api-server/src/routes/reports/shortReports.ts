@@ -9,7 +9,7 @@ import {
   GetStudentMinuteSummaryReportQueryParams,
   GetMissedSessionsReportQueryParams,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 
 const router: IRouter = Router();
@@ -72,7 +72,7 @@ router.get("/reports/student-minute-summary", async (req: Request, res): Promise
 
 router.get("/reports/missed-sessions", async (req: Request, res): Promise<void> => {
   const params = GetMissedSessionsReportQueryParams.safeParse(req.query);
-  const conditions: any[] = [eq(sessionLogsTable.status, "missed")];
+  const conditions: any[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
 
   const missedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
   if (missedDistrictId !== null) {
