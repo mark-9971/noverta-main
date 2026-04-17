@@ -375,6 +375,11 @@ export default function Students() {
                     </div>
                     <p className="text-[12px] text-gray-400">
                       Grade {s.grade}{s.caseManagerId ? ` · CM #${s.caseManagerId}` : ""}
+                      {s.status === "inactive" && s.withdrawnAt
+                        ? <> · <span className="text-amber-600">Withdrawn {new Date(s.withdrawnAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></>
+                        : s.enrolledAt
+                          ? ` · Enrolled ${new Date(s.enrolledAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                          : null}
                     </p>
                   </div>
                   {isSped ? (

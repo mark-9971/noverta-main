@@ -833,17 +833,31 @@ export default function StudentDetail() {
               <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">{s.firstName} {s.lastName}</h1>
               <p className="text-xs md:text-sm text-gray-400 mt-0.5 truncate">
                 Grade {s.grade} · {s.disabilityCategory?.replace(/_/g, " ")} · Case Mgr #{s.caseManagerId}
-                {enrollmentDate && (() => {
-                  const statusDate = s.status === "active"
-                    ? enrollmentDate
-                    : latestEnrollment?.eventDate ?? enrollmentDate;
-                  const statusLabel = s.status === "active" ? "Enrolled"
-                    : latestEnrollment?.eventType === "withdrawn" ? "Withdrawn"
-                    : latestEnrollment?.eventType === "graduated" ? "Graduated"
-                    : latestEnrollment?.eventType?.startsWith("transferred") ? "Transferred"
-                    : "Inactive";
+                {(() => {
+                  // Prefer the direct enrolledAt/withdrawnAt fields; fall back to
+                  // enrollment-history events for records predating the field.
+                  let statusLabel: string;
+                  let dateStr: string | null | undefined;
+
+                  if (s.status === "active") {
+                    statusLabel = "Enrolled";
+                    dateStr = s.enrolledAt ?? enrollmentDate;
+                  } else if (s.withdrawnAt) {
+                    statusLabel = "Withdrawn";
+                    dateStr = s.withdrawnAt;
+                  } else if (latestEnrollment) {
+                    statusLabel =
+                      latestEnrollment.eventType === "graduated" ? "Graduated"
+                      : latestEnrollment.eventType?.startsWith("transferred") ? "Transferred"
+                      : "Withdrawn";
+                    dateStr = latestEnrollment.eventDate ?? enrollmentDate;
+                  } else {
+                    return null;
+                  }
+
+                  if (!dateStr) return null;
                   return (
-                    <> · <CalendarDays className="w-3 h-3 inline -mt-0.5" /> {statusLabel} {new Date(statusDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</>
+                    <> · <CalendarDays className="w-3 h-3 inline -mt-0.5" /> {statusLabel} {new Date(dateStr).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</>
                   );
                 })()}
               </p>
