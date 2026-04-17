@@ -30,6 +30,8 @@ import {
   createDistrict,
   createSchool,
   cleanupDistrict,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
 import {
   handleInvoicePaymentFailed,
@@ -302,8 +304,13 @@ async function runGate(districtId: number): Promise<GateResult> {
 describe("subscriptionGate grace-period & incomplete handling", () => {
   const ownedDistricts: number[] = [];
 
+  beforeAll(async () => {
+    await seedLegalAcceptances(["u_admin"]);
+  });
+
   afterAll(async () => {
     for (const id of ownedDistricts) await cleanupDistrict(id);
+    await cleanupLegalAcceptances(["u_admin"]);
   });
 
   async function makeDistrictWith(fields: Partial<typeof districtSubscriptionsTable.$inferInsert>) {

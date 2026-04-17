@@ -15,6 +15,7 @@ import {
   asUser, createDistrict, createSchool, createStaff, createStudent,
   createServiceType, createSessionLog, createAgency,
   cleanupDistrict, cleanupServiceType,
+  seedLegalAcceptances, cleanupLegalAcceptances,
 } from "./helpers";
 import { db, agencyContractsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -25,6 +26,7 @@ describe("rate-not-configured behavior", () => {
   let agencyId: number;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_admin"]);
     const d = await createDistrict();
     districtId = d.id;
     await createSchool(districtId);
@@ -37,6 +39,7 @@ describe("rate-not-configured behavior", () => {
   afterAll(async () => {
     await cleanupDistrict(districtId);
     await cleanupServiceType(serviceTypeId);
+    await cleanupLegalAcceptances(["u_admin"]);
   });
 
   it("POST agency contract with no hourlyRate stores NULL (not 0, not 'TBD')", async () => {

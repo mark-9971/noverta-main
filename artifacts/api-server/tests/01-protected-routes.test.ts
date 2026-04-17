@@ -11,12 +11,13 @@
  *     accidentally).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { anon, asUser, createDistrict, createSchool, cleanupDistrict } from "./helpers";
+import { anon, asUser, createDistrict, createSchool, cleanupDistrict, seedLegalAcceptances, cleanupLegalAcceptances } from "./helpers";
 
 describe("protected route access", () => {
   let districtId: number;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_admin_1", "u_cm_1", "u_prov_1", "u_p_1", "u_admin_2"]);
     const d = await createDistrict();
     districtId = d.id;
     await createSchool(districtId);
@@ -24,6 +25,7 @@ describe("protected route access", () => {
 
   afterAll(async () => {
     await cleanupDistrict(districtId);
+    await cleanupLegalAcceptances(["u_admin_1", "u_cm_1", "u_prov_1", "u_p_1", "u_admin_2"]);
   });
 
   it("rejects anonymous request to /api/students with 401", async () => {

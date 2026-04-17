@@ -22,6 +22,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   asUser, createDistrict, createSchool, createSubscriptionPlan,
   cleanupDistrict, cleanupSubscriptionPlan,
+  seedLegalAcceptances, cleanupLegalAcceptances,
 } from "./helpers";
 
 describe("billing/checkout entry behavior", () => {
@@ -30,6 +31,7 @@ describe("billing/checkout entry behavior", () => {
   const inactivePriceId = `price_test_inactive_${Date.now()}`;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_admin", "u_cm", "u_reader"]);
     const d = await createDistrict();
     districtId = d.id;
     await createSchool(districtId);
@@ -40,6 +42,7 @@ describe("billing/checkout entry behavior", () => {
   afterAll(async () => {
     await cleanupDistrict(districtId);
     await cleanupSubscriptionPlan(inactivePlanId);
+    await cleanupLegalAcceptances(["u_admin", "u_cm", "u_reader"]);
   });
 
   it("rejects POST /api/billing/checkout with missing priceId (400)", async () => {

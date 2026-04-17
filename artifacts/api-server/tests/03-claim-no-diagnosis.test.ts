@@ -25,6 +25,8 @@ import {
   createSessionLog,
   cleanupDistrict,
   cleanupServiceType,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
 import { db, medicaidClaimsTable, studentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -36,6 +38,7 @@ describe("medicaid claim generation: diagnosis honesty", () => {
   let studentWithDx: number;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_admin"]);
     const d = await createDistrict();
     districtId = d.id;
     const school = await createSchool(districtId);
@@ -63,6 +66,7 @@ describe("medicaid claim generation: diagnosis honesty", () => {
   afterAll(async () => {
     await cleanupDistrict(districtId);
     await cleanupServiceType(serviceTypeId);
+    await cleanupLegalAcceptances(["u_admin"]);
   });
 
   it("skips session when student has no disabilityCategory and reports the reason", async () => {

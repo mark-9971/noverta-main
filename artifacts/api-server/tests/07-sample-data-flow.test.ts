@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   asUser, createDistrict, createSchool, createStudent, cleanupDistrict,
+  seedLegalAcceptances, cleanupLegalAcceptances,
 } from "./helpers";
 import { db, studentsTable, schoolsTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -28,6 +29,7 @@ describe("sample-data flow", () => {
   let realStudentId: number; // a non-sample row in district A that must survive teardown
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_a", "u_b"]);
     const dA = await createDistrict({ name: "Sample-A" });
     const dB = await createDistrict({ name: "Sample-B" });
     districtA = dA.id;
@@ -41,6 +43,7 @@ describe("sample-data flow", () => {
   afterAll(async () => {
     await cleanupDistrict(districtA);
     await cleanupDistrict(districtB);
+    await cleanupLegalAcceptances(["u_a", "u_b"]);
   });
 
   async function sampleStudentCountForDistrict(districtId: number): Promise<number> {

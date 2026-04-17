@@ -23,10 +23,11 @@
 -- All new imports created after this migration set district_id at insert time
 -- via getEnforcedDistrictId() in every import handler.
 --
--- ON DELETE SET NULL keeps orphaned rows accessible to platform admins for audit
--- purposes even if the district is later deleted.
+-- ON DELETE RESTRICT prevents district deletion when imports still exist,
+-- preserving audit integrity. Platform admins must archive or reassign imports
+-- before a district can be removed.
 
-ALTER TABLE imports ADD COLUMN IF NOT EXISTS district_id integer REFERENCES districts(id) ON DELETE SET NULL;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS district_id integer REFERENCES districts(id) ON DELETE RESTRICT;
 
 -- Index supports the primary query pattern: list imports for a district ordered
 -- by created_at descending. NULL rows (legacy) are omitted from district scans.

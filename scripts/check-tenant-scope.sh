@@ -1,18 +1,31 @@
 #!/usr/bin/env bash
 # check-tenant-scope.sh
 #
-# CI guard: every route file that queries the database must carry one of:
+# CI guard: every route file that queries the database must carry one of the
+# recognised tenant-scope signals below.  The PREFERRED pattern for any new
+# district-scoped route is:
+#
+#   getEnforcedDistrictId()             — enforces district scope at call site
+#
+# The following additional signals are also accepted because the codebase
+# contains legitimate route types that cannot use getEnforcedDistrictId:
 #
 #   A) getEnforcedDistrictId()          — explicit district-scope (preferred)
 #   B) requirePlatformAdmin             — platform-admin-only (support/*)
-#   C) requireGuardianScope             — guardian portal routes
-#   D) requireStudentScope              — student portal routes
+#   C) requireGuardianScope             — guardian portal routes (token-scoped)
+#   D) requireStudentScope              — student portal routes (token-scoped)
 #   E) // tenant-scope: platform-admin  — explicit platform-admin annotation
 #   F) // tenant-scope: public          — intentionally unauthenticated route
 #   G) // tenant-scope: district-join   — scoped via FK joins (student→school→district)
 #   H) // tenant-scope: guardian        — scoped via guardianId from auth token
 #   I) // tenant-scope: student         — scoped via studentId from auth token
 #   J) // tenant-scope: param-guard     — scoped via a route param guard
+#
+# WHY MULTIPLE ANNOTATIONS: New route files should default to getEnforcedDistrictId.
+# The annotation-based signals exist for routes where the district scope is derived
+# from an alternate token (guardian, student) or from a database join path (param-guard,
+# district-join). Each annotation is pair-validated by a Tier-2 enforcement signal
+# (see ANNOTATION_ENFORCEMENT map) so annotations cannot be added without runtime backing.
 #
 # SECOND-LAYER CHECK (annotation → enforcement signal):
 #   Annotation-only compliance is not sufficient. Each annotation must be

@@ -12,7 +12,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vites
 import { db } from "@workspace/db";
 import { sisConnectionsTable, sisSyncJobsTable, sisSyncLogsTable } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { createDistrict, cleanupDistrict } from "./helpers";
+import { createDistrict, cleanupDistrict, seedLegalAcceptances, cleanupLegalAcceptances } from "./helpers";
 import {
   enqueueSyncJob,
   claimNextJob,
@@ -45,6 +45,7 @@ beforeAll(async () => {
   vi.stubEnv("NODE_ENV", "test");
   const district = await createDistrict();
   districtId = district.id;
+  await seedLegalAcceptances(["u_admin_own", "u_admin_other", "u_admin"]);
 });
 
 beforeEach(async () => {
@@ -65,6 +66,7 @@ afterAll(async () => {
     await db.delete(sisConnectionsTable).where(inArray(sisConnectionsTable.id, cleanupConnIds));
   }
   if (districtId) await cleanupDistrict(districtId);
+  await cleanupLegalAcceptances(["u_admin_own", "u_admin_other", "u_admin"]);
   vi.unstubAllEnvs();
 });
 

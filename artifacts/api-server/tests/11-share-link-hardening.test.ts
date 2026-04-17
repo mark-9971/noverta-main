@@ -19,6 +19,8 @@ import {
   createSchool,
   createStaff,
   createStudent,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
 import request from "supertest";
 import {
@@ -90,6 +92,12 @@ describe("share-link hardening", () => {
     }
     await ensureSubscription(districtA, planId);
     await ensureSubscription(districtB, planId);
+
+    await seedLegalAcceptances([
+      `u_${districtA}_admin`,
+      `u_${districtB}_admin`,
+      "u_a_admin",
+    ]);
   });
 
   beforeEach(() => {
@@ -105,6 +113,11 @@ describe("share-link hardening", () => {
     await db.delete(shareLinksTable).where(inArray(shareLinksTable.studentId, [studentA, studentB]));
     await cleanupDistrict(districtA);
     await cleanupDistrict(districtB);
+    await cleanupLegalAcceptances([
+      `u_${districtA}_admin`,
+      `u_${districtB}_admin`,
+      "u_a_admin",
+    ]);
   });
 
   async function issueLink(opts: {

@@ -16,6 +16,8 @@ import {
   createServiceType,
   cleanupDistrict,
   cleanupServiceType,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
 import {
   db,
@@ -63,6 +65,7 @@ describe("service forecast", () => {
   const blockDow = (todayLocal().getDay() + 1) % 7;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["admin-A", "admin-B"]);
     const dA = await createDistrict({ name: "Forecast District A" });
     const dB = await createDistrict({ name: "Forecast District B" });
     districtA = dA.id;
@@ -116,6 +119,7 @@ describe("service forecast", () => {
     await cleanupDistrict(districtA);
     await cleanupDistrict(districtB);
     await cleanupServiceType(serviceTypeId);
+    await cleanupLegalAcceptances(["admin-A", "admin-B"]);
   });
 
   it("counts planned blocks as projected delivery when no absences exist", async () => {

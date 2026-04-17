@@ -23,6 +23,8 @@ import {
   createStudent,
   createStaff,
   cleanupDistrict,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
 import {
   db,
@@ -56,6 +58,8 @@ describe("tenant write/delete IDOR", () => {
   let docA: number;
 
   beforeAll(async () => {
+    await seedLegalAcceptances(["u_a_admin", "u_b_admin"]);
+
     const dA = await createDistrict({ name: "District A" });
     const dB = await createDistrict({ name: "District B" });
     districtA = dA.id;
@@ -130,6 +134,7 @@ describe("tenant write/delete IDOR", () => {
     await db.delete(iepGoalsTable).where(inArray(iepGoalsTable.id, [goalA, goalB]));
     await cleanupDistrict(districtA);
     await cleanupDistrict(districtB);
+    await cleanupLegalAcceptances(["u_a_admin", "u_b_admin"]);
   });
 
   // ---------- iep_goals ----------
