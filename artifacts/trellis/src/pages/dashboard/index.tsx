@@ -121,7 +121,7 @@ export default function Dashboard() {
             {getGreeting()}{firstName ? `, ${firstName}` : ""}
           </h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">
-            {isAdmin ? "District overview" : "Your caseload"} · IEP Year 2025–2026
+            {isAdmin ? "District overview" : "Your caseload"} · IEP Year {new Date().getMonth() >= 6 ? `${new Date().getFullYear()}–${new Date().getFullYear() + 1}` : `${new Date().getFullYear() - 1}–${new Date().getFullYear()}`}
           </p>
         </div>
       </div>

@@ -35,7 +35,11 @@ export default function SetupPage() {
   const [sisClientSecret, setSisClientSecret] = useState("");
   const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
 
-  const [schoolYear, setSchoolYear] = useState("2025–2026");
+  const [schoolYear, setSchoolYear] = useState(() => {
+    const now = new Date();
+    const y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${y}–${y + 1}`;
+  });
   const [editingSchools, setEditingSchools] = useState<{ id?: number; name: string }[]>([]);
 
   const [serviceTypes, setServiceTypes] = useState(DEFAULT_SERVICE_TYPES.map(st => ({ ...st })));

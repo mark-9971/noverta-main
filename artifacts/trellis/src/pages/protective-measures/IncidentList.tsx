@@ -26,7 +26,11 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
 }) {
   const { role } = useRole();
   const showTrends = role === "admin" || role === "coordinator";
-  const [exportYear, setExportYear] = useState("2025-2026");
+  const [exportYear, setExportYear] = useState(() => {
+    const now = new Date();
+    const y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${y}-${y + 1}`;
+  });
 
   const { data: incidents = [], isLoading } = useQuery({
     queryKey: ["protective-incidents", filterType, filterStatus],
@@ -69,9 +73,14 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
           <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
             <select value={exportYear} onChange={e => setExportYear(e.target.value)}
               className="text-xs bg-transparent border-none focus:outline-none text-gray-600">
-              <option value="2025-2026">SY 2025-26</option>
-              <option value="2024-2025">SY 2024-25</option>
-              <option value="2023-2024">SY 2023-24</option>
+              {(() => {
+                const now = new Date();
+                const cy = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+                return [0, 1, 2].map(i => {
+                  const y = cy - i;
+                  return <option key={y} value={`${y}-${y + 1}`}>SY {y}-{String(y + 1).slice(2)}</option>;
+                });
+              })()}
             </select>
             <button onClick={handleDeseExport}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-medium hover:bg-emerald-700 transition-colors">
