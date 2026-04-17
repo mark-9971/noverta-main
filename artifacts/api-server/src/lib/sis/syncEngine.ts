@@ -19,6 +19,34 @@ interface SyncCounters {
   warnings: Array<{ field?: string; message: string }>;
 }
 
+export interface RunSyncOptions {
+  csvData?: { csvText: string };
+  /**
+   * Optional progress reporter. The durable job worker passes this in so
+   * UI polling against `sis_sync_jobs.progress` shows live phases. Errors
+   * from the reporter are swallowed — progress is best-effort and must
+   * never abort a sync.
+   */
+  onProgress?: (phase: string, info?: { recordsProcessed?: number; totalRecords?: number; message?: string }) => Promise<void> | void;
+}
+
+/**
+ * Result of a sync attempt. We expose the syncLogId so the durable job
+ * worker can link the job → log row for historical drill-down.
+ */
+export interface SyncResult extends SyncCounters {
+  syncLogId: number;
+}
+
+async function emit(opts: RunSyncOptions | undefined, phase: string, info?: { recordsProcessed?: number; totalRecords?: number; message?: string }): Promise<void> {
+  if (!opts?.onProgress) return;
+  try {
+    await opts.onProgress(phase, info);
+  } catch (err) {
+    console.warn("[SIS Sync] progress reporter threw, ignoring:", err);
+  }
+}
+
 async function upsertStudents(
   records: SisStudentRecord[],
   schoolId: number | null,
@@ -172,8 +200,17 @@ export async function runSync(
   connectionId: number,
   syncType: "full" | "students" | "staff" | "csv_students" | "csv_staff",
   triggeredBy: string,
-  csvData?: { csvText: string },
-): Promise<SyncCounters> {
+  csvDataOrOptions?: { csvText: string } | RunSyncOptions,
+): Promise<SyncResult> {
+  // Backwards-compat: callers used to pass `{ csvText }` directly. New
+  // callers (the worker) pass an options object with `csvData` and an
+  // optional `onProgress`. Detect which we got.
+  const opts: RunSyncOptions = csvDataOrOptions
+    ? "csvText" in csvDataOrOptions
+      ? { csvData: csvDataOrOptions }
+      : csvDataOrOptions
+    : {};
+  const csvData = opts.csvData;
   const [connection] = await db.select()
     .from(sisConnectionsTable)
     .where(eq(sisConnectionsTable.id, connectionId))
@@ -199,38 +236,48 @@ export async function runSync(
   };
 
   try {
+    await emit(opts, "starting", { message: `Sync ${syncType} started` });
     if (syncType === "csv_students" && csvData) {
+      await emit(opts, "parsing_csv");
       const csv = getCsvConnector();
       const result = csv.parseStudentCsv(csvData.csvText);
       counters.errors.push(...result.errors);
       counters.warnings.push(...result.warnings);
+      await emit(opts, "upserting_students", { totalRecords: result.records.length });
       await upsertStudents(result.records, connection.schoolId, connectionId, counters);
     } else if (syncType === "csv_staff" && csvData) {
+      await emit(opts, "parsing_csv");
       const csv = getCsvConnector();
       const result = csv.parseStaffCsv(csvData.csvText);
       counters.errors.push(...result.errors);
       counters.warnings.push(...result.warnings);
+      await emit(opts, "upserting_staff", { totalRecords: result.records.length });
       await upsertStaff(result.records, connection.schoolId, connectionId, counters);
     } else {
       const connector = getConnector(connection.provider as SisProvider);
 
       if (syncType === "full" || syncType === "students") {
+        await emit(opts, "fetching_students");
         const studentResult = await connector.fetchStudents(credentials);
         counters.errors.push(...studentResult.errors);
+        await emit(opts, "upserting_students", { totalRecords: studentResult.records.length });
         const seenIds = await upsertStudents(studentResult.records, connection.schoolId, connectionId, counters);
 
         if (syncType === "full") {
           if (studentResult.records.length === 0 && studentResult.errors.length === 0) {
             counters.warnings.push({ message: "SIS returned 0 students — skipping archival as safety guard. If enrollment is truly empty, archive manually." });
           } else if (studentResult.errors.length === 0) {
+            await emit(opts, "archiving_missing_students");
             await archiveMissingStudents(seenIds, connectionId, counters);
           }
         }
       }
 
       if (syncType === "full" || syncType === "staff") {
+        await emit(opts, "fetching_staff");
         const staffResult = await connector.fetchStaff(credentials);
         counters.errors.push(...staffResult.errors);
+        await emit(opts, "upserting_staff", { totalRecords: staffResult.records.length });
         await upsertStaff(staffResult.records, connection.schoolId, connectionId, counters);
       }
     }
@@ -274,7 +321,14 @@ export async function runSync(
     await db.update(sisConnectionsTable)
       .set({ status: "error" })
       .where(eq(sisConnectionsTable.id, connectionId));
+
+    // Re-throw so the durable job worker sees a failure and routes
+    // through retry/backoff. The HTTP path used to swallow this error
+    // (it returned partial counters); now that the request path enqueues
+    // and returns immediately, the only caller of runSync is the worker,
+    // and surfacing the throw is what makes retries possible.
+    throw err;
   }
 
-  return counters;
+  return { ...counters, syncLogId: logEntry.id };
 }

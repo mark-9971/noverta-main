@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { sisConnectionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { runSync } from "./syncEngine";
+import { enqueueSyncJob } from "./jobQueue";
 
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -33,12 +33,23 @@ async function runScheduledSyncs(): Promise<void> {
 
       if (hoursSinceSync < schedule.intervalHours) continue;
 
-      console.log(`[SIS Scheduler] Running scheduled sync for connection ${conn.id} (${conn.provider}, schedule: ${conn.syncSchedule})`);
+      // Enqueue rather than run inline. The job queue dedupes — if a
+      // job is already queued or running for this connection, we get
+      // back the existing one instead of stacking duplicates across the
+      // 15-minute scheduler ticks.
       try {
-        await runSync(conn.id, "full", `scheduler:${conn.syncSchedule}`);
-        console.log(`[SIS Scheduler] Completed sync for connection ${conn.id}`);
+        const { job, duplicate } = await enqueueSyncJob({
+          connectionId: conn.id,
+          syncType: "full",
+          triggeredBy: `scheduler:${conn.syncSchedule}`,
+        });
+        if (duplicate) {
+          console.log(`[SIS Scheduler] Skipped enqueue for connection ${conn.id}: existing job ${job.id} (${job.status})`);
+        } else {
+          console.log(`[SIS Scheduler] Enqueued sync job ${job.id} for connection ${conn.id} (${conn.provider}, schedule: ${conn.syncSchedule})`);
+        }
       } catch (err) {
-        console.error(`[SIS Scheduler] Sync failed for connection ${conn.id}:`, err);
+        console.error(`[SIS Scheduler] Enqueue failed for connection ${conn.id}:`, err);
       }
     }
   } catch (err) {

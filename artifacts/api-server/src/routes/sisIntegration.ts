@@ -1,12 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { sisConnectionsTable, sisSyncLogsTable, districtsTable, staffTable, schoolsTable } from "@workspace/db";
+import { sisConnectionsTable, sisSyncLogsTable, sisSyncJobsTable, districtsTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getConnector, getCsvConnector, SUPPORTED_PROVIDERS } from "../lib/sis/index";
-import { runSync } from "../lib/sis/syncEngine";
+import { enqueueSyncJob } from "../lib/sis/jobQueue";
 import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
 import type { SisProvider } from "../lib/sis/types";
 
@@ -261,23 +261,28 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
       return;
     }
 
-    const result = await runSync(id, type as "full" | "students" | "staff", authed.userId);
+    // The HTTP path no longer runs the sync inline. We enqueue a durable
+    // job and the background worker drains it. This keeps the request
+    // bounded (large rosters previously could time out) and means an API
+    // restart mid-sync no longer corrupts the run — the worker reaper
+    // re-queues whatever was in flight.
+    const { job, duplicate } = await enqueueSyncJob({
+      connectionId: id,
+      syncType: type as "full" | "students" | "staff",
+      triggeredBy: authed.userId,
+    });
 
-    res.json({
-      studentsAdded: result.studentsAdded,
-      studentsUpdated: result.studentsUpdated,
-      studentsArchived: result.studentsArchived,
-      staffAdded: result.staffAdded,
-      staffUpdated: result.staffUpdated,
-      totalRecords: result.totalRecords,
-      errorCount: result.errors.length,
-      warningCount: result.warnings.length,
-      errors: result.errors,
-      warnings: result.warnings,
+    res.status(duplicate ? 200 : 202).json({
+      jobId: job.id,
+      status: job.status,
+      duplicate,
+      message: duplicate
+        ? "A sync is already queued or running for this connection."
+        : "Sync queued. Poll /api/sis/jobs/:id for progress.",
     });
   } catch (err) {
-    console.error("Failed to run SIS sync:", err);
-    res.status(500).json({ error: "Sync failed" });
+    console.error("Failed to enqueue SIS sync:", err);
+    res.status(500).json({ error: "Failed to enqueue sync" });
   }
 });
 
@@ -305,22 +310,94 @@ router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), asy
     }
 
     const syncType = dataType === "students" ? "csv_students" as const : "csv_staff" as const;
-    const result = await runSync(id, syncType, authed.userId, { csvText });
+    // CSV uploads also go through the durable queue. The csvText travels
+    // in the job payload jsonb so the worker has everything it needs to
+    // run without the original HTTP request being alive. Pilot-scale CSVs
+    // are well under jsonb practical limits (<1 MB).
+    const { job, duplicate } = await enqueueSyncJob({
+      connectionId: id,
+      syncType,
+      triggeredBy: authed.userId,
+      payload: { csvText },
+      // CSV is an explicit user upload — never silently fold into a
+      // pending job; each upload deserves its own run.
+      allowDuplicate: true,
+    });
 
-    res.json({
-      studentsAdded: result.studentsAdded,
-      studentsUpdated: result.studentsUpdated,
-      staffAdded: result.staffAdded,
-      staffUpdated: result.staffUpdated,
-      totalRecords: result.totalRecords,
-      errorCount: result.errors.length,
-      warningCount: result.warnings.length,
-      errors: result.errors,
-      warnings: result.warnings,
+    res.status(202).json({
+      jobId: job.id,
+      status: job.status,
+      duplicate,
+      message: "CSV upload queued. Poll /api/sis/jobs/:id for progress.",
     });
   } catch (err) {
-    console.error("Failed to process CSV upload:", err);
+    console.error("Failed to enqueue CSV upload:", err);
     res.status(500).json({ error: "CSV upload failed" });
+  }
+});
+
+/**
+ * GET /sis/jobs/:id — poll a job's live state. Returns the durable
+ * queue row including progress phase and last error. Scoped to the
+ * caller's district via the underlying connection.
+ */
+router.get("/sis/jobs/:id", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const districtId = await getDistrictIdForUser(req);
+    if (!districtId) {
+      res.status(403).json({ error: "No district configured" });
+      return;
+    }
+    const id = Number(req.params.id);
+    const [row] = await db
+      .select({
+        job: sisSyncJobsTable,
+        connectionDistrictId: sisConnectionsTable.districtId,
+      })
+      .from(sisSyncJobsTable)
+      .innerJoin(sisConnectionsTable, eq(sisSyncJobsTable.connectionId, sisConnectionsTable.id))
+      .where(eq(sisSyncJobsTable.id, id))
+      .limit(1);
+    if (!row || row.connectionDistrictId !== districtId) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    res.json(row.job);
+  } catch (err) {
+    console.error("Failed to fetch sync job:", err);
+    res.status(500).json({ error: "Failed to fetch job" });
+  }
+});
+
+/**
+ * GET /sis/connections/:id/jobs — recent jobs for a connection. Used by
+ * the admin UI to render history with retry/error context without
+ * touching the historical sync_logs table.
+ */
+router.get("/sis/connections/:id/jobs", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const districtId = await getDistrictIdForUser(req);
+    if (!districtId) {
+      res.json([]);
+      return;
+    }
+    const id = Number(req.params.id);
+    const conn = await assertConnectionOwnership(id, districtId);
+    if (!conn) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const jobs = await db
+      .select()
+      .from(sisSyncJobsTable)
+      .where(eq(sisSyncJobsTable.connectionId, id))
+      .orderBy(desc(sisSyncJobsTable.createdAt))
+      .limit(limit);
+    res.json(jobs);
+  } catch (err) {
+    console.error("Failed to fetch sync jobs:", err);
+    res.status(500).json({ error: "Failed to fetch jobs" });
   }
 });
 
