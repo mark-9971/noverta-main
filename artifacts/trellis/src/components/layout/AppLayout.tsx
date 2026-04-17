@@ -19,7 +19,7 @@ import { FloatingTimer } from "@/components/floating-timer";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { ThemePicker } from "./ThemePicker";
-import { useTheme } from "@/lib/theme-context";
+import { useTheme, DARK_SIDEBAR_THEMES, type ThemeId } from "@/lib/theme-context";
 import { useTier } from "@/lib/tier-context";
 import {
   type NavItem, type NavSection, type RoleThemeConfig,
@@ -66,6 +66,7 @@ function NavItemRow({
   onLockedClick?: () => void;
 }) {
   const isLocked = locked && !item.comingSoon;
+  const isDarkSidebar = DARK_SIDEBAR_THEMES.has(theme as ThemeId);
 
   const content = (
     <>
@@ -73,18 +74,18 @@ function NavItemRow({
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
       )}
       {isLocked ? (
-        <Lock className="w-[17px] h-[17px] flex-shrink-0 text-gray-300" />
+        <Lock className="w-[17px] h-[17px] flex-shrink-0 text-sidebar-foreground/30" />
       ) : (
         <item.icon className={cn(
           "w-[17px] h-[17px] flex-shrink-0",
           item.comingSoon
-            ? "text-gray-300"
+            ? "text-sidebar-foreground/30"
             : theme === "open-air"
               ? active ? "text-gray-900" : "text-gray-300"
-              : active ? config.iconActive : "text-gray-400"
+              : active ? (isDarkSidebar ? "text-sidebar-primary" : config.iconActive) : "text-sidebar-foreground/50"
         )} />
       )}
-      <span className={cn("flex-1 truncate", isLocked && "text-gray-300")}>{item.label}</span>
+      <span className={cn("flex-1 truncate", isLocked && "text-sidebar-foreground/30")}>{item.label}</span>
       {isLocked && lockedTierLabel && (
         <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 leading-none whitespace-nowrap">
           {lockedTierLabel}
@@ -110,7 +111,7 @@ function NavItemRow({
       return (
         <button
           type="button"
-          className={cn(baseClasses, "w-full cursor-pointer text-gray-300 hover:bg-gray-50")}
+          className={cn(baseClasses, "w-full cursor-pointer text-sidebar-foreground/30 hover:bg-sidebar-accent")}
           title={`${item.label} — Upgrade to ${lockedTierLabel}`}
           onClick={onLockedClick}
         >
@@ -121,7 +122,7 @@ function NavItemRow({
     return (
       <Link
         href="#"
-        className={cn(baseClasses, "cursor-default text-gray-300")}
+        className={cn(baseClasses, "cursor-default text-sidebar-foreground/30")}
         title={`${item.label} — Coming Soon`}
       >
         {content}
@@ -139,8 +140,8 @@ function NavItemRow({
             ? "text-gray-900 font-semibold"
             : "text-gray-400 hover:text-gray-700"
           : active
-            ? config.bgActive
-            : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+            ? (isDarkSidebar ? "bg-sidebar-accent text-sidebar-primary font-semibold" : config.bgActive)
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
       )}
       onClick={onNavigate}
     >
@@ -290,31 +291,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       onClick={() => toggle(section.label!)}
                       className={cn(
                         "w-full flex items-center gap-1.5 px-2.5 mb-0.5 py-1 rounded-md transition-colors group",
-                        "hover:bg-gray-50"
+                        "hover:bg-sidebar-accent"
                       )}
                     >
                       <ChevronRight className={cn(
-                        "w-3 h-3 text-gray-400 transition-transform duration-150 flex-shrink-0",
+                        "w-3 h-3 text-sidebar-foreground/40 transition-transform duration-150 flex-shrink-0",
                         !isCollapsed && "rotate-90"
                       )} />
                       {section.icon && (
                         <section.icon className={cn(
                           "w-3.5 h-3.5 flex-shrink-0",
-                          hasActive && !isCollapsed ? "text-emerald-600" : "text-gray-400"
+                          hasActive && !isCollapsed ? "text-sidebar-primary" : "text-sidebar-foreground/40"
                         )} />
                       )}
                       <span className={cn(
                         "text-[10px] font-semibold uppercase tracking-widest flex-1 text-left",
-                        hasActive && !isCollapsed ? "text-emerald-600" : "text-gray-400"
+                        hasActive && !isCollapsed ? "text-sidebar-primary" : "text-sidebar-foreground/40"
                       )}>
                         {section.label}
                       </span>
                       {isCollapsed && hasActive && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-sidebar-primary flex-shrink-0" />
                       )}
                     </button>
                   ) : (
-                    <p className="px-2.5 mb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                    <p className="px-2.5 mb-1 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
                       {section.label}
                     </p>
                   )
@@ -366,16 +367,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-gray-800 truncate leading-tight">{user.name}</p>
-              <p className={cn(
-                "text-[11px] truncate leading-tight mt-0.5",
-                theme === "open-air" ? "text-gray-300" : "text-gray-400"
-              )}>{user.subtitle}</p>
+              <p className="text-[13px] font-semibold text-sidebar-foreground truncate leading-tight">{user.name}</p>
+              <p className="text-[11px] truncate leading-tight mt-0.5 text-sidebar-foreground/50">{user.subtitle}</p>
             </div>
             <ThemePicker />
             <button
               onClick={() => signOut({ redirectUrl: "/sign-in" })}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
               title="Sign out"
             >
               <LogOut className="w-3.5 h-3.5" />

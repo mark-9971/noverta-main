@@ -10,13 +10,26 @@ export type ThemeId =
   | "cool"
   | "deuteranopia"
   | "protanopia"
-  | "reduced-motion";
+  | "reduced-motion"
+  | "midnight-clinic"
+  | "oak-paper"
+  | "district-blue"
+  | "sage"
+  | "obsidian";
+
+export const DARK_SIDEBAR_THEMES = new Set<ThemeId>([
+  "midnight-clinic",
+  "oak-paper",
+  "district-blue",
+  "sage",
+  "obsidian",
+]);
 
 export interface ThemeOption {
   id: ThemeId;
   label: string;
   description: string;
-  category: "appearance" | "accessibility";
+  category: "appearance" | "accessibility" | "sidebar";
 }
 
 export const THEMES: ThemeOption[] = [
@@ -30,6 +43,11 @@ export const THEMES: ThemeOption[] = [
   { id: "deuteranopia", label: "Deuteranopia-Safe", description: "Green-blind friendly palette", category: "accessibility" },
   { id: "protanopia", label: "Protanopia-Safe", description: "Red-blind friendly palette", category: "accessibility" },
   { id: "reduced-motion", label: "Reduced Motion", description: "Minimal animations", category: "accessibility" },
+  { id: "midnight-clinic", label: "Midnight Clinic", description: "Dark teal — focused and clinical", category: "sidebar" },
+  { id: "oak-paper", label: "Oak & Paper", description: "Warm amber — earthy and grounded", category: "sidebar" },
+  { id: "district-blue", label: "District Blue", description: "Institutional navy — clear and official", category: "sidebar" },
+  { id: "sage", label: "Sage", description: "Forest green — calm and biophilic", category: "sidebar" },
+  { id: "obsidian", label: "Obsidian", description: "Deep violet — premium and focused", category: "sidebar" },
 ];
 
 const STORAGE_KEY = "trellis-theme";
