@@ -35,18 +35,21 @@ export function SisStep(p: SisStepProps) {
           Connect Your Student Information System
         </CardTitle>
         <p className="text-sm text-gray-500 mt-1">
-          Trellis pulls student rosters and staff directories from your SIS so you don't have to enter data manually.
+          Choose how Trellis gets your roster. CSV upload is fully supported today; direct SIS API connectors are in early pilot.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
           <Info className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-amber-900 leading-relaxed">
-            <span className="font-semibold">CSV upload is the supported path right now.</span>{" "}
-            Direct PowerSchool / Infinite Campus / Skyward connectors are on the
-            roadmap and not yet syncing data — picking one of those providers
-            will save your district details for when they launch, but won't
-            pull a roster today.
+            <span className="font-semibold">CSV upload is the recommended path today.</span>{" "}
+            The PowerSchool, Infinite Campus, Skyward, and SFTP connectors are
+            built but have not yet been validated against a live tenant of those
+            vendors. Picking one will save your credentials and queue a first
+            sync — Trellis support will reach out to verify field mappings with
+            you before relying on it. Aspen, Synergy, Aeries, Genesis, and
+            others have no live API connector — export your roster as CSV and
+            upload it here.
           </div>
         </div>
         <div>

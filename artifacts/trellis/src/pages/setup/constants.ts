@@ -1,6 +1,6 @@
 import { Database, Building2, Settings2, UserPlus } from "lucide-react";
 
-export type SISProvider = "powerschool" | "infinite_campus" | "skyward" | "csv";
+export type SISProvider = "csv" | "powerschool" | "infinite_campus" | "skyward" | "sftp";
 
 export interface OnboardingStatus {
   sisConnected: boolean;
@@ -26,11 +26,22 @@ export interface StaffInvite {
   role: string;
 }
 
-export const SIS_PROVIDERS: Array<{ id: SISProvider; name: string; description: string; inPilot?: boolean }> = [
-  { id: "powerschool", name: "PowerSchool", description: "REST API with OAuth2 client credentials", inPilot: true },
-  { id: "infinite_campus", name: "Infinite Campus", description: "REST API integration", inPilot: true },
-  { id: "skyward", name: "Skyward", description: "REST/SOAP connector", inPilot: true },
-  { id: "csv", name: "CSV Upload", description: "Upload a roster file manually" },
+// CSV is the supported path today (`tier: "ga"`). Direct API connectors exist
+// in code but have not been validated against a real vendor tenant, so they are
+// flagged `early_pilot` and the wizard renders a banner explaining what that
+// actually means for the user. Mirrors `SUPPORTED_PROVIDERS` in
+// `api-server/src/lib/sis/index.ts` and `STATUS.md`.
+export const SIS_PROVIDERS: Array<{
+  id: SISProvider;
+  name: string;
+  description: string;
+  tier: "ga" | "early_pilot";
+}> = [
+  { id: "csv", name: "CSV Upload", description: "Upload a roster file. Fully supported today.", tier: "ga" },
+  { id: "powerschool", name: "PowerSchool", description: "REST API (OAuth2). Early pilot — not yet validated against a live PowerSchool tenant.", tier: "early_pilot" },
+  { id: "infinite_campus", name: "Infinite Campus", description: "REST API. Early pilot — not yet validated against a live Infinite Campus tenant.", tier: "early_pilot" },
+  { id: "skyward", name: "Skyward", description: "REST API. Early pilot — not yet validated against a live Skyward tenant.", tier: "early_pilot" },
+  { id: "sftp", name: "SFTP File Drop", description: "Auto-pull CSVs from an SFTP path. Early pilot — works, but treat as CSV under the hood.", tier: "early_pilot" },
 ];
 
 export const DEFAULT_SERVICE_TYPES = [
@@ -58,7 +69,7 @@ export const STAFF_ROLES = [
 ];
 
 export const STEPS = [
-  { id: "sis", label: "Connect SIS", icon: Database, description: "Connect your student information system" },
+  { id: "sis", label: "Roster source", icon: Database, description: "Upload a CSV roster (recommended) or save details for an early-pilot SIS connector" },
   { id: "district", label: "District & Schools", icon: Building2, description: "Confirm district and school details" },
   { id: "services", label: "Service Types", icon: Settings2, description: "Configure SPED service types" },
   { id: "staff", label: "Invite Staff", icon: UserPlus, description: "Invite your team members" },

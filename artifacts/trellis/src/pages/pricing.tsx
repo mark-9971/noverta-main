@@ -151,7 +151,7 @@ const ADD_ONS = [
   },
   {
     title: "SIS Integrations",
-    description: "Roster sync from your Student Information System. CSV upload available today; PowerSchool, Infinite Campus, and Skyward connectors are in pilot. Aspen and others by request.",
+    description: "CSV roster upload is fully supported today and is the recommended path for every district. Direct PowerSchool, Infinite Campus, and Skyward connectors are in early pilot — built but not yet validated against a live tenant of those vendors, so first-time setup is hands-on with Trellis engineering. Other systems (Aspen, Synergy, Aeries, Genesis, etc.) do not have a live API connector — bring your roster as a CSV export.",
     pricing: "Per connector",
     detail: "One-time setup + annual maintenance fee.",
     icon: "🔗",

@@ -14,6 +14,11 @@ interface SisProvider {
   key: string;
   label: string;
   description: string;
+  // Mirrors `SUPPORTED_PROVIDERS` in `api-server/src/lib/sis/index.ts`.
+  // "ga" connectors are supported for self-serve setup; "early_pilot"
+  // connectors are wired in code but have not been validated against a real
+  // vendor tenant and require Trellis engineering for first sync.
+  tier?: "ga" | "early_pilot";
 }
 
 interface SisConnection {
@@ -364,10 +369,14 @@ function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
     return (
       <Card className="border border-dashed border-gray-200 shadow-none">
         <CardContent className="p-4">
-          <p className="text-[13px] font-semibold text-gray-700 mb-3">Connect a Student Information System</p>
+          <p className="text-[13px] font-semibold text-gray-700 mb-1">Add a roster source</p>
+          <p className="text-[11px] text-gray-500 mb-3">
+            CSV is fully supported. Direct API connectors are in early pilot — Trellis support will validate the first sync with you.
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {(providers ?? []).map((p) => {
               const Icon = PROVIDER_ICONS[p.key] ?? Database;
+              const isPilot = p.tier === "early_pilot";
               return (
                 <button
                   key={p.key}
@@ -375,7 +384,15 @@ function NewConnectionForm({ onCreated }: { onCreated: () => void }) {
                   className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50/50 transition-colors text-center"
                 >
                   <Icon className="w-5 h-5 text-emerald-600" />
-                  <span className="text-[12px] font-semibold text-gray-700">{p.label}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[12px] font-semibold text-gray-700">{p.label}</span>
+                    {isPilot && (
+                      <span className="text-[9px] uppercase tracking-wide px-1 py-px rounded bg-amber-100 text-amber-800 font-medium">Pilot</span>
+                    )}
+                    {p.tier === "ga" && (
+                      <span className="text-[9px] uppercase tracking-wide px-1 py-px rounded bg-emerald-100 text-emerald-800 font-medium">GA</span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-gray-400 leading-snug">{p.description}</span>
                 </button>
               );
@@ -554,7 +571,7 @@ export default function SisSettings() {
             SIS Integration
           </h1>
           <p className="text-[13px] text-gray-500 mt-1">
-            Connect your Student Information System to sync student rosters and staff directories automatically.
+            CSV roster upload is fully supported today. Direct PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot — the connector is built but Trellis engineering will validate the first sync with you. Aspen, Synergy, Aeries, Genesis, and other systems have no live connector — bring your roster as a CSV export.
           </p>
         </div>
       </div>
@@ -564,10 +581,9 @@ export default function SisSettings() {
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-[13px] font-semibold text-amber-800">No SIS Connected</p>
+              <p className="text-[13px] font-semibold text-amber-800">No roster source connected</p>
               <p className="text-[12px] text-amber-600 mt-0.5">
-                Connect a Student Information System below to automatically sync your student roster and staff directory.
-                You can also upload a CSV file if your SIS is not listed.
+                Upload a CSV roster below to start using Trellis today. If you'd like to set up a direct PowerSchool, Infinite Campus, Skyward, or SFTP connector, you can save the credentials below and Trellis support will schedule a verified first sync — these connectors are in early pilot and not yet self-serve.
               </p>
             </div>
           </div>

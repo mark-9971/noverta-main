@@ -23,16 +23,53 @@ A connector can be advertised in pricing/landing copy without an asterisk only i
 5. We have a documented field-mapping doc (e.g. how PowerSchool's `enroll_status` maps to our `status` enum, what `gradeLevel` strings to expect from Skyward, etc.).
 6. There's at least one paying or pilot district willing to be a reference for the connector.
 
-## Recent reconciliation of marketing surfaces
+## Recent reconciliation of marketing surfaces (honesty audit #6)
 
-- **Pricing page** (`artifacts/trellis/src/pages/pricing.tsx`): the SIS Integrations bullet no longer claims Aspen as a connector; non-CSV providers are now labeled "in pilot."
-- **Setup wizard** (`artifacts/trellis/src/pages/setup/constants.ts`): non-CSV providers are tagged `inPilot: true` and `SisStep.tsx` renders a "Pilot" badge.
-- **Removed claims**: nothing else in the user-facing surface claims Aspen / Synergy / Genesis as live API connectors. They remain importable via CSV.
+The previous reconciliation left contradictions across surfaces. After audit #6
+the unified message is:
 
-## What's needed to graduate any of {powerschool, infinite_campus, skyward} from pilot to GA
+- **CSV upload** is GA, fully supported, the recommended path for every district.
+- **PowerSchool / Infinite Campus / Skyward / SFTP** are *early pilot*: built but
+  not yet validated against a live tenant of those vendors. Setup saves
+  credentials and queues a sync, but Trellis support reaches out to verify
+  field mappings before relying on it. **No surface should imply self-serve
+  automatic sync for these.**
+- **Aspen / Synergy / Aeries / Genesis / others** have **no live API
+  connector** — only CSV import. Surfaces must say so explicitly.
+
+Surfaces brought into agreement:
+
+- `api-server/src/lib/sis/index.ts` (`SUPPORTED_PROVIDERS`): each provider now
+  carries `tier: "ga" | "early_pilot"` plus a description that names the
+  status. CSV is listed first.
+- `api-server/src/routes/onboarding.ts` (`POST /api/onboarding/sis-connect`):
+  no longer returns `Roster sync will begin automatically` for every
+  provider. CSV returns a CSV-specific message; pilot providers return a
+  message saying support will reach out to schedule a verified first sync.
+- `trellis/src/pages/pricing.tsx` (SIS Integrations bullet): names which
+  systems have no connector instead of saying "Aspen and others by request."
+- `trellis/src/pages/setup/constants.ts`: `SISProvider` adds `sftp`, the
+  list adds CSV-first ordering, replaces `inPilot?: boolean` with
+  `tier: "ga" | "early_pilot"`, and the step label is "Roster source"
+  rather than "Connect SIS."
+- `trellis/src/pages/setup/SisStep.tsx`: subtitle and amber banner say CSV
+  is the recommended path today, name the early-pilot connectors, and call
+  out that Aspen/Synergy/Aeries/Genesis have no live connector.
+- `trellis/src/pages/sis-settings.tsx`: page subtitle, "No SIS connected"
+  banner, and `NewConnectionForm` provider grid all carry the same wording
+  and render `GA` / `Pilot` badges per provider.
+
+The `aspen_students` template in `trellis/src/pages/import-data.tsx` is a CSV
+preset (column mapping for the Aspen X2 export format), not a connector, and
+is left as-is.
+
+## What's needed to graduate any of {powerschool, infinite_campus, skyward, sftp} from pilot to GA
 
 1. Get a sandbox tenant from the vendor (or a friendly pilot district).
 2. Run `runSync` against it, capture the response shapes.
 3. Reconcile field mapping; add unit tests in `tests/sis/` covering the happy path and the top 3 failure modes.
 4. Fill in `fetchStaff` (currently partial for all three).
-5. Update the matrix above and remove the "Pilot only" caveat from `pricing.tsx` and `constants.ts`.
+5. Flip that provider from `tier: "early_pilot"` to `tier: "ga"` in
+   `api-server/src/lib/sis/index.ts` and `trellis/src/pages/setup/constants.ts`,
+   then update the pricing/SisStep/sis-settings copy to drop the early-pilot
+   caveat for that specific provider.
