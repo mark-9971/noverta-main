@@ -8,6 +8,7 @@ import { DEMO_MODE } from "@/lib/config";
 interface BillingStatus {
   active: boolean;
   status: string;
+  mode?: "paid" | "trial" | "pilot" | "demo" | "unpaid" | "unconfigured" | "error";
   requiresAttention: boolean;
   currentPeriodEnd: string | null;
 }
@@ -25,6 +26,9 @@ export function SubscriptionBanner() {
   }, []);
 
   if (DEMO_MODE || !status || dismissed) return null;
+  // Defense in depth: never show the past-due/canceled banner to non-paying tracks,
+  // even if a future server change accidentally sets requiresAttention=true on them.
+  if (status.mode === "demo" || status.mode === "pilot") return null;
 
   const isCanceled = status.status === "canceled" || status.status === "unpaid";
   const isPastDue = status.status === "past_due";

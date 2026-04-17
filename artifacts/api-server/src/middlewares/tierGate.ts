@@ -1,12 +1,74 @@
 import { type Request, type Response, type NextFunction } from "express";
-import { db, districtsTable } from "@workspace/db";
+import { db, districtsTable, districtSubscriptionsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
   type DistrictTier, type FeatureKey,
   isTierFeatureAccessible, getRequiredTierForFeature, TIER_LABELS,
+  getModuleForFeature,
 } from "@workspace/db";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
+
+interface DistrictGateContext {
+  tier: DistrictTier;
+  isDemo: boolean;
+  isPilot: boolean;
+  addOns: string[];
+}
+
+async function resolveDistrictGateContext(req: Request): Promise<DistrictGateContext> {
+  const meta = getPublicMeta(req);
+
+  let districtId: number | null = meta.districtId ?? null;
+
+  if (!districtId && meta.staffId) {
+    const result = await db.execute(
+      sql`SELECT d.id FROM districts d
+          JOIN schools s ON s.district_id = d.id
+          JOIN staff st ON st.school_id = s.id
+          WHERE st.id = ${meta.staffId} LIMIT 1`
+    );
+    if (result.rows && result.rows.length > 0) {
+      districtId = Number((result.rows[0] as Record<string, unknown>).id);
+    }
+  }
+
+  if (!districtId) {
+    const allDistricts = await db.execute(sql`SELECT id FROM districts LIMIT 2`);
+    if (allDistricts.rows && allDistricts.rows.length === 1) {
+      districtId = Number((allDistricts.rows[0] as Record<string, unknown>).id);
+    }
+  }
+
+  if (!districtId) {
+    return { tier: "essentials", isDemo: false, isPilot: false, addOns: [] };
+  }
+
+  const [district] = await db
+    .select({
+      tier: districtsTable.tier,
+      tierOverride: districtsTable.tierOverride,
+      isDemo: districtsTable.isDemo,
+      isPilot: districtsTable.isPilot,
+    })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId))
+    .limit(1);
+
+  const [sub] = await db
+    .select({ addOns: districtSubscriptionsTable.addOns })
+    .from(districtSubscriptionsTable)
+    .where(eq(districtSubscriptionsTable.districtId, districtId))
+    .limit(1);
+
+  const tier = (district?.tierOverride || district?.tier || "essentials") as DistrictTier;
+  return {
+    tier,
+    isDemo: !!district?.isDemo,
+    isPilot: !!district?.isPilot,
+    addOns: sub?.addOns ?? [],
+  };
+}
 
 async function resolveDistrictTier(req: Request): Promise<DistrictTier> {
   const meta = getPublicMeta(req);
@@ -92,9 +154,24 @@ export function requireTierAccess(featureKey: FeatureKey) {
     }
 
     try {
-      const tier = await resolveDistrictTier(req);
+      const ctx = await resolveDistrictGateContext(req);
 
-      if (isTierFeatureAccessible(tier, featureKey)) {
+      // Demo and pilot districts get full access regardless of tier — they're
+      // explicitly non-paying tracks and must never see "upgrade required" walls.
+      if (ctx.isDemo || ctx.isPilot) {
+        next();
+        return;
+      }
+
+      if (isTierFeatureAccessible(ctx.tier, featureKey)) {
+        next();
+        return;
+      }
+
+      // Add-on grant: if the feature's module has been purchased à la carte,
+      // allow it even when the base tier doesn't include it.
+      const moduleKey = getModuleForFeature(featureKey);
+      if (moduleKey && ctx.addOns.includes(moduleKey)) {
         next();
         return;
       }
@@ -103,7 +180,7 @@ export function requireTierAccess(featureKey: FeatureKey) {
       res.status(403).json({
         error: "Feature not available on your current plan",
         code: "TIER_UPGRADE_REQUIRED",
-        currentTier: tier,
+        currentTier: ctx.tier,
         requiredTier,
         requiredTierLabel: TIER_LABELS[requiredTier],
         featureKey,

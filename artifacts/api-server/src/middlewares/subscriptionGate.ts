@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from "express";
-import { db, districtSubscriptionsTable, staffTable } from "@workspace/db";
+import { db, districtSubscriptionsTable, districtsTable, staffTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getAuth } from "@clerk/express";
@@ -79,13 +79,25 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
   }
 
   resolveDistrictId(req)
-    .then((districtId) => {
+    .then(async (districtId) => {
       if (!districtId) {
         res.status(403).json({
           error: "Subscription check failed",
           code: "DISTRICT_UNRESOLVABLE",
           message: "Unable to determine your district. Contact your administrator.",
         });
+        return;
+      }
+
+      // Demo and pilot districts are exempt from billing gates: they're explicitly
+      // non-paying tracks (sample data and free pilots) and must never see a paywall.
+      const [district] = await db
+        .select({ isDemo: districtsTable.isDemo, isPilot: districtsTable.isPilot })
+        .from(districtsTable)
+        .where(eq(districtsTable.id, districtId))
+        .limit(1);
+      if (district?.isDemo || district?.isPilot) {
+        next();
         return;
       }
 

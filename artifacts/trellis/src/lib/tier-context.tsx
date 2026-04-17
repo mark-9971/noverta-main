@@ -7,8 +7,12 @@ import {
   TIER_MODULES,
 } from "./module-tiers";
 
+type BillingMode = "paid" | "trial" | "pilot" | "demo" | "unconfigured";
+
 interface TierContextType {
   tier: DistrictTier;
+  mode: BillingMode;
+  addOns: string[];
   loading: boolean;
   hasAccess: (featureKey: FeatureKey) => boolean;
   getFeatureInfo: (featureKey: FeatureKey) => {
@@ -24,13 +28,15 @@ const TierContext = createContext<TierContextType | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
   const { selectedDistrictId } = useSchoolContext();
-  // In development/demo mode, grant enterprise tier so every feature is accessible
   const isDevMode = import.meta.env.DEV;
+  // Dev defaults: enterprise + demo so every feature is unlocked when running locally.
+  // The server response (when reachable) overrides these with the real district mode.
   const [tier, setTier] = useState<DistrictTier>(isDevMode ? "enterprise" : "essentials");
-  const [loading, setLoading] = useState(!isDevMode);
+  const [mode, setMode] = useState<BillingMode>(isDevMode ? "demo" : "unconfigured");
+  const [addOns, setAddOns] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isDevMode) return; // skip tier fetch; demo always gets enterprise
     const params = new URLSearchParams();
     if (selectedDistrictId) params.set("districtId", String(selectedDistrictId));
 
@@ -39,20 +45,30 @@ export function TierProvider({ children }: { children: ReactNode }) {
       .then((r) => r.json())
       .then((data) => {
         if (data.effectiveTier) setTier(data.effectiveTier as DistrictTier);
+        if (data.mode) setMode(data.mode as BillingMode);
+        if (Array.isArray(data.addOns)) setAddOns(data.addOns);
         setLoading(false);
       })
       .catch(() => {
-        setTier("essentials");
+        if (!isDevMode) setTier("essentials");
         setLoading(false);
       });
   }, [selectedDistrictId, isDevMode]);
 
   function hasAccess(featureKey: FeatureKey): boolean {
-    return isTierFeatureAccessible(tier, featureKey);
+    // Demo and pilot districts get full access regardless of base tier.
+    if (mode === "demo" || mode === "pilot") return true;
+    if (isTierFeatureAccessible(tier, featureKey)) return true;
+    // Add-on grant for à la carte module purchases.
+    const moduleKey = getModuleForFeature(featureKey);
+    return !!moduleKey && addOns.includes(moduleKey);
   }
 
   function getFeatureInfo(featureKey: FeatureKey) {
-    const accessible = isTierFeatureAccessible(tier, featureKey);
+    // Use the shared hasAccess() helper so demo/pilot bypass and add-on grants
+    // are honored — otherwise FeatureGate would still show upgrade walls to
+    // demo/pilot users while the API allows the request through.
+    const accessible = hasAccess(featureKey);
     const requiredTier = getRequiredTierForFeature(featureKey);
     const module = getModuleForFeature(featureKey);
     return {
@@ -65,7 +81,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <TierContext.Provider value={{ tier, loading, hasAccess, getFeatureInfo }}>
+    <TierContext.Provider value={{ tier, mode, addOns, loading, hasAccess, getFeatureInfo }}>
       {children}
     </TierContext.Provider>
   );

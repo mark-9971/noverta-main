@@ -179,25 +179,44 @@ router.get("/district-tier", async (req, res): Promise<void> => {
   }
 
   if (!districtId) {
-    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials" });
+    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials", mode: "unconfigured", addOns: [] });
     return;
   }
 
   const [district] = await db
-    .select({ tier: districtsTable.tier, tierOverride: districtsTable.tierOverride })
+    .select({
+      tier: districtsTable.tier,
+      tierOverride: districtsTable.tierOverride,
+      isDemo: districtsTable.isDemo,
+      isPilot: districtsTable.isPilot,
+    })
     .from(districtsTable)
     .where(eq(districtsTable.id, districtId))
     .limit(1);
 
   if (!district) {
-    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials" });
+    res.json({ tier: "essentials", tierOverride: null, effectiveTier: "essentials", mode: "unconfigured", addOns: [] });
     return;
   }
+
+  const [sub] = await db
+    .select({ addOns: districtSubscriptionsTable.addOns })
+    .from(districtSubscriptionsTable)
+    .where(eq(districtSubscriptionsTable.districtId, districtId))
+    .limit(1);
+
+  // Demo and pilot districts get full feature access regardless of base tier.
+  const isFreeTrack = district.isDemo || district.isPilot;
+  const baseEffective = district.tierOverride || district.tier || "essentials";
+  const effectiveTier = isFreeTrack ? "enterprise" : baseEffective;
+  const mode = district.isDemo ? "demo" : district.isPilot ? "pilot" : "paid";
 
   res.json({
     tier: district.tier,
     tierOverride: district.tierOverride,
-    effectiveTier: district.tierOverride || district.tier || "essentials",
+    effectiveTier,
+    mode,
+    addOns: sub?.addOns ?? [],
   });
 });
 

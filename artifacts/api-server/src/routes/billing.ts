@@ -102,7 +102,23 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
   try {
     const districtId = await resolveCallerDistrictId(req);
     if (!districtId) {
-      res.json({ active: false, status: "unresolvable", requiresAttention: true });
+      res.json({ active: false, status: "unresolvable", mode: "unconfigured", requiresAttention: true });
+      return;
+    }
+
+    // Demo and pilot districts are first-class non-paying tracks. They're always
+    // "active" for gating purposes and never trigger paywall UI.
+    const [district] = await db
+      .select({ isDemo: districtsTable.isDemo, isPilot: districtsTable.isPilot })
+      .from(districtsTable)
+      .where(eq(districtsTable.id, districtId))
+      .limit(1);
+    if (district?.isDemo) {
+      res.json({ active: true, status: "demo", mode: "demo", currentPeriodEnd: null, requiresAttention: false });
+      return;
+    }
+    if (district?.isPilot) {
+      res.json({ active: true, status: "pilot", mode: "pilot", currentPeriodEnd: null, requiresAttention: false });
       return;
     }
 
@@ -113,7 +129,7 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
       .limit(1);
 
     if (!sub) {
-      res.json({ active: false, status: "no_subscription", requiresAttention: true });
+      res.json({ active: false, status: "no_subscription", mode: "unconfigured", requiresAttention: true });
       return;
     }
 
@@ -123,12 +139,13 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
     res.json({
       active: isActive,
       status: sub.status,
+      mode: sub.status === "trialing" ? "trial" : (isActive ? "paid" : "unpaid"),
       currentPeriodEnd: sub.currentPeriodEnd,
       requiresAttention: !isActive,
     });
   } catch (err) {
     console.error("Error checking billing status:", err);
-    res.json({ active: false, status: "error", requiresAttention: true });
+    res.json({ active: false, status: "error", mode: "error", requiresAttention: true });
   }
 });
 

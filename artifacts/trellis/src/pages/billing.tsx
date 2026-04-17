@@ -3,8 +3,13 @@ import { useLocation } from "wouter";
 import { apiGet, apiPost } from "@/lib/api";
 import {
   CreditCard, Building2, Users, Calendar, ExternalLink,
-  CheckCircle, AlertTriangle, XCircle, Loader2, Crown
+  CheckCircle, AlertTriangle, XCircle, Loader2, Crown, Sparkles, FlaskConical
 } from "lucide-react";
+
+interface BillingMode {
+  mode: "paid" | "trial" | "pilot" | "demo" | "unpaid" | "unconfigured" | "error";
+  status: string;
+}
 
 interface Subscription {
   id: number;
@@ -36,6 +41,7 @@ interface Plan {
 export default function BillingPage() {
   const [location] = useLocation();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [billingMode, setBillingMode] = useState<BillingMode | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -52,12 +58,14 @@ export default function BillingPage() {
 
   async function loadData() {
     try {
-      const [subRes, plansRes] = await Promise.all([
+      const [subRes, plansRes, modeRes] = await Promise.all([
         apiGet<{ subscription: Subscription }>("/billing/subscription"),
         apiGet<{ plans: Plan[] }>("/billing/plans").catch(() => ({ plans: [] })),
+        apiGet<BillingMode>("/billing/status").catch(() => null),
       ]);
       setSubscription(subRes.subscription);
       setPlans(plansRes.plans);
+      setBillingMode(modeRes);
     } catch (err) {
       console.error("Failed to load billing data:", err);
     } finally {
@@ -140,6 +148,40 @@ export default function BillingPage() {
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-600" />
           <p className="text-sm text-amber-800">Checkout was canceled. You can try again anytime.</p>
+        </div>
+      )}
+
+      {billingMode?.mode === "demo" && (
+        <div className="rounded-lg bg-violet-50 border border-violet-200 p-4 flex items-start gap-3">
+          <Sparkles className="h-5 w-5 text-violet-600 mt-0.5" />
+          <div className="text-sm text-violet-900">
+            <p className="font-medium">Demo district</p>
+            <p className="text-violet-800 mt-0.5">
+              You're viewing a demonstration district with sample data. Billing is disabled and all features are unlocked for evaluation.
+            </p>
+          </div>
+        </div>
+      )}
+      {billingMode?.mode === "pilot" && (
+        <div className="rounded-lg bg-sky-50 border border-sky-200 p-4 flex items-start gap-3">
+          <FlaskConical className="h-5 w-5 text-sky-600 mt-0.5" />
+          <div className="text-sm text-sky-900">
+            <p className="font-medium">Pilot program</p>
+            <p className="text-sky-800 mt-0.5">
+              Your district is enrolled in the Trellis pilot. All features are included at no cost during the pilot period. Reach out to your Trellis contact when you're ready to convert to a paid plan.
+            </p>
+          </div>
+        </div>
+      )}
+      {billingMode?.mode === "unconfigured" && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+          <div className="text-sm text-amber-900">
+            <p className="font-medium">No subscription on file</p>
+            <p className="text-amber-800 mt-0.5">
+              Choose a plan below to activate your district. Your administrator will be billed via Stripe.
+            </p>
+          </div>
         </div>
       )}
 

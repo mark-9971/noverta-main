@@ -8,6 +8,7 @@ import { DEMO_MODE } from "@/lib/config";
 interface BillingStatus {
   active: boolean;
   status: string;
+  mode?: "paid" | "trial" | "pilot" | "demo" | "unpaid" | "unconfigured" | "error";
   requiresAttention: boolean;
   code?: string;
 }
@@ -32,6 +33,9 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
 
   const isExemptPath = EXEMPT_PATHS.some((p) => location.startsWith(p));
   if (isExemptPath) return <>{children}</>;
+
+  // Pilot and demo districts are explicit non-paying tracks — never paywall them.
+  if (status?.mode === "pilot" || status?.mode === "demo") return <>{children}</>;
 
   const isBlocked = status && !status.active;
   if (!isBlocked) return <>{children}</>;
