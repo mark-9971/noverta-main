@@ -9,6 +9,7 @@ import { eq, and, count, sql, inArray } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { requirePlatformAdmin, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -54,7 +55,7 @@ router.get("/districts", async (req, res): Promise<void> => {
   })));
 });
 
-router.post("/districts", async (req, res): Promise<void> => {
+router.post("/districts", requirePlatformAdmin, async (req, res): Promise<void> => {
   const { name, state, region } = req.body;
   if (!name || typeof name !== "string") {
     res.status(400).json({ error: "name is required" });
@@ -81,6 +82,14 @@ router.get("/districts/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  // Tenant scope: non-platform users may only read their own district.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const meta = getPublicMeta(req);
+  if (!meta.platformAdmin && enforcedDid != null && enforcedDid !== id) {
+    res.status(403).json({ error: "You don't have access to this district" });
+    return;
+  }
+
   const [district] = await db.select().from(districtsTable).where(eq(districtsTable.id, id));
   if (!district) { res.status(404).json({ error: "District not found" }); return; }
 
@@ -99,6 +108,13 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const meta = getPublicMeta(req);
+  // Non-platform users may only PATCH their own district. Tier changes are further
+  // gated below to platform admins only.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (!meta.platformAdmin && enforcedDid != null && enforcedDid !== id) {
+    res.status(403).json({ error: "You don't have access to this district" });
+    return;
+  }
   const updateData: Partial<typeof districtsTable.$inferInsert> = {};
   if (req.body.name != null) updateData.name = req.body.name;
   if (req.body.state !== undefined) updateData.state = req.body.state;
@@ -131,7 +147,7 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   res.json({ ...district, createdAt: district.createdAt.toISOString(), updatedAt: district.updatedAt.toISOString() });
 });
 
-router.delete("/districts/:id", async (req, res): Promise<void> => {
+router.delete("/districts/:id", requirePlatformAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 

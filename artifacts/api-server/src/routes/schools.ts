@@ -3,6 +3,9 @@ import { db } from "@workspace/db";
 import { schoolsTable, programsTable } from "@workspace/db";
 import { ListSchoolsResponse, CreateSchoolBody, ListProgramsResponse, CreateProgramBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+
+const requireSchoolAdmin = requireRoles("admin", "coordinator");
 const VALID_SCHEDULE_TYPES = ["standard", "ab_day", "rotating_4", "rotating_6"] as const;
 type ScheduleType = typeof VALID_SCHEDULE_TYPES[number];
 
@@ -17,7 +20,9 @@ function schoolToJson(s: typeof schoolsTable.$inferSelect) {
 }
 
 router.get("/schools", async (req, res): Promise<void> => {
-  const schools = await db.select().from(schoolsTable).orderBy(schoolsTable.name);
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const where = enforcedDid != null ? eq(schoolsTable.districtId, enforcedDid) : undefined;
+  const schools = await db.select().from(schoolsTable).where(where).orderBy(schoolsTable.name);
   res.json(schools.map(schoolToJson));
 });
 
@@ -26,10 +31,15 @@ router.get("/schools/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid school id" }); return; }
   const [school] = await db.select().from(schoolsTable).where(eq(schoolsTable.id, id));
   if (!school) { res.status(404).json({ error: "School not found" }); return; }
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null && school.districtId !== enforcedDid) {
+    res.status(403).json({ error: "You don't have access to this school" });
+    return;
+  }
   res.json(schoolToJson(school));
 });
 
-router.patch("/schools/:id/schedule-settings", async (req, res): Promise<void> => {
+router.patch("/schools/:id/schedule-settings", requireSchoolAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid school id" }); return; }
 
@@ -60,18 +70,33 @@ router.patch("/schools/:id/schedule-settings", async (req, res): Promise<void> =
     else if (scheduleType === "standard") updates.rotationDays = null;
   }
 
+  // Enforce district scope on UPDATE: confirm the target school belongs to caller's district.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null) {
+    const [existing] = await db.select({ districtId: schoolsTable.districtId }).from(schoolsTable).where(eq(schoolsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "School not found" }); return; }
+    if (existing.districtId !== enforcedDid) {
+      res.status(403).json({ error: "You don't have access to this school" });
+      return;
+    }
+  }
   const [school] = await db.update(schoolsTable).set(updates).where(eq(schoolsTable.id, id)).returning();
   if (!school) { res.status(404).json({ error: "School not found" }); return; }
   res.json(schoolToJson(school));
 });
 
-router.post("/schools", async (req, res): Promise<void> => {
+router.post("/schools", requireSchoolAdmin, async (req, res): Promise<void> => {
   const parsed = CreateSchoolBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [school] = await db.insert(schoolsTable).values(parsed.data).returning();
+  // Force districtId to caller's enforced district (non-platform users).
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const values = enforcedDid != null
+    ? { ...parsed.data, districtId: enforcedDid }
+    : parsed.data;
+  const [school] = await db.insert(schoolsTable).values(values).returning();
   res.status(201).json(schoolToJson(school));
 });
 
@@ -80,7 +105,7 @@ router.get("/programs", async (req, res): Promise<void> => {
   res.json(ListProgramsResponse.parse(programs.map(p => ({ ...p, createdAt: p.createdAt.toISOString() }))));
 });
 
-router.post("/programs", async (req, res): Promise<void> => {
+router.post("/programs", requireSchoolAdmin, async (req, res): Promise<void> => {
   const parsed = CreateProgramBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

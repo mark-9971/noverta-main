@@ -10,16 +10,33 @@ import {
   UpdateServiceRequirementBody,
   DeleteServiceRequirementParams,
 } from "@workspace/api-zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+
+const requireServiceAdmin = requireRoles("admin", "coordinator", "case_manager");
 
 const router: IRouter = Router();
+
+/**
+ * Confirms the given student belongs to the caller's enforced district.
+ * Returns true if access is allowed (platform admin or matching district).
+ */
+async function studentInCallerDistrict(req: AuthedRequest, studentId: number): Promise<boolean> {
+  const enforcedDid = getEnforcedDistrictId(req);
+  if (enforcedDid == null) return true; // platform admin
+  const result = await db.execute(
+    sql`SELECT 1 FROM students s JOIN schools sch ON sch.id = s.school_id
+        WHERE s.id = ${studentId} AND sch.district_id = ${enforcedDid} LIMIT 1`,
+  );
+  return result.rows.length > 0;
+}
 
 router.get("/service-types", async (req, res): Promise<void> => {
   const types = await db.select().from(serviceTypesTable).orderBy(serviceTypesTable.name);
   res.json(types.map(t => ({ ...t, createdAt: t.createdAt.toISOString() })));
 });
 
-router.post("/service-types", async (req, res): Promise<void> => {
+router.post("/service-types", requireServiceAdmin, async (req, res): Promise<void> => {
   const parsed = CreateServiceTypeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -38,6 +55,14 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
     if (params.data.providerId) conditions.push(eq(serviceRequirementsTable.providerId, Number(params.data.providerId)));
     if (params.data.active === "true") conditions.push(eq(serviceRequirementsTable.active, true));
     else if (params.data.active === "false") conditions.push(eq(serviceRequirementsTable.active, false));
+  }
+  // District scope: limit to requirements whose student belongs to caller's district.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null) {
+    conditions.push(sql`${serviceRequirementsTable.studentId} IN (
+      SELECT s.id FROM students s JOIN schools sch ON sch.id = s.school_id
+      WHERE sch.district_id = ${enforcedDid}
+    )`);
   }
 
   const reqs = await db
@@ -72,15 +97,37 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
   })));
 });
 
-router.post("/service-requirements", async (req, res): Promise<void> => {
+router.post("/service-requirements", requireServiceAdmin, async (req, res): Promise<void> => {
   const parsed = CreateServiceRequirementBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (!(await studentInCallerDistrict(req as AuthedRequest, Number(parsed.data.studentId)))) {
+    res.status(403).json({ error: "Student is not in your district" });
+    return;
+  }
   const [req2] = await db.insert(serviceRequirementsTable).values(parsed.data).returning();
   res.status(201).json({ ...req2, createdAt: req2.createdAt.toISOString() });
 });
+
+async function requireServiceRequirementInDistrict(
+  req: AuthedRequest, id: number, res: import("express").Response,
+): Promise<boolean> {
+  const enforcedDid = getEnforcedDistrictId(req);
+  if (enforcedDid == null) return true;
+  const result = await db.execute(
+    sql`SELECT 1 FROM service_requirements sr
+        JOIN students s ON s.id = sr.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE sr.id = ${id} AND sch.district_id = ${enforcedDid} LIMIT 1`,
+  );
+  if (result.rows.length === 0) {
+    res.status(404).json({ error: "Not found" });
+    return false;
+  }
+  return true;
+}
 
 router.get("/service-requirements/:id", async (req, res): Promise<void> => {
   const params = GetServiceRequirementParams.safeParse(req.params);
@@ -88,6 +135,7 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
   const [r] = await db
     .select({
       id: serviceRequirementsTable.id,
@@ -124,12 +172,13 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.patch("/service-requirements/:id", async (req, res): Promise<void> => {
+router.patch("/service-requirements/:id", requireServiceAdmin, async (req, res): Promise<void> => {
   const params = UpdateServiceRequirementParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
   const parsed = UpdateServiceRequirementBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -154,12 +203,13 @@ router.patch("/service-requirements/:id", async (req, res): Promise<void> => {
   res.json({ ...r, createdAt: r.createdAt.toISOString() });
 });
 
-router.delete("/service-requirements/:id", async (req, res): Promise<void> => {
+router.delete("/service-requirements/:id", requireServiceAdmin, async (req, res): Promise<void> => {
   const params = DeleteServiceRequirementParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
   await db.delete(serviceRequirementsTable).where(eq(serviceRequirementsTable.id, params.data.id));
   res.sendStatus(204);
 });

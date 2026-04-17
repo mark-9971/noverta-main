@@ -15,13 +15,43 @@ import {
   classesTable,
   classEnrollmentsTable,
 } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+/**
+ * Returns true if the given student id belongs to the caller's enforced district
+ * (or the caller is a platform admin).
+ */
+async function studentInCallerDistrict(req: AuthedRequest, studentId: number): Promise<boolean> {
+  const enforcedDid = getEnforcedDistrictId(req);
+  if (enforcedDid == null) return true;
+  const result = await db.execute(
+    sql`SELECT 1 FROM students s JOIN schools sch ON sch.id = s.school_id
+        WHERE s.id = ${studentId} AND sch.district_id = ${enforcedDid} LIMIT 1`,
+  );
+  return result.rows.length > 0;
+}
+
+async function staffInCallerDistrict(req: AuthedRequest, staffId: number): Promise<boolean> {
+  const enforcedDid = getEnforcedDistrictId(req);
+  if (enforcedDid == null) return true;
+  const result = await db.execute(
+    sql`SELECT 1 FROM staff st JOIN schools sch ON sch.id = st.school_id
+        WHERE st.id = ${staffId} AND sch.district_id = ${enforcedDid} LIMIT 1`,
+  );
+  return result.rows.length > 0;
+}
 
 router.get("/staff/:id/classroom", async (req, res): Promise<void> => {
   const staffId = Number(req.params.id);
   if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
+
+  if (!(await staffInCallerDistrict(req as AuthedRequest, staffId))) {
+    res.status(403).json({ error: "Staff member is not in your district" });
+    return;
+  }
 
   const studentIdSet = new Set<number>();
 
@@ -162,6 +192,17 @@ router.post("/teacher-observations", async (req, res): Promise<void> => {
     return;
   }
 
+  // Body-IDOR defense: confirm both student and staff belong to caller's district.
+  const authed = req as AuthedRequest;
+  if (!(await studentInCallerDistrict(authed, Number(studentId)))) {
+    res.status(403).json({ error: "Student is not in your district" });
+    return;
+  }
+  if (!(await staffInCallerDistrict(authed, Number(staffId)))) {
+    res.status(403).json({ error: "Staff member is not in your district" });
+    return;
+  }
+
   const [obs] = await db
     .insert(teacherObservationsTable)
     .values({
@@ -183,6 +224,15 @@ router.get("/teacher-observations", async (req, res): Promise<void> => {
   if (req.query.studentId) conditions.push(eq(teacherObservationsTable.studentId, Number(req.query.studentId)));
   if (req.query.staffId) conditions.push(eq(teacherObservationsTable.staffId, Number(req.query.staffId)));
 
+  // District scope: limit observations to students in caller's district.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null) {
+    conditions.push(sql`${teacherObservationsTable.studentId} IN (
+      SELECT s.id FROM students s JOIN schools sch ON sch.id = s.school_id
+      WHERE sch.district_id = ${enforcedDid}
+    )`);
+  }
+
   const observations = await db
     .select()
     .from(teacherObservationsTable)
@@ -199,6 +249,26 @@ router.post("/progress-note-contributions", async (req, res): Promise<void> => {
   if (!progressReportId || !staffId || !iepGoalId || !narrative) {
     res.status(400).json({ error: "progressReportId, staffId, iepGoalId, and narrative are required" });
     return;
+  }
+
+  // Body-IDOR defense: confirm staffId and progress-report's student are both in caller's district.
+  const authed = req as AuthedRequest;
+  const enforcedDid = getEnforcedDistrictId(authed);
+  if (enforcedDid != null) {
+    if (!(await staffInCallerDistrict(authed, Number(staffId)))) {
+      res.status(403).json({ error: "Staff member is not in your district" });
+      return;
+    }
+    const reportCheck = await db.execute(
+      sql`SELECT 1 FROM progress_reports pr
+          JOIN students s ON s.id = pr.student_id
+          JOIN schools sch ON sch.id = s.school_id
+          WHERE pr.id = ${Number(progressReportId)} AND sch.district_id = ${enforcedDid} LIMIT 1`,
+    );
+    if (reportCheck.rows.length === 0) {
+      res.status(403).json({ error: "Progress report is not in your district" });
+      return;
+    }
   }
 
   const [note] = await db
@@ -218,6 +288,17 @@ router.get("/progress-note-contributions", async (req, res): Promise<void> => {
   const conditions = [];
   if (req.query.reportId) conditions.push(eq(progressNoteContributionsTable.progressReportId, Number(req.query.reportId)));
   if (req.query.staffId) conditions.push(eq(progressNoteContributionsTable.staffId, Number(req.query.staffId)));
+
+  // District scope: limit to notes whose progress report belongs to a student in caller's district.
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedDid != null) {
+    conditions.push(sql`${progressNoteContributionsTable.progressReportId} IN (
+      SELECT pr.id FROM progress_reports pr
+      JOIN students s ON s.id = pr.student_id
+      JOIN schools sch ON sch.id = s.school_id
+      WHERE sch.district_id = ${enforcedDid}
+    )`);
+  }
 
   const notes = await db
     .select({
@@ -240,6 +321,11 @@ router.get("/students/:id/iep-goals-summary", async (req, res): Promise<void> =>
   const studentId = Number(req.params.id);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
+  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+    res.status(403).json({ error: "Student is not in your district" });
+    return;
+  }
+
   const goals = await db
     .select()
     .from(iepGoalsTable)
@@ -259,6 +345,11 @@ router.get("/students/:id/iep-goals-summary", async (req, res): Promise<void> =>
 router.get("/students/:id/progress-reports", async (req, res): Promise<void> => {
   const studentId = Number(req.params.id);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+
+  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+    res.status(403).json({ error: "Student is not in your district" });
+    return;
+  }
 
   const reports = await db
     .select()

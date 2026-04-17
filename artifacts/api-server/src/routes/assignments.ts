@@ -5,11 +5,22 @@ import {
   gradeCategoriesTable, classEnrollmentsTable, staffTable
 } from "@workspace/db";
 import { eq, and, desc, asc, sql, inArray, isNull, isNotNull, lt, gte } from "drizzle-orm";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import {
+  assertClassInCallerDistrict,
+  assertAssignmentInCallerDistrict,
+  assertSubmissionInCallerDistrict,
+  studentInCallerDistrict,
+  staffInCallerDistrict,
+} from "../lib/districtScope";
+
+const requireTeacherOrAdmin = requireRoles("admin", "coordinator", "sped_teacher", "case_manager", "bcba");
 
 const router: IRouter = Router();
 
 router.get("/classes/:id/assignments", async (req, res): Promise<void> => {
   const classId = Number(req.params.id);
+  if (!(await assertClassInCallerDistrict(req as AuthedRequest, classId, res))) return;
   const assignments = await db.select({
     id: assignmentsTable.id,
     classId: assignmentsTable.classId,
@@ -36,6 +47,7 @@ router.get("/classes/:id/assignments", async (req, res): Promise<void> => {
 
 router.get("/assignments/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!(await assertAssignmentInCallerDistrict(req as AuthedRequest, id, res))) return;
   const [assignment] = await db.select({
     id: assignmentsTable.id,
     classId: assignmentsTable.classId,
@@ -60,8 +72,9 @@ router.get("/assignments/:id", async (req, res): Promise<void> => {
   res.json(assignment);
 });
 
-router.post("/classes/:id/assignments", async (req, res): Promise<void> => {
+router.post("/classes/:id/assignments", requireTeacherOrAdmin, async (req, res): Promise<void> => {
   const classId = Number(req.params.id);
+  if (!(await assertClassInCallerDistrict(req as AuthedRequest, classId, res))) return;
   const { title, description, instructions, assignmentType, dueDate, assignedDate, pointsPossible, categoryId, published, allowLateSubmission } = req.body;
   const [assignment] = await db.insert(assignmentsTable).values({
     classId, title, description, instructions,
@@ -89,8 +102,9 @@ router.post("/classes/:id/assignments", async (req, res): Promise<void> => {
   res.status(201).json(assignment);
 });
 
-router.put("/assignments/:id", async (req, res): Promise<void> => {
+router.put("/assignments/:id", requireTeacherOrAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!(await assertAssignmentInCallerDistrict(req as AuthedRequest, id, res))) return;
   const { title, description, instructions, assignmentType, dueDate, assignedDate, pointsPossible, categoryId, published, allowLateSubmission } = req.body;
   const updates: any = {};
   if (title !== undefined) updates.title = title;
@@ -108,8 +122,9 @@ router.put("/assignments/:id", async (req, res): Promise<void> => {
   res.json(assignment);
 });
 
-router.delete("/assignments/:id", async (req, res): Promise<void> => {
+router.delete("/assignments/:id", requireTeacherOrAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!(await assertAssignmentInCallerDistrict(req as AuthedRequest, id, res))) return;
   await db.delete(submissionsTable).where(eq(submissionsTable.assignmentId, id));
   await db.delete(assignmentsTable).where(eq(assignmentsTable.id, id));
   res.json({ success: true });
@@ -117,6 +132,7 @@ router.delete("/assignments/:id", async (req, res): Promise<void> => {
 
 router.get("/assignments/:id/submissions", async (req, res): Promise<void> => {
   const assignmentId = Number(req.params.id);
+  if (!(await assertAssignmentInCallerDistrict(req as AuthedRequest, assignmentId, res))) return;
   const subs = await db.select({
     id: submissionsTable.id,
     assignmentId: submissionsTable.assignmentId,
@@ -138,6 +154,9 @@ router.get("/assignments/:id/submissions", async (req, res): Promise<void> => {
 
 router.get("/students/:id/assignments", async (req, res): Promise<void> => {
   const studentId = Number(req.params.id);
+  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+    res.status(403).json({ error: "Student is not in your district" }); return;
+  }
   const { classId, status } = req.query;
   const conditions = [eq(submissionsTable.studentId, studentId)];
   if (classId) conditions.push(eq(assignmentsTable.classId, Number(classId)));
@@ -167,9 +186,13 @@ router.get("/students/:id/assignments", async (req, res): Promise<void> => {
   res.json(assignments);
 });
 
-router.put("/submissions/:id", async (req, res): Promise<void> => {
+router.put("/submissions/:id", requireTeacherOrAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!(await assertSubmissionInCallerDistrict(req as AuthedRequest, id, res))) return;
   const { content, fileUrl, fileName, status, pointsEarned, letterGrade, feedback, gradedBy } = req.body;
+  if (gradedBy !== undefined && !(await staffInCallerDistrict(req as AuthedRequest, Number(gradedBy)))) {
+    res.status(403).json({ error: "Grader is not in your district" }); return;
+  }
   const updates: any = {};
   if (content !== undefined) updates.content = content;
   if (fileUrl !== undefined) updates.fileUrl = fileUrl;
@@ -186,9 +209,13 @@ router.put("/submissions/:id", async (req, res): Promise<void> => {
   res.json(sub);
 });
 
-router.put("/submissions/:id/grade", async (req, res): Promise<void> => {
+router.put("/submissions/:id/grade", requireTeacherOrAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!(await assertSubmissionInCallerDistrict(req as AuthedRequest, id, res))) return;
   const { pointsEarned, letterGrade, feedback, gradedBy } = req.body;
+  if (gradedBy && !(await staffInCallerDistrict(req as AuthedRequest, Number(gradedBy)))) {
+    res.status(403).json({ error: "Grader is not in your district" }); return;
+  }
   const [sub] = await db.update(submissionsTable).set({
     pointsEarned: String(pointsEarned),
     letterGrade,
@@ -203,6 +230,9 @@ router.put("/submissions/:id/grade", async (req, res): Promise<void> => {
 
 router.get("/students/:id/grades-summary", async (req, res): Promise<void> => {
   const studentId = Number(req.params.id);
+  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+    res.status(403).json({ error: "Student is not in your district" }); return;
+  }
 
   const enrolledClasses = await db.select({
     classId: classEnrollmentsTable.classId,
@@ -263,6 +293,7 @@ router.get("/students/:id/grades-summary", async (req, res): Promise<void> => {
 
 router.get("/classes/:id/gradebook", async (req, res): Promise<void> => {
   const classId = Number(req.params.id);
+  if (!(await assertClassInCallerDistrict(req as AuthedRequest, classId, res))) return;
 
   const assignments = await db.select({
     id: assignmentsTable.id,
@@ -332,6 +363,9 @@ router.get("/classes/:id/gradebook", async (req, res): Promise<void> => {
 
 router.get("/teacher/:id/dashboard", async (req, res): Promise<void> => {
   const teacherId = Number(req.params.id);
+  if (!(await staffInCallerDistrict(req as AuthedRequest, teacherId))) {
+    res.status(403).json({ error: "Teacher is not in your district" }); return;
+  }
   const classes = await db.select({
     id: classesTable.id,
     name: classesTable.name,
@@ -381,6 +415,9 @@ router.get("/teacher/:id/dashboard", async (req, res): Promise<void> => {
 
 router.get("/student/:id/dashboard", async (req, res): Promise<void> => {
   const studentId = Number(req.params.id);
+  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+    res.status(403).json({ error: "Student is not in your district" }); return;
+  }
   const today = new Date().toISOString().split("T")[0];
 
   const enrolledClasses = await db.select({
@@ -434,7 +471,14 @@ router.get("/student/:id/dashboard", async (req, res): Promise<void> => {
   res.json({ enrolledClasses, upcomingAssignments, recentGrades });
 });
 
-router.get("/academics/overview", async (_req, res): Promise<void> => {
+router.get("/academics/overview", async (req, res): Promise<void> => {
+  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const classWhere = enforcedDid != null
+    ? and(
+        eq(classesTable.active, true),
+        sql`${classesTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`,
+      )
+    : eq(classesTable.active, true);
   const classStats = await db.select({
     classId: classesTable.id,
     className: classesTable.name,
@@ -443,8 +487,14 @@ router.get("/academics/overview", async (_req, res): Promise<void> => {
     teacherLastName: staffTable.lastName,
   }).from(classesTable)
     .leftJoin(staffTable, eq(classesTable.teacherId, staffTable.id))
-    .where(eq(classesTable.active, true));
+    .where(classWhere);
 
+  const subWhere = enforcedDid != null
+    ? and(
+        isNotNull(submissionsTable.pointsEarned),
+        sql`${assignmentsTable.classId} IN (SELECT c.id FROM classes c JOIN schools sch ON sch.id = c.school_id WHERE sch.district_id = ${enforcedDid})`,
+      )
+    : isNotNull(submissionsTable.pointsEarned);
   const allSubs = await db.select({
     studentId: submissionsTable.studentId,
     assignmentClassId: assignmentsTable.classId,
@@ -453,7 +503,7 @@ router.get("/academics/overview", async (_req, res): Promise<void> => {
     status: submissionsTable.status,
   }).from(submissionsTable)
     .innerJoin(assignmentsTable, eq(submissionsTable.assignmentId, assignmentsTable.id))
-    .where(isNotNull(submissionsTable.pointsEarned));
+    .where(subWhere);
 
   const studentClassGrades: Record<string, { earned: number; possible: number }> = {};
   for (const s of allSubs) {

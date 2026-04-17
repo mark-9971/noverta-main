@@ -124,6 +124,31 @@ router.use("/protective-measures", requireRoles("admin", "coordinator", "case_ma
 router.use("/progress-reports", requirePrivilegedStaffOnly);
 router.use("/document-workflow", requirePrivilegedStaffOnly);
 
+// Classroom + academic + service catalog — staff-only.
+// `/students/:id/...` paths (iep-goals-summary, progress-reports, classes,
+// assignments, grades-summary) are already guarded by the `/students` block above.
+const requireStaffOrStudent = requireRoles(
+  "admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para", "sped_student",
+);
+router.use("/teacher-observations", requireStaffOnly);
+router.use("/progress-note-contributions", requirePrivilegedStaffOnly);
+router.use("/classes", requireStaffOnly);
+router.use("/students-with-enrollments", requireStaffOnly);
+router.use("/teachers-with-classes", requireStaffOnly);
+router.use("/assignments", requireStaffOnly);
+router.use("/submissions", requireStaffOnly);
+router.use("/teacher", requireStaffOnly);
+router.use("/academics", requireStaffOnly);
+// /student/:id/dashboard is the sped_student self-service dashboard — allow students.
+router.use("/student", requireStaffOrStudent);
+router.use("/service-types", requireStaffOnly);
+router.use("/service-requirements", requireStaffOnly);
+router.use("/schools", requireStaffOnly);
+router.use("/programs", requireStaffOnly);
+router.use("/districts", requireStaffOnly);
+router.use("/district-tier", requireStaffOnly);
+router.use("/district-overview", requireStaffOnly);
+
 const isProgressReportPath = (path: string) =>
   /\/progress-reports/.test(path);
 router.use("/students", (req, _res, next) => {
