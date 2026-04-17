@@ -172,7 +172,7 @@ const FAQS = [
   },
   {
     q: "What about data migration from our current system?",
-    a: "Migration today is CSV-based. Trellis ships templates and a validation step for students, staff, IEP documents, service requirements, sessions, and goals. Any system that can export to CSV (including EasyIEP, SEIS, Frontline, and SpedTrack exports districts have shared with us) can be imported this way. Direct API connectors to those vendors are not built — those are roadmap items.",
+    a: "Migration today is CSV-based. Trellis ships generic CSV templates with a column-mapping wizard and row-level validation for students, staff, service requirements, session logs, and goals data, plus IEP PDF ingestion that auto-extracts goals, services, and accommodations. Two vendor-specific column presets are included out of the box today: Aspen X2 student rosters and eSPED service-grid exports. Any other system that can export to CSV — Frontline, SpedTrack, EasyIEP, SEIS, and similar — can be loaded through the generic templates, with column mapping done interactively in the wizard; we'll add a saved preset for your source system on request during onboarding. There are no live API connectors to those special-ed vendors today — those are roadmap items.",
   },
   {
     q: "How does Trellis handle student data privacy and security?",
