@@ -70,6 +70,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
         ? Number(req.headers["x-test-district-id"]) : null;
       authed.tenantStaffId = null;
       authed.tenantStudentId = null;
+      authed.tenantGuardianId = null;
       next();
       return;
     }
