@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Calendar, AlertTriangle, ClipboardList,
   BarChart3, UserCheck, Upload, Activity,
-  Search, Shield, ShieldCheck, PieChart, Building2,
+  Search, Shield, ShieldCheck, Building2,
   Star, Clock, Sparkles, Sun, Library,
   Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
@@ -163,7 +163,6 @@ export const adminNav: NavSection[] = [
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
-      { href: "/analytics", label: "Analytics", icon: PieChart },
     ],
   },
 ];
