@@ -85,6 +85,8 @@ interface TierConfig {
   tagline: string;
   price: string;
   priceUnit: string;
+  /** What Stripe Checkout actually charges. Must stay in sync with seed-products.ts. */
+  billedNote?: string;
   trialNote?: string;
   highlighted: boolean;
   cta: string;
@@ -92,6 +94,11 @@ interface TierConfig {
   schoolLimit: string;
 }
 
+// IMPORTANT: `price` (per-student/year list price) and `billedNote` (the actual
+// flat amount Stripe will charge) MUST stay coordinated with the Stripe price
+// rows seeded by `scripts/src/seed-products.ts`. The per-student headline is
+// the way the platform is sold; the flat billed amount is what shows up on the
+// invoice. Update both together when prices change.
 const TIERS: TierConfig[] = [
   {
     key: "essentials",
@@ -99,6 +106,7 @@ const TIERS: TierConfig[] = [
     tagline: "Service-minute tracking and state-required reporting",
     price: "$10",
     priceUnit: "per student / year",
+    billedNote: "Billed flat at $99/mo or $999/yr · up to ~100 students",
     trialNote: "Starts with a 14-day free trial",
     highlighted: false,
     cta: "Get Started",
@@ -111,6 +119,7 @@ const TIERS: TierConfig[] = [
     tagline: "Adds clinical data and family communication",
     price: "$18",
     priceUnit: "per student / year",
+    billedNote: "Billed flat at $299/mo or $2,999/yr · up to ~165 students",
     trialNote: "Starts with a 14-day free trial",
     highlighted: true,
     cta: "Get Started",
@@ -123,6 +132,7 @@ const TIERS: TierConfig[] = [
     tagline: "Adds district-wide operations and finance",
     price: "$30",
     priceUnit: "per student / year",
+    billedNote: "Annual contract priced per district",
     trialNote: "Custom procurement, multi-district, and premium implementation",
     highlighted: false,
     cta: "Contact Sales",
@@ -215,6 +225,9 @@ function TierCard({ tier, onCta }: { tier: TierConfig; onCta: (tier: string) => 
           <span className="text-3xl font-bold text-gray-900">{tier.price}</span>
           <span className="text-sm text-gray-500 ml-1">{tier.priceUnit}</span>
         </div>
+        {tier.billedNote && (
+          <p className="text-xs text-gray-500 mt-1">{tier.billedNote}</p>
+        )}
         <p className="text-xs text-gray-400 mt-1">{tier.schoolLimit}</p>
         {tier.trialNote && (
           <p className="text-[11px] text-emerald-700 mt-2 font-medium">{tier.trialNote}</p>

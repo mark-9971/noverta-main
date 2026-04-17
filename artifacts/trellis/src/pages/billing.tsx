@@ -52,10 +52,23 @@ export default function BillingPage() {
   const showSuccess = params.get("success") === "true";
   const showCanceled = params.get("canceled") === "true";
   const requestedPlan = params.get("plan");
+  const checkoutSessionId = params.get("session_id");
   const [autoCheckoutAttempted, setAutoCheckoutAttempted] = useState(false);
+  const [endingTrial, setEndingTrial] = useState(false);
 
   useEffect(() => {
-    loadData();
+    // When the visitor returns from a successful Stripe Checkout we force a
+    // server-side reconciliation BEFORE rendering, so the tier/status reflect
+    // the new subscription immediately rather than waiting for the webhook.
+    (async () => {
+      if (showSuccess) {
+        try {
+          await apiPost("/billing/sync-subscription", checkoutSessionId ? { sessionId: checkoutSessionId } : {});
+        } catch { /* webhook may not have run yet — ignore */ }
+      }
+      await loadData();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If the visitor arrives from /pricing with ?plan=<tier>, auto-launch Stripe
@@ -127,6 +140,24 @@ export default function BillingPage() {
     }
   }
 
+  // Single-click upgrade from the trial banner: ends the Stripe trial right
+  // now so the customer is billed today using the card they already put on
+  // file at checkout. No portal round-trip required.
+  async function handleEndTrial() {
+    if (!confirm("End your free trial now and start your paid subscription? Your card on file will be charged today.")) return;
+    setEndingTrial(true);
+    try {
+      await apiPost("/billing/end-trial");
+      await apiPost("/billing/sync-subscription").catch(() => {});
+      await loadData();
+    } catch (err) {
+      console.error("End trial error:", err);
+      alert("Could not end the trial. Please try again or use the billing portal.");
+    } finally {
+      setEndingTrial(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -189,11 +220,20 @@ export default function BillingPage() {
               Your card will be charged automatically when the trial ends. Cancel anytime from the billing portal.
             </p>
           </div>
+          {subscription?.stripeSubscriptionId && (
+            <button
+              onClick={handleEndTrial}
+              disabled={endingTrial}
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {endingTrial ? <Loader2 className="h-4 w-4 animate-spin" /> : "Upgrade now"}
+            </button>
+          )}
           {subscription?.stripeCustomerId && (
             <button
               onClick={handlePortal}
               disabled={portalLoading}
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
             >
               Manage
             </button>

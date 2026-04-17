@@ -196,7 +196,7 @@ router.post("/billing/checkout", adminOnly, async (req: Request, res: Response):
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${baseUrl}/billing?success=true`,
+      success_url: `${baseUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/billing?canceled=true`,
       subscription_data: {
         trial_period_days: 14,
@@ -330,13 +330,42 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
       .where(eq(districtSubscriptionsTable.districtId, districtId))
       .limit(1);
 
-    if (!sub?.stripeSubscriptionId) {
-      res.status(400).json({ error: "No Stripe subscription to sync" });
+    if (!sub) {
+      res.status(400).json({ error: "No subscription record" });
       return;
     }
 
     const stripe = await getUncachableStripeClient();
-    const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+    let stripeSubscriptionId = sub.stripeSubscriptionId;
+
+    // If the subscription ID isn't yet projected onto our row (the most common
+    // race: the user lands on /billing?success=true&session_id=... before the
+    // Stripe webhook has fired), resolve it from either the checkout session
+    // hint in the body or by listing the customer's subscriptions.
+    if (!stripeSubscriptionId) {
+      const sessionId = (req.body as { sessionId?: string } | undefined)?.sessionId;
+      if (sessionId) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(sessionId);
+          if (typeof session.subscription === "string") stripeSubscriptionId = session.subscription;
+          else if (session.subscription && "id" in session.subscription) stripeSubscriptionId = session.subscription.id;
+        } catch (e) { console.warn("session lookup failed:", e); }
+      }
+      if (!stripeSubscriptionId && sub.stripeCustomerId) {
+        const list = await stripe.subscriptions.list({ customer: sub.stripeCustomerId, limit: 1, status: "all" });
+        stripeSubscriptionId = list.data[0]?.id ?? null;
+      }
+      if (!stripeSubscriptionId) {
+        res.status(400).json({ error: "No Stripe subscription to sync" });
+        return;
+      }
+      await db
+        .update(districtSubscriptionsTable)
+        .set({ stripeSubscriptionId })
+        .where(eq(districtSubscriptionsTable.id, sub.id));
+    }
+
+    const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
     const firstItem = stripeSub.items?.data?.[0];
     const priceId = firstItem?.price?.id;
@@ -396,6 +425,51 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
   } catch (err) {
     console.error("Error syncing subscription:", err);
     res.status(500).json({ error: "Failed to sync subscription" });
+  }
+});
+
+// One-click "upgrade now" from the in-app trial banner. Ends the Stripe trial
+// immediately so the customer is billed today using the card they put on file
+// at checkout. The webhook will then transition status from `trialing` to
+// `active` (or `past_due` if the card fails), which the UI surfaces.
+router.post("/billing/end-trial", adminOnly, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const districtId = await resolveCallerDistrictId(req);
+    if (!districtId) { res.status(403).json({ error: "Unable to determine district" }); return; }
+
+    const [sub] = await db
+      .select()
+      .from(districtSubscriptionsTable)
+      .where(eq(districtSubscriptionsTable.districtId, districtId))
+      .limit(1);
+
+    if (!sub?.stripeSubscriptionId) {
+      res.status(400).json({ error: "No active Stripe subscription found" });
+      return;
+    }
+    if (sub.status !== "trialing") {
+      res.status(400).json({ error: "Subscription is not in a trial" });
+      return;
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      trial_end: "now",
+      proration_behavior: "none",
+    });
+
+    await db
+      .update(districtSubscriptionsTable)
+      .set({
+        status: updated.status,
+        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000) : null,
+      })
+      .where(eq(districtSubscriptionsTable.id, sub.id));
+
+    res.json({ ok: true, status: updated.status });
+  } catch (err) {
+    console.error("Error ending trial:", err);
+    res.status(500).json({ error: "Failed to end trial" });
   }
 });
 
