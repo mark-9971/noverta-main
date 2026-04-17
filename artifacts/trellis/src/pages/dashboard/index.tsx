@@ -21,6 +21,7 @@ import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAl
 import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, ContractRenewalsCard, DeadlinesSection } from "./SecondarySections";
 import { CollapsibleSection } from "./CollapsibleSection";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
+import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
 
 export default function Dashboard() {
   const { role } = useRole();
@@ -229,6 +230,10 @@ function DashboardFull() {
           </Link>
         ))}
       </div>
+
+      {isAdmin && s && (
+        <SystemStatusBanner errorsLast24h={s?.errorsLast24h ?? 0} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <ComplianceRingCard ro={ro} riskPieData={riskPieData} onTrackPct={onTrackPct} />

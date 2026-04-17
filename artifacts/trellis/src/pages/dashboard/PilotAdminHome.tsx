@@ -11,6 +11,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
+import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
 import { getGreeting } from "./types";
 
 interface ComplianceRiskReport {
@@ -117,6 +118,16 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
       return r.json();
     },
     staleTime: 5 * 60_000,
+  });
+
+  const { data: dashSummary } = useQuery<{ errorsLast24h?: number }>({
+    queryKey: ["pilot-home/dashboard-summary", filterParams],
+    queryFn: async () => {
+      const r = await authFetch(`/api/dashboard/summary${params}`);
+      if (!r.ok) throw new Error("dashboard/summary failed");
+      return r.json();
+    },
+    staleTime: 60_000,
   });
 
   const summary = risk?.summary;
@@ -435,6 +446,11 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
           completes — pre-ready, it lives at the top alongside the setup
           checklist (see above) so first-login users see it immediately. */}
       {onboardingComplete && <PilotReadinessPanel />}
+
+      {/* System Status — error count health indicator */}
+      {dashSummary !== undefined && (
+        <SystemStatusBanner errorsLast24h={dashSummary.errorsLast24h ?? 0} />
+      )}
 
       {/* Footer note */}
       <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">
