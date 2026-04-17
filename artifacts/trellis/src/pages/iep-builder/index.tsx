@@ -245,7 +245,7 @@ export default function IepBuilderPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">IEP Annual Review Assistant</h1>
+          <h1 className="text-xl font-bold text-gray-900">IEP Annual Review Draft Builder</h1>
           <p className="text-[13px] text-gray-500">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
         </div>
         {draftSavedAt && (

@@ -163,7 +163,7 @@ export default function StudentIepPage() {
               </Button>
               <Link href={`/students/${studentId}/iep-builder`}>
                 <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5">
-                  <Wand2 className="w-4 h-4" /> Annual Review Assistant
+                  <Wand2 className="w-4 h-4" /> Annual Review Draft Builder
                 </Button>
               </Link>
             </div>

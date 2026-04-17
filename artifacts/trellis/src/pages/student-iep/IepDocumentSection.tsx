@@ -218,8 +218,8 @@ export function IepDocumentSection({ studentId, student, iepDocs, onSaved }: {
             <EmptyState
               icon={FileCheck}
               title="No IEP document on file"
-              description="Create a new IEP document to track all Massachusetts-required sections, or use the AI assistant to draft one based on existing goals."
-              action={{ label: "Build IEP Draft with AI", href: `/students/${studentId}/iep-builder` }}
+              description="Create a new IEP document to track all Massachusetts-required sections, or use the draft builder to assemble a starter document from existing goals, services, and progress data."
+              action={{ label: "Open IEP Draft Builder", href: `/students/${studentId}/iep-builder` }}
               secondaryAction={{ label: "Create Blank IEP", onClick: () => setEditing(true), variant: "outline" }}
             />
           </CardContent>

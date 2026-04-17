@@ -22,7 +22,7 @@ const FEATURE_LABELS: Record<string, string> = {
   "compliance.transitions": "Transition planning",
   "clinical.program_data": "Program data collection",
   "clinical.fba_bip": "FBA/BIP management",
-  "clinical.iep_suggestions": "AI IEP goal suggestions",
+  "clinical.iep_suggestions": "IEP program & goal suggestions",
   "clinical.protective_measures": "Protective measures tracking",
   "clinical.supervision": "Supervision management",
   "clinical.aba_graphing": "ABA graphing & analysis",

@@ -827,7 +827,7 @@ export default function ImportData() {
                 </CardHeader>
                 <CardContent className="pt-3">
                   <div className="space-y-3 text-[12px] text-gray-500">
-                    {["Upload IEP PDF documents (one per student)", "AI reads the document and extracts structured data", "Matches student by name, creates goals, services, accommodations, and tracking targets", "Data appears immediately in all charts, progress views, and compliance tracking"].map((text, i) => (
+                    {["Upload IEP PDF documents (one per student)", "An AI model reads the document and extracts structured fields — review the result before saving", "Matches student by name, creates goals, services, accommodations, and tracking targets", "Data appears immediately in all charts, progress views, and compliance tracking"].map((text, i) => (
                       <div key={i} className="flex items-start gap-2">
                         <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">{i + 1}</span>
                         <span>{text}</span>
