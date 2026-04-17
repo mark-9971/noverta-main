@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, AlertTriangle, TrendingDown, Shield, Clock,
   ChevronDown, ChevronRight, ExternalLink, Bell, FileSearch,
-  CalendarDays, Activity, Users
+  CalendarDays, Activity, Users, CalendarX, UserMinus
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { Link } from "wouter";
@@ -292,6 +292,224 @@ function RiskRow({ risk }: { risk: RiskItem }) {
   );
 }
 
+type ForecastStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance";
+
+interface AbsenceImpact {
+  date: string;
+  staffId: number;
+  staffName: string | null;
+  blockId: number;
+  blockMinutes: number;
+  absenceType: string;
+  isCovered: boolean;
+  substituteStaffId: number | null;
+  substituteStaffName: string | null;
+}
+interface ForecastRow {
+  serviceRequirementId: number;
+  studentId: number;
+  studentName: string;
+  serviceTypeName: string;
+  providerId: number | null;
+  providerName: string | null;
+  intervalType: string;
+  intervalEnd: string;
+  horizonEnd: string;
+  requiredMinutes: number;
+  deliveredMinutes: number;
+  plannedRemainingMinutes: number;
+  plannedLostMinutes: number;
+  projectedMinutes: number;
+  projectedShortfallMinutes: number;
+  projectedPercent: number;
+  forecastRiskStatus: ForecastStatus;
+  absenceImpacts: AbsenceImpact[];
+}
+interface ForecastSummary {
+  totalRows: number;
+  studentsAtRisk: number;
+  totalProjectedShortfallMinutes: number;
+  byStatus: Record<ForecastStatus, number>;
+  topImpactedStaff: Array<{ staffId: number; staffName: string | null; lostMinutes: number; affectedStudents: number }>;
+}
+interface ForecastResp {
+  rows: ForecastRow[];
+  summary: ForecastSummary;
+  generatedAt: string;
+  horizonWeeks: number;
+}
+
+const FORECAST_STATUS_CONFIG: Record<ForecastStatus, { label: string; color: string; bg: string; border: string }> = {
+  on_track: { label: "On track", color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" },
+  slightly_behind: { label: "Slightly behind", color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200" },
+  at_risk: { label: "At risk", color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  out_of_compliance: { label: "Will miss", color: "text-red-700", bg: "bg-red-50", border: "border-red-200" },
+};
+
+function ForecastSection() {
+  const [horizonWeeks, setHorizonWeeks] = useState(4);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  const { data, isLoading, isError } = useQuery<ForecastResp>({
+    queryKey: ["service-forecast", horizonWeeks],
+    queryFn: () => authFetch(`/api/service-forecast?horizonWeeks=${horizonWeeks}`).then(r => {
+      if (!r.ok) throw new Error("Failed to load forecast");
+      return r.json();
+    }),
+    staleTime: 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="border-amber-200/60">
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarX className="w-4 h-4 text-amber-500" /> Forecast — next {horizonWeeks} weeks</CardTitle></CardHeader>
+        <CardContent><Skeleton className="h-32 w-full" /></CardContent>
+      </Card>
+    );
+  }
+  if (isError || !data) {
+    return null;
+  }
+
+  const atRiskRows = data.rows.filter(r => r.forecastRiskStatus === "at_risk" || r.forecastRiskStatus === "out_of_compliance");
+  const lostHours = (data.summary.totalProjectedShortfallMinutes / 60).toFixed(1);
+
+  return (
+    <Card className="border-amber-200/60">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarX className="w-4 h-4 text-amber-500" />
+              Forecast — next {horizonWeeks} weeks
+            </CardTitle>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Projected delivery based on planned schedule blocks minus uncovered staff absences. Updated {new Date(data.generatedAt).toLocaleString()}.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {[2, 4, 8].map(w => (
+              <button
+                key={w}
+                onClick={() => setHorizonWeeks(w)}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${horizonWeeks === w ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+              >{w}w</button>
+            ))}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="rounded-lg border border-gray-200/60 bg-white p-3">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Students projected to miss</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{data.summary.studentsAtRisk}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200/60 bg-white p-3">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Projected lost minutes</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{lostHours}h</p>
+          </div>
+          <div className="rounded-lg border border-gray-200/60 bg-white p-3">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">Service requirements tracked</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{data.summary.totalRows}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200/60 bg-white p-3">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400">"Will miss" rows</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">{data.summary.byStatus.out_of_compliance}</p>
+          </div>
+        </div>
+
+        {data.summary.topImpactedStaff.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-200/60 bg-amber-50/30 p-3">
+            <p className="text-[11px] uppercase tracking-wide font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+              <UserMinus className="w-3.5 h-3.5" /> Coverage gaps driving the forecast
+            </p>
+            <div className="space-y-1.5">
+              {data.summary.topImpactedStaff.slice(0, 5).map(s => (
+                <div key={s.staffId} className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-700">{s.staffName ?? `Staff #${s.staffId}`}</span>
+                  <span className="text-gray-500">
+                    <span className="font-semibold text-amber-700">{(s.lostMinutes / 60).toFixed(1)}h</span> uncovered · {s.affectedStudents} student{s.affectedStudents === 1 ? "" : "s"}
+                    <Link href={`/staff-calendar?staffId=${s.staffId}`}>
+                      <a className="ml-2 text-emerald-600 hover:text-emerald-700 font-medium">Assign sub →</a>
+                    </Link>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {atRiskRows.length === 0 ? (
+          <div className="text-center py-6 text-xs text-gray-400">
+            No forecast risks in the next {horizonWeeks} weeks. All scheduled coverage is intact.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {atRiskRows.slice(0, 20).map(row => {
+              const cfg = FORECAST_STATUS_CONFIG[row.forecastRiskStatus];
+              const isOpen = expanded[row.serviceRequirementId];
+              const uncovered = row.absenceImpacts.filter(i => !i.isCovered);
+              return (
+                <div key={row.serviceRequirementId} className={`rounded-md border ${cfg.border} ${cfg.bg}`}>
+                  <button
+                    onClick={() => setExpanded(p => ({ ...p, [row.serviceRequirementId]: !p[row.serviceRequirementId] }))}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/40 transition-colors"
+                  >
+                    {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                    <span className={`text-[10px] uppercase tracking-wide font-semibold ${cfg.color} px-1.5 py-0.5 rounded ${cfg.bg} border ${cfg.border}`}>{cfg.label}</span>
+                    <span className="text-xs font-semibold text-gray-800 truncate">{row.studentName}</span>
+                    <span className="text-[11px] text-gray-500 truncate">· {row.serviceTypeName}</span>
+                    <span className="ml-auto text-[11px] text-gray-600">
+                      <span className="font-semibold">{row.projectedPercent}%</span> projected · short {(row.projectedShortfallMinutes / 60).toFixed(1)}h
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-3 text-[11px] text-gray-600 space-y-2 border-t border-white/60">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                        <div><span className="text-gray-400">Required</span><div className="font-semibold text-gray-800">{row.requiredMinutes}m / {row.intervalType}</div></div>
+                        <div><span className="text-gray-400">Delivered</span><div className="font-semibold text-gray-800">{row.deliveredMinutes}m</div></div>
+                        <div><span className="text-gray-400">Planned remaining</span><div className="font-semibold text-emerald-700">+{row.plannedRemainingMinutes}m</div></div>
+                        <div><span className="text-gray-400">Planned lost</span><div className="font-semibold text-red-700">−{row.plannedLostMinutes}m</div></div>
+                      </div>
+                      {uncovered.length > 0 && (
+                        <div className="pt-1">
+                          <p className="text-[10px] uppercase tracking-wide font-semibold text-gray-400 mb-1">Uncovered absences</p>
+                          <div className="space-y-1">
+                            {uncovered.map((imp, idx) => (
+                              <div key={idx} className="flex items-center justify-between bg-white/60 rounded px-2 py-1">
+                                <span>{imp.date} · {imp.staffName ?? `Staff #${imp.staffId}`} ({imp.absenceType}) · {imp.blockMinutes}m</span>
+                                <Link href={`/staff-calendar?staffId=${imp.staffId}&date=${imp.date}`}>
+                                  <a className="text-emerald-600 hover:text-emerald-700 font-medium">Find sub →</a>
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-1">
+                        <Link href={`/students/${row.studentId}`}>
+                          <a className="text-emerald-600 hover:text-emerald-700 font-medium inline-flex items-center gap-1">
+                            View student <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {atRiskRows.length > 20 && (
+              <p className="text-[11px] text-gray-400 text-center pt-2">
+                Showing top 20 of {atRiskRows.length} forecast risks
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CostAvoidanceDashboard() {
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -391,6 +609,8 @@ export default function CostAvoidanceDashboard() {
       </div>
 
       <ExposureBanner summary={summary} />
+
+      <ForecastSection />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="border-gray-200/60">

@@ -63,6 +63,7 @@ import dataHealthRouter from "./dataHealth";
 import supportRouter from "./support";
 import medicaidBillingRouter from "./medicaidBilling";
 import costAvoidanceRouter from "./costAvoidance";
+import serviceForecastRouter from "./serviceForecast";
 import compensatoryFinanceRouter from "./compensatoryFinance";
 import sampleDataRouter from "./sampleData";
 
@@ -230,6 +231,10 @@ router.use(medicaidBillingRouter);
 router.use("/cost-avoidance", requireDistrictScope);
 router.use("/cost-avoidance", requireRoles("admin", "coordinator"));
 router.use(costAvoidanceRouter);
+
+router.use("/service-forecast", requireDistrictScope);
+router.use("/service-forecast", requireRoles("admin", "coordinator"));
+router.use(serviceForecastRouter);
 
 router.use("/compensatory-finance", requireDistrictScope);
 router.use("/compensatory-finance", requireRoles("admin", "coordinator"));
