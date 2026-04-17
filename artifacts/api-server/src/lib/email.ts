@@ -66,6 +66,7 @@ export type EmailType =
   | "overdue_followup_reminder"
   | "incomplete_transition_reminder"
   | "overdue_evaluation_reminder"
+  | "overdue_session_log_reminder"
   | "progress_report"
   | "general";
 
@@ -406,5 +407,37 @@ export function buildOverdueEvaluationEmail(opts: {
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
   const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.\n\n${schoolName}`;
+  return { subject, html, text };
+}
+
+export function buildOverdueSessionLogEmail(opts: {
+  staffName: string;
+  missingLogs: { studentName: string; date: string; serviceTypeName?: string | null }[];
+  schoolName?: string;
+}): { subject: string; html: string; text: string } {
+  const { staffName, missingLogs, schoolName } = opts;
+  const count = missingLogs.length;
+  const subject = `Reminder: ${count} session log${count !== 1 ? "s" : ""} need${count === 1 ? "s" : ""} to be completed`;
+
+  const rows = missingLogs.map(m => `<tr>
+    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:600">${m.studentName}</td>
+    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#6b7280">${m.date}${m.serviceTypeName ? ` · ${m.serviceTypeName}` : ""}</td>
+  </tr>`).join("");
+
+  const textRows = missingLogs.map(m => `  • ${m.studentName} — ${m.date}${m.serviceTypeName ? ` (${m.serviceTypeName})` : ""}`).join("\n");
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#b45309;color:#fff;padding:20px 24px}.body{padding:24px}.alert{background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}table{width:100%;border-collapse:collapse;margin-top:8px}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Session Logs Pending</h1></div>
+<div class="body">
+<p>Hi ${staffName},</p>
+<div class="alert"><strong>${count}</strong> scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry. Please log ${count === 1 ? "it" : "them"} or mark as missed with a reason.</div>
+<table>${rows}</table>
+<p style="margin-top:20px">Open Trellis to log these sessions. Sessions logged within the same school week count toward compliance — older entries may flag your students as out of compliance.</p>
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform${schoolName ? ` — ${schoolName}` : ""}.</p></div>
+</div></body></html>`;
+  const text = `Hi ${staffName},\n\n${count} scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry:\n\n${textRows}\n\nPlease log them or mark as missed in Trellis.${schoolName ? `\n\n${schoolName}` : ""}`;
   return { subject, html, text };
 }

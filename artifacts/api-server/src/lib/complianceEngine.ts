@@ -7,7 +7,7 @@ import {
   serviceRequirementsTable,
   parentContactsTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray, or, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import { logger } from "./logger";
 
@@ -117,10 +117,15 @@ export async function runComplianceChecks(): Promise<{ newAlerts: number; resolv
     }
   }
 
+  const COMPLIANCE_ENGINE_TYPES = ["behind_on_minutes", "projected_shortfall", "missed_sessions", "conflict"];
   const resolvedResult = await db
     .update(alertsTable)
     .set({ resolved: true, resolvedAt: new Date(), resolvedNote: "Auto-resolved by compliance engine re-check" })
-    .where(eq(alertsTable.resolved, false))
+    .where(and(
+      eq(alertsTable.resolved, false),
+      inArray(alertsTable.type, COMPLIANCE_ENGINE_TYPES),
+      or(isNull(alertsTable.snoozedUntil), sql`${alertsTable.snoozedUntil} <= NOW()`),
+    ))
     .returning({ id: alertsTable.id });
 
   const resolvedAlerts = resolvedResult.length;

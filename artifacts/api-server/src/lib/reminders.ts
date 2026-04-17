@@ -10,14 +10,19 @@ import {
   communicationEventsTable,
   scheduledReportsTable,
   exportHistoryTable,
+  scheduleBlocksTable,
+  sessionLogsTable,
+  alertsTable,
+  serviceTypesTable,
 } from "@workspace/db";
-import { eq, and, lt, ne, sql, isNull, or, lte } from "drizzle-orm";
+import { eq, and, lt, ne, sql, isNull, or, lte, inArray } from "drizzle-orm";
 import {
   sendEmail,
   sendReportEmail,
   buildOverdueFollowupEmail,
   buildOverdueEvaluationEmail,
   buildIncompleteTransitionEmail,
+  buildOverdueSessionLogEmail,
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
 import { generateReportCSVDirect } from "../routes/reportExports/historyAndScheduled";
@@ -257,6 +262,250 @@ async function runDraftTransitionPlans(): Promise<void> {
   }
 }
 
+const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+async function runOverdueSessionLogCheck(): Promise<void> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const checkDates: { date: string; dayName: string; daysOld: number }[] = [];
+  for (let i = 2; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dayName = DAY_NAMES[d.getDay()];
+    if (dayName === "saturday" || dayName === "sunday") continue;
+    checkDates.push({ date: d.toISOString().substring(0, 10), dayName, daysOld: i });
+  }
+
+  if (checkDates.length === 0) return;
+
+  const blocks = await db
+    .select({
+      id: scheduleBlocksTable.id,
+      staffId: scheduleBlocksTable.staffId,
+      studentId: scheduleBlocksTable.studentId,
+      serviceTypeId: scheduleBlocksTable.serviceTypeId,
+      dayOfWeek: scheduleBlocksTable.dayOfWeek,
+      effectiveFrom: scheduleBlocksTable.effectiveFrom,
+      effectiveTo: scheduleBlocksTable.effectiveTo,
+      blockLabel: scheduleBlocksTable.blockLabel,
+    })
+    .from(scheduleBlocksTable)
+    .where(
+      and(
+        eq(scheduleBlocksTable.isRecurring, true),
+        eq(scheduleBlocksTable.recurrenceType, "weekly"),
+        eq(scheduleBlocksTable.blockType, "service"),
+        isNull(scheduleBlocksTable.deletedAt),
+      )
+    );
+
+  type Missing = {
+    staffId: number;
+    studentId: number;
+    date: string;
+    daysOld: number;
+    serviceTypeId: number | null;
+    blockLabel: string | null;
+  };
+
+  // Build expected occurrences from blocks (dedupe by tuple)
+  const expectedMap = new Map<string, Missing>();
+  const earliestDate = checkDates.reduce((min, cd) => cd.date < min ? cd.date : min, "9999-99-99");
+  const latestDate = checkDates.reduce((max, cd) => cd.date > max ? cd.date : max, "0000-00-00");
+
+  for (const block of blocks) {
+    if (!block.studentId) continue;
+    for (const cd of checkDates) {
+      if (block.dayOfWeek.toLowerCase() !== cd.dayName) continue;
+      if (block.effectiveFrom && cd.date < block.effectiveFrom) continue;
+      if (block.effectiveTo && cd.date > block.effectiveTo) continue;
+
+      const key = `${block.staffId}|${block.studentId}|${cd.date}`;
+      if (expectedMap.has(key)) continue; // dedupe duplicate blocks for same tuple
+      expectedMap.set(key, {
+        staffId: block.staffId,
+        studentId: block.studentId!,
+        date: cd.date,
+        daysOld: cd.daysOld,
+        serviceTypeId: block.serviceTypeId,
+        blockLabel: block.blockLabel,
+      });
+    }
+  }
+
+  if (expectedMap.size === 0) {
+    console.log("[Reminders] Overdue session logs: 0 expected");
+    return;
+  }
+
+  // Single query: fetch all session logs in window for staff/student tuples we care about
+  const staffIdsSet = new Set<number>();
+  const studentIdsSet = new Set<number>();
+  for (const m of expectedMap.values()) {
+    staffIdsSet.add(m.staffId);
+    studentIdsSet.add(m.studentId);
+  }
+  const staffIds = [...staffIdsSet];
+  const studentIds = [...studentIdsSet];
+
+  const existingLogs = await db
+    .select({
+      staffId: sessionLogsTable.staffId,
+      studentId: sessionLogsTable.studentId,
+      sessionDate: sessionLogsTable.sessionDate,
+    })
+    .from(sessionLogsTable)
+    .where(
+      and(
+        inArray(sessionLogsTable.staffId, staffIds),
+        inArray(sessionLogsTable.studentId, studentIds),
+        sql`${sessionLogsTable.sessionDate} BETWEEN ${earliestDate} AND ${latestDate}`,
+        isNull(sessionLogsTable.deletedAt),
+      )
+    );
+  const loggedKeys = new Set(existingLogs.map(l => `${l.staffId}|${l.studentId}|${l.sessionDate}`));
+
+  // Filter to actually missing
+  const missing: Missing[] = [];
+  for (const [key, m] of expectedMap.entries()) {
+    if (!loggedKeys.has(key)) missing.push(m);
+  }
+
+  if (missing.length === 0) {
+    console.log("[Reminders] Overdue session logs: 0 missing");
+    return;
+  }
+
+  // Single query: fetch all existing unresolved overdue_session_log alerts for these tuples
+  const existingAlerts = await db
+    .select({
+      staffId: alertsTable.staffId,
+      studentId: alertsTable.studentId,
+      message: alertsTable.message,
+    })
+    .from(alertsTable)
+    .where(
+      and(
+        eq(alertsTable.type, "overdue_session_log"),
+        eq(alertsTable.resolved, false),
+        inArray(alertsTable.staffId, staffIds),
+        inArray(alertsTable.studentId, studentIds),
+      )
+    );
+  const alertKeys = new Set<string>();
+  for (const a of existingAlerts) {
+    const match = a.message?.match(/\[ref:(\d{4}-\d{2}-\d{2})\]/);
+    if (match && a.staffId != null && a.studentId != null) {
+      alertKeys.add(`${a.staffId}|${a.studentId}|${match[1]}`);
+    }
+  }
+
+  const missingStudentIds = [...new Set(missing.map(m => m.studentId))];
+  const students = await db.select().from(studentsTable).where(inArray(studentsTable.id, missingStudentIds));
+  const studentMap = new Map(students.map(s => [s.id, s]));
+
+  const serviceTypeIds = [...new Set(missing.map(m => m.serviceTypeId).filter((x): x is number => x != null))];
+  const serviceTypes = serviceTypeIds.length > 0
+    ? await db.select().from(serviceTypesTable).where(inArray(serviceTypesTable.id, serviceTypeIds))
+    : [];
+  const serviceTypeMap = new Map(serviceTypes.map(s => [s.id, s]));
+
+  // Build alert rows for batch insert
+  const alertsToInsert: any[] = [];
+  for (const m of missing) {
+    const key = `${m.staffId}|${m.studentId}|${m.date}`;
+    if (alertKeys.has(key)) continue; // dedupe against existing unresolved alerts
+
+    const student = studentMap.get(m.studentId);
+    if (!student) continue;
+
+    const severity = m.daysOld >= 5 ? "critical" : m.daysOld >= 3 ? "high" : "medium";
+    const svc = m.serviceTypeId != null ? serviceTypeMap.get(m.serviceTypeId) : null;
+    const svcLabel = svc ? ` ${svc.name}` : "";
+    const labelSuffix = m.blockLabel ? ` — ${m.blockLabel}` : "";
+
+    alertsToInsert.push({
+      type: "overdue_session_log",
+      severity,
+      staffId: m.staffId,
+      studentId: m.studentId,
+      message: `Missing${svcLabel} session log for ${student.firstName} ${student.lastName} on ${m.date} (${m.daysOld} days ago)${labelSuffix} [ref:${m.date}]`,
+      suggestedAction: m.daysOld >= 3
+        ? "Log this session immediately or mark as missed with reason."
+        : "Please log this session at your earliest convenience.",
+      resolved: false,
+    });
+  }
+
+  let createdAlerts = 0;
+  if (alertsToInsert.length > 0) {
+    const inserted = await db.insert(alertsTable).values(alertsToInsert).returning({ id: alertsTable.id });
+    createdAlerts = inserted.length;
+  }
+
+  // Group missing by staff for digest emails
+  const byStaff = new Map<number, Missing[]>();
+  for (const m of missing) {
+    if (!byStaff.has(m.staffId)) byStaff.set(m.staffId, []);
+    byStaff.get(m.staffId)!.push(m);
+  }
+
+  // Single query: find staff who have already had a successful digest sent in the last 24h
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const recentSends = await db.execute(sql`
+    SELECT DISTINCT staff_id FROM communication_events
+    WHERE type = 'overdue_session_log_reminder'
+      AND staff_id = ANY(${staffIds}::int[])
+      AND status = 'sent'
+      AND sent_at > ${cutoff}::timestamptz
+  `);
+  const recentStaffIds = new Set<number>(recentSends.rows.map((r: any) => Number(r.staff_id)));
+
+  // Fetch all relevant staff records once
+  const staffRows = await db.select().from(staffTable).where(inArray(staffTable.id, [...byStaff.keys()]));
+  const staffMap = new Map(staffRows.map(s => [s.id, s]));
+
+  let emailsSent = 0;
+  for (const [staffId, items] of byStaff.entries()) {
+    if (recentStaffIds.has(staffId)) continue;
+    const staff = staffMap.get(staffId);
+    if (!staff?.email) continue;
+
+    const itemsForEmail = items
+      .sort((a, b) => b.daysOld - a.daysOld)
+      .map(i => {
+        const s = studentMap.get(i.studentId);
+        const svc = i.serviceTypeId != null ? serviceTypeMap.get(i.serviceTypeId) : null;
+        return {
+          studentName: s ? `${s.firstName} ${s.lastName}` : "Unknown student",
+          date: i.date,
+          serviceTypeName: svc?.name ?? null,
+        };
+      });
+
+    const emailContent = buildOverdueSessionLogEmail({
+      staffName: `${staff.firstName} ${staff.lastName}`,
+      missingLogs: itemsForEmail,
+    });
+
+    await sendEmail({
+      studentId: items[0].studentId,
+      staffId,
+      type: "overdue_session_log_reminder",
+      subject: emailContent.subject,
+      bodyHtml: emailContent.html,
+      bodyText: emailContent.text,
+      toEmail: staff.email,
+      toName: `${staff.firstName} ${staff.lastName}`,
+      metadata: { count: items.length, triggeredBy: "overdue_session_log_scheduler" },
+    });
+    emailsSent++;
+  }
+
+  console.log(`[Reminders] Overdue session logs: ${createdAlerts} alerts created, ${emailsSent} digest emails sent (${missing.length} total missing)`);
+}
+
 async function runComplianceAlertCheck(): Promise<void> {
   try {
     const result = await generateComplianceAlerts();
@@ -361,6 +610,7 @@ async function runAllReminders(): Promise<void> {
       runOverdueEvaluations(),
       runDraftTransitionPlans(),
       runComplianceAlertCheck(),
+      runOverdueSessionLogCheck(),
       runScheduledReports(),
       runCostAvoidanceAlertGeneration(),
     ]);

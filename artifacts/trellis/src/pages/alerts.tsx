@@ -24,11 +24,14 @@ const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }
 
 function computeSourceUrl(alert: any): string | null {
   const { type, studentId } = alert;
+  if (type === "overdue_session_log") {
+    return `/sessions`;
+  }
   if (studentId) {
     if (type === "iep_expiring" || type === "iep_expired" || type === "missing_iep" || type === "evaluation_overdue") {
       return `/students/${studentId}`;
     }
-    if (type === "service_minutes_behind" || type === "service_gap" || type === "missed_sessions") {
+    if (type === "service_minutes_behind" || type === "service_gap" || type === "missed_sessions" || type === "behind_on_minutes" || type === "projected_shortfall") {
       return `/compliance`;
     }
     if (type === "restraint_review" || type === "incident_follow_up") {
@@ -36,7 +39,7 @@ function computeSourceUrl(alert: any): string | null {
     }
     return `/students/${studentId}`;
   }
-  if (type === "service_minutes_behind" || type === "service_gap" || type === "missed_sessions") {
+  if (type === "service_minutes_behind" || type === "service_gap" || type === "missed_sessions" || type === "behind_on_minutes" || type === "projected_shortfall") {
     return `/compliance`;
   }
   return null;
