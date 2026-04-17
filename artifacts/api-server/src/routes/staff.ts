@@ -169,6 +169,10 @@ router.get("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  // Verify the requested staff member belongs to the caller's district before
+  // returning any data. assertStaffInCallerDistrict returns false and sends 403
+  // when the staff member's school is in a different district.
+  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const [staff] = await db.select().from(staffTable).where(and(eq(staffTable.id, params.data.id), isNull(staffTable.deletedAt)));
   if (!staff) {
     res.status(404).json({ error: "Staff not found" });

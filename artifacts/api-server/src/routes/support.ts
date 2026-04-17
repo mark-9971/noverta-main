@@ -393,7 +393,19 @@ router.get("/support/districts/:id/recent-syncs", async (req: Request, res: Resp
  */
 router.get("/support/imports/recent", async (req: Request, res: Response) => {
   const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
-  const filterDistrictId = req.query.districtId ? Number(req.query.districtId) : null;
+
+  // Strict districtId validation — must be a positive integer if supplied.
+  // A malformed value (NaN, float, negative) returns 400 instead of a DB error.
+  let filterDistrictId: number | null = null;
+  if (req.query.districtId !== undefined) {
+    const raw = req.query.districtId;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n <= 0) {
+      res.status(400).json({ error: "districtId must be a positive integer" });
+      return;
+    }
+    filterDistrictId = n;
+  }
   try {
     const baseQuery = db.select().from(importsTable).orderBy(desc(importsTable.createdAt)).limit(limit);
     const imports = filterDistrictId != null
