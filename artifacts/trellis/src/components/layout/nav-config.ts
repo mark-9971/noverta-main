@@ -6,7 +6,7 @@ import {
   Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
-  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -139,6 +139,7 @@ export const adminNav: NavSection[] = [
     icon: Settings,
     collapsible: true,
     items: [
+      { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },

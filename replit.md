@@ -24,6 +24,8 @@ Frontend pages refactored into sub-component directories (state/hooks in index.t
 - `supervision/`, `resource-management/`, `dashboard/`, `compensatory-finance/`, `compensatory-services/`
 - Components: `quick-log-sheet/`, `bip-management/`, `program-builder/` (TemplateManager split)
 
+**Compliance Risk Report (Killer Report):** Meeting-ready compliance report at `/compliance-risk-report` with executive summary cards (students, compliance %, shortfall, $ exposure), "Needs Attention" section for at-risk/out-of-compliance students, full student detail table, and provider delivery summary. Supports school filtering, print-to-PDF (landscape letter), and CSV export. Backend: `reportExports/complianceRiskReport.ts`, Frontend: `pages/compliance-risk-report.tsx`. Uses `computeAllActiveMinuteProgress` + rate resolution for $ exposure calculations. District-scoped, role-gated (admin/coordinator/case_manager).
+
 Backend routes refactored into sub-module directories (index.ts mounts sub-routers):
 - `reportExports/`, `protectiveMeasures/`, `iep/`, `students/`, `programData/`, `dashboard/`, `iepMeetings/`, `sessions/`
 - `fba/`, `reports/`, `schedules/`, `analytics/`, `agencies/`
