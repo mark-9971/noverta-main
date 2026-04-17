@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import {
-  studentsTable, staffTable, sisConnectionsTable, sisSyncLogsTable,
+  studentsTable, staffTable, sisConnectionsTable, sisSyncLogsTable, enrollmentEventsTable,
 } from "@workspace/db";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import type { SisStudentRecord, SisStaffRecord } from "./types";
@@ -130,10 +130,23 @@ async function archiveMissingStudents(
     (s) => s.externalId && !seenExternalIds.has(s.externalId),
   );
 
+  const syncDate = new Date().toISOString().slice(0, 10);
+
   for (const student of toArchive) {
-    await db.update(studentsTable)
-      .set({ status: "inactive" })
-      .where(eq(studentsTable.id, student.id));
+    await db.transaction(async (tx) => {
+      await tx.update(studentsTable)
+        .set({ status: "inactive" })
+        .where(eq(studentsTable.id, student.id));
+
+      await tx.insert(enrollmentEventsTable).values({
+        studentId: student.id,
+        eventType: "withdrawn",
+        eventDate: syncDate,
+        source: "sis_sync",
+        reason: "Not found in SIS feed",
+      });
+    });
+
     counters.studentsArchived++;
   }
 }

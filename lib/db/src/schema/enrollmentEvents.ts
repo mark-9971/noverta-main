@@ -31,11 +31,19 @@ export const ENROLLMENT_EVENT_TYPES = [
 
 export type EnrollmentEventType = typeof ENROLLMENT_EVENT_TYPES[number];
 
+export const ENROLLMENT_EVENT_SOURCES = [
+  "manual",
+  "sis_sync",
+] as const;
+
+export type EnrollmentEventSource = typeof ENROLLMENT_EVENT_SOURCES[number];
+
 export const enrollmentEventsTable = pgTable("enrollment_events", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
   eventType: text("event_type").notNull(),
   eventDate: text("event_date").notNull(),
+  source: text("source"),
   reasonCode: text("reason_code"),
   reason: text("reason"),
   notes: text("notes"),
