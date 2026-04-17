@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@clerk/testing": "^1.4.0",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "catalog:"
+  }
+}
