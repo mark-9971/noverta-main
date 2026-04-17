@@ -474,7 +474,15 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   }
   if (compRows.length > 0) await db.insert(compensatoryObligationsTable).values(compRows);
 
-  // 12. Mark district as having sample data
+  // 12. Backfill comprehensive demo content for the new sample students only:
+  //     per-goal targets, 90 days of data sessions with start/end times,
+  //     program/behavior data points, FBA + BIP, medical alerts, parent
+  //     messages. Scoped strictly to the students we just inserted so that
+  //     pre-existing real-tenant rows are never touched. Idempotent.
+  const { backfillGoalProgressForStudents } = await import("./backfill-goal-progress");
+  await backfillGoalProgressForStudents(insertedStudents.map((s) => s.id));
+
+  // 13. Mark district as having sample data
   await db.update(districtsTable)
     .set({ hasSampleData: true })
     .where(eq(districtsTable.id, districtId));
