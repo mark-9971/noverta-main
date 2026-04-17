@@ -149,21 +149,36 @@ const _forcedDistrictId: number | null = process.env.TRELLIS_DEV_FORCE_DISTRICT_
   ? Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID)
   : null;
 
-/** Cache of Clerk user ID -> resolved district ID (or null). Process-local, no TTL. */
-const _userDistrictCache = new Map<string, number | null>();
+/**
+ * Cache of Clerk user ID -> resolved district ID. Process-local.
+ *
+ * IMPORTANT: we ONLY cache positive resolutions (a real district id) and we
+ * cap each entry with a short TTL. Caching `null` would strand a brand-new
+ * admin who hasn't been linked to a staff row yet — they'd be denied
+ * indefinitely until the server restarts, even right after the coordinator
+ * adds them. The ~1-min TTL also means staff transfers between districts
+ * are picked up without restart.
+ */
+const _userDistrictCache = new Map<string, { districtId: number; expiresAt: number }>();
+const USER_DISTRICT_CACHE_TTL_MS = 60_000;
+
+/** Manually drop a user from the cache after a known mutation (e.g. staff move). */
+export function invalidateUserDistrictCache(userId?: string): void {
+  if (userId) _userDistrictCache.delete(userId);
+  else _userDistrictCache.clear();
+}
 
 /** Look up the caller's district by tracing Clerk user → primary email → staff row → school. */
 async function resolveDistrictFromClerkUser(userId: string): Promise<number | null> {
-  if (_userDistrictCache.has(userId)) return _userDistrictCache.get(userId) ?? null;
+  const cached = _userDistrictCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.districtId;
+  if (cached) _userDistrictCache.delete(userId);
   try {
     const user = await clerkClient.users.getUser(userId);
     const emails = user.emailAddresses
       .map(e => e.emailAddress?.toLowerCase())
       .filter((e): e is string => !!e);
-    if (emails.length === 0) {
-      _userDistrictCache.set(userId, null);
-      return null;
-    }
+    if (emails.length === 0) return null;
     // Find an active staff row whose email matches and whose school resolves to a district.
     const rows = await db
       .select({ districtId: schoolsTable.districtId })
@@ -175,7 +190,12 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
       ))
       .limit(1);
     const districtId = rows[0]?.districtId ?? null;
-    _userDistrictCache.set(userId, districtId);
+    if (districtId != null) {
+      _userDistrictCache.set(userId, {
+        districtId,
+        expiresAt: Date.now() + USER_DISTRICT_CACHE_TTL_MS,
+      });
+    }
     return districtId;
   } catch (err) {
     console.error("[Auth] resolveDistrictFromClerkUser failed:", err);
