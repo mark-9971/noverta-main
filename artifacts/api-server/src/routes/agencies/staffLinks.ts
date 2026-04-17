@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { adminOnly, assertAgencyAccess } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.post("/agencies/:id/staff", adminOnly, async (req: Request, res: Response): Promise<void> => {

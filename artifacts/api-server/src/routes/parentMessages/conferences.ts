@@ -5,6 +5,7 @@ import { logAudit } from "../../lib/auditLog";
 import { sendEmail } from "../../lib/email";
 import { getStaffId, verifyGuardianBelongsToStudent, verifyStudentInDistrict } from "./shared";
 
+// tenant-scope: district-join
 const router = Router();
 
 router.post("/students/:studentId/conference-requests", async (req: Request, res: Response) => {

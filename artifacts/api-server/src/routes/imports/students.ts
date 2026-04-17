@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, importsTable, studentsTable, staffTable, schoolsTable } from "@workspace/db";
 import { and, ilike, eq, isNull } from "drizzle-orm";
 import { parseCsvRows, requireAdmin, normalizeDate } from "./shared";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -125,6 +126,7 @@ router.post("/imports/students", requireAdmin, async (req, res): Promise<void> =
     }
 
     const [importRecord] = await db.insert(importsTable).values({
+      districtId: getEnforcedDistrictId(req as AuthedRequest),
       importType: "students",
       fileName: fileName ?? null,
       status: errored === rows.length ? "failed" : "completed",

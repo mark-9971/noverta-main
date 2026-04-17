@@ -6,6 +6,7 @@ import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { meetingAccess, pick } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.post("/iep-meetings/:id/attendees", meetingAccess, async (req, res): Promise<void> => {

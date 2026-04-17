@@ -1,13 +1,19 @@
 import { Router, type IRouter } from "express";
 import { db, importsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireAdmin } from "./shared";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.get("/imports", requireAdmin, async (req, res): Promise<void> => {
+  // tenant-scope: filtered by caller's district
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
   try {
-    const imports = await db.select().from(importsTable).orderBy(desc(importsTable.createdAt));
+    const query = db.select().from(importsTable).orderBy(desc(importsTable.createdAt));
+    const imports = districtId != null
+      ? await query.where(eq(importsTable.districtId, districtId))
+      : await query;
     res.json(imports.map(i => ({ ...i, createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString() })));
   } catch (e: any) {
     console.error("GET /imports error:", e);

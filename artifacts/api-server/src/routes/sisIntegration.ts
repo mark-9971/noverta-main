@@ -10,6 +10,7 @@ import { enqueueSyncJob } from "../lib/sis/jobQueue";
 import { encryptCredentials, decryptCredentials } from "../lib/sis/credentials";
 import type { SisProvider } from "../lib/sis/types";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 const ADMIN_ROLES = ["admin"] as const;
 const VALID_PROVIDERS = new Set(["powerschool", "infinite_campus", "skyward", "csv", "sftp"]);

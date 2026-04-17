@@ -3,6 +3,7 @@ import { requireMinRole } from "../middlewares/auth";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { runDistrictReadinessChecks } from "../lib/pilotReadiness";
 
+// tenant-scope: district-join
 const router = Router();
 const adminOnly = requireMinRole("admin");
 

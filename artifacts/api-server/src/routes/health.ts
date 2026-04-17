@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { getErrorCount1h, sentryInitialized } from "../lib/sentry";
 
+// tenant-scope: public
 const router: IRouter = Router();
 const startedAt = Date.now();
 

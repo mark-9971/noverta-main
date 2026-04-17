@@ -5,6 +5,7 @@ import { eq, isNotNull, desc, and } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { requireRoles } from "../middlewares/auth";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/recently-deleted", requireRoles("admin", "coordinator"), async (_req, res): Promise<void> => {

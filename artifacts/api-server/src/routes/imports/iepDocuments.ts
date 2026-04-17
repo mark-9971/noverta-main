@@ -16,6 +16,7 @@ import {
 } from "@workspace/db";
 import { eq, and, ilike } from "drizzle-orm";
 import { requireAdmin, normalizeDate } from "./shared";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router = Router();
 
@@ -548,6 +549,7 @@ router.post(
       const result = await importIepForStudent(studentId, extracted);
 
       await db.insert(importsTable).values({
+        districtId: getEnforcedDistrictId(req as AuthedRequest),
         importType: "iep_documents",
         fileName: req.file.originalname || "iep-upload.pdf",
         rowsProcessed: 1,
@@ -691,6 +693,7 @@ router.post(
       }
 
       await db.insert(importsTable).values({
+        districtId: getEnforcedDistrictId(req as AuthedRequest),
         importType: "iep_documents",
         fileName: `Bulk IEP upload (${files.length} files)`,
         rowsProcessed: files.length,

@@ -7,6 +7,7 @@ import { LEGAL_VERSIONS, LEGAL_DOC_LABELS } from "../lib/legalVersions";
 import { logger } from "../lib/logger";
 import { eq, and, sql } from "drizzle-orm";
 
+// tenant-scope: district-join
 const router = Router();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

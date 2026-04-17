@@ -3,6 +3,7 @@ import { db, iepBuilderDraftsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getStaffIdFromReq } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/students/:studentId/iep-builder/draft", async (req, res): Promise<void> => {

@@ -15,6 +15,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { getClientIp } from "../lib/clientIp";
 import { SlidingWindowLimiter } from "../lib/rateLimiter";
 
+// tenant-scope: param-guard
 /**
  * Rate limiters for the public, unauthenticated signature-request routes.
  *

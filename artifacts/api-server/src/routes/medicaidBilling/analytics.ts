@@ -4,6 +4,7 @@ import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getDistrictId } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/medicaid/revenue-summary", async (req, res): Promise<void> => {

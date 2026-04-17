@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
+// tenant-scope: district-join
   programTargetsTable, programStepsTable, programTemplatesTable,
 } from "@workspace/db";
 import { eq, and, sql, asc } from "drizzle-orm";

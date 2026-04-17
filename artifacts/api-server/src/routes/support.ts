@@ -387,19 +387,22 @@ router.get("/support/districts/:id/recent-syncs", async (req: Request, res: Resp
 });
 
 /**
- * GET /api/support/imports/recent?limit=20
- * Recent CSV imports across all districts (the imports table has no districtId column —
- * this is a global view used to spot stuck/failed imports during pilot rollouts).
+ * GET /api/support/imports/recent?limit=20&districtId=42
+ * Recent CSV imports across all districts (platform-admin only).
+ * Now includes districtId attribution per row. Optionally filter by ?districtId=.
  */
 router.get("/support/imports/recent", async (req: Request, res: Response) => {
   const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+  const filterDistrictId = req.query.districtId ? Number(req.query.districtId) : null;
   try {
-    const imports = await db.select().from(importsTable)
-      .orderBy(desc(importsTable.createdAt))
-      .limit(limit);
+    const baseQuery = db.select().from(importsTable).orderBy(desc(importsTable.createdAt)).limit(limit);
+    const imports = filterDistrictId != null
+      ? await baseQuery.where(eq(importsTable.districtId, filterDistrictId))
+      : await baseQuery;
     res.json({
       imports: imports.map(i => ({
         id: i.id,
+        districtId: i.districtId,
         importType: i.importType,
         fileName: i.fileName,
         status: i.status,

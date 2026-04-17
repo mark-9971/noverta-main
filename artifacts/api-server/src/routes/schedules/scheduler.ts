@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
+// tenant-scope: district-join
   studentsTable, serviceTypesTable, serviceRequirementsTable, staffTable,
 } from "@workspace/db";
 import { GenerateScheduleBody, AcceptGeneratedScheduleBody } from "@workspace/api-zod";

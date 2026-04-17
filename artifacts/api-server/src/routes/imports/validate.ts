@@ -3,6 +3,7 @@ import { db, studentsTable, staffTable, schoolsTable, serviceTypesTable } from "
 import { and, ilike, isNull, eq } from "drizzle-orm";
 import { parseCsvRows, findOrGuessStudentId, findServiceTypeId, normalizeDate, requireAdmin } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 interface RowValidation {

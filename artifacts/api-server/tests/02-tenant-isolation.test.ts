@@ -23,8 +23,10 @@ import {
   createSessionLog,
   cleanupDistrict,
   cleanupServiceType,
+  seedLegalAcceptances,
+  cleanupLegalAcceptances,
 } from "./helpers";
-import { db, medicaidClaimsTable } from "@workspace/db";
+import { db, medicaidClaimsTable, importsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 describe("tenant isolation", () => {
@@ -33,6 +35,9 @@ describe("tenant isolation", () => {
   let studentA: number;
   let studentB: number;
   let serviceTypeId: number;
+
+  // Test user IDs that need to pass requireLegalAcceptance (any test expecting 200).
+  const TEST_USER_IDS = ["u_a_admin", "u_a_import_admin", "u_a_xread"];
 
   beforeAll(async () => {
     const dA = await createDistrict({ name: "District A" });
@@ -50,9 +55,13 @@ describe("tenant isolation", () => {
 
     const svc = await createServiceType();
     serviceTypeId = svc.id;
+
+    // Seed legal acceptances so test users pass requireLegalAcceptance on data routes.
+    await seedLegalAcceptances(TEST_USER_IDS);
   });
 
   afterAll(async () => {
+    await cleanupLegalAcceptances(TEST_USER_IDS);
     await cleanupDistrict(districtA);
     await cleanupDistrict(districtB);
     await cleanupServiceType(serviceTypeId);
@@ -140,5 +149,51 @@ describe("tenant isolation", () => {
     // have received NONE from this call (admin A had no access to it).
     expect(districtAClaims.length).toBeGreaterThan(0);
     expect(districtBClaims.length).toBe(0);
+  });
+
+  it("GET /api/imports only returns imports belonging to the caller's district", async () => {
+    // Seed one import record per district directly in the DB (bypassing the HTTP
+    // import endpoint, which requires multipart CSV data).
+    const [importA] = await db.insert(importsTable).values({
+      districtId: districtA,
+      importType: "students",
+      fileName: "district_a_students.csv",
+      status: "completed",
+      rowsProcessed: 5,
+      rowsImported: 5,
+      rowsErrored: 0,
+    }).returning();
+
+    const [importB] = await db.insert(importsTable).values({
+      districtId: districtB,
+      importType: "students",
+      fileName: "district_b_students.csv",
+      status: "completed",
+      rowsProcessed: 3,
+      rowsImported: 3,
+      rowsErrored: 0,
+    }).returning();
+
+    try {
+      const adminA = asUser({ userId: "u_a_import_admin", role: "admin", districtId: districtA });
+      const res = await adminA.get("/api/imports");
+      expect(res.status).toBe(200);
+      const ids = (res.body as Array<{ id: number }>).map((r) => r.id);
+
+      // District A's import must be present; district B's import must be absent.
+      expect(ids).toContain(importA.id);
+      expect(ids).not.toContain(importB.id);
+    } finally {
+      // Clean up the import rows; they're not covered by cleanupDistrict.
+      await db.delete(importsTable).where(eq(importsTable.id, importA.id));
+      await db.delete(importsTable).where(eq(importsTable.id, importB.id));
+    }
+  });
+
+  it("admin in district A cannot read district B student via GET /api/students/:id cross-district (repeat coverage)", async () => {
+    const adminA = asUser({ userId: "u_a_xread", role: "admin", districtId: districtA });
+    const res = await adminA.get(`/api/students/${studentB}`);
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("error");
   });
 });

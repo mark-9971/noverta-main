@@ -3,6 +3,7 @@ import { db, auditLogsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, ilike, sql } from "drizzle-orm";
 import { requireRoles } from "../middlewares/auth";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 const ADMIN_ROLES = ["admin"] as const;

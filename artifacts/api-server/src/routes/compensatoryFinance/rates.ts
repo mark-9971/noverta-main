@@ -5,6 +5,7 @@ import { eq, desc } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getDistrictId } from "./shared";
 
+// tenant-scope: district-join
 const router = Router();
 
 router.get("/compensatory-finance/rates", async (req, res): Promise<void> => {

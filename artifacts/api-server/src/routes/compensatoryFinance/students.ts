@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
+// tenant-scope: district-join
   studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable,
   compensatoryObligationsTable,
 } from "@workspace/db/schema";

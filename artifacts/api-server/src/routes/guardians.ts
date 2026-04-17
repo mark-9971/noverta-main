@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
+// tenant-scope: district-join
   guardiansTable, insertGuardianSchema,
 } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";

@@ -7,6 +7,7 @@ import { getAuth } from "@clerk/express";
 import { getClientIp } from "../lib/clientIp";
 import { SlidingWindowLimiter } from "../lib/rateLimiter";
 
+// tenant-scope: public
 const router: IRouter = Router();
 
 /**

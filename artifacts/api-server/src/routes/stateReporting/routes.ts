@@ -6,6 +6,7 @@ import { getAuth } from "@clerk/express";
 import { ADMIN_ROLES, buildCsv } from "./shared";
 import { TEMPLATES } from "./templates";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/state-reports/templates", requireRoles(...ADMIN_ROLES), async (_req, res): Promise<void> => {

@@ -6,6 +6,7 @@ import { isoDate } from "./shared";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { assertFbaInCallerDistrict } from "../../lib/districtScope";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/students/:studentId/fbas", async (req, res): Promise<void> => {

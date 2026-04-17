@@ -27,6 +27,8 @@ import {
   medicaidClaimsTable,
   communicationEventsTable,
 } from "@workspace/db";
+import { legalAcceptancesTable } from "@workspace/db/schema";
+import { LEGAL_VERSIONS } from "../src/lib/legalVersions";
 import { eq, inArray, sql } from "drizzle-orm";
 
 import app from "../src/app";
@@ -251,4 +253,31 @@ export async function cleanupServiceType(serviceTypeId: number) {
     await db.delete(sessionLogsTable).where(inArray(sessionLogsTable.id, sessionIds));
   }
   await db.delete(serviceTypesTable).where(eq(serviceTypesTable.id, serviceTypeId));
+}
+
+/**
+ * Seed legal acceptances for a set of test user IDs so they pass
+ * the requireLegalAcceptance middleware on data routes.
+ *
+ * Safe to call multiple times (ON CONFLICT DO NOTHING).
+ */
+export async function seedLegalAcceptances(userIds: string[]): Promise<void> {
+  const rows = userIds.flatMap(userId =>
+    Object.entries(LEGAL_VERSIONS).map(([documentType, documentVersion]) => ({
+      userId,
+      documentType,
+      documentVersion,
+      acceptedAt: new Date(),
+    }))
+  );
+  if (rows.length > 0) {
+    await db.insert(legalAcceptancesTable).values(rows).onConflictDoNothing();
+  }
+}
+
+/** Remove legal acceptances seeded for test users. */
+export async function cleanupLegalAcceptances(userIds: string[]): Promise<void> {
+  for (const userId of userIds) {
+    await db.delete(legalAcceptancesTable).where(eq(legalAcceptancesTable.userId, userId));
+  }
 }

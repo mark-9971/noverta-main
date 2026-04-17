@@ -6,6 +6,7 @@ import { getPublicMeta } from "../../lib/clerkClaims";
 import { sendEmail, buildIncidentNotificationEmail } from "../../lib/email";
 import { registerIncidentIdParam, getFullIncidentData } from "./utils";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 registerIncidentIdParam(router);
 

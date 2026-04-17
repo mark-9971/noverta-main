@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import {
+// tenant-scope: district-join
   db,
   shareLinksTable,
   shareLinkAccessLogTable,

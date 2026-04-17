@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
+// tenant-scope: district-join
   teamMeetingsTable, studentsTable, staffTable, schoolsTable,
   iepMeetingAttendeesTable,
 } from "@workspace/db";

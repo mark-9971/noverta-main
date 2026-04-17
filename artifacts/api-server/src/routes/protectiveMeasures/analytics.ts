@@ -3,6 +3,7 @@ import { db, restraintIncidentsTable, incidentSignaturesTable, studentsTable, st
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { RESTRAINT_TYPE_LABELS, INCIDENT_TYPE_LABELS } from "./utils";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.get("/protective-measures/summary", async (req: Request, res: Response) => {

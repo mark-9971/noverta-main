@@ -5,6 +5,7 @@ import { logAudit } from "../../lib/auditLog";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getDistrictId } from "./shared";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 
 router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {

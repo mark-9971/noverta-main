@@ -7,6 +7,7 @@ import { logAudit } from "../../lib/auditLog";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { studentIdParamGuard } from "./idGuard";
 
+// tenant-scope: district-join
 const router: IRouter = Router();
 router.param("id", studentIdParamGuard);
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, importsTable, behaviorDataTable, programDataTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireRoles } from "../../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import {
   detectGoalType,
   findOrCreateBehaviorTarget,
@@ -164,6 +164,7 @@ router.post("/imports/goals-data", requireRoles("admin", "coordinator"), async (
     }
 
     const [importRecord] = await db.insert(importsTable).values({
+      districtId: getEnforcedDistrictId(req as AuthedRequest),
       importType: "goals_data",
       fileName: fileName ?? null,
       status: errored === rows.length ? "failed" : "completed",

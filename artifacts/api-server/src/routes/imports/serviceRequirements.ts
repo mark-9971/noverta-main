@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, importsTable, serviceRequirementsTable } from "@workspace/db";
 import { findOrGuessStudentId, findServiceTypeId, parseCsvRows, requireAdmin } from "./shared";
+import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -76,6 +77,7 @@ router.post("/imports/service-requirements", requireAdmin, async (req, res): Pro
     }
 
     const [importRecord] = await db.insert(importsTable).values({
+      districtId: getEnforcedDistrictId(req as AuthedRequest),
       importType: "service_requirements",
       fileName: fileName ?? null,
       status: errored === rows.length ? "failed" : "completed",
