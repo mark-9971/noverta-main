@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useListAlerts, useResolveAlert, useBulkResolveAlerts, useSnoozeAlert } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -48,6 +50,10 @@ function computeSourceUrl(alert: any): string | null {
 export default function Alerts() {
   const [tab, setTab] = useState<Tab>("open");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [resolveConfirm, setResolveConfirm] = useState<any>(null);
   const [bulkResolveOpen, setBulkResolveOpen] = useState(false);
   const [resolveNote, setResolveNote] = useState("");
@@ -68,8 +74,9 @@ export default function Alerts() {
       base.resolved = "false";
       base.snoozed = "true";
     }
+    if (typeFilter !== "all") base.type = typeFilter;
     return base;
-  }, [tab, typedFilter]);
+  }, [tab, typedFilter, typeFilter]);
 
   const { data: alerts, isLoading, isError, refetch } = useListAlerts(queryParams);
   const { mutateAsync: resolveAlert } = useResolveAlert();
@@ -77,12 +84,32 @@ export default function Alerts() {
   const { mutateAsync: snoozeAlert } = useSnoozeAlert();
 
   const alertList = (alerts as any[]) ?? [];
-  const filtered = alertList.filter(a => severityFilter === "all" || a.severity === severityFilter);
+  const filtered = alertList.filter(a => {
+    const matchSeverity = severityFilter === "all" || a.severity === severityFilter;
+    const matchStudent = !studentSearch ||
+      (a.studentName ?? "").toLowerCase().includes(studentSearch.toLowerCase());
+    const created = a.createdAt ? (() => {
+      const d = new Date(a.createdAt);
+      const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    })() : "";
+    const matchFrom = !dateFrom || created >= dateFrom;
+    const matchTo = !dateTo || created <= dateTo;
+    return matchSeverity && matchStudent && matchFrom && matchTo;
+  });
 
   const counts = alertList.reduce((acc: any, a: any) => {
     acc[a.severity] = (acc[a.severity] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const typeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const a of alertList) if (a.type) seen.add(a.type);
+    return Array.from(seen).sort();
+  }, [alertList]);
+
+  const hasExtraFilters = typeFilter !== "all" || !!studentSearch || !!dateFrom || !!dateTo;
 
   function toggleSelect(id: number) {
     setSelected(prev => {
@@ -187,6 +214,35 @@ export default function Alerts() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <Input
+          placeholder="Filter by student name…"
+          className="h-9 text-[12px] bg-white w-[200px]"
+          value={studentSearch}
+          onChange={e => setStudentSearch(e.target.value)}
+        />
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="h-9 text-[12px] bg-white w-[200px]"><SelectValue placeholder="All alert types" /></SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            <SelectItem value="all">All alert types</SelectItem>
+            {typeOptions.map(t => (
+              <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1.5">
+          <Input type="date" className="h-9 text-[12px] bg-white w-[140px]" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <span className="text-[11px] text-gray-400">to</span>
+          <Input type="date" className="h-9 text-[12px] bg-white w-[140px]" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        </div>
+        {hasExtraFilters && (
+          <button onClick={() => { setTypeFilter("all"); setStudentSearch(""); setDateFrom(""); setDateTo(""); }}
+            className="text-[11px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md border border-gray-200 bg-white hover:border-gray-300">
+            Clear
+          </button>
+        )}
       </div>
 
       {tab === "open" && (

@@ -110,6 +110,8 @@ interface RiskReportData {
 function ServiceMinutesContent() {
   const { typedFilter } = useSchoolContext();
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [providerFilter, setProviderFilter] = useState<string>("all");
   const [showAllStudents, setShowAllStudents] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const { data: progress, isLoading: progressLoading, isError, refetch } = useListMinuteProgress(typedFilter);
@@ -156,9 +158,29 @@ function ServiceMinutesContent() {
     return acc;
   }, {} as Record<string, number>);
 
-  const filtered = progressList.filter(p =>
-    riskFilter === "all" || p.riskStatus === riskFilter
-  ).sort((a, b) => {
+  const serviceTypeOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const p of progressList) {
+      if (p.serviceTypeId != null && p.serviceTypeName) seen.set(String(p.serviceTypeId), p.serviceTypeName);
+    }
+    return Array.from(seen.entries()).map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [progressList]);
+  const providerOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const p of progressList) {
+      if (p.providerId != null) {
+        seen.set(String(p.providerId), p.providerName || `Provider #${p.providerId}`);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [progressList]);
+
+  const filtered = progressList.filter(p => {
+    const matchRisk = riskFilter === "all" || p.riskStatus === riskFilter;
+    const matchType = serviceTypeFilter === "all" || String(p.serviceTypeId ?? "") === serviceTypeFilter;
+    const matchProvider = providerFilter === "all" || String(p.providerId ?? "") === providerFilter;
+    return matchRisk && matchType && matchProvider;
+  }).sort((a, b) => {
     return RISK_PRIORITY_ORDER.indexOf(a.riskStatus) - RISK_PRIORITY_ORDER.indexOf(b.riskStatus);
   });
 
@@ -437,6 +459,30 @@ function ServiceMinutesContent() {
             }`}>{cfg.label} ({counts[r] ?? 0})</button>
           );
         })}
+        <div className="w-px bg-gray-200 mx-1 self-stretch" />
+        <select
+          value={serviceTypeFilter}
+          onChange={e => setServiceTypeFilter(e.target.value)}
+          className="h-8 text-[12px] bg-white border border-gray-200 rounded-md px-2 text-gray-600 hover:border-gray-300"
+        >
+          <option value="all">All service types</option>
+          {serviceTypeOptions.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+        <select
+          value={providerFilter}
+          onChange={e => setProviderFilter(e.target.value)}
+          className="h-8 text-[12px] bg-white border border-gray-200 rounded-md px-2 text-gray-600 hover:border-gray-300"
+        >
+          <option value="all">All providers</option>
+          {providerOptions.map(p => <option key={p.id} value={p.label}>{p.label}</option>)}
+        </select>
+        {(serviceTypeFilter !== "all" || providerFilter !== "all" || riskFilter !== "all") && (
+          <button onClick={() => { setServiceTypeFilter("all"); setProviderFilter("all"); setRiskFilter("all"); }}
+            className="text-[11px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md border border-gray-200 bg-white hover:border-gray-300">
+            Clear
+          </button>
+        )}
+        <span className="text-[11px] text-gray-400 ml-auto">{filtered.length} of {progressList.length} records</span>
       </div>
 
       <div className="md:hidden space-y-2">

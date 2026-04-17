@@ -30,6 +30,10 @@ export default function Sessions() {
   const [search, setSearch] = useState(""); const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState(""); const [dateTo, setDateTo] = useState("");
   const [selectedYearId, setSelectedYearId] = useState<string>("all");
+  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [studentFilter, setStudentFilter] = useState<string>("all");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [missedReasonFilter, setMissedReasonFilter] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false); const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [page, setPage] = useState(0); const [showReview, setShowReview] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM); const [submitting, setSubmitting] = useState(false);
@@ -61,6 +65,8 @@ export default function Sessions() {
     ...(dateTo ? { dateTo } : {}),
     ...(statusFilter !== "all" && statusFilter !== "makeup" ? { status: statusFilter } : {}),
     ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
+    ...(providerFilter !== "all" ? { staffId: Number(providerFilter) } : {}),
+    ...(studentFilter !== "all" ? { studentId: Number(studentFilter) } : {}),
   };
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
   const { data: students } = useListStudents(typedFilter);
@@ -88,8 +94,36 @@ export default function Sessions() {
       (statusFilter === "makeup" ? s.isMakeup : s.status === statusFilter);
     const matchDateFrom = !dateFrom || s.sessionDate >= dateFrom;
     const matchDateTo = !dateTo || s.sessionDate <= dateTo;
-    return matchSearch && matchStatus && matchDateFrom && matchDateTo;
+    const matchServiceType = serviceTypeFilter === "all" || String(s.serviceTypeId ?? "") === serviceTypeFilter;
+    const matchMissedReason = missedReasonFilter === "all" || String(s.missedReasonId ?? "") === missedReasonFilter;
+    return matchSearch && matchStatus && matchDateFrom && matchDateTo && matchServiceType && matchMissedReason;
   });
+
+  const serviceTypeOptions = (() => {
+    const seen = new Map<string, string>();
+    for (const s of sessionList) {
+      if (s.serviceTypeId != null && s.serviceTypeName) seen.set(String(s.serviceTypeId), s.serviceTypeName);
+    }
+    return Array.from(seen.entries()).map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
+  })();
+  const providerOptions = (staffAllList ?? [])
+    .map((p: any) => ({ id: p.id, label: `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || `Staff ${p.id}` }))
+    .sort((a: any, b: any) => a.label.localeCompare(b.label));
+  const studentOptions = (studentList ?? [])
+    .map((s: any) => ({ id: s.id, label: `${s.lastName ?? ""}, ${s.firstName ?? ""}`.trim() }))
+    .sort((a: any, b: any) => a.label.localeCompare(b.label));
+  const missedReasonOptions = (missedReasonsList ?? [])
+    .map((r: any) => ({ id: r.id, label: r.label ?? r.name ?? `Reason ${r.id}` }));
+
+  const hasActiveFilters =
+    providerFilter !== "all" || studentFilter !== "all" ||
+    serviceTypeFilter !== "all" || missedReasonFilter !== "all" ||
+    !!dateFrom || !!dateTo || !!search;
+  function resetFilters() {
+    setProviderFilter("all"); setStudentFilter("all");
+    setServiceTypeFilter("all"); setMissedReasonFilter("all");
+    setDateFrom(""); setDateTo(""); setSearch(""); setPage(0);
+  }
 
   const missedCount = sessionList.filter(s => s.status === "missed").length;
   const completedCount = sessionList.filter(s => s.status === "completed").length;
@@ -315,6 +349,20 @@ export default function Sessions() {
         dateTo={dateTo}
         onDateFrom={setDateFrom}
         onDateTo={setDateTo}
+        providers={providerOptions}
+        selectedProviderId={providerFilter}
+        onProviderChange={(v) => { setProviderFilter(v); setPage(0); }}
+        students={studentOptions}
+        selectedStudentId={studentFilter}
+        onStudentChange={(v) => { setStudentFilter(v); setPage(0); }}
+        serviceTypes={serviceTypeOptions}
+        selectedServiceTypeId={serviceTypeFilter}
+        onServiceTypeChange={(v) => { setServiceTypeFilter(v); setPage(0); }}
+        missedReasons={missedReasonOptions}
+        selectedMissedReasonId={missedReasonFilter}
+        onMissedReasonChange={(v) => { setMissedReasonFilter(v); setPage(0); }}
+        onResetFilters={resetFilters}
+        hasActiveFilters={hasActiveFilters}
       />
 
       <SessionList

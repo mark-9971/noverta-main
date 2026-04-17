@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useListStudents, useListMinuteProgress, useListSpedStudents, useListSchools, createStudent } from "@workspace/api-client-react";
+import { useListStudents, useListMinuteProgress, useListSpedStudents, useListSchools, useListStaff, createStudent } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +28,10 @@ export default function Students() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [caseManagerFilter, setCaseManagerFilter] = useState<string>("all");
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [schoolFilter, setSchoolFilter] = useState<string>("all");
+  const [missingFilter, setMissingFilter] = useState<"all" | "no_services">("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "", dateOfBirth: "", hasIep: "" as "" | "yes" | "no" });
@@ -47,11 +51,19 @@ export default function Students() {
     limit: 500,
     status: statusFilter,
     ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
+    ...(caseManagerFilter !== "all" ? { caseManagerId: Number(caseManagerFilter) } : {}),
+    ...(gradeFilter !== "all" ? { grade: gradeFilter } : {}),
+    ...(schoolFilter !== "all" ? { schoolId: Number(schoolFilter) } : {}),
   } as any);
   const { data: progress } = useListMinuteProgress({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
   const { data: schoolsData } = useListSchools();
+  const { data: staffData } = useListStaff(filterParams as any);
   const schoolsList = (Array.isArray(schoolsData) ? schoolsData : []) as any[];
+  const caseManagers = (Array.isArray(staffData) ? staffData : [])
+    .filter((s: any) => !s.role || /case|coord|admin|teacher|spec/i.test(s.role || ""))
+    .map((s: any) => ({ id: s.id, label: `${s.lastName ?? ""}, ${s.firstName ?? ""}`.trim() || `Staff ${s.id}` }))
+    .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
   const isAdmin = role === "admin";
   // hasSIS: set to true once a Student Information System integration is configured.
@@ -113,9 +125,12 @@ export default function Students() {
       const matchType = typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
       const riskStatus = studentRisk[s.id] ?? "on_track";
       const matchRisk = riskFilter === "all" || riskStatus === riskFilter;
-      return matchSearch && matchType && matchRisk;
+      // SPED-flagged students with no active service requirements (no minute-progress rows).
+      const matchMissing = missingFilter === "all" ||
+        (missingFilter === "no_services" && isSped && !studentMinutes[s.id]);
+      return matchSearch && matchType && matchRisk && matchMissing;
     });
-  }, [studentList, search, typeFilter, riskFilter, spedIds, studentRisk]);
+  }, [studentList, search, typeFilter, riskFilter, spedIds, studentRisk, missingFilter, studentMinutes]);
 
   const riskCounts = useMemo(() => {
     const typeFiltered = studentList.filter(s => {
@@ -231,8 +246,8 @@ export default function Students() {
         })}
       </div>
 
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input className="pl-10 h-10 text-[13px] bg-white" placeholder="Search by student name..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
@@ -249,6 +264,43 @@ export default function Students() {
             </SelectContent>
           </Select>
         )}
+        {schoolsList.length > 1 && (
+          <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+            <SelectTrigger className="h-10 text-[12px] bg-white w-[150px]"><SelectValue placeholder="All schools" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All schools</SelectItem>
+              {schoolsList.map((sch: any) => <SelectItem key={sch.id} value={String(sch.id)}>{sch.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={caseManagerFilter} onValueChange={setCaseManagerFilter}>
+          <SelectTrigger className="h-10 text-[12px] bg-white w-[170px]"><SelectValue placeholder="All case managers" /></SelectTrigger>
+          <SelectContent className="max-h-[300px]">
+            <SelectItem value="all">All case managers</SelectItem>
+            {caseManagers.map(cm => <SelectItem key={cm.id} value={String(cm.id)}>{cm.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={gradeFilter} onValueChange={setGradeFilter}>
+          <SelectTrigger className="h-10 text-[12px] bg-white w-[110px]"><SelectValue placeholder="All grades" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All grades</SelectItem>
+            {["PK", "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map(g =>
+              <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        <button
+          aria-pressed={missingFilter === "no_services"}
+          onClick={() => setMissingFilter(missingFilter === "no_services" ? "all" : "no_services")}
+          className={`h-10 px-3 rounded-md text-[12px] font-medium border transition-colors ${
+            missingFilter === "no_services"
+              ? "bg-amber-50 border-amber-300 text-amber-800"
+              : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+          }`}
+          title="SPED students with no active service requirements"
+        >
+          No services tracked
+        </button>
       </div>
 
       <div className="space-y-2">
