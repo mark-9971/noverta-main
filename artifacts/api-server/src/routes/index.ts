@@ -115,12 +115,15 @@ router.use("/students", requireStaffOnly);
 router.use("/sessions", requireStaffOnly);
 router.use("/staff", requireStaffOnly);
 // Legal acceptance gate — must come after requireDistrictScope but before any data routers.
-// Exempt /legal/* so users can check status and submit acceptance without a circular block.
+// Exempt only the two consent-flow endpoints; all other routes require acceptance.
 // Exempt /guardian-portal/* (guardian accounts handle their own consent flow).
 // sped_parent and sped_student role exemptions are handled inside the middleware.
 router.use((req, res, next) => {
   const path = req.path;
-  if (path.startsWith("/legal/") || path.startsWith("/guardian-portal/")) {
+  // Only exempt the two endpoints that must be reachable before acceptance to avoid
+  // a circular dependency. All other /legal/* routes (report, request-dpa) require acceptance.
+  const CONSENT_FLOW_EXEMPTIONS = ["/legal/acceptance-status", "/legal/accept"];
+  if (CONSENT_FLOW_EXEMPTIONS.includes(path) || path.startsWith("/guardian-portal/")) {
     return next();
   }
   return requireLegalAcceptance(req, res, next);
