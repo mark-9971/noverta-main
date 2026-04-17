@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox } from "lucide-react";
+import { buildDocumentHtml, openPrintWindow, esc, fmtDate } from "@/lib/print-document";
+import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox, Download, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 
@@ -9,7 +11,102 @@ interface GuardianMe {
   student: { id: number; firstName: string; lastName: string; grade: string | null } | null;
 }
 
+interface ParentSummaryReport {
+  student: { id: number; firstName: string; lastName: string; grade: string | null; schoolName: string | null };
+  providers: Array<{ role: string | null }>;
+  reportingPeriod: { label: string | null; start: string | null; end: string | null } | null;
+  overallSummary: string | null;
+  parentNotes: string | null;
+  goalSummaries: Array<{ area: string; goalNumber?: number | null; statusLabel: string; parentFriendlyNarrative?: string | null }>;
+  servicesSummary: Array<{ serviceType: string | null; parentFriendly: string }>;
+}
+
+function buildParentReportHtml(report: ParentSummaryReport): string {
+  const { student, providers, reportingPeriod, overallSummary, parentNotes, goalSummaries, servicesSummary } = report;
+  const studentName = `${student.firstName} ${student.lastName}`;
+
+  const periodLabel = reportingPeriod?.label
+    ? `${reportingPeriod.label}${reportingPeriod.start ? ` (${fmtDate(reportingPeriod.start)} – ${fmtDate(reportingPeriod.end)})` : ""}`
+    : null;
+
+  const goalsHtml = goalSummaries.length === 0
+    ? `<p style="color:#6b7280;font-size:12px">No goal data available for this reporting period.</p>`
+    : goalSummaries.map(g => {
+        const label = g.statusLabel || "In Progress";
+        const badgeColor = label === "Mastered" || label === "On Track" ? "badge-green"
+          : label === "Making Progress" ? "badge-green"
+          : label === "Needs Support" ? "badge-amber"
+          : label === "Needs Attention" ? "badge-red"
+          : "badge-gray";
+        return `<div class="field-box">
+  <div class="field-label">${esc(g.area)}${g.goalNumber != null ? ` — Goal #${g.goalNumber}` : ""} &nbsp;<span class="badge ${badgeColor}">${esc(label)}</span></div>
+  ${g.parentFriendlyNarrative ? `<p style="margin:4px 0 0;line-height:1.5">${esc(g.parentFriendlyNarrative)}</p>` : ""}
+</div>`;
+      }).join("\n");
+
+  const servicesHtml = servicesSummary.length === 0
+    ? `<p style="color:#6b7280;font-size:12px">No service data available for this reporting period.</p>`
+    : `<table>
+  <thead><tr><th>Service</th><th>Summary</th></tr></thead>
+  <tbody>
+    ${servicesSummary.map(s => `<tr>
+      <td style="white-space:nowrap">${esc(s.serviceType ?? "Service")}</td>
+      <td>${esc(s.parentFriendly)}</td>
+    </tr>`).join("")}
+  </tbody>
+</table>`;
+
+  const teamHtml = providers.length === 0
+    ? `<p style="color:#6b7280;font-size:12px">No team members listed.</p>`
+    : `<table>
+  <thead><tr><th>Role</th></tr></thead>
+  <tbody>
+    ${providers.map(p => `<tr><td>${esc(p.role ?? "Provider")}</td></tr>`).join("")}
+  </tbody>
+</table>`;
+
+  const sections = [
+    ...(periodLabel ? [{
+      heading: "Reporting Period",
+      html: `<div class="field-box">${esc(periodLabel)}</div>`,
+    }] : []),
+    ...(overallSummary ? [{
+      heading: "How Your Child Is Doing",
+      html: `<div class="field-box" style="line-height:1.6">${esc(overallSummary)}</div>`,
+    }] : []),
+    {
+      heading: "Goal Progress",
+      html: goalsHtml,
+    },
+    {
+      heading: "Services This Period",
+      html: servicesHtml,
+    },
+    {
+      heading: "Your Child's Team",
+      html: teamHtml,
+    },
+    ...(parentNotes ? [{
+      heading: "Notes for Families",
+      html: `<div class="field-box" style="line-height:1.6">${esc(parentNotes)}</div>`,
+    }] : []),
+  ];
+
+  return buildDocumentHtml({
+    documentTitle: "Progress Report",
+    documentSubtitle: "Parent/Guardian Summary — Prepared by Your Child's Education Team",
+    studentName,
+    studentGrade: student.grade ?? undefined,
+    school: student.schoolName ?? undefined,
+    sections,
+    footerHtml: `<p style="margin:2px 0">This summary is prepared for families. For detailed academic data, please contact your child's case manager.</p>`,
+  });
+}
+
 export default function GuardianPortalHome() {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
   const { data, isLoading, error } = useQuery<GuardianMe>({
     queryKey: ["guardian-portal-me"],
     queryFn: ({ signal }) =>
@@ -32,6 +129,27 @@ export default function GuardianPortalHome() {
       authFetch("/api/guardian-portal/messages", { signal }).then(r => r.ok ? r.json() : { threads: [], unreadTotal: 0 }),
     enabled: !!data,
   });
+
+  async function handleDownloadReport() {
+    if (!data?.student?.id) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await authFetch(`/api/reports/parent-summary/${data.student.id}?parentSafe=true`);
+      if (!res.ok) {
+        const body: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Request failed (${res.status})`);
+      }
+      const report: ParentSummaryReport = await res.json();
+      const html = buildParentReportHtml(report);
+      openPrintWindow(html);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Could not load the report. Please try again.";
+      setDownloadError(msg);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -148,6 +266,35 @@ export default function GuardianPortalHome() {
           </a>
         </Link>
       </div>
+
+      {student && (
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm">Progress Report</p>
+                <p className="text-xs text-gray-500">Download a family-friendly summary of {student.firstName}'s goals and services</p>
+              </div>
+            </div>
+            <button
+              onClick={handleDownloadReport}
+              disabled={isDownloading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex-shrink-0"
+            >
+              {isDownloading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Download className="w-4 h-4" />}
+              {isDownloading ? "Loading…" : "Download Progress Report"}
+            </button>
+          </div>
+          {downloadError && (
+            <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{downloadError}</p>
+          )}
+        </div>
+      )}
 
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
         <p className="text-xs text-emerald-800">

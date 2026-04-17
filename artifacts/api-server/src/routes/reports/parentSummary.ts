@@ -4,7 +4,7 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
   studentsTable, staffTable, serviceRequirementsTable, schoolsTable,
-  progressReportsTable,
+  progressReportsTable, guardiansTable,
 } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 
@@ -15,7 +15,26 @@ router.get("/reports/parent-summary/:studentId", async (req: Request, res): Prom
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
-    const parentSummaryDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const authed = req as AuthedRequest;
+
+    // Guardian-level scope: sped_parent users may only access their linked student's report.
+    if (authed.trellisRole === "sped_parent") {
+      const guardianId = authed.tenantGuardianId;
+      if (!guardianId) {
+        res.status(403).json({ error: "No guardian identity found. Contact your district administrator." });
+        return;
+      }
+      const [guardian] = await db
+        .select({ studentId: guardiansTable.studentId })
+        .from(guardiansTable)
+        .where(eq(guardiansTable.id, guardianId));
+      if (!guardian || guardian.studentId !== studentId) {
+        res.status(403).json({ error: "Access denied: you may only view your linked student's report." });
+        return;
+      }
+    }
+
+    const parentSummaryDistrictId = getEnforcedDistrictId(authed);
     if (parentSummaryDistrictId !== null) {
       const rows = await db.execute(
         sql`SELECT sc.district_id FROM students st LEFT JOIN schools sc ON sc.id = st.school_id WHERE st.id = ${studentId} LIMIT 1`
@@ -27,7 +46,10 @@ router.get("/reports/parent-summary/:studentId", async (req: Request, res): Prom
       }
     }
 
-    const parentSafe = req.query.parentSafe === "true" || req.query.parentSafe === "1";
+    // sped_parent users always receive the parent-safe payload regardless of query param.
+    const parentSafe = authed.trellisRole === "sped_parent"
+      ? true
+      : (req.query.parentSafe === "true" || req.query.parentSafe === "1");
 
     const [student] = await db.select({
       id: studentsTable.id,
