@@ -18,7 +18,7 @@ import {
 import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
-import { assertStaffInCallerDistrict, assertStaffAbsenceInCallerDistrict, assertSchoolInCallerDistrict } from "../lib/districtScope";
+import { assertStaffInCallerDistrict, assertStaffAbsenceInCallerDistrict, assertSchoolInCallerDistrict, staffInCallerDistrict } from "../lib/districtScope";
 import { getActiveSchoolYearId } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
 import type { Request } from "express";
@@ -221,7 +221,19 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  const [existingStaff] = await db
+    .select({ id: staffTable.id })
+    .from(staffTable)
+    .where(and(eq(staffTable.id, params.data.id), isNull(staffTable.deletedAt)))
+    .limit(1);
+  if (!existingStaff) {
+    res.status(404).json({ error: "Staff not found" });
+    return;
+  }
+  if (!(await staffInCallerDistrict(req as AuthedRequest, params.data.id))) {
+    res.status(403).json({ error: "Forbidden: staff member does not belong to your district" });
+    return;
+  }
   const parsed = UpdateStaffBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
