@@ -56,6 +56,28 @@ Backend routes refactored into sub-module directories (index.ts mounts sub-route
 
 The brand uses an "Ink & Air" theme with pure white/near-white backgrounds, near-black typography, neutral grays, and emerald green accents (primary: HSL 160 84% 39%), creating a clean, airy, and editorial aesthetic.
 
+## Compliance Dashboard Recommendations Panel
+
+The Service Minutes tab on `/compliance` renders `<RecommendationsPanel />` (`artifacts/trellis/src/components/compliance/RecommendationsPanel.tsx`) directly under the KPI cards. It surfaces deterministic, data-grounded operational guidance — **not AI**. Every recommendation is the output of a pure function (`buildRecommendations`) over real endpoint data; the runtime logic is the source of truth and `RECOMMENDATION_RULES` (exported from the same file) documents each rule for audit. Severity is one of `critical | high | medium`; the panel sorts by severity and renders an "All clear" empty state when no rule fires.
+
+**Honesty guarantee:** the panel tracks every upstream data source it depends on (`/api/reports/compliance-risk-report`, `/api/reports/weekly-compliance-summary`, `/api/dashboard/summary`). If any of them fails or is missing, an inline "Recommendations may be incomplete" warning is rendered listing exactly which rules could not be evaluated. When no rules fire AND any data source is unavailable, the panel renders an amber "Recommendations couldn't be evaluated" state instead of the green "All clear" — so admins are never misled into thinking the district is healthy when the panel simply lacked data.
+
+Rules currently implemented:
+
+| ID | Severity | Trigger | Message | Action link | Source endpoint |
+|---|---|---|---|---|---|
+| `out-of-compliance-makeup` | critical | `summary.studentsOutOfCompliance > 0` | Schedule make-up sessions for N students who are out of compliance | `/compliance-risk-report` | `/api/reports/compliance-risk-report` |
+| `at-risk-increase-coverage` | high | `summary.studentsAtRisk > 0` | N students at risk — increase service coverage this week | `/compliance-risk-report` | `/api/reports/compliance-risk-report` |
+| `providers-under-75` | high | Any `providerSummary` row with `totalRequired > 0 && complianceRate < 75` | N providers below 75% delivery — review caseload (lowest provider named) | `/staff` | `/api/reports/compliance-risk-report` |
+| `missed-sessions-this-week` | high if total missed ≥ 5, else medium | `weeklySummary.providersWithMissedThisWeek` has any provider with `missedSessions > 0` | X providers have incomplete logs — Y missed sessions this week | `/weekly-compliance-summary` | `/api/reports/weekly-compliance-summary` |
+| `high-exposure-cases` | critical if any case ≥ $5,000, else high | `needsAttention` rows with `estimatedExposure ≥ $1,000` | Review N high-exposure cases totaling $X | `/compliance-risk-report` | `/api/reports/compliance-risk-report` |
+| `outstanding-compensatory` | high | `summary.existingCompensatoryExposure > 0` | Outstanding compensatory obligations: $X — schedule make-up services | `/compensatory-services` | `/api/reports/compliance-risk-report` |
+| `service-type-behind` | medium | A `complianceByService` row where `(atRisk + outOfCompliance) > onTrack` | {Service Type}: more students behind than on track (N flagged) — assess staffing | `/compliance-risk-report` | `/api/dashboard/compliance-by-service` |
+| `uncovered-blocks-today` | high | `dashboardSummary.uncoveredBlocksToday > 0` | N scheduled session blocks have no provider assigned today | `/schedule` | `/api/dashboard/summary` |
+| `large-attention-queue` | medium | `needsAttention.length ≥ 10` | Triage all N flagged service requirements in the full risk report | `/compliance-risk-report` | `/api/reports/compliance-risk-report` |
+
+To add a new rule: add a branch in `buildRecommendations`, append a matching entry to `RECOMMENDATION_RULES`, and update this table. New rules must be deterministic (no LLM/heuristic calls) and grounded in an existing endpoint — do not market the panel as AI.
+
 ## User Preferences
 
 I want iterative development and detailed explanations of your thought process. Ask clarifying questions before making major architectural changes or implementing complex features. Do not change the fundamental project structure or core technologies without explicit approval.

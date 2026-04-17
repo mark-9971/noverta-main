@@ -20,6 +20,7 @@ import { type FeatureKey } from "@/lib/module-tiers";
 import { authFetch } from "@/lib/auth-fetch";
 import ComplianceChecklist from "./compliance-checklist";
 import ComplianceTimelinePage from "./compliance-timeline";
+import RecommendationsPanel from "@/components/compliance/RecommendationsPanel";
 
 const TABS = [
   { key: "minutes", label: "Service Minutes", icon: Timer },
@@ -268,6 +269,14 @@ function ServiceMinutesContent() {
           </CardContent>
         </Card>
       </div>}
+
+      <RecommendationsPanel
+        riskReport={hasReport ? (riskReport as any) : undefined}
+        riskReportError={!!reportError}
+        progressList={progressList}
+        complianceByService={serviceData}
+        schoolId={schoolId}
+      />
 
       {hasReport && (riskReport?.needsAttention?.length ?? 0) > 0 && (
         <Card className="border-red-200/60">
