@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/trellis-deck/"
+title = "Trellis — 10-Slide Pitch"
+version = "1.0.0"
+id = "artifacts/trellis-deck"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/trellis-deck/" ]
+localPort = 25736
+
+[services.development]
+run = "pnpm --filter @workspace/trellis-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trellis-deck", "run", "build" ]
+publicDir = "artifacts/trellis-deck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25736"
+BASE_PATH = "/trellis-deck/"

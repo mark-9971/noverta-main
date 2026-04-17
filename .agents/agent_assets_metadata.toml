@@ -42,6 +42,24 @@ uri = "file://artifacts/trellis-demo/public/parent-child-school.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "zv_VArjlC2dbqMOs6AnKp"
+uri = "file://artifacts/trellis-deck/public/hero-folders.png"
+type = "image"
+title = "hero folders desk"
+
+[[generated]]
+id = "QmXVmDXPUJ9kklUgKn4ip"
+uri = "file://artifacts/trellis-deck/public/problem-desk.png"
+type = "image"
+title = "cluttered desk problem"
+
+[[generated]]
+id = "OrcUNlS5yXi0sdoDAh4dX"
+uri = "file://artifacts/trellis-deck/public/school-hallway.png"
+type = "image"
+title = "school hallway"
+
 [[outputs]]
 id = "t6I71PV2TrHJP7g2vXgRR"
 uri = "file://Trellis-Business-Analysis.md"

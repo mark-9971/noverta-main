@@ -1,0 +1,82 @@
+[
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c01",
+    "position": 1,
+    "filepath": "src/pages/slides/S01_Title.tsx",
+    "title": "Title",
+    "description": "Cover slide — every student, every minute, accounted for.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c02",
+    "position": 2,
+    "filepath": "src/pages/slides/S02_Problem.tsx",
+    "title": "The Problem",
+    "description": "Districts run SPED compliance on spreadsheets — comp-ed liability is compounding.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c03",
+    "position": 3,
+    "filepath": "src/pages/slides/S03_WhyNow.tsx",
+    "title": "Why Now",
+    "description": "Regulation, workforce, and budget forces colliding for the first time.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c04",
+    "position": 4,
+    "filepath": "src/pages/slides/S04_Solution.tsx",
+    "title": "The Solution",
+    "description": "One platform, three jobs done: schedule, document, defend.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c05",
+    "position": 5,
+    "filepath": "src/pages/slides/S05_Product.tsx",
+    "title": "Product",
+    "description": "Four product surfaces a district uses on day one.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c06",
+    "position": 6,
+    "filepath": "src/pages/slides/S06_Differentiator.tsx",
+    "title": "Why Trellis Wins",
+    "description": "Side-by-side with legacy SIS modules.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c07",
+    "position": 7,
+    "filepath": "src/pages/slides/S07_Market.tsx",
+    "title": "Market",
+    "description": "MA beachhead, Northeast expansion, US TAM.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c08",
+    "position": 8,
+    "filepath": "src/pages/slides/S08_Traction.tsx",
+    "title": "Traction",
+    "description": "Three pilot districts, zero churn, comp-ed exposure surfaced.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c09",
+    "position": 9,
+    "filepath": "src/pages/slides/S09_Team.tsx",
+    "title": "Team",
+    "description": "Operators who lived the problem, not consultants who studied it.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "0a4c1a8b-1c1f-4f6f-9a2a-9f1f2a3b4c10",
+    "position": 10,
+    "filepath": "src/pages/slides/S10_Ask.tsx",
+    "title": "The Ask",
+    "description": "Raising $4.5M to own Massachusetts by fall 2027.",
+    "speakerNotes": ""
+  }
+]

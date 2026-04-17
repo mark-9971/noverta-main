@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: var(--slide-primary);
+  --color-accent: var(--slide-accent);
+  --color-gold: var(--slide-gold);
+  --color-bg: var(--slide-bg);
+  --color-paper: var(--slide-paper);
+  --color-text: var(--slide-text);
+  --color-muted: var(--slide-muted);
+  --color-rule: var(--slide-rule);
+  --font-display: var(--font-display-family);
+  --font-body: var(--font-body-family);
+}
+
+:root {
+  /* Editorial / magazine palette — ink navy, warm cream, terracotta accent. */
+  --slide-primary: #0E1E3A;
+  --slide-accent: #C44A2A;
+  --slide-gold: #C9A96E;
+  --slide-bg: #F5EFE6;
+  --slide-paper: #ECE3D2;
+  --slide-text: #1A1F2E;
+  --slide-muted: #6B6558;
+  --slide-rule: #2A2D34;
+  --font-display-family: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body-family: "Inter", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--slide-bg);
+  color: var(--slide-text);
+  font-family: var(--font-body-family);
+}
+
+.slide {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.slide-viewer {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
