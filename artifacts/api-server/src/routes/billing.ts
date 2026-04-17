@@ -105,7 +105,16 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
     }
 
     const [sub] = await db
-      .select({ status: districtSubscriptionsTable.status, currentPeriodEnd: districtSubscriptionsTable.currentPeriodEnd })
+      .select({
+        status: districtSubscriptionsTable.status,
+        currentPeriodEnd: districtSubscriptionsTable.currentPeriodEnd,
+        trialEndsAt: districtSubscriptionsTable.trialEndsAt,
+        gracePeriodEndsAt: districtSubscriptionsTable.gracePeriodEndsAt,
+        lastPaymentFailureAt: districtSubscriptionsTable.lastPaymentFailureAt,
+        lastPaymentFailureReason: districtSubscriptionsTable.lastPaymentFailureReason,
+        paymentFailureCount: districtSubscriptionsTable.paymentFailureCount,
+        lastSuccessfulPaymentAt: districtSubscriptionsTable.lastSuccessfulPaymentAt,
+      })
       .from(districtSubscriptionsTable)
       .where(eq(districtSubscriptionsTable.districtId, districtId))
       .limit(1);
@@ -115,15 +124,36 @@ router.get("/billing/status", async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const now = Date.now();
     const activeStatuses = ["active", "trialing"];
-    const isActive = activeStatuses.includes(sub.status);
+    const inGrace = sub.status === "past_due"
+      && sub.gracePeriodEndsAt
+      && new Date(sub.gracePeriodEndsAt).getTime() > now;
+    const isActive = activeStatuses.includes(sub.status) || Boolean(inGrace);
+
+    // Trial-ending soon: surface a soft warning even when fully active so the
+    // banner can warn the admin BEFORE the first charge runs.
+    const trialEndingSoon =
+      sub.status === "trialing"
+      && sub.trialEndsAt
+      && new Date(sub.trialEndsAt).getTime() - now < 3 * 24 * 60 * 60 * 1000;
 
     res.json({
       active: isActive,
       status: sub.status,
       mode: sub.status === "trialing" ? "trial" : (isActive ? "paid" : "unpaid"),
       currentPeriodEnd: sub.currentPeriodEnd,
-      requiresAttention: !isActive,
+      trialEndsAt: sub.trialEndsAt,
+      gracePeriodEndsAt: sub.gracePeriodEndsAt,
+      inGracePeriod: Boolean(inGrace),
+      trialEndingSoon: Boolean(trialEndingSoon),
+      lastPaymentFailureAt: sub.lastPaymentFailureAt,
+      lastPaymentFailureReason: sub.lastPaymentFailureReason,
+      paymentFailureCount: sub.paymentFailureCount,
+      lastSuccessfulPaymentAt: sub.lastSuccessfulPaymentAt,
+      // requiresAttention surfaces ANY actionable state — not just hard
+      // blocks. Trial ending soon and grace period both deserve banner UI.
+      requiresAttention: !isActive || Boolean(inGrace) || Boolean(trialEndingSoon),
     });
   } catch (err) {
     console.error("Error checking billing status:", err);

@@ -5,8 +5,21 @@ import { getPublicMeta } from "../lib/clerkClaims";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { getAuth } from "@clerk/express";
 
-const GATED_STATUSES = ["canceled", "unpaid", "past_due"];
+// Status taxonomy:
+//   ALLOWED            — full access, no UI nag
+//   GRACE_ELIGIBLE     — past_due is conditionally allowed while
+//                        gracePeriodEndsAt is in the future. After expiry it
+//                        is treated like a hard block.
+//   HARD_BLOCKED       — never allowed.
+//
+// `incomplete` is the brief window between checkout and the first successful
+// charge. We allow it for up to 1 hour after subscription creation so the
+// initial-charge race doesn't paywall a brand-new customer; if Stripe never
+// finishes the charge it transitions to `incomplete_expired` (hard-blocked).
 const ALLOWED_STATUSES = ["active", "trialing"];
+const GRACE_ELIGIBLE_STATUSES = ["past_due"];
+const HARD_BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete_expired"];
+const INCOMPLETE_GRACE_MS = 60 * 60 * 1000; // 1 hour
 
 const EXEMPT_PATHS = [
   "/billing/subscription",
@@ -79,6 +92,8 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
       return db
         .select({
           status: districtSubscriptionsTable.status,
+          gracePeriodEndsAt: districtSubscriptionsTable.gracePeriodEndsAt,
+          createdAt: districtSubscriptionsTable.createdAt,
         })
         .from(districtSubscriptionsTable)
         .where(eq(districtSubscriptionsTable.districtId, districtId))
@@ -93,12 +108,54 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
             return;
           }
 
+          const now = Date.now();
+
           if (ALLOWED_STATUSES.includes(sub.status)) {
             next();
             return;
           }
 
-          if (GATED_STATUSES.includes(sub.status)) {
+          // past_due: allowed during the grace window set by
+          // invoice.payment_failed; blocked after.
+          if (GRACE_ELIGIBLE_STATUSES.includes(sub.status)) {
+            const graceEnd = sub.gracePeriodEndsAt
+              ? new Date(sub.gracePeriodEndsAt).getTime()
+              : 0;
+            if (graceEnd > now) {
+              next();
+              return;
+            }
+            res.status(403).json({
+              error: "Subscription inactive",
+              code: "SUBSCRIPTION_PAST_DUE",
+              status: sub.status,
+              gracePeriodEndsAt: sub.gracePeriodEndsAt,
+              message:
+                "Your account has an unpaid balance and the grace period has ended. Please update your payment method to restore access.",
+            });
+            return;
+          }
+
+          // `incomplete` race window: only allow within 1h of subscription
+          // creation. Any longer means the initial charge silently failed
+          // and we should not let access linger.
+          if (sub.status === "incomplete") {
+            const createdAt = sub.createdAt ? new Date(sub.createdAt).getTime() : 0;
+            if (now - createdAt < INCOMPLETE_GRACE_MS) {
+              next();
+              return;
+            }
+            res.status(403).json({
+              error: "Initial charge failed",
+              code: "SUBSCRIPTION_INCOMPLETE",
+              status: sub.status,
+              message:
+                "We couldn't complete the initial charge for your subscription. Please update your payment method and try again.",
+            });
+            return;
+          }
+
+          if (HARD_BLOCKED_STATUSES.includes(sub.status)) {
             res.status(403).json({
               error: "Subscription inactive",
               code: "SUBSCRIPTION_INACTIVE",
@@ -106,6 +163,8 @@ export function requireActiveSubscription(req: Request, res: Response, next: Nex
               message:
                 sub.status === "canceled"
                   ? "Your subscription has been canceled. Please reactivate to continue."
+                  : sub.status === "incomplete_expired"
+                  ? "Your subscription was never activated because the initial charge failed. Please start a new subscription."
                   : "Your account has an unpaid balance. Please update your payment method.",
             });
             return;
