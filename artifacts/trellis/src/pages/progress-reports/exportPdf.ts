@@ -1,6 +1,16 @@
 import { ProgressReport, escapeHtml } from "./types";
 
-export function exportReportPdf(r: ProgressReport) {
+/**
+ * Render a progress report as print-ready HTML and trigger the
+ * browser's print dialog. This does NOT produce a true PDF — it
+ * relies on the user's OS "Save as PDF" option in the print dialog.
+ *
+ * The function (and its callers' button labels) used to be called
+ * "Export PDF", which was misleading. If a true server-generated
+ * PDF is ever needed for progress reports, add a PDFKit endpoint
+ * under `routes/reportExports/` and wire a separate button to it.
+ */
+export function printProgressReport(r: ProgressReport) {
   const goals = r.goalProgress || [];
   const services = r.serviceBreakdown || [];
 

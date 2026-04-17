@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { FileText, CheckCircle, Clock, Download, Eye, X } from "lucide-react";
+import { FileText, CheckCircle, Clock, Printer, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface SharedDoc {
@@ -50,7 +50,7 @@ function DocumentViewerModal({ docId, title, onClose }: { docId: number; title: 
                   if (win) { win.document.write(data.htmlSnapshot!); win.document.close(); win.print(); }
                 }}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
-                <Download className="w-3.5 h-3.5" /> Print / Save PDF
+                <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
               </button>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">

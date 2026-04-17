@@ -10,7 +10,7 @@ import { ReportList } from "./ReportList";
 import { ReportDetail } from "./ReportDetail";
 import { ReportEditor } from "./ReportEditor";
 import { GenerateDialog, BatchDialog } from "./GenerateDialogs";
-import { exportReportPdf } from "./exportPdf";
+import { printProgressReport } from "./exportPdf";
 
 export default function ProgressReportsPage() {
   const { teacherId } = useRole();
@@ -237,7 +237,7 @@ export default function ProgressReportsPage() {
       onBack={() => { setView("list"); setSelectedReport(null); }}
       onEdit={openEdit}
       onStatusChange={handleStatusChange}
-      onExportPdf={() => exportReportPdf(selectedReport)}
+      onPrint={() => printProgressReport(selectedReport)}
       saving={saving}
     />;
   }

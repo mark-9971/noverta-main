@@ -86,7 +86,7 @@ export function ExecutiveSummaryTab() {
           <p className="text-xs text-gray-400 self-end pb-1">Generated {new Date(data.generatedAt).toLocaleString()}{data.preparedBy ? ` by ${data.preparedBy}` : ""}</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={handlePrint}>
-          <Printer className="w-3.5 h-3.5" /> Print / PDF
+          <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
         </Button>
       </div>
 

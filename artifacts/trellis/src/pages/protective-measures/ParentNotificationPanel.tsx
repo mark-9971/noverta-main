@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, CheckCircle, ChevronRight, Download, FilePenLine,
+  AlertTriangle, CheckCircle, ChevronRight, FilePenLine,
   Mail, Printer, Send, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,7 +50,13 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
     }
   }, [isAdminReviewed, alreadySent]);
 
-  const handleDownloadPdf = () => {
+  // Builds a print-ready HTML restraint report and opens the browser
+  // print dialog. NOT a true server PDF — users save as PDF via the OS
+  // print dialog. (A true PDFKit endpoint exists at
+  // GET /api/protective-measures/incidents/:id/report-pdf and is what
+  // the parent-notification email attaches; this UI button just gives
+  // staff a quick on-screen preview / printable copy.)
+  const handlePrintReport = () => {
     const staffMap: Record<number, string> = {};
     staff.forEach(s => { staffMap[s.id] = `${s.firstName} ${s.lastName}`; });
     const studentName = incident.studentFirstName
@@ -108,8 +114,8 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs text-gray-500">Admin review must be completed before sending parent notification.</p>
         </div>
-        <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
-          <Printer className="w-3.5 h-3.5" /> Preview Restraint Report PDF
+        <button onClick={handlePrintReport} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+          <Printer className="w-3.5 h-3.5" /> Preview restraint report (Print / Save as PDF)
         </button>
       </div>
     );
@@ -142,8 +148,8 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
             </div>
           </details>
         )}
-        <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
-          <Download className="w-3.5 h-3.5" /> Download Restraint Report PDF
+        <button onClick={handlePrintReport} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+          <Printer className="w-3.5 h-3.5" /> Open restraint report (Print / Save as PDF)
         </button>
       </div>
     );
@@ -181,8 +187,8 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
         />
       </div>
 
-      <button onClick={handleDownloadPdf} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
-        <Printer className="w-3.5 h-3.5" /> Preview / Download Restraint Report PDF
+      <button onClick={handlePrintReport} className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 flex items-center justify-center gap-1.5">
+        <Printer className="w-3.5 h-3.5" /> Open restraint report (Print / Save as PDF)
       </button>
 
       {lastReviewEntry && (
@@ -269,7 +275,7 @@ export function ParentNotificationPanel({ incident, staff, incidentId, saveDraft
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
               <p className="text-xs font-semibold text-amber-800">Confirm Send</p>
               {sendMethod === "email"
-                ? <p className="text-[11px] text-amber-700">The notification will be emailed to the parent/guardian. The incident will only be marked as sent after confirmed delivery. If email is not configured, you can use "Preview / Download Restraint Report PDF" above as a fallback.</p>
+                ? <p className="text-[11px] text-amber-700">The notification will be emailed to the parent/guardian with the restraint report PDF attached. The incident will only be marked as sent after confirmed delivery. If email is not configured, use the "Open restraint report" button above to print or save a PDF as a fallback.</p>
                 : <p className="text-[11px] text-amber-700">This will mark the parent notification as sent via {sendMethod.replace(/_/g, " ")} and attach the restraint report. This action cannot be undone.</p>
               }
               <div className="flex gap-2">

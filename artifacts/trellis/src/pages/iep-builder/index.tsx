@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, FileText,
-  Clock, TrendingUp, Download, Loader2,
+  Clock, TrendingUp, Loader2,
   BookOpen, MessageSquare, Briefcase,
   RefreshCw, Save,
 } from "lucide-react";
@@ -300,7 +300,7 @@ export default function IepBuilderPage() {
           )}
           {step === maxStep && draft && (
             <Button size="sm" variant="outline" onClick={printDraft}>
-              <Download className="w-4 h-4 mr-1" /> Print / PDF
+              <Printer className="w-4 h-4 mr-1" /> Print / Save as PDF
             </Button>
           )}
         </div>

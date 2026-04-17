@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Download, Edit3, ArrowLeft, Loader2, ChevronDown, ChevronUp,
+  Download, Edit3, ArrowLeft, Loader2, ChevronDown, ChevronUp, Printer,
 } from "lucide-react";
 import { ProgressReport, RATING_CONFIG, STATUS_CONFIG, formatDate } from "./types";
 import { TrendIcon } from "./TrendIcon";
@@ -12,11 +12,14 @@ interface Props {
   onBack: () => void;
   onEdit: () => void;
   onStatusChange: (s: string) => void;
-  onExportPdf: () => void;
+  /** Opens print-ready HTML in a new window and triggers the browser
+   *  print dialog. Users save as PDF via the OS dialog — this is NOT
+   *  a true PDF download. */
+  onPrint: () => void;
   saving: boolean;
 }
 
-export function ReportDetail({ report, onBack, onEdit, onStatusChange, onExportPdf, saving }: Props) {
+export function ReportDetail({ report, onBack, onEdit, onStatusChange, onPrint, saving }: Props) {
   const goals = report.goalProgress || [];
   const services = report.serviceBreakdown || [];
   const [expandedGoals, setExpandedGoals] = useState<Set<number>>(new Set(goals.map((_, i) => i)));
@@ -44,7 +47,7 @@ export function ReportDetail({ report, onBack, onEdit, onStatusChange, onExportP
         <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" /> Back</Button>
         <div className="flex-1" />
         <Button variant="outline" size="sm" onClick={onEdit}><Edit3 className="w-4 h-4 mr-1.5" /> Edit</Button>
-        <Button variant="outline" size="sm" onClick={onExportPdf}><Download className="w-4 h-4 mr-1.5" /> Export PDF</Button>
+        <Button variant="outline" size="sm" onClick={onPrint}><Printer className="w-4 h-4 mr-1.5" /> Print / Save as PDF</Button>
         {nextStatuses.map(ns => (
           <Button key={ns.value} size="sm" disabled={saving}
             className={ns.value === "final" ? "bg-emerald-600 hover:bg-emerald-700" : ns.value === "sent" ? "bg-purple-600 hover:bg-purple-700" : ""}

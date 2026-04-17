@@ -124,7 +124,7 @@ export function AuditPackageTab() {
               <Download className="w-3.5 h-3.5" /> Parent Contacts CSV
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={() => window.print()}>
-              <Printer className="w-3.5 h-3.5" /> Print / PDF
+              <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
             </Button>
           </div>
         )}

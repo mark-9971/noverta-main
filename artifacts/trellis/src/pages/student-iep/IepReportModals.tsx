@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  X, Save, Database, FileCheck, Loader2, CheckCircle2, Edit2, Download,
+  X, Save, Database, FileCheck, Loader2, CheckCircle2, Edit2,
   TrendingUp, TrendingDown, Clock, AlertTriangle, Minus as MinusIcon, BarChart3
 } from "lucide-react";
 import { generateProgressReport, updateProgressReport } from "@workspace/api-client-react";
@@ -285,7 +285,7 @@ export function ReportDetailModal({ report, studentName, onClose, onUpdated }: {
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" className="text-[12px] h-8" onClick={printReport}>
-              <Download className="w-3.5 h-3.5 mr-1" /> Print / PDF
+              <Printer className="w-3.5 h-3.5 mr-1" /> Print / Save as PDF
             </Button>
             {report.status === "draft" && (
               <Button size="sm" variant="outline" className="text-[12px] h-8 text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={finalizeReport} disabled={saving}>

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  FileText, Loader2, RefreshCw, Download, AlertCircle, CheckCircle2, GraduationCap,
+  FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, GraduationCap,
 } from "lucide-react";
 import { PROGRESS_COLORS, ACTION_COLORS, type BuilderContext, type GeneratedDraft } from "./types";
 
@@ -55,7 +55,7 @@ export function Step5Generate({ draft, generating, onGenerate, onPrint, context 
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
           </Button>
           <Button size="sm" variant="outline" onClick={onPrint}>
-            <Download className="w-3.5 h-3.5 mr-1" /> Print / PDF
+            <Printer className="w-3.5 h-3.5 mr-1" /> Print / Save as PDF
           </Button>
         </div>
       </div>

@@ -121,7 +121,7 @@ export function ParentSummaryTab() {
         {summary && (
           <div className="ml-auto">
             <Button size="sm" variant="outline" className="text-[12px] h-9 gap-1.5" onClick={handlePrint}>
-              <Printer className="w-3.5 h-3.5" /> Print / Save PDF
+              <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
             </Button>
           </div>
         )}

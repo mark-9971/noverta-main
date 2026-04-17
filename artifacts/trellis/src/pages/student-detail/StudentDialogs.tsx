@@ -696,7 +696,7 @@ export default function StudentDialogs(props: StudentDialogsProps) {
                     onClick={handlePrintSummary}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
                   >
-                    Print / Export PDF
+                    Print / Save as PDF
                   </button>
                   <button
                     onClick={generateShareLink}
