@@ -6,7 +6,8 @@ import {
   Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
-  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart
+  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
+  MoreHorizontal,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -59,7 +60,6 @@ export const adminNav: NavSection[] = [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/search", label: "IEP Search", icon: Search },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
     ],
   },
   {
@@ -83,6 +83,8 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
+      { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
@@ -98,8 +100,6 @@ export const adminNav: NavSection[] = [
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
-      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
-      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
   {
@@ -109,7 +109,6 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
@@ -135,14 +134,24 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    label: "More tools",
+    icon: MoreHorizontal,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
+      { href: "/iep-suggestions", label: "IEP Suggestions", icon: Sparkles, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
+      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
+      { href: "/analytics", label: "Analytics", icon: PieChart },
+    ],
+  },
+  {
     label: "Admin",
     icon: Settings,
     collapsible: true,
     items: [
-      { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
-      { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/reports", label: "Reports", icon: BarChart3 },
-      { href: "/analytics", label: "Analytics", icon: PieChart },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/billing", label: "Billing", icon: CreditCard },
