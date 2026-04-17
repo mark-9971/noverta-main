@@ -56,6 +56,7 @@ interface OnboardingStatus {
   isComplete: boolean;
   completedCount: number;
   totalSteps: number;
+  pilotChecklist?: { isComplete: boolean };
 }
 
 function statusBand(rate: number): { label: string; tone: "green" | "amber" | "red"; line: string } {
@@ -143,7 +144,12 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
 
   // Action queue
   const actions: { label: string; href?: string; onClick?: () => void; tone: "primary" | "muted" }[] = [];
-  if (onboarding && !onboarding.isComplete) {
+  // Use the 8-step pilot readiness signal (students/requirements/sessions
+  // imported, providers assigned, comms primed) — NOT the legacy 3-step
+  // `isComplete` which only checks SIS+schools+service types and would
+  // collapse the dominant onboarding UI before the district is truly ready.
+  const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
+  if (onboarding && !onboardingComplete) {
     const left = onboarding.totalSteps - onboarding.completedCount;
     actions.push({ label: `Finish setup — ${left} step${left === 1 ? "" : "s"} remaining`, href: "/setup", tone: "primary" });
   }

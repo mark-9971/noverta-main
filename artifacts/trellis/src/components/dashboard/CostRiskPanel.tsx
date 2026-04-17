@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   DollarSign, Users, AlertTriangle, TrendingUp, TrendingDown, Minus,
   ChevronDown, ChevronUp, Info, ArrowRight, ShieldAlert, FileText,
+  type LucideIcon,
 } from "lucide-react";
 
 // Types mirror /api/compensatory-finance/overview response shape.
@@ -426,7 +427,7 @@ export default function CostRiskPanel() {
 // --- Subcomponents ---
 
 function Kpi({ icon: Icon, label, value, sub, tone }: {
-  icon: any; label: string; value: string; sub: string;
+  icon: LucideIcon; label: string; value: string; sub: string;
   tone: "red" | "amber" | "emerald" | "gray";
 }) {
   const cfg: Record<string, { bg: string; text: string; border: string }> = {

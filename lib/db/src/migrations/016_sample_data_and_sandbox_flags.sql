@@ -17,8 +17,10 @@ ALTER TABLE students
 ALTER TABLE staff
   ADD COLUMN IF NOT EXISTS is_sample boolean NOT NULL DEFAULT false;
 
+-- Both students and staff carry a school_id (district is resolved via schools).
+-- Partial indexes speed up the sample-data seeder/teardown predicates.
 CREATE INDEX IF NOT EXISTS idx_students_is_sample
-  ON students (district_id, is_sample) WHERE is_sample = true;
+  ON students (school_id) WHERE is_sample = true;
 
 CREATE INDEX IF NOT EXISTS idx_staff_is_sample
-  ON staff (school_id, is_sample) WHERE is_sample = true;
+  ON staff (school_id) WHERE is_sample = true;
