@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Printer, Download, AlertTriangle, CheckCircle, TrendingDown,
+  Printer, Download, FileDown, AlertTriangle, CheckCircle, TrendingDown,
   Users, DollarSign, Clock, ArrowLeft, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Link } from "wouter";
@@ -305,6 +305,26 @@ export default function WeeklyComplianceSummaryPage() {
     openPrintWindow(buildPrintHtml(reportQuery.data));
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      const params = schoolFilter !== "all" ? `?schoolId=${schoolFilter}` : "";
+      const res = await authFetch(`/api/reports/weekly-compliance-summary.pdf${params}`);
+      if (!res.ok) {
+        toast.error("Failed to generate PDF. Please try again.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Weekly_Compliance_Summary_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to generate PDF. Please try again.");
+    }
+  };
+
   const handleDownloadCSV = async () => {
     try {
       const params = schoolFilter !== "all" ? `?schoolId=${schoolFilter}` : "";
@@ -357,6 +377,9 @@ export default function WeeklyComplianceSummaryPage() {
           </Select>
           <Button variant="outline" size="sm" onClick={handleDownloadCSV} disabled={!data} className="gap-1.5">
             <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={!data} className="gap-1.5">
+            <FileDown className="h-4 w-4" /> PDF
           </Button>
           <Button size="sm" onClick={handlePrint} disabled={!data} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
             <Printer className="h-4 w-4" /> Print
