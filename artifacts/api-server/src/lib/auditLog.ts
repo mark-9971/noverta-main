@@ -3,6 +3,7 @@ import type { Request } from "express";
 import type { AuthedRequest } from "../middlewares/auth";
 import { getClerkUserId, getPublicMeta } from "./clerkClaims";
 import { isRole } from "./permissions";
+import { getClientIp } from "./clientIp";
 
 interface AuditEntry {
   action: "create" | "read" | "update" | "delete";
@@ -13,12 +14,6 @@ interface AuditEntry {
   oldValues?: Record<string, unknown> | null;
   newValues?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
-}
-
-function getClientIp(req: Request): string | null {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  return req.socket?.remoteAddress || null;
 }
 
 function resolveActor(req: Request): { userId: string; role: string } {

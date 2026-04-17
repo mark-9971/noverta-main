@@ -1,5 +1,6 @@
-import type { Request } from "express";
 import crypto from "crypto";
+import { SlidingWindowLimiter } from "./rateLimiter";
+export { getClientIp } from "./clientIp";
 
 /**
  * Defaults for the parent progress share-link feature.
@@ -34,29 +35,8 @@ export const SHARE_LINK_CONFIG = {
   ratePerIpMax: num("SHARE_LINK_RATE_IP_MAX", 60, 1, 10_000),
 } as const;
 
-/**
- * Returns the request's best-effort client IP for *security* purposes
- * (rate-limit keys, audit logs).
- *
- * X-Forwarded-For is trusted ONLY when the operator has explicitly opted in
- * via TRUST_PROXY=1 (or "true"). Without that opt-in we use the raw socket
- * address, because an attacker can otherwise spoof the header to evade
- * per-IP rate limiting. When trusted, we take the *left-most* entry, which
- * is the originating client when a known number of proxies prepend.
- */
-const TRUST_PROXY = ["1", "true", "yes"].includes(
-  (process.env.TRUST_PROXY ?? "").toLowerCase(),
-);
-export function getClientIp(req: Request): string | null {
-  if (TRUST_PROXY) {
-    const fwd = req.headers["x-forwarded-for"];
-    if (typeof fwd === "string" && fwd.length > 0) {
-      const first = fwd.split(",")[0]!.trim();
-      if (first) return first;
-    }
-  }
-  return req.socket?.remoteAddress ?? null;
-}
+// getClientIp lives in ./clientIp and is re-exported above so existing callers
+// of `import { getClientIp } from "../../lib/shareLinks"` keep working.
 
 export function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -73,54 +53,6 @@ export function tokenHashPrefix(tokenHash: string): string {
  */
 export function generateShareToken(): string {
   return crypto.randomBytes(24).toString("hex");
-}
-
-/**
- * Sliding-window in-memory rate limiter keyed by an arbitrary string.
- *
- * Process-local — fine for a single api-server instance, deliberately
- * documented as a remaining risk for multi-instance deployments where you'd
- * want a Redis-backed store.
- */
-class SlidingWindowLimiter {
-  private hits = new Map<string, number[]>();
-  private lastSweep = Date.now();
-
-  constructor(private readonly windowMs: number, private readonly max: number) {}
-
-  /** Returns true when the request is allowed; false if it should be rejected. */
-  allow(key: string): boolean {
-    const now = Date.now();
-    if (now - this.lastSweep > this.windowMs) {
-      this.sweep(now);
-      this.lastSweep = now;
-    }
-    const arr = this.hits.get(key) ?? [];
-    const cutoff = now - this.windowMs;
-    const fresh = arr.filter((t) => t > cutoff);
-    if (fresh.length >= this.max) {
-      this.hits.set(key, fresh);
-      return false;
-    }
-    fresh.push(now);
-    this.hits.set(key, fresh);
-    return true;
-  }
-
-  private sweep(now: number) {
-    const cutoff = now - this.windowMs;
-    for (const [k, arr] of this.hits) {
-      const fresh = arr.filter((t) => t > cutoff);
-      if (fresh.length === 0) this.hits.delete(k);
-      else this.hits.set(k, fresh);
-    }
-  }
-
-  /** Test-only: reset all counters. */
-  reset(): void {
-    this.hits.clear();
-    this.lastSweep = Date.now();
-  }
 }
 
 export const tokenRateLimiter = new SlidingWindowLimiter(

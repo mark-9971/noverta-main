@@ -16,6 +16,7 @@
  */
 import type { Request } from "express";
 import { getClerkUserId, getPublicMeta } from "./clerkClaims";
+import { getClientIp } from "./clientIp";
 
 export type DenialKind =
   | "unauthenticated"           // 401 — no Clerk session / no token
@@ -45,12 +46,6 @@ export interface AccessDenial {
 const MAX_ENTRIES = 200;
 const _buf: AccessDenial[] = [];
 let _seq = 0;
-
-function getClientIp(req: Request): string | null {
-  const fwd = req.headers["x-forwarded-for"];
-  if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0].trim();
-  return req.socket?.remoteAddress || null;
-}
 
 function pathOnly(req: Request): string {
   // originalUrl is the full mounted path including query — strip the query for the buffer.

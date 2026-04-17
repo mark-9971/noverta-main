@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, guardiansTable, studentsTable, generatedDocumentsTable, documentAcknowledgmentsTable, communicationEventsTable, parentContactsTable, teamMeetingsTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray } from "drizzle-orm";
 import { requireGuardianScope } from "../middlewares/auth";
+import { getClientIp } from "../lib/clientIp";
 import type { AuthedRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -182,8 +183,7 @@ router.post("/documents/:id/acknowledge", async (req: Request, res: Response) =>
 
     if (!doc) { res.status(404).json({ error: "Document not found or not shared" }); return; }
 
-    const ipAddress = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-      ?? req.socket?.remoteAddress ?? null;
+    const ipAddress = getClientIp(req);
 
     // Upsert — unique constraint on (document_id, guardian_id) prevents duplicates.
     // ON CONFLICT DO NOTHING + returning() returns the existing row if already acknowledged.
