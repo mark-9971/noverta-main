@@ -1,4 +1,4 @@
-import type { Step, Student, ServiceType, MissedReason } from "./types";
+import type { Step, Student, ServiceType, MissedReason, RecentCombo } from "./types";
 import { StudentStep } from "./StudentStep";
 import { ServiceStep } from "./ServiceStep";
 import { DurationStep } from "./DurationStep";
@@ -6,6 +6,7 @@ import { OutcomeStep } from "./OutcomeStep";
 import { ReasonStep } from "./ReasonStep";
 import { NoteStep } from "./NoteStep";
 import { ReviewStep } from "./ReviewStep";
+import { SuccessStep } from "./SuccessStep";
 
 export interface QuickLogBodyProps {
   step: Step;
@@ -40,6 +41,12 @@ export interface QuickLogBodyProps {
   onSubmit: () => void;
   submitting: boolean;
   goalCount?: number;
+  recentCombos: RecentCombo[];
+  onSelectCombo: (combo: RecentCombo) => void;
+  serviceSuggestedDuration?: number;
+  onLogAnotherSameStudent: () => void;
+  onLogAnother: () => void;
+  onDone: () => void;
 }
 
 export function QuickLogBody(p: QuickLogBodyProps) {
@@ -53,6 +60,8 @@ export function QuickLogBody(p: QuickLogBodyProps) {
           onSearch={p.onSearch}
           onSelect={p.selectStudent}
           searchRef={p.searchRef}
+          recentCombos={p.recentCombos}
+          onSelectCombo={p.onSelectCombo}
         />
       )}
       {p.step === "service" && (
@@ -72,6 +81,7 @@ export function QuickLogBody(p: QuickLogBodyProps) {
           customValue={p.customDuration}
           onCustomChange={p.setCustomDuration}
           onSelect={p.selectDuration}
+          serviceSuggestedDuration={p.serviceSuggestedDuration}
         />
       )}
       {p.step === "outcome" && (
@@ -116,6 +126,17 @@ export function QuickLogBody(p: QuickLogBodyProps) {
           goalCount={p.goalCount}
           onSubmit={p.onSubmit}
           submitting={p.submitting}
+        />
+      )}
+      {p.step === "success" && (
+        <SuccessStep
+          studentName={p.studentName}
+          serviceTypeName={p.serviceTypeName}
+          durationMinutes={p.durationMinutes}
+          outcome={p.outcome!}
+          onLogAnotherSameStudent={p.onLogAnotherSameStudent}
+          onLogAnother={p.onLogAnother}
+          onDone={p.onDone}
         />
       )}
     </div>

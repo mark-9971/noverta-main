@@ -1,8 +1,8 @@
-import { Search, Zap } from "lucide-react";
-import type { Student } from "./types";
+import { Search, Zap, Repeat, Clock } from "lucide-react";
+import type { Student, RecentCombo } from "./types";
 
 export function StudentStep({
-  students, recents, search, onSearch, onSelect, searchRef,
+  students, recents, search, onSearch, onSelect, searchRef, recentCombos, onSelectCombo,
 }: {
   students: Student[];
   recents: Student[];
@@ -10,6 +10,8 @@ export function StudentStep({
   onSearch: (v: string) => void;
   onSelect: (id: number, name: string) => void;
   searchRef: React.RefObject<HTMLInputElement | null>;
+  recentCombos: RecentCombo[];
+  onSelectCombo: (combo: RecentCombo) => void;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -34,10 +36,43 @@ export function StudentStep({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-4">
+        {!search && recentCombos.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <Repeat className="w-3 h-3" /> Quick Repeat
+            </p>
+            <div className="space-y-1.5">
+              {recentCombos.map((combo, i) => (
+                <button
+                  key={`${combo.studentId}-${combo.serviceTypeId}-${i}`}
+                  onClick={() => onSelectCombo(combo)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors active:scale-[0.98] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100"
+                >
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[13px] font-bold flex-shrink-0">
+                    {combo.studentName.charAt(0)}{combo.studentName.split(" ")[1]?.charAt(0) ?? ""}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-emerald-900 truncate">{combo.studentName}</p>
+                    <p className="text-[12px] text-emerald-600 flex items-center gap-1">
+                      {combo.serviceTypeName}
+                      <span className="text-emerald-400">·</span>
+                      <Clock className="w-3 h-3 inline" />
+                      {combo.durationMinutes} min
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg flex-shrink-0">
+                    1 tap
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {!search && recents.length > 0 && (
           <div>
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-              <Zap className="w-3 h-3" /> Recent
+              <Zap className="w-3 h-3" /> Recent Students
             </p>
             <div className="space-y-1.5">
               {recents.map((s) => (
@@ -48,7 +83,7 @@ export function StudentStep({
         )}
 
         <div>
-          {(!search && recents.length > 0) && (
+          {(!search && (recents.length > 0 || recentCombos.length > 0)) && (
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">All Students</p>
           )}
           <div className="space-y-1.5">

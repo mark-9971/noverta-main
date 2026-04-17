@@ -1,4 +1,4 @@
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, SkipForward } from "lucide-react";
 
 export function NoteStep({ studentName, serviceTypeName, durationMinutes, outcome, note, makeupNeeded, onNoteChange, onContinue }: {
   studentName: string;
@@ -13,7 +13,17 @@ export function NoteStep({ studentName, serviceTypeName, durationMinutes, outcom
   return (
     <div className="px-4 pt-5 pb-6 flex flex-col min-h-[calc(100vh-80px)]">
       <h2 className="text-xl font-bold text-gray-900">Any notes?</h2>
-      <p className="text-sm text-gray-500 mt-1">Optional — add context or observations</p>
+      <div className="flex items-center justify-between mt-1">
+        <p className="text-sm text-gray-500">Optional — add context or observations</p>
+        {outcome === "completed" && !note.trim() && (
+          <button
+            onClick={onContinue}
+            className="text-[12px] font-medium text-emerald-600 flex items-center gap-1 hover:text-emerald-700 active:text-emerald-800"
+          >
+            Skip <SkipForward className="w-3 h-3" />
+          </button>
+        )}
+      </div>
 
       <div className={`mt-4 rounded-xl border-2 p-4 ${
         outcome === "completed" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"

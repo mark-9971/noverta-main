@@ -3,8 +3,8 @@ import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import type { CollectedGoalEntry } from "@/components/live-data-panel/types";
 import {
-  type QuickLogDefaults, type Student, type ServiceType, type MissedReason, type Step,
-  loadDefaults, saveDefaults, pushRecent,
+  type QuickLogDefaults, type Student, type ServiceType, type MissedReason, type Step, type RecentCombo,
+  loadDefaults, saveDefaults, pushRecent, pushCombo, getServiceDuration,
 } from "./types";
 import { QuickLogHeader } from "./QuickLogHeader";
 import { QuickLogBody } from "./QuickLogBody";
@@ -127,6 +127,7 @@ export function QuickLogSheet({
       if (svc) {
         setServiceTypeId(svc.id);
         setServiceTypeName(svc.name);
+        setDurationMinutes(getServiceDuration(d, svc.id));
         setStep("duration");
         return;
       }
@@ -134,8 +135,7 @@ export function QuickLogSheet({
     setStep("service");
   }, [students, serviceTypes, isOpen]);
 
-  const reset = () => {
-    setStep("student");
+  const resetFields = () => {
     setStudentId(null);
     setStudentName("");
     setServiceTypeId(null);
@@ -150,13 +150,19 @@ export function QuickLogSheet({
     setSearch("");
   };
 
+  const reset = () => {
+    resetFields();
+    setStep("student");
+  };
+
   const handleClose = () => { reset(); onClose(); };
 
   const selectStudent = (id: number, name: string) => {
     setStudentId(id);
     setStudentName(name);
     setSearch("");
-    const lastSvc = defaults.recentServiceTypeIds[0];
+    const d = loadDefaults(staffId);
+    const lastSvc = d.recentServiceTypeIds[0];
     if (lastSvc) {
       const found = serviceTypes.find((s) => s.id === lastSvc);
       if (found) {
@@ -167,9 +173,23 @@ export function QuickLogSheet({
     setStep("service");
   };
 
+  const selectCombo = (combo: RecentCombo) => {
+    setStudentId(combo.studentId);
+    setStudentName(combo.studentName);
+    setServiceTypeId(combo.serviceTypeId);
+    setServiceTypeName(combo.serviceTypeName);
+    setDurationMinutes(combo.durationMinutes);
+    setCustomDuration("");
+    setOutcome(null);
+    setStep("outcome");
+  };
+
   const selectService = (id: number | null, name: string) => {
     setServiceTypeId(id);
     setServiceTypeName(name);
+    const d = loadDefaults(staffId);
+    const svcDuration = getServiceDuration(d, id);
+    setDurationMinutes(svcDuration);
     setStep("duration");
   };
 
@@ -199,26 +219,52 @@ export function QuickLogSheet({
         sessionDate: today, prefillStartTime, prefillEndTime,
         collectedGoalData: collectedGoalData,
       });
-      saveDefaults(staffId, {
-        recentStudentIds: pushRecent(defaults.recentStudentIds, studentId),
+      const freshDefaults = loadDefaults(staffId);
+      const updatedDefaults: QuickLogDefaults = {
+        recentStudentIds: pushRecent(freshDefaults.recentStudentIds, studentId),
         recentServiceTypeIds: serviceTypeId
-          ? pushRecent(defaults.recentServiceTypeIds, serviceTypeId)
-          : defaults.recentServiceTypeIds,
+          ? pushRecent(freshDefaults.recentServiceTypeIds, serviceTypeId)
+          : freshDefaults.recentServiceTypeIds,
         lastDurationMinutes: durationMinutes,
-      });
+        recentCombos: pushCombo(freshDefaults.recentCombos, {
+          studentId,
+          studentName,
+          serviceTypeId,
+          serviceTypeName,
+          durationMinutes,
+        }),
+        serviceDurations: {
+          ...freshDefaults.serviceDurations,
+          ...(serviceTypeId != null ? { [String(serviceTypeId)]: durationMinutes } : {}),
+        },
+      };
+      saveDefaults(staffId, updatedDefaults);
+      setDefaults(updatedDefaults);
       const goalCount = collectedGoalData?.length || 0;
       toast.success(
         outcome === "completed"
           ? `Session logged!${goalCount > 0 ? ` ${goalCount} goal${goalCount !== 1 ? "s" : ""} tracked.` : ""}`
           : "Missed session recorded."
       );
-      reset();
       onSuccess();
-      onClose();
+      setStep("success");
     } catch {
       toast.error("Failed to save session. Please try again.");
     }
     setSubmitting(false);
+  };
+
+  const handleLogAnotherSameStudent = () => {
+    const keepStudentId = studentId;
+    const keepStudentName = studentName;
+    resetFields();
+    setStudentId(keepStudentId);
+    setStudentName(keepStudentName);
+    setStep("service");
+  };
+
+  const handleLogAnother = () => {
+    reset();
   };
 
   const back = () => {
@@ -243,12 +289,21 @@ export function QuickLogSheet({
     .map(id => serviceTypes.find(s => s.id === id))
     .filter((s): s is typeof serviceTypes[number] => s !== undefined);
 
+  const serviceSuggestedDuration = serviceTypeId != null
+    ? (defaults.serviceDurations[String(serviceTypeId)] ?? undefined)
+    : undefined;
+
+  const isSuccessStep = step === "success";
   const STEP_TOTAL = outcome === "missed" ? 7 : 6;
-  const stepIdx = (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note", "review"].filter(Boolean) as Step[]).indexOf(step) + 1;
+  const stepIdx = isSuccessStep
+    ? STEP_TOTAL
+    : (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note", "review"].filter(Boolean) as Step[]).indexOf(step) + 1;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ touchAction: "manipulation" }}>
-      <QuickLogHeader stepIdx={stepIdx} stepTotal={STEP_TOTAL} onBack={back} onClose={handleClose} />
+      {!isSuccessStep && (
+        <QuickLogHeader stepIdx={stepIdx} stepTotal={STEP_TOTAL} onBack={back} onClose={handleClose} />
+      )}
       <QuickLogBody
         step={step}
         filteredStudents={filteredStudents}
@@ -282,6 +337,12 @@ export function QuickLogSheet({
         onSubmit={handleSubmit}
         submitting={submitting}
         goalCount={collectedGoalData?.length}
+        recentCombos={defaults.recentCombos}
+        onSelectCombo={selectCombo}
+        serviceSuggestedDuration={serviceSuggestedDuration}
+        onLogAnotherSameStudent={handleLogAnotherSameStudent}
+        onLogAnother={handleLogAnother}
+        onDone={handleClose}
       />
     </div>
   );
