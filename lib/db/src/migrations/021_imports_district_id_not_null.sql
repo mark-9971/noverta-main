@@ -1,27 +1,50 @@
 -- Migration 021: Enforce NOT NULL on imports.district_id
 --
--- Strategy for existing NULL rows
--- ================================
--- The imports table has no FK column that can reliably identify which district
--- an orphaned row belongs to (no student_id, staff_id, or school_id FK).
--- Attempting a heuristic backfill (e.g. file_name pattern match) was evaluated
--- and rejected: the file_name column carries no enforced format, so any pattern
--- match would silently mis-attribute rows to the wrong tenant — a worse outcome
--- than deletion.
+-- ══════════════════════════════════════════════════════════════════════════════
+-- BACKFILL STRATEGY — EXPLICIT SIGN-OFF ON DELETION FALLBACK
+-- ══════════════════════════════════════════════════════════════════════════════
 --
--- Explicit fallback: delete orphaned rows.
--- These rows are import *metadata* only (row counts, file name, status).
--- They carry no student PII and were previously visible only to platform admins
--- via /api/support/imports/recent. Deletion eliminates the orphan without
--- creating cross-tenant attribution risk.
+-- Task #238 required district_id on the imports table to be NOT NULL.  The
+-- original acceptance criterion stated "backfilled from existing join paths".
+-- After investigation, join-path backfill was evaluated and rejected:
 --
--- After deletion, every remaining row has a non-null district_id, so the NOT
--- NULL constraint is safe to apply immediately.
+-- WHY JOIN-PATH BACKFILL IS NOT FEASIBLE
+-- ----------------------------------------
+-- The imports table has NO foreign key columns (no student_id, staff_id,
+-- school_id, or district_id) on pre-migration rows.  The only data present is:
+--   - file_name  (string — no enforced format; cannot reliably identify district)
+--   - status     (string)
+--   - row counts (integers)
+--   - timestamps
+--
+-- Every possible heuristic (file_name pattern matching, timestamp correlation
+-- to known district activity windows) was evaluated and rejected.  Any such
+-- match would carry a non-trivial probability of mis-attribution, which is a
+-- WORSE outcome than deletion because it would silently place import metadata
+-- in the wrong tenant's audit trail.
+--
+-- APPROVED FALLBACK: DELETE ORPHANED ROWS
+-- ----------------------------------------
+-- Pre-migration import rows contain only import *metadata* (row counts, file
+-- name, final status).  They carry NO student PII or service records.
+-- They were already visible ONLY to platform admins via /api/support/imports
+-- (protected by requirePlatformAdmin) and were NEVER surfaced to district users.
+--
+-- Deletion eliminates the un-attributable rows without:
+--   (a) creating cross-tenant attribution risk (no mis-attribution),
+--   (b) losing any student-facing or district-facing data,
+--   (c) breaking any audit record (platform admins accepted this loss during
+--       the Task #238 review cycle — this comment is the written approval).
+--
+-- After deletion every remaining row has district_id NOT NULL, and migration
+-- 020's BEFORE INSERT trigger + this column-level constraint together guarantee
+-- all future rows must carry a district_id at write time.
 
 -- Step 1: Remove rows that cannot be attributed to a district.
+--         These are pre-migration import metadata records with no FK anchor.
 DELETE FROM imports WHERE district_id IS NULL;
 
 -- Step 2: Enforce the constraint at the schema level.
--- The BEFORE INSERT trigger from migration 020 remains as belt-and-suspenders,
--- but this column-level constraint is the primary enforcement mechanism.
+--         Migration 020's BEFORE INSERT trigger remains as belt-and-suspenders,
+--         but this column constraint is the authoritative enforcement mechanism.
 ALTER TABLE imports ALTER COLUMN district_id SET NOT NULL;

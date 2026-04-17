@@ -1,0 +1,237 @@
+Your job is to reduce product sprawl and refocus the app around the core wedge:
+
+Trellis = SPED service-delivery, compliance-risk, and compensatory-exposure management for school districts.
+
+That means the product should primarily feel like:
+
+* track required vs delivered service minutes
+* surface missed sessions and provider coverage gaps
+* flag compliance risk early
+* show compensatory exposure
+* support pilot onboarding, data readiness, and meeting-ready reporting
+
+Non-negotiable rules
+
+1) Do not break anything
+
+* Make this a safe refactor / feature-hiding pass, not a destructive rewrite.
+* Do not delete routes, pages, APIs, DB schema, components, or business logic.
+* If something is removed from the user experience, hide it only.
+* Existing code should remain recoverable and easy to re-enable later.
+* Preserve app stability, imports, build health, auth, role gating, and route integrity.
+
+2) Hide, don’t delete
+
+If a feature does not support the wedge, do one or more of the following instead of removing it:
+
+* remove from primary nav
+* move into a collapsed “More tools”, “Advanced”, or “Expanded platform” area
+* keep route accessible but no longer promoted
+* keep backend endpoints intact
+* keep feature flags / tier gates intact where possible
+* if necessary, add a single central config layer for core, secondary, and hidden-from-primary-nav
+
+3) Do not create broken dependencies
+
+Before hiding a feature:
+
+* trace whether any visible page, report, workflow, sidebar item, dashboard card, onboarding step, redirect, or API call depends on it
+* if something depends on a hidden feature, either:
+    * keep the dependency accessible but unpromoted, or
+    * reroute the visible workflow to a wedge-aligned destination
+* no broken links
+* no empty cards caused by removed nav items
+* no dead CTAs
+* no imports failing because a component was “cleaned up”
+
+4) Preserve reversibility
+
+Every hidden feature should be easy to restore later.
+
+* Prefer centralized visibility control over scattered conditionals.
+* Add comments where helpful.
+* Do not rewrite core business logic unless needed for stability.
+* Keep route files and page files intact.
+
+5) Be conservative
+
+If unsure whether something is needed, keep it accessible but de-emphasized rather than removing it from view entirely.
+
+⸻
+
+Product direction to optimize for
+
+Refocus Trellis around this wedge:
+
+Core wedge
+
+* Dashboard / Pilot Admin Home
+* Alerts
+* Students
+* Sessions
+* Schedule / Coverage
+* Staff
+* Compliance
+* Compliance Risk Report
+* Weekly Compliance Summary
+* Reports tied to compliance/service delivery
+* Document workflow that directly supports auditability
+* Parent communication only where it supports service delivery / compliance
+* Settings / onboarding / data health / import
+
+Keep but de-emphasize
+
+These may remain in secondary or collapsed navigation:
+
+* IEP Search
+* Evaluations
+* IEP Calendar
+* Staff Calendar
+* Compensatory Services
+* State Reports
+* Contract Utilization
+* Caseload Balancing
+* Agencies
+* Data Import
+* Billing
+* Progress Reports
+* IEP Builder
+* IEP Meetings
+* Protective Measures
+* Executive Dashboard
+* Clinical tools
+
+Hide from primary product story unless needed
+
+These should generally be demoted from the main experience unless they are already required by visible workflows:
+
+* Transition Planning
+* IEP Suggestions
+* Supervision
+* Resource Management
+* Analytics
+* student/teacher portal style surfaces if still present
+* any “platform breadth” modules that weaken the compliance wedge
+
+⸻
+
+What I want you to do
+
+Phase 1: Audit first
+
+Inspect the codebase and produce a concise inventory with 4 buckets:
+
+1. Keep Primary
+2. Keep Secondary
+3. Hide from Primary Navigation
+4. Do Not Touch Yet (because dependency risk is too high)
+
+For each item include:
+
+* route/page
+* nav location
+* why it belongs in that bucket
+* dependency risk level: low / medium / high
+
+Phase 2: Create a safe wedge-focused visibility plan
+
+Implement a centralized feature visibility strategy if one does not already exist. Prefer:
+
+* nav configuration updates
+* grouped/collapsed sections
+* route-preserving demotion
+* feature metadata like primary, secondary, hidden
+
+Do not overengineer this. Use the lightest safe mechanism that fits the existing architecture.
+
+Phase 3: Apply the cleanup safely
+
+Make the app feel focused on the wedge by:
+
+* simplifying the main sidebar
+* reducing top-level module sprawl
+* removing distracting/non-core CTAs from dashboards where appropriate
+* keeping important workflows reachable
+* preserving route access for hidden modules
+
+Phase 4: Regression-check the cleanup
+
+After changes:
+
+* verify app builds
+* verify no import errors
+* verify no type errors if typecheck exists
+* verify protected routes still resolve
+* verify primary nav works for key roles
+* verify hidden routes still load if directly visited
+* verify no visible screen has broken buttons, dead links, or obvious empty states caused by hidden features
+* verify compliance/report/dashboard/onboarding flows still function
+
+⸻
+
+Required constraints
+
+Preserve these buyer-facing flows at all costs
+
+These are the wedge and should remain prominent and working:
+
+* landing into Pilot Admin Home / focused dashboard
+* going from onboarding/import → data health → students/staff/service requirements → sessions → compliance dashboard
+* compliance risk report
+* weekly compliance summary
+* alerts / follow-up work
+* cost / exposure context where already present
+* quick session logging and para/provider workflows if already working
+
+Do not weaken trust
+
+Preserve all honesty/fail-closed patterns such as:
+
+* no false “all clear”
+* no false “pilot ready”
+* incomplete data warnings remain intact
+* sparse data banners remain intact
+
+No schema or destructive data changes
+
+* no DB drops
+* no migrations that remove fields/tables
+* no API contract breakage unless absolutely necessary, and only if internal-only and safely updated everywhere
+
+⸻
+
+Output format I want from you
+
+1. Audit summary
+    * Keep Primary
+    * Keep Secondary
+    * Hide from Primary Navigation
+    * Do Not Touch Yet
+2. Implementation plan
+    * exact files to modify
+    * visibility/grouping approach
+    * dependency protections
+3. Changes made
+    * concise file-by-file summary
+4. Regression results
+    * build result
+    * typecheck result
+    * routes checked
+    * roles checked
+    * any remaining risks
+5. Open questions / recommended next cleanup pass
+    * only after the safe pass is complete
+
+⸻
+
+Important engineering behavior
+
+* Think like a careful staff engineer doing a product-focus cleanup.
+* Prefer minimal, reversible changes.
+* Do not delete anything.
+* Do not silently break discoverability for workflows that still matter.
+* If a hidden feature is needed by a visible flow, keep it reachable.
+* If a route is preserved but nav-hidden, make sure it still has sane breadcrumbs/back links where appropriate.
+* If you find a risky dependency, call it out and avoid overreaching.
+
+Your goal is to make Trellis feel like a sharp, pilot-ready SPED service-delivery and compliance-risk platform, while preserving the broader platform under the hood for future expansion.

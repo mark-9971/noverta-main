@@ -1,3 +1,6 @@
+// tenant-scope: platform-admin
+// All routes in this file are protected by requirePlatformAdmin (see below).
+// This router is registered under /api/support and is inaccessible to district users.
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, districtsTable, districtSubscriptionsTable, schoolsTable, studentsTable,

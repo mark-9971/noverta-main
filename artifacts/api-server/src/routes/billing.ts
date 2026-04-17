@@ -1,3 +1,9 @@
+// tenant-scope: district-join
+// Billing routes use resolveDistrictIdForCaller() to derive the caller's district
+// from their Clerk session + staff FK link. getEnforcedDistrictId() is not used
+// because billing applies to the caller's own subscription, not an arbitrary
+// district param. Platform-admin-only admin routes in this file use
+// requirePlatformAdmin in addition to the district-scoped routes.
 import { Router, type Request, type Response } from "express";
 import { db, districtSubscriptionsTable, districtsTable, staffTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";

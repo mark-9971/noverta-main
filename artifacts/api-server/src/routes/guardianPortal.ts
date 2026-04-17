@@ -1,3 +1,7 @@
+// tenant-scope: guardian
+// All routes here require requireGuardianScope — the guardian JWT token scopes
+// every request to the specific guardian's linked student(s). No district ID
+// from the session is used; the tenant boundary is the guardian-token identity.
 import { Router, type Request, type Response } from "express";
 import { db, guardiansTable, studentsTable, generatedDocumentsTable, documentAcknowledgmentsTable, communicationEventsTable, parentContactsTable, teamMeetingsTable } from "@workspace/db";
 import { eq, and, desc, gte, inArray } from "drizzle-orm";
