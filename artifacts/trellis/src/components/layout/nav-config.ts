@@ -60,6 +60,8 @@ export const adminNav: NavSection[] = [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/search", label: "IEP Search", icon: Search },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
   },
   {
@@ -87,9 +89,7 @@ export const adminNav: NavSection[] = [
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
       { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
-      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
     ],
