@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,33 @@ interface SisConnection {
   lastSyncAt: string | null;
   enabled: boolean;
   createdAt: string;
+}
+
+interface SyncJob {
+  id: number;
+  connectionId: number;
+  syncType: string;
+  status: "queued" | "running" | "completed" | "failed" | "canceled";
+  attempts: number;
+  maxAttempts: number;
+  progress: {
+    phase: string;
+    recordsProcessed?: number;
+    totalRecords?: number;
+    message?: string;
+    updatedAt?: string;
+  } | null;
+  lastError: { message: string; attempt: number; failedAt: string } | null;
+  syncLogId: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "canceled"]);
+
+function isTerminalJob(status: string | undefined | null): boolean {
+  return !!status && TERMINAL_JOB_STATUSES.has(status);
 }
 
 interface SyncLog {
@@ -88,15 +115,17 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; icon: typeof Che
   completed_with_errors: { bg: "bg-amber-50", text: "text-amber-700", icon: AlertTriangle },
   failed: { bg: "bg-red-50", text: "text-red-700", icon: XCircle },
   running: { bg: "bg-blue-50", text: "text-blue-700", icon: RefreshCw },
+  queued: { bg: "bg-blue-50", text: "text-blue-700", icon: Clock },
+  canceled: { bg: "bg-gray-100", text: "text-gray-500", icon: XCircle },
 };
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, label }: { status: string; label?: string }) {
   const s = STATUS_STYLES[status] ?? STATUS_STYLES.disconnected;
   const Icon = s.icon;
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-      <Icon className={`w-3 h-3 ${status === "running" ? "animate-spin" : ""}`} />
-      {status.replace(/_/g, " ")}
+      <Icon className={`w-3 h-3 ${status === "running" ? "animate-spin" : status === "queued" ? "animate-pulse" : ""}`} />
+      {(label ?? status).replace(/_/g, " ")}
     </span>
   );
 }
@@ -108,17 +137,100 @@ function ConnectionCard({
   connection: SisConnection;
   onRefresh: () => void;
 }) {
-  const [syncing, setSyncing] = useState(false);
+  const queryClient = useQueryClient();
+  const [enqueuing, setEnqueuing] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [syncResult, setSyncResult] = useState<Record<string, unknown> | null>(null);
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const [enqueueError, setEnqueueError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvType, setCsvType] = useState<"students" | "staff">("students");
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<Record<string, unknown> | null>(null);
   const [expanded, setExpanded] = useState(false);
+
+  // On mount (or when the connection id changes) reconcile with the most
+  // recent job for this connection. If a sync is already queued/running on
+  // the server (e.g. user refreshed mid-sync), resume the running UI state
+  // instead of falling back to "Idle". We always seed activeJobId from the
+  // latest job so a just-completed sync keeps showing its result until the
+  // admin triggers another action.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch(`/api/sis/connections/${connection.id}/jobs?limit=1`);
+        if (!res.ok) return;
+        const jobs = (await res.json()) as SyncJob[];
+        if (cancelled) return;
+        const latest = jobs[0];
+        if (latest) setActiveJobId(latest.id);
+      } catch {
+        // Best-effort reconciliation; surface nothing on failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connection.id]);
+
+  // Poll the active job until terminal. react-query handles unmount cleanup
+  // and `refetchInterval` returning false stops polling on completion so we
+  // never leak intervals.
+  const { data: activeJob } = useQuery<SyncJob | null>({
+    queryKey: ["sis-job", activeJobId],
+    enabled: activeJobId !== null,
+    queryFn: async () => {
+      if (activeJobId === null) return null;
+      const res = await authFetch(`/api/sis/jobs/${activeJobId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    refetchInterval: (query) => {
+      const job = query.state.data as SyncJob | null | undefined;
+      if (!job) return 2000;
+      return isTerminalJob(job.status) ? false : 2000;
+    },
+    refetchIntervalInBackground: false,
+  });
+
+  // Once the active job lands in a terminal state, refresh the surrounding
+  // connection list (so the connection's `lastSyncAt` / `status` reflect the
+  // new run) and the sync history table so the new row shows up. We guard
+  // with a ref so each terminal transition fires exactly one refresh, even
+  // if the polled job object's identity changes between renders. We also
+  // proactively refetch the linked sync log because the worker writes the
+  // sync log row right around the same time it marks the job terminal —
+  // without an explicit refetch the completion counters can show null on
+  // the first render after completion.
+  const lastTerminalRefreshedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      activeJob &&
+      isTerminalJob(activeJob.status) &&
+      lastTerminalRefreshedRef.current !== activeJob.id
+    ) {
+      lastTerminalRefreshedRef.current = activeJob.id;
+      onRefresh();
+      queryClient.invalidateQueries({
+        queryKey: ["sis-sync-log-for-job", activeJob.syncLogId],
+      });
+    }
+  }, [activeJob, onRefresh, queryClient]);
+
+  // Find the linked sync log so the completion message can show real
+  // "+N students added" counters once the worker has flushed them.
+  const { data: linkedSyncLog } = useQuery<SyncLog | null>({
+    queryKey: ["sis-sync-log-for-job", activeJob?.syncLogId],
+    enabled: !!activeJob && isTerminalJob(activeJob.status) && !!activeJob.syncLogId,
+    queryFn: async () => {
+      const res = await authFetch(`/api/sis/sync-logs?connectionId=${connection.id}&limit=15`);
+      if (!res.ok) return null;
+      const logs = (await res.json()) as SyncLog[];
+      return logs.find((l) => l.id === activeJob?.syncLogId) ?? null;
+    },
+  });
 
   const handleTest = useCallback(async () => {
     setTesting(true);
@@ -134,20 +246,26 @@ function ConnectionCard({
   }, [connection.id, onRefresh]);
 
   const handleSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncResult(null);
+    setEnqueuing(true);
+    setEnqueueError(null);
     try {
       const res = await authFetch(`/api/sis/connections/${connection.id}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ syncType: "full" }),
       });
-      if (res.ok) setSyncResult(await res.json());
+      const body = (await res.json().catch(() => ({}))) as { jobId?: number; error?: string };
+      if (res.ok && body.jobId) {
+        setActiveJobId(body.jobId);
+      } else {
+        setEnqueueError(body.error ?? "Failed to start sync");
+      }
+    } catch (err) {
+      setEnqueueError(err instanceof Error ? err.message : "Failed to start sync");
     } finally {
-      setSyncing(false);
-      onRefresh();
+      setEnqueuing(false);
     }
-  }, [connection.id, onRefresh]);
+  }, [connection.id]);
 
   const handleDelete = useCallback(async () => {
     if (!confirm("Delete this SIS connection? Sync history will also be removed.")) return;
@@ -163,22 +281,26 @@ function ConnectionCard({
   const handleCsvUpload = useCallback(async () => {
     if (!csvText.trim()) return;
     setUploading(true);
-    setUploadResult(null);
+    setEnqueueError(null);
     try {
       const res = await authFetch(`/api/sis/connections/${connection.id}/upload-csv`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ csvText, dataType: csvType }),
       });
-      if (res.ok) {
-        setUploadResult(await res.json());
+      const body = (await res.json().catch(() => ({}))) as { jobId?: number; error?: string };
+      if (res.ok && body.jobId) {
+        setActiveJobId(body.jobId);
         setCsvText("");
-        onRefresh();
+      } else {
+        setEnqueueError(body.error ?? "CSV upload failed");
       }
+    } catch (err) {
+      setEnqueueError(err instanceof Error ? err.message : "CSV upload failed");
     } finally {
       setUploading(false);
     }
-  }, [connection.id, csvText, csvType, onRefresh]);
+  }, [connection.id, csvText, csvType]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -198,9 +320,18 @@ function ConnectionCard({
             <ProviderIcon className="w-4.5 h-4.5 text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-[13px] font-semibold text-gray-800 truncate">{connection.label}</h3>
               <StatusBadge status={connection.status} />
+              {activeJob && !isTerminalJob(activeJob.status) && (
+                <StatusBadge
+                  status={activeJob.status}
+                  label={activeJob.status === "running" ? "Running…" : "Queued…"}
+                />
+              )}
+              {activeJob && isTerminalJob(activeJob.status) && (
+                <StatusBadge status={activeJob.status} />
+              )}
             </div>
             <p className="text-[11px] text-gray-400 mt-0.5">
               {connection.provider.replace(/_/g, " ")} &middot;{" "}
@@ -224,9 +355,21 @@ function ConnectionCard({
                     <TestTube className={`w-3 h-3 ${testing ? "animate-spin" : ""}`} />
                     {testing ? "Testing…" : "Test Connection"}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} className="text-[11px] gap-1 h-7">
-                    <RefreshCw className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} />
-                    {syncing ? "Syncing…" : "Sync Now"}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSync}
+                    disabled={enqueuing || (!!activeJob && !isTerminalJob(activeJob.status))}
+                    className="text-[11px] gap-1 h-7"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${enqueuing || (activeJob && !isTerminalJob(activeJob.status)) ? "animate-spin" : ""}`} />
+                    {enqueuing
+                      ? "Starting…"
+                      : activeJob && activeJob.status === "queued"
+                      ? "Queued…"
+                      : activeJob && activeJob.status === "running"
+                      ? "Running…"
+                      : "Sync Now"}
                   </Button>
                 </>
               )}
@@ -260,12 +403,90 @@ function ConnectionCard({
               </div>
             )}
 
-            {syncResult && (
+            {enqueueError && (
+              <div className="text-[12px] px-3 py-2 rounded-lg bg-red-50 text-red-700">
+                <XCircle className="w-3.5 h-3.5 inline mr-1" />
+                {enqueueError}
+              </div>
+            )}
+
+            {activeJob && !isTerminalJob(activeJob.status) && (
               <div className="text-[12px] px-3 py-2 rounded-lg bg-blue-50 text-blue-700 space-y-1">
-                <p className="font-semibold">Sync Complete</p>
-                <p>Students: +{(syncResult as Record<string, number>).studentsAdded} added, {(syncResult as Record<string, number>).studentsUpdated} updated</p>
-                <p>Staff: +{(syncResult as Record<string, number>).staffAdded} added, {(syncResult as Record<string, number>).staffUpdated} updated</p>
-                <p>{(syncResult as Record<string, number>).totalRecords} total records processed</p>
+                <p className="font-semibold flex items-center gap-1.5">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  {activeJob.status === "queued" ? "Sync queued…" : "Sync running…"}
+                </p>
+                {activeJob.progress?.message && (
+                  <p>{activeJob.progress.message}</p>
+                )}
+                {activeJob.progress?.phase && !activeJob.progress?.message && (
+                  <p>Phase: {activeJob.progress.phase.replace(/_/g, " ")}</p>
+                )}
+                {typeof activeJob.progress?.recordsProcessed === "number" && (
+                  <p>
+                    {activeJob.progress.recordsProcessed.toLocaleString()}
+                    {typeof activeJob.progress.totalRecords === "number"
+                      ? ` / ${activeJob.progress.totalRecords.toLocaleString()}`
+                      : ""}{" "}
+                    records processed
+                  </p>
+                )}
+              </div>
+            )}
+
+            {activeJob && activeJob.status === "completed" && (
+              <div className="text-[12px] px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Completed
+                  {linkedSyncLog
+                    ? ` — ${(linkedSyncLog.studentsAdded + linkedSyncLog.studentsUpdated).toLocaleString()} students synced, ${linkedSyncLog.warnings.length} warning${linkedSyncLog.warnings.length === 1 ? "" : "s"}`
+                    : typeof activeJob.progress?.recordsProcessed === "number"
+                    ? ` — ${activeJob.progress.recordsProcessed.toLocaleString()} records processed`
+                    : ""}
+                </p>
+                {linkedSyncLog && (
+                  <>
+                    <p>
+                      Students: +{linkedSyncLog.studentsAdded} added, {linkedSyncLog.studentsUpdated} updated
+                      {linkedSyncLog.studentsArchived > 0 && `, ${linkedSyncLog.studentsArchived} archived`}
+                    </p>
+                    {(linkedSyncLog.staffAdded > 0 || linkedSyncLog.staffUpdated > 0) && (
+                      <p>Staff: +{linkedSyncLog.staffAdded} added, {linkedSyncLog.staffUpdated} updated</p>
+                    )}
+                  </>
+                )}
+                {activeJob.completedAt && (
+                  <p className="text-[11px] text-emerald-600/80">
+                    Finished {new Date(activeJob.completedAt).toLocaleString(undefined, {
+                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {activeJob && activeJob.status === "failed" && (
+              <div className="text-[12px] px-3 py-2 rounded-lg bg-red-50 text-red-700 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <XCircle className="w-3.5 h-3.5" />
+                  Sync failed
+                </p>
+                <p>{activeJob.lastError?.message ?? "Unknown error"}</p>
+                {activeJob.completedAt && (
+                  <p className="text-[11px] text-red-600/80">
+                    Failed {new Date(activeJob.completedAt).toLocaleString(undefined, {
+                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                    {activeJob.attempts > 1 && ` after ${activeJob.attempts} attempts`}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {activeJob && activeJob.status === "canceled" && (
+              <div className="text-[12px] px-3 py-2 rounded-lg bg-gray-100 text-gray-600">
+                Sync canceled.
               </div>
             )}
 
@@ -298,15 +519,8 @@ function ConnectionCard({
                 )}
                 <Button size="sm" onClick={handleCsvUpload} disabled={uploading || !csvText} className="text-[11px] gap-1 h-7 bg-emerald-600 hover:bg-emerald-700">
                   <Upload className={`w-3 h-3 ${uploading ? "animate-spin" : ""}`} />
-                  {uploading ? "Importing…" : `Import ${csvType}`}
+                  {uploading ? "Uploading…" : `Import ${csvType}`}
                 </Button>
-                {uploadResult && (
-                  <div className="text-[12px] px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700">
-                    Imported: +{(uploadResult as Record<string, number>).studentsAdded || 0} students,
-                    +{(uploadResult as Record<string, number>).staffAdded || 0} staff,{" "}
-                    {(uploadResult as Record<string, number>).totalRecords} records total
-                  </div>
-                )}
               </div>
             )}
           </div>
