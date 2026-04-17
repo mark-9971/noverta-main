@@ -93,9 +93,17 @@ export default function TenantsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Tenant Management</h1>
-        <p className="text-sm text-gray-500 mt-1">View and manage all district subscriptions</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Tenant Management</h1>
+          <p className="text-sm text-gray-500 mt-1">View and manage all district subscriptions</p>
+        </div>
+        <a
+          href="/support"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Pilot Support Tools →
+        </a>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

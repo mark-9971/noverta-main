@@ -264,6 +264,15 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **Role switcher:** Gated on `import.meta.env.DEV` (frontend) and `process.env.NODE_ENV !== "production"` (backend `/api/demo/switch-role`).
 -   **Path-scoped role guards (routes/index.ts):** `router.use("/students", requireStaffOnly)`, `router.use("/sessions", requireStaffOnly)`, `router.use("/staff", requireStaffOnly)`, `router.use("/reports", requirePrivilegedStaffOnly)`, `router.use("/protective-measures", requirePrivilegedStaffOnly)` — blocks sped_student from all staff-facing resources without leaking middleware across unrelated sub-routers (avoids the Express sub-router bleed-through problem).
 -   **Permission matrix test suite:** `tests/permission-matrix.mjs` — 89 checks across 14 categories (unauthenticated, students, sessions, staff, workload-summary, uncovered-sessions, schedule-blocks, incidents, iep-goals, reports, report-exports, audit-logs, student-portal). Run with `node tests/permission-matrix.mjs`. Uses `x-test-user-id` + `x-test-role` + `x-test-district-id` headers (accepted in non-production mode only).
+## Pilot Support Tooling (Apr 2026)
+Internal-only tools for the Trellis team to triage pilot customers without enterprise admin bloat.
+All endpoints/pages are gated by `requirePlatformAdmin` (server) and `useRole().isPlatformAdmin` (client).
+- **`artifacts/api-server/src/lib/dataHealthChecks.ts`** — reusable runner for the 12 per-district data-quality checks (used by both `/data-health` and `/support/districts/:id/data-health`). Strict district scoping: records with `school_id IS NULL` are excluded to prevent cross-tenant exposure.
+- **`artifacts/api-server/src/lib/districtMode.ts`** — single source of truth for `deriveDistrictMode({isDemo,isPilot,subscriptionStatus})` (demo > pilot > paid > trial > unpaid > unconfigured). Used by all support endpoints.
+- **`artifacts/api-server/src/routes/support.ts`** — `GET /api/support/districts` (rollup), `/districts/:id` (detail), `/districts/:id/data-health`, `/districts/:id/inactive-staff?days=N`, `/districts/:id/recent-syncs`, `/districts/:id/metric-debug`, `/imports/recent` (global — `imports` table has no `district_id`).
+- **`artifacts/trellis/src/pages/support.tsx`** at `/support` — district list (filter by mode, search), per-district detail page with tabs: Overview, Data health, Inactive providers, SIS sync log, Metric debug. Accessible via "Pilot Support Tools →" link on `/tenants`.
+- Explicitly NOT included: customer impersonation, role-switching, write/delete actions on tenant data — read-only diagnostics only.
+
 ## Compliance Trends Page (Apr 2026)
 -   **New page:** `/compliance/trends` (`artifacts/trellis/src/pages/compliance-trends.tsx`) — unified time-series view of four compliance metrics, replacing the single-metric `ComplianceTrendTab`. Sidebar nav: Compliance → "Compliance Trends". Window selector: 6 / 12 / 18 / 24 months.
 -   **New endpoint:** `GET /api/dashboard/compliance-trends?months=N` (`artifacts/api-server/src/routes/dashboard/complianceTrends.ts`) returns four monthly series in one payload:
