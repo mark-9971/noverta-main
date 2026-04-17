@@ -36,8 +36,10 @@ describe("tenant isolation", () => {
   let studentB: number;
   let serviceTypeId: number;
 
-  // Test user IDs that need to pass requireLegalAcceptance (any test expecting 200).
-  const TEST_USER_IDS = ["u_a_admin", "u_a_import_admin", "u_a_xread"];
+  // Test user IDs that need to pass requireLegalAcceptance.
+  // "u_no_district" is included so the fail-closed test exercises the handler
+  // (not the legal acceptance gate) — it has legal acceptance but no districtId.
+  const TEST_USER_IDS = ["u_a_admin", "u_a_import_admin", "u_a_xread", "u_no_district"];
 
   beforeAll(async () => {
     const dA = await createDistrict({ name: "District A" });
@@ -188,6 +190,16 @@ describe("tenant isolation", () => {
       await db.delete(importsTable).where(eq(importsTable.id, importA.id));
       await db.delete(importsTable).where(eq(importsTable.id, importB.id));
     }
+  });
+
+  it("GET /api/imports returns 403 when district scope is absent (fail-closed)", async () => {
+    // An admin-role request with no district claim (e.g. a newly-provisioned
+    // platform admin who hits this endpoint instead of /support/imports/recent)
+    // must get a 403 rather than leaking all import rows across every district.
+    const noScope = asUser({ userId: "u_no_district", role: "admin" });
+    const res = await noScope.get("/api/imports");
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("error");
   });
 
   it("admin in district A cannot read district B student via GET /api/students/:id cross-district (repeat coverage)", async () => {

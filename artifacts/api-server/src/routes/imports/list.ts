@@ -7,13 +7,22 @@ import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/aut
 const router: IRouter = Router();
 
 router.get("/imports", requireAdmin, async (req, res): Promise<void> => {
-  // tenant-scope: filtered by caller's district
+  // tenant-scope: district admin only — districtId MUST be present (fail closed).
+  // Platform admins who need cross-district visibility should use
+  // GET /api/support/imports/recent?districtId=<id> instead.
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (districtId == null) {
+    res.status(403).json({
+      error: "District scope required. Platform admins: use /api/support/imports/recent?districtId=<id> for cross-district import history.",
+    });
+    return;
+  }
   try {
-    const query = db.select().from(importsTable).orderBy(desc(importsTable.createdAt));
-    const imports = districtId != null
-      ? await query.where(eq(importsTable.districtId, districtId))
-      : await query;
+    const imports = await db
+      .select()
+      .from(importsTable)
+      .where(eq(importsTable.districtId, districtId))
+      .orderBy(desc(importsTable.createdAt));
     res.json(imports.map(i => ({ ...i, createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString() })));
   } catch (e: any) {
     console.error("GET /imports error:", e);
