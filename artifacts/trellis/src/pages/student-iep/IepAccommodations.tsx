@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, Plus, Save, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Loader2, Plus, Save, BookOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { createAccommodation, deleteAccommodation } from "@workspace/api-client-react";
 
@@ -113,7 +113,7 @@ export function AccommodationsSection({ studentId, accommodations, onSaved }: {
         <h3 className="text-sm font-semibold text-gray-700">Accommodations & Modifications</h3>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="text-[12px] h-7 gap-1" onClick={() => { setShowTemplates(!showTemplates); setShowAdd(false); }}>
-            <Sparkles className="w-3 h-3" /> From Template
+            <BookOpen className="w-3 h-3" /> From Template
           </Button>
           <Button size="sm" variant="outline" className="text-[12px] h-7" onClick={() => { setShowAdd(!showAdd); setShowTemplates(false); }}>
             <Plus className="w-3 h-3 mr-1" /> Add Custom
@@ -163,7 +163,7 @@ export function AccommodationsSection({ studentId, accommodations, onSaved }: {
           <p className="text-sm text-gray-400">No accommodations recorded.</p>
           <div className="flex gap-2 justify-center mt-3">
             <Button size="sm" variant="outline" className="text-[12px] gap-1" onClick={() => setShowTemplates(true)}>
-              <Sparkles className="w-3 h-3" /> From Template
+              <BookOpen className="w-3 h-3" /> From Template
             </Button>
             <Button size="sm" variant="outline" className="text-[12px]" onClick={() => setShowAdd(true)}>
               <Plus className="w-3 h-3 mr-1" /> Add Custom

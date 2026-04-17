@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  Sparkles, Search, ChevronRight, ChevronDown, Users, Brain,
+  Library, Search, ChevronRight, ChevronDown, Users, Brain,
   Target, ListChecks, BookOpen, Stethoscope, Check, Loader2,
   AlertTriangle, ArrowLeft, Zap, TrendingUp
 } from "lucide-react";
@@ -152,11 +152,11 @@ export default function IepSuggestions() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-emerald-600" />
-              IEP Suggestions: {stu.firstName} {stu.lastName}
+              <Library className="w-6 h-6 text-emerald-600" />
+              Catalog Matches: {stu.firstName} {stu.lastName}
             </h1>
             <p className="text-gray-500 mt-1">
-              Grade {stu.grade} · {detail.iepGoalAreas.length} IEP goal areas · {detail.serviceTypes.length} services
+              Grade {stu.grade} · {detail.iepGoalAreas.length} IEP goal areas · {detail.serviceTypes.length} services · matched against the built-in behavior &amp; program catalog
             </p>
           </div>
           {totalSelected > 0 && (
@@ -322,11 +322,11 @@ export default function IepSuggestions() {
     <div className="p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-emerald-600" />
-          IEP Program Suggestions
+          <Library className="w-6 h-6 text-emerald-600" />
+          Program Catalog Matches
         </h1>
         <p className="text-gray-500 mt-1">
-          Auto-generated suggestions for behaviors, DTTs, task analyses, academic programs, and related services based on each student's IEP goals and service requirements.
+          Rule-based matches from a built-in catalog of behaviors, DTTs, task analyses, academic programs, and related services. Each student's IEP goal areas and service types are matched against the catalog — no language model is involved. Review and apply only what fits.
         </p>
       </div>
 
@@ -354,7 +354,7 @@ export default function IepSuggestions() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "SPED Students", value: students.length, icon: Users, color: "bg-emerald-50 text-emerald-800" },
-              { label: "Total Suggestions", value: students.reduce((s, st) => s + st.totalSuggestions, 0), icon: Sparkles, color: "bg-amber-50 text-amber-700" },
+              { label: "Total Matches", value: students.reduce((s, st) => s + st.totalSuggestions, 0), icon: ListChecks, color: "bg-amber-50 text-amber-700" },
               { label: "Avg per Student", value: Math.round(students.reduce((s, st) => s + st.totalSuggestions, 0) / students.length), icon: Brain, color: "bg-gray-50 text-gray-700" },
               { label: "With 10+ Suggestions", value: students.filter(s => s.totalSuggestions >= 10).length, icon: Target, color: "bg-emerald-50 text-emerald-700" },
             ].map(stat => {
@@ -399,10 +399,10 @@ export default function IepSuggestions() {
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right">
                       <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <ListChecks className="w-3.5 h-3.5 text-amber-500" />
                         <span className="font-bold text-lg text-gray-800">{stu.totalSuggestions}</span>
                       </div>
-                      <p className="text-[10px] text-gray-400">suggestions</p>
+                      <p className="text-[10px] text-gray-400">matches</p>
                     </div>
                     <div className="text-right hidden md:block">
                       <div className="flex gap-2 text-[11px]">

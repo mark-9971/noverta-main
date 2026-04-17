@@ -6,7 +6,7 @@ export default function S10_Alerts() {
       <div className="relative z-10 flex flex-col h-full px-[5vw] py-[4vh]">
         <div className="flex items-center justify-between mb-[2vh]">
           <div>
-            <p className="font-body text-[1.3vw] text-primary font-semibold tracking-widest uppercase mb-[0.5vh]">Smart Alerts</p>
+            <p className="font-body text-[1.3vw] text-primary font-semibold tracking-widest uppercase mb-[0.5vh]">Rule-Based Alerts</p>
             <h2 className="font-display text-[3vw] font-bold text-text tracking-tight">Proactive Risk Detection</h2>
           </div>
           <div className="bg-primary/10 rounded-[0.5vw] px-[1.5vw] py-[0.8vh]">

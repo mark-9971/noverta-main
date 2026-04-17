@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Link } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, Sparkles, CalendarDays, Bell, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, TrendingUp, FileText, Activity, Target, Gift, Share2, Plus, Archive, ArchiveRestore, CalendarDays, Bell, AlertTriangle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -818,7 +818,7 @@ export default function StudentDetail() {
                 <FileText className="w-3.5 h-3.5" /> IEP & Reports
               </Link>
               <Link href={`/students/${studentId}/iep-builder`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-colors">
-                <Sparkles className="w-3.5 h-3.5" /> Build IEP Draft
+                <FileText className="w-3.5 h-3.5" /> Build IEP Draft
               </Link>
               <button
                 onClick={handleShareProgress}

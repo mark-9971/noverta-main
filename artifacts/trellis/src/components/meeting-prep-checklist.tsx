@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import {
-  CheckCircle2, Circle, Sparkles, ChevronDown, ChevronUp,
+  CheckCircle2, Circle, Zap, ChevronDown, ChevronUp,
   FileText, Users, ClipboardList, AlertTriangle, Loader2,
 } from "lucide-react";
 
@@ -386,7 +386,7 @@ function PrepItemRow({
             </span>
             {item.autoDetected && (
               <Badge variant="outline" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">
-                <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Auto
+                <Zap className="w-2.5 h-2.5 mr-0.5" /> Auto
               </Badge>
             )}
           </div>

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, FileText,
   Clock, TrendingUp, Download, Loader2,
-  Sparkles, BookOpen, MessageSquare, Briefcase,
+  BookOpen, MessageSquare, Briefcase,
   RefreshCw, Save,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -213,7 +213,7 @@ export default function IepBuilderPage() {
     { n: 2, label: "Parent Input", icon: MessageSquare },
     { n: 3, label: "Teacher Input", icon: Users },
     ...(context.needsTransition ? [{ n: 4, label: "Transition", icon: Briefcase }] : []),
-    { n: context.needsTransition ? 5 : 4, label: "Generate Draft", icon: Sparkles },
+    { n: context.needsTransition ? 5 : 4, label: "Assemble Draft", icon: FileText },
   ];
   const maxStep = context.needsTransition ? 5 : 4;
 
@@ -295,7 +295,7 @@ export default function IepBuilderPage() {
           {step === maxStep && !draft && (
             <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white min-w-[140px]"
               onClick={generate} disabled={generating}>
-              {generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</> : <><Sparkles className="w-4 h-4 mr-1" /> Generate Draft</>}
+              {generating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Assembling…</> : <><FileText className="w-4 h-4 mr-1" /> Assemble Draft</>}
             </Button>
           )}
           {step === maxStep && draft && (

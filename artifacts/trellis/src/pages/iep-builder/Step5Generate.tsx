@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Sparkles, Loader2, RefreshCw, Download, AlertCircle, CheckCircle2, GraduationCap,
+  FileText, Loader2, RefreshCw, Download, AlertCircle, CheckCircle2, GraduationCap,
 } from "lucide-react";
 import { PROGRESS_COLORS, ACTION_COLORS, type BuilderContext, type GeneratedDraft } from "./types";
 
@@ -16,15 +16,16 @@ export function Step5Generate({ draft, generating, onGenerate, onPrint, context 
     return (
       <div className="text-center py-16 space-y-4">
         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-          <Sparkles className="w-8 h-8 text-emerald-600" />
+          <FileText className="w-8 h-8 text-emerald-600" />
         </div>
-        <h2 className="text-lg font-bold text-gray-800">Ready to Generate</h2>
+        <h2 className="text-lg font-bold text-gray-800">Ready to Assemble Draft</h2>
         <p className="text-[13px] text-gray-500 max-w-md mx-auto">
-          Trellis will analyze all progress data, questionnaire input, service compliance, and age-appropriate skills
-          to generate a structured draft for the {context.nextSchoolYear.label} Annual IEP Review.
+          Trellis will pull progress data, questionnaire input, service compliance, and age-appropriate skill checklists
+          and assemble a structured draft for the {context.nextSchoolYear.label} Annual IEP Review using rule-based
+          recommendation templates. No language model is used — every recommendation is a pure function of your data.
         </p>
         <Button className="bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onGenerate}>
-          <Sparkles className="w-4 h-4 mr-2" /> Generate Annual IEP Draft
+          <FileText className="w-4 h-4 mr-2" /> Assemble Draft from Data
         </Button>
         <p className="text-[11px] text-gray-400 max-w-sm mx-auto">All recommendations require IEP Team review. This tool assists — it does not replace — professional judgment.</p>
       </div>
@@ -35,7 +36,7 @@ export function Step5Generate({ draft, generating, onGenerate, onPrint, context 
     return (
       <div className="text-center py-16 space-y-4">
         <Loader2 className="w-12 h-12 text-emerald-600 animate-spin mx-auto" />
-        <p className="text-[13px] text-gray-600">Analyzing progress data, questionnaire input, and service compliance…</p>
+        <p className="text-[13px] text-gray-600">Pulling progress data, questionnaire input, and service compliance…</p>
       </div>
     );
   }

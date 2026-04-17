@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Plus, FileText, Target, TrendingUp, Clock, AlertTriangle, CheckCircle2,
-  Minus as MinusIcon, ChevronRight, Sparkles, Download, BookOpen, FileCheck, Loader2,
-  CalendarDays, Users, Phone, Wand2,
+  Minus as MinusIcon, ChevronRight, ListChecks, Download, BookOpen, FileCheck, Loader2,
+  CalendarDays, Users, Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
@@ -163,7 +163,7 @@ export default function StudentIepPage() {
               </Button>
               <Link href={`/students/${studentId}/iep-builder`}>
                 <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white flex items-center gap-1.5">
-                  <Wand2 className="w-4 h-4" /> Annual Review Draft Builder
+                  <FileText className="w-4 h-4" /> Annual Review Draft Builder
                 </Button>
               </Link>
             </div>
@@ -254,7 +254,7 @@ export default function StudentIepPage() {
               {(programTargets.length > 0 || behaviorTargets.length > 0) && goals.length === 0 && (
                 <Button size="sm" variant="outline" className="text-[12px] h-8"
                   onClick={autoCreateGoals} disabled={autoCreating}>
-                  <Sparkles className="w-3.5 h-3.5 mr-1" />
+                  <ListChecks className="w-3.5 h-3.5 mr-1" />
                   {autoCreating ? "Creating..." : "Auto-Create from Data Targets"}
                 </Button>
               )}

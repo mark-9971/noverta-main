@@ -19,7 +19,7 @@ export default function S22_WhyNow() {
           </div>
           <div className="flex gap-[1.5vw] items-start">
             <div className="w-[0.4vw] h-[4vh] bg-blue-400 rounded-full flex-shrink-0 mt-[0.3vh]" />
-            <p className="font-body text-[1.6vw] text-emerald-100/90 leading-relaxed">AI capabilities now enable IEP parsing and smart suggestions that were impossible two years ago.</p>
+            <p className="font-body text-[1.6vw] text-emerald-100/90 leading-relaxed">Modern LLMs make IEP-PDF parsing reliable enough to ship today; the rest of the platform pairs that with a deterministic rule engine for compliance alerts and program suggestions.</p>
           </div>
         </div>
       </div>

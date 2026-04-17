@@ -20,7 +20,7 @@ export default function TractionSlide() {
                 { label: "9-role access system", desc: "Admin, Coordinator, BCBA, Teacher, Para, Provider, Related Services, Agency, Guardian" },
                 { label: "Guardian portal", desc: "Families view progress, documents, and send secure messages" },
                 { label: "Protective measures (603 CMR 46)", desc: "5-step restraint documentation with automated parent notification" },
-                { label: "IEP builder with AI goal writing", desc: "Draft IEPs with MA curriculum-aligned goals and progress tracking" },
+                { label: "IEP builder with template-driven goal drafting", desc: "Assemble IEP drafts from progress data + MA curriculum frameworks (rule-based, not AI-generated)" },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-[1vw]">
                   <div className="w-[1.5vw] h-[1.5vw] rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-[0.3vh]">

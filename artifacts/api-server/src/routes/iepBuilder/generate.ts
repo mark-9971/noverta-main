@@ -314,7 +314,7 @@ router.post("/students/:studentId/iep-builder/generate", async (req, res): Promi
       transitionPlan,
       teamDiscussionNotes: teamNotes,
       generatedAt: new Date().toISOString(),
-      disclaimer: "This is an AI-assisted draft. All recommendations must be reviewed and approved by the IEP Team. The IEP Team has final authority over all decisions. This document does not constitute a finalized IEP.",
+      disclaimer: "This draft was assembled from your recorded data using rule-based recommendation templates — no language model is involved. All recommendations must be reviewed and approved by the IEP Team. The IEP Team has final authority over all decisions. This document does not constitute a finalized IEP.",
     });
 
     const staffId = getStaffIdFromReq(req);

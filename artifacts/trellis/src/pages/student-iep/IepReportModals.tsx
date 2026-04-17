@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  X, Save, Sparkles, FileCheck, Loader2, CheckCircle2, Edit2, Download,
+  X, Save, Database, FileCheck, Loader2, CheckCircle2, Edit2, Download,
   TrendingUp, TrendingDown, Clock, AlertTriangle, Minus as MinusIcon, BarChart3
 } from "lucide-react";
 import { generateProgressReport, updateProgressReport } from "@workspace/api-client-react";
@@ -107,8 +107,8 @@ export function GenerateReportModal({ studentId, onClose, onGenerated }: {
         </div>
 
         <div className="bg-emerald-50 rounded-lg p-3 mb-4 text-[12px] text-emerald-800">
-          <Sparkles className="w-4 h-4 inline mr-1.5" />
-          The report will automatically pull data from all program and behavior data sessions within the selected date range and generate progress narratives for each IEP goal.
+          <Database className="w-4 h-4 inline mr-1.5" />
+          The report aggregates program and behavior data sessions within the selected date range and assembles a templated progress narrative for each IEP goal from the recorded data points. No language model is used — narratives are generated from your data, not written by AI.
         </div>
 
         <div className="space-y-3">

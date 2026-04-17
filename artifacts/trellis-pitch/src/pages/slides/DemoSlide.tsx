@@ -114,7 +114,7 @@ export default function DemoSlide() {
                   </div>
                   <div>
                     <p className="font-body text-[1vw] font-semibold text-text">IEP Draft Builder</p>
-                    <p className="font-body text-[0.8vw] text-muted">AI-assisted goal writing with MA curriculum alignment</p>
+                    <p className="font-body text-[0.8vw] text-muted">Template-based goal drafting from progress data + MA curriculum frameworks</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-[0.8vw]">
