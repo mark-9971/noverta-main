@@ -313,3 +313,299 @@ export async function assertServiceRequirementInCallerDistrict(req: AuthedReques
   res.status(404).json({ error: "Service requirement not found" });
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// Sessions, alerts, behaviour data, FBA/BIP, supervision, absences
+// (route-lockdown 2026-04-17 P2)
+// ---------------------------------------------------------------------------
+
+/** session_logs.student_id -> students -> schools.district_id */
+export async function sessionLogInCallerDistrict(req: AuthedRequest, sessionId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM session_logs sl
+        JOIN students s ON s.id = sl.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE sl.id = ${sessionId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertSessionLogInCallerDistrict(req: AuthedRequest, sessionId: number, res: Response): Promise<boolean> {
+  if (await sessionLogInCallerDistrict(req, sessionId)) return true;
+  res.status(404).json({ error: "Session not found" });
+  return false;
+}
+
+/**
+ * alerts may be scoped by student_id, staff_id, or both (and rarely neither).
+ * An alert "belongs" to caller's district if either FK resolves into a school
+ * in the district. If both are NULL we treat it as platform-only (deny when
+ * caller is district-bound).
+ */
+export async function alertInCallerDistrict(req: AuthedRequest, alertId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM alerts a
+        LEFT JOIN students s ON s.id = a.student_id
+        LEFT JOIN schools ssch ON ssch.id = s.school_id
+        LEFT JOIN staff st ON st.id = a.staff_id
+        LEFT JOIN schools tsch ON tsch.id = st.school_id
+        WHERE a.id = ${alertId}
+          AND (ssch.district_id = ${did} OR tsch.district_id = ${did})
+        LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertAlertInCallerDistrict(req: AuthedRequest, alertId: number, res: Response): Promise<boolean> {
+  if (await alertInCallerDistrict(req, alertId)) return true;
+  res.status(404).json({ error: "Alert not found" });
+  return false;
+}
+
+/** Filter a list of alert ids to just those in caller's district. */
+export async function filterAlertIdsInCallerDistrict(req: AuthedRequest, alertIds: number[]): Promise<number[]> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return alertIds;
+  if (alertIds.length === 0) return [];
+  const r = await db.execute(
+    sql`SELECT a.id FROM alerts a
+        LEFT JOIN students s ON s.id = a.student_id
+        LEFT JOIN schools ssch ON ssch.id = s.school_id
+        LEFT JOIN staff st ON st.id = a.staff_id
+        LEFT JOIN schools tsch ON tsch.id = st.school_id
+        WHERE a.id = ANY(${alertIds})
+          AND (ssch.district_id = ${did} OR tsch.district_id = ${did})`,
+  );
+  return r.rows.map(row => Number((row as { id: number }).id));
+}
+
+/** compliance_events.student_id -> students -> schools.district_id */
+export async function complianceEventInCallerDistrict(req: AuthedRequest, eventId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM compliance_events ce
+        JOIN students s ON s.id = ce.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE ce.id = ${eventId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertComplianceEventInCallerDistrict(req: AuthedRequest, eventId: number, res: Response): Promise<boolean> {
+  if (await complianceEventInCallerDistrict(req, eventId)) return true;
+  res.status(404).json({ error: "Compliance event not found" });
+  return false;
+}
+
+/** behavior_targets.student_id -> students -> schools.district_id */
+export async function behaviorTargetInCallerDistrict(req: AuthedRequest, targetId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM behavior_targets bt
+        JOIN students s ON s.id = bt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE bt.id = ${targetId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertBehaviorTargetInCallerDistrict(req: AuthedRequest, targetId: number, res: Response): Promise<boolean> {
+  if (await behaviorTargetInCallerDistrict(req, targetId)) return true;
+  res.status(404).json({ error: "Behavior target not found" });
+  return false;
+}
+
+/** program_targets.student_id -> students -> schools.district_id */
+export async function programTargetInCallerDistrict(req: AuthedRequest, targetId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM program_targets pt
+        JOIN students s ON s.id = pt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE pt.id = ${targetId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertProgramTargetInCallerDistrict(req: AuthedRequest, targetId: number, res: Response): Promise<boolean> {
+  if (await programTargetInCallerDistrict(req, targetId)) return true;
+  res.status(404).json({ error: "Program target not found" });
+  return false;
+}
+
+/** program_steps -> program_targets -> students -> schools.district_id */
+export async function programStepInCallerDistrict(req: AuthedRequest, stepId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM program_steps ps
+        JOIN program_targets pt ON pt.id = ps.program_target_id
+        JOIN students s ON s.id = pt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE ps.id = ${stepId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertProgramStepInCallerDistrict(req: AuthedRequest, stepId: number, res: Response): Promise<boolean> {
+  if (await programStepInCallerDistrict(req, stepId)) return true;
+  res.status(404).json({ error: "Program step not found" });
+  return false;
+}
+
+/** fbas.student_id -> students -> schools.district_id */
+export async function fbaInCallerDistrict(req: AuthedRequest, fbaId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM fbas f
+        JOIN students s ON s.id = f.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE f.id = ${fbaId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertFbaInCallerDistrict(req: AuthedRequest, fbaId: number, res: Response): Promise<boolean> {
+  if (await fbaInCallerDistrict(req, fbaId)) return true;
+  res.status(404).json({ error: "FBA not found" });
+  return false;
+}
+
+/** fba_observations -> fbas -> students -> schools.district_id */
+export async function fbaObservationInCallerDistrict(req: AuthedRequest, obsId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM fba_observations o
+        JOIN fbas f ON f.id = o.fba_id
+        JOIN students s ON s.id = f.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE o.id = ${obsId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertFbaObservationInCallerDistrict(req: AuthedRequest, obsId: number, res: Response): Promise<boolean> {
+  if (await fbaObservationInCallerDistrict(req, obsId)) return true;
+  res.status(404).json({ error: "Observation not found" });
+  return false;
+}
+
+/** functional_analyses (fa_sessions) -> fbas -> students -> schools.district_id */
+export async function functionalAnalysisInCallerDistrict(req: AuthedRequest, faId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM functional_analyses fa
+        JOIN fbas f ON f.id = fa.fba_id
+        JOIN students s ON s.id = f.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE fa.id = ${faId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertFunctionalAnalysisInCallerDistrict(req: AuthedRequest, faId: number, res: Response): Promise<boolean> {
+  if (await functionalAnalysisInCallerDistrict(req, faId)) return true;
+  res.status(404).json({ error: "FA session not found" });
+  return false;
+}
+
+/** behavior_intervention_plans.student_id -> students -> schools.district_id */
+export async function bipInCallerDistrict(req: AuthedRequest, bipId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM behavior_intervention_plans bip
+        JOIN students s ON s.id = bip.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE bip.id = ${bipId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertBipInCallerDistrict(req: AuthedRequest, bipId: number, res: Response): Promise<boolean> {
+  if (await bipInCallerDistrict(req, bipId)) return true;
+  res.status(404).json({ error: "BIP not found" });
+  return false;
+}
+
+/** bip_implementers -> bip -> student -> school.district_id */
+export async function bipImplementerInCallerDistrict(req: AuthedRequest, implementerId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM bip_implementers bi
+        JOIN behavior_intervention_plans bip ON bip.id = bi.bip_id
+        JOIN students s ON s.id = bip.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE bi.id = ${implementerId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertBipImplementerInCallerDistrict(req: AuthedRequest, implementerId: number, res: Response): Promise<boolean> {
+  if (await bipImplementerInCallerDistrict(req, implementerId)) return true;
+  res.status(404).json({ error: "Implementer not found" });
+  return false;
+}
+
+/** bip_fidelity_logs -> bip -> student -> school.district_id */
+export async function bipFidelityLogInCallerDistrict(req: AuthedRequest, logId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM bip_fidelity_logs bfl
+        JOIN behavior_intervention_plans bip ON bip.id = bfl.bip_id
+        JOIN students s ON s.id = bip.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE bfl.id = ${logId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertBipFidelityLogInCallerDistrict(req: AuthedRequest, logId: number, res: Response): Promise<boolean> {
+  if (await bipFidelityLogInCallerDistrict(req, logId)) return true;
+  res.status(404).json({ error: "Fidelity log not found" });
+  return false;
+}
+
+/**
+ * supervision_sessions has supervisor_id and supervisee_id (both staff).
+ * The session belongs to caller's district when either staff member is in
+ * a school in the district.
+ */
+export async function supervisionSessionInCallerDistrict(req: AuthedRequest, sessionId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM supervision_sessions ss
+        LEFT JOIN staff sv ON sv.id = ss.supervisor_id
+        LEFT JOIN schools svsch ON svsch.id = sv.school_id
+        LEFT JOIN staff sup ON sup.id = ss.supervisee_id
+        LEFT JOIN schools supsch ON supsch.id = sup.school_id
+        WHERE ss.id = ${sessionId}
+          AND (svsch.district_id = ${did} OR supsch.district_id = ${did})
+        LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertSupervisionSessionInCallerDistrict(req: AuthedRequest, sessionId: number, res: Response): Promise<boolean> {
+  if (await supervisionSessionInCallerDistrict(req, sessionId)) return true;
+  res.status(404).json({ error: "Supervision session not found" });
+  return false;
+}
+
+/** staff_absences.staff_id -> staff -> schools.district_id */
+export async function staffAbsenceInCallerDistrict(req: AuthedRequest, absenceId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM staff_absences sa
+        JOIN staff st ON st.id = sa.staff_id
+        JOIN schools sch ON sch.id = st.school_id
+        WHERE sa.id = ${absenceId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertStaffAbsenceInCallerDistrict(req: AuthedRequest, absenceId: number, res: Response): Promise<boolean> {
+  if (await staffAbsenceInCallerDistrict(req, absenceId)) return true;
+  res.status(404).json({ error: "Absence not found" });
+  return false;
+}

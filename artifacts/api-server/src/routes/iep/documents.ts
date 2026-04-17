@@ -9,6 +9,7 @@ import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { createAutoVersion } from "../../lib/documentVersioning";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
+import { assertIepDocumentInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -108,6 +109,8 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
 router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertIepDocumentInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["iepStartDate","iepEndDate","meetingDate","status","studentConcerns","parentConcerns","teamVision",
                         "plaafpAcademic","plaafpBehavioral","plaafpCommunication","plaafpAdditional",
@@ -154,6 +157,8 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
 router.delete("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertIepDocumentInCallerDistrict(req as AuthedRequest, id, res))) return;
     const [oldDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     await db.delete(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     logAudit(req, {

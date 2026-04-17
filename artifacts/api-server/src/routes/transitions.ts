@@ -271,6 +271,21 @@ router.patch("/transitions/plans/:id", transitionAccess, async (req, res): Promi
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields" }); return; }
     if (updates.coordinatorId != null
       && !(await assertStaffInCallerDistrict(authed, Number(updates.coordinatorId), res))) return;
+    // Body-IDOR defense: a re-linked iepDocumentId must (a) be in caller's
+    // district and (b) belong to the same student as the plan being updated.
+    if (updates.iepDocumentId != null) {
+      const newIepId = Number(updates.iepDocumentId);
+      if (!Number.isFinite(newIepId)) { res.status(400).json({ error: "Invalid iepDocumentId" }); return; }
+      if (!(await assertIepDocumentInCallerDistrict(authed, newIepId, res))) return;
+      const [iepDoc] = await db.select({ studentId: iepDocumentsTable.studentId })
+        .from(iepDocumentsTable).where(eq(iepDocumentsTable.id, newIepId));
+      const [plan] = await db.select({ studentId: transitionPlansTable.studentId })
+        .from(transitionPlansTable).where(eq(transitionPlansTable.id, id));
+      if (!iepDoc || !plan || iepDoc.studentId !== plan.studentId) {
+        res.status(400).json({ error: "IEP document does not belong to this student" });
+        return;
+      }
+    }
     const [row] = await db.update(transitionPlansTable).set(updates).where(and(eq(transitionPlansTable.id, id), isNull(transitionPlansTable.deletedAt))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, { action: "update", targetTable: "transition_plans", targetId: id, studentId: row.studentId, summary: `Updated transition plan #${id}` });

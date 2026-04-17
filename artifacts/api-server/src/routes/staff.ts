@@ -17,8 +17,8 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, sql, isNull, gte, lte } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
-import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
-import type { AuthedRequest } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import { assertStaffInCallerDistrict, assertStaffAbsenceInCallerDistrict, assertSchoolInCallerDistrict } from "../lib/districtScope";
 import { getActiveSchoolYearId } from "../lib/activeSchoolYear";
 import { getPublicMeta } from "../lib/clerkClaims";
 import type { Request } from "express";
@@ -217,6 +217,7 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const parsed = UpdateStaffBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -228,7 +229,13 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
   if (parsed.data.email !== undefined) updateData.email = parsed.data.email;
   if (parsed.data.role != null) updateData.role = parsed.data.role;
   if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-  if (parsed.data.schoolId !== undefined) updateData.schoolId = parsed.data.schoolId;
+  if (parsed.data.schoolId !== undefined) {
+    // Body-IDOR defense: cannot re-home a staff record into a school that
+    // belongs to a different district.
+    if (parsed.data.schoolId != null
+      && !(await assertSchoolInCallerDistrict(req as AuthedRequest, Number(parsed.data.schoolId), res))) return;
+    updateData.schoolId = parsed.data.schoolId;
+  }
   if (parsed.data.status != null) updateData.status = parsed.data.status;
   if (parsed.data.qualifications !== undefined) updateData.qualifications = parsed.data.qualifications;
   if (parsed.data.npiNumber !== undefined) updateData.npiNumber = parsed.data.npiNumber;
@@ -259,6 +266,7 @@ router.delete("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const [updated] = await db
     .update(staffTable)
     .set({ deletedAt: new Date() })
@@ -450,6 +458,7 @@ router.get("/staff/:id/absences", requireAdmin, async (req, res): Promise<void> 
 router.delete("/absences/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteAbsenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!(await assertStaffAbsenceInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
 
   const [absence] = await db.select().from(staffAbsencesTable).where(eq(staffAbsencesTable.id, params.data.id));
   if (!absence) { res.status(404).json({ error: "Absence not found" }); return; }

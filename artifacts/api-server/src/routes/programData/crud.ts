@@ -6,6 +6,12 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
+import type { AuthedRequest } from "../../middlewares/auth";
+import {
+  assertBehaviorTargetInCallerDistrict,
+  assertProgramTargetInCallerDistrict,
+  assertProgramStepInCallerDistrict,
+} from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -66,6 +72,8 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
 router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["name","description","measurementType","targetDirection","active","trackingMethod","intervalLengthSeconds","enableHourlyTracking"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -179,6 +187,8 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
 router.patch("/program-targets/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["name","description","programType","targetCriterion","domain","active",
                         "promptHierarchy","currentPromptLevel","currentStep","autoProgressEnabled",
@@ -240,6 +250,8 @@ router.post("/program-targets/:id/steps", async (req, res): Promise<void> => {
 router.patch("/program-steps/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramStepInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["name","sdInstruction","targetResponse","materials","promptStrategy","errorCorrection","reinforcementNotes","active","mastered","stepNumber"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -255,6 +267,8 @@ router.patch("/program-steps/:id", async (req, res): Promise<void> => {
 router.delete("/program-steps/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramStepInCallerDistrict(req as AuthedRequest, id, res))) return;
     await db.delete(programStepsTable).where(eq(programStepsTable.id, id));
     res.json({ ok: true });
   } catch (e: any) {

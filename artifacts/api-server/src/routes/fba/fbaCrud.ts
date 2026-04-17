@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { fbasTable, staffTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { isoDate } from "./shared";
+import type { AuthedRequest } from "../../middlewares/auth";
+import { assertFbaInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -74,6 +76,8 @@ router.get("/fbas/:id", async (req, res): Promise<void> => {
 router.patch("/fbas/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertFbaInCallerDistrict(req as AuthedRequest, id, res))) return;
     const allowed = [
       "targetBehavior", "operationalDefinition", "status", "conductedBy",
       "referralReason", "referralDate", "startDate", "completionDate",

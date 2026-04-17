@@ -10,6 +10,8 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, desc, sql, inArray, gt, isNull, isNotNull, or } from "drizzle-orm";
 import { runComplianceChecks } from "../lib/complianceEngine";
+import type { AuthedRequest } from "../middlewares/auth";
+import { assertAlertInCallerDistrict, filterAlertIdsInCallerDistrict } from "../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -82,6 +84,7 @@ router.patch("/alerts/:id/resolve", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertAlertInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const parsed = ResolveAlertBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -117,6 +120,13 @@ router.post("/alerts/bulk-resolve", async (req, res): Promise<void> => {
     return;
   }
 
+  // Tenant scope: drop any ids that don't belong to caller's district.
+  const scopedIds = await filterAlertIdsInCallerDistrict(req as AuthedRequest, ids);
+  if (!scopedIds.length) {
+    res.json({ resolved: 0 });
+    return;
+  }
+
   const updated = await db
     .update(alertsTable)
     .set({
@@ -125,7 +135,7 @@ router.post("/alerts/bulk-resolve", async (req, res): Promise<void> => {
       resolvedNote: resolvedNote ?? "Bulk resolved from dashboard",
       snoozedUntil: null,
     })
-    .where(inArray(alertsTable.id, ids))
+    .where(inArray(alertsTable.id, scopedIds))
     .returning({ id: alertsTable.id });
 
   res.json({ resolved: updated.length });
@@ -137,6 +147,7 @@ router.patch("/alerts/:id/snooze", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertAlertInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
 
   const snoozedUntil = new Date();
   snoozedUntil.setDate(snoozedUntil.getDate() + 7);

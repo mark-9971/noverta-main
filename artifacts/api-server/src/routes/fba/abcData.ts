@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { fbaObservationsTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { isoDate } from "./shared";
+import type { AuthedRequest } from "../../middlewares/auth";
+import { assertFbaObservationInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -51,6 +53,8 @@ router.post("/fbas/:fbaId/observations", async (req, res): Promise<void> => {
 router.delete("/observations/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertFbaObservationInCallerDistrict(req as AuthedRequest, id, res))) return;
     const [deleted] = await db.delete(fbaObservationsTable).where(eq(fbaObservationsTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Observation not found" }); return; }
     res.json({ success: true });

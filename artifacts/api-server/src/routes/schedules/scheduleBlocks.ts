@@ -14,6 +14,7 @@ import {
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
+import { assertScheduleBlockInCallerDistrict } from "../../lib/districtScope";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { resolveActiveYearId, blockToJson } from "./shared";
 
@@ -108,6 +109,7 @@ router.patch("/schedule-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertScheduleBlockInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const parsed = UpdateScheduleBlockBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -139,6 +141,7 @@ router.delete("/schedule-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertScheduleBlockInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   await db.update(scheduleBlocksTable).set({ deletedAt: new Date() }).where(eq(scheduleBlocksTable.id, params.data.id));
   res.sendStatus(204);
 });

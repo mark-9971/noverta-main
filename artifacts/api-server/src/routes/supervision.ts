@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, asc, isNull } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { assertSupervisionSessionInCallerDistrict } from "../lib/districtScope";
 import { WRITE_SUPERVISION_ROLES, PRIVILEGED_STAFF_ROLES } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { requireTierAccess } from "../middlewares/tierGate";
@@ -242,6 +243,7 @@ router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Pr
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    if (!(await assertSupervisionSessionInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const { sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
     const updates: Partial<Record<string, string | number | null>> = {};
@@ -277,6 +279,7 @@ router.delete("/supervision-sessions/:id", requireWriteRole, async (req, res): P
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    if (!(await assertSupervisionSessionInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const [deleted] = await db.delete(supervisionSessionsTable).where(eq(supervisionSessionsTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Not found" }); return; }

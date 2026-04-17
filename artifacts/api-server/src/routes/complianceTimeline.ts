@@ -7,6 +7,8 @@ import {
 import { eq, desc, asc, and, sql, ilike, or, lte, gte } from "drizzle-orm";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { getActiveSchoolYearIdForStudent } from "../lib/activeSchoolYear";
+import type { AuthedRequest } from "../middlewares/auth";
+import { assertComplianceEventInCallerDistrict, assertTeamMeetingInCallerDistrict } from "../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -111,6 +113,8 @@ router.post("/students/:studentId/compliance-events", async (req, res): Promise<
 router.patch("/compliance-events/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertComplianceEventInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     if (req.body.status === "completed" && req.body.resolve !== true) {
       res.status(400).json({ error: "Cannot set status to completed directly. Use resolve:true with resolutionNote." });
@@ -376,6 +380,8 @@ router.post("/students/:studentId/team-meetings", async (req, res): Promise<void
 router.patch("/team-meetings/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["meetingType", "scheduledDate", "scheduledTime", "duration", "location", "meetingFormat", "status", "agendaItems", "notes", "attendees", "actionItems", "outcome", "followUpDate", "minutesFinalized", "consentStatus", "noticeSentDate"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -392,6 +398,8 @@ router.patch("/team-meetings/:id", async (req, res): Promise<void> => {
 router.delete("/team-meetings/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
     await db.delete(teamMeetingsTable).where(eq(teamMeetingsTable.id, id));
     res.json({ success: true });
   } catch (e: any) {

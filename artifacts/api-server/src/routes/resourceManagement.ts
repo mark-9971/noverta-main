@@ -8,6 +8,7 @@ import { eq, and, sql, gte, lte, count, sum, isNull, type SQL } from "drizzle-or
 import { requireTierAccess } from "../middlewares/tierGate";
 import { getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
+import { assertStaffInCallerDistrict } from "../lib/districtScope";
 import type { Request } from "express";
 
 const router: IRouter = Router();
@@ -489,6 +490,7 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
 router.patch("/staff/:id/rates", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, id, res))) return;
 
   const { hourlyRate, annualSalary } = req.body || {};
   const updates: { hourlyRate?: string; annualSalary?: string } = {};

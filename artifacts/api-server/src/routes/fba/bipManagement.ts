@@ -8,6 +8,11 @@ import {
 import { eq, desc, and, sql, asc } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
+  assertBipInCallerDistrict,
+  assertBipImplementerInCallerDistrict,
+  assertBipFidelityLogInCallerDistrict,
+} from "../../lib/districtScope";
+import {
   isoDate,
   BIP_APPROVER_ROLES,
   BIP_REVIEWER_ROLES,
@@ -170,6 +175,8 @@ router.get("/bips/:id", async (req, res): Promise<void> => {
 router.patch("/bips/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertBipInCallerDistrict(req as AuthedRequest, id, res))) return;
     const [existing] = await db.select({ status: behaviorInterventionPlansTable.status })
       .from(behaviorInterventionPlansTable).where(eq(behaviorInterventionPlansTable.id, id));
     if (!existing) { res.status(404).json({ error: "BIP not found" }); return; }
@@ -200,6 +207,8 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
 router.delete("/bips/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertBipInCallerDistrict(req as AuthedRequest, id, res))) return;
     const [deleted] = await db.delete(behaviorInterventionPlansTable)
       .where(eq(behaviorInterventionPlansTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "BIP not found" }); return; }
@@ -523,11 +532,13 @@ router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
 router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const authed = req as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!BIP_APPROVER_ROLES.includes(role)) {
       res.status(403).json({ error: "Only BCBAs and admins can remove implementers" }); return;
     }
+    if (!(await assertBipImplementerInCallerDistrict(authed, id, res))) return;
     const [deleted] = await db.update(bipImplementersTable)
       .set({ active: false })
       .where(eq(bipImplementersTable.id, id))
@@ -635,9 +646,12 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
 router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const authed = req as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const staffId = authed.tenantStaffId ?? null;
+
+    if (!(await assertBipFidelityLogInCallerDistrict(authed, id, res))) return;
 
     const [entry] = await db.select().from(bipFidelityLogsTable)
       .where(eq(bipFidelityLogsTable.id, id));

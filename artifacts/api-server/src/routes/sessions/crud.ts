@@ -25,6 +25,7 @@ import { hasMinRole, PRIVILEGED_STAFF_ROLES } from "../../lib/permissions";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
+import { assertSessionLogInCallerDistrict } from "../../lib/districtScope";
 import { validateGoalData, sessionToJson, sessionIdGuard, type GoalEntry } from "./shared";
 
 const router: IRouter = Router();
@@ -390,6 +391,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertSessionLogInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
   const { goalData: rawGoalData, ...bodyFields } = req.body;
   const parsed = UpdateSessionBody.safeParse(bodyFields);
   if (!parsed.success) {
@@ -626,6 +628,7 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertSessionLogInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
 
   const [existing] = await db.select({
     id: sessionLogsTable.id,
