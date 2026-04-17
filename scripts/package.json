@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "pilot-audit": "tsx ./src/pilot-readiness.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
