@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { FileText, Calendar, MessageSquare, User, ShieldCheck, Inbox } from "lucide-react";
 import { Link } from "wouter";
+import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 
 interface GuardianMe {
   guardian: { id: number; name: string; relationship: string; email: string | null };
@@ -53,7 +54,14 @@ export default function GuardianPortalHome() {
   const docs = docsData?.documents ?? [];
   const pendingAck = docs.filter(d => !d.acknowledgedAt).length;
   const unreadMessages = msgData?.unreadTotal ?? 0;
+  const messageThreads = msgData?.threads?.length ?? 0;
   const studentName = student ? `${student.firstName} ${student.lastName}` : "your child";
+  // First-run signal: nothing has been shared with this guardian yet —
+  // no documents, no message threads. (Meetings query is deferred so we
+  // don't gate on it.) When true we show the role-specific empty state
+  // alongside the four feature tiles instead of a row of zeros.
+  const isFirstRun = docs.length === 0 && messageThreads === 0;
+  const guardianFirstName = guardian.name?.split(" ")[0];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 p-1">
@@ -72,6 +80,11 @@ export default function GuardianPortalHome() {
           </div>
         </div>
       </div>
+
+      {/* Honest first-run guidance for guardians whose case manager
+          hasn't shared anything yet. Replaces a screen full of "0"
+          counts with what to expect and what to do now. */}
+      {isFirstRun && <RoleFirstRunCard role="guardian" personName={guardianFirstName} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/guardian-portal/messages">

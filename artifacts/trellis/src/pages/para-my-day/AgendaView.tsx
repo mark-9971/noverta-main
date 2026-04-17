@@ -4,6 +4,7 @@ import type { ScheduleBlock, AssignedBip, StaffAlert, QuickLogPrefill } from "./
 import { isCurrentBlock, isUpcoming } from "./constants";
 import { AlertsBanner } from "./AlertsBanner";
 import { ScheduleBlockCard } from "./ScheduleBlockCard";
+import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 
 export function AgendaView({
   date,
@@ -89,13 +90,10 @@ export function AgendaView({
       )}
 
       {blocks.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-400 text-sm">No sessions scheduled for today.</p>
-            <p className="text-gray-300 text-xs mt-1">Check another day or contact your supervisor.</p>
-          </CardContent>
-        </Card>
+        /* Honest first-run empty state. Until the supervising teacher
+           builds schedule blocks and assigns this para, "My Day" has
+           nothing to show — explain why instead of looking broken. */
+        <RoleFirstRunCard role="para" />
       ) : (
         <div className="space-y-3">
           {blocks.map(block => (

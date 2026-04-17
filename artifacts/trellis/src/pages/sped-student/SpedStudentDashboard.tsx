@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Clock, CheckCircle, ChevronRight, Star, BookOpen, Heart, Trophy, Flame, Calendar } from "lucide-react";
 import { getStudent, getStudentSessions, listSpedStudents, customFetch } from "@workspace/api-client-react";
+import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 
 function subjectColor(name: string) {
   const n = name.toLowerCase();
@@ -124,6 +125,10 @@ export default function SpedStudentDashboard() {
   const services = student?.serviceRequirements || [];
   const completedToday = sessions.filter((s: any) => s.status === "completed" && s.sessionDate === new Date().toISOString().split("T")[0]).length;
   const recentCompleted = sessions.filter((s: any) => s.status === "completed").slice(0, 3);
+  // First-run signal: no goals AND no sessions logged yet. The metric
+  // strip would otherwise show "0 / 0 / 0d / 0" which feels broken; the
+  // first-run card explains why the page is quiet on day one.
+  const isFirstRun = goals.length === 0 && sessions.length === 0;
 
   function estimateProgress(goal: Goal): number {
     if (goal.recentSessionCount === 0) return 5;
@@ -148,6 +153,11 @@ export default function SpedStudentDashboard() {
           <p className="text-sm font-medium text-gray-600">{student?.caseManagerName || "—"}</p>
         </div>
       </div>
+
+      {/* First-run empty state for students whose goals/sessions haven't
+          been entered yet. Renders before the metric tiles so a brand-new
+          student sees a friendly explanation instead of a row of zeros. */}
+      {isFirstRun && <RoleFirstRunCard role="student" personName={student?.firstName} />}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[

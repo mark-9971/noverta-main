@@ -13,6 +13,7 @@ import {
   CheckCircle2, Clock, BookOpen, ChevronRight, Activity,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import RoleFirstRunCard from "@/components/onboarding/RoleFirstRunCard";
 import { formatDate } from "@/lib/formatters";
 
 interface AssignedBip {
@@ -152,34 +153,25 @@ export default function MyCaseloadPage() {
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full" />)}
         </div>
       ) : caseloadStudents.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            {role === "admin" || role === "coordinator" ? (
-              <>
-                <Shield className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">Administrator accounts don't carry a direct service caseload.</p>
-                <p className="text-xs text-gray-400 mt-1">Use the Students page to view all student records and compliance across the district.</p>
-                <div className="flex gap-2 justify-center mt-4">
-                  <Link href="/students">
-                    <Button size="sm" variant="outline" className="text-[12px]">View All Students</Button>
-                  </Link>
-                  <Link href="/compliance">
-                    <Button size="sm" variant="outline" className="text-[12px]">Compliance Dashboard</Button>
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <>
-                <Users className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">No students assigned to your caseload yet.</p>
-                <p className="text-xs text-gray-400 mt-1">Ask your administrator to assign service requirements with your provider ID.</p>
+        role === "admin" || role === "coordinator" ? (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <Shield className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-600">Administrator accounts don't carry a direct service caseload.</p>
+              <p className="text-xs text-gray-400 mt-1">Use the Students page to view all student records and compliance across the district.</p>
+              <div className="flex gap-2 justify-center mt-4">
                 <Link href="/students">
-                  <Button size="sm" variant="outline" className="mt-4 text-[12px]">Browse Students</Button>
+                  <Button size="sm" variant="outline" className="text-[12px]">View All Students</Button>
                 </Link>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                <Link href="/compliance">
+                  <Button size="sm" variant="outline" className="text-[12px]">Compliance Dashboard</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <RoleFirstRunCard role="provider" personName={myStaff?.firstName} />
+        )
       ) : (
         <div className="space-y-3">
           {caseloadStudents.map(student => {
