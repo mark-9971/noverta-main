@@ -71,9 +71,11 @@ export default function PilotReadinessPanel() {
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <h3 className="text-sm font-semibold text-gray-900">Pilot Readiness</h3>
+          <span className="text-xs text-gray-500">
+            {data.summary.pass} of {data.summary.total} checks passing
+          </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-emerald-700">{data.summary.pass} passing</span>
           {data.summary.warn > 0 && <span className="text-amber-700">{data.summary.warn} warn</span>}
           {data.summary.fail > 0 && <span className="text-red-700">{data.summary.fail} blocking</span>}
         </div>

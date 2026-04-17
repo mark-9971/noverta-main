@@ -347,8 +347,17 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
       if (sessionId) {
         try {
           const session = await stripe.checkout.sessions.retrieve(sessionId);
-          if (typeof session.subscription === "string") stripeSubscriptionId = session.subscription;
-          else if (session.subscription && "id" in session.subscription) stripeSubscriptionId = session.subscription.id;
+          // Only trust the session if its customer matches the district's
+          // customer on file. This prevents a caller from passing a
+          // session_id that belongs to a different district to hijack its
+          // subscription record.
+          const sessionCustomer = typeof session.customer === "string" ? session.customer : session.customer?.id;
+          if (sub.stripeCustomerId && sessionCustomer && sessionCustomer === sub.stripeCustomerId) {
+            if (typeof session.subscription === "string") stripeSubscriptionId = session.subscription;
+            else if (session.subscription && "id" in session.subscription) stripeSubscriptionId = session.subscription.id;
+          } else {
+            console.warn("sync-subscription: session customer does not match district customer; ignoring sessionId");
+          }
         } catch (e) { console.warn("session lookup failed:", e); }
       }
       if (!stripeSubscriptionId && sub.stripeCustomerId) {
