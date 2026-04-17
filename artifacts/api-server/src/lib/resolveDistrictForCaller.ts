@@ -41,6 +41,22 @@ export interface DistrictResolution {
 }
 
 export async function resolveDistrictForCaller(req: Request): Promise<DistrictResolution> {
+  // Test-only bypass that mirrors the x-test-* contract enforced by
+  // middlewares/auth.ts. The auth middleware also gates this on
+  // NODE_ENV === "test", and both layers refuse the header in production
+  // (NODE_ENV !== "production" already throws there). Keeping the resolver
+  // honest with the same contract lets the regression test suite drive
+  // billing / agency / sample-data routes that depend on this resolver
+  // rather than only on getEnforcedDistrictId.
+  if (process.env.NODE_ENV === "test") {
+    const headerVal = req.headers["x-test-district-id"];
+    const testDistrictId = Array.isArray(headerVal) ? headerVal[0] : headerVal;
+    if (testDistrictId != null && testDistrictId !== "") {
+      const n = Number(testDistrictId);
+      if (Number.isFinite(n)) return { districtId: n, source: "clerk_meta" };
+    }
+  }
+
   const meta = getPublicMeta(req);
 
   if (typeof meta.districtId === "number" && Number.isFinite(meta.districtId)) {
