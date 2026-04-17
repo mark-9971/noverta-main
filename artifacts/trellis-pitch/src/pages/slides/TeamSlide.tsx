@@ -62,7 +62,7 @@ export default function TeamSlide() {
           <div className="w-[0.15vw] h-[4vh] bg-primary/20" />
           <div className="text-center">
             <p className="font-display text-[3vw] font-bold text-primary">FERPA</p>
-            <p className="font-body text-[1vw] text-muted">Audit Trail</p>
+            <p className="font-body text-[1vw] text-muted">Aligned · DPA on request</p>
           </div>
           <div className="w-[0.15vw] h-[4vh] bg-primary/20" />
           <div className="text-center">

@@ -80,7 +80,7 @@ export default function SISPartnerSlide() {
                   "Add compliance revenue without building it",
                   "Reduce support burden for SPED-specific requests",
                   "Differentiate with clinical-grade ABA tools",
-                  "FERPA-compliant data handling built in",
+                  "FERPA-aligned data handling built in (DPA, US-hosted, audit log)",
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-[0.8vw]">
                     <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" className="w-[1vw] h-[1vw] shrink-0"><polyline points="20 6 9 17 4 12"/></svg>

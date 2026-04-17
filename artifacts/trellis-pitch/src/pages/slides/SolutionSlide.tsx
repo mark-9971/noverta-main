@@ -35,7 +35,7 @@ export default function SolutionSlide() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[1.5vw] h-[1.5vw]"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <p className="font-body text-[1.6vw] font-bold text-white">Role-Based Access</p>
-            <p className="font-body text-[1.3vw] text-white/50 mt-[1vh] leading-relaxed">Nine distinct roles from Admin to Para. Guardian portal for families. FERPA audit trail on every action.</p>
+            <p className="font-body text-[1.3vw] text-white/50 mt-[1vh] leading-relaxed">Nine distinct roles from Admin to Para. Guardian portal for families. Append-only audit trail on every change to a student record.</p>
           </div>
         </div>
       </div>

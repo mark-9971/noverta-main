@@ -168,15 +168,15 @@ const ADD_ONS = [
 const FAQS = [
   {
     q: "How long does onboarding take?",
-    a: "Most districts are fully onboarded within 4–6 weeks. This includes data migration from your existing system, admin configuration, and staff training sessions. We provide dedicated onboarding support throughout.",
+    a: "Pilot districts have moved from kickoff to live use in roughly 4–6 weeks, depending on how clean the source data is and how quickly admins can run the CSV imports and configure roles. Larger districts or messier data take longer. We do not lock in a guaranteed go-live date until after a data review.",
   },
   {
     q: "What about data migration from our current system?",
-    a: "We handle data migration as part of onboarding. We support imports from common SPED platforms including EasyIEP, SEIS, Frontline, and SpedTrack, as well as spreadsheet-based workflows. Your historical data comes with you.",
+    a: "Migration today is CSV-based. Trellis ships templates and a validation step for students, staff, IEP documents, service requirements, sessions, and goals. Any system that can export to CSV (including EasyIEP, SEIS, Frontline, and SpedTrack exports districts have shared with us) can be imported this way. Direct API connectors to those vendors are not built — those are roadmap items.",
   },
   {
-    q: "Is Trellis FERPA compliant?",
-    a: "Yes. Trellis is fully FERPA compliant with SOC 2 Type II controls. All data is encrypted at rest and in transit. We sign BAAs with every district and conduct annual third-party security audits.",
+    q: "How does Trellis handle student data privacy and security?",
+    a: "Trellis is built to operate as a \u201cschool official\u201d under FERPA's legitimate educational interest provision and signs a Data Processing Agreement with every district (DPA, not a HIPAA BAA — Trellis does not process Protected Health Information). Data in transit is protected by TLS 1.2+; data at rest is encrypted by our managed PostgreSQL provider (AES-256). All data stays in the United States. Authentication is handled by Clerk, with optional MFA and SSO. Role-based access and district isolation are enforced server-side, and every change to student records is written to an append-only audit log. SOC 2 Type II is on the roadmap but not yet obtained, and no third-party penetration test has been performed on the current production environment yet — both are planned before broad enterprise rollout. Full details are in the Security Overview document on the Legal & Compliance page.",
   },
   {
     q: "What is the minimum contract length?",
@@ -184,11 +184,11 @@ const FAQS = [
   },
   {
     q: "Can we start with Essentials and upgrade later?",
-    a: "Absolutely. You can upgrade your plan at any time and only pay the prorated difference. All your data and configurations carry over seamlessly when you move to a higher tier.",
+    a: "Yes. You can upgrade your plan at any time and pay the prorated difference. Your data and configurations carry over when you move to a higher tier.",
   },
   {
     q: "Do you support Massachusetts state reporting requirements?",
-    a: "Yes — Trellis is purpose-built for Massachusetts SPED compliance under 603 CMR 28.00 and 46.00. State reporting exports are built into every tier, including SRS and SIMS-compatible formats.",
+    a: "Trellis is purpose-built against the Massachusetts SPED framework (603 CMR 28.00 and 46.00) and ships export templates structured around the fields DESE submissions require. The exports are designed to be uploaded into your district's existing state-reporting workflow — Trellis itself does not transmit data to DESE.",
   },
 ];
 
@@ -425,7 +425,7 @@ export default function PricingPage() {
 
   const handleCta = (tierKey: string) => {
     // Enterprise → demo / sales conversation. Self-serve checkout is not offered
-    // for Enterprise because procurement, BAAs, and PO billing are negotiated.
+    // for Enterprise because procurement, DPA review, and PO billing are negotiated.
     if (tierKey === "enterprise") {
       setSelectedTier(tierKey);
       setShowDemoForm(true);
@@ -490,7 +490,7 @@ export default function PricingPage() {
             ))}
           </div>
           <p className="text-center text-xs text-gray-400 mt-6">
-            All plans include unlimited staff accounts, SSL encryption, FERPA compliance, and email support.
+            All plans include unlimited staff accounts, TLS 1.2+ in transit, AES-256 at rest, FERPA-aligned data handling, and email support.
           </p>
         </div>
       </section>
@@ -530,7 +530,7 @@ export default function PricingPage() {
             </h2>
             <p className="text-sm text-gray-500 mt-2">
               {showDemoForm
-                ? "Tell us about your district and we'll set up a personalized walkthrough of the Enterprise plan, including procurement, BAA, and PO billing."
+                ? "Tell us about your district and we'll set up a personalized walkthrough of the Enterprise plan, including procurement, DPA review, and PO billing."
                 : "Essentials and Professional are self-serve — start your 14-day free trial directly from the plan cards above. Enterprise (multi-district, custom procurement, dedicated implementation) goes through sales."}
             </p>
           </div>
@@ -596,7 +596,7 @@ export default function PricingPage() {
             <span className="text-xs text-gray-400">Service-minute compliance for SPED.</span>
           </div>
           <p className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Trellis. FERPA compliant. SOC 2 Type II.
+            &copy; {new Date().getFullYear()} Trellis. FERPA-aligned. US-hosted. Data Processing Agreement available on request.
           </p>
         </div>
       </footer>
