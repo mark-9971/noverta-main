@@ -11,6 +11,26 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "incident-e2e"
+
+[[workflows.workflow]]
+name = "incident-e2e"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-lifecycle.spec.ts --list 2>&1 | grep -c 'incident-lifecycle' && npx tsc --noEmit"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
