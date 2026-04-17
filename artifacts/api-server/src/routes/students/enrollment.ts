@@ -230,6 +230,39 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
   res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
 });
 
+router.delete("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
+  const deleteRole = (req as AuthedRequest).trellisRole;
+  if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(deleteRole ?? "")) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const studentId = Number(req.params.id);
+  const eventId = Number(req.params.eventId);
+  if (!studentId || !eventId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [existing] = await db
+    .select({ id: enrollmentEventsTable.id, source: enrollmentEventsTable.source })
+    .from(enrollmentEventsTable)
+    .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)));
+
+  if (!existing) { res.status(404).json({ error: "Event not found" }); return; }
+  if (existing.source !== "manual") { res.status(403).json({ error: "Only manually logged events can be deleted" }); return; }
+
+  await db
+    .delete(enrollmentEventsTable)
+    .where(and(eq(enrollmentEventsTable.id, eventId), eq(enrollmentEventsTable.studentId, studentId)));
+
+  logAudit(req, {
+    action: "delete",
+    targetTable: "enrollment_events",
+    targetId: eventId,
+    studentId,
+    summary: `Deleted manual enrollment event #${eventId} for student #${studentId}`,
+  });
+
+  res.status(204).end();
+});
+
 router.post("/students/:id/archive", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }

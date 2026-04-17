@@ -55,6 +55,8 @@ interface EnrollmentSectionProps {
   enrollmentLoading: boolean;
   role: string;
   openAddEvent: () => void;
+  openEditEvent: (ev: any) => void;
+  setDeletingEvent: (ev: any | null) => void;
 }
 
 type StudentContactsMedicalProps = ContactsSectionProps | EnrollmentSectionProps;
@@ -204,7 +206,7 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
   }
 
   // section === "enrollment"
-  const { enrollmentHistory, enrollmentLoading, role, openAddEvent } = props;
+  const { enrollmentHistory, enrollmentLoading, role, openAddEvent, openEditEvent, setDeletingEvent } = props;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -254,25 +256,34 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
                   sis:     { label: "SIS",     cls: "bg-sky-50 text-sky-700 border-sky-200" },
                 };
                 const src = ev.source ? (sourceConfig[ev.source] ?? { label: ev.source, cls: "bg-gray-100 text-gray-500 border-gray-200" }) : null;
+                const canEdit = ev.source === "manual" && (role === "admin" || role === "case_manager");
                 return (
                   <div key={ev.id ?? idx} className="relative flex items-start gap-3">
                     <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0`} />
                     <div className={`flex-1 rounded-lg p-3 ${cfg.bg}`}>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
-                          {src && (
-                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${src.cls}`}>{src.label}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                            {src && (
+                              <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${src.cls}`}>{src.label}</span>
+                            )}
+                            <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
+                          </div>
+                          {ev.reasonCode && <p className="text-[11px] text-gray-500 mt-0.5 uppercase tracking-wide">{ev.reasonCode}</p>}
+                          {ev.reason && <p className="text-[12px] text-gray-600 mt-0.5">{ev.reason}</p>}
+                          {ev.notes && <p className="text-[11px] text-gray-500 mt-0.5">{ev.notes}</p>}
+                          {(ev.performedByFirst || ev.performedByLast) && (
+                            <p className="text-[11px] text-gray-400 mt-0.5">By: {ev.performedByFirst} {ev.performedByLast}</p>
                           )}
                         </div>
-                        <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
+                        {canEdit && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => openEditEvent(ev)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white/70 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setDeletingEvent(ev)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        )}
                       </div>
-                      {ev.reasonCode && <p className="text-[11px] text-gray-500 mt-0.5 uppercase tracking-wide">{ev.reasonCode}</p>}
-                      {ev.reason && <p className="text-[12px] text-gray-600 mt-0.5">{ev.reason}</p>}
-                      {ev.notes && <p className="text-[11px] text-gray-500 mt-0.5">{ev.notes}</p>}
-                      {(ev.performedByFirst || ev.performedByLast) && (
-                        <p className="text-[11px] text-gray-400 mt-0.5">By: {ev.performedByFirst} {ev.performedByLast}</p>
-                      )}
                     </div>
                   </div>
                 );

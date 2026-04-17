@@ -56,13 +56,18 @@ interface AssignForm {
 }
 
 interface StudentDialogsProps {
-  // Add Enrollment Event
+  // Add/Edit Enrollment Event
   addEventDialogOpen: boolean;
   setAddEventDialogOpen: (v: boolean) => void;
   addEventForm: AddEventForm;
   setAddEventForm: (updater: (f: AddEventForm) => AddEventForm) => void;
   addEventSaving: boolean;
   handleAddEvent: () => void;
+  editingEvent: any | null;
+  setEditingEvent: (ev: any | null) => void;
+  deletingEvent: any | null;
+  setDeletingEvent: (ev: any | null) => void;
+  handleDeleteEvent: (ev: any) => void;
   // Emergency Contact
   ecDialogOpen: boolean;
   setEcDialogOpen: (v: boolean) => void;
@@ -134,6 +139,7 @@ interface StudentDialogsProps {
 export default function StudentDialogs(props: StudentDialogsProps) {
   const {
     addEventDialogOpen, setAddEventDialogOpen, addEventForm, setAddEventForm, addEventSaving, handleAddEvent,
+    editingEvent, setEditingEvent, deletingEvent, setDeletingEvent, handleDeleteEvent,
     ecDialogOpen, setEcDialogOpen, editingEc, setEditingEc, ecForm, setEcForm, ecSaving, handleSaveEc,
     deletingEc, setDeletingEc, handleDeleteEc,
     maDialogOpen, setMaDialogOpen, editingMa, setEditingMa, maForm, setMaForm, maSaving, handleSaveMa,
@@ -149,11 +155,11 @@ export default function StudentDialogs(props: StudentDialogsProps) {
 
   return (
     <>
-      <Dialog open={addEventDialogOpen} onOpenChange={v => { if (!v) setAddEventDialogOpen(false); }}>
+      <Dialog open={addEventDialogOpen} onOpenChange={v => { if (!v) { setAddEventDialogOpen(false); setEditingEvent(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-gray-800 flex items-center gap-2">
-              <History className="w-4 h-4 text-emerald-600" /> Log Enrollment Event
+              <History className="w-4 h-4 text-emerald-600" /> {editingEvent ? "Edit Enrollment Event" : "Log Enrollment Event"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
@@ -202,10 +208,25 @@ export default function StudentDialogs(props: StudentDialogsProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setAddEventDialogOpen(false)} disabled={addEventSaving}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => { setAddEventDialogOpen(false); setEditingEvent(null); }} disabled={addEventSaving}>Cancel</Button>
             <Button size="sm" onClick={handleAddEvent} disabled={addEventSaving} className="bg-emerald-700 hover:bg-emerald-800 text-white">
-              {addEventSaving ? "Saving…" : "Log Event"}
+              {addEventSaving ? "Saving…" : editingEvent ? "Save Changes" : "Log Event"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingEvent} onOpenChange={v => { if (!v) setDeletingEvent(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-gray-800">Delete Enrollment Event?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-gray-500 py-1">
+            Permanently delete the <strong>{deletingEvent?.eventType?.replace(/_/g, " ")}</strong> event from <strong>{deletingEvent?.eventDate}</strong>? This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingEvent(null)}>Cancel</Button>
+            <Button size="sm" onClick={() => deletingEvent && handleDeleteEvent(deletingEvent)} className="bg-red-600 hover:bg-red-700 text-white">Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -179,6 +179,8 @@ export default function StudentDetail() {
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [addEventSaving, setAddEventSaving] = useState(false);
   const [addEventForm, setAddEventForm] = useState({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [deletingEvent, setDeletingEvent] = useState<any | null>(null);
 
   useEffect(() => {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
@@ -251,30 +253,71 @@ export default function StudentDetail() {
     if (!addEventForm.eventType || !addEventForm.eventDate) { toast.error("Event type and date are required"); return; }
     setAddEventSaving(true);
     try {
-      const r = await authFetch(`/api/students/${studentId}/enrollment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType: addEventForm.eventType,
-          eventDate: addEventForm.eventDate,
-          reasonCode: addEventForm.reasonCode || null,
-          reason: addEventForm.reason || null,
-          notes: addEventForm.notes || null,
-        }),
-      });
-      if (!r.ok) throw new Error();
-      toast.success("Enrollment event logged");
+      if (editingEvent) {
+        const r = await authFetch(`/api/students/${studentId}/enrollment/${editingEvent.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: addEventForm.eventType,
+            eventDate: addEventForm.eventDate,
+            reasonCode: addEventForm.reasonCode || null,
+            reason: addEventForm.reason || null,
+            notes: addEventForm.notes || null,
+          }),
+        });
+        if (!r.ok) throw new Error();
+        toast.success("Enrollment event updated");
+      } else {
+        const r = await authFetch(`/api/students/${studentId}/enrollment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: addEventForm.eventType,
+            eventDate: addEventForm.eventDate,
+            reasonCode: addEventForm.reasonCode || null,
+            reason: addEventForm.reason || null,
+            notes: addEventForm.notes || null,
+          }),
+        });
+        if (!r.ok) throw new Error();
+        toast.success("Enrollment event logged");
+      }
       setAddEventDialogOpen(false);
+      setEditingEvent(null);
       setAddEventForm({ eventType: "note", eventDate: "", reasonCode: "", reason: "", notes: "" });
       const d = await authFetch(`/api/students/${studentId}/enrollment`).then((res: any) => res.json());
       setEnrollmentHistory(Array.isArray(d) ? d : []);
-    } catch { toast.error("Failed to log event"); }
+    } catch { toast.error(editingEvent ? "Failed to update event" : "Failed to log event"); }
     setAddEventSaving(false);
   }
 
   function openAddEvent() {
+    setEditingEvent(null);
     setAddEventForm({ eventType: "note", eventDate: new Date().toISOString().slice(0, 10), reasonCode: "", reason: "", notes: "" });
     setAddEventDialogOpen(true);
+  }
+
+  function openEditEvent(ev: any) {
+    setEditingEvent(ev);
+    setAddEventForm({
+      eventType: ev.eventType ?? "note",
+      eventDate: ev.eventDate ?? "",
+      reasonCode: ev.reasonCode ?? "",
+      reason: ev.reason ?? "",
+      notes: ev.notes ?? "",
+    });
+    setAddEventDialogOpen(true);
+  }
+
+  async function handleDeleteEvent(ev: any) {
+    try {
+      const r = await authFetch(`/api/students/${studentId}/enrollment/${ev.id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      toast.success("Enrollment event deleted");
+      setDeletingEvent(null);
+      const d = await authFetch(`/api/students/${studentId}/enrollment`).then((res: any) => res.json());
+      setEnrollmentHistory(Array.isArray(d) ? d : []);
+    } catch { toast.error("Failed to delete event"); }
   }
 
   async function handleSaveEc() {
@@ -1229,6 +1272,8 @@ export default function StudentDetail() {
         enrollmentLoading={enrollmentLoading}
         role={role}
         openAddEvent={openAddEvent}
+        openEditEvent={openEditEvent}
+        setDeletingEvent={setDeletingEvent}
       />
 
       <StudentDialogs
@@ -1238,6 +1283,11 @@ export default function StudentDetail() {
         setAddEventForm={setAddEventForm}
         addEventSaving={addEventSaving}
         handleAddEvent={handleAddEvent}
+        editingEvent={editingEvent}
+        setEditingEvent={setEditingEvent}
+        deletingEvent={deletingEvent}
+        setDeletingEvent={setDeletingEvent}
+        handleDeleteEvent={handleDeleteEvent}
         ecDialogOpen={ecDialogOpen}
         setEcDialogOpen={setEcDialogOpen}
         editingEc={editingEc}
