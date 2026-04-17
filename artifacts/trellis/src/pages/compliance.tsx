@@ -615,9 +615,11 @@ export default function CompliancePage() {
                 <Printer className="w-3.5 h-3.5" /> Weekly Summary
               </Button>
             </Link>
+            {/* Risk Report is the wedge artifact — render as primary action so
+                admins are pulled toward it from every compliance surface. */}
             <Link href="/compliance-risk-report">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                <Printer className="w-3.5 h-3.5" /> Full Report
+              <Button size="sm" className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700">
+                <AlertTriangle className="w-3.5 h-3.5" /> Open Compliance Risk Report
               </Button>
             </Link>
           </div>

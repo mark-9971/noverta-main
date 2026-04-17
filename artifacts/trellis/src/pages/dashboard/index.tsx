@@ -3,7 +3,7 @@ import {
   useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts,
   useGetComplianceDeadlines,
 } from "@workspace/api-client-react";
-import { AlertTriangle, Users, Clock, Bell, CalendarDays, CheckCircle, Shield, Clipboard, FileText } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, CheckCircle, Shield, Clipboard, ArrowRight, FileBarChart, DollarSign, ListChecks } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import PilotAdminHome from "./PilotAdminHome";
@@ -19,6 +19,7 @@ import { NeedsAttentionPanel, CriticalMedicalAlertsBanner } from "./AlertBanners
 import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
 import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, ContractRenewalsCard, DeadlinesSection } from "./SecondarySections";
+import { CollapsibleSection } from "./CollapsibleSection";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 
 export default function Dashboard() {
@@ -118,13 +119,16 @@ function DashboardFull() {
     </div>
   );
 
+  // Quick actions are wedge-aligned: every primary tile points at a piece of
+  // the compliance-risk story. "Log Session" stays as the daily caseload entry
+  // point but is intentionally last so it doesn't outshine the wedge.
   const quickActions = [
-    { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" },
-    { label: "Student Lookup", icon: Users, href: "/students", color: "text-blue-600 bg-blue-50 hover:bg-blue-100" },
-    { label: "Compliance", icon: Shield, href: "/compliance", color: "text-amber-600 bg-amber-50 hover:bg-amber-100" },
-    { label: "Accommodations", icon: CheckCircle, href: "/accommodation-lookup", color: "text-purple-600 bg-purple-50 hover:bg-purple-100" },
-    { label: "Progress Reports", icon: FileText, href: "/progress-reports", color: "text-cyan-600 bg-cyan-50 hover:bg-cyan-100" },
-    { label: "IEP Meetings", icon: CalendarDays, href: "/iep-meetings", color: "text-indigo-600 bg-indigo-50 hover:bg-indigo-100" },
+    { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
+    { label: "Required vs Delivered", icon: Shield, href: "/compliance", color: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100" },
+    { label: "High-Risk Students", icon: Users, href: "/compliance-risk-report#needs-attention", color: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
+    { label: "Weekly Summary", icon: FileBarChart, href: "/weekly-compliance-summary", color: "text-blue-700 bg-blue-50 hover:bg-blue-100" },
+    { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory-finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
+    { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-gray-700 bg-gray-50 hover:bg-gray-100" },
   ];
 
   return (
@@ -142,43 +146,72 @@ function DashboardFull() {
 
       {isAdmin && <SetupChecklist />}
 
+      {/*
+        Wedge banner: even on the "full operational" view, an admin's first
+        eye-line is the Compliance Risk Report. Required-vs-delivered, high-
+        risk students, and compensatory exposure all live there — pull the
+        admin straight to it instead of letting them wander into secondary
+        modules.
+      */}
+      {isAdmin && (
+        <Link href="/compliance-risk-report">
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-white p-4 md:p-5 hover:shadow-sm transition-shadow cursor-pointer flex items-center gap-4 group" data-testid="banner-risk-report">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm md:text-[15px] font-semibold text-gray-900">Open the Compliance Risk Report</div>
+              <div className="text-xs md:text-sm text-gray-500 mt-0.5">
+                Required vs delivered minutes, high-risk students, compensatory exposure, and the next best actions — in one place.
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+          </div>
+        </Link>
+      )}
+
       {isAdmin && <CostRiskPanel />}
 
       <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
 
+      {/*
+        Top-line metrics are wedge-aligned for admins (overall compliance,
+        high-risk students, compensatory exposure, urgent makeups). Caseload
+        users see their personal counterparts.
+      */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
-          title={myCaseload ? "Your Caseload" : "Active Students"}
-          value={myCaseload ? myCaseload.assignedStudents : s?.totalActiveStudents}
-          icon={Users}
-          accent="emerald"
-          subtitle={myCaseload ? "students assigned" : "on IEPs"}
-          href="/students"
+          title={myCaseload ? "Your Caseload" : "Compliance Rate"}
+          value={myCaseload ? myCaseload.assignedStudents : (trackedStudents > 0 ? `${onTrackPct}%` : "—")}
+          icon={myCaseload ? Users : Shield}
+          accent={myCaseload ? "emerald" : (onTrackPct >= 95 ? "emerald" : onTrackPct >= 85 ? "amber" : "red")}
+          subtitle={myCaseload ? "students assigned" : `${onTrack} of ${trackedStudents} on track`}
+          href={myCaseload ? "/students" : "/compliance"}
         />
         <MetricCard
-          title={myCaseload ? "Sessions Delivered" : "Open Alerts"}
-          value={myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : alerts?.total}
-          icon={myCaseload ? Clock : Bell}
+          title={myCaseload ? "Sessions Delivered" : "High-Risk Students"}
+          value={myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : ((s?.outOfComplianceStudents ?? 0) + (ro?.atRisk ?? 0))}
+          icon={myCaseload ? Clock : AlertTriangle}
           accent={myCaseload ? "emerald" : "red"}
-          subtitle={myCaseload ? `of ${myCaseload.totalRequiredMinutes} required` : `${alerts?.critical ?? 0} critical`}
-          href={myCaseload ? "/sessions" : "/alerts"}
+          subtitle={myCaseload ? `of ${myCaseload.totalRequiredMinutes} required` : `${s?.outOfComplianceStudents ?? 0} out · ${ro?.atRisk ?? 0} at risk`}
+          href={myCaseload ? "/sessions" : "/compliance-risk-report"}
         />
         <MetricCard
-          title={myCaseload ? "Compliance" : "Makeup Needed"}
-          value={myCaseload ? `${myCaseload.utilizationPercent}%` : s?.openMakeupObligations}
-          icon={myCaseload ? CheckCircle : Clock}
+          title={myCaseload ? "Compliance" : "Urgent Actions"}
+          value={myCaseload ? `${myCaseload.utilizationPercent}%` : ((alerts?.critical ?? 0) + (s?.openMakeupObligations ?? 0))}
+          icon={myCaseload ? CheckCircle : Bell}
           accent={myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
-          subtitle={myCaseload ? "of your students" : (s?.uncoveredBlocksToday > 0 ? `sessions · ${s.uncoveredBlocksToday} uncovered today` : "sessions")}
-          href={myCaseload ? "/compliance" : "/sessions"}
+          subtitle={myCaseload ? "of your students" : `${alerts?.critical ?? 0} critical · ${s?.openMakeupObligations ?? 0} makeups`}
+          href={myCaseload ? "/compliance" : "/alerts"}
         />
         <MetricCard
-          title={myCaseload ? "At Risk" : "Out of Compliance"}
-          value={myCaseload ? myCaseload.studentsAtRisk : s?.outOfComplianceStudents}
-          icon={AlertTriangle}
+          title={myCaseload ? "At Risk" : "Compensatory Exposure"}
+          value={myCaseload ? myCaseload.studentsAtRisk : ((s?.totalShortfallMinutes ?? 0) > 0 ? `${(s.totalShortfallMinutes as number).toLocaleString()} min` : "0 min")}
+          icon={myCaseload ? AlertTriangle : DollarSign}
           accent="red"
-          subtitle={myCaseload ? "your students" : "students"}
-          href="/compliance"
+          subtitle={myCaseload ? "your students" : "shortfall behind required"}
+          href={myCaseload ? "/compliance" : "/compliance-risk-report"}
         />
       </div>
 
@@ -203,14 +236,19 @@ function DashboardFull() {
         <RecentAlertsCard recent={recent} />
       </div>
 
-      {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
-
-      <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
-      <MeetingsSection meetingDash={meetingDash} />
-
-      {isAdmin && s?.contractRenewals?.length > 0 && <ContractRenewalsCard contractRenewals={s.contractRenewals} />}
-
-      <DeadlinesSection deadlines={deadlines} />
+      {/*
+        Operational details — accommodations, evaluations, transitions, IEP
+        meetings, agency contract renewals, IEP deadlines — are real but not
+        the wedge. They live behind a single collapsed section so they don't
+        compete with the compliance story for the admin's attention.
+      */}
+      <CollapsibleSection title="Operational details" icon={ListChecks} defaultOpen={false}>
+        {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
+        <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
+        <MeetingsSection meetingDash={meetingDash} />
+        {isAdmin && s?.contractRenewals?.length > 0 && <ContractRenewalsCard contractRenewals={s.contractRenewals} />}
+        <DeadlinesSection deadlines={deadlines} />
+      </CollapsibleSection>
     </div>
   );
 }
