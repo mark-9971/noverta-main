@@ -162,13 +162,18 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
     const authed = req as AuthedRequest;
     const meta = getPublicMeta(req);
     if (meta.platformAdmin) { next(); return; }
-    if (authed.tenantDistrictId != null) { next(); return; }
 
+    // Dev-mode safety: if the claimed district no longer exists (e.g. wiped during a demo reseed),
+    // fall back to the seeded dev district so the user isn't stranded with an empty roster.
     if (process.env.NODE_ENV !== "production" && _devDistrictId != null) {
-      authed.tenantDistrictId = _devDistrictId;
+      if (authed.tenantDistrictId == null || authed.tenantDistrictId !== _devDistrictId) {
+        authed.tenantDistrictId = _devDistrictId;
+      }
       next();
       return;
     }
+
+    if (authed.tenantDistrictId != null) { next(); return; }
 
     res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
   });
