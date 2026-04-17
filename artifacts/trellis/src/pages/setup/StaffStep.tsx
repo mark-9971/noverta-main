@@ -22,10 +22,12 @@ export function StaffStep(p: StaffStepProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <UserPlus className="w-5 h-5 text-emerald-600" />
-          Invite Staff Members
+          Add Staff Members
         </CardTitle>
         <p className="text-sm text-gray-500 mt-1">
-          Add SPED teachers, therapists, and providers so they can start logging sessions.
+          Add SPED teachers, therapists, and providers so they appear in caseloads
+          and can be assigned to service requirements. They'll be able to log in
+          once you share Trellis with them — no invitation email is sent yet.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -113,7 +115,7 @@ export function StaffStep(p: StaffStepProps) {
             className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             {p.saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            Invite & Finish Setup
+            Add &amp; Finish Setup
           </button>
         </div>
       </CardContent>

@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-  sessionLogsTable, serviceTypesTable,
+  sessionLogsTable, serviceTypesTable, staffTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, sql, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, sql, isNull, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 

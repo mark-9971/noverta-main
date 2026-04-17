@@ -1,9 +1,9 @@
 import { type Request, type Response, type NextFunction } from "express";
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, staffTable, schoolsTable } from "@workspace/db";
+import { sql, eq, isNull, and } from "drizzle-orm";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -139,43 +139,91 @@ export function enforceDistrictScope(req: Request, res: Response, next: NextFunc
  * all downstream handlers can safely call getEnforcedDistrictId() and get a non-null
  * value (unless explicitly checking for platform admin bypass).
  */
-let _devDistrictId: number | null = null;
+/**
+ * Optional explicit dev override. When set (e.g. for QA on staging) every
+ * authenticated request is forced into this district regardless of token
+ * claims. Intentionally NOT a silent first-row fallback — that hazard is what
+ * caused the multi-tenant pin bug. Requires explicit operator action to enable.
+ */
+const _forcedDistrictId: number | null = process.env.TRELLIS_DEV_FORCE_DISTRICT_ID
+  ? Number(process.env.TRELLIS_DEV_FORCE_DISTRICT_ID)
+  : null;
 
-export async function initDevDistrictFallback(): Promise<void> {
-  if (process.env.NODE_ENV === "production") return;
+/** Cache of Clerk user ID -> resolved district ID (or null). Process-local, no TTL. */
+const _userDistrictCache = new Map<string, number | null>();
+
+/** Look up the caller's district by tracing Clerk user → primary email → staff row → school. */
+async function resolveDistrictFromClerkUser(userId: string): Promise<number | null> {
+  if (_userDistrictCache.has(userId)) return _userDistrictCache.get(userId) ?? null;
   try {
-    const result = await db.execute(sql`SELECT id FROM districts ORDER BY id LIMIT 1`);
-    const rows = result.rows as Array<Record<string, unknown>>;
-    if (rows.length > 0) {
-      _devDistrictId = Number(rows[0].id);
-      console.log(`[Auth] Dev district fallback initialized: district ${_devDistrictId}`);
-    } else {
-      console.warn("[Auth] Dev district fallback: no districts found in database");
+    const user = await clerkClient.users.getUser(userId);
+    const emails = user.emailAddresses
+      .map(e => e.emailAddress?.toLowerCase())
+      .filter((e): e is string => !!e);
+    if (emails.length === 0) {
+      _userDistrictCache.set(userId, null);
+      return null;
     }
+    // Find an active staff row whose email matches and whose school resolves to a district.
+    const rows = await db
+      .select({ districtId: schoolsTable.districtId })
+      .from(staffTable)
+      .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+      .where(and(
+        isNull(staffTable.deletedAt),
+        sql`lower(${staffTable.email}) = ANY(${emails})`,
+      ))
+      .limit(1);
+    const districtId = rows[0]?.districtId ?? null;
+    _userDistrictCache.set(userId, districtId);
+    return districtId;
   } catch (err) {
-    console.error("[Auth] Dev district fallback init failed:", err);
+    console.error("[Auth] resolveDistrictFromClerkUser failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Initializer kept for backwards compatibility. The legacy "first district in
+ * the table is everyone's tenant in dev" behavior was removed; this now only
+ * logs whether the explicit TRELLIS_DEV_FORCE_DISTRICT_ID override is active.
+ */
+export async function initDevDistrictFallback(): Promise<void> {
+  if (_forcedDistrictId != null) {
+    console.log(`[Auth] TRELLIS_DEV_FORCE_DISTRICT_ID is set — every request will be pinned to district ${_forcedDistrictId}. Do not enable in production.`);
   }
 }
 
 export function requireDistrictScope(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
-    const authed = req as AuthedRequest;
-    const meta = getPublicMeta(req);
-    if (meta.platformAdmin) { next(); return; }
+    void (async () => {
+      const authed = req as AuthedRequest;
+      const meta = getPublicMeta(req);
+      if (meta.platformAdmin) { next(); return; }
 
-    // Dev-mode safety: if the claimed district no longer exists (e.g. wiped during a demo reseed),
-    // fall back to the seeded dev district so the user isn't stranded with an empty roster.
-    if (process.env.NODE_ENV !== "production" && _devDistrictId != null) {
-      if (authed.tenantDistrictId == null || authed.tenantDistrictId !== _devDistrictId) {
-        authed.tenantDistrictId = _devDistrictId;
+      // Explicit dev override (must be set deliberately via env). Never on in prod.
+      if (process.env.NODE_ENV !== "production" && _forcedDistrictId != null) {
+        authed.tenantDistrictId = _forcedDistrictId;
+        next();
+        return;
       }
-      next();
-      return;
-    }
 
-    if (authed.tenantDistrictId != null) { next(); return; }
+      if (authed.tenantDistrictId != null) { next(); return; }
 
-    res.status(403).json({ error: "Your account is not assigned to a district. Contact your administrator." });
+      // Token didn't carry a districtId — try to resolve from Clerk identity.
+      // This recovers users whose Clerk metadata wasn't backfilled but who do
+      // exist in the staff table for some district.
+      const resolved = await resolveDistrictFromClerkUser(authed.userId);
+      if (resolved != null) {
+        authed.tenantDistrictId = resolved;
+        next();
+        return;
+      }
+
+      res.status(403).json({
+        error: "Your account isn't linked to a district yet. Ask a district admin to add your email to their staff list, then sign in again.",
+      });
+    })().catch(next);
   });
 }
 

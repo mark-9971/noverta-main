@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, Loader2, Upload, X, Plus, ArrowRight } from "lucide-react";
+import { Database, Loader2, Upload, X, Plus, ArrowRight, Info } from "lucide-react";
 import { SIS_PROVIDERS, type SISProvider } from "./constants";
 
 export interface SisStepProps {
@@ -39,6 +39,16 @@ export function SisStep(p: SisStepProps) {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
+          <Info className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-amber-900 leading-relaxed">
+            <span className="font-semibold">CSV upload is the supported path right now.</span>{" "}
+            Direct PowerSchool / Infinite Campus / Skyward connectors are on the
+            roadmap and not yet syncing data — picking one of those providers
+            will save your district details for when they launch, but won't
+            pull a roster today.
+          </div>
+        </div>
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-2">District Name</label>
           <input

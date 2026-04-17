@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useUser } from "@clerk/react";
 import { apiGet, apiPost } from "@/lib/api";
 import {
   CreditCard, Building2, Users, Calendar, ExternalLink,
-  CheckCircle, AlertTriangle, XCircle, Loader2, Crown, Sparkles, FlaskConical
+  CheckCircle, AlertTriangle, XCircle, Loader2, Crown, Sparkles, FlaskConical, LogIn
 } from "lucide-react";
 
 interface BillingMode {
@@ -39,6 +40,39 @@ interface Plan {
 }
 
 export default function BillingPage() {
+  const { isLoaded: clerkLoaded, isSignedIn } = useUser();
+  if (clerkLoaded && !isSignedIn) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 mx-auto flex items-center justify-center mb-4">
+            <LogIn className="w-5 h-5 text-emerald-700" />
+          </div>
+          <h1 className="text-lg font-semibold text-gray-900">Sign in to view billing</h1>
+          <p className="text-sm text-gray-500 mt-2">
+            Your district's plan, seat usage, and Stripe billing portal live behind sign-in.
+          </p>
+          <a
+            href="/sign-in?redirect_url=/billing"
+            className="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+          >
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+  if (!clerkLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  return <BillingPageInner />;
+}
+
+function BillingPageInner() {
   const [location] = useLocation();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingMode, setBillingMode] = useState<BillingMode | null>(null);

@@ -13,6 +13,7 @@ export const districtsTable = pgTable("districts", {
   tierOverride: districtTierEnum("tier_override"),
   isDemo: boolean("is_demo").notNull().default(false),
   isPilot: boolean("is_pilot").notNull().default(false),
+  isSandbox: boolean("is_sandbox").notNull().default(false),
   hasSampleData: boolean("has_sample_data").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

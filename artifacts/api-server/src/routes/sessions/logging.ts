@@ -99,9 +99,15 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
 router.post("/sessions", async (req, res): Promise<void> => {
   try {
     const { goalData: rawGoalData, ...sessionFields } = req.body;
+    // Default isMakeup to false so first-time API consumers don't get a wall
+    // of zod errors for an obviously-defaultable boolean. Same default as the
+    // DB column. Callers may still send true explicitly.
+    if (sessionFields.isMakeup == null) sessionFields.isMakeup = false;
     const parsed = CreateSessionBody.safeParse(sessionFields);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+      const first = parsed.error.issues[0];
+      const friendly = first ? `${first.path.join(".") || "body"}: ${first.message}` : parsed.error.message;
+      res.status(400).json({ error: friendly, issues: parsed.error.issues });
       return;
     }
 

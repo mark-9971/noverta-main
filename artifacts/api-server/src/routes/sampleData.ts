@@ -43,10 +43,12 @@ router.post("/sample-data", requireRoles("admin", "coordinator"), async (req, re
   try {
     const existing = await getSampleDataStatus(districtId);
     if (existing.hasSampleData || existing.sampleStudents > 0) {
-      res.status(409).json({
-        error: "Sample data already loaded for this district. Remove it first to reseed.",
-        ...existing,
-      });
+      // Idempotent: a second click on "Load sample data" returns the existing
+      // counts as a successful no-op rather than a 409 error. The wizard CTA
+      // hides itself once hasSampleData is true, so this branch is the
+      // safety net for stale clients / double-clicks.
+      logger.info({ districtId, ...existing }, "sample data already present, returning existing counts");
+      res.status(200).json({ ok: true, alreadySeeded: true, ...existing });
       return;
     }
     const result = await seedSampleDataForDistrict(districtId);

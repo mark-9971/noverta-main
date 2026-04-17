@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { Loader2, X, FlaskConical, Sparkles } from "lucide-react";
+import { Loader2, X, FlaskConical, Sparkles, LogIn } from "lucide-react";
 import {
   type SISProvider, type OnboardingStatus, type StaffInvite,
   DEFAULT_SERVICE_TYPES,
@@ -16,6 +17,40 @@ import { StaffStep } from "./StaffStep";
 import { sisConnect, districtConfirm, saveServiceTypes, inviteStaff } from "./api";
 
 export default function SetupPage() {
+  const { isLoaded: clerkLoaded, isSignedIn } = useUser();
+  if (clerkLoaded && !isSignedIn) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-xl p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 mx-auto flex items-center justify-center mb-4">
+            <LogIn className="w-5 h-5 text-emerald-700" />
+          </div>
+          <h1 className="text-lg font-semibold text-gray-900">Sign in to continue setup</h1>
+          <p className="text-sm text-gray-500 mt-2">
+            District onboarding writes to your account. Sign in first so we can
+            attach your district, schools, and staff to the right user.
+          </p>
+          <a
+            href="/sign-in?redirect_url=/setup"
+            className="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+          >
+            Sign in
+          </a>
+        </div>
+      </div>
+    );
+  }
+  if (!clerkLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  return <SetupPageInner />;
+}
+
+function SetupPageInner() {
   const [, navigate] = useLocation();
   const searchString = useSearch();
   const { role } = useRole();
@@ -29,7 +64,7 @@ export default function SetupPage() {
 
   const [sisProvider, setSisProvider] = useState<SISProvider | null>(null);
   const [districtName, setDistrictName] = useState("");
-  const [schoolNames, setSchoolNames] = useState<string[]>(["Main Campus"]);
+  const [schoolNames, setSchoolNames] = useState<string[]>([]);
   const [syncProgress, setSyncProgress] = useState<number | null>(null);
   const [sisApiUrl, setSisApiUrl] = useState("");
   const [sisClientId, setSisClientId] = useState("");

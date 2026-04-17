@@ -6,21 +6,39 @@ import {
   schoolYearsTable,
 } from "@workspace/db";
 import { count, isNull, eq, and, isNotNull, inArray } from "drizzle-orm";
-import { requireRoles } from "../middlewares/auth";
+import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
+import type { Response } from "express";
 import { encryptCredentials } from "../lib/sis/credentials";
 
 const router: IRouter = Router();
 
-async function getOrCreateDistrict(name: string): Promise<{ id: number; name: string }> {
-  const existing = await db.select().from(districtsTable);
-  if (existing.length > 0) {
+/**
+ * Tenant-safe district resolver for onboarding endpoints.
+ *
+ * Previously this function selected the first row in `districts` and mutated
+ * its name — which is a multi-tenant disaster (tenant A's district name would
+ * silently overwrite tenant B's). Onboarding endpoints are auth-gated and
+ * already carry a tenant scope on the request, so we either:
+ *   - update the caller's existing district (keyed by `tenantDistrictId`), OR
+ *   - create a fresh district + trial subscription for a brand-new admin who
+ *     has no district yet (returns the new id; caller is responsible for
+ *     attaching it to the staff row so future requests carry the claim).
+ */
+async function resolveOnboardingDistrict(
+  req: AuthedRequest,
+  name: string,
+): Promise<{ id: number; name: string }> {
+  const tenantId = getEnforcedDistrictId(req);
+  if (tenantId != null) {
     const [updated] = await db.update(districtsTable)
       .set({ name })
-      .where(eq(districtsTable.id, existing[0].id))
+      .where(eq(districtsTable.id, tenantId))
       .returning();
-    return updated;
+    if (updated) return updated;
+    // Fall through to create if the claim points at a deleted district.
   }
+
   const [inserted] = await db.insert(districtsTable).values({
     name,
     state: "MA",
@@ -67,10 +85,16 @@ async function markStepComplete(districtId: number, stepKey: string, metadata?: 
   }
 }
 
-router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (_req, res): Promise<void> => {
+router.get("/onboarding/status", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
-    const districts = await db.select().from(districtsTable).limit(1);
-    const district = districts[0] || null;
+    // Tenant-scoped: only return onboarding state for the caller's district.
+    // Falling back to "first row" historically leaked another tenant's
+    // schools/staff/student counts to a brand-new admin who hadn't yet been
+    // attached to a district.
+    const tenantId = getEnforcedDistrictId(req as AuthedRequest);
+    const district = tenantId != null
+      ? (await db.select().from(districtsTable).where(eq(districtsTable.id, tenantId)).limit(1))[0] ?? null
+      : null;
     const districtId = district?.id;
 
     const schools = districtId
@@ -227,18 +251,26 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
   try {
     const { provider, districtName, schools, credentials } = req.body;
 
-    if (!provider || !districtName) {
-      res.status(400).json({ error: "Provider and district name are required" });
+    const trimmedDistrictName = typeof districtName === "string" ? districtName.trim() : "";
+    if (!provider || !trimmedDistrictName) {
+      res.status(400).json({ error: "Provider and district name are required." });
       return;
     }
 
-    const district = await getOrCreateDistrict(districtName);
+    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
 
-    const schoolNames: string[] = Array.isArray(schools) && schools.length > 0
-      ? schools.filter((s: string) => s.trim())
-      : ["Main Campus"];
+    // Require an explicit list of schools — no silent "Main Campus" fallback.
+    // The wizard must ask the admin who their schools are; making one up causes
+    // confusion and orphaned rows downstream.
+    const schoolNames: string[] = Array.isArray(schools)
+      ? schools.map((s: string) => (typeof s === "string" ? s.trim() : "")).filter(Boolean)
+      : [];
 
     const existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, district.id));
+    if (existingSchools.length === 0 && schoolNames.length === 0) {
+      res.status(400).json({ error: "Add at least one school for this district before connecting." });
+      return;
+    }
     let resultSchools;
     if (existingSchools.length > 0) {
       resultSchools = existingSchools;
@@ -286,34 +318,46 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
   try {
     const { districtName, rows } = req.body;
 
-    if (!districtName) {
-      res.status(400).json({ error: "District name is required" });
+    const trimmedDistrictName = typeof districtName === "string" ? districtName.trim() : "";
+    if (!trimmedDistrictName) {
+      res.status(400).json({ error: "District name is required." });
       return;
     }
 
     if (!Array.isArray(rows) || rows.length === 0) {
-      res.status(400).json({ error: "No roster data provided" });
+      res.status(400).json({ error: "No roster data provided." });
       return;
     }
 
-    const district = await getOrCreateDistrict(districtName);
+    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
 
-    const schoolNamesFromCSV = [...new Set(rows.map((r: { school?: string }) => r.school || "Main Campus").filter(Boolean))] as string[];
+    // Only consider schools the CSV actually names. We do NOT auto-create a
+    // placeholder "Main Campus" / "Sample Elementary" — that historically
+    // produced orphaned schools and confused new admins. If any row references
+    // a school the district hasn't configured yet, fail loudly with a list.
     const existingSchools = await db.select().from(schoolsTable).where(eq(schoolsTable.districtId, district.id));
+    if (existingSchools.length === 0) {
+      res.status(400).json({
+        error: "Add at least one school for this district before uploading a roster.",
+      });
+      return;
+    }
     const existingSchoolNames = new Set(existingSchools.map(s => s.name.toLowerCase()));
 
-    const newSchoolNames = schoolNamesFromCSV.filter((n: string) => !existingSchoolNames.has(n.toLowerCase()));
-    let allSchools = [...existingSchools];
-    if (newSchoolNames.length > 0) {
-      const inserted = await db.insert(schoolsTable).values(
-        newSchoolNames.map((name: string) => ({
-          name,
-          districtId: district.id,
-          district: districtName,
-        }))
-      ).returning();
-      allSchools = [...allSchools, ...inserted];
+    const csvSchoolNames = [...new Set(
+      rows
+        .map((r: { school?: string }) => (typeof r.school === "string" ? r.school.trim() : ""))
+        .filter(Boolean) as string[],
+    )];
+    const unknownSchools = csvSchoolNames.filter(n => !existingSchoolNames.has(n.toLowerCase()));
+    if (unknownSchools.length > 0) {
+      res.status(400).json({
+        error: `CSV references schools that don't exist in this district: ${unknownSchools.join(", ")}. Add them in the wizard first.`,
+        unknownSchools,
+      });
+      return;
     }
+    const allSchools = existingSchools;
 
     const schoolMap = new Map(allSchools.map(s => [s.name.toLowerCase(), s.id]));
 
@@ -415,23 +459,35 @@ router.post("/onboarding/district-confirm", requireRoles("admin", "coordinator")
   try {
     const { districtName, schoolYear, schools } = req.body;
 
-    if (!districtName) {
-      res.status(400).json({ error: "District name is required" });
+    const trimmedDistrictName = typeof districtName === "string" ? districtName.trim() : "";
+    if (!trimmedDistrictName) {
+      res.status(400).json({ error: "District name is required." });
       return;
     }
 
-    const district = await getOrCreateDistrict(districtName);
+    if (Array.isArray(schools)) {
+      for (const s of schools) {
+        if (typeof s?.name === "string" && !s.name.trim()) {
+          res.status(400).json({ error: "School names cannot be empty." });
+          return;
+        }
+      }
+    }
+
+    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
 
     if (Array.isArray(schools)) {
       for (const s of schools) {
         if (s.id) {
-          const existing = await db.select().from(schoolsTable)
-            .where(eq(schoolsTable.id, s.id));
-          if (existing.length > 0) {
-            await db.update(schoolsTable)
-              .set({ name: s.name })
-              .where(eq(schoolsTable.id, s.id));
-          }
+          // Tenant-scope the school update: refuse to rename a school that
+          // doesn't belong to the caller's district. Without this guard a
+          // crafted `id` could rename another tenant's school.
+          await db.update(schoolsTable)
+            .set({ name: s.name })
+            .where(and(
+              eq(schoolsTable.id, s.id),
+              eq(schoolsTable.districtId, district.id),
+            ));
         }
       }
     }
@@ -450,21 +506,37 @@ router.post("/onboarding/service-types", requireRoles("admin", "coordinator"), a
     const { serviceTypes } = req.body;
 
     if (!Array.isArray(serviceTypes) || serviceTypes.length === 0) {
-      res.status(400).json({ error: "At least one service type is required" });
+      res.status(400).json({ error: "At least one service type is required." });
+      return;
+    }
+
+    const cleaned = serviceTypes.map((st: { name?: string; category?: string; cptCode?: string; billingRate?: string }) => ({
+      ...st,
+      name: typeof st?.name === "string" ? st.name.trim() : "",
+      category: typeof st?.category === "string" ? st.category.trim() : "",
+    }));
+
+    if (cleaned.some((st: { name: string }) => !st.name)) {
+      res.status(400).json({ error: "Each service type needs a non-empty name." });
+      return;
+    }
+    if (cleaned.some((st: { category: string }) => !st.category)) {
+      res.status(400).json({ error: "Each service type needs a category." });
       return;
     }
 
     const existing = await db.select({ name: serviceTypesTable.name }).from(serviceTypesTable);
     const existingNames = new Set(existing.map(e => e.name.toLowerCase()));
 
-    const newTypes = serviceTypes.filter(
+    const newTypes = cleaned.filter(
       (st: { name: string }) => !existingNames.has(st.name.toLowerCase())
     );
 
+    const tenantDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+
     if (newTypes.length === 0) {
       const allTypes = await db.select().from(serviceTypesTable);
-      const districts = await db.select().from(districtsTable).limit(1);
-      if (districts[0]) await markStepComplete(districts[0].id, "service_types_configured");
+      if (tenantDistrictId != null) await markStepComplete(tenantDistrictId, "service_types_configured");
       res.json({ serviceTypes: allTypes, skippedDuplicates: serviceTypes.length });
       return;
     }
@@ -478,8 +550,7 @@ router.post("/onboarding/service-types", requireRoles("admin", "coordinator"), a
       }))
     ).returning();
 
-    const districts = await db.select().from(districtsTable).limit(1);
-    if (districts[0]) await markStepComplete(districts[0].id, "service_types_configured");
+    if (tenantDistrictId != null) await markStepComplete(tenantDistrictId, "service_types_configured");
 
     res.json({ serviceTypes: inserted });
   } catch (err) {
@@ -515,10 +586,11 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
       (inv: { email: string }) => !emailSet.has(inv.email.toLowerCase())
     );
 
+    const tenantDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+
     if (newInvites.length === 0) {
-      const districts = await db.select().from(districtsTable).limit(1);
-      if (districts[0]) await markStepComplete(districts[0].id, "staff_invited");
-      res.json({ staff: [], invitesSent: 0, skippedDuplicates: validInvites.length });
+      if (tenantDistrictId != null) await markStepComplete(tenantDistrictId, "staff_invited");
+      res.json({ staff: [], staffCreated: 0, invitesSent: 0, skippedDuplicates: validInvites.length });
       return;
     }
 
@@ -536,7 +608,9 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
     const districts = await db.select().from(districtsTable).limit(1);
     if (districts[0]) await markStepComplete(districts[0].id, "staff_invited");
 
-    res.json({ staff: inserted, invitesSent: inserted.length });
+    // Note: this endpoint persists staff rows but does not currently send
+    // invitation emails. The wizard UI labels the action accordingly.
+    res.json({ staff: inserted, staffCreated: inserted.length, invitesSent: 0 });
   } catch (err) {
     console.error("Staff invite error:", err);
     res.status(500).json({ error: "Failed to invite staff" });

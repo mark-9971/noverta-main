@@ -299,3 +299,13 @@ To shorten time-to-value for a brand-new tenant, admins/coordinators can one-cli
     -   `SampleDataCta` at top of `/setup` for the seed action; navigates to `/compliance-risk-report` (the "first wow" surface) after seeding.
     -   `SampleDataBanner` (mounted in `AppLayout`) globally shows "Sample data — N students / N staff … Remove sample data" with an inline confirm flow whenever `has_sample_data` is true.
     -   `PilotAdminHome` renders `PilotOnboardingChecklist` in `variant="full"` until `onboarding.isComplete`, then collapses to `variant="compact"`.
+
+## Sandbox districts (post-T10, Apr 2026)
+
+Added `districts.is_sandbox` (boolean, default false) alongside `is_demo`/`is_pilot`/`has_sample_data`. This is groundwork for an explicit "Sandbox vs Production" switcher per district so the same Clerk user can experiment with throwaway data without polluting their real district. Today the column is unused at runtime — set it manually for QA tenants — and the planned UX is:
+
+-   A district-level toggle in `/setup` and the admin nav that creates/joins a sibling district with `is_sandbox: true` (mirroring the user's real district name with a `[Sandbox]` suffix).
+-   The `RoleProvider` reads a session/cookie pin to decide which sibling to scope into via `getEnforcedDistrictId(req)`.
+-   Sample-data seed/teardown remains unchanged; sandbox districts are typically also `has_sample_data: true`.
+
+No code currently branches on `is_sandbox` — keep that in mind before relying on it for billing or compliance gating.
