@@ -92,6 +92,15 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    label: "ABA",
+    icon: Activity,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+    ],
+  },
+  {
     label: "Service Delivery",
     icon: Calendar,
     collapsible: true,
@@ -101,7 +110,6 @@ export const adminNav: NavSection[] = [
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/scheduling", label: "Scheduling", icon: Calendar },
       { href: "/staff", label: "Staff", icon: UserCheck },
-      { href: "/aba", label: "ABA", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
     ],
   },
   {
