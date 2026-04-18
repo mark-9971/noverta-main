@@ -59,6 +59,19 @@ export async function ensureDbConstraints(): Promise<void> {
     }
   }
 
+  // Mirrors lib/db/src/migrations/024_document_versions_unique_constraint.sql
+  // Applied here because the project has no automated SQL migration runner.
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS doc_ver_unique_version_idx
+      ON document_versions (district_id, document_type, document_id, version_number);
+    `);
+  } catch (err: any) {
+    if (!err.message?.includes("already exists")) {
+      console.warn("ensureDbConstraints: could not create doc_ver_unique_version_idx:", err.message);
+    }
+  }
+
   for (const q of BACKFILL_QUERIES) {
     try {
       await pool.query(q);

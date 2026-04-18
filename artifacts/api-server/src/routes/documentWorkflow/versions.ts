@@ -46,35 +46,52 @@ router.post("/document-workflow/versions", async (req, res) => {
   const student = await assertStudentInDistrict(studentId, districtId);
   if (!student) return res.status(404).json({ error: "Student not found in your district" });
 
-  const existing = await db.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
-    .from(documentVersionsTable)
-    .where(and(
-      eq(documentVersionsTable.documentType, documentType),
-      eq(documentVersionsTable.documentId, documentId),
-      eq(documentVersionsTable.districtId, districtId),
-    ));
+  const MAX_RETRIES = 5;
+  let version: typeof documentVersionsTable.$inferSelect | undefined;
 
-  const nextVersion = (existing[0]?.max ?? 0) + 1;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const existing = await db.select({ max: sql<number>`COALESCE(MAX(${documentVersionsTable.versionNumber}), 0)` })
+      .from(documentVersionsTable)
+      .where(and(
+        eq(documentVersionsTable.documentType, documentType),
+        eq(documentVersionsTable.documentId, documentId),
+        eq(documentVersionsTable.districtId, districtId),
+      ));
 
-  const [version] = await db.insert(documentVersionsTable).values({
-    documentType,
-    documentId,
-    studentId,
-    districtId,
-    versionNumber: nextVersion,
-    title,
-    changeDescription: typeof changeDescription === "string" ? changeDescription.slice(0, 2000) : null,
-    snapshotData: typeof snapshotData === "string" ? snapshotData : null,
-    authorUserId: user.userId,
-    authorName: user.name,
-  }).returning();
+    const nextVersion = (existing[0]?.max ?? 0) + 1;
+
+    try {
+      [version] = await db.insert(documentVersionsTable).values({
+        documentType,
+        documentId,
+        studentId,
+        districtId,
+        versionNumber: nextVersion,
+        title,
+        changeDescription: typeof changeDescription === "string" ? changeDescription.slice(0, 2000) : null,
+        snapshotData: typeof snapshotData === "string" ? snapshotData : null,
+        authorUserId: user.userId,
+        authorName: user.name,
+      }).returning();
+      break;
+    } catch (err: any) {
+      if (err?.code === "23505" && attempt < MAX_RETRIES - 1) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!version) {
+    return res.status(409).json({ error: "Could not allocate a unique version number. Please try again." });
+  }
 
   logAudit(req, {
     action: "create",
     targetTable: "document_versions",
     targetId: version.id,
     studentId,
-    summary: `Created version ${nextVersion} for ${documentType} #${documentId}`,
+    summary: `Created version ${version.versionNumber} for ${documentType} #${documentId}`,
   });
 
   res.status(201).json(version);
