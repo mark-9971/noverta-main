@@ -15,6 +15,7 @@ import { runDataHealthChecks } from "../lib/dataHealthChecks";
 import { runDistrictReadinessChecks } from "../lib/pilotReadiness";
 import { deriveDistrictMode } from "../lib/districtMode";
 import { getRecentAccessDenials } from "../lib/accessDenials";
+import { isSisWorkerRunning } from "../lib/sis/worker";
 import { clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
@@ -900,6 +901,246 @@ router.get("/support/users/lookup", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("[Support] user lookup error:", err);
     res.status(500).json({ error: "Failed to look up user" });
+  }
+});
+
+/**
+ * GET /api/support/demo-readiness
+ * Composite "is the demo in a good state to show?" check. Aggregates the
+ * existing per-piece signals into a single vertical list of pass/warn/fail
+ * checks so an SE can hit one URL minutes before a demo and know whether
+ * to reseed, restart the worker, or otherwise scramble.
+ *
+ * Each check returns: id, label, status, message, optional remediation.
+ * No mutations — purely a read-only roll-up of state.
+ */
+router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
+  type Status = "pass" | "warn" | "fail";
+  interface Check {
+    id: string;
+    label: string;
+    status: Status;
+    message: string;
+    remediation?: string;
+    href?: string;
+  }
+  const checks: Check[] = [];
+
+  try {
+    // 1. Demo district present.
+    const [demoRow] = await db.select({
+      id: districtsTable.id,
+      name: districtsTable.name,
+    }).from(districtsTable)
+      .where(eq(districtsTable.isDemo, true))
+      .orderBy(districtsTable.id)
+      .limit(1);
+
+    if (!demoRow) {
+      checks.push({
+        id: "demo-district",
+        label: "Demo district present",
+        status: "fail",
+        message: "No district with is_demo=true was found",
+        remediation: "Run pnpm --filter @workspace/db exec tsx src/seed-demo-district.ts",
+      });
+      // Without a demo district most other checks are meaningless — emit
+      // a single roll-up so the SE knows where to start.
+      const summary = { pass: 0, warn: 0, fail: 1, total: 1 };
+      res.json({ generatedAt: new Date().toISOString(), demoDistrict: null, checks, summary });
+      return;
+    }
+    checks.push({
+      id: "demo-district",
+      label: "Demo district present",
+      status: "pass",
+      message: `${demoRow.name} (id ${demoRow.id})`,
+    });
+
+    const districtId = demoRow.id;
+    const schoolIds = await loadDistrictSchoolIds(districtId);
+
+    // 2. Sample data loaded for the demo district.
+    const studentCount = schoolIds.length === 0 ? 0 : Number(((await db.execute(sql`
+      SELECT COUNT(*)::int AS n FROM students
+      WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+    `)).rows[0] as { n: number } | undefined)?.n ?? 0);
+    const staffCount = schoolIds.length === 0 ? 0 : Number(((await db.execute(sql`
+      SELECT COUNT(*)::int AS n FROM staff
+      WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+    `)).rows[0] as { n: number } | undefined)?.n ?? 0);
+    checks.push({
+      id: "sample-data",
+      label: "Sample data loaded",
+      status: studentCount >= 40 ? "pass" : studentCount >= 10 ? "warn" : "fail",
+      message: `${studentCount} students, ${staffCount} staff in ${schoolIds.length} school(s)`,
+      remediation: studentCount >= 40
+        ? undefined
+        : studentCount >= 10
+          ? "Demo district has fewer students than expected — re-run pnpm --filter @workspace/db exec tsx src/seed-demo-district.ts to refresh the full sample"
+          : "Run pnpm --filter @workspace/db exec tsx src/seed-demo-district.ts",
+    });
+
+    // 3. Compliance variety — variety alerts present and overall compliance ~80%.
+    const varietyRow = ((await db.execute(sql`
+      SELECT COUNT(*)::int AS n,
+             COUNT(DISTINCT type)::int AS t
+      FROM alerts a
+      JOIN students s ON s.id = a.student_id
+      WHERE s.school_id = ANY(${schoolIds})
+        AND a.resolved = false
+        AND a.message LIKE '%[demo-variety:%'
+    `)).rows[0] as { n: number; t: number } | undefined) ?? { n: 0, t: 0 };
+    const varietyAlerts = Number(varietyRow.n || 0);
+    const varietyTypes = Number(varietyRow.t || 0);
+
+    const compRow = ((await db.execute(sql`
+      WITH d_students AS (
+        SELECT id FROM students
+        WHERE school_id = ANY(${schoolIds}) AND deleted_at IS NULL
+      ),
+      affected AS (
+        SELECT DISTINCT a.student_id FROM alerts a
+        JOIN d_students ds ON ds.id = a.student_id
+        WHERE a.resolved = false
+      )
+      SELECT (SELECT COUNT(*) FROM d_students)::int AS total,
+             (SELECT COUNT(*) FROM affected)::int  AS affected
+    `)).rows[0] as { total: number; affected: number } | undefined) ?? { total: 0, affected: 0 };
+    const total = Number(compRow.total || 0);
+    const affected = Number(compRow.affected || 0);
+    const compliancePct = total > 0 ? Math.round((1 - affected / total) * 100) : 0;
+    let varietyStatus: Status;
+    if (varietyAlerts >= 8 && varietyTypes >= 5 && compliancePct >= 70 && compliancePct <= 90) varietyStatus = "pass";
+    else if (varietyAlerts >= 4 && compliancePct >= 60 && compliancePct <= 95) varietyStatus = "warn";
+    else varietyStatus = "fail";
+    checks.push({
+      id: "compliance-variety",
+      label: "Compliance variety alerts present (~80%)",
+      status: varietyStatus,
+      message: `${varietyAlerts} variety alerts across ${varietyTypes} type(s); overall compliance ${compliancePct}%`,
+      remediation: varietyStatus === "pass" ? undefined
+        : "Run pnpm --filter @workspace/db exec tsx src/seed-demo-compliance-variety.ts",
+    });
+
+    // 4. SIS worker running.
+    const workerRunning = isSisWorkerRunning();
+    checks.push({
+      id: "sis-worker",
+      label: "SIS worker running",
+      status: workerRunning ? "pass" : "fail",
+      message: workerRunning
+        ? "Worker poll loop is active in this process"
+        : "Worker is stopped — scheduled syncs will not run",
+      remediation: workerRunning ? undefined
+        : "Restart the API server (the worker starts during boot)",
+    });
+
+    // 5. Job queue health — no stuck/stale jobs.
+    const stuckRow = ((await db.execute(sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'running' AND locked_at < now() - INTERVAL '15 minutes')::int AS stale_running,
+        COUNT(*) FILTER (WHERE status = 'queued' AND scheduled_for < now() - INTERVAL '30 minutes')::int AS old_queued,
+        COUNT(*) FILTER (WHERE status = 'failed' AND completed_at >= now() - INTERVAL '24 hours')::int AS recent_failed,
+        COUNT(*) FILTER (WHERE status IN ('queued','running'))::int AS active
+      FROM sis_sync_jobs
+    `)).rows[0] as Record<string, number> | undefined) ?? { stale_running: 0, old_queued: 0, recent_failed: 0, active: 0 };
+    const staleRunning = Number(stuckRow.stale_running || 0);
+    const oldQueued = Number(stuckRow.old_queued || 0);
+    const recentFailed = Number(stuckRow.recent_failed || 0);
+    const active = Number(stuckRow.active || 0);
+    let queueStatus: Status;
+    if (staleRunning > 0 || oldQueued > 0) queueStatus = "fail";
+    else if (recentFailed > 0) queueStatus = "warn";
+    else queueStatus = "pass";
+    checks.push({
+      id: "job-queue",
+      label: "Job queue clean",
+      status: queueStatus,
+      message: queueStatus === "pass"
+        ? `${active} active job(s); no stuck or recently failed syncs`
+        : `${staleRunning} stale running, ${oldQueued} stuck queued, ${recentFailed} recent failures (24h)`,
+      remediation: queueStatus === "pass" ? undefined
+        : "Open SIS Settings → Sync logs to inspect or cancel stuck jobs",
+      href: queueStatus === "pass" ? undefined : "/sis-settings",
+    });
+
+    // 6. Resend configured.
+    const resendConfigured = !!process.env.RESEND_API_KEY;
+    checks.push({
+      id: "resend",
+      label: "Resend (RESEND_API_KEY) configured",
+      status: resendConfigured ? "pass" : "warn",
+      message: resendConfigured
+        ? "RESEND_API_KEY is present — outbound email will attempt real delivery"
+        : "RESEND_API_KEY is missing — emails will be queued as not_configured",
+      remediation: resendConfigured ? undefined
+        : "Set the RESEND_API_KEY secret to enable real email delivery",
+    });
+
+    // 7. No API errors in the last hour.
+    const errorRow = ((await db.execute(sql`
+      SELECT COUNT(*)::int AS n FROM error_logs
+      WHERE occurred_at >= now() - INTERVAL '1 hour'
+    `)).rows[0] as { n: number } | undefined) ?? { n: 0 };
+    const errors1h = Number(errorRow.n || 0);
+    checks.push({
+      id: "api-errors",
+      label: "No API errors in the last hour",
+      status: errors1h === 0 ? "pass" : errors1h < 5 ? "warn" : "fail",
+      message: errors1h === 0
+        ? "No 5xx errors logged in the last 60 minutes"
+        : `${errors1h} server error(s) logged in the last 60 minutes`,
+      remediation: errors1h === 0 ? undefined
+        : "Open System Status to inspect recent error log entries",
+      href: errors1h === 0 ? undefined : "/settings?tab=system-status",
+    });
+
+    // 8. Last reseed timestamp — best signal we have without a dedicated
+    //    table is the most recent created_at on the demo-variety alert
+    //    rows (rewritten on every reseed of the variety script). Falls
+    //    back to most recent student created_at if the variety script
+    //    was never run.
+    const reseedRow = ((await db.execute(sql`
+      SELECT MAX(a.created_at) AS variety_at,
+             (SELECT MAX(s.created_at) FROM students s WHERE s.school_id = ANY(${schoolIds})) AS student_at
+      FROM alerts a
+      JOIN students s ON s.id = a.student_id
+      WHERE s.school_id = ANY(${schoolIds})
+        AND a.message LIKE '%[demo-variety:%'
+    `)).rows[0] as { variety_at: string | null; student_at: string | null } | undefined) ?? { variety_at: null, student_at: null };
+    const reseedAt = reseedRow.variety_at ?? reseedRow.student_at;
+    let reseedStatus: Status = "fail";
+    let reseedMessage = "No reseed timestamp could be determined";
+    if (reseedAt) {
+      const ageMs = Date.now() - new Date(reseedAt).getTime();
+      const ageDays = ageMs / (24 * 60 * 60 * 1000);
+      reseedMessage = `Last reseed activity ${reseedAt} (${ageDays < 1 ? `${Math.round(ageMs / (60 * 60 * 1000))}h` : `${Math.round(ageDays)}d`} ago)`;
+      reseedStatus = ageDays <= 30 ? "pass" : ageDays <= 90 ? "warn" : "fail";
+    }
+    checks.push({
+      id: "last-reseed",
+      label: "Last demo reseed",
+      status: reseedStatus,
+      message: reseedMessage,
+      remediation: reseedStatus === "pass" ? undefined
+        : "Run pnpm --filter @workspace/db exec tsx src/seed-demo-district.ts then src/seed-demo-compliance-variety.ts",
+    });
+
+    const summary = checks.reduce(
+      (acc, c) => { acc[c.status]++; acc.total++; return acc; },
+      { pass: 0, warn: 0, fail: 0, total: 0 },
+    );
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      demoDistrict: { id: demoRow.id, name: demoRow.name },
+      checks,
+      summary,
+    });
+  } catch (err) {
+    console.error("[Support] demo-readiness error:", err);
+    res.status(500).json({ error: "Failed to compute demo readiness" });
   }
 });
 

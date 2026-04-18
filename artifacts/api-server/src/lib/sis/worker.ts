@@ -142,6 +142,11 @@ export async function startSisWorker(): Promise<void> {
   setImmediate(tick);
 }
 
+/** True when the worker poll loop is active (started and not stopped). */
+export function isSisWorkerRunning(): boolean {
+  return !stopped;
+}
+
 export function stopSisWorker(): void {
   stopped = true;
   if (pollTimer) {
