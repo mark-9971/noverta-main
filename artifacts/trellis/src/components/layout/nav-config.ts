@@ -40,29 +40,22 @@ export const platformAdminSection: NavSection = {
   ],
 };
 
-// Top-level admin IA is hard-trimmed to the real wedge:
-//   1) Overview        — daily landing surface (Dashboard + Alerts)
-//   2) Compliance      — the core product wedge
-//   3) Caseload & Service Delivery — students, sessions, scheduling, IEP work
+// Top-level admin IA — wedge-focused layout (Pass 2):
+//
+//   1) Overview        — daily landing (Dashboard + Alerts)
+//   2) Compliance      — core wedge: compliance, risk, compensatory, docs
+//   3) Service Delivery — trimmed to 6 core items only
 //   4) Reports         — cross-cutting reporting surface
-//   5) Billing         — Medicaid + compensatory finance + plan billing
-//   6) Settings        — district configuration and data import
+//   5) Billing         — collapsed by default (finance, not compliance)
+//   6) Settings        — collapsed by default (config, not daily ops)
+//   7) More tools      — everything else, collapsed, route-accessible
 //
-// Everything else is grouped under a single collapsed "More tools" section
-// (defaultOpen: false) so admins can still get to it from the sidebar but it
-// does not compete for attention with the core wedge. No code or routes are
-// removed — items are only re-grouped/demoted.
-//
-// Specifically demoted (per the IA trim):
-//   - Agencies, Accommodations lookup, Data Health, Cost Avoidance,
-//     Leadership Packet, Parent Comms, District Overview, Executive
-//     Dashboard, Contract Utilization, Restraint & Seclusion (P&S),
-//     Programs & Behaviors, FBA/BIP, Transition Planning, Catalog
-//     Matches, Supervision, Resource Management, Analytics, Staff
-//     Directory.
-// Pages that are not in primary nav today (recently-deleted, legal-
-// compliance) remain reachable from the dashboard / settings entry points
-// and are intentionally not promoted into the sidebar.
+// Service Delivery trimmed from 11 → 6 items. Demoted to More tools:
+//   Staff Calendar, IEP Meetings, IEP Calendar, Caseload Balancing,
+//   IEP Search, Evaluations, Progress Reports.
+// Staff Directory promoted from More tools → Service Delivery (renamed "Staff").
+// Billing and Settings now default-closed to reduce sidebar weight.
+// No routes, pages, APIs, or business logic removed — hidden only.
 export const adminNav: NavSection[] = [
   {
     label: "Overview",
@@ -90,7 +83,10 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Caseload & Service Delivery",
+    // Trimmed to 6 core items — the service-delivery wedge.
+    // Demoted to More tools: Staff Calendar, IEP Meetings, IEP Calendar,
+    // Caseload Balancing, IEP Search, Evaluations, Progress Reports.
+    label: "Service Delivery",
     icon: Calendar,
     collapsible: true,
     defaultOpen: true,
@@ -98,14 +94,8 @@ export const adminNav: NavSection[] = [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
       { href: "/coverage", label: "Coverage", icon: UserCheck },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      { href: "/staff", label: "Staff", icon: UserCheck },
     ],
   },
   {
@@ -118,10 +108,11 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    // Collapsed by default — finance workflows, not daily compliance ops.
     label: "Billing",
     icon: CreditCard,
     collapsible: true,
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
       { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
@@ -129,10 +120,11 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
+    // Collapsed by default — configuration, not daily ops.
     label: "Settings",
     icon: Settings,
     collapsible: true,
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/settings", label: "Settings", icon: Settings },
@@ -144,8 +136,18 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
-      // Demoted from primary nav per IA trim. Routes still live, pages still
-      // work, command palette and dashboard cards still link to them.
+      // Routes still live — pages work, dashboard cards and command palette
+      // can still link here. Items are nav-demoted only; nothing is deleted.
+      //
+      // --- Demoted from Service Delivery (Pass 2) ---
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      // --- Demoted from primary nav (Pass 1) ---
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
       { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
@@ -158,7 +160,6 @@ export const adminNav: NavSection[] = [
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
-      { href: "/staff", label: "Staff Directory", icon: UserCheck },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
@@ -175,7 +176,7 @@ export const adminNav: NavSection[] = [
 // Restraint & Seclusion, Supervision).
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Reports", "Billing", "Settings"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
-  "Caseload & Service Delivery": "My Caseload",
+  "Service Delivery": "My Caseload",
 };
 const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
   "Student List": "My Students",
