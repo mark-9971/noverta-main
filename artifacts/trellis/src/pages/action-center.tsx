@@ -14,6 +14,7 @@ import {
   CalendarDays, Clock, Shield, ArrowRight, Zap,
   CheckCircle2, Target, RefreshCw, ChevronRight,
   ShieldAlert, FileWarning, UserCheck, Inbox, ClipboardEdit,
+  CalendarX2,
 } from "lucide-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 
@@ -24,7 +25,7 @@ type Priority = "urgent" | "thisweek" | "comingup";
 interface WorkItem {
   id: string;
   priority: Priority;
-  category: "compliance" | "iep" | "session" | "evaluation" | "meeting" | "transition" | "staffing";
+  category: "compliance" | "iep" | "session" | "evaluation" | "meeting" | "transition" | "staffing" | "schedule";
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   detail: string;
@@ -32,6 +33,67 @@ interface WorkItem {
   studentName?: string;
   href: string;
   actionLabel: string;
+}
+
+// ─── Schedule-gap helpers ─────────────────────────────────────────────────────
+
+/** Approximate weeks remaining in the school year (Sep → Jun 15). */
+function weeksRemainingInSchoolYear(): number {
+  const today = new Date();
+  const yearEnd = new Date(today.getFullYear(), 5, 15); // June 15
+  if (yearEnd < today) {
+    // Past June 15 — next school year end
+    yearEnd.setFullYear(today.getFullYear() + 1);
+  }
+  const ms = yearEnd.getTime() - today.getTime();
+  return Math.max(1, Math.round(ms / (7 * 24 * 60 * 60 * 1000)));
+}
+
+/** Parse "HH:MM" or "HH:MM:SS" → minutes since midnight. */
+function timeToMins(t: string): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+interface SchedGapInput {
+  studentId: number;
+  studentName: string;
+  serviceTypeId: number;
+  serviceTypeName: string;
+  riskStatus: string;
+  remainingMinutes: number;
+}
+
+function scheduleGapToWorkItem(
+  mp: SchedGapInput,
+  weeklyScheduledMinutes: number,
+  weeksLeft: number,
+): WorkItem {
+  const isNone = weeklyScheduledMinutes === 0;
+  const projectedShortfallPerWeek = isNone
+    ? Math.ceil(mp.remainingMinutes / weeksLeft)
+    : Math.ceil(mp.remainingMinutes / weeksLeft - weeklyScheduledMinutes);
+
+  const priority: Priority =
+    mp.riskStatus === "out_of_compliance" || mp.riskStatus === "at_risk" ? "urgent" : "thisweek";
+
+  const detail = isNone
+    ? `No sessions scheduled · ${mp.remainingMinutes} min still needed · ${mp.serviceTypeName}`
+    : `${weeklyScheduledMinutes} min/wk scheduled · needs +${projectedShortfallPerWeek} min/wk more · ${mp.serviceTypeName}`;
+
+  return {
+    id: `schedule-gap-${mp.studentId}-${mp.serviceTypeId}`,
+    priority,
+    category: "schedule",
+    icon: CalendarX2,
+    title: `${mp.studentName} — Schedule falls short of IEP minutes`,
+    detail,
+    studentId: mp.studentId,
+    studentName: mp.studentName,
+    href: "/scheduling?tab=schedule",
+    actionLabel: "Fix Schedule →",
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -408,6 +470,29 @@ export default function ActionCenter() {
     staleTime: 60_000,
   });
 
+  // Schedule-gap analysis: fetch recurring blocks + minute progress
+  const { data: scheduleBlocksRaw } = useQuery({
+    queryKey: ["action-center/schedule-blocks", filterParams],
+    queryFn: async () => {
+      const qs = new URLSearchParams(filterParams as any).toString();
+      const r = await authFetch(`/api/schedule-blocks${qs ? `?${qs}` : ""}`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 120_000,
+  });
+
+  const { data: minuteProgressRaw } = useQuery({
+    queryKey: ["action-center/minute-progress", filterParams],
+    queryFn: async () => {
+      const qs = new URLSearchParams(filterParams as any).toString();
+      const r = await authFetch(`/api/minute-progress${qs ? `?${qs}` : ""}`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 120_000,
+  });
+
   const isLoading = alertsLoading || deadlinesLoading || riskLoading || evalLoading || meetingsLoading;
 
   // ── Build work items ──────────────────────────────────────────────────────
@@ -442,8 +527,64 @@ export default function ActionCenter() {
       if (item) items.push(item);
     });
 
+    // 4. Schedule-gap analysis: identify students whose recurring schedule can't
+    //    deliver enough minutes to close their IEP minute gap by year-end.
+    const scheduleBlocks: any[] = Array.isArray(scheduleBlocksRaw) ? scheduleBlocksRaw : [];
+    const minuteProgress: any[] = Array.isArray(minuteProgressRaw) ? minuteProgressRaw : [];
+
+    if (scheduleBlocks.length > 0 || minuteProgress.length > 0) {
+      // Build scheduled-minutes map: "studentId:serviceTypeId" → weekly minutes
+      // (each dayOfWeek slot counts once — recurring weekly cadence)
+      const scheduledMap = new Map<string, number>();
+      for (const b of scheduleBlocks) {
+        if (!b.studentId || !b.serviceTypeId || !b.startTime || !b.endTime) continue;
+        const mins = timeToMins(b.endTime) - timeToMins(b.startTime);
+        if (mins <= 0) continue;
+        const key = `${b.studentId}:${b.serviceTypeId}`;
+        scheduledMap.set(key, (scheduledMap.get(key) ?? 0) + mins);
+      }
+
+      const weeksLeft = weeksRemainingInSchoolYear();
+
+      // Existing schedule-gap item IDs to avoid duplicates within this source
+      const gapItemIds = new Set<string>();
+
+      for (const mp of minuteProgress) {
+        if (!mp.studentId || !mp.serviceTypeId) continue;
+        // Only surface gaps for at-risk or out-of-compliance students
+        if (mp.riskStatus === "on_track" || mp.riskStatus === "completed" || mp.riskStatus === "no_data") continue;
+        const remainingMinutes = mp.remainingMinutes ?? 0;
+        if (remainingMinutes <= 0) continue;
+
+        const key = `${mp.studentId}:${mp.serviceTypeId}`;
+        const itemId = `schedule-gap-${mp.studentId}-${mp.serviceTypeId}`;
+        if (gapItemIds.has(itemId)) continue;
+
+        const weeklyScheduled = scheduledMap.get(key) ?? 0;
+        const projectedByYearEnd = weeklyScheduled * weeksLeft;
+
+        // Only generate a gap item when there's a structural shortfall:
+        // either nothing is scheduled, or the current pace can't close the gap
+        if (weeklyScheduled === 0 || projectedByYearEnd < remainingMinutes) {
+          gapItemIds.add(itemId);
+          items.push(scheduleGapToWorkItem(
+            {
+              studentId: mp.studentId,
+              studentName: mp.studentName ?? "Student",
+              serviceTypeId: mp.serviceTypeId,
+              serviceTypeName: mp.serviceTypeName ?? "Service",
+              riskStatus: mp.riskStatus,
+              remainingMinutes,
+            },
+            weeklyScheduled,
+            weeksLeft,
+          ));
+        }
+      }
+    }
+
     return items;
-  }, [alertList, riskReport, deadlineItems]);
+  }, [alertList, riskReport, deadlineItems, scheduleBlocksRaw, minuteProgressRaw]);
 
   // ── Aggregate items (count-level, not student-level) ──────────────────────
 
