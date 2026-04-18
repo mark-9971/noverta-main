@@ -236,12 +236,15 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   const caseManager = insertedStaff.find(s => s.role === "case_manager") ?? insertedStaff[0];
   const providers = insertedStaff.filter(s => s.role === "provider" || s.role === "bcba");
 
-  // 3. Sample students (10): mix of scenarios
+  // 3. Sample students: scenario counts drawn from broad ranges each run
+  // so the demo never lands on the same fixed 4/2/2/2 shape. At least one
+  // of each non-healthy scenario is guaranteed to ensure the compliance-risk
+  // surfaces always have representative data.
   const scenarios: Scenario[] = [
-    "healthy", "healthy", "healthy", "healthy",
-    "shortfall", "shortfall",
-    "urgent", "urgent",
-    "compensatory_risk", "compensatory_risk",
+    ...Array(rand(2, 5)).fill("healthy" as Scenario),
+    ...Array(rand(1, 3)).fill("shortfall" as Scenario),
+    ...Array(rand(1, 3)).fill("urgent" as Scenario),
+    ...Array(rand(1, 3)).fill("compensatory_risk" as Scenario),
   ];
   const studentRows = scenarios.map((scenario, i) => ({
     firstName: FIRST_NAMES[i % FIRST_NAMES.length],

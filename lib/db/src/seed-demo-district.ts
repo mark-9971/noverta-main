@@ -157,13 +157,15 @@ interface StudentProfile {
   services: number[];
 }
 
+// Scenario weights are sampled from broad ranges per run so each demo seed
+// produces a different compliance-risk distribution (no fixed 40/20/10 targets).
 const STUDENT_SCENARIOS: Array<{ scenario: StudentProfile["scenario"]; weight: number }> = [
-  { scenario: "healthy", weight: 40 },
-  { scenario: "improving", weight: 15 },
-  { scenario: "shortfall", weight: 20 },
-  { scenario: "compensatory_risk", weight: 10 },
-  { scenario: "urgent", weight: 10 },
-  { scenario: "new_enrollment", weight: 5 },
+  { scenario: "healthy",           weight: rand(30, 50) },
+  { scenario: "improving",         weight: rand(10, 20) },
+  { scenario: "shortfall",         weight: rand(15, 25) },
+  { scenario: "compensatory_risk", weight: rand(8, 15) },
+  { scenario: "urgent",            weight: rand(8, 15) },
+  { scenario: "new_enrollment",    weight: rand(3, 8) },
 ];
 
 const TIER_SERVICE_MAP: Record<string, number[][]> = {
