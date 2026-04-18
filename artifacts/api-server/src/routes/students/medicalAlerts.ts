@@ -3,7 +3,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   medicalAlertsTable, MEDICAL_ALERT_TYPES, MEDICAL_ALERT_SEVERITIES,
-  studentsTable, staffAssignmentsTable,
+  studentsTable,
 } from "@workspace/db";
 import { eq, desc, and, isNull, or, sql, type SQL } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";

@@ -59,22 +59,19 @@ interface LifeThreateningAlert {
   grade: string;
 }
 
-function dismissKey(sessionId: string | null | undefined) {
-  return `life-threat-dismissed-${sessionId ?? "anon"}`;
+function dismissKey(sessionId: string) {
+  return `life-threat-dismissed-${sessionId}`;
 }
 
 export function LifeThreateningAlertsBanner() {
   const { sessionId } = useAuth();
-  const [dismissed, setDismissed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(dismissKey(sessionId)) === "1";
-    } catch {
-      return false;
-    }
-  });
+  // Gate all logic on sessionId being resolved to avoid anon-key race.
+  const ready = !!sessionId;
+  const [dismissed, setDismissed] = useState(false);
 
-  // If sessionId resolves after mount (Clerk async), re-check localStorage.
+  // Read dismissal state once sessionId is available.
   useEffect(() => {
+    if (!sessionId) return;
     try {
       setDismissed(localStorage.getItem(dismissKey(sessionId)) === "1");
     } catch {}
@@ -84,10 +81,10 @@ export function LifeThreateningAlertsBanner() {
     queryKey: ["students-life-threatening-alerts"],
     queryFn: () => authFetch("/api/students/life-threatening-alerts").then(r => r.ok ? r.json() : []),
     staleTime: 5 * 60_000,
-    enabled: !dismissed,
+    enabled: ready && !dismissed,
   });
 
-  if (dismissed || !data || data.length === 0) return null;
+  if (!ready || dismissed || !data || data.length === 0) return null;
 
   // Group alerts by student so multi-alert students show as one row.
   const byStudent = new Map<number, { firstName: string; lastName: string; grade: string; studentId: number; alerts: LifeThreateningAlert[] }>();
