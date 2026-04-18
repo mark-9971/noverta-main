@@ -135,12 +135,12 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    // Collapsed by default — configuration, not daily ops.
-    label: "Settings",
+    label: "Admin / Tools",
     icon: Settings,
     collapsible: true,
     defaultOpen: false,
     items: [
+      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
@@ -154,7 +154,6 @@ export const adminNav: NavSection[] = [
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
-      { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
@@ -167,7 +166,7 @@ export const adminNav: NavSection[] = [
 // "Compliance Tools" and "More tools" stay visible — they host items
 // teachers/BCBAs use day-to-day (Parent Comms, Programs & Behaviors, FBA/BIP,
 // Restraint & Seclusion, Supervision). Reports link lives in More tools.
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Settings"]);
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Service Delivery": "My Caseload",
 };
