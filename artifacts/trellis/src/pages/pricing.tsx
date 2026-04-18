@@ -24,7 +24,8 @@ const FEATURE_LABELS: Record<string, string> = {
   "clinical.program_data": "Program data collection",
   "clinical.fba_bip": "FBA/BIP management",
   "clinical.iep_suggestions": "IEP program & goal suggestions",
-  "clinical.protective_measures": "Protective measures tracking",
+  "compliance.protective_measures": "Protective measures tracking",
+  "district.medicaid_billing": "Medicaid billing & documentation",
   "clinical.supervision": "Supervision management",
   "clinical.aba_graphing": "ABA graphing & analysis",
   "clinical.premium_templates": "Premium goal templates",
@@ -47,13 +48,15 @@ const MODULE_CONFIG = {
       "compliance.service_minutes", "compliance.compensatory", "compliance.state_reporting",
       "compliance.checklist", "compliance.attendance", "compliance.evaluations",
       "compliance.iep_calendar", "compliance.iep_search", "compliance.transitions",
+      // Protective measures is state-mandated compliance reporting in MA — CORE tier
+      "compliance.protective_measures",
     ],
   },
   clinical_instruction: {
     label: "Clinical & Instruction",
     features: [
       "clinical.program_data", "clinical.fba_bip", "clinical.iep_suggestions",
-      "clinical.protective_measures", "clinical.supervision", "clinical.aba_graphing",
+      "clinical.supervision", "clinical.aba_graphing",
       "clinical.premium_templates",
     ],
   },
@@ -68,7 +71,8 @@ const MODULE_CONFIG = {
     label: "District Operations",
     features: [
       "district.overview", "district.executive", "district.resource_management",
-      "district.contract_utilization", "district.caseload_balancing", "district.budget",
+      "district.contract_utilization", "district.caseload_balancing",
+      "district.medicaid_billing", "district.budget",
     ],
   },
 };

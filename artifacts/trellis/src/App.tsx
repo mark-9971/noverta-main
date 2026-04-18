@@ -242,7 +242,7 @@ function StaffRouter() {
       <BoundedRoute path="/iep" component={IepHub} fallbackTitle="IEP hub error" />
       <BoundedRoute path="/scheduling" component={SchedulingHub} fallbackTitle="Scheduling hub error" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
-      <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="clinical.protective_measures" />
+      <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="compliance.protective_measures" />
       <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" featureKey="district.executive" />
       <BoundedRoute path="/iep-calendar" component={IepCalendarPage} fallbackTitle="IEP calendar error" />
       <BoundedRoute path="/analytics" component={AnalyticsPage} fallbackTitle="Analytics error" />
@@ -273,7 +273,7 @@ function StaffRouter() {
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
-      <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" />
+      <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" featureKey="district.medicaid_billing" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
       <Route path="/compliance-risk-report">{() => <Redirect to="/compliance?tab=risk-report" />}</Route>
       <BoundedRoute path="/weekly-compliance-summary" component={WeeklyComplianceSummaryPage} fallbackTitle="Weekly compliance summary error" />

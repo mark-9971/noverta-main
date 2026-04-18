@@ -38,10 +38,10 @@ export type FeatureKey =
   | "compliance.iep_calendar"
   | "compliance.iep_search"
   | "compliance.transitions"
+  | "compliance.protective_measures"
   | "clinical.program_data"
   | "clinical.fba_bip"
   | "clinical.iep_suggestions"
-  | "clinical.protective_measures"
   | "clinical.supervision"
   | "clinical.aba_graphing"
   | "clinical.premium_templates"
@@ -50,6 +50,7 @@ export type FeatureKey =
   | "district.resource_management"
   | "district.contract_utilization"
   | "district.caseload_balancing"
+  | "district.medicaid_billing"
   | "district.budget"
   | "engagement.parent_communication"
   | "engagement.parent_portal"
@@ -67,12 +68,14 @@ export const MODULE_FEATURES: Record<ProductModule, FeatureKey[]> = {
     "compliance.iep_calendar",
     "compliance.iep_search",
     "compliance.transitions",
+    // Protective measures (restraint/seclusion) is state-mandated compliance
+    // reporting in MA — belongs in CORE, not clinical premium.
+    "compliance.protective_measures",
   ],
   clinical_instruction: [
     "clinical.program_data",
     "clinical.fba_bip",
     "clinical.iep_suggestions",
-    "clinical.protective_measures",
     "clinical.supervision",
     "clinical.aba_graphing",
     "clinical.premium_templates",
@@ -83,6 +86,7 @@ export const MODULE_FEATURES: Record<ProductModule, FeatureKey[]> = {
     "district.resource_management",
     "district.contract_utilization",
     "district.caseload_balancing",
+    "district.medicaid_billing",
     "district.budget",
   ],
   engagement_access: [
@@ -134,7 +138,8 @@ export const ROUTE_FEATURE_MAP: Record<string, FeatureKey> = {
   "/program-data": "clinical.program_data",
   "/behavior-assessment": "clinical.fba_bip",
   "/iep-suggestions": "clinical.iep_suggestions",
-  "/protective-measures": "clinical.protective_measures",
+  "/protective-measures": "compliance.protective_measures",
+  "/medicaid-billing": "district.medicaid_billing",
   "/supervision": "clinical.supervision",
   "/aba-graphing": "clinical.aba_graphing",
   "/district": "district.overview",

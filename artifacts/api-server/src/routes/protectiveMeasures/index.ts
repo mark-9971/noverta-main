@@ -18,7 +18,7 @@ const router: IRouter = Router();
 router.use(
   ["/protective-measures", "/students/:id/protective-measures"],
   requireDistrictScope,
-  requireTierAccess("clinical.protective_measures"),
+  requireTierAccess("compliance.protective_measures"),
 );
 
 router.use(searchRouter);

@@ -228,7 +228,7 @@ export const adminNav: NavSection[] = [
           { href: "/scheduling?tab=staff-calendar", label: "Staff Calendar", icon: CalendarDays },
         ],
       },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
   },
   // ── 6+ sorted below ───────────────────────────────────────────────────────
@@ -245,7 +245,6 @@ export const adminNav: NavSection[] = [
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
-      { href: "/billing", label: "Billing", icon: CreditCard },
     ],
   },
   {
@@ -255,7 +254,7 @@ export const adminNav: NavSection[] = [
     defaultOpen: false,
     items: [
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
       {
@@ -269,6 +268,9 @@ export const adminNav: NavSection[] = [
           { href: "/settings?tab=recently-deleted", label: "Recently Deleted", icon: Trash2 },
           { href: "/settings?tab=system-status", label: "System Status", icon: Activity },
           { href: "/settings?tab=legal", label: "Legal & Compliance", icon: Scale },
+          // Billing (Stripe subscription management) lives in settings, not in
+          // the operational nav — it's account management, not a product feature.
+          { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
         ],
       },
     ],
@@ -455,7 +457,7 @@ export const bcbaNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],
