@@ -139,7 +139,6 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
-      { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
     ],
   },
   // ── 3. IEP & Services ─────────────────────────────────────────────────────
@@ -174,6 +173,7 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
+      { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
       {
         href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
         children: [
