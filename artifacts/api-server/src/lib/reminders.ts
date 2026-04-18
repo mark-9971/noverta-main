@@ -525,8 +525,11 @@ function getWeekStartStr(d: Date): string {
   return monday.toISOString().substring(0, 10);
 }
 
-async function runComplianceRiskAlerts(): Promise<void> {
-  const today = new Date();
+/**
+ * Core logic for generating compliance risk alerts scoped to a specific date.
+ * Exported so tests can inject a fixed Monday without mocking the system clock.
+ */
+export async function runComplianceRiskAlertsForDate(today: Date): Promise<void> {
   const isMonday = today.getDay() === 1;
 
   try {
@@ -649,6 +652,18 @@ async function runComplianceRiskAlerts(): Promise<void> {
   } catch (err) {
     console.error("[Reminders] Compliance risk alert check error:", err);
   }
+}
+
+async function runComplianceRiskAlerts(): Promise<void> {
+  // Gate to weekly cadence: only generate alerts on Mondays.
+  // The 6-hour scheduler still calls this function multiple times per week,
+  // but all non-Monday calls return early to match the weekly spec.
+  const today = new Date();
+  if (today.getDay() !== 1) {
+    console.log("[Reminders] Compliance risk alerts: skipped (not Monday)");
+    return;
+  }
+  return runComplianceRiskAlertsForDate(today);
 }
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
