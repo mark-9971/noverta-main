@@ -15,7 +15,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { useMemo } from "react";
 import { CASELOAD_ROLES, getGreeting } from "./types";
 import type { ProviderCaseloadSummary } from "./types";
-import { NeedsAttentionPanel, CriticalMedicalAlertsBanner } from "./AlertBanners";
+import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
 import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
 import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, ContractRenewalsCard, DeadlinesSection } from "./SecondarySections";
@@ -177,6 +177,7 @@ function DashboardFull() {
 
       {isAdmin && <CostRiskPanel />}
 
+      <LifeThreateningAlertsBanner />
       <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
 
