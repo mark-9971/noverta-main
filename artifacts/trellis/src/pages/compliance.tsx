@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
-  Printer, ArrowRight, CheckCircle, FileBarChart, Clipboard,
+  Printer, ArrowRight, CheckCircle, FileBarChart, Clipboard, ShieldCheck, ShieldAlert, ExternalLink,
 } from "lucide-react";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -108,6 +108,77 @@ interface RiskReportData {
     totalShortfall: number;
     complianceRate: number;
   }[];
+}
+
+function DeseComplianceBanner() {
+  const { data: restraintData } = useQuery<{ districtCompliant: boolean; nonCompliantWindows: number; totalWindows: number }>({
+    queryKey: ["/api/state-reporting/restraint-30-day"],
+    queryFn: async () => {
+      const res = await authFetch("/api/state-reporting/restraint-30-day");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: iepData } = useQuery<{ summary: { breached: number; atRisk: number; total: number } }>({
+    queryKey: ["/api/state-reporting/iep-timeline"],
+    queryFn: async () => {
+      const res = await authFetch("/api/state-reporting/iep-timeline");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (!restraintData && !iepData) return null;
+
+  const restraintOk = restraintData?.districtCompliant ?? true;
+  const iepBreached = iepData?.summary?.breached ?? 0;
+  const iepAtRisk = iepData?.summary?.atRisk ?? 0;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap mb-4">
+      <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mr-1">DESE Status</span>
+      {restraintData && (
+        <Link href="/state-reporting">
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer border ${
+            restraintOk
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-red-50 text-red-700 border-red-200"
+          }`}>
+            {restraintOk
+              ? <><ShieldCheck className="w-3 h-3" /> Restraint Compliant</>
+              : <><ShieldAlert className="w-3 h-3" /> {restraintData.nonCompliantWindows} Restraint Window{restraintData.nonCompliantWindows !== 1 ? "s" : ""} Non-Compliant</>}
+          </span>
+        </Link>
+      )}
+      {iepData?.summary && (
+        <Link href="/state-reporting">
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer border ${
+            iepBreached > 0
+              ? "bg-red-50 text-red-700 border-red-200"
+              : iepAtRisk > 0
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+          }`}>
+            {iepBreached > 0
+              ? <><ShieldAlert className="w-3 h-3" /> {iepBreached} IEP Timeline Breach{iepBreached !== 1 ? "es" : ""}</>
+              : iepAtRisk > 0
+                ? <><AlertTriangle className="w-3 h-3" /> {iepAtRisk} IEP At Risk</>
+                : <><ShieldCheck className="w-3 h-3" /> IEP Timelines Compliant</>}
+          </span>
+        </Link>
+      )}
+      <Link href="/state-reporting">
+        <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer">
+          View DESE Reports <ExternalLink className="w-3 h-3" />
+        </span>
+      </Link>
+    </div>
+  );
 }
 
 function ServiceMinutesContent() {
@@ -690,6 +761,8 @@ export default function CompliancePage() {
           </div>
         )}
       </div>
+
+      <DeseComplianceBanner />
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-5 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto">
         {TABS.map(t => (
