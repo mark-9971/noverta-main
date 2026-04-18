@@ -451,9 +451,14 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
   if (!districtId) return res.status(403).json({ error: "No district scope" });
   const user = req as AuthedRequest;
 
-  const { studentId, fromProviderId, toProviderId } = req.body;
+  const { studentId, fromProviderId, toProviderId, overrideIncompatible } = req.body;
   if (!studentId || !fromProviderId || !toProviderId) {
     return res.status(400).json({ error: "studentId, fromProviderId, and toProviderId are required" });
+  }
+
+  const callerRole = (req as AuthedRequest).trellisRole;
+  if (overrideIncompatible && callerRole !== "admin") {
+    return res.status(403).json({ error: "Only admins can override service-type incompatibility" });
   }
 
   try {
@@ -480,6 +485,49 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
 
     if (!assignment) return res.status(404).json({ error: "No assignment found for this student-provider pair" });
 
+    if (!overrideIncompatible) {
+      const studentServices = await db.select({
+        serviceTypeId: serviceRequirementsTable.serviceTypeId,
+        serviceTypeName: serviceTypesTable.name,
+      })
+      .from(serviceRequirementsTable)
+      .innerJoin(serviceTypesTable, eq(serviceRequirementsTable.serviceTypeId, serviceTypesTable.id))
+      .where(and(
+        eq(serviceRequirementsTable.studentId, studentId),
+        eq(serviceRequirementsTable.providerId, fromProviderId),
+        eq(serviceRequirementsTable.active, true),
+      ));
+
+      const targetProviderServiceTypeIds = new Set(
+        (await db.select({ serviceTypeId: serviceRequirementsTable.serviceTypeId })
+          .from(serviceRequirementsTable)
+          .where(and(
+            eq(serviceRequirementsTable.providerId, toProviderId),
+            eq(serviceRequirementsTable.active, true),
+          ))
+        ).map(r => r.serviceTypeId)
+      );
+
+      const seen = new Set<number>();
+      const incompatible = studentServices.filter(s => {
+        if (targetProviderServiceTypeIds.has(s.serviceTypeId)) return false;
+        if (seen.has(s.serviceTypeId)) return false;
+        seen.add(s.serviceTypeId);
+        return true;
+      });
+
+      if (incompatible.length > 0) {
+        return res.status(422).json({
+          error: "Service type mismatch",
+          code: "SERVICE_TYPE_MISMATCH",
+          incompatibleServices: incompatible.map(s => ({
+            serviceTypeId: s.serviceTypeId,
+            serviceTypeName: s.serviceTypeName,
+          })),
+        });
+      }
+    }
+
     await db.update(staffAssignmentsTable)
       .set({ staffId: toProviderId })
       .where(eq(staffAssignmentsTable.id, assignment.id));
@@ -497,7 +545,7 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
       targetTable: "staff_assignments",
       targetId: assignment.id,
       studentId,
-      summary: `Reassigned student #${studentId} from provider #${fromProviderId} to provider #${toProviderId} (caseload balancing)`,
+      summary: `Reassigned student #${studentId} from provider #${fromProviderId} to provider #${toProviderId} (caseload balancing${overrideIncompatible ? ", service mismatch overridden by admin" : ""})`,
       oldValues: { staffId: fromProviderId },
       newValues: { staffId: toProviderId },
     });

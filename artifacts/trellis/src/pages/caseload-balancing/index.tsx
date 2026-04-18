@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Printer, RefreshCw, Settings } from "lucide-react";
+import { useRole } from "@/lib/role-context";
 import {
   ProviderCaseload, RoleSummary, Suggestion, ProviderStudent, TrendPoint, ProviderTrendSeries,
 } from "./types";
@@ -18,7 +19,10 @@ import { SuggestionsCard } from "./SuggestionsCard";
 import { ThresholdDialog } from "./ThresholdDialog";
 import { ReassignDialog } from "./ReassignDialog";
 
+interface IncompatibleService { serviceTypeId: number; serviceTypeName: string; }
+
 export default function CaseloadBalancingPage() {
+  const { role } = useRole();
   const [loading, setLoading] = useState(true);
   const [providers, setProviders] = useState<ProviderCaseload[]>([]);
   const [roleSummary, setRoleSummary] = useState<Record<string, RoleSummary>>({});
@@ -50,6 +54,7 @@ export default function CaseloadBalancingPage() {
   const [reassignDialog, setReassignDialog] = useState<{ student: ProviderStudent; fromProvider: ProviderCaseload } | null>(null);
   const [reassignTarget, setReassignTarget] = useState("");
   const [reassigning, setReassigning] = useState(false);
+  const [incompatibleServices, setIncompatibleServices] = useState<IncompatibleService[]>([]);
 
   const buildThresholdParam = useCallback((t: Record<string, number> | null) => {
     if (!t) return "";
@@ -153,7 +158,7 @@ export default function CaseloadBalancingPage() {
     }
   };
 
-  const handleReassign = async () => {
+  const doReassign = async (override: boolean) => {
     if (!reassignDialog || !reassignTarget) return;
     setReassigning(true);
     try {
@@ -164,16 +169,22 @@ export default function CaseloadBalancingPage() {
           studentId: reassignDialog.student.id,
           fromProviderId: reassignDialog.fromProvider.id,
           toProviderId: parseInt(reassignTarget, 10),
+          overrideIncompatible: override || undefined,
         }),
       });
       if (!res.ok) {
         const err = await res.json();
+        if (res.status === 422 && err.code === "SERVICE_TYPE_MISMATCH") {
+          setIncompatibleServices(err.incompatibleServices || []);
+          return;
+        }
         toast.error(err.error || "Reassignment failed");
         return;
       }
       toast.success("Student reassigned successfully");
       setReassignDialog(null);
       setReassignTarget("");
+      setIncompatibleServices([]);
       fetchData();
       fetchSuggestions();
       if (selectedProvider) fetchProviderStudents(selectedProvider);
@@ -183,6 +194,9 @@ export default function CaseloadBalancingPage() {
       setReassigning(false);
     }
   };
+
+  const handleReassign = () => doReassign(false);
+  const handleReassignOverride = () => doReassign(true);
 
   const filteredProviders = useMemo(() => providers.filter(p => {
     if (filterRole !== "all" && p.role !== filterRole) return false;
@@ -328,12 +342,15 @@ export default function CaseloadBalancingPage() {
 
       <ReassignDialog
         reassignDialog={reassignDialog}
-        onClose={() => { setReassignDialog(null); setReassignTarget(""); }}
+        onClose={() => { setReassignDialog(null); setReassignTarget(""); setIncompatibleServices([]); }}
         reassignTarget={reassignTarget}
-        setReassignTarget={setReassignTarget}
+        setReassignTarget={(v) => { setReassignTarget(v); setIncompatibleServices([]); }}
         eligibleTargets={eligibleTargets}
         reassigning={reassigning}
         onConfirm={handleReassign}
+        incompatibleServices={incompatibleServices}
+        isAdmin={role === "admin"}
+        onOverrideConfirm={handleReassignOverride}
       />
     </div>
   );
