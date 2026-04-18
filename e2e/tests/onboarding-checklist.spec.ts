@@ -430,3 +430,231 @@ test.describe("Non-admin pilot dashboard", () => {
     ).toHaveCount(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wizard POST → checklist round-trip tests (no API mocking)
+//
+// These tests exercise the real /api/onboarding/* POST endpoints and then
+// re-read /api/onboarding/checklist to confirm the wizard mutations actually
+// flip the corresponding checklist booleans. A regression in any of those
+// POST handlers (sis-connect, district-confirm, service-types) would leave
+// the dashboard checklist permanently showing "incomplete" even after the
+// admin has finished the wizard — this round-trip catches that.
+//
+// Cleanup mirrors the sample-data teardown pattern: best-effort
+// DELETE /api/sample-data in afterEach so reruns and other suites start
+// from a clean district. Onboarding-progress flags are idempotent and
+// represent real district setup state, so we leave them in place between
+// tests within this suite (each test asserts on the post-condition state
+// rather than a delta).
+// ---------------------------------------------------------------------------
+
+interface ChecklistResponse {
+  districtConfirmed: boolean;
+  schoolsConfigured: boolean;
+  serviceTypesConfigured: boolean;
+  pilotChecklist: {
+    districtProfileConfigured: boolean;
+    schoolYearConfigured: boolean;
+    staffImported: boolean;
+    studentsImported: boolean;
+    serviceRequirementsImported: boolean;
+    providersAssigned: boolean;
+    firstSessionsLogged: boolean;
+    complianceDashboardActive: boolean;
+    dpaAccepted: boolean;
+    completedCount: number;
+    totalSteps: number;
+    isComplete: boolean;
+  };
+  district: { id: number; name: string } | null;
+}
+
+async function getChecklist(page: Page): Promise<ChecklistResponse> {
+  const res = await page.request.get("/api/onboarding/checklist");
+  expect(
+    res.ok(),
+    `GET /api/onboarding/checklist should succeed (got ${res.status()})`,
+  ).toBeTruthy();
+  return res.json() as Promise<ChecklistResponse>;
+}
+
+async function teardownSampleDataIfPresent(page: Page): Promise<void> {
+  try {
+    const statusRes = await page.request.get("/api/sample-data");
+    if (!statusRes.ok()) return;
+    const status = (await statusRes.json()) as {
+      hasSampleData: boolean;
+      sampleStudents: number;
+    };
+    if (!status.hasSampleData && status.sampleStudents === 0) return;
+    const del = await page.request.delete("/api/sample-data");
+    if (!del.ok()) return;
+    // Wait for the API to agree the district is sample-free.
+    await expect
+      .poll(
+        async () => {
+          const r = await page.request.get("/api/sample-data");
+          if (!r.ok()) return -1;
+          const s = (await r.json()) as { sampleStudents: number };
+          return s.sampleStudents;
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(0);
+  } catch {
+    /* best-effort cleanup */
+  }
+}
+
+test.describe("Onboarding wizard endpoints (real API round-trip)", () => {
+  test.beforeEach(async ({ page }) => {
+    await signInAsAdmin(page);
+    // Wait for an authenticated surface so page.request inherits the
+    // signed-in Clerk session before we hit /api/onboarding/*.
+    await page.goto("/setup");
+    await expect(
+      page.getByRole("heading", { name: "Set Up Trellis" }),
+    ).toBeVisible({ timeout: 60_000 });
+  });
+
+  test.afterEach(async ({ page }) => {
+    await teardownSampleDataIfPresent(page);
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/onboarding/district-confirm flips districtProfileConfigured.
+  //
+  // Preconditions for districtProfileConfigured = true (see
+  // artifacts/api-server/src/routes/onboarding.ts ~line 223):
+  //   district_confirmed step complete  AND  schools.length > 0
+  //                                     AND  serviceTypes count > 0
+  //
+  // The E2E admin's district already has a school (provisioned in
+  // /api/e2e/setup). Service types are global — we ensure at least one
+  // exists by POSTing /api/onboarding/service-types first. Then the
+  // district-confirm POST is the only remaining lever.
+  // -------------------------------------------------------------------------
+  test("POST /district-confirm flips pilotChecklist.districtProfileConfigured to true", async ({
+    page,
+  }) => {
+    const initial = await getChecklist(page);
+    const districtName = initial.district?.name ?? "E2E Test District";
+
+    // Ensure serviceTypesConfigured precondition is satisfied.
+    if (!initial.serviceTypesConfigured) {
+      const stRes = await page.request.post("/api/onboarding/service-types", {
+        data: {
+          serviceTypes: [
+            { name: `E2E Speech ${Date.now()}`, category: "Speech", cptCode: "92507" },
+          ],
+        },
+      });
+      expect(
+        stRes.ok(),
+        `POST /service-types should succeed (got ${stRes.status()})`,
+      ).toBeTruthy();
+    }
+
+    const res = await page.request.post("/api/onboarding/district-confirm", {
+      data: { districtName, schoolYear: "2025–2026" },
+    });
+    expect(
+      res.ok(),
+      `POST /district-confirm should succeed (got ${res.status()})`,
+    ).toBeTruthy();
+
+    const after = await getChecklist(page);
+    expect(after.districtConfirmed, "legacy districtConfirmed flag flips true")
+      .toBe(true);
+    expect(after.schoolsConfigured).toBe(true);
+    expect(after.serviceTypesConfigured).toBe(true);
+    expect(
+      after.pilotChecklist.districtProfileConfigured,
+      "pilotChecklist.districtProfileConfigured flips true once the wizard step + schools + service types are all present",
+    ).toBe(true);
+    // The schoolYear metadata persisted by the POST should also flip the
+    // schoolYearConfigured derivation in the checklist response.
+    expect(after.pilotChecklist.schoolYearConfigured).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Completing every wizard-controllable step — combined with sample data
+  // standing in for real students/sessions — drives the 9-step pilot
+  // checklist to "all but DPA" (8 of 9 complete).
+  //
+  // dpaAccepted lives behind a separate UI flow (signing the Data
+  // Processing Agreement at /settings#legal) and is intentionally NOT
+  // covered here. Verifying the other 8 steps flip true and that
+  // dpaAccepted is the only remaining blocker proves the wizard POSTs
+  // correctly drive the canonical pilotChecklist payload.
+  // -------------------------------------------------------------------------
+  test("completing all wizard steps drives pilotChecklist to 8/9 complete (DPA excluded)", async ({
+    page,
+  }) => {
+    // 1. Seed sample data so students / staff / requirements / providers /
+    //    session logs / school years all exist (those steps are derived
+    //    from data counts and aren't directly settable via wizard POSTs).
+    await teardownSampleDataIfPresent(page);
+    const seedRes = await page.request.post("/api/sample-data");
+    expect(
+      seedRes.ok(),
+      `POST /sample-data should succeed (got ${seedRes.status()})`,
+    ).toBeTruthy();
+
+    const initial = await getChecklist(page);
+    const districtName = initial.district?.name ?? "E2E Test District";
+
+    // 2. Walk every wizard endpoint that flips a pilot-checklist flag.
+    //    Each one is idempotent so it's safe regardless of prior state.
+    const stRes = await page.request.post("/api/onboarding/service-types", {
+      data: {
+        serviceTypes: [
+          { name: `E2E OT ${Date.now()}`, category: "Occupational Therapy" },
+        ],
+      },
+    });
+    expect(stRes.ok(), `POST /service-types: ${stRes.status()}`).toBeTruthy();
+
+    const dcRes = await page.request.post("/api/onboarding/district-confirm", {
+      data: { districtName, schoolYear: "2025–2026" },
+    });
+    expect(dcRes.ok(), `POST /district-confirm: ${dcRes.status()}`).toBeTruthy();
+
+    // sis-connect needs an existing school OR a new schools[] payload. The
+    // E2E admin's district already has a school via /api/e2e/setup, so an
+    // empty schools[] is fine — the handler reuses existing rows.
+    const sisRes = await page.request.post("/api/onboarding/sis-connect", {
+      data: {
+        provider: "csv",
+        districtName,
+        schools: [],
+        credentials: null,
+      },
+    });
+    expect(sisRes.ok(), `POST /sis-connect: ${sisRes.status()}`).toBeTruthy();
+
+    // 3. Re-read the canonical checklist and assert every non-DPA step is true.
+    const after = await getChecklist(page);
+    const pc = after.pilotChecklist;
+
+    expect(pc.districtProfileConfigured, "districtProfileConfigured").toBe(true);
+    expect(pc.schoolYearConfigured, "schoolYearConfigured").toBe(true);
+    expect(pc.staffImported, "staffImported").toBe(true);
+    expect(pc.studentsImported, "studentsImported").toBe(true);
+    expect(pc.serviceRequirementsImported, "serviceRequirementsImported").toBe(true);
+    expect(pc.providersAssigned, "providersAssigned").toBe(true);
+    expect(pc.firstSessionsLogged, "firstSessionsLogged").toBe(true);
+    expect(pc.complianceDashboardActive, "complianceDashboardActive").toBe(true);
+
+    // DPA acceptance is the only step the wizard cannot complete; confirm
+    // it's the sole remaining blocker.
+    expect(pc.dpaAccepted, "dpaAccepted requires the /settings#legal flow").toBe(false);
+    expect(pc.totalSteps).toBe(9);
+    expect(pc.completedCount).toBe(pc.totalSteps - 1);
+    expect(
+      pc.isComplete,
+      "isComplete remains false until DPA is accepted via the separate UI flow",
+    ).toBe(false);
+  });
+});
