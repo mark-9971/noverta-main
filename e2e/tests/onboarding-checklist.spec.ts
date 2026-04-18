@@ -15,6 +15,11 @@ const ADMIN_EMAIL =
   process.env.E2E_ADMIN_EMAIL ?? "trellis-e2e-admin+clerk_test@example.com";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "TrellisE2E!Test#2026";
 
+const TEACHER_EMAIL =
+  process.env.E2E_TEACHER_EMAIL ?? "trellis-e2e-teacher+clerk_test@example.com";
+const TEACHER_PASSWORD =
+  process.env.E2E_TEACHER_PASSWORD ?? "TrellisE2E!Teacher#2026";
+
 type ItemKey =
   | "districtProfileConfigured"
   | "schoolYearConfigured"
@@ -115,6 +120,19 @@ async function signInAsAdmin(page: Page): Promise<void> {
       strategy: "password",
       identifier: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
+    },
+  });
+}
+
+async function signInAsTeacher(page: Page): Promise<void> {
+  await setupClerkTestingToken({ page });
+  await page.goto("/setup");
+  await clerk.signIn({
+    page,
+    signInParams: {
+      strategy: "password",
+      identifier: TEACHER_EMAIL,
+      password: TEACHER_PASSWORD,
     },
   });
 }
@@ -264,7 +282,9 @@ test.describe("Admin pilot onboarding checklist", () => {
 
   // -------------------------------------------------------------------------
   // 4b. Compact widget renders nothing when the checklist API returns an error
-  //     (complements the role-gate test by verifying the isError render path)
+  //     (complements the role-gate test by verifying the isError render path).
+  //     See the bottom of this file for a parallel "real Clerk sped_teacher
+  //     sign-in" test that exercises the role gate end-to-end.
   // -------------------------------------------------------------------------
 
   test("compact widget renders nothing when the checklist API returns an error", async ({
@@ -379,5 +399,34 @@ test.describe("Admin pilot onboarding checklist", () => {
     // Collapse.
     await page.getByTestId("button-pilot-checklist-toggle").click();
     await expect(firstItem).toHaveCount(0, { timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Non-admin (sped_teacher) — real Clerk session, no localStorage override
+//
+// The teacher user is provisioned by global-setup.ts via /api/e2e/setup with
+// role="sped_teacher", which sets publicMetadata.role on the Clerk user.
+// RoleProvider then resolves role to "sped_teacher" (clerkRole wins because
+// devRole is null without a localStorage seed), so PilotAdminHome's
+// `isAdmin && <PilotOnboardingChecklist />` gate evaluates false and the
+// widget is never mounted — even if the API would have returned data.
+// ---------------------------------------------------------------------------
+
+test.describe("Non-admin pilot dashboard", () => {
+  test("widget is absent on the dashboard for a real sped_teacher Clerk session", async ({
+    page,
+  }) => {
+    await signInAsTeacher(page);
+
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    await expect(
+      page.getByTestId("card-pilot-checklist"),
+    ).toHaveCount(0, { timeout: 20_000 });
+    await expect(
+      page.getByTestId("card-pilot-checklist-error"),
+    ).toHaveCount(0);
   });
 });

@@ -299,11 +299,24 @@ if (process.env.NODE_ENV !== "production") {
       return;
     }
 
-    const { email } = req.body as { email?: string };
+    const { email, role: requestedRole } = req.body as {
+      email?: string;
+      role?: string;
+    };
     if (!email || typeof email !== "string") {
       res.status(400).json({ error: "email is required" });
       return;
     }
+    // Whitelist the roles we let the e2e provisioner assign. "admin" is the
+    // default (preserves existing behaviour); "sped_teacher" is used by the
+    // non-admin checklist-visibility test.
+    const ALLOWED_ROLES = ["admin", "sped_teacher"] as const;
+    type AllowedRole = (typeof ALLOWED_ROLES)[number];
+    const role: AllowedRole = ALLOWED_ROLES.includes(
+      (requestedRole ?? "admin") as AllowedRole,
+    )
+      ? ((requestedRole ?? "admin") as AllowedRole)
+      : "admin";
     try {
       const { data: users } = await clerkClient.users.getUserList({
         emailAddress: [email],
@@ -317,8 +330,11 @@ if (process.env.NODE_ENV !== "production") {
       const user = users[0];
       const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
 
-      // If staffId is already set and the DB record still exists, return early.
-      if (typeof meta.staffId === "number") {
+      // If staffId is already set, the DB record still exists, and the role
+      // matches the requested one, return early. A role mismatch (e.g. an
+      // admin user being re-provisioned as a teacher) falls through so we
+      // overwrite Clerk metadata with the new role.
+      if (typeof meta.staffId === "number" && meta.role === role) {
         const [existing] = await db
           .select({ id: staffTable.id })
           .from(staffTable)
@@ -366,7 +382,7 @@ if (process.env.NODE_ENV !== "production") {
 
       // Find or create the E2E admin staff record scoped to this school.
       let [staff] = await db
-        .select({ id: staffTable.id })
+        .select({ id: staffTable.id, role: staffTable.role })
         .from(staffTable)
         .where(
           and(
@@ -379,29 +395,47 @@ if (process.env.NODE_ENV !== "production") {
           .insert(staffTable)
           .values({
             firstName: "E2E",
-            lastName: "Admin",
+            lastName: role === "admin" ? "Admin" : "Teacher",
             email,
-            role: "admin",
-            title: "System Administrator (E2E Test)",
+            role,
+            title:
+              role === "admin"
+                ? "System Administrator (E2E Test)"
+                : "Special Education Teacher (E2E Test)",
             schoolId: school.id,
             status: "active",
           })
-          .returning({ id: staffTable.id });
+          .returning({ id: staffTable.id, role: staffTable.role });
+      } else if (staff.role !== role) {
+        // Existing staff row exists but with a different role — sync it so
+        // the DB and Clerk metadata don't diverge.
+        await db
+          .update(staffTable)
+          .set({
+            role,
+            title:
+              role === "admin"
+                ? "System Administrator (E2E Test)"
+                : "Special Education Teacher (E2E Test)",
+          })
+          .where(eq(staffTable.id, staff.id));
       }
 
-      // Persist staffId (and districtId / role if missing) back to Clerk.
+      // Persist staffId, districtId, and role back to Clerk. Always overwrite
+      // role with the requested value so re-provisioning a user with a
+      // different role (e.g. flipping admin→sped_teacher) takes effect.
       await clerkClient.users.updateUser(user.id, {
         publicMetadata: {
           ...meta,
           staffId: staff.id,
           districtId,
-          role: meta.role ?? "admin",
+          role,
         },
       });
 
       logger.info(
-        { email, staffId: staff.id, districtId },
-        "E2E admin staff provisioned",
+        { email, role, staffId: staff.id, districtId },
+        "E2E staff provisioned",
       );
       res.json({ staffId: staff.id, districtId });
     } catch (err: unknown) {

@@ -28,9 +28,23 @@ pnpm --filter @workspace/e2e exec playwright install chromium
 export E2E_ADMIN_EMAIL='trellis-e2e-admin+clerk_test@example.com'
 export E2E_ADMIN_PASSWORD='TrellisE2E!Test#2026'
 
-# 4. Run.
+# 4. Provide a Clerk non-admin (sped_teacher) test user. Used by the
+#    onboarding-checklist spec to verify the role gate end-to-end with a
+#    real Clerk session (not a mocked 403).
+export E2E_TEACHER_EMAIL='trellis-e2e-teacher+clerk_test@example.com'
+export E2E_TEACHER_PASSWORD='TrellisE2E!Teacher#2026'
+
+# 5. Run.
 pnpm --filter @workspace/e2e test
 ```
+
+Both Clerk users are auto-provisioned by `tests/global-setup.ts` against
+`POST /api/e2e/setup`, which writes `publicMetadata.role` (admin /
+sped_teacher), `staffId`, and `districtId` back to the Clerk user. The
+provisioner is gated by `X-E2E-Key` (defaults to `e2e-dev-local`,
+override with `E2E_PROVISION_KEY`) and is only mounted in non-production
+environments. Create the two Clerk test users in the Clerk dashboard
+before the first run; subsequent runs reuse them.
 
 The suite uses `@clerk/testing` so `CLERK_PUBLISHABLE_KEY` and
 `CLERK_SECRET_KEY` must be set in the environment (they already are in the
