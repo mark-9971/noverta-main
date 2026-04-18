@@ -3,10 +3,12 @@ import { db } from "@workspace/db";
 import {
   studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable,
   staffTable, compensatoryObligationsTable, districtsTable, schoolYearsTable,
+  sessionLogsTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, isNull } from "drizzle-orm";
+import { eq, and, sql, isNull, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
+import { getIntervalDates } from "../../lib/minuteCalc";
 
 /** Resolves district for platform admins (via ?districtId query param) and district-scoped users (via token). */
 function resolveDistrictId(req: Request): number | null {
@@ -122,6 +124,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
       school: string;
       grade: string;
       service: string;
+      serviceRequirementId: number;
       intervalType: string;
       requiredMinutes: number;
       deliveredMinutes: number;
@@ -178,6 +181,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         school: info?.schoolName ?? "",
         grade: info?.grade ?? "",
         service: p.serviceTypeName,
+        serviceRequirementId: p.serviceRequirementId,
         intervalType: p.intervalType,
         requiredMinutes: p.requiredMinutes,
         deliveredMinutes: p.deliveredMinutes,
@@ -364,6 +368,199 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
   } catch (e: any) {
     console.error("GET /reports/compliance-risk-report.csv error:", e);
     res.status(500).json({ error: "Failed to generate compliance risk report CSV" });
+  }
+});
+
+
+router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const districtId = resolveDistrictId(req);
+    if (!districtId) {
+      res.status(403).json({ error: "District context required" });
+      return;
+    }
+
+    const studentId = parseInt(req.params.studentId, 10);
+    if (!Number.isFinite(studentId) || studentId <= 0) {
+      res.status(400).json({ error: "Invalid studentId" });
+      return;
+    }
+
+    // Optional: scope to a single service requirement (matches the clicked row's exposure)
+    const rawReqId = req.query.serviceRequirementId ? Number(req.query.serviceRequirementId) : undefined;
+    const filterReqId = rawReqId != null && Number.isFinite(rawReqId) && rawReqId > 0 ? rawReqId : undefined;
+
+    const [student] = await db
+      .select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName })
+      .from(studentsTable)
+      .innerJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
+      .where(and(eq(studentsTable.id, studentId), eq(schoolsTable.districtId, districtId)))
+      .limit(1);
+
+    if (!student) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+
+    const reqWhere = filterReqId != null
+      ? and(
+          eq(serviceRequirementsTable.studentId, studentId),
+          eq(serviceRequirementsTable.active, true),
+          eq(serviceRequirementsTable.id, filterReqId),
+        )
+      : and(
+          eq(serviceRequirementsTable.studentId, studentId),
+          eq(serviceRequirementsTable.active, true),
+        );
+
+    const requirements = await db
+      .select({
+        id: serviceRequirementsTable.id,
+        serviceTypeId: serviceRequirementsTable.serviceTypeId,
+        serviceTypeName: serviceTypesTable.name,
+        requiredMinutes: serviceRequirementsTable.requiredMinutes,
+        intervalType: serviceRequirementsTable.intervalType,
+        startDate: serviceRequirementsTable.startDate,
+        endDate: serviceRequirementsTable.endDate,
+      })
+      .from(serviceRequirementsTable)
+      .innerJoin(serviceTypesTable, eq(serviceTypesTable.id, serviceRequirementsTable.serviceTypeId))
+      .where(reqWhere);
+
+    if (requirements.length === 0) {
+      const studentName = `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim();
+      res.json({ studentId, studentName, items: [], aggregateExposure: 0, aggregateShortfallMinutes: 0, rateConfigured: true });
+      return;
+    }
+
+    const requirementIds = requirements.map(r => r.id);
+    const rateMap = await getRateMap(districtId);
+
+    // Fetch ALL sessions for the relevant requirements. We filter by interval date in JS
+    // (to stay consistent with minuteCalc which also does in-process filtering).
+    // Critical: exclude compensatory sessions to match computeAllActiveMinuteProgress exactly.
+    const allSessions = await db
+      .select({
+        serviceRequirementId: sessionLogsTable.serviceRequirementId,
+        serviceTypeId: sessionLogsTable.serviceTypeId,
+        staffId: sessionLogsTable.staffId,
+        sessionDate: sessionLogsTable.sessionDate,
+        durationMinutes: sessionLogsTable.durationMinutes,
+        status: sessionLogsTable.status,
+        isMakeup: sessionLogsTable.isMakeup,
+        staffFirstName: staffTable.firstName,
+        staffLastName: staffTable.lastName,
+      })
+      .from(sessionLogsTable)
+      .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
+      .where(and(
+        eq(sessionLogsTable.studentId, studentId),
+        inArray(sessionLogsTable.serviceRequirementId, requirementIds),
+        eq(sessionLogsTable.isCompensatory, false),
+        isNull(sessionLogsTable.deletedAt),
+      ));
+
+    const reqIntervals = new Map(requirements.map(r => {
+      const { intervalStart, intervalEnd } = getIntervalDates(r.intervalType, r.startDate, r.endDate);
+      return [r.id, {
+        intervalStart: intervalStart.toISOString().substring(0, 10),
+        intervalEnd: intervalEnd.toISOString().substring(0, 10),
+      }];
+    }));
+
+    const reqServiceTypeMap = new Map(requirements.map(r => [r.id, r.serviceTypeId]));
+    const reqNameMap = new Map(requirements.map(r => [r.id, r.serviceTypeName]));
+
+    interface ExposureItem {
+      date: string;
+      serviceType: string;
+      provider: string;
+      scheduledDurationMinutes: number;
+      status: string;
+      hourlyRate: number | null;
+      rateSource: string;
+      exposureAmount: number | null;
+      serviceRequirementId: number;
+    }
+
+    const items: ExposureItem[] = [];
+    // deliveredByReq mirrors computeAllActiveMinuteProgress: completed + makeup status only
+    const deliveredByReq = new Map<number, number>();
+
+    for (const session of allSessions) {
+      const reqId = session.serviceRequirementId;
+      if (!reqId) continue;
+      const interval = reqIntervals.get(reqId);
+      if (!interval) continue;
+      if (session.sessionDate < interval.intervalStart || session.sessionDate > interval.intervalEnd) continue;
+
+      if (session.status === "completed" || session.status === "makeup") {
+        deliveredByReq.set(reqId, (deliveredByReq.get(reqId) ?? 0) + session.durationMinutes);
+        continue;
+      }
+
+      if (session.status === "missed" || session.status === "partial") {
+        const serviceTypeId = session.serviceTypeId ?? reqServiceTypeMap.get(reqId);
+        const rateEntry = serviceTypeId != null ? rateMap.get(serviceTypeId) : undefined;
+        const rateInfo: RateInfo = rateEntry?.inHouse ?? { rate: null, source: "unconfigured" };
+        const exposureAmount: number | null = rateInfo.rate != null
+          ? Math.round((session.durationMinutes / 60) * rateInfo.rate * 100) / 100
+          : null;
+        const provider = session.staffFirstName || session.staffLastName
+          ? `${session.staffFirstName ?? ""} ${session.staffLastName ?? ""}`.trim()
+          : "Unassigned";
+
+        items.push({
+          date: session.sessionDate,
+          serviceType: reqNameMap.get(reqId) ?? "Unknown Service",
+          provider,
+          scheduledDurationMinutes: session.durationMinutes,
+          status: session.status,
+          hourlyRate: rateInfo.rate,
+          rateSource: rateInfo.source,
+          exposureAmount,
+          serviceRequirementId: reqId,
+        });
+      }
+    }
+
+    items.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Aggregate exposure uses the same formula as the compliance risk report:
+    // shortfall = max(0, required - delivered)  →  exposure = shortfall × rate / 60
+    let aggregateExposure = 0;
+    let aggregateShortfallMinutes = 0;
+    let rateConfigured = true;
+
+    for (const req of requirements) {
+      const delivered = deliveredByReq.get(req.id) ?? 0;
+      const shortfall = Math.max(0, req.requiredMinutes - delivered);
+      if (shortfall === 0) continue;
+      aggregateShortfallMinutes += shortfall;
+      const rateInfo: RateInfo = rateMap.get(req.serviceTypeId)?.inHouse ?? { rate: null, source: "unconfigured" };
+      const exposure = minutesToDollars(shortfall, rateInfo);
+      if (exposure != null) {
+        aggregateExposure += exposure;
+      } else {
+        rateConfigured = false;
+      }
+    }
+
+    aggregateExposure = Math.round(aggregateExposure * 100) / 100;
+
+    const studentName = `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim();
+
+    res.json({
+      studentId,
+      studentName,
+      items,
+      aggregateExposure,
+      aggregateShortfallMinutes,
+      rateConfigured,
+    });
+  } catch (e: any) {
+    console.error("GET /reports/exposure-detail/:studentId error:", e);
+    res.status(500).json({ error: "Failed to generate exposure detail" });
   }
 });
 

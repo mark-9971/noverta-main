@@ -8,6 +8,7 @@ import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, Dol
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
+import ExposureDetailPanel from "@/components/compliance/ExposureDetailPanel";
 
 interface StudentRow {
   studentId: number;
@@ -15,6 +16,7 @@ interface StudentRow {
   school: string;
   grade: string;
   service: string;
+  serviceRequirementId: number;
   intervalType: string;
   requiredMinutes: number;
   deliveredMinutes: number;
@@ -78,7 +80,7 @@ function riskBadge(status: string, label: string) {
 }
 
 function fmtDollars(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 function fmtNum(n: number) {
@@ -248,6 +250,7 @@ function buildPrintHtml(data: ReportData): string {
 export default function ComplianceRiskReportPage({ embedded }: { embedded?: boolean } = {}) {
   const [schoolFilter, setSchoolFilter] = useState<string>("all");
   const [showAllStudents, setShowAllStudents] = useState(false);
+  const [drilldownStudent, setDrilldownStudent] = useState<{ studentId: number; studentName: string; serviceRequirementId: number } | null>(null);
 
   const schoolsQuery = useQuery({
     queryKey: ["/api/schools"],
@@ -454,7 +457,17 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                           <td className="px-3 py-2 text-right tabular-nums">{r.deliveredMinutes}</td>
                           <td className="px-3 py-2 text-right tabular-nums font-semibold text-red-700">{r.shortfallMinutes}</td>
                           <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{r.estimatedExposure > 0 ? fmtDollars(r.estimatedExposure) : "—"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {r.estimatedExposure != null && r.estimatedExposure > 0 ? (
+                              <button
+                                onClick={() => setDrilldownStudent({ studentId: r.studentId, studentName: r.studentName, serviceRequirementId: r.serviceRequirementId })}
+                                className="text-red-700 font-semibold underline decoration-dashed decoration-red-300 underline-offset-2 hover:text-red-900 transition-colors cursor-pointer"
+                                title="Click to see itemised breakdown"
+                              >
+                                {fmtDollars(r.estimatedExposure)}
+                              </button>
+                            ) : "—"}
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.providerName}</td>
                         </tr>
                       ))}
@@ -505,7 +518,17 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                         <td className="px-3 py-2 text-right tabular-nums">{r.shortfallMinutes > 0 ? <span className="font-semibold text-red-700">{r.shortfallMinutes}</span> : "—"}</td>
                         <td className="px-3 py-2">{pctBar(r.percentComplete)}</td>
                         <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{r.estimatedExposure > 0 ? fmtDollars(r.estimatedExposure) : "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {r.estimatedExposure != null && r.estimatedExposure > 0 ? (
+                            <button
+                              onClick={() => setDrilldownStudent({ studentId: r.studentId, studentName: r.studentName, serviceRequirementId: r.serviceRequirementId })}
+                              className="text-red-700 font-semibold underline decoration-dashed decoration-red-300 underline-offset-2 hover:text-red-900 transition-colors cursor-pointer"
+                              title="Click to see itemised breakdown"
+                            >
+                              {fmtDollars(r.estimatedExposure)}
+                            </button>
+                          ) : "—"}
+                        </td>
                         <td className="px-3 py-2 text-muted-foreground text-xs">{r.providerName}</td>
                       </tr>
                     ))}
@@ -560,6 +583,13 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
           </div>
         </>
       )}
+
+      <ExposureDetailPanel
+        studentId={drilldownStudent?.studentId ?? null}
+        studentName={drilldownStudent?.studentName}
+        serviceRequirementId={drilldownStudent?.serviceRequirementId}
+        onClose={() => setDrilldownStudent(null)}
+      />
     </div>
   );
 }

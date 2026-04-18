@@ -10,7 +10,7 @@ export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_co
 // has not yet logged a single session.
 const NO_DATA_ELAPSED_THRESHOLD = 0.10;
 
-function getIntervalDates(
+export function getIntervalDates(
   intervalType: string,
   startDate: string,
   endDate?: string | null,
