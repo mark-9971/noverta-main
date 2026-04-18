@@ -61,7 +61,7 @@ export const platformAdminSection: NavSection = {
 // Service Delivery trimmed from 11 → 6 items. Demoted to More tools:
 //   Staff Calendar, IEP Meetings, IEP Calendar, Caseload Balancing,
 //   IEP Search, Evaluations, Progress Reports.
-// Staff Directory promoted from More tools → Service Delivery (renamed "Staff").
+// Directory (Students + Staff) promoted from Staffing → Overview (above Alerts).
 // Billing and Settings now default-closed to reduce sidebar weight.
 // No routes, pages, APIs, or business logic removed — hidden only.
 export const adminNav: NavSection[] = [
@@ -76,6 +76,13 @@ export const adminNav: NavSection[] = [
       // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
       // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
       { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
+      {
+        href: "/students", label: "Directory", icon: Users, primary: true,
+        children: [
+          { href: "/students", label: "Students", icon: Users },
+          { href: "/staff", label: "Staff", icon: UserCheck },
+        ],
+      },
       {
         href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
         children: [
@@ -211,13 +218,6 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/students", label: "Directory", icon: Users, primary: true,
-        children: [
-          { href: "/students", label: "Students", icon: Users },
-          { href: "/staff", label: "Staff", icon: UserCheck },
-        ],
-      },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
       {
         href: "/scheduling", label: "Scheduling Hub", icon: Clock,
