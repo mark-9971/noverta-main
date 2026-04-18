@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  LineChart, Line,
 } from "recharts";
-import { Download, Clock, AlertTriangle, Users, TrendingUp, ArrowRight } from "lucide-react";
+import { Download, Clock, AlertTriangle, Users, TrendingUp, Camera, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
 import type { DrillFilter } from "./index";
 
 // ─── CSV export helper ────────────────────────────────────────────────────────
@@ -48,6 +47,207 @@ async function fetchAllClaims(params: URLSearchParams): Promise<any[]> {
     offset += PAGE;
   }
   return all;
+}
+
+// ─── Save Snapshot button ─────────────────────────────────────────────────────
+
+// ─── Snapshot types ───────────────────────────────────────────────────────────
+
+interface SnapshotMeta {
+  id: number;
+  reportType: string;
+  label: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  savedByName: string;
+  createdAt: string;
+}
+
+function SaveSnapshotButton({
+  reportType,
+  dateFrom,
+  dateTo,
+  getData,
+  activeView,
+}: {
+  reportType: string;
+  dateFrom: string;
+  dateTo: string;
+  getData: () => unknown;
+  activeView?: string;
+}) {
+  const queryClient = useQueryClient();
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function handleSave() {
+    const rawData = getData();
+    if (!rawData) return;
+    const data = activeView ? { ...(rawData as object), _view: activeView } : rawData;
+    setStatus("saving");
+    try {
+      const res = await authFetch("/api/medicaid/reports/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportType, dateFrom, dateTo, data }),
+      });
+      if (!res.ok) throw new Error("Failed to save snapshot");
+      setStatus("saved");
+      queryClient.invalidateQueries({ queryKey: ["medicaid-snapshots"] });
+      setTimeout(() => setStatus("idle"), 2500);
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2500);
+    }
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleSave}
+      disabled={status === "saving"}
+      className={`h-7 text-xs gap-1 ${status === "saved" ? "border-emerald-400 text-emerald-600" : status === "error" ? "border-red-400 text-red-600" : ""}`}
+    >
+      <Camera className="w-3 h-3" />
+      {status === "saving" ? "Saving…" : status === "saved" ? "Saved!" : status === "error" ? "Error" : "Save snapshot"}
+    </Button>
+  );
+}
+
+// ─── Saved Snapshots Panel ────────────────────────────────────────────────────
+
+const REPORT_LABELS: Record<string, string> = {
+  aging: "Claim Aging",
+  denials: "Denial Analysis",
+  "provider-productivity": "Provider Productivity",
+  "revenue-trend": "Revenue Trend",
+};
+
+function SavedSnapshotsPanel() {
+  const [open, setOpen] = useState(false);
+  const [filterType, setFilterType] = useState<string>("all");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["medicaid-snapshots", filterType],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filterType !== "all") params.set("reportType", filterType);
+      return authFetch(`/api/medicaid/reports/snapshots?${params}`).then(r => r.ok ? r.json() : { snapshots: [] });
+    },
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const snapshots: SnapshotMeta[] = data?.snapshots ?? [];
+
+  async function handleDownload(snapshot: SnapshotMeta) {
+    try {
+      const res = await authFetch(`/api/medicaid/reports/snapshots/${snapshot.id}/csv`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${snapshot.reportType}-snapshot-${snapshot.id}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Snapshot download failed:", err);
+    }
+  }
+
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function formatPeriod(snapshot: SnapshotMeta) {
+    if (snapshot.dateFrom && snapshot.dateTo) return `${snapshot.dateFrom} → ${snapshot.dateTo}`;
+    if (snapshot.dateFrom) return `From ${snapshot.dateFrom}`;
+    if (snapshot.dateTo) return `To ${snapshot.dateTo}`;
+    return "All dates";
+  }
+
+  return (
+    <Card className="border-gray-200/60">
+      <CardHeader className="pb-2">
+        <button
+          className="flex items-center justify-between w-full group"
+          onClick={() => setOpen(v => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <Camera className="w-4 h-4 text-indigo-400" />
+            <CardTitle className="text-sm font-semibold text-gray-700">Saved Snapshots</CardTitle>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-gray-400 group-hover:text-gray-600">
+            {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        </button>
+        <p className="text-[11px] text-gray-400 mt-1">Point-in-time captures of report data for historical comparison and sharing.</p>
+      </CardHeader>
+
+      {open && (
+        <CardContent className="space-y-3 pt-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Filter:</span>
+            <div className="flex rounded-md border border-gray-200 text-xs overflow-hidden">
+              {(["all", "aging", "denials", "provider-productivity", "revenue-trend"] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setFilterType(t)}
+                  className={`px-2 py-1 border-l first:border-l-0 border-gray-200 ${filterType === t ? "bg-gray-100 font-medium text-gray-700" : "text-gray-500 hover:bg-gray-50"}`}
+                >
+                  {t === "all" ? "All" : REPORT_LABELS[t] ?? t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <p className="text-sm text-gray-400 py-4 text-center">Loading…</p>
+          ) : snapshots.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No snapshots saved yet. Use the "Save snapshot" button on any report.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left pb-2 font-medium text-gray-500">Report</th>
+                    <th className="text-left pb-2 font-medium text-gray-500">Period</th>
+                    <th className="text-left pb-2 font-medium text-gray-500">Saved by</th>
+                    <th className="text-left pb-2 font-medium text-gray-500">Saved on</th>
+                    <th className="text-right pb-2 font-medium text-gray-500">Download</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshots.map((s) => (
+                    <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                      <td className="py-2 font-medium text-gray-700">{REPORT_LABELS[s.reportType] ?? s.reportType}</td>
+                      <td className="py-2 text-gray-500 font-mono text-[11px]">{formatPeriod(s)}</td>
+                      <td className="py-2 text-gray-600">{s.savedByName}</td>
+                      <td className="py-2 text-gray-500">{formatDate(s.createdAt)}</td>
+                      <td className="py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(s)}
+                          className="h-6 text-[11px] gap-1"
+                        >
+                          <Download className="w-3 h-3" /> CSV
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
 }
 
 // ─── Shared date range picker ─────────────────────────────────────────────────
@@ -167,6 +367,12 @@ function AgingReport({ dateFrom, dateTo, onDrillDown }: { dateFrom: string; date
             <CardTitle className="text-sm font-semibold text-gray-700">Claim Aging</CardTitle>
           </div>
           <div className="flex gap-1.5">
+            <SaveSnapshotButton
+              reportType="aging"
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              getData={() => data}
+            />
             <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1" title="Export aggregate summary">
               <Download className="w-3 h-3" /> Summary CSV
             </Button>
@@ -328,6 +534,12 @@ function DenialsReport({ dateFrom, dateTo, onDrillDown }: { dateFrom: string; da
             <CardTitle className="text-sm font-semibold text-gray-700">Denial / Rejection Analysis</CardTitle>
           </div>
           <div className="flex gap-1.5">
+            <SaveSnapshotButton
+              reportType="denials"
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              getData={() => data}
+            />
             <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1" title="Export aggregate by reason">
               <Download className="w-3 h-3" /> Summary CSV
             </Button>
@@ -460,9 +672,17 @@ function ProviderProductivityReport({ dateFrom, dateTo }: { dateFrom: string; da
             <Users className="w-4 h-4 text-indigo-500" />
             <CardTitle className="text-sm font-semibold text-gray-700">Provider Productivity</CardTitle>
           </div>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1">
-            <Download className="w-3 h-3" /> Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <SaveSnapshotButton
+              reportType="provider-productivity"
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              getData={() => data}
+            />
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1">
+              <Download className="w-3 h-3" /> Export CSV
+            </Button>
+          </div>
         </div>
         <p className="text-[11px] text-gray-400 mt-1">Claims generated, approval rate, and estimated billing value per rendering provider.</p>
       </CardHeader>
@@ -568,6 +788,13 @@ function RevenueTrendReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: st
                 className={`px-2.5 py-1 border-l border-gray-200 ${view === "quarterly" ? "bg-gray-100 font-medium text-gray-700" : "text-gray-500 hover:bg-gray-50"}`}
               >Quarterly</button>
             </div>
+            <SaveSnapshotButton
+              reportType="revenue-trend"
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              getData={() => data}
+              activeView={view}
+            />
             <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1">
               <Download className="w-3 h-3" /> Export CSV
             </Button>
@@ -662,6 +889,7 @@ export function BillingReportsTab({ onDrillDown }: { onDrillDown: (f: DrillFilte
       <DenialsReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={onDrillDown} />
       <ProviderProductivityReport dateFrom={dateFrom} dateTo={dateTo} />
       <RevenueTrendReport dateFrom={dateFrom} dateTo={dateTo} />
+      <SavedSnapshotsPanel />
     </div>
   );
 }
