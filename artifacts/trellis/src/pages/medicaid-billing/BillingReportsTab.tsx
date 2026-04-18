@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Download, Clock, AlertTriangle, Users, TrendingUp, Camera, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
+import { Download, Clock, AlertTriangle, Users, TrendingUp, Camera, ChevronDown, ChevronUp, ArrowRight, Trash2 } from "lucide-react";
 import type { DrillFilter } from "./index";
 
 // ─── CSV export helper ────────────────────────────────────────────────────────
@@ -77,9 +77,10 @@ function SaveSnapshotButton({
   activeView?: string;
 }) {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "prompting" | "saving" | "saved" | "error">("idle");
+  const [label, setLabel] = useState("");
 
-  async function handleSave() {
+  async function handleConfirm() {
     const rawData = getData();
     if (!rawData) return;
     const data = activeView ? { ...(rawData as object), _view: activeView } : rawData;
@@ -88,10 +89,11 @@ function SaveSnapshotButton({
       const res = await authFetch("/api/medicaid/reports/snapshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportType, dateFrom, dateTo, data }),
+        body: JSON.stringify({ reportType, dateFrom, dateTo, label: label.trim() || undefined, data }),
       });
       if (!res.ok) throw new Error("Failed to save snapshot");
       setStatus("saved");
+      setLabel("");
       queryClient.invalidateQueries({ queryKey: ["medicaid-snapshots"] });
       setTimeout(() => setStatus("idle"), 2500);
     } catch {
@@ -100,11 +102,32 @@ function SaveSnapshotButton({
     }
   }
 
+  if (status === "prompting") {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          autoFocus
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") handleConfirm();
+            if (e.key === "Escape") { setStatus("idle"); setLabel(""); }
+          }}
+          placeholder="Optional label (e.g. End of Q1 2025)"
+          maxLength={120}
+          className="h-7 text-xs w-56"
+        />
+        <Button size="sm" variant="outline" onClick={handleConfirm} className="h-7 text-xs">Save</Button>
+        <Button size="sm" variant="ghost" onClick={() => { setStatus("idle"); setLabel(""); }} className="h-7 text-xs">Cancel</Button>
+      </div>
+    );
+  }
+
   return (
     <Button
       size="sm"
       variant="outline"
-      onClick={handleSave}
+      onClick={() => setStatus("prompting")}
       disabled={status === "saving"}
       className={`h-7 text-xs gap-1 ${status === "saved" ? "border-emerald-400 text-emerald-600" : status === "error" ? "border-red-400 text-red-600" : ""}`}
     >
@@ -126,6 +149,9 @@ const REPORT_LABELS: Record<string, string> = {
 function SavedSnapshotsPanel() {
   const [open, setOpen] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["medicaid-snapshots", filterType],
@@ -161,6 +187,20 @@ function SavedSnapshotsPanel() {
   function formatDate(iso: string) {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      const res = await authFetch(`/api/medicaid/reports/snapshots/${id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) throw new Error("Delete failed");
+      queryClient.invalidateQueries({ queryKey: ["medicaid-snapshots"] });
+    } catch (err) {
+      console.error("Snapshot delete failed:", err);
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
   }
 
   function formatPeriod(snapshot: SnapshotMeta) {
@@ -215,28 +255,65 @@ function SavedSnapshotsPanel() {
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="text-left pb-2 font-medium text-gray-500">Report</th>
+                    <th className="text-left pb-2 font-medium text-gray-500">Label</th>
                     <th className="text-left pb-2 font-medium text-gray-500">Period</th>
                     <th className="text-left pb-2 font-medium text-gray-500">Saved by</th>
                     <th className="text-left pb-2 font-medium text-gray-500">Saved on</th>
-                    <th className="text-right pb-2 font-medium text-gray-500">Download</th>
+                    <th className="text-right pb-2 font-medium text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {snapshots.map((s) => (
                     <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="py-2 font-medium text-gray-700">{REPORT_LABELS[s.reportType] ?? s.reportType}</td>
+                      <td className="py-2 text-gray-700">
+                        {s.label ? s.label : <span className="text-gray-300 italic">—</span>}
+                      </td>
                       <td className="py-2 text-gray-500 font-mono text-[11px]">{formatPeriod(s)}</td>
                       <td className="py-2 text-gray-600">{s.savedByName}</td>
                       <td className="py-2 text-gray-500">{formatDate(s.createdAt)}</td>
                       <td className="py-2 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownload(s)}
-                          className="h-6 text-[11px] gap-1"
-                        >
-                          <Download className="w-3 h-3" /> CSV
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownload(s)}
+                            className="h-6 text-[11px] gap-1"
+                          >
+                            <Download className="w-3 h-3" /> CSV
+                          </Button>
+                          {confirmId === s.id ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(s.id)}
+                                disabled={deletingId === s.id}
+                                className="h-6 text-[11px] gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                              >
+                                {deletingId === s.id ? "Deleting…" : "Confirm"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setConfirmId(null)}
+                                className="h-6 text-[11px]"
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfirmId(s.id)}
+                              title="Delete snapshot"
+                              className="h-6 text-[11px] text-gray-500 hover:text-red-600 hover:border-red-200"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

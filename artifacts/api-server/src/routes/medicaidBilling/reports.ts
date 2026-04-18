@@ -338,6 +338,35 @@ router.get("/medicaid/reports/snapshots/:id/csv", async (req, res): Promise<void
   res.send(csv);
 });
 
+router.delete("/medicaid/reports/snapshots/:id", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid snapshot id" });
+    return;
+  }
+
+  const deleted = await db
+    .delete(medicaidReportSnapshotsTable)
+    .where(and(
+      eq(medicaidReportSnapshotsTable.id, id),
+      eq(medicaidReportSnapshotsTable.districtId, districtId),
+    ))
+    .returning({ id: medicaidReportSnapshotsTable.id });
+
+  if (deleted.length === 0) {
+    res.status(404).json({ error: "Snapshot not found" });
+    return;
+  }
+
+  res.status(204).send();
+});
+
 // ─── Claim aging ──────────────────────────────────────────────────────────────
 
 router.get("/medicaid/reports/aging", async (req, res): Promise<void> => {
