@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight, FileDown,
+  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight, FileDown, Zap,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -73,6 +73,9 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
+      // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
+      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       {
         href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
         children: [
@@ -291,6 +294,7 @@ export const adminNav: NavSection[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
   "/",
+  "/action-center",
   "/alerts",
   "/compliance",
   "/compensatory-services",
@@ -428,6 +432,7 @@ export const bcbaNav: NavSection[] = [
     items: [
       { href: "/today", label: "Today", icon: Sun, primary: true },
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
     ],
   },
