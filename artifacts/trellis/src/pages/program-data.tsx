@@ -21,7 +21,7 @@ import AddBehaviorModal from "./program-data/AddBehaviorModal";
 import AddProgramModal from "./program-data/AddProgramModal";
 import LogDataSessionModal from "./program-data/LogDataSessionModal";
 
-export default function ProgramDataPage() {
+export default function ProgramDataPage({ embedded = false, externalStudentId }: { embedded?: boolean; externalStudentId?: number }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [behaviorTargets, setBehaviorTargets] = useState<BehaviorTarget[]>([]);
@@ -49,7 +49,7 @@ export default function ProgramDataPage() {
       const withData = (data as any[]).filter((s: any) => s.status === "active");
       setStudents(withData);
       setTemplates(tmpl as any[]);
-      if (withData.length > 0) setSelectedStudent(withData[0].id);
+      if (withData.length > 0 && externalStudentId == null) setSelectedStudent(withData[0].id);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -70,6 +70,10 @@ export default function ProgramDataPage() {
   }, []);
 
   useEffect(() => {
+    if (externalStudentId != null) setSelectedStudent(externalStudentId);
+  }, [externalStudentId]);
+
+  useEffect(() => {
     if (selectedStudent) loadStudentData(selectedStudent);
   }, [selectedStudent, loadStudentData]);
 
@@ -82,25 +86,27 @@ export default function ProgramDataPage() {
     });
   }
 
-  if (loading) return <div className="p-8"><Skeleton className="w-full h-96" /></div>;
+  if (loading) return <div className={embedded ? "" : "p-8"}><Skeleton className="w-full h-96" /></div>;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Program Data</h1>
-          <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">ABA programs, behavior tracking, and data collection</p>
+    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6"}>
+      {!embedded && (
+        <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Program Data</h1>
+            <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">ABA programs, behavior tracking, and data collection</p>
+          </div>
+          <select
+            value={selectedStudent ?? ""}
+            onChange={e => setSelectedStudent(parseInt(e.target.value))}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 w-full sm:w-auto"
+          >
+            {students.map(s => (
+              <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+            ))}
+          </select>
         </div>
-        <select
-          value={selectedStudent ?? ""}
-          onChange={e => setSelectedStudent(parseInt(e.target.value))}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-200 w-full sm:w-auto"
-        >
-          {students.map(s => (
-            <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
-          ))}
-        </select>
-      </div>
+      )}
 
       {selectedStudent && (
         <>

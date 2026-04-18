@@ -15,7 +15,7 @@ import type {
   Student, FbaRecord, Observation, FaSession, ObsSummary, BipRecord
 } from "./behavior-assessment/types";
 
-export default function BehaviorAssessmentPage() {
+export default function BehaviorAssessmentPage({ embedded = false, externalStudentId }: { embedded?: boolean; externalStudentId?: number }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
@@ -42,6 +42,13 @@ export default function BehaviorAssessmentPage() {
       setStudents(list);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (externalStudentId != null && students.length > 0) {
+      const s = students.find(st => st.id === externalStudentId);
+      if (s && (!selectedStudent || selectedStudent.id !== externalStudentId)) selectStudent(s);
+    }
+  }, [externalStudentId, students]);
 
   const loadFbas = useCallback(async (sid: number) => {
     const data = await listFbas(sid);
@@ -93,11 +100,13 @@ export default function BehaviorAssessmentPage() {
   ];
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Behavior Assessment</h1>
-        <p className="text-sm text-gray-500 mt-1">FBA, Functional Analysis, and Behavior Intervention Plans</p>
-      </div>
+    <div className={embedded ? "space-y-4" : "p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto"}>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Behavior Assessment</h1>
+          <p className="text-sm text-gray-500 mt-1">FBA, Functional Analysis, and Behavior Intervention Plans</p>
+        </div>
+      )}
 
       {!selectedStudent ? (
         <StudentPicker
@@ -116,9 +125,11 @@ export default function BehaviorAssessmentPage() {
               <p className="font-semibold text-gray-900">{selectedStudent.firstName} {selectedStudent.lastName}</p>
               <p className="text-xs text-gray-500">{fbas.length} FBA{fbas.length !== 1 ? "s" : ""} · {bips.length} BIP{bips.length !== 1 ? "s" : ""}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => { setSelectedStudent(null); setSelectedFba(null); setSelectedBip(null); }}>
-              Change Student
-            </Button>
+            {!embedded && (
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedStudent(null); setSelectedFba(null); setSelectedBip(null); }}>
+                Change Student
+              </Button>
+            )}
           </div>
 
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
