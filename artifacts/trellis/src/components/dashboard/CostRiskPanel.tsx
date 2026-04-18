@@ -274,14 +274,16 @@ export default function CostRiskPanel() {
                     <p className="text-[12px] font-semibold text-gray-800">
                       Avoidable cost — open risks not yet realized
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      {openRiskAlerts == null
-                        ? <Skeleton className="h-3 w-32 inline-block" />
-                        : openRiskAlerts.length === 0
+                    {openRiskAlerts == null ? (
+                      <Skeleton className="h-3 w-32 mt-1" />
+                    ) : (
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {openRiskAlerts.length === 0
                           ? "No open cost-avoidance alerts. Every current shortfall has either been recovered or escalated to a compensatory obligation."
                           : <><span className="font-bold text-gray-800">{fmtNumber(openRiskAlerts.length)}</span> open cost-avoidance alert{openRiskAlerts.length === 1 ? "" : "s"} flagging service shortfalls likely to accrue compensatory minutes if not corrected. These do not yet appear in the exposure number above.</>
-                      }
-                    </p>
+                        }
+                      </p>
+                    )}
                     <Link href="/alerts?type=cost_avoidance_risk">
                       <Button variant="ghost" size="sm" className="mt-1 h-6 text-[11px] text-amber-700 px-1">
                         Open the alert queue <ArrowRight className="w-3 h-3 ml-1" />
