@@ -59,11 +59,6 @@ function DashboardFull() {
     return providerSummaryAll.find((p) => p.staffId === teacherId) ?? null;
   }, [showPersonalCaseload, providerSummaryAll, teacherId]);
 
-  const { data: evalDash } = useQuery<DashboardTabsProps["evalDash"]>({
-    queryKey: ["evaluations-dashboard"],
-    queryFn: () => authFetch("/api/evaluations/dashboard").then(r => r.ok ? r.json() : null),
-    staleTime: 60_000,
-  });
   const { data: transitionDash } = useQuery<DashboardTabsProps["transitionDash"]>({
     queryKey: ["transitions-dashboard"],
     queryFn: () => authFetch("/api/transitions/dashboard").then(r => r.ok ? r.json() : null),
@@ -87,6 +82,12 @@ function DashboardFull() {
       return authFetch(`/api/dashboard/goal-mastery-rate?${params.toString()}`).then(r => r.ok ? r.json() : null);
     },
     staleTime: 60_000,
+  });
+
+  const { data: evalTimelineRisk } = useQuery<DashboardTabsProps["evalTimelineRisk"]>({
+    queryKey: ["eval-timeline-risk"],
+    queryFn: () => authFetch("/api/evaluations/timeline-risk").then(r => r.ok ? r.json() : null),
+    staleTime: 120_000,
   });
 
   const deadlines: DashboardTabsProps["deadlines"] = (() => {
@@ -183,7 +184,6 @@ function DashboardFull() {
         riskPieData={riskPieData}
         trendData={trendData}
         serviceData={serviceData}
-        evalDash={evalDash}
         transitionDash={transitionDash}
         meetingDash={meetingDash}
         accommodationCompliance={accommodationCompliance}
@@ -196,6 +196,7 @@ function DashboardFull() {
               ? "No ratings recorded yet"
               : undefined
         }
+        evalTimelineRisk={evalTimelineRisk ?? null}
       />
     </div>
   );

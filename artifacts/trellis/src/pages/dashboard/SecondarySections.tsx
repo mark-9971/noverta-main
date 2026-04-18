@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, CheckCircle2, FileText } from "lucide-react";
+import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, CheckCircle2, Clock, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { useQuery } from "@tanstack/react-query";
@@ -53,6 +53,117 @@ export function AccommodationComplianceCard({ accommodationCompliance }: { accom
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface EvaluationTimelineStudent {
+  referralId: number;
+  studentId: number | null;
+  studentName: string;
+  consentDate: string;
+  daysElapsed: number;
+  daysRemaining: number;
+  isOverdue: boolean;
+}
+
+export function EvaluationTimelineRiskCard({ students, deadlineDays = 60 }: { students: EvaluationTimelineStudent[]; deadlineDays?: number }) {
+  const overdue = students.filter(s => s.isOverdue);
+  const atRisk = students.filter(s => !s.isOverdue);
+  const hasRisk = students.length > 0;
+
+  return (
+    <Card className={hasRisk ? (overdue.length > 0 ? "border-red-200" : "border-amber-200") : "border-emerald-200"}>
+      <CardHeader className="pb-0 flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-gray-400" />
+          Evaluation Timeline Risk ({deadlineDays}-Day Clock)
+        </CardTitle>
+        <Link href="/evaluations" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+          View evaluations <ArrowRight className="w-3 h-3" />
+        </Link>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {!hasRisk ? (
+          <div className="flex items-center gap-3 py-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+            <span className="text-sm text-emerald-700 font-medium">All evaluations on track</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {overdue.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                  Overdue — past {deadlineDays} days ({overdue.length})
+                </p>
+                {overdue.map(s => (
+                  <Link key={s.referralId} href={s.studentId ? `/students/${s.studentId}?tab=evaluations` : "/evaluations"}>
+                    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer">
+                      <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[13px] font-semibold text-gray-900 truncate block">{s.studentName}</span>
+                        <span className="text-[11px] text-gray-500">Consent: {s.consentDate}</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[12px] font-bold text-red-700">{s.daysElapsed}d elapsed</span>
+                        <span className="text-[11px] text-red-500 block">{Math.abs(s.daysRemaining)}d overdue</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {atRisk.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+                  Approaching deadline — within 10 days ({atRisk.length})
+                </p>
+                {atRisk.map(s => (
+                  <Link key={s.referralId} href={s.studentId ? `/students/${s.studentId}?tab=evaluations` : "/evaluations"}>
+                    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[13px] font-semibold text-gray-900 truncate block">{s.studentName}</span>
+                        <span className="text-[11px] text-gray-500">Consent: {s.consentDate}</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[12px] font-bold text-amber-700">{s.daysElapsed}d elapsed</span>
+                        <span className="text-[11px] text-amber-500 block">{s.daysRemaining}d remaining</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function TransitionsSection({ transitionDash }: { transitionDash: any }) {
+  const hasIssues = transitionDash && (transitionDash.missingPlan > 0 || transitionDash.approachingTransitionAge > 0 || transitionDash.overdueFollowups > 0);
+  return (
+    <CollapsibleSection title="Transition Planning" icon={Sprout}>
+      {hasIssues ? (
+        <Card className={transitionDash.missingPlan > 0 ? "border-amber-200 bg-amber-50/20" : "border-gray-200/60"}>
+          <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
+            <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+            <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
+              {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+              {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
+              {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
+              {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
+            </div>
+            <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
+              Transition Planning →
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <p className="text-sm text-gray-400 py-4 text-center">All transition plans are on track.</p>
+      )}
+    </CollapsibleSection>
   );
 }
 

@@ -9,8 +9,8 @@ import type { DashboardSummaryExtended, ProviderCaseloadSummary } from "./types"
 import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
 import {
-  AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection,
-  ContractRenewalsCard, DeadlinesSection, IepExpirationCard,
+  AccommodationComplianceCard, EvaluationTimelineRiskCard, TransitionsSection,
+  MeetingsSection, ContractRenewalsCard, DeadlinesSection, IepExpirationCard,
 } from "./SecondarySections";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
@@ -20,13 +20,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** Lightly-typed shape for data fetched from non-OpenAPI endpoints */
-interface EvalDashboard {
-  overdueEvaluations: number;
-  overdueReEvaluations: number;
-  openReferrals: number;
-  upcomingReEvaluations: number;
-}
-
 interface TransitionDashboard {
   missingPlan: number;
   incompletePlans: number;
@@ -64,6 +57,21 @@ interface DeadlineItem {
   daysRemaining?: number;
 }
 
+interface EvalTimelineRiskStudent {
+  referralId: number;
+  studentId: number | null;
+  studentName: string;
+  consentDate: string;
+  daysElapsed: number;
+  daysRemaining: number;
+  isOverdue: boolean;
+}
+
+interface EvalTimelineRisk {
+  students: EvalTimelineRiskStudent[];
+  deadlineDays: number;
+}
+
 export interface DashboardTabsProps {
   isAdmin: boolean;
   myCaseload: ProviderCaseloadSummary | null;
@@ -77,20 +85,21 @@ export interface DashboardTabsProps {
   riskPieData: RiskPiePoint[];
   trendData: TrendPoint[];
   serviceData: ComplianceByService[];
-  evalDash: EvalDashboard | null;
   transitionDash: TransitionDashboard | null;
   meetingDash: MeetingDashboard | null;
   accommodationCompliance: AccommodationComplianceData | null;
   deadlines: DeadlineItem[];
   goalMasteryRate: number | null;
   goalMasterySubtitle?: string;
+  evalTimelineRisk: EvalTimelineRisk | null;
 }
 
 export function DashboardTabs({
   isAdmin, myCaseload, hasTrackedData, onTrackPct, complianceSubtitle,
   s, ro, alerts, recent, riskPieData, trendData, serviceData,
-  evalDash, transitionDash, meetingDash, accommodationCompliance, deadlines,
+  transitionDash, meetingDash, accommodationCompliance, deadlines,
   goalMasteryRate, goalMasterySubtitle,
+  evalTimelineRisk,
 }: DashboardTabsProps) {
   const quickActions = [
     { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
@@ -301,8 +310,14 @@ export function DashboardTabs({
         {/* IEP expiration countdown — renewals due within 90 days */}
         <IepExpirationCard />
 
-        {/* Evaluations & Transitions — evaluation timeline risk */}
-        <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
+        {/* Evaluation Timeline Risk — 60-day IDEA consent clock */}
+        <EvaluationTimelineRiskCard
+          students={evalTimelineRisk?.students ?? []}
+          deadlineDays={evalTimelineRisk?.deadlineDays ?? 60}
+        />
+
+        {/* Transition Planning */}
+        <TransitionsSection transitionDash={transitionDash} />
 
         {/* IEP Meetings — includes missing-document / pending-consent tracking */}
         <MeetingsSection meetingDash={meetingDash} />

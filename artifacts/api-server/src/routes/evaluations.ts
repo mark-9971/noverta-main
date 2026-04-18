@@ -708,4 +708,51 @@ router.get("/evaluations/dashboard", evalAccess, async (_req, res): Promise<void
   }
 });
 
+router.get("/evaluations/timeline-risk", evalAccess, async (_req, res): Promise<void> => {
+  try {
+    const rows = await db.select({
+      referral: evaluationReferralsTable,
+      studentId: studentsTable.id,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+    }).from(evaluationReferralsTable)
+      .leftJoin(studentsTable, eq(studentsTable.id, evaluationReferralsTable.studentId))
+      .where(and(
+        isNull(evaluationReferralsTable.deletedAt),
+        sql`${evaluationReferralsTable.consentReceivedDate} is not null`,
+        or(
+          eq(evaluationReferralsTable.status, "open"),
+          eq(evaluationReferralsTable.status, "evaluation_in_progress"),
+        ),
+        sql`${evaluationReferralsTable.consentReceivedDate}::date <= current_date - interval '50 days'`,
+      ))
+      .orderBy(asc(evaluationReferralsTable.consentReceivedDate));
+
+    const DEADLINE_DAYS = 60;
+
+    const result = rows.map(r => {
+      const consentDate = r.referral.consentReceivedDate!;
+      const consentMs = new Date(consentDate + "T12:00:00").getTime();
+      const nowMs = Date.now();
+      const daysElapsed = Math.floor((nowMs - consentMs) / (1000 * 60 * 60 * 24));
+      const daysRemaining = DEADLINE_DAYS - daysElapsed;
+      const isOverdue = daysElapsed > DEADLINE_DAYS;
+      return {
+        referralId: r.referral.id,
+        studentId: r.studentId,
+        studentName: r.studentFirstName ? `${r.studentFirstName} ${r.studentLastName}` : "—",
+        consentDate,
+        daysElapsed,
+        daysRemaining,
+        isOverdue,
+      };
+    });
+
+    res.json({ students: result, deadlineDays: DEADLINE_DAYS });
+  } catch (err) {
+    console.error("GET /evaluations/timeline-risk error:", err);
+    res.status(500).json({ error: "Failed to load evaluation timeline risk data" });
+  }
+});
+
 export default router;
