@@ -116,11 +116,11 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
         <>
           <div className="flex items-center gap-1 border-b border-gray-200 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             {([
-              { key: "collect" as const, label: "Collect", fullLabel: "Data Collection", icon: Play, count: null, mobile: true },
+              { key: "collect" as const, label: "Collect Data", fullLabel: "Data Collection", icon: Play, count: null, mobile: true },
               { key: "behaviors" as const, label: "Behaviors", fullLabel: "Behavior Targets", icon: Activity, count: behaviorTargets.length, mobile: false },
               { key: "programs" as const, label: "Programs", fullLabel: "Skill Programs", icon: GraduationCap, count: programTargets.length, mobile: false },
-              { key: "sessions" as const, label: "Sessions", fullLabel: "Data Sessions", icon: Calendar, count: dataSessions.length, mobile: false },
-              { key: "templates" as const, label: "Library", fullLabel: "Template Library", icon: Layers, count: templates.length, mobile: false },
+              { key: "sessions" as const, label: "Session Log", fullLabel: "ABA Session Log", icon: Calendar, count: dataSessions.length, mobile: false },
+              { key: "templates" as const, label: "Templates", fullLabel: "Program Templates", icon: Layers, count: templates.length, mobile: false },
             ]).map(t => (
               <button
                 key={t.key}

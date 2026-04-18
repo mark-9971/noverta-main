@@ -15,27 +15,31 @@ interface Student { id: number; firstName: string; lastName: string; grade?: str
 const SECTIONS = [
   {
     key: "analytics" as const,
-    label: "Analytics",
+    label: "Caseload",
     icon: BarChart2,
-    desc: "Caseload overview — at-risk flags, mastery rates, session activity",
+    desc: "Full caseload overview — at-risk flags, mastery rates, session activity, and program summaries across all learners",
+    studentRequired: false,
   },
   {
     key: "programs" as const,
-    label: "Programs & Behaviors",
+    label: "Programs & Data",
     icon: Activity,
-    desc: "Track skill programs, behavior targets, and run data collection",
+    desc: "Data collection, behavior targets, skill programs, session log, and program templates — all in one place for the selected learner",
+    studentRequired: true,
   },
   {
     key: "fba" as const,
-    label: "FBA / BIP",
+    label: "Assessments",
     icon: Brain,
-    desc: "Functional behavior assessments, behavior intervention plans",
+    desc: "Functional behavior assessments (FBA), ABC observation data, functional analysis sessions, and behavior intervention plans (BIP)",
+    studentRequired: true,
   },
   {
     key: "maintenance" as const,
-    label: "Mastery & Maintenance",
+    label: "Maintenance",
     icon: RefreshCw,
     desc: "Probe schedule for mastered targets — upcoming, overdue, and completed probes across your caseload",
+    studentRequired: false,
   },
 ];
 
@@ -89,6 +93,8 @@ export default function AbaHub() {
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   const selectedIndex = students.findIndex(s => s.id === selectedStudentId);
+  const currentSection = SECTIONS.find(s => s.key === section)!;
+  const needsStudent = currentSection?.studentRequired ?? false;
 
   function selectStudent(id: number) {
     setSelectedStudentId(id);
@@ -113,8 +119,6 @@ export default function AbaHub() {
     return !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q);
   });
 
-  const needsStudentPicker = section !== "analytics" && section !== "maintenance";
-
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-0">
 
@@ -127,19 +131,23 @@ export default function AbaHub() {
             </span>
             ABA
           </h1>
-          <p className="text-[12px] text-gray-400 mt-1 ml-10">Applied behavior analysis — programs, assessments & data</p>
+          <p className="text-[12px] text-gray-400 mt-1 ml-10">
+            Applied behavior analysis · programs · assessments · data collection
+          </p>
         </div>
 
-        {needsStudentPicker && (
+        {/* Student picker — only shown on student-specific sections */}
+        {needsStudent && (
           <div className="flex items-center gap-2">
+            <span className="text-[11px] text-gray-400 font-medium hidden sm:block">Learner</span>
             <div className="relative" ref={pickerRef}>
               <button
                 onClick={() => { setPickerOpen(v => !v); setSearchQuery(""); }}
-                className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] text-gray-700 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all shadow-sm min-w-[180px] max-w-[220px]"
+                className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] text-gray-700 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all shadow-sm min-w-[180px] max-w-[240px]"
               >
                 <Users className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
                 <span className="flex-1 text-left truncate font-medium">
-                  {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : "Select student…"}
+                  {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : "Select learner…"}
                 </span>
                 <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform flex-shrink-0 ${pickerOpen ? "rotate-90" : ""}`} />
               </button>
@@ -154,14 +162,14 @@ export default function AbaHub() {
                         type="text"
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Search students…"
+                        placeholder="Search learners…"
                         className="bg-transparent text-[13px] text-gray-700 w-full outline-none placeholder-gray-400"
                       />
                     </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto py-1">
                     {filteredStudents.length === 0 && (
-                      <p className="px-3 py-3 text-[12px] text-gray-400 text-center">No students found</p>
+                      <p className="px-3 py-3 text-[12px] text-gray-400 text-center">No learners found</p>
                     )}
                     {filteredStudents.map(s => (
                       <button
@@ -187,7 +195,7 @@ export default function AbaHub() {
                 onClick={prevStudent}
                 disabled={selectedIndex <= 0}
                 className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-400 hover:text-gray-700 hover:border-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-                title="Previous student"
+                title="Previous learner"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -195,7 +203,7 @@ export default function AbaHub() {
                 onClick={nextStudent}
                 disabled={selectedIndex >= students.length - 1}
                 className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-400 hover:text-gray-700 hover:border-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-                title="Next student"
+                title="Next learner"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -221,31 +229,38 @@ export default function AbaHub() {
             >
               <Icon className={`w-4 h-4 ${active ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-500"}`} />
               {s.label}
+              {/* Subtle indicator for caseload-level vs student-level tabs */}
+              {!s.studentRequired && (
+                <span className="hidden sm:inline text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 ml-0.5">
+                  caseload
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       {/* Tab description */}
-      <div className="bg-gray-50/60 border-x border-b border-gray-100 rounded-b-lg px-4 py-2 mb-5">
-        <p className="text-[11px] text-gray-400">
-          {SECTIONS.find(s => s.key === section)?.desc}
+      <div className="bg-gray-50/60 border-x border-b border-gray-100 rounded-b-lg px-4 py-2.5 mb-5">
+        <p className="text-[12px] text-gray-500 leading-relaxed">
+          {currentSection?.desc}
         </p>
       </div>
 
-      {/* Analytics tab */}
+      {/* Caseload tab — cross-student */}
       {section === "analytics" && (
         <CaseloadAnalytics onViewStudent={viewStudentPrograms} />
       )}
 
-      {/* Maintenance tab — cross-student, no student picker needed */}
+      {/* Maintenance tab — cross-student */}
       {section === "maintenance" && (
         <MaintenanceTab />
       )}
 
       {/* Student-specific tabs */}
-      {needsStudentPicker && (
+      {needsStudent && (
         <>
+          {/* Selected learner context bar */}
           {selectedStudent && (
             <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl">
               <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -267,14 +282,15 @@ export default function AbaHub() {
             </div>
           )}
 
+          {/* No learner selected */}
           {!selectedStudent && !loading && (
             <div className="text-center py-16 space-y-3">
               <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                 <GraduationCap className="w-6 h-6 text-gray-300" />
               </div>
-              <p className="text-[14px] font-medium text-gray-500">No student selected</p>
-              <p className="text-[12px] text-gray-400">
-                Use the student picker above, or go to the Analytics tab to browse your caseload.
+              <p className="text-[14px] font-medium text-gray-500">No learner selected</p>
+              <p className="text-[12px] text-gray-400 max-w-xs mx-auto">
+                Use the Learner picker above, or visit the <button className="text-indigo-500 underline" onClick={() => setSection("analytics")}>Caseload</button> tab to browse all active learners.
               </p>
             </div>
           )}

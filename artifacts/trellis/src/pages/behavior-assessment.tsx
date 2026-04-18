@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, BarChart3, Eye, Shield } from "lucide-react";
+import { ClipboardList, BarChart3, Eye, Shield, ChevronLeft, CalendarDays } from "lucide-react";
 import {
   listStudents, listFbas, getStudentBips, listFbaObservations,
   getFbaObservationsSummary, listFaSessions
@@ -78,6 +78,7 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
     setSelectedStudent(s);
     setSelectedFba(null);
     setSelectedBip(null);
+    setActiveTab("fbas");
     loadFbas(s.id);
     loadBips(s.id);
   };
@@ -93,18 +94,22 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
   );
 
   const tabs = [
-    { key: "fbas" as const, label: "FBAs", icon: ClipboardList },
+    { key: "fbas" as const, label: "FBA Documents", icon: ClipboardList },
     { key: "abc" as const, label: "ABC Data", icon: Eye },
     { key: "fa" as const, label: "Functional Analysis", icon: BarChart3 },
     { key: "bip" as const, label: "BIP", icon: Shield },
   ];
+
+  // Tabs that require an FBA to be selected first
+  const fbaRequiredTabs = new Set(["abc", "fa"]);
+  const needsFbaContext = fbaRequiredTabs.has(activeTab);
 
   return (
     <div className={embedded ? "space-y-4" : "p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto"}>
       {!embedded && (
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Behavior Assessment</h1>
-          <p className="text-sm text-gray-500 mt-1">FBA, Functional Analysis, and Behavior Intervention Plans</p>
+          <p className="text-sm text-gray-500 mt-1">FBA process · ABC observation data · functional analysis · behavior intervention plans</p>
         </div>
       )}
 
@@ -117,13 +122,19 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
         />
       ) : (
         <>
+          {/* Student context bar */}
           <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-3">
             <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-bold text-sm">
               {selectedStudent.firstName[0]}{selectedStudent.lastName[0]}
             </div>
             <div className="flex-1">
               <p className="font-semibold text-gray-900">{selectedStudent.firstName} {selectedStudent.lastName}</p>
-              <p className="text-xs text-gray-500">{fbas.length} FBA{fbas.length !== 1 ? "s" : ""} · {bips.length} BIP{bips.length !== 1 ? "s" : ""}</p>
+              <p className="text-xs text-gray-500">
+                {fbas.length} FBA{fbas.length !== 1 ? "s" : ""}
+                {selectedFba ? ` · Active: ${(selectedFba as any).targetBehavior || "FBA"}` : ""}
+                {" · "}
+                {bips.length} BIP{bips.length !== 1 ? "s" : ""}
+              </p>
             </div>
             {!embedded && (
               <Button variant="ghost" size="sm" onClick={() => { setSelectedStudent(null); setSelectedFba(null); setSelectedBip(null); }}>
@@ -132,6 +143,7 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
             )}
           </div>
 
+          {/* Tab bar */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             {tabs.map(t => (
               <button key={t.key}
@@ -148,12 +160,35 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
             ))}
           </div>
 
+          {/* FBA context bar — shown in ABC Data + FA tabs when an FBA is selected */}
+          {needsFbaContext && selectedFba && (
+            <div className="flex items-center gap-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[13px]">
+              <button
+                onClick={() => setActiveTab("fbas")}
+                className="flex items-center gap-1 text-amber-600 hover:text-amber-800 font-medium transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                FBAs
+              </button>
+              <span className="text-amber-400">/</span>
+              <span className="text-amber-800 font-medium truncate">
+                {(selectedFba as any).targetBehavior || `FBA #${selectedFba.id}`}
+              </span>
+              {(selectedFba as any).startDate && (
+                <span className="ml-auto flex items-center gap-1 text-amber-500 text-[11px]">
+                  <CalendarDays className="w-3 h-3" />
+                  Started {new Date((selectedFba as any).startDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
+
           {activeTab === "fbas" && (
             <FbaListPanel
               fbas={fbas}
               selectedFba={selectedFba}
               student={selectedStudent}
-              onSelect={selectFba}
+              onSelect={(fba) => { selectFba(fba); setActiveTab("abc"); }}
               showNew={showNewFba}
               onShowNew={setShowNewFba}
               onCreated={() => { loadFbas(selectedStudent.id); setShowNewFba(false); }}
@@ -172,7 +207,20 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
                 onDeleted={() => loadObservations(selectedFba.id)}
               />
             ) : (
-              <EmptyState icon={Eye} message="Select an FBA first to record ABC observations" />
+              <div className="text-center py-12 space-y-3 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                <Eye className="w-8 h-8 text-gray-300 mx-auto" />
+                <p className="text-[14px] font-medium text-gray-500">No FBA selected</p>
+                <p className="text-[12px] text-gray-400 max-w-xs mx-auto">
+                  Select or create an FBA first — ABC observations are linked to a specific assessment.
+                </p>
+                <button
+                  onClick={() => setActiveTab("fbas")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  Go to FBA Documents
+                </button>
+              </div>
             )
           )}
 
@@ -187,7 +235,20 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
                 onDeleted={() => loadFaSessions(selectedFba.id)}
               />
             ) : (
-              <EmptyState icon={BarChart3} message="Select an FBA first to run a Functional Analysis" />
+              <div className="text-center py-12 space-y-3 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                <BarChart3 className="w-8 h-8 text-gray-300 mx-auto" />
+                <p className="text-[14px] font-medium text-gray-500">No FBA selected</p>
+                <p className="text-[12px] text-gray-400 max-w-xs mx-auto">
+                  Functional analysis sessions are linked to an FBA. Select an assessment to begin.
+                </p>
+                <button
+                  onClick={() => setActiveTab("fbas")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  Go to FBA Documents
+                </button>
+              </div>
             )
           )}
 

@@ -221,14 +221,13 @@ export const adminNav: NavSection[] = [
       },
       // ── Sessions ─────────────────────────────────────────────────────────
       {
-        href: "/sessions",
+        href: "/program-data",
         label: "Sessions",
         icon: CalendarDays,
         children: [
-          { href: "/sessions", label: "New Session", icon: PlusCircle },
           { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
-          { href: "/sessions", label: "Session Review", icon: Clipboard },
-          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
+          { href: "/aba?tab=programs", label: "Programs & Targets", icon: Activity },
+          { href: "/aba?tab=analytics", label: "Session Analytics", icon: BarChart3 },
         ],
       },
       // ── Programs ─────────────────────────────────────────────────────────
