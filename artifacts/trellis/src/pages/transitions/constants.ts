@@ -19,14 +19,16 @@ export const STATUS_STYLES: Record<string, string> = {
   in_progress: "bg-blue-50 text-blue-700",
 };
 
+export const PLAN_CRITERIA: { label: string; check: (plan: TransitionPlan) => boolean }[] = [
+  { label: "Graduation pathway", check: (p) => !!p.graduationPathway },
+  { label: "Vision statement", check: (p) => !!p.studentVisionStatement },
+  { label: "Assessments", check: (p) => !!p.assessmentsUsed },
+  { label: "Transition goals", check: (p) => (p.goalsCount ?? p.goals?.length ?? 0) > 0 },
+  { label: "Agency referrals", check: (p) => (p.referralsCount ?? p.agencyReferrals?.length ?? 0) > 0 },
+];
+
 export function computePlanProgress(plan: TransitionPlan): { percent: number; filled: number; total: number } {
-  const checks = [
-    !!plan.graduationPathway,
-    !!plan.studentVisionStatement,
-    !!plan.assessmentsUsed,
-    (plan.goalsCount ?? plan.goals?.length ?? 0) > 0,
-    (plan.referralsCount ?? plan.agencyReferrals?.length ?? 0) > 0,
-  ];
-  const filled = checks.filter(Boolean).length;
-  return { percent: Math.round((filled / checks.length) * 100), filled, total: checks.length };
+  const filled = PLAN_CRITERIA.filter((c) => c.check(plan)).length;
+  const total = PLAN_CRITERIA.length;
+  return { percent: Math.round((filled / total) * 100), filled, total };
 }
