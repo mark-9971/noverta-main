@@ -1,6 +1,9 @@
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Phone, Mail, Plus, Pencil, Trash2, Stethoscope, ShieldAlert, History } from "lucide-react";
+
+type EnrollmentSourceFilter = "all" | "manual" | "sis";
 
 export interface EmergencyContactRecord {
   id: number;
@@ -206,7 +209,35 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
   }
 
   // section === "enrollment"
+  return <EnrollmentSection {...props} />;
+}
+
+function EnrollmentSection(props: EnrollmentSectionProps) {
   const { enrollmentHistory, enrollmentLoading, role, openAddEvent, openEditEvent, setDeletingEvent } = props;
+  const [sourceFilter, setSourceFilter] = useState<EnrollmentSourceFilter>("all");
+
+  const counts = useMemo(() => {
+    let manual = 0;
+    let sis = 0;
+    for (const ev of enrollmentHistory) {
+      if (ev?.source === "manual") manual++;
+      else if (ev?.source === "sis" || ev?.source === "sis_sync") sis++;
+    }
+    return { all: enrollmentHistory.length, manual, sis };
+  }, [enrollmentHistory]);
+
+  const filteredHistory = useMemo(() => {
+    if (sourceFilter === "all") return enrollmentHistory;
+    if (sourceFilter === "manual") return enrollmentHistory.filter((ev: any) => ev?.source === "manual");
+    return enrollmentHistory.filter((ev: any) => ev?.source === "sis" || ev?.source === "sis_sync");
+  }, [enrollmentHistory, sourceFilter]);
+
+  const filterOptions: { value: EnrollmentSourceFilter; label: string; count: number }[] = [
+    { value: "all", label: "All", count: counts.all },
+    { value: "manual", label: "Manual", count: counts.manual },
+    { value: "sis", label: "SIS Sync", count: counts.sis },
+  ];
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -226,17 +257,45 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
         </div>
       </CardHeader>
       <CardContent className="pt-0">
+        {!enrollmentLoading && enrollmentHistory.length > 0 && (
+          <div className="flex items-center gap-1 mb-3" role="group" aria-label="Filter enrollment history by source">
+            {filterOptions.map(opt => {
+              const active = sourceFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSourceFilter(opt.value)}
+                  aria-pressed={active}
+                  data-testid={`enrollment-filter-${opt.value}`}
+                  className={`px-2 py-1 text-[11px] font-medium rounded-md border transition-colors ${
+                    active
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {opt.label}
+                  <span className={`ml-1 text-[10px] ${active ? "text-emerald-600" : "text-gray-400"}`}>{opt.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {enrollmentLoading ? (
           <div className="space-y-2">
             {[1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
           </div>
         ) : enrollmentHistory.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">No enrollment events recorded.</p>
+        ) : filteredHistory.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">
+            No {sourceFilter === "manual" ? "manually-entered" : "SIS-synced"} events.
+          </p>
         ) : (
           <div className="relative pl-5">
             <div className="absolute left-2 top-0 bottom-0 w-px bg-gray-100" />
             <div className="space-y-4">
-              {enrollmentHistory.map((ev: any, idx: number) => {
+              {filteredHistory.map((ev: any, idx: number) => {
                 const typeConfig: Record<string, { label: string; color: string; bg: string; dot: string }> = {
                   enrolled: { label: "Enrolled", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-500" },
                   reactivated: { label: "Reactivated", color: "text-emerald-700", bg: "bg-emerald-50", dot: "bg-emerald-400" },
