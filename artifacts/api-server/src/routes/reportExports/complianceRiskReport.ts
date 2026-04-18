@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
   studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable,
-  staffTable, compensatoryObligationsTable, districtsTable,
+  staffTable, compensatoryObligationsTable, districtsTable, schoolYearsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
@@ -18,6 +18,17 @@ function resolveDistrictId(req: Request): number | null {
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
+}
+
+/** Returns { startDate, endDate } strings for the given school year ID, or null if not found. */
+async function resolveSchoolYearDates(schoolYearId: number | undefined): Promise<{ startDate: string; endDate: string } | null> {
+  if (!schoolYearId) return null;
+  const [year] = await db
+    .select({ startDate: schoolYearsTable.startDate, endDate: schoolYearsTable.endDate })
+    .from(schoolYearsTable)
+    .where(eq(schoolYearsTable.id, schoolYearId))
+    .limit(1);
+  return year ?? null;
 }
 import { computeAllActiveMinuteProgress, type MinuteProgressResult } from "../../lib/minuteCalc";
 import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
@@ -67,6 +78,9 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
     }
     const schoolId = rawSchoolId;
 
+    const rawSchoolYearId = req.query.schoolYearId ? Number(req.query.schoolYearId) : undefined;
+    const yearDates = await resolveSchoolYearDates(rawSchoolYearId);
+
     const compObligationConditions = [
       eq(compensatoryObligationsTable.status, "pending"),
       eq(schoolsTable.districtId, districtId),
@@ -75,7 +89,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
 
     const [districtRows, progress, rateMap, outstandingObligations] = await Promise.all([
       db.select({ name: districtsTable.name }).from(districtsTable).where(eq(districtsTable.id, districtId)),
-      computeAllActiveMinuteProgress({ districtId, schoolId }),
+      computeAllActiveMinuteProgress({ districtId, schoolId, ...(yearDates ?? {}) }),
       getRateMap(districtId),
       db.select({
         studentId: compensatoryObligationsTable.studentId,
@@ -299,8 +313,11 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
     }
     const schoolId = rawSchoolId;
 
+    const rawSchoolYearId = req.query.schoolYearId ? Number(req.query.schoolYearId) : undefined;
+    const yearDates = await resolveSchoolYearDates(rawSchoolYearId);
+
     const [progress, rateMap] = await Promise.all([
-      computeAllActiveMinuteProgress({ districtId, schoolId }),
+      computeAllActiveMinuteProgress({ districtId, schoolId, ...(yearDates ?? {}) }),
       getRateMap(districtId),
     ]);
 

@@ -121,11 +121,15 @@ function ServiceMinutesContent() {
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
 
   const schoolId = (typedFilter as any)?.schoolId;
+  const schoolYearId = (typedFilter as any)?.schoolYearId;
   const { data: riskReport, isLoading: reportLoading, isError: reportError } = useQuery<RiskReportData>({
-    queryKey: ["/api/reports/compliance-risk-report", schoolId],
+    queryKey: ["/api/reports/compliance-risk-report", schoolId, schoolYearId],
     queryFn: async () => {
-      const params = schoolId ? `?schoolId=${schoolId}` : "";
-      const res = await authFetch(`/api/reports/compliance-risk-report${params}`);
+      const p = new URLSearchParams();
+      if (schoolId) p.set("schoolId", String(schoolId));
+      if (schoolYearId) p.set("schoolYearId", String(schoolYearId));
+      const qs = p.toString();
+      const res = await authFetch(`/api/reports/compliance-risk-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error(res.status === 403 ? "forbidden" : "Failed");
       return res.json();
     },

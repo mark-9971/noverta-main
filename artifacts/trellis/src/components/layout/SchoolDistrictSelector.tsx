@@ -1,11 +1,13 @@
 import { useListSchools, useListDistricts } from "@workspace/api-client-react";
 import { useSchoolContext } from "@/lib/school-context";
-import { Building2, School, X } from "lucide-react";
+import { useSchoolYears } from "@/lib/use-school-years";
+import { Building2, X, CalendarDays } from "lucide-react";
 
 export function SchoolDistrictSelector() {
-  const { selectedSchoolId, selectedDistrictId, setSelectedSchoolId, setSelectedDistrictId } = useSchoolContext();
+  const { selectedSchoolId, selectedDistrictId, selectedYearId, setSelectedSchoolId, setSelectedDistrictId, setSelectedYearId } = useSchoolContext();
   const { data: schools } = useListSchools();
   const { data: districts } = useListDistricts();
+  const { years } = useSchoolYears();
 
   const activeLabel = selectedSchoolId
     ? (schools as any[])?.find((s: any) => s.id === selectedSchoolId)?.name ?? "School"
@@ -14,8 +16,10 @@ export function SchoolDistrictSelector() {
     : null;
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
+      {/* School / district filter */}
       <div className="flex items-center gap-1.5">
+        <Building2 className="w-3 h-3 text-gray-400 shrink-0" />
         <select
           className="flex-1 text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 truncate"
           value={
@@ -58,6 +62,38 @@ export function SchoolDistrictSelector() {
           </button>
         )}
       </div>
+
+      {/* School year filter */}
+      {years.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          <CalendarDays className="w-3 h-3 text-gray-400 shrink-0" />
+          <select
+            className="flex-1 text-[11px] border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 truncate"
+            value={selectedYearId ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedYearId(val ? Number(val) : null);
+            }}
+          >
+            <option value="">All Years</option>
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.label}{y.isActive ? " (current)" : ""}
+              </option>
+            ))}
+          </select>
+          {selectedYearId && (
+            <button
+              className="p-0.5 rounded hover:bg-gray-100 text-gray-400"
+              onClick={() => setSelectedYearId(null)}
+              title="Clear year filter"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       {activeLabel && (
         <p className="text-[10px] text-emerald-600 font-medium truncate px-0.5">
           Filtering: {activeLabel}

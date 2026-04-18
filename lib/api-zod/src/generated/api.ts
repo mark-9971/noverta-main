@@ -1609,6 +1609,7 @@ export const ListMinuteProgressQueryParams = zod.object({
   programId: zod.coerce.number().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  schoolYearId: zod.coerce.number().nullish(),
 });
 
 export const ListMinuteProgressResponseItem = zod.object({

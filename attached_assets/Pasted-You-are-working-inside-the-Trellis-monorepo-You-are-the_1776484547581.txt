@@ -1,0 +1,92 @@
+You are working inside the Trellis monorepo.
+
+You are the coordinating engineering agent for a **wedge-hardening pass**.
+
+## Mission
+
+Make Trellis feel like a focused, trustworthy product for this wedge:
+
+**Trellis = SPED service-delivery, compliance-risk, and compensatory-exposure management for districts.**
+
+You are not doing a broad platform rewrite. You are making the product:
+
+* more trustworthy
+* more demo-ready
+* more pilot-safe
+* more focused on the wedge
+
+## Critical working rules
+
+* Do not delete features unless explicitly told
+* Hide/demote rather than remove
+* Prefer minimal, reversible changes
+* Preserve routes, APIs, and recoverability
+* Audit before editing
+* Complete one task cleanly before moving to the next
+* Do not disappear into side quests
+* If you find adjacent issues, log them as follow-ups
+
+## Your first job
+
+Create a concise execution board for these 10 tasks:
+
+1. Fix school-year scoping everywhere in compliance surfaces
+2. Add “rates not configured” warnings and seed demo rates
+3. Verify demo district loads with strong at-risk / exposure / alerts on first click
+4. Trim nav to wedge-only demo mode
+5. Add “no service requirements / no data / not started” trust warnings
+6. Backfill/fix progress report empty sections
+7. Verify session logging happy path is fast and clean
+8. Verify alerts page is populated and actionable in demo data
+9. Implement record-level district ownership checks
+10. Scope provider/para access to assigned students only
+
+## Output format I want now
+
+Before coding, give me:
+
+### A. Execution board
+
+For each task:
+
+* status: pending
+* likely files/modules involved
+* dependency notes
+* risk level: low / medium / high
+
+### B. Recommended order
+
+If you want to slightly reorder the 10 tasks for dependency reasons, say so and explain why.
+
+### C. Global source-of-truth map
+
+Identify likely shared logic / core files for:
+
+* compliance calculations
+* school year resolution
+* rate/exposure logic
+* demo seeding
+* nav config
+* trust-state rendering
+* progress reports
+* session logging
+* alerts
+* auth / district ownership
+* provider assignment access
+
+### D. Immediate blockers
+
+Anything that would prevent accurate execution.
+
+## After that
+
+Do not start all 10 at once.
+Wait for the next prompt, which will give you a single task to execute in full:
+
+* Audit
+* Plan
+* Implement
+* Verify
+* Report
+
+Be concise, accurate, and engineering-focused.
