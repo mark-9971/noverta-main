@@ -3,10 +3,12 @@ import { Calendar } from "lucide-react";
 import { useSearch, useLocation } from "wouter";
 import Schedule from "./schedule";
 import CoveragePage from "./coverage";
+import MinutesOversightTab from "./schedule/MinutesOversightTab";
 
 const TABS = [
   { key: "schedule" as const, label: "Weekly Schedule" },
   { key: "coverage" as const, label: "Coverage & Substitutes" },
+  { key: "minutes" as const, label: "Minutes at Risk" },
 ];
 
 type Tab = typeof TABS[number]["key"];
@@ -38,7 +40,7 @@ export default function SchedulingHub() {
           <Calendar className="w-5 h-5 text-emerald-600" />
           Scheduling
         </h1>
-        <p className="text-xs text-gray-400 mt-1">Weekly schedule blocks, absences, and coverage management</p>
+        <p className="text-xs text-gray-400 mt-1">Weekly schedule blocks, absences, coverage, and service minute oversight</p>
       </div>
 
       <div className="flex gap-1 border-b border-gray-200">
@@ -59,6 +61,7 @@ export default function SchedulingHub() {
 
       {tab === "schedule" && <Schedule embedded />}
       {tab === "coverage" && <CoveragePage embedded />}
+      {tab === "minutes" && <MinutesOversightTab />}
     </div>
   );
 }

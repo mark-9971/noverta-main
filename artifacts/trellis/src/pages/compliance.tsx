@@ -449,11 +449,18 @@ function ServiceMinutesContent() {
                 <AlertTriangle className="w-4 h-4 text-red-600" />
                 Needs Attention ({riskReport!.needsAttention.length})
               </CardTitle>
-              <Link href="/compliance-risk-report">
-                <Button variant="ghost" size="sm" className="text-xs text-gray-500 gap-1 h-7">
-                  Full Report <ArrowRight className="w-3 h-3" />
-                </Button>
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link href="/scheduling?tab=minutes">
+                  <Button variant="ghost" size="sm" className="text-xs text-blue-600 hover:text-blue-700 gap-1 h-7">
+                    <Calendar className="w-3 h-3" /> Schedule Sessions
+                  </Button>
+                </Link>
+                <Link href="/compliance-risk-report">
+                  <Button variant="ghost" size="sm" className="text-xs text-gray-500 gap-1 h-7">
+                    Full Report <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="px-0 pb-0">
