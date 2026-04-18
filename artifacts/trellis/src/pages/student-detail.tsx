@@ -43,6 +43,7 @@ import StudentGoalSection from "./student-detail/StudentGoalSection";
 import StudentServiceSection from "./student-detail/StudentServiceSection";
 import StudentBehaviorSection from "./student-detail/StudentBehaviorSection";
 import PreferenceAssessmentCard from "@/components/preference-assessment/PreferenceAssessmentCard";
+import ReinforcerInventoryPanel from "@/components/preference-assessment/ReinforcerInventoryPanel";
 import StudentSessionHistory from "./student-detail/StudentSessionHistory";
 import StudentComplianceSection from "./student-detail/StudentComplianceSection";
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
@@ -1257,6 +1258,7 @@ export default function StudentDetail() {
               </Card>
             )}
             <PreferenceAssessmentCard studentId={studentId} />
+            <ReinforcerInventoryPanel studentId={studentId} />
             <StudentComplianceSection
               section="protective"
               studentId={studentId}

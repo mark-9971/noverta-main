@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Star, Plus, Trash2, ChevronDown, ChevronUp, ClipboardList, X } from "lucide-react";
+import { Star, Plus, Trash2, ChevronDown, ChevronUp, ClipboardList, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -308,9 +308,68 @@ function NewAssessmentDialog({
   );
 }
 
+// ─── Pin-to-inventory button ─────────────────────────────────────────────────
+
+function PinToInventoryButton({
+  studentId,
+  item,
+  assessmentId,
+}: {
+  studentId: number;
+  item: AssessmentItem;
+  assessmentId: number;
+}) {
+  const qc = useQueryClient();
+  const { mutate, isPending, isSuccess } = useMutation({
+    mutationFn: () =>
+      authFetch(`/api/students/${studentId}/reinforcers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: item.name,
+          category: "tangible", // default — user can edit in the inventory panel
+          sourceAssessmentId: assessmentId,
+        }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["student-reinforcers", studentId] });
+      toast.success(`"${item.name}" added to reinforcer inventory`);
+    },
+    onError: () => toast.error("Failed to add to inventory"),
+  });
+
+  if (isSuccess) {
+    return (
+      <span className="text-[10px] text-amber-600 flex items-center gap-0.5 shrink-0">
+        <Sparkles className="w-2.5 h-2.5" /> In inventory
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); mutate(); }}
+      disabled={isPending}
+      title="Add to reinforcer inventory"
+      className="text-[10px] text-gray-300 hover:text-amber-500 flex items-center gap-0.5 shrink-0 transition-colors"
+    >
+      <Sparkles className="w-2.5 h-2.5" />
+      {isPending ? "Adding…" : "Pin"}
+    </button>
+  );
+}
+
 // ─── Single assessment card ──────────────────────────────────────────────────
 
-function AssessmentRow({ assessment, onDelete }: { assessment: PreferenceAssessment; onDelete: () => void }) {
+function AssessmentRow({
+  assessment,
+  studentId,
+  onDelete,
+}: {
+  assessment: PreferenceAssessment;
+  studentId: number;
+  onDelete: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const sorted = sortedItems(assessment.items, assessment.assessmentType);
   const top3 = sorted.slice(0, 3);
@@ -367,6 +426,11 @@ function AssessmentRow({ assessment, onDelete }: { assessment: PreferenceAssessm
                 <span className="text-xs text-gray-400">
                   {preferenceLabel(item, assessment.assessmentType, i + 1)}
                 </span>
+                <PinToInventoryButton
+                  studentId={studentId}
+                  item={item}
+                  assessmentId={assessment.id}
+                />
               </div>
             ))}
           </div>
@@ -457,6 +521,7 @@ export default function PreferenceAssessmentCard({ studentId }: { studentId: num
                 <AssessmentRow
                   key={a.id}
                   assessment={a}
+                  studentId={studentId}
                   onDelete={() => deleteAssessment(a.id)}
                 />
               ))}
