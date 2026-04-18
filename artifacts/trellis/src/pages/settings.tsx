@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { useSearch, useLocation } from "wouter";
 import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign } from "lucide-react";
 
 const SetupPage = lazy(() => import("@/pages/setup"));
@@ -31,31 +32,24 @@ function TabLoader() {
   );
 }
 
-function getTabFromHash(): TabKey | null {
-  const hash = window.location.hash.replace("#", "");
-  const found = TABS.find(t => t.key === hash);
-  return found ? found.key : null;
+function resolveTab(search: string): TabKey {
+  const p = new URLSearchParams(search).get("tab");
+  const found = TABS.find(t => t.key === p);
+  return found ? found.key : "general";
 }
 
 export default function SettingsHubPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    return getTabFromHash() ?? "general";
-  });
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState<TabKey>(() => resolveTab(search));
 
   useEffect(() => {
-    const onHashChange = () => {
-      const tab = getTabFromHash();
-      if (tab) setActiveTab(tab);
-    };
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+    setActiveTab(resolveTab(search));
+  }, [search]);
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
-    const hash = key === "general" ? "" : `#${key}`;
-    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-    window.history.replaceState(null, "", `${base}/settings${hash}`);
+    navigate(`/settings?tab=${key}`, { replace: true });
   };
 
   return (

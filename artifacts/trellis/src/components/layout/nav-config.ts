@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  MoreHorizontal,
+  MoreHorizontal, Trash2, CheckCircle,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -71,7 +71,14 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      {
+        href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
+        children: [
+          { href: "/alerts?tab=open", label: "Open", icon: AlertTriangle },
+          { href: "/alerts?tab=snoozed", label: "Snoozed", icon: Clock },
+          { href: "/alerts?tab=resolved", label: "Resolved", icon: CheckCircle },
+        ],
+      },
     ],
   },
   {
@@ -80,7 +87,17 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      {
+        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
+        children: [
+          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
+          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
+          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
+          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
+          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
+          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
+        ],
+      },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
@@ -148,7 +165,18 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
-      { href: "/reports", label: "Reports", icon: BarChart3 },
+      {
+        href: "/reports", label: "Reports", icon: BarChart3,
+        children: [
+          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
+          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
+          { href: "/reports?tab=audit", label: "Audit Package", icon: FileText },
+          { href: "/reports?tab=minutes", label: "Minutes", icon: Clock },
+          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
+          { href: "/reports?tab=risk", label: "At-Risk", icon: Shield },
+          { href: "/reports?tab=parent", label: "Parent Summary", icon: Users },
+        ],
+      },
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
@@ -165,7 +193,19 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
-      { href: "/settings", label: "Settings", icon: Settings },
+      {
+        href: "/settings", label: "Settings", icon: Settings,
+        children: [
+          { href: "/settings?tab=general", label: "General", icon: Settings },
+          { href: "/settings?tab=school-year", label: "School Year", icon: CalendarDays },
+          { href: "/settings?tab=billing-rates", label: "Billing Rates", icon: DollarSign },
+          { href: "/settings?tab=sis", label: "SIS Integration", icon: Database },
+          { href: "/settings?tab=audit-log", label: "Audit Log", icon: FileText },
+          { href: "/settings?tab=recently-deleted", label: "Recently Deleted", icon: Trash2 },
+          { href: "/settings?tab=system-status", label: "System Status", icon: Activity },
+          { href: "/settings?tab=legal", label: "Legal & Compliance", icon: Scale },
+        ],
+      },
     ],
   },
   {

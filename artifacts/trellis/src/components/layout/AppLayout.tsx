@@ -203,11 +203,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : location.startsWith(item.href);
   }
 
-  function isChildActive(childHref: string) {
+  function isChildActive(childHref: string, isFirstChild = false) {
     const [childPath, childQuery] = childHref.split("?");
+    if (!location.startsWith(childPath)) return false;
     const childParams = new URLSearchParams(childQuery ?? "");
     const currentParams = new URLSearchParams(search);
-    if (!location.startsWith(childPath)) return false;
+    const currentTab = currentParams.get("tab");
+    // If no ?tab= in URL, treat the first/default child as active
+    if (currentTab === null && isFirstChild) return true;
     for (const [k, v] of childParams.entries()) {
       if (currentParams.get(k) !== v) return false;
     }
@@ -361,8 +364,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           />
                           {showChildren && (
                             <div className="ml-3 pl-3 mt-0.5 mb-1 border-l-2 border-sidebar-border/60 space-y-0.5">
-                              {item.children!.map((child) => {
-                                const childActive = isChildActive(child.href);
+                              {item.children!.map((child, ci) => {
+                                const childActive = isChildActive(child.href, ci === 0);
                                 return (
                                   <Link
                                     key={child.href}

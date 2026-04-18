@@ -12,7 +12,7 @@ import {
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Link } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { RISK_CONFIG, RISK_PRIORITY_ORDER } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
 import { FeatureGate } from "@/components/FeatureGate";
@@ -36,30 +36,23 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-function resolveTab(hash: string): TabKey {
-  const key = hash.replace(/^#/, "");
+function resolveTab(search: string): TabKey {
+  const key = new URLSearchParams(search).get("tab") ?? "";
   return TABS.some(t => t.key === key) ? (key as TabKey) : "minutes";
 }
 
-function useHashTab(): [TabKey, (tab: TabKey) => void] {
-  const initialHash = typeof window !== "undefined" ? window.location.hash : "";
-  const [tab, setTabState] = useState<TabKey>(resolveTab(initialHash));
+function useQueryTab(): [TabKey, (tab: TabKey) => void] {
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [tab, setTabState] = useState<TabKey>(() => resolveTab(search));
 
   useEffect(() => {
-    function onHashChange() {
-      setTabState(resolveTab(window.location.hash));
-    }
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+    setTabState(resolveTab(search));
+  }, [search]);
 
   function setTab(key: TabKey) {
     setTabState(key);
-    if (key === "minutes") {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
-    } else {
-      window.location.hash = key;
-    }
+    navigate(`/compliance?tab=${key}`, { replace: true });
   }
 
   return [tab, setTab];
@@ -632,7 +625,7 @@ function ServiceMinutesContent() {
 }
 
 export default function CompliancePage() {
-  const [activeTab, setTab] = useHashTab();
+  const [activeTab, setTab] = useQueryTab();
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">

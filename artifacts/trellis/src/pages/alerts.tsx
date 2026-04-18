@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useListAlerts, useResolveAlert, useBulkResolveAlerts, useSnoozeAlert } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,15 @@ import { CheckCircle, RefreshCw, Clock, ExternalLink, CheckSquare, Square } from
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
-import { useLocation } from "wouter";
+import { useSearch, useLocation } from "wouter";
 
 type Tab = "open" | "resolved" | "snoozed";
+const TAB_KEYS: Tab[] = ["open", "snoozed", "resolved"];
+
+function resolveTab(search: string): Tab {
+  const p = new URLSearchParams(search).get("tab");
+  return (p && TAB_KEYS.includes(p as Tab) ? p : "open") as Tab;
+}
 
 const SEVERITY_CONFIG: Record<string, { dot: string; bg: string; color: string }> = {
   critical: { dot: "bg-red-500", bg: "bg-red-50/60 border-red-100", color: "text-red-700" },
@@ -48,7 +54,9 @@ function computeSourceUrl(alert: any): string | null {
 }
 
 export default function Alerts() {
-  const [tab, setTab] = useState<Tab>("open");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [studentSearch, setStudentSearch] = useState("");
@@ -59,7 +67,17 @@ export default function Alerts() {
   const [resolveNote, setResolveNote] = useState("");
   const [resolving, setResolving] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    setTabState(resolveTab(search));
+  }, [search]);
+
+  function setTab(t: Tab) {
+    setTabState(t);
+    setSeverityFilter("all");
+    setSelected(new Set());
+    navigate(`/alerts?tab=${t}`, { replace: true });
+  }
 
   const { typedFilter } = useSchoolContext();
 
