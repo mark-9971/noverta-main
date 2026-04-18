@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, FileText,
   Clock, TrendingUp, Loader2, Printer,
   BookOpen, MessageSquare, Briefcase,
-  RefreshCw, Save,
+  RefreshCw, Save, Printer, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getStudentIepBuilderContext, generateIepBuilder } from "@workspace/api-client-react";
@@ -27,6 +27,7 @@ import { printDraft as printDraftHtml } from "./printDraft";
 export default function IepBuilderPage() {
   const params = useParams<{ id: string }>();
   const studentId = parseInt(params.id);
+  const [, navigate] = useLocation();
   const [step, setStep] = useState<Step>(1);
   const [context, setContext] = useState<BuilderContext | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,9 +45,110 @@ export default function IepBuilderPage() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const isDirtyRef = useRef(false);
+  // Incremented on every user edit; captured before each save to detect
+  // edits that arrive while a save is in-flight.
+  const changeVersionRef = useRef(0);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [pendingNavUrl, setPendingNavUrl] = useState<string | null>(null);
+  const originalPushStateRef = useRef<typeof window.history.pushState | null>(null);
+  const originalReplaceStateRef = useRef<typeof window.history.replaceState | null>(null);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  const markDirty = useCallback(() => {
+    changeVersionRef.current += 1;
+    setIsDirty(true);
+    isDirtyRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  useEffect(() => {
+    // Capture the IEP builder URL before any navigation occurs.
+    // This is used in the popstate handler because by the time popstate fires,
+    // window.location.href has already changed to the previous page's URL.
+    const iepBuilderUrl = window.location.href;
+
+    const originalPush = window.history.pushState.bind(window.history);
+    const originalReplace = window.history.replaceState.bind(window.history);
+    originalPushStateRef.current = originalPush;
+    originalReplaceStateRef.current = originalReplace;
+
+    const interceptNav = (originalFn: typeof originalPush, state: any, title: string, url?: string | URL | null) => {
+      if (isDirtyRef.current) {
+        setPendingNavUrl(url != null ? String(url) : null);
+        setShowLeaveDialog(true);
+        return;
+      }
+      originalFn(state, title, url);
+    };
+
+    window.history.pushState = (state: any, title: string, url?: string | URL | null) =>
+      interceptNav(originalPush, state, title, url);
+    window.history.replaceState = (state: any, title: string, url?: string | URL | null) =>
+      interceptNav(originalReplace, state, title, url);
+
+    const handlePopState = () => {
+      if (isDirtyRef.current) {
+        // Push the IEP builder URL back using the ORIGINAL pushState so we don't
+        // re-enter our patch. We use `iepBuilderUrl` (captured at mount) because
+        // by the time this handler runs, window.location.href is already the
+        // previous page's URL — not the builder's URL.
+        originalPush(null, "", iepBuilderUrl);
+        setPendingNavUrl(null);
+        setShowLeaveDialog(true);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.history.pushState = originalPush;
+      window.history.replaceState = originalReplace;
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  const confirmLeave = useCallback(() => {
+    setIsDirty(false);
+    isDirtyRef.current = false;
+    setShowLeaveDialog(false);
+    if (pendingNavUrl !== null) {
+      const url = pendingNavUrl;
+      setPendingNavUrl(null);
+      if (originalPushStateRef.current) {
+        originalPushStateRef.current(null, "", url);
+        window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+      }
+    } else {
+      window.history.back();
+    }
+  }, [pendingNavUrl]);
+
+  const cancelLeave = useCallback(() => {
+    setShowLeaveDialog(false);
+    setPendingNavUrl(null);
+  }, []);
+
   const saveDraft = useCallback(async (currentStep: Step, p: ParentQuestionnaire, t: TeacherQuestionnaire, tr: TransitionInput) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
+    // Snapshot the version counter before the async request so we can
+    // detect whether new edits arrived while the save was in-flight.
+    const versionAtSave = changeVersionRef.current;
     try {
       const res = await authFetch(`${API_BASE}/students/${studentId}/iep-builder/draft`, {
         method: "PUT",
@@ -59,6 +161,11 @@ export default function IepBuilderPage() {
       if (res.ok) {
         const data = await res.json();
         setDraftSavedAt(data.updatedAt);
+        // Only clear dirty if no new edits arrived while the save was in-flight.
+        if (changeVersionRef.current === versionAtSave) {
+          setIsDirty(false);
+          isDirtyRef.current = false;
+        }
       }
     } catch {}
     isSavingRef.current = false;
@@ -164,6 +271,7 @@ export default function IepBuilderPage() {
         });
       setDraft(res as any);
       setStep(5);
+      setIsDirty(false);
       deleteDraft();
     } catch {
       toast.error("Failed to generate draft. Please try again.");
@@ -179,14 +287,22 @@ export default function IepBuilderPage() {
 
   function setParentField(field: keyof ParentQuestionnaire, value: string) {
     setParent(p => ({ ...p, [field]: value }));
+    markDirty();
   }
 
   function setTeacherField(field: keyof TeacherQuestionnaire, value: string) {
     setTeacher(t => ({ ...t, [field]: value }));
+    markDirty();
   }
 
   function setTeacherServiceNote(svcName: string, note: string) {
     setTeacher(t => ({ ...t, serviceChanges: { ...t.serviceChanges, [svcName]: note } }));
+    markDirty();
+  }
+
+  function setTransitionField(value: TransitionInput) {
+    setTransition(value);
+    markDirty();
   }
 
   if (loading) {
@@ -219,6 +335,33 @@ export default function IepBuilderPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      {showLeaveDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <h2 className="text-base font-bold text-gray-900">Unsaved Changes</h2>
+            </div>
+            <p className="text-[13px] text-gray-600 mb-5">
+              You have unsaved changes in the IEP builder. If you leave now, any changes made since the last auto-save may be lost.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white"
+                onClick={cancelLeave}
+              >
+                Stay and Continue
+              </Button>
+              <Button className="flex-1" variant="outline" onClick={confirmLeave}>
+                Leave Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showResumeDialog && pendingDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
@@ -244,19 +387,28 @@ export default function IepBuilderPage() {
       )}
 
       <div className="flex items-center gap-3 mb-6">
-        <Link href={`/students/${studentId}/iep`} className="text-gray-400 hover:text-gray-600">
+        <button
+          onClick={() => navigate(`/students/${studentId}/iep`)}
+          className="text-gray-400 hover:text-gray-600"
+          aria-label="Back to student IEP"
+        >
           <ArrowLeft className="w-5 h-5" />
-        </Link>
+        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">IEP Annual Review Draft Builder</h1>
           <p className="text-[13px] text-gray-500">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
         </div>
-        {draftSavedAt && (
+        {isDirty ? (
+          <div className="flex items-center gap-1.5 text-[11px] text-amber-500 bg-amber-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
+            <Save className="w-3 h-3" />
+            Unsaved changes
+          </div>
+        ) : draftSavedAt ? (
           <div className="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">
             <Save className="w-3 h-3" />
             Draft saved {new Date(draftSavedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
@@ -279,7 +431,7 @@ export default function IepBuilderPage() {
       {step === 1 && <Step1Context context={context} />}
       {step === 2 && <Step2Parent context={context} values={parent} onChange={setParentField} />}
       {step === 3 && <Step3Teacher context={context} values={teacher} onChange={setTeacherField} onServiceNote={setTeacherServiceNote} />}
-      {step === 4 && context.needsTransition && <Step4Transition context={context} values={transition} onChange={setTransition} />}
+      {step === 4 && context.needsTransition && <Step4Transition context={context} values={transition} onChange={setTransitionField} />}
       {(step === 5 || (!context.needsTransition && step === 4)) && (
         <Step5Generate draft={draft} generating={generating} onGenerate={generate} onPrint={printDraft} context={context} />
       )}
