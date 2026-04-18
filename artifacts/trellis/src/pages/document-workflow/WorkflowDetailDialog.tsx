@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, RotateCcw, ArrowRight, UserPlus, History, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { WorkflowDetail, DocumentVersion, ActionType, STAGE_LABELS, ACTION_CONFIG } from "./types";
 import { AgingBadge, StatusBadge, StageBadge, daysAgo, formatDateTime, groupApprovalsByStage, buildThreadTree } from "./shared";
+import { InlineDocumentViewer } from "./InlineDocumentViewer";
 
 interface Props {
   detailLoading: boolean;
@@ -39,7 +40,7 @@ export function WorkflowDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         {detailLoading ? (
           <div className="space-y-4 py-8">
             <Skeleton className="h-6 w-3/4" />
@@ -127,6 +128,12 @@ export function WorkflowDetailDialog({
                   </div>
                 </div>
               )}
+
+              <InlineDocumentViewer
+                workflowId={selectedWorkflow.id}
+                documentType={selectedWorkflow.documentType}
+                studentName={`${selectedWorkflow.studentFirstName ?? ""} ${selectedWorkflow.studentLastName ?? ""}`.trim()}
+              />
 
               {selectedWorkflow.status === "in_progress" && (
                 <div className="flex gap-2 border-t pt-4">

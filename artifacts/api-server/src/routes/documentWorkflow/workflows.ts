@@ -1,5 +1,15 @@
 import { Router } from "express";
-import { db, approvalWorkflowsTable, workflowApprovalsTable, workflowReviewersTable, studentsTable } from "@workspace/db";
+import {
+  db,
+  approvalWorkflowsTable,
+  workflowApprovalsTable,
+  workflowReviewersTable,
+  studentsTable,
+  iepDocumentsTable,
+  evaluationsTable,
+  progressReportsTable,
+  priorWrittenNoticesTable,
+} from "@workspace/db";
 import { eq, and, desc, SQL } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
@@ -410,6 +420,142 @@ router.post("/document-workflow/workflows/:id/comments", async (req, res) => {
   }).returning();
 
   res.status(201).json(entry);
+});
+
+router.get("/document-workflow/workflows/:id/document-preview", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+  const id = parsePositiveInt(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+
+  const [workflow] = await db
+    .select({
+      documentType: approvalWorkflowsTable.documentType,
+      documentId: approvalWorkflowsTable.documentId,
+      studentId: approvalWorkflowsTable.studentId,
+    })
+    .from(approvalWorkflowsTable)
+    .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
+
+  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+
+  const { documentType, documentId, studentId } = workflow;
+
+  let preview: Record<string, unknown> = { documentType, documentId };
+
+  try {
+    switch (documentType) {
+      case "iep": {
+        const [doc] = await db
+          .select()
+          .from(iepDocumentsTable)
+          .where(and(eq(iepDocumentsTable.id, documentId), eq(iepDocumentsTable.studentId, studentId)));
+        if (doc) {
+          preview = {
+            documentType,
+            documentId,
+            iepType: doc.iepType,
+            version: doc.version,
+            status: doc.status,
+            iepStartDate: doc.iepStartDate,
+            iepEndDate: doc.iepEndDate,
+            meetingDate: doc.meetingDate,
+            studentConcerns: doc.studentConcerns,
+            parentConcerns: doc.parentConcerns,
+            teamVision: doc.teamVision,
+            plaafpAcademic: doc.plaafpAcademic,
+            plaafpBehavioral: doc.plaafpBehavioral,
+            plaafpCommunication: doc.plaafpCommunication,
+            plaafpAdditional: doc.plaafpAdditional,
+            esyEligible: doc.esyEligible,
+            esyServices: doc.esyServices,
+            assessmentParticipation: doc.assessmentParticipation,
+            scheduleModifications: doc.scheduleModifications,
+            transportationServices: doc.transportationServices,
+          };
+        }
+        break;
+      }
+      case "evaluation": {
+        const [doc] = await db
+          .select()
+          .from(evaluationsTable)
+          .where(and(eq(evaluationsTable.id, documentId), eq(evaluationsTable.studentId, studentId)));
+        if (doc) {
+          preview = {
+            documentType,
+            documentId,
+            evaluationType: doc.evaluationType,
+            status: doc.status,
+            startDate: doc.startDate,
+            dueDate: doc.dueDate,
+            completionDate: doc.completionDate,
+            meetingDate: doc.meetingDate,
+            reportSummary: doc.reportSummary,
+            notes: doc.notes,
+            evaluationAreas: doc.evaluationAreas,
+            teamMembers: doc.teamMembers,
+          };
+        }
+        break;
+      }
+      case "progress_report": {
+        const [doc] = await db
+          .select()
+          .from(progressReportsTable)
+          .where(and(eq(progressReportsTable.id, documentId), eq(progressReportsTable.studentId, studentId)));
+        if (doc) {
+          preview = {
+            documentType,
+            documentId,
+            reportingPeriod: doc.reportingPeriod,
+            periodStart: doc.periodStart,
+            periodEnd: doc.periodEnd,
+            status: doc.status,
+            overallSummary: doc.overallSummary,
+            serviceDeliverySummary: doc.serviceDeliverySummary,
+            recommendations: doc.recommendations,
+            parentNotes: doc.parentNotes,
+            goalProgress: doc.goalProgress,
+            serviceBreakdown: doc.serviceBreakdown,
+            parentNotificationDate: doc.parentNotificationDate,
+          };
+        }
+        break;
+      }
+      case "prior_written_notice": {
+        const [doc] = await db
+          .select()
+          .from(priorWrittenNoticesTable)
+          .where(and(eq(priorWrittenNoticesTable.id, documentId), eq(priorWrittenNoticesTable.studentId, studentId)));
+        if (doc) {
+          preview = {
+            documentType,
+            documentId,
+            noticeType: doc.noticeType,
+            status: doc.status,
+            actionProposed: doc.actionProposed,
+            actionDescription: doc.actionDescription,
+            reasonForAction: doc.reasonForAction,
+            optionsConsidered: doc.optionsConsidered,
+            reasonOptionsRejected: doc.reasonOptionsRejected,
+            evaluationInfo: doc.evaluationInfo,
+            otherFactors: doc.otherFactors,
+            issuedDate: doc.issuedDate,
+            parentResponseDueDate: doc.parentResponseDueDate,
+            notes: doc.notes,
+          };
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch document preview" });
+  }
+
+  res.json(preview);
 });
 
 export default router;
