@@ -1,0 +1,352 @@
+import { Router, type IRouter } from "express";
+import { db } from "@workspace/db";
+import {
+  scheduleBlocksTable, staffTable, studentsTable, serviceTypesTable,
+  scheduleChangeRequestsTable, schoolsTable,
+} from "@workspace/db";
+import { eq, and, isNull } from "drizzle-orm";
+import { z } from "zod/v4";
+import type { AuthedRequest } from "../../middlewares/auth";
+import { requireAuth, requireRoles } from "../../middlewares/auth";
+import { blockToJson } from "./shared";
+
+const router: IRouter = Router();
+
+/** Admins, coordinators, and case managers can all review change requests. */
+const requireReviewer = requireRoles("admin", "coordinator", "case_manager");
+
+const CreateChangeRequestBody = z.object({
+  scheduleBlockId: z.number().int().optional(),
+  requestType: z.enum(["swap_time", "coverage_request", "other"]),
+  notes: z.string().max(1000).optional(),
+  requestedDate: z.string().optional(),
+  requestedStartTime: z.string().optional(),
+  requestedEndTime: z.string().optional(),
+});
+
+const ReviewChangeRequestBody = z.object({
+  status: z.enum(["approved", "denied"]),
+  adminNotes: z.string().max(1000).optional(),
+});
+
+/** Resolve caller's staff ID from token or dev header. */
+function resolveCallerStaffId(req: AuthedRequest): number | null {
+  if (req.tenantStaffId) return req.tenantStaffId;
+  if (process.env.NODE_ENV !== "production") {
+    const demoStaffId = req.headers["x-demo-staff-id"];
+    if (typeof demoStaffId === "string" && !isNaN(Number(demoStaffId))) {
+      return Number(demoStaffId);
+    }
+  }
+  return null;
+}
+
+/** Row type returned by the change-request list query. */
+interface ChangeRequestRow {
+  id: number;
+  staff_id: number;
+  schedule_block_id: number | null;
+  request_type: string;
+  notes: string | null;
+  requested_date: string | null;
+  requested_start_time: string | null;
+  requested_end_time: string | null;
+  status: string;
+  admin_notes: string | null;
+  reviewed_by_staff_id: number | null;
+  reviewed_at: Date | null;
+  created_at: Date | null;
+  staff_first: string | null;
+  staff_last: string | null;
+  staff_role: string | null;
+  day_of_week: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  student_first: string | null;
+  student_last: string | null;
+  service_type_name: string | null;
+  reviewer_first: string | null;
+  reviewer_last: string | null;
+}
+
+/** Drizzle returning() shape for schedule_change_requests. */
+interface ChangeRequestRecord {
+  id: number;
+  staffId: number;
+  scheduleBlockId: number | null;
+  requestType: string;
+  notes: string | null;
+  requestedDate: string | null;
+  requestedStartTime: string | null;
+  requestedEndTime: string | null;
+  status: string;
+  adminNotes: string | null;
+  reviewedByStaffId: number | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+}
+
+const CHANGE_REQUEST_SELECT_SQL = `
+  SELECT
+    scr.id, scr.staff_id, scr.schedule_block_id, scr.request_type,
+    scr.notes, scr.requested_date, scr.requested_start_time, scr.requested_end_time,
+    scr.status, scr.admin_notes, scr.reviewed_by_staff_id, scr.reviewed_at, scr.created_at,
+    s.first_name AS staff_first, s.last_name AS staff_last, s.role AS staff_role,
+    sb.day_of_week, sb.start_time, sb.end_time, sb.location,
+    stu.first_name AS student_first, stu.last_name AS student_last,
+    st.name AS service_type_name,
+    rev.first_name AS reviewer_first, rev.last_name AS reviewer_last
+  FROM schedule_change_requests scr
+  JOIN staff s ON s.id = scr.staff_id
+  LEFT JOIN schedule_blocks sb ON sb.id = scr.schedule_block_id
+  LEFT JOIN students stu ON stu.id = sb.student_id
+  LEFT JOIN service_types st ON st.id = sb.service_type_id
+  LEFT JOIN staff rev ON rev.id = scr.reviewed_by_staff_id
+`;
+
+router.get("/schedules/my-schedule", requireAuth, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const staffId = resolveCallerStaffId(authed);
+
+  if (!staffId) {
+    res.status(403).json({ error: "No staff record linked to your account. Contact your administrator." });
+    return;
+  }
+
+  const blocks = await db
+    .select({
+      id: scheduleBlocksTable.id,
+      staffId: scheduleBlocksTable.staffId,
+      studentId: scheduleBlocksTable.studentId,
+      serviceTypeId: scheduleBlocksTable.serviceTypeId,
+      dayOfWeek: scheduleBlocksTable.dayOfWeek,
+      startTime: scheduleBlocksTable.startTime,
+      endTime: scheduleBlocksTable.endTime,
+      location: scheduleBlocksTable.location,
+      blockLabel: scheduleBlocksTable.blockLabel,
+      blockType: scheduleBlocksTable.blockType,
+      notes: scheduleBlocksTable.notes,
+      isRecurring: scheduleBlocksTable.isRecurring,
+      recurrenceType: scheduleBlocksTable.recurrenceType,
+      effectiveFrom: scheduleBlocksTable.effectiveFrom,
+      effectiveTo: scheduleBlocksTable.effectiveTo,
+      weekOf: scheduleBlocksTable.weekOf,
+      isAutoGenerated: scheduleBlocksTable.isAutoGenerated,
+      rotationDay: scheduleBlocksTable.rotationDay,
+      createdAt: scheduleBlocksTable.createdAt,
+      staffFirst: staffTable.firstName,
+      staffLast: staffTable.lastName,
+      studentFirst: studentsTable.firstName,
+      studentLast: studentsTable.lastName,
+      serviceTypeName: serviceTypesTable.name,
+    })
+    .from(scheduleBlocksTable)
+    .leftJoin(staffTable, eq(staffTable.id, scheduleBlocksTable.staffId))
+    .leftJoin(studentsTable, eq(studentsTable.id, scheduleBlocksTable.studentId))
+    .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, scheduleBlocksTable.serviceTypeId))
+    .where(and(
+      eq(scheduleBlocksTable.staffId, staffId),
+      isNull(scheduleBlocksTable.deletedAt),
+    ));
+
+  res.json(blocks.map(b => blockToJson(
+    b,
+    b.staffFirst ? `${b.staffFirst} ${b.staffLast}` : null,
+    b.studentFirst ? `${b.studentFirst} ${b.studentLast}` : null,
+    b.serviceTypeName,
+  )));
+});
+
+router.post("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const staffId = resolveCallerStaffId(authed);
+
+  if (!staffId) {
+    res.status(403).json({ error: "No staff record linked to your account. Contact your administrator." });
+    return;
+  }
+
+  const parsed = CreateChangeRequestBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (parsed.data.scheduleBlockId) {
+    const [block] = await db
+      .select({ staffId: scheduleBlocksTable.staffId })
+      .from(scheduleBlocksTable)
+      .where(and(
+        eq(scheduleBlocksTable.id, parsed.data.scheduleBlockId),
+        isNull(scheduleBlocksTable.deletedAt),
+      ));
+
+    if (!block) {
+      res.status(404).json({ error: "Schedule block not found" });
+      return;
+    }
+    if (block.staffId !== staffId) {
+      res.status(403).json({ error: "You can only request changes for your own schedule blocks" });
+      return;
+    }
+  }
+
+  const [created] = await db.insert(scheduleChangeRequestsTable).values({
+    staffId,
+    scheduleBlockId: parsed.data.scheduleBlockId ?? null,
+    requestType: parsed.data.requestType,
+    notes: parsed.data.notes ?? null,
+    requestedDate: parsed.data.requestedDate ?? null,
+    requestedStartTime: parsed.data.requestedStartTime ?? null,
+    requestedEndTime: parsed.data.requestedEndTime ?? null,
+    status: "pending",
+  }).returning();
+
+  res.status(201).json(changeRequestRecordToJson(created as ChangeRequestRecord));
+});
+
+router.get("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const isReviewer = ["admin", "coordinator", "case_manager"].includes(authed.trellisRole);
+  const staffId = resolveCallerStaffId(authed);
+  const { pool } = await import("@workspace/db");
+  const districtId = authed.tenantDistrictId;
+
+  if (isReviewer) {
+    const whereClauses: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (districtId) {
+      params.push(districtId);
+      whereClauses.push(`scr.staff_id IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = $${params.length}))`);
+    }
+
+    if (req.query.status && typeof req.query.status === "string") {
+      params.push(req.query.status);
+      whereClauses.push(`scr.status = $${params.length}`);
+    }
+
+    const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    const result = await pool.query<ChangeRequestRow>(
+      `${CHANGE_REQUEST_SELECT_SQL} ${where} ORDER BY scr.created_at DESC LIMIT 200`,
+      params,
+    );
+    res.json(result.rows.map(rowToJson));
+    return;
+  }
+
+  if (!staffId) {
+    res.status(403).json({ error: "No staff record linked to your account." });
+    return;
+  }
+
+  const result = await pool.query<ChangeRequestRow>(
+    `${CHANGE_REQUEST_SELECT_SQL} WHERE scr.staff_id = $1 ORDER BY scr.created_at DESC LIMIT 100`,
+    [staffId],
+  );
+  res.json(result.rows.map(rowToJson));
+});
+
+router.patch("/schedules/change-requests/:id", requireReviewer, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const parsed = ReviewChangeRequestBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  // Verify the change request belongs to the caller's district (cross-tenant protection).
+  const districtId = authed.tenantDistrictId;
+  if (districtId !== null) {
+    const [ownership] = await db
+      .select({ districtId: schoolsTable.districtId })
+      .from(scheduleChangeRequestsTable)
+      .innerJoin(staffTable, eq(staffTable.id, scheduleChangeRequestsTable.staffId))
+      .innerJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
+      .where(eq(scheduleChangeRequestsTable.id, id));
+
+    if (!ownership) {
+      res.status(404).json({ error: "Change request not found" });
+      return;
+    }
+    if (ownership.districtId !== districtId) {
+      res.status(403).json({ error: "You do not have permission to review this request" });
+      return;
+    }
+  }
+
+  const reviewerStaffId = resolveCallerStaffId(authed);
+
+  const [updated] = await db
+    .update(scheduleChangeRequestsTable)
+    .set({
+      status: parsed.data.status,
+      adminNotes: parsed.data.adminNotes ?? null,
+      reviewedByStaffId: reviewerStaffId ?? null,
+      reviewedAt: new Date(),
+    })
+    .where(eq(scheduleChangeRequestsTable.id, id))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Change request not found" });
+    return;
+  }
+
+  res.json(changeRequestRecordToJson(updated as ChangeRequestRecord));
+});
+
+function changeRequestRecordToJson(r: ChangeRequestRecord) {
+  return {
+    id: r.id,
+    staffId: r.staffId,
+    scheduleBlockId: r.scheduleBlockId,
+    requestType: r.requestType,
+    notes: r.notes,
+    requestedDate: r.requestedDate,
+    requestedStartTime: r.requestedStartTime,
+    requestedEndTime: r.requestedEndTime,
+    status: r.status,
+    adminNotes: r.adminNotes,
+    reviewedByStaffId: r.reviewedByStaffId,
+    reviewedAt: r.reviewedAt ? r.reviewedAt.toISOString() : null,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+  };
+}
+
+function rowToJson(r: ChangeRequestRow) {
+  return {
+    id: r.id,
+    staffId: r.staff_id,
+    staffName: r.staff_first ? `${r.staff_first} ${r.staff_last}` : null,
+    staffRole: r.staff_role,
+    scheduleBlockId: r.schedule_block_id,
+    requestType: r.request_type,
+    notes: r.notes,
+    requestedDate: r.requested_date,
+    requestedStartTime: r.requested_start_time,
+    requestedEndTime: r.requested_end_time,
+    status: r.status,
+    adminNotes: r.admin_notes,
+    reviewedByStaffId: r.reviewed_by_staff_id,
+    reviewerName: r.reviewer_first ? `${r.reviewer_first} ${r.reviewer_last}` : null,
+    reviewedAt: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null,
+    createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+    blockDayOfWeek: r.day_of_week,
+    blockStartTime: r.start_time,
+    blockEndTime: r.end_time,
+    blockLocation: r.location,
+    studentName: r.student_first ? `${r.student_first} ${r.student_last}` : null,
+    serviceTypeName: r.service_type_name,
+  };
+}
+
+export default router;

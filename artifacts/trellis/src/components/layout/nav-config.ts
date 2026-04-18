@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  Trash2, CheckCircle, Bell, Send, Gift,
+  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -347,6 +347,7 @@ export const spedTeacherNav: NavSection[] = adminNav
         { href: "/today", label: "Today", icon: Sun, primary: true },
         ...items,
         { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
+        { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
       ];
     }
     return { ...s, label, items };
@@ -376,6 +377,7 @@ export const bcbaNav: NavSection[] = [
       { href: "/students", label: "My Students", icon: Users, primary: true },
       { href: "/sessions", label: "My Sessions", icon: Clipboard },
       { href: "/schedule", label: "Schedule", icon: Calendar },
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
     ],
   },
   {
@@ -413,6 +415,7 @@ export const paraNav: NavSection[] = [
     label: "Session Work",
     items: [
       { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
       { href: "/sessions", label: "Session Log", icon: Clipboard },
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
     ],

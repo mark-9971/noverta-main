@@ -3,13 +3,14 @@ import { Redirect } from "wouter";
 import { useRole } from "@/lib/role-context";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useSchoolContext } from "@/lib/school-context";
-import { UserX, AlertTriangle, BarChart2, History, FileText } from "lucide-react";
+import { UserX, AlertTriangle, BarChart2, History, FileText, ArrowLeftRight } from "lucide-react";
 import { UncoveredTab } from "./UncoveredTab";
 import { AbsencesTab } from "./AbsencesTab";
 import { WorkloadTab } from "./WorkloadTab";
 import { HistoryTab } from "./HistoryTab";
 import { ReportTab } from "./ReportTab";
 import { DailySummary } from "./DailySummary";
+import { ChangeRequestsTab } from "./ChangeRequestsTab";
 import type { CoverageTab } from "./utils";
 
 const COVERAGE_ROLES = ["admin", "coordinator", "case_manager"];
@@ -28,6 +29,7 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
     { key: "history", label: "Coverage Log", icon: History },
     { key: "report", label: "Usage Report", icon: FileText },
     { key: "workload", label: "Workload", icon: BarChart2 },
+    { key: "change_requests", label: "Change Requests", icon: ArrowLeftRight },
   ];
 
   return (
@@ -71,6 +73,7 @@ export default function CoveragePage({ embedded = false }: { embedded?: boolean 
           {tab === "history" && <HistoryTab schoolId={schoolId} />}
           {tab === "report" && <ReportTab schoolId={schoolId} />}
           {tab === "workload" && <WorkloadTab schoolId={schoolId} />}
+          {tab === "change_requests" && <ChangeRequestsTab schoolId={schoolId} />}
         </CardContent>
       </Card>
     </div>

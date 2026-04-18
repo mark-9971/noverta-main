@@ -34,4 +34,4 @@ export function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export type CoverageTab = "uncovered" | "absences" | "history" | "report" | "workload";
+export type CoverageTab = "uncovered" | "absences" | "history" | "report" | "workload" | "change_requests";
