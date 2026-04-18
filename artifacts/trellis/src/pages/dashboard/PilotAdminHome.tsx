@@ -60,9 +60,7 @@ interface ComplianceRiskReport {
 
 interface OnboardingStatus {
   isComplete: boolean;
-  completedCount: number;
-  totalSteps: number;
-  pilotChecklist?: { isComplete: boolean };
+  pilotChecklist?: { isComplete: boolean; completedCount: number; totalSteps: number };
 }
 
 interface WeekTrend {
@@ -322,18 +320,45 @@ export default function PilotAdminHome() {
         {/* Pointer to the unified first-run hub — the canonical page that
             walks an admin through sample data → checklist → readiness →
             first value → next actions in one coherent flow. */}
-        {!onboardingComplete && (
-          <div className="text-xs text-gray-500">
-            Prefer a single guided page?{" "}
-            <Link
-              href="/onboarding"
-              className="text-emerald-700 hover:text-emerald-800 font-medium"
-              data-testid="link-first-run-hub"
-            >
-              Open the first-run hub <ArrowRight className="inline w-3 h-3 -mt-0.5" />
-            </Link>
-          </div>
-        )}
+        {!onboardingComplete && (() => {
+          // "Steps remaining" action label — sourced from the canonical
+          // 9-step pilot checklist (NOT the legacy 4-step
+          // `onboarding.totalSteps - onboarding.completedCount`, which would
+          // cap the counter at 4 even though the real checklist has 9 items).
+          const pcCompleted = onboarding?.pilotChecklist?.completedCount ?? 0;
+          const pcTotal = onboarding?.pilotChecklist?.totalSteps ?? 0;
+          const stepsRemaining = Math.max(0, pcTotal - pcCompleted);
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+              <Link
+                href="/onboarding"
+                className="font-medium text-emerald-700 hover:text-emerald-800"
+                data-testid="link-finish-setup"
+              >
+                Finish setup
+                {pcTotal > 0 && (
+                  <>
+                    {" — "}
+                    <span data-testid="text-steps-remaining">
+                      {stepsRemaining} {stepsRemaining === 1 ? "step" : "steps"} remaining
+                    </span>
+                  </>
+                )}{" "}
+                <ArrowRight className="inline w-3 h-3 -mt-0.5" />
+              </Link>
+              <span>
+                Prefer a single guided page?{" "}
+                <Link
+                  href="/onboarding"
+                  className="text-emerald-700 hover:text-emerald-800 font-medium"
+                  data-testid="link-first-run-hub"
+                >
+                  Open the first-run hub <ArrowRight className="inline w-3 h-3 -mt-0.5" />
+                </Link>
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 1. Are we compliant? */}

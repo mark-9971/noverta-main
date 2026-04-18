@@ -207,15 +207,18 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
       complianceDashboardActive,
     };
 
+    // Legacy fields. `isComplete` is the 3-step "core" readiness signal
+    // (SIS + schools + service types) and `completedCount`/`totalSteps`
+    // describe the old 4-step checklist. Kept for backward compatibility
+    // with any callers that still read them. New callers should prefer the
+    // canonical 9-step `pilotChecklist` below.
     const coreSteps = [steps.sisConnected, steps.schoolsConfigured, steps.serviceTypesConfigured];
     const checklistSteps = [steps.sisConnected, steps.districtConfirmed, steps.serviceTypesConfigured, steps.staffInvited];
     const completedCount = checklistSteps.filter(Boolean).length;
     const totalSteps = 4;
     const isComplete = coreSteps.every(Boolean);
 
-    // Pilot-readiness checklist (9 user-facing steps). The legacy top-level
-    // `completedCount`/`totalSteps`/`isComplete` above are kept because
-    // PilotAdminHome still reads them for the "steps remaining" action label.
+    // Pilot-readiness checklist (9 user-facing steps).
     const pilotChecklist = {
       districtProfileConfigured: districtConfirmed && steps.schoolsConfigured && steps.serviceTypesConfigured,
       schoolYearConfigured,
