@@ -56,7 +56,7 @@ interface LifeThreateningAlert {
   studentId: number;
   firstName: string;
   lastName: string;
-  grade: string;
+  grade: string | null;
 }
 
 function dismissKey(sessionId: string) {
@@ -78,7 +78,7 @@ export function LifeThreateningAlertsBanner() {
   }, [sessionId]);
 
   const { data } = useQuery<LifeThreateningAlert[]>({
-    queryKey: ["students-life-threatening-alerts"],
+    queryKey: ["students-life-threatening-alerts", sessionId],
     queryFn: () => authFetch("/api/students/life-threatening-alerts").then(r => r.ok ? r.json() : []),
     staleTime: 5 * 60_000,
     enabled: ready && !dismissed,
