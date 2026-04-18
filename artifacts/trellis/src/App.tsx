@@ -210,6 +210,7 @@ function StaffRouter() {
       <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
+      <BoundedRoute path="/iep-search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>

@@ -108,6 +108,7 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+      { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
     ],
@@ -135,13 +136,7 @@ export const adminNav: NavSection[] = [
           { href: "/progress-reports", label: "Progress Reports", icon: FileText },
         ],
       },
-      {
-        href: "/transitions", label: "Transition Planning", icon: Sprout,
-        children: [
-          { href: "/transitions", label: "Transition Planning", icon: Sprout },
-          { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
-        ],
-      },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
       {
         href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
         children: [
