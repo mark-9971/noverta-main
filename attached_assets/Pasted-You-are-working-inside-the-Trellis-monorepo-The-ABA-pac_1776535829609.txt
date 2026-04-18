@@ -1,0 +1,332 @@
+You are working inside the Trellis monorepo.
+
+The ABA package has already been substantially expanded and hardened.
+Now I want you to do a **full redesign of the ABA section in the sidebar and related workflow architecture** so it feels like a coherent, high-efficiency, clinically serious ABA workspace.
+
+## Goal
+
+Rebuild the ABA area of the product around the best possible user efficiency for:
+
+* programming
+* live sessions
+* post-session review
+* data analysis
+* graph review
+* behavior support / BIP
+* learner runbook / student operational understanding
+* progress reporting
+* supervision / fidelity / IOA
+* cross-student analytics
+
+This is not just a visual cleanup.
+It is an **information architecture, navigation, and workflow redesign**.
+
+The standard is:
+**if a BCBA, para, teacher, or school staff member opens the ABA section, it should feel obvious, fast, and clinically powerful.**
+
+---
+
+# What I want you to optimize for
+
+## 1. Fewer clicks, more clarity
+
+The ABA package should feel streamlined and intentional, not scattered across too many disconnected screens.
+
+## 2. Role-based efficiency
+
+Different users need different “front doors”:
+
+* BCBA / clinical lead
+* para / direct staff
+* teacher / school staff
+* coordinator / admin
+
+The nav and landing experience should reflect that where appropriate.
+
+## 3. Workflow-first design
+
+Design around the actual ABA workflow:
+
+* understand the learner
+* review active programs / BIP / supports
+* run session / collect data
+* review performance
+* update programming
+* analyze trends
+* generate report
+* supervise fidelity / IOA / staff implementation
+
+## 4. Clinically serious organization
+
+The IA should reflect real ABA work:
+
+* programs
+* targets
+* sessions
+* behavior support
+* graphs
+* reports
+* runbook
+* analytics
+* supervision
+
+## 5. Preserve power while reducing clutter
+
+Do not dumb it down.
+The goal is **easy to use but information-rich**.
+
+---
+
+# Design principles
+
+## A. Organize by jobs-to-be-done, not by database table
+
+Avoid nav labels that mirror schema or dev structure.
+Use labels and groupings that make sense to clinicians and school staff.
+
+## B. Minimize context switching
+
+Related tasks should live close together.
+Live data collection, recent performance, program instructions, and learner supports should not require bouncing across many pages.
+
+## C. Make “what do I do with this student?” obvious
+
+A staff member should be able to quickly understand:
+
+* what programs are active
+* how to run them
+* what prompts/supports are needed
+* what problem behaviors/supports matter
+* what reinforcers/preferences matter
+* what changed recently
+
+## D. Analysis should be easy to reach from action
+
+Graphs and analytics should not feel buried.
+Users should be able to move naturally from:
+program → session data → graph → decision
+
+## E. Reporting should emerge from real data
+
+Progress reports and summaries should feel downstream from programming and data, not like isolated documents.
+
+---
+
+# What I want you to do
+
+## Phase 1 — Audit current ABA navigation and workflow architecture
+
+Inspect all current ABA-relevant routes, pages, components, nav config, and role-specific entry points.
+
+Map the current experience for at least:
+
+* BCBA / clinical lead
+* para / direct staff
+* general school staff
+* admin/coordinator
+
+Identify:
+
+* duplicated surfaces
+* weak labels
+* scattered workflows
+* places where users have to jump too much
+* screens that should be grouped together
+* screens that should be promoted/demoted
+* where the current sidebar structure does not match real ABA workflow
+
+## Phase 2 — Propose the best ABA sidebar / IA structure
+
+Design the ideal ABA section.
+
+I want:
+
+* recommended sidebar structure
+* groupings
+* labels
+* landing pages
+* what belongs top-level vs nested
+* what should be accessible from student detail vs global ABA nav
+* what should be role-specific
+* what should be persistent quick actions
+
+Think very carefully about:
+
+* whether “ABA” should be a single top-level section with nested subareas
+* whether sessions/data collection should be more prominent than they are now
+* whether behavior support/BIP should sit separately from programs or within a learner workspace
+* whether runbook should be a first-class screen
+* whether analytics should be split into learner-level vs program-level vs organization-level
+* whether supervision should be grouped under ABA or under staff tools
+
+## Phase 3 — Implement the redesign safely
+
+Make the IA/sidebar/workflow changes.
+
+Requirements:
+
+* preserve routes where possible
+* do not delete existing capabilities
+* prefer reorganization over destruction
+* keep powerful features recoverable
+* ensure direct links/back links still work
+* minimize route breakage
+* update breadcrumbs/back paths if needed
+
+## Phase 4 — Improve the user flow around sessions and data
+
+Make sure the redesigned ABA area strongly supports:
+
+* start session
+* quick live data collection
+* post-session review
+* view graphs immediately after data
+* review recent performance
+* update program/BIP if needed
+
+If a user finishes a session, the next relevant actions should be obvious.
+
+## Phase 5 — Improve the user flow around learner understanding
+
+Make sure the redesigned ABA area strongly supports:
+
+* runbook / learner summary
+* active supports
+* active BIP
+* communication/reinforcement/preferences
+* problem times / triggers / transitions
+* active programs and current status
+
+This should feel like a “how to support this learner” workspace, not just a data archive.
+
+---
+
+# Strong opinionated target structure
+
+You do not have to use this exactly, but I want you to evaluate something in this spirit:
+
+## ABA
+
+### Learners
+
+* ABA Caseload
+* Learner Runbook
+* Active Programs
+* Behavior Support / BIP
+
+### Sessions
+
+* Start Session
+* Live Data
+* Session Review
+* Missed / Incomplete Sessions
+
+### Programs
+
+* Program Library
+* Templates
+* Mastery / Maintenance
+* Program Changes
+
+### Analysis
+
+* Graphs
+* Skill Acquisition Analytics
+* Behavior Analytics
+* Prompt Dependence / Progress Patterns
+
+### Reporting
+
+* Progress Reports
+* Team Summaries
+* Export / Print
+
+### Supervision
+
+* IOA
+* Fidelity
+* Supervision Sessions
+* Staff Performance / Competency
+
+That is just a directional target.
+You should improve it if you can.
+
+---
+
+# Important implementation guidance
+
+## Do not just rename things
+
+This must be a real workflow redesign, not superficial relabeling.
+
+## Do not overfragment
+
+Avoid too many tiny menu items.
+
+## Do not bury live data collection
+
+Live data and session workflows should be extremely easy to reach.
+
+## Do not bury the runbook
+
+If the runbook / learner summary is strong, it should be prominent.
+
+## Do not bury graphs
+
+Graphs and recent performance must be easy to reach from the learner/program workflow.
+
+## Do not bury BIP
+
+Behavior support should feel integrated with learner understanding and data, not isolated.
+
+---
+
+# Output format I want
+
+## 1. Current-state ABA workflow audit
+
+* what the current IA looks like
+* what is weak
+* what is fragmented
+* what is already good
+
+## 2. Recommended ABA information architecture
+
+* sidebar structure
+* labels
+* top-level vs nested
+* role-based differences if any
+* rationale
+
+## 3. Implementation plan
+
+* exact files to change
+* routing/nav strategy
+* dependencies / risk areas
+
+## 4. Changes made
+
+* file-by-file summary
+
+## 5. Verification
+
+* routes checked
+* roles checked
+* workflow checks performed
+
+## 6. Remaining UX gaps
+
+* what still needs improvement after the IA redesign
+
+---
+
+# Standard
+
+The final result should feel like:
+
+**a polished ABA workspace that is fast for direct staff, clinically useful for BCBAs, understandable for school staff, and powerful enough for serious programming/data analysis**
+
+—not like a miscellaneous set of tabs.
+
+Be opinionated, thoughtful, and workflow-driven.
+Audit first, then implement.
