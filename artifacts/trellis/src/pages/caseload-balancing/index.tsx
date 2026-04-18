@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +38,8 @@ export default function CaseloadBalancingPage() {
   const [thresholdDialog, setThresholdDialog] = useState(false);
   const [editThresholds, setEditThresholds] = useState<Record<string, number>>({});
   const [customThresholds, setCustomThresholds] = useState<Record<string, number> | null>(null);
+  const [savingThresholds, setSavingThresholds] = useState(false);
+  const thresholdsLoaded = useRef(false);
 
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [trendLoading, setTrendLoading] = useState(false);
@@ -115,7 +117,26 @@ export default function CaseloadBalancingPage() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); fetchSuggestions(); }, [fetchData, fetchSuggestions]);
+  useEffect(() => {
+    if (thresholdsLoaded.current) return;
+    thresholdsLoaded.current = true;
+    (async () => {
+      let persisted: Record<string, number> | null = null;
+      try {
+        const res = await authFetch("/api/caseload-balancing/thresholds");
+        if (res.ok) {
+          const data = await res.json();
+          persisted = data.thresholds || null;
+          if (persisted) {
+            setCustomThresholds(persisted);
+            setThresholds(persisted);
+          }
+        }
+      } catch {}
+      fetchData(persisted);
+      fetchSuggestions(persisted);
+    })();
+  }, [fetchData, fetchSuggestions]);
 
   const fetchProviderStudents = async (provider: ProviderCaseload) => {
     setSelectedProvider(provider);
@@ -275,12 +296,33 @@ export default function CaseloadBalancingPage() {
         onOpenChange={setThresholdDialog}
         editThresholds={editThresholds}
         setEditThresholds={setEditThresholds}
-        onApply={() => {
-          setCustomThresholds(editThresholds);
-          setThresholds(editThresholds);
-          setThresholdDialog(false);
-          fetchData(editThresholds);
-          fetchSuggestions(editThresholds);
+        saving={savingThresholds}
+        onApply={async () => {
+          setSavingThresholds(true);
+          try {
+            const res = await authFetch("/api/caseload-balancing/thresholds", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ thresholds: editThresholds }),
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              toast.error(err.error || "Failed to save thresholds");
+              return;
+            }
+            const data = await res.json();
+            const saved = data.thresholds;
+            setCustomThresholds(saved);
+            setThresholds(saved);
+            setThresholdDialog(false);
+            fetchData(saved);
+            fetchSuggestions(saved);
+            toast.success("Thresholds saved");
+          } catch {
+            toast.error("Failed to save thresholds");
+          } finally {
+            setSavingThresholds(false);
+          }
         }}
       />
 

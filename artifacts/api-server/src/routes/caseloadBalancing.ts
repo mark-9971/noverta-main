@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable, caseloadSnapshotsTable } from "@workspace/db";
+import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable, caseloadSnapshotsTable, districtsTable } from "@workspace/db";
 import { eq, and, sql, isNull, count, sum, gte } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
@@ -21,13 +21,78 @@ const DEFAULT_THRESHOLDS: Record<string, number> = {
   admin: 50,
 };
 
+async function getDistrictThresholds(districtId: number): Promise<Record<string, number>> {
+  try {
+    const [district] = await db.select({ caseloadThresholds: districtsTable.caseloadThresholds })
+      .from(districtsTable)
+      .where(eq(districtsTable.id, districtId));
+    const stored = (district?.caseloadThresholds as Record<string, number> | null) || {};
+    return { ...DEFAULT_THRESHOLDS, ...stored };
+  } catch {
+    return { ...DEFAULT_THRESHOLDS };
+  }
+}
+
+router.get("/caseload-balancing/thresholds", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+
+  try {
+    const thresholds = await getDistrictThresholds(districtId);
+    res.json({ thresholds });
+  } catch (err) {
+    console.error("GET /caseload-balancing/thresholds error:", err);
+    res.status(500).json({ error: "Failed to load thresholds" });
+  }
+});
+
+router.put("/caseload-balancing/thresholds", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+
+  const incoming = req.body?.thresholds;
+  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+    return res.status(400).json({ error: "thresholds must be an object" });
+  }
+
+  const validated: Record<string, number> = {};
+  for (const [role, value] of Object.entries(incoming)) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 1 || n > 500) {
+      return res.status(400).json({ error: `Invalid threshold for role "${role}": must be a number between 1 and 500` });
+    }
+    validated[role] = n;
+  }
+
+  try {
+    await db.update(districtsTable)
+      .set({ caseloadThresholds: validated })
+      .where(eq(districtsTable.id, districtId));
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "districts",
+      targetId: districtId,
+      summary: `Updated caseload thresholds for district #${districtId}`,
+      newValues: { caseloadThresholds: validated },
+    });
+
+    const merged = { ...DEFAULT_THRESHOLDS, ...validated };
+    res.json({ thresholds: merged });
+  } catch (err) {
+    console.error("PUT /caseload-balancing/thresholds error:", err);
+    res.status(500).json({ error: "Failed to save thresholds" });
+  }
+});
+
 router.get("/caseload-balancing/summary", async (req, res) => {
   const districtId = getEnforcedDistrictId(req as AuthedRequest);
   if (!districtId) return res.status(403).json({ error: "No district scope" });
 
   try {
-    const customThresholds: Record<string, number> = {};
+    let thresholds: Record<string, number>;
     if (req.query.thresholds) {
+      const customThresholds: Record<string, number> = {};
       try {
         const parsed = JSON.parse(req.query.thresholds as string);
         if (typeof parsed === "object" && parsed !== null) {
@@ -36,8 +101,10 @@ router.get("/caseload-balancing/summary", async (req, res) => {
           }
         }
       } catch {}
+      thresholds = { ...DEFAULT_THRESHOLDS, ...customThresholds };
+    } else {
+      thresholds = await getDistrictThresholds(districtId);
     }
-    const thresholds = { ...DEFAULT_THRESHOLDS, ...customThresholds };
 
     const providers = await db.select({
       id: staffTable.id,
@@ -192,8 +259,9 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
   if (!districtId) return res.status(403).json({ error: "No district scope" });
 
   try {
-    const customThresholds: Record<string, number> = {};
+    let thresholds: Record<string, number>;
     if (req.query.thresholds) {
+      const customThresholds: Record<string, number> = {};
       try {
         const parsed = JSON.parse(req.query.thresholds as string);
         if (typeof parsed === "object" && parsed !== null) {
@@ -202,8 +270,10 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
           }
         }
       } catch {}
+      thresholds = { ...DEFAULT_THRESHOLDS, ...customThresholds };
+    } else {
+      thresholds = await getDistrictThresholds(districtId);
     }
-    const thresholds = { ...DEFAULT_THRESHOLDS, ...customThresholds };
 
     const providers = await db.select({
       id: staffTable.id,
