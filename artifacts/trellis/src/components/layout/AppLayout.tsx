@@ -20,6 +20,7 @@ import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { FloatingTimer } from "@/components/floating-timer";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
+import { SidebarSetupProgress } from "@/components/onboarding/SidebarSetupProgress";
 import { ThemePicker } from "./ThemePicker";
 import { useTheme, DARK_SIDEBAR_THEMES, type ThemeId } from "@/lib/theme-context";
 import { useTier } from "@/lib/tier-context";
@@ -300,6 +301,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ⌘K
             </kbd>
           </button>
+        </div>
+
+        <div className="px-2.5 pb-1">
+          <SidebarSetupProgress />
         </div>
 
         <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
