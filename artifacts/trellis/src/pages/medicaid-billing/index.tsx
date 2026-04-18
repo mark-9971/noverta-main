@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo } from "react";
+import { useSearch, useLocation } from "wouter";
 import { FileText, Edit, TrendingUp, Download, BarChart2 } from "lucide-react";
 import { Tabs } from "./shared";
 import { ClaimsQueueTab } from "./ClaimsQueueTab";
@@ -16,17 +17,44 @@ export type DrillFilter = {
   label?: string;
 };
 
-export default function MedicaidBillingPage() {
-  const [activeTab, setActiveTab] = useState("claims");
-  const [drillFilter, setDrillFilter] = useState<DrillFilter | null>(null);
+const DRILL_KEYS = ["status", "ageBucket", "rejectionReason", "dateFrom", "dateTo", "label"] as const;
 
-  function handleDrillDown(filter: DrillFilter) {
-    setDrillFilter(filter);
-    setActiveTab("claims");
+export default function MedicaidBillingPage() {
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const sp = useMemo(() => new URLSearchParams(search), [search]);
+
+  const rawTab = sp.get("tab");
+  const activeTab = ["claims", "mappings", "revenue", "reports", "export"].includes(rawTab ?? "")
+    ? (rawTab as string)
+    : "claims";
+
+  const drillFilter = useMemo<DrillFilter | null>(() => {
+    const f: DrillFilter = {};
+    let hasAny = false;
+    for (const k of DRILL_KEYS) {
+      const v = sp.get(k);
+      if (v == null || v === "") continue;
+      f[k] = v;
+      if (k !== "label") hasAny = true;
+    }
+    return hasAny ? f : null;
+  }, [sp]);
+
+  function setActiveTab(tab: string) {
+    const next = new URLSearchParams(sp);
+    next.set("tab", tab);
+    if (tab !== "claims") {
+      for (const k of DRILL_KEYS) next.delete(k);
+    }
+    navigate(`/medicaid-billing?${next.toString()}`, { replace: true });
   }
 
   function handleClearDrill() {
-    setDrillFilter(null);
+    const next = new URLSearchParams(sp);
+    for (const k of DRILL_KEYS) next.delete(k);
+    if (!next.get("tab")) next.set("tab", "claims");
+    navigate(`/medicaid-billing?${next.toString()}`, { replace: true });
   }
 
   const tabs = [
@@ -50,12 +78,12 @@ export default function MedicaidBillingPage() {
         </p>
       </div>
 
-      <Tabs tabs={tabs} active={activeTab} onChange={(k) => { setActiveTab(k); if (k !== "claims") setDrillFilter(null); }} />
+      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
       {activeTab === "claims" && <ClaimsQueueTab drillFilter={drillFilter} onClearDrill={handleClearDrill} />}
       {activeTab === "mappings" && <CptMappingsTab />}
       {activeTab === "revenue" && <RevenueDashboardTab />}
-      {activeTab === "reports" && <BillingReportsTab onDrillDown={handleDrillDown} />}
+      {activeTab === "reports" && <BillingReportsTab />}
       {activeTab === "export" && <ExportTab />}
     </div>
   );

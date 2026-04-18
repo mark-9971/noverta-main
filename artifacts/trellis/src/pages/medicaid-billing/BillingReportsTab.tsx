@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -941,13 +942,26 @@ function RevenueTrendReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: st
 
 // ─── Main Reports Tab ─────────────────────────────────────────────────────────
 
-export function BillingReportsTab({ onDrillDown }: { onDrillDown: (f: DrillFilter) => void }) {
+export function BillingReportsTab() {
+  const [, navigate] = useLocation();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 6);
     return d.toISOString().slice(0, 10);
   });
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const handleDrillDown = useCallback((f: DrillFilter) => {
+    const params = new URLSearchParams();
+    params.set("tab", "claims");
+    if (f.status) params.set("status", f.status);
+    if (f.ageBucket) params.set("ageBucket", f.ageBucket);
+    if (f.rejectionReason) params.set("rejectionReason", f.rejectionReason);
+    if (f.dateFrom) params.set("dateFrom", f.dateFrom);
+    if (f.dateTo) params.set("dateTo", f.dateTo);
+    if (f.label) params.set("label", f.label);
+    navigate(`/medicaid-billing?${params.toString()}`);
+  }, [navigate]);
 
   return (
     <div className="space-y-6">
@@ -962,8 +976,8 @@ export function BillingReportsTab({ onDrillDown }: { onDrillDown: (f: DrillFilte
         <span className="text-[11px] text-gray-400 ml-2">Click any row or bucket to drill into the individual claims behind those numbers.</span>
       </div>
 
-      <AgingReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={onDrillDown} />
-      <DenialsReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={onDrillDown} />
+      <AgingReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={handleDrillDown} />
+      <DenialsReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={handleDrillDown} />
       <ProviderProductivityReport dateFrom={dateFrom} dateTo={dateTo} />
       <RevenueTrendReport dateFrom={dateFrom} dateTo={dateTo} />
       <SavedSnapshotsPanel />
