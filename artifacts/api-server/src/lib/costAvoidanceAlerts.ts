@@ -148,7 +148,10 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   // Collect staff info for email lookup
   const staffEmailCache = new Map<number, { name: string; email: string | null; receiveRiskAlerts: boolean }>();
 
-  const appBaseUrl = process.env.APP_BASE_URL ?? null;
+  const rawBaseUrl =
+    process.env.APP_BASE_URL ??
+    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
+  const appBaseUrl = rawBaseUrl ? rawBaseUrl.replace(/\/+$/, "") : null;
 
   let created = 0;
   let skipped = 0;
