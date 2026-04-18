@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  MoreHorizontal, Trash2, CheckCircle, Bell, Send, Gift,
+  Trash2, CheckCircle, Bell, Send, Gift,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -119,6 +119,7 @@ export const adminNav: NavSection[] = [
       { href: "/iep", label: "IEP Hub", icon: GraduationCap },
       { href: "/iep-search", label: "IEP Search", icon: Search },
       { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
+      { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
     ],
   },
   {
@@ -197,6 +198,8 @@ export const adminNav: NavSection[] = [
           { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
         ],
       },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
+      { href: "/agencies", label: "Agencies", icon: Truck },
     ],
   },
   {
@@ -251,13 +254,11 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "More tools",
-    icon: MoreHorizontal,
+    label: "Engagement",
+    icon: MessageSquare,
     collapsible: true,
     defaultOpen: false,
     items: [
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
-      { href: "/agencies", label: "Agencies", icon: Truck },
       {
         href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
         children: [
@@ -267,15 +268,12 @@ export const adminNav: NavSection[] = [
           { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
         ],
       },
-      { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
     ],
   },
 ];
 
-// SPED teachers do not see Billing or Settings (admin-only finance/config).
-// "Compliance Tools" and "More tools" stay visible — they host items
-// teachers/BCBAs use day-to-day (Parent Comms, Programs & Behaviors, FBA/BIP,
-// Restraint & Seclusion, Supervision). Reports link lives in More tools.
+// SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
+// All other sections are visible: Compliance, IEPs, Scheduling, ABA, Staffing, Engagement.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Staffing": "My Caseload",
