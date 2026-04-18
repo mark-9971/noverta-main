@@ -61,7 +61,7 @@ test.describe("GET /api/students/life-threatening-alerts", () => {
       expect(typeof row.studentId).toBe("number");
       expect(typeof row.firstName).toBe("string");
       expect(typeof row.lastName).toBe("string");
-      expect(["number", "string", "null", "undefined"].includes(typeof row.grade)).toBe(true);
+      expect(row.grade === null || typeof row.grade === "string" || typeof row.grade === "number").toBe(true);
       expect(typeof row.alertType).toBe("string");
     }
   });

@@ -6,15 +6,12 @@ import {
   complianceEventsTable, teamMeetingsTable,
   restraintIncidentsTable,
   medicalAlertsTable,
-  staffAssignmentsTable,
 } from "@workspace/db";
-import { eq, and, count, sql, desc, isNull, inArray, or } from "drizzle-orm";
+import { eq, and, count, sql, desc, isNull, inArray } from "drizzle-orm";
 import {
   parseSchoolDistrictFilters,
   buildAlertStudentFilter,
 } from "./shared";
-import type { AuthedRequest } from "../../middlewares/auth";
-import type { SQL } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -158,74 +155,6 @@ router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void>
   } catch (e: any) {
     console.error("GET /dashboard/critical-medical-alerts error:", e);
     res.status(500).json({ error: "Failed to fetch medical event alerts" });
-  }
-});
-
-// Life-threatening profile-level medical alerts (not today's incidents).
-// Admins and coordinators: all district students.
-// All other staff roles: only students in their caseload (assigned via
-// staff_assignments OR as the student's case manager).
-const LIFE_ALERT_READ_ROLES = ["admin", "case_manager", "coordinator", "sped_teacher", "provider", "bcba", "para"];
-const LIFE_ALERT_DISTRICT_WIDE_ROLES = ["admin", "coordinator"];
-
-router.get("/dashboard/life-threatening-alerts", async (req, res): Promise<void> => {
-  try {
-    const authed = req as AuthedRequest;
-    const { trellisRole, districtId, tenantStaffId } = authed;
-    if (!LIFE_ALERT_READ_ROLES.includes(trellisRole ?? "")) {
-      res.status(403).json({ error: "Forbidden" }); return;
-    }
-
-    const isDistrictWide = LIFE_ALERT_DISTRICT_WIDE_ROLES.includes(trellisRole ?? "");
-
-    const conditions: SQL[] = [
-      eq(medicalAlertsTable.severity, "life_threatening"),
-      eq(medicalAlertsTable.notifyAllStaff, true),
-      isNull(studentsTable.deletedAt),
-      eq(studentsTable.status, "active"),
-    ];
-
-    if (districtId) {
-      conditions.push(
-        sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
-      );
-    }
-
-    // For non-district-wide roles, restrict to the caller's caseload:
-    // students they are case manager for, OR explicitly assigned to via staff_assignments.
-    if (!isDistrictWide) {
-      if (!tenantStaffId) {
-        res.json([]); return;
-      }
-      conditions.push(
-        or(
-          eq(studentsTable.caseManagerId, tenantStaffId),
-          sql`${studentsTable.id} IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${tenantStaffId})`
-        ) as SQL
-      );
-    }
-
-    const rows = await db
-      .select({
-        alertId: medicalAlertsTable.id,
-        alertType: medicalAlertsTable.alertType,
-        description: medicalAlertsTable.description,
-        treatmentNotes: medicalAlertsTable.treatmentNotes,
-        epiPenOnFile: medicalAlertsTable.epiPenOnFile,
-        studentId: studentsTable.id,
-        firstName: studentsTable.firstName,
-        lastName: studentsTable.lastName,
-        grade: studentsTable.grade,
-      })
-      .from(medicalAlertsTable)
-      .innerJoin(studentsTable, eq(studentsTable.id, medicalAlertsTable.studentId))
-      .where(and(...conditions))
-      .orderBy(studentsTable.lastName, studentsTable.firstName);
-
-    res.json(rows);
-  } catch (e: any) {
-    console.error("GET /dashboard/life-threatening-alerts error:", e);
-    res.status(500).json({ error: "Failed to fetch life-threatening alerts" });
   }
 });
 
