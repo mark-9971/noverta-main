@@ -8,6 +8,10 @@ The platform is NOT a full SIS replacement — it syncs with SIS systems but its
 
 **Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
 
+## Hard Rules (User Preferences)
+
+- **NEVER hide, demote, remove, or delete nav items, pages, routes, components, or features.** Reorganization that *adds* discoverability (e.g., listing a link in two nav groups) is fine; anything that reduces visibility is not. Re-parents that orphan a link from its previous group also count as hiding — preserve the original location and add the new one. The wedge-task prompt that said "hide or demote distracting modules" is overridden by this rule.
+
 ## Pilot Feature Organization
 
 See `docs/pilot/feature-status.md` for full module classification. Navigation has been reorganized around the pilot wedge:
