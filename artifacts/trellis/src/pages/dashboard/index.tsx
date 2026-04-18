@@ -5,6 +5,7 @@ import {
 } from "@workspace/api-client-react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import PilotAdminHome from "./PilotAdminHome";
+import { TodayScheduleCard } from "@/components/dashboard/TodayScheduleCard";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
@@ -155,6 +156,9 @@ function DashboardFull() {
       <NeedsAttentionPanel />
 
       {!isAdmin && <RecentWins days={30} />}
+
+      {/* Today's Schedule — shown for providers with a linked staff record */}
+      {showPersonalCaseload && <TodayScheduleCard />}
 
       {/* Three-tab layout */}
       <DashboardTabs

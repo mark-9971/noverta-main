@@ -1,6 +1,7 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useRole } from "@/lib/role-context";
+import { QuickLogSheet } from "@/components/quick-log-sheet";
 import {
   useListAlerts,
   useListScheduleBlocks,
@@ -111,6 +112,34 @@ export default function TodayPage() {
     if (urlStaffId) setViewedStaffId(urlStaffId);
     else if (!viewedStaffId && teacherId) setViewedStaffId(teacherId);
   }, [urlStaffId, teacherId, viewedStaffId, isSupervisor]);
+
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [quickLogPrefill, setQuickLogPrefill] = useState<{
+    studentId?: number; studentName?: string;
+    serviceTypeId?: number; serviceTypeName?: string;
+    durationMinutes?: number; startTime?: string; endTime?: string; date?: string;
+  }>({});
+
+  const openQuickLog = useCallback((b: {
+    studentId?: number | null; studentName?: string | null;
+    serviceTypeId?: number | null; serviceTypeName?: string | null;
+    startTime?: string; endTime?: string; date?: string;
+  }) => {
+    const [sh = 0, sm = 0] = (b.startTime ?? "00:00").split(":").map(Number);
+    const [eh = 0, em = 0] = (b.endTime ?? "00:00").split(":").map(Number);
+    const dur = Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+    setQuickLogPrefill({
+      studentId: b.studentId ?? undefined,
+      studentName: b.studentName ?? undefined,
+      serviceTypeId: b.serviceTypeId ?? undefined,
+      serviceTypeName: b.serviceTypeName ?? undefined,
+      durationMinutes: dur || undefined,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      date: b.date,
+    });
+    setQuickLogOpen(true);
+  }, []);
 
   const today = useMemo(() => todayInfo(), []);
   const weekStart = useMemo(() => weekStartIso(), []);
@@ -409,25 +438,32 @@ export default function TodayPage() {
                     </div>
                     <StatusPill status={b.status} />
                     {b.status === "missed" && b.studentId && (
-                      <Link href={`/sessions?studentId=${b.studentId}&date=${today.date}`}>
-                        <Button size="sm" className="h-7 text-[11px] bg-red-600 hover:bg-red-700 text-white">
-                          Log now
-                        </Button>
-                      </Link>
+                      <Button
+                        size="sm"
+                        onClick={() => openQuickLog({ ...b, date: today.date })}
+                        className="h-7 text-[11px] bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        Log Now
+                      </Button>
                     )}
                     {b.status === "in_progress" && b.studentId && (
-                      <Link href={`/sessions?studentId=${b.studentId}&date=${today.date}`}>
-                        <Button size="sm" className="h-7 text-[11px] bg-emerald-700 hover:bg-emerald-800 text-white">
-                          Log session
-                        </Button>
-                      </Link>
+                      <Button
+                        size="sm"
+                        onClick={() => openQuickLog({ ...b, date: today.date })}
+                        className="h-7 text-[11px] bg-emerald-700 hover:bg-emerald-800 text-white"
+                      >
+                        Log Session
+                      </Button>
                     )}
                     {b.status === "upcoming" && b.studentId && (
-                      <Link href={`/students/${b.studentId}`}>
-                        <Button size="sm" variant="ghost" className="h-7 text-[11px] text-gray-400">
-                          Open
-                        </Button>
-                      </Link>
+                      <Button
+                        size="sm"
+                        onClick={() => openQuickLog({ ...b, date: today.date })}
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                      >
+                        Log Session
+                      </Button>
                     )}
                     {b.status === "logged" && b.matched && b.studentId && (
                       <Link href={`/sessions?studentId=${b.studentId}&date=${today.date}`}>
@@ -597,6 +633,23 @@ export default function TodayPage() {
           </CardContent>
         </Card>
       )}
+
+      <QuickLogSheet
+        isOpen={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onSuccess={() => {
+          setQuickLogOpen(false);
+        }}
+        staffId={viewedStaffId}
+        prefillStudentId={quickLogPrefill.studentId}
+        prefillStudentName={quickLogPrefill.studentName}
+        prefillServiceTypeId={quickLogPrefill.serviceTypeId}
+        prefillServiceTypeName={quickLogPrefill.serviceTypeName}
+        prefillDurationMinutes={quickLogPrefill.durationMinutes}
+        prefillStartTime={quickLogPrefill.startTime}
+        prefillEndTime={quickLogPrefill.endTime}
+        sessionDate={quickLogPrefill.date}
+      />
     </div>
   );
 }

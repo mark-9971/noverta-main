@@ -158,6 +158,118 @@ router.get("/schedules/my-schedule", requireAuth, async (req, res): Promise<void
   )));
 });
 
+/**
+ * GET /schedules/today
+ * Returns the caller's schedule blocks for the current day of the week,
+ * annotated with a `status` field: "logged" | "in_progress" | "missed" | "upcoming".
+ * Also includes the matched session log id when status === "logged".
+ */
+router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
+  const authed = req as AuthedRequest;
+  const staffId = resolveCallerStaffId(authed);
+
+  if (!staffId) {
+    res.status(403).json({ error: "No staff record linked to your account. Contact your administrator." });
+    return;
+  }
+
+  const { pool } = await import("@workspace/db");
+
+  const now = new Date();
+  const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const todayDayName = DAY_NAMES[now.getDay()];
+  const y = now.getFullYear();
+  const mo = String(now.getMonth() + 1).padStart(2, "0");
+  const dy = String(now.getDate()).padStart(2, "0");
+  const todayStr = `${y}-${mo}-${dy}`;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const blocksResult = await pool.query<{
+    id: number; staff_id: number; student_id: number | null; service_type_id: number | null;
+    start_time: string; end_time: string; location: string | null; block_label: string | null;
+    block_type: string | null; notes: string | null;
+    student_first: string | null; student_last: string | null; service_type_name: string | null;
+  }>(`
+    SELECT
+      sb.id, sb.staff_id, sb.student_id, sb.service_type_id,
+      sb.start_time, sb.end_time, sb.location, sb.block_label, sb.block_type, sb.notes,
+      stu.first_name AS student_first, stu.last_name AS student_last,
+      st.name AS service_type_name
+    FROM schedule_blocks sb
+    LEFT JOIN students stu ON stu.id = sb.student_id
+    LEFT JOIN service_types st ON st.id = sb.service_type_id
+    WHERE sb.staff_id = $1
+      AND sb.day_of_week = $2
+      AND sb.deleted_at IS NULL
+      AND (sb.effective_from IS NULL OR sb.effective_from <= $3)
+      AND (sb.effective_to IS NULL OR sb.effective_to >= $3)
+    ORDER BY sb.start_time
+  `, [staffId, todayDayName, todayStr]);
+
+  const logsResult = await pool.query<{
+    id: number; student_id: number | null; service_type_id: number | null; start_time: string | null; status: string;
+  }>(`
+    SELECT id, student_id, service_type_id, start_time, status
+    FROM session_logs
+    WHERE staff_id = $1 AND session_date = $2 AND deleted_at IS NULL
+  `, [staffId, todayStr]);
+
+  const logs = logsResult.rows;
+
+  const blocks = blocksResult.rows.map(b => {
+    const [sh = 0, sm = 0] = (b.start_time ?? "00:00").split(":").map(Number);
+    const [eh = 0, em = 0] = (b.end_time ?? "00:00").split(":").map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    const durationMinutes = Math.max(0, endMin - startMin);
+
+    let matched: { id: number; status: string } | null = null;
+
+    // Step 1: student + service type + time-window overlap
+    matched = logs.find(l => {
+      if (l.student_id !== b.student_id) return false;
+      if (b.service_type_id != null && l.service_type_id != null && l.service_type_id !== b.service_type_id) return false;
+      if (!l.start_time) return false;
+      const [lh = 0, lm = 0] = l.start_time.split(":").map(Number);
+      const lMin = lh * 60 + lm;
+      return lMin >= startMin - 30 && lMin <= endMin + 30;
+    }) ?? null;
+
+    // Step 2: student + service type, no time constraint
+    if (!matched) {
+      matched = logs.find(l =>
+        l.student_id === b.student_id &&
+        (b.service_type_id == null || l.service_type_id == null || l.service_type_id === b.service_type_id)
+      ) ?? null;
+    }
+
+    let status: "logged" | "in_progress" | "missed" | "upcoming";
+    if (matched) status = "logged";
+    else if (nowMinutes >= startMin && nowMinutes < endMin) status = "in_progress";
+    else if (endMin < nowMinutes) status = "missed";
+    else status = "upcoming";
+
+    return {
+      id: b.id,
+      staffId: b.staff_id,
+      studentId: b.student_id,
+      studentName: b.student_first ? `${b.student_first} ${b.student_last}` : null,
+      serviceTypeId: b.service_type_id,
+      serviceTypeName: b.service_type_name,
+      startTime: b.start_time,
+      endTime: b.end_time,
+      durationMinutes,
+      location: b.location,
+      blockLabel: b.block_label,
+      sessionLogId: matched?.id ?? null,
+      status,
+      date: todayStr,
+    };
+  });
+
+  res.json(blocks);
+});
+
 router.post("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
   const authed = req as AuthedRequest;
   const staffId = resolveCallerStaffId(authed);
