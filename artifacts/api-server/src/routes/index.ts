@@ -30,6 +30,7 @@ import caseloadBalancingRouter from "./caseloadBalancing";
 import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
 import sharedProgressPublicRouter from "./parentCommunication/sharedProgressPublic";
+import complianceSnapshotRouter, { complianceSnapshotPublicRouter } from "./complianceSnapshot";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
 import auditLogRouter from "./auditLog";
@@ -81,6 +82,11 @@ router.use(demoRequestsRouter);
 // Clerk session. All hardening (rate limits, atomic claim, audit log) lives
 // inside the router.
 router.use(sharedProgressPublicRouter);
+
+// Public, unauthenticated compliance snapshot consumption.
+// GET /share/compliance/:token is the capability — no Clerk session required.
+// POST /compliance/share-snapshot is authenticated and mounted after requireAuth below.
+router.use(complianceSnapshotPublicRouter);
 
 router.use(requireAuth);
 
@@ -302,5 +308,10 @@ router.use(serviceForecastRouter);
 router.use("/compensatory-finance", requireDistrictScope);
 router.use("/compensatory-finance", requireRoles("admin", "coordinator"));
 router.use(compensatoryFinanceRouter);
+
+// Compliance snapshot creation — authenticated, district-scoped.
+// Roles: admin, coordinator, case_manager (same as /reports).
+router.use("/compliance", requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba"));
+router.use(complianceSnapshotRouter);
 
 export default router;

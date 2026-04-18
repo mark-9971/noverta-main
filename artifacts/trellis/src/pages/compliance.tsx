@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
-  Printer, ArrowRight, CheckCircle, FileBarChart, Clipboard, ShieldCheck, ShieldAlert, ExternalLink,
+  Printer, ArrowRight, CheckCircle, FileBarChart, Clipboard, ShieldCheck, ShieldAlert, ExternalLink, Share2, Copy, Check,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -741,6 +742,42 @@ function ServiceMinutesContent() {
   );
 }
 
+function ShareSnapshotButton() {
+  const { toast } = useToast();
+  const [state, setState] = useState<"idle" | "loading" | "copied">("idle");
+
+  async function handleShare() {
+    setState("loading");
+    try {
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+      const res = await authFetch(`${base}/api/compliance/share-snapshot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const { token } = await res.json();
+      const url = `${window.location.origin}${base}/share/compliance/${token}`;
+      await navigator.clipboard.writeText(url);
+      setState("copied");
+      toast({ title: "Link copied!", description: "Snapshot link is valid for 7 days. Paste it anywhere to share." });
+      setTimeout(() => setState("idle"), 3000);
+    } catch {
+      setState("idle");
+      toast({ title: "Failed to create snapshot", description: "Please try again.", variant: "destructive" });
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleShare} disabled={state === "loading"}>
+      {state === "copied" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : state === "loading" ? (
+        <div className="w-3.5 h-3.5 border border-gray-400 border-t-gray-700 rounded-full animate-spin" />
+      ) : <Share2 className="w-3.5 h-3.5" />}
+      {state === "copied" ? "Link copied!" : state === "loading" ? "Creating…" : "Share Snapshot"}
+    </Button>
+  );
+}
+
 export default function CompliancePage() {
   const [activeTab, setTab] = useQueryTab();
 
@@ -753,6 +790,7 @@ export default function CompliancePage() {
         </div>
         {activeTab === "minutes" && (
           <div className="flex items-center gap-2">
+            <ShareSnapshotButton />
             <Link href="/weekly-compliance-summary">
               <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                 <Printer className="w-3.5 h-3.5" /> Weekly Summary

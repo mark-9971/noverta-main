@@ -27,6 +27,7 @@ const PageLoader = () => (
   </div>
 );
 
+const ComplianceSnapshotPage = lazy(() => import("@/pages/ComplianceSnapshotPage"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const Students = lazy(() => import("@/pages/students"));
@@ -347,6 +348,13 @@ function App() {
               <Route path="/sign-up" component={SignUpPage} />
               <Route path="/sign-up/:rest*" component={SignUpPage} />
               <Route path="/sign/:token" component={SignDocumentPage} />
+              <Route path="/share/compliance/:token">
+                {(params) => (
+                  <Suspense fallback={<PageLoader />}>
+                    <ComplianceSnapshotPage />
+                  </Suspense>
+                )}
+              </Route>
               <Route path="/data-panel">
                 <ProtectedRoutes>
                   <RoleProvider>
