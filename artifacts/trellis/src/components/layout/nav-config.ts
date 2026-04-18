@@ -100,6 +100,26 @@ export const adminNav: NavSection[] = [
           { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
         ],
       },
+      // Reports lives here — not under Financial/Executive — because all tabs are
+      // compliance artifacts (executive summary, audit package, trend, exports).
+      // Moving it here keeps it visible by default alongside the operational
+      // compliance view rather than buried in a collapsed financial section.
+      {
+        href: "/reports", label: "Reports", icon: BarChart3,
+        children: [
+          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
+          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
+          { href: "/reports?tab=audit", label: "Audit Package", icon: FileText },
+          // "Minutes Export" — tabular export view (complement to Compliance → Service Minutes)
+          { href: "/reports?tab=minutes", label: "Minutes Export", icon: Clock },
+          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
+          // "At-Risk Export" — tabular/CSV export; full narrative at Compliance → Risk Report
+          { href: "/reports?tab=risk", label: "At-Risk Export", icon: Shield },
+          { href: "/reports?tab=parent", label: "Parent Summary", icon: Heart },
+          { href: "/reports?tab=exports", label: "Bulk Exports", icon: FileDown },
+          { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
+        ],
+      },
       {
         href: "/compensatory-services", label: "Compensatory", icon: Scale,
         children: [
@@ -219,19 +239,6 @@ export const adminNav: NavSection[] = [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
-      {
-        href: "/reports", label: "Reports", icon: BarChart3,
-        children: [
-          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
-          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
-          { href: "/reports?tab=audit", label: "Audit Package", icon: FileText },
-          { href: "/reports?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
-          { href: "/reports?tab=risk", label: "At-Risk Students", icon: Shield },
-          { href: "/reports?tab=parent", label: "Parent Summary", icon: Heart },
-          { href: "/reports?tab=exports", label: "Exports", icon: FileDown },
-        ],
-      },
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
@@ -291,6 +298,7 @@ const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
   "/sessions",
   "/scheduling",
   "/reports",
+  "/weekly-compliance-summary",
   "/compensatory-finance",
   "/executive",
   "/settings",

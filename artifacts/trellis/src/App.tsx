@@ -216,9 +216,9 @@ function StaffRouter() {
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/iep-search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
-      <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
-      <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>
-      <Route path="/compliance/trends">{() => <HashRedirect to="/compliance#trends" />}</Route>
+      <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
+      <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>
+      <Route path="/compliance/trends">{() => <Redirect to="/compliance?tab=trends" />}</Route>
       <BoundedRoute path="/leadership-packet" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
@@ -266,7 +266,7 @@ function StaffRouter() {
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
-      <Route path="/compliance-risk-report">{() => <HashRedirect to="/compliance#risk-report" />}</Route>
+      <Route path="/compliance-risk-report">{() => <Redirect to="/compliance?tab=risk-report" />}</Route>
       <BoundedRoute path="/weekly-compliance-summary" component={WeeklyComplianceSummaryPage} fallbackTitle="Weekly compliance summary error" />
       <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { Link } from "wouter";
-import { Download } from "lucide-react";
+import { Download, FileBarChart } from "lucide-react";
 import { RISK_CONFIG } from "@/lib/constants";
 import { useRole } from "@/lib/role-context";
 import { downloadCsv } from "./utils";
@@ -26,8 +26,14 @@ export function RiskTab() {
   return (
     <Card>
       {errRisk ? <ErrorBanner message="Failed to load compliance risk data." onRetry={() => refetchRisk()} /> : <>
-      <div className="flex items-center justify-end px-5 pt-3">
-        <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportRisk} disabled={riskList.length === 0}>
+      <div className="flex items-center justify-between px-5 py-2.5 bg-amber-50 border-b border-amber-100">
+        <div className="flex items-center gap-2 text-xs text-amber-800">
+          <FileBarChart className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>This is the exportable summary table. For the full narrative risk report with provider breakdown and exposure analysis, see{" "}
+            <Link href="/compliance?tab=risk-report" className="font-semibold underline underline-offset-2 hover:text-amber-900">Compliance → Risk Report</Link>.
+          </span>
+        </div>
+        <Button variant="outline" size="sm" className="gap-1.5 text-[12px] flex-shrink-0" onClick={exportRisk} disabled={riskList.length === 0}>
           <Download className="w-3.5 h-3.5" /> Export CSV
         </Button>
       </div>

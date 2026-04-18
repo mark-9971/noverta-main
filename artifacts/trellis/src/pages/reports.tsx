@@ -53,9 +53,9 @@ export default function Reports() {
           <TabsTrigger value="executive" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Executive Summary</TabsTrigger>
           <TabsTrigger value="trend" className="gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Compliance Trend</TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5"><FileText className="w-3.5 h-3.5" /> Audit Package</TabsTrigger>
-          <TabsTrigger value="minutes" className="gap-1.5"><Clock className="w-3.5 h-3.5" /> Service Minutes</TabsTrigger>
+          <TabsTrigger value="minutes" className="gap-1.5"><Clock className="w-3.5 h-3.5" /> Minutes Export</TabsTrigger>
           <TabsTrigger value="missed" className="gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Missed Sessions</TabsTrigger>
-          <TabsTrigger value="risk" className="gap-1.5"><TrendingDown className="w-3.5 h-3.5" /> At-Risk Students</TabsTrigger>
+          <TabsTrigger value="risk" className="gap-1.5"><TrendingDown className="w-3.5 h-3.5" /> At-Risk Export</TabsTrigger>
           <TabsTrigger value="parent" className="gap-1.5"><Heart className="w-3.5 h-3.5" /> Parent Summary</TabsTrigger>
           {canExport && <TabsTrigger value="exports" className="gap-1.5"><FileDown className="w-3.5 h-3.5" /> Exports</TabsTrigger>}
           {isAdmin && <TabsTrigger value="pilot-health" className="gap-1.5"><Activity className="w-3.5 h-3.5" /> Pilot Health</TabsTrigger>}
