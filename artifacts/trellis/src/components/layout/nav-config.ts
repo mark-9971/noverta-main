@@ -118,12 +118,17 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    // Collapsed by default — finance workflows, not daily compliance ops.
-    label: "Billing",
-    icon: CreditCard,
+    label: "Financial / Executive",
+    icon: Gauge,
     collapsible: true,
     defaultOpen: false,
     items: [
+      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
+      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
+      { href: "/reports", label: "Reports", icon: BarChart3 },
+      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
+      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
+      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
       { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
       { href: "/billing", label: "Billing", icon: CreditCard },
@@ -146,20 +151,14 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
-      { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
-      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
-      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
-      { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
-      { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
     ],
   },
 ];
@@ -168,7 +167,7 @@ export const adminNav: NavSection[] = [
 // "Compliance Tools" and "More tools" stay visible — they host items
 // teachers/BCBAs use day-to-day (Parent Comms, Programs & Behaviors, FBA/BIP,
 // Restraint & Seclusion, Supervision). Reports link lives in More tools.
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Billing", "Settings"]);
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Settings"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Service Delivery": "My Caseload",
 };
