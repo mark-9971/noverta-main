@@ -1,7 +1,10 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
+import { startShowcaseTour } from "@/components/ShowcaseTour";
+import { authFetch } from "@/lib/auth-fetch";
 
 const SetupPage = lazy(() => import("@/pages/setup"));
 const SchoolYearPage = lazy(() => import("@/pages/school-year"));
@@ -43,6 +46,19 @@ export default function SettingsHubPage() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<TabKey>(() => resolveTab(search));
+
+  // Showcase tour requires sample data to be loaded; hide its replay
+  // control otherwise so the button isn't a dead click.
+  const { data: sampleStatus } = useQuery<{ hasSampleData: boolean }>({
+    queryKey: ["sample-data/status"],
+    queryFn: async () => {
+      const r = await authFetch("/api/sample-data");
+      if (!r.ok) throw new Error("sample-data status failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+  const hasSampleData = sampleStatus?.hasSampleData === true;
 
   useEffect(() => {
     setActiveTab(resolveTab(search));
@@ -96,6 +112,35 @@ export default function SettingsHubPage() {
               </div>
               <ChecklistVisibilityToggle />
             </div>
+            {/* Replay control for the cross-module showcase tour. Only
+                rendered when the district has sample data loaded — the
+                tour itself is gated to that case, so without it the
+                button would be a dead click. */}
+            {hasSampleData && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-gray-500" />
+                  <h2 className="text-sm font-semibold text-gray-700">Guided tours</h2>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4 flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800">Showcase tour</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Replays the cross-module walkthrough that visits the strongest screen of each Trellis module.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="button-settings-replay-showcase"
+                    onClick={() => startShowcaseTour()}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors flex-shrink-0"
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    Replay showcase tour
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="border-t border-gray-100 pt-4">
               <SetupPage />
             </div>

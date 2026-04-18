@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, FileWarning, ShieldCheck,
   CalendarClock, Users, ClipboardList, Info, ListChecks,
-  TrendingUp, TrendingDown, Minus,
+  TrendingUp, TrendingDown, Minus, Compass,
 } from "lucide-react";
+import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
@@ -304,6 +305,10 @@ export default function PilotAdminHome() {
             Service-minute compliance for SPED
           </p>
         </div>
+        {/* Showcase tour entry — visible to admins on demo districts.
+            The ShowcaseTour component itself is gated to admins where
+            sample data is loaded; this button hides in the same case. */}
+        <ShowcaseTourButton />
       </div>
 
       {/* Life-threatening medical alert banner — dismissible per session */}
@@ -694,3 +699,28 @@ function EmptyHint({ icon: Icon, text }: { icon: typeof CheckCircle2; text: stri
     </div>
   );
 }
+
+function ShowcaseTourButton() {
+  const { data } = useQuery<{ hasSampleData: boolean }>({
+    queryKey: ["sample-data/status"],
+    queryFn: async () => {
+      const r = await authFetch("/api/sample-data");
+      if (!r.ok) throw new Error("sample-data status failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+  if (!data?.hasSampleData) return null;
+  return (
+    <button
+      onClick={() => startShowcaseTour()}
+      data-testid="button-launch-showcase-tour"
+      className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
+      title="Walks through the strongest screen of every Trellis module"
+    >
+      <Compass className="w-3.5 h-3.5" />
+      Take the showcase tour
+    </button>
+  );
+}
+

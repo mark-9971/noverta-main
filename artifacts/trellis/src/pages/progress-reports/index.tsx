@@ -264,7 +264,7 @@ export default function ProgressReportsPage() {
   const searchProps = { studentSearch, setStudentSearch, filteredStudents };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6" data-tour-id="showcase-progress-reports">
       <ReportList
         reports={filteredReports} loading={loading}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}

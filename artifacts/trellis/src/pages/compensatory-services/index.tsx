@@ -121,7 +121,7 @@ export default function CompensatoryServices() {
   ];
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6" data-tour-id="showcase-compensatory">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">

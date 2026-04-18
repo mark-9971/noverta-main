@@ -54,7 +54,7 @@ export default function IepBuilderLanding() {
   const inProgressCount = filtered.filter(s => draftsMap.has(s.id)).length;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[700px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[700px] mx-auto space-y-6" data-tour-id="showcase-iep-builder">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2 tracking-tight">
           <Sparkles className="w-5 h-5 text-emerald-600" />

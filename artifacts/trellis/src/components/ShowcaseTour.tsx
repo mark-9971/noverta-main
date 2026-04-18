@@ -5,8 +5,23 @@ import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { Sparkles, X, ArrowRight, ArrowLeft, Compass } from "lucide-react";
-import { startShowcaseTour } from "@/components/ShowcaseTour";
+import { Compass, X, ArrowRight, ArrowLeft } from "lucide-react";
+
+/**
+ * Showcase Tour — a longer, cross-module guided walkthrough that visits
+ * the strongest screen of each major Trellis module so a viewer can see
+ * "everything" without clicking around. Designed to live alongside the
+ * shorter SampleDataTour: that tour orients a new admin to the freshly
+ * seeded sample district, and this one points at the breadth of the
+ * product across modules.
+ *
+ * Persistence and gating mirror SampleDataTour: gated to admins on
+ * districts where sample data is loaded, persisted per Clerk user ×
+ * district, replayable from the SampleDataBanner (via a custom event)
+ * and from a Settings → General control. Triggered explicitly — there
+ * is no auto-start on first sample-data load (the SampleDataTour owns
+ * that moment, and hands off into this one if the user opts in).
+ */
 
 interface SampleStatus {
   hasSampleData: boolean;
@@ -24,8 +39,8 @@ interface TourStep {
   body: string;
 }
 
-const STORAGE_KEY_PREFIX = "trellis.sampleTour.v1";
-const START_FLAG = "trellis.sampleTour.start";
+const STORAGE_KEY_PREFIX = "trellis.showcaseTour.v1";
+const START_FLAG = "trellis.showcaseTour.start";
 
 function storageKeyFor(
   userId: string | null | undefined,
@@ -38,39 +53,74 @@ function storageKeyFor(
 
 const STEPS: TourStep[] = [
   {
-    selector: '[data-tour-id="compliance-summary"]',
-    path: "/compliance-risk-report",
-    title: "Welcome — your sample district is loaded",
+    selector: '[data-testid="section-overall-compliance"]',
+    path: "/",
+    title: "Dashboard — are we compliant?",
     body:
-      "This is the compliance-risk view. The headline numbers show what share of mandated minutes have been delivered, and how much exposure has accumulated.",
-  },
-  {
-    selector: '[data-tour-id="shortfall-student"]',
-    path: "/compliance-risk-report",
-    title: "One student already falling behind",
-    body:
-      "Trellis surfaces students whose delivered minutes lag their IEP requirement. This is the shortfall that triggers compensatory time if it isn't addressed.",
+      "The home dashboard answers the leadership question first: what share of mandated minutes have we delivered, and which students need attention right now.",
   },
   {
     selector: '[data-tour-id="cost-risk"]',
     path: "/compliance-risk-report",
-    title: "Compensatory exposure projection",
+    title: "Compliance & exposure",
     body:
-      "Each shortfall translates into estimated dollars the district may owe in make-up services. This is the cost-risk lens that lets you prioritize.",
+      "Drill in to the compliance-risk view: every shortfall is translated into projected compensatory dollars so leadership can prioritize.",
   },
   {
-    selector: '[data-tour-id="readiness-checklist"]',
-    path: "/",
-    title: "Your readiness checklist",
+    selector: '[data-tour-id="showcase-iep-builder"]',
+    path: "/iep-builder",
+    title: "IEP draft builder",
     body:
-      "When you're ready to bring in your real district, this checklist walks through the steps — connecting your SIS, importing students, assigning providers.",
+      "A guided, multi-step IEP draft your team can collaborate on — context, parent input, teacher input, transition, and AI-assisted generation.",
   },
   {
-    selector: '[data-testid="banner-sample-data"]',
-    path: null,
-    title: "Remove sample data anytime",
+    selector: '[data-tour-id="showcase-progress-reports"]',
+    path: "/progress-reports",
+    title: "Progress reports",
     body:
-      "Sample students and staff are tagged separately from your real roster. Tear them down with one click from the banner at the top.",
+      "Quarterly progress reports auto-generated from logged sessions and goal data — review, edit, and send to families in minutes instead of hours.",
+  },
+  {
+    selector: '[data-tour-id="showcase-parent-portal"]',
+    path: "/parent-communication",
+    title: "Parent communication",
+    body:
+      "All parent contacts, follow-ups, and required notifications in one log so the district can prove engagement and never miss a mandated touchpoint.",
+  },
+  {
+    selector: '[data-tour-id="showcase-protective-measures"]',
+    path: "/protective-measures",
+    title: "Restraint & seclusion incidents",
+    body:
+      "Compliant incident capture with state-reportable fields, quick-report mode for the field, and DESE bulk export for monthly filings.",
+  },
+  {
+    selector: '[data-tour-id="showcase-compensatory"]',
+    path: "/compensatory-services",
+    title: "Compensatory obligations",
+    body:
+      "Track owed minutes per student, calculate shortfalls, and log make-up sessions — the workflow that closes the loop on compliance exposure.",
+  },
+  {
+    selector: '[data-tour-id="showcase-medicaid"]',
+    path: "/medicaid-billing",
+    title: "Medicaid claim queue",
+    body:
+      "Build claim drafts from logged sessions, review them in the queue, and export a CSV for upload to your district's Medicaid billing system.",
+  },
+  {
+    selector: '[data-tour-id="showcase-sis-sync"]',
+    path: "/settings?tab=sis",
+    title: "SIS sync",
+    body:
+      "CSV roster upload works today; PowerSchool, Infinite Campus, Skyward, and SFTP connectors are in early pilot. Configure your roster source here.",
+  },
+  {
+    selector: '[data-tour-id="showcase-reports"]',
+    path: "/reports",
+    title: "Reports & exports",
+    body:
+      "Executive summary, minute summary, missed sessions, parent summary, audit package — every report your team needs for board meetings or audits.",
   },
 ];
 
@@ -93,7 +143,7 @@ function markSeen(
     window.localStorage.setItem(storageKeyFor(userId, districtId), "seen");
     window.localStorage.removeItem(START_FLAG);
   } catch {
-    
+    /* ignore */
   }
 }
 
@@ -107,7 +157,32 @@ function consumeStartFlag(): boolean {
   }
 }
 
-export function SampleDataTour() {
+/**
+ * Imperative entry point used by the dashboard button, the
+ * SampleDataTour handoff, and the Settings replay control. Sets a
+ * localStorage flag (so the tour fires even if the user navigates
+ * before it mounts) and dispatches an event for the already-mounted
+ * case.
+ */
+export function startShowcaseTour() {
+  // The start flag bypasses the per-user × per-district seen check
+  // inside the tour, so we don't need to clear any seen keys here.
+  // Leaving them intact preserves accurate per-user × per-district
+  // history in shared-browser scenarios (e.g. multiple SEs walking
+  // through different demo districts on the same machine).
+  try {
+    window.localStorage.setItem(START_FLAG, "1");
+  } catch {
+    /* localStorage unavailable; the event below still re-opens it */
+  }
+  try {
+    window.dispatchEvent(new Event("trellis:showcaseTour:start"));
+  } catch {
+    /* no-op */
+  }
+}
+
+export function ShowcaseTour() {
   const { role } = useRole();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const userId = clerkUser?.id ?? null;
@@ -130,10 +205,9 @@ export function SampleDataTour() {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  // Tour is gated to admins of districts where sample data is currently
-  // loaded. It fires once per browser when the admin first lands after a
-  // seed (start flag), or once if hasSampleData becomes true and the user
-  // has not yet seen it.
+  // Honor the start flag set by startShowcaseTour() before the
+  // component mounted (e.g. set on the dashboard, then user navigates
+  // and the tour mounts on the new page).
   useEffect(() => {
     if (!clerkLoaded) return;
     if (!isAdmin || !data?.hasSampleData) return;
@@ -141,38 +215,28 @@ export function SampleDataTour() {
     if (consumeStartFlag()) {
       setStepIdx(0);
       setActive(true);
-      return;
     }
-    if (!readSeen(userId, data?.districtId ?? null)) {
-      setStepIdx(0);
-      setActive(true);
-    }
-  }, [clerkLoaded, userId, data?.districtId, isAdmin, data?.hasSampleData, active]);
+  }, [clerkLoaded, isAdmin, data?.hasSampleData, active]);
 
-  // Listen for an explicit "replay tour" request (e.g. from the
-  // SampleDataBanner's "Replay tour" button). The localStorage flags set
-  // by the dispatcher cover the case where this component isn't mounted
-  // yet; this listener handles the case where it already is.
+  // Live "start" event for the case where the tour is already mounted.
   useEffect(() => {
-    function onReplay() {
+    function onStart() {
       if (!isAdmin || !data?.hasSampleData) return;
       setStepIdx(0);
       setActive(true);
     }
-    window.addEventListener("trellis:sampleTour:replay", onReplay);
-    return () => window.removeEventListener("trellis:sampleTour:replay", onReplay);
+    window.addEventListener("trellis:showcaseTour:start", onStart);
+    return () => window.removeEventListener("trellis:showcaseTour:start", onStart);
   }, [isAdmin, data?.hasSampleData]);
 
-  // Auto-close if sample data is removed (e.g. via the banner) while the
-  // tour is mid-flight — the surfaces it points at will go empty and the
-  // tour would just be confusing.
+  // Auto-close if sample data is removed mid-flight — the surfaces it
+  // points at will go empty and the tour would just be confusing.
   useEffect(() => {
     if (active && (!isAdmin || data?.hasSampleData === false)) {
       setActive(false);
     }
   }, [active, isAdmin, data?.hasSampleData]);
 
-  
   useEffect(() => {
     if (!active) return;
     const step = STEPS[stepIdx];
@@ -180,11 +244,15 @@ export function SampleDataTour() {
 
     let cancelled = false;
     let attempts = 0;
-    const maxAttempts = 20; 
+    const maxAttempts = 30;
 
-    
-    if (step.path && location !== step.path) {
-      navigate(step.path);
+    if (step.path) {
+      // Compare against the current location ignoring the query string,
+      // because some target paths include `?tab=…`.
+      const [stepPath] = step.path.split("?");
+      if (location !== stepPath && location !== step.path) {
+        navigate(step.path);
+      }
     }
 
     function tick() {
@@ -198,7 +266,6 @@ export function SampleDataTour() {
       }
       const el = document.querySelector(step.selector) as HTMLElement | null;
       if (el) {
-        
         const r = el.getBoundingClientRect();
         const inView =
           r.top >= 0 &&
@@ -215,7 +282,6 @@ export function SampleDataTour() {
       if (attempts < maxAttempts) {
         rafRef.current = window.setTimeout(tick, 200) as unknown as number;
       } else {
-        
         setRect(null);
       }
     }
@@ -240,7 +306,6 @@ export function SampleDataTour() {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onResize, true);
     };
-    
   }, [active, stepIdx, location, navigate]);
 
   const step = STEPS[stepIdx];
@@ -249,6 +314,8 @@ export function SampleDataTour() {
 
   function dismiss() {
     setActive(false);
+    // Mark as "seen" on either skip or finish — both count as completed
+    // for the per-user × per-district flag, mirroring SampleDataTour.
     markSeen(userId, data?.districtId ?? null);
   }
 
@@ -265,11 +332,10 @@ export function SampleDataTour() {
     setStepIdx((i) => Math.max(0, i - 1));
   }
 
-  
   const popoverPos = useMemo(() => {
     const PAD = 8;
-    const POP_W = 340;
-    const POP_H_EST = 200;
+    const POP_W = 360;
+    const POP_H_EST = 220;
     if (!rect) {
       return {
         top: Math.max(16, window.innerHeight / 2 - POP_H_EST / 2),
@@ -277,7 +343,6 @@ export function SampleDataTour() {
         centered: true,
       };
     }
-    
     const spaceBelow = window.innerHeight - rect.bottom;
     const placeBelow = spaceBelow > POP_H_EST + 24;
     const top = placeBelow
@@ -293,13 +358,11 @@ export function SampleDataTour() {
 
   if (!active || !step) return null;
 
-  
-  
   return createPortal(
     <div
       role="dialog"
-      aria-label="Trellis sample data tour"
-      data-testid="sample-data-tour"
+      aria-label="Trellis showcase tour"
+      data-testid="showcase-tour"
       className="fixed inset-0 z-[80]"
       style={{ pointerEvents: "none" }}
     >
@@ -314,7 +377,7 @@ export function SampleDataTour() {
             height: rect.height + 12,
             borderRadius: 10,
             boxShadow:
-              "0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 2px rgba(16, 185, 129, 0.9), 0 0 24px rgba(16, 185, 129, 0.45)",
+              "0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 0 2px rgba(99, 102, 241, 0.9), 0 0 24px rgba(99, 102, 241, 0.45)",
             transition: "top 150ms ease, left 150ms ease, width 150ms ease, height 150ms ease",
             pointerEvents: "none",
           }}
@@ -333,24 +396,24 @@ export function SampleDataTour() {
       )}
 
       <div
-        className="rounded-xl bg-white shadow-2xl border border-emerald-100"
-        data-testid={`tour-step-${stepIdx}`}
+        className="rounded-xl bg-white shadow-2xl border border-indigo-100"
+        data-testid={`showcase-step-${stepIdx}`}
         style={{
           position: "fixed",
           top: popoverPos.top,
           left: popoverPos.left,
-          width: 340,
+          width: 360,
           maxWidth: "calc(100vw - 32px)",
           pointerEvents: "auto",
         }}
       >
         <div className="flex items-start gap-2 px-4 pt-3.5 pb-1">
-          <div className="flex-shrink-0 w-7 h-7 rounded-md bg-emerald-100 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-emerald-700" />
+          <div className="flex-shrink-0 w-7 h-7 rounded-md bg-indigo-100 flex items-center justify-center">
+            <Compass className="w-4 h-4 text-indigo-700" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-medium text-emerald-700 uppercase tracking-wide">
-              Sample data tour · {stepIdx + 1} of {STEPS.length}
+            <div className="text-[11px] font-medium text-indigo-700 uppercase tracking-wide">
+              Showcase tour · {stepIdx + 1} of {STEPS.length}
             </div>
             <div className="text-[15px] font-semibold text-gray-900 leading-snug mt-0.5">
               {step.title}
@@ -359,39 +422,17 @@ export function SampleDataTour() {
           <button
             onClick={dismiss}
             aria-label="Skip tour"
-            data-testid="button-tour-dismiss"
+            data-testid="button-showcase-dismiss"
             className="flex-shrink-0 -mr-1 -mt-1 p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
         <p className="px-4 py-2 text-sm text-gray-600 leading-relaxed">{step.body}</p>
-        {isLast && (
-          <div className="px-4 pb-2">
-            <button
-              type="button"
-              data-testid="button-tour-handoff-showcase"
-              onClick={() => {
-                // Mark this tour seen, then hand off to the longer
-                // cross-module showcase tour.
-                markSeen(userId, data?.districtId ?? null);
-                setActive(false);
-                startShowcaseTour();
-              }}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              Continue with the full showcase tour
-            </button>
-            <p className="text-[11px] text-gray-400 mt-1.5 text-center">
-              Walks through the strongest screen of every module.
-            </p>
-          </div>
-        )}
         <div className="flex items-center justify-between px-3 py-2.5 border-t border-gray-100 bg-gray-50/60 rounded-b-xl">
           <button
             onClick={dismiss}
-            data-testid="button-tour-skip"
+            data-testid="button-showcase-skip"
             className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1"
           >
             Skip tour
@@ -400,15 +441,15 @@ export function SampleDataTour() {
             <button
               onClick={back}
               disabled={isFirst}
-              data-testid="button-tour-back"
+              data-testid="button-showcase-back"
               className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
             >
               <ArrowLeft className="w-3 h-3" /> Back
             </button>
             <button
               onClick={next}
-              data-testid="button-tour-next"
-              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+              data-testid="button-showcase-next"
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
             >
               {isLast ? "Finish" : "Next"} {!isLast && <ArrowRight className="w-3 h-3" />}
             </button>

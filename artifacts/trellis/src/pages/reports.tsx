@@ -42,7 +42,7 @@ export default function Reports() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6" data-tour-id="showcase-reports">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Reports</h1>
         <p className="text-xs md:text-sm text-gray-400 mt-1">Compliance, service delivery, and audit reports</p>

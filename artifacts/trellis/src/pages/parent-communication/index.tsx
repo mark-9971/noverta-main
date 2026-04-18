@@ -194,7 +194,7 @@ export default function ParentCommunication() {
   const unnotifiedCount = notificationNeeds.filter(n => !n.parentNotified).length;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6" data-tour-id="showcase-parent-portal">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">Parent Communication</h1>

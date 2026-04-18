@@ -70,7 +70,7 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6" data-tour-id="showcase-protective-measures">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
