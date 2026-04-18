@@ -64,6 +64,7 @@ export const platformAdminSection: NavSection = {
 // Billing and Settings now default-closed to reduce sidebar weight.
 // No routes, pages, APIs, or business logic removed — hidden only.
 export const adminNav: NavSection[] = [
+  // ── 1. Overview ──────────────────────────────────────────────────────────
   {
     label: "Overview",
     icon: LayoutDashboard,
@@ -81,35 +82,7 @@ export const adminNav: NavSection[] = [
       },
     ],
   },
-  {
-    label: "Compliance Tools",
-    icon: ListChecks,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      {
-        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
-        children: [
-          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
-          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
-          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
-          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
-          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
-        ],
-      },
-      {
-        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
-        children: [
-          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
-          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
-        ],
-      },
-      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
-      { href: "/state-reporting", label: "State Reports", icon: Building2 },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
-    ],
-  },
+  // ── 2. IEP / Education ───────────────────────────────────────────────────
   {
     label: "IEPs / Search",
     icon: GraduationCap,
@@ -160,31 +133,37 @@ export const adminNav: NavSection[] = [
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
   },
+  // ── 3. Compliance ─────────────────────────────────────────────────────────
   {
-    label: "ABA",
-    icon: Activity,
+    label: "Compliance Tools",
+    icon: ListChecks,
     collapsible: true,
     defaultOpen: true,
     items: [
       {
-        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
         children: [
-          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
-          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
-          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
+          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
+          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
+          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
+          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
+          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
+          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
         ],
       },
       {
-        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
+        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
         children: [
-          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
-          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
+          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
+          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
         ],
       },
-      { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+      { href: "/state-reporting", label: "State Reports", icon: Building2 },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
     ],
   },
+  // ── 4. Staffing (Service Delivery) ────────────────────────────────────────
   {
     label: "Staffing",
     icon: Users,
@@ -210,6 +189,33 @@ export const adminNav: NavSection[] = [
       },
     ],
   },
+  // ── 5. ABA ────────────────────────────────────────────────────────────────
+  {
+    label: "ABA",
+    icon: Activity,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      {
+        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
+          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
+          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
+        ],
+      },
+      {
+        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
+          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
+        ],
+      },
+      { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
+    ],
+  },
+  // ── 6+ sorted below ───────────────────────────────────────────────────────
   {
     label: "Financial / Executive",
     icon: Gauge,
