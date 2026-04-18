@@ -4,11 +4,13 @@ import { useSearch, useLocation } from "wouter";
 import Schedule from "./schedule";
 import CoveragePage from "./coverage";
 import MinutesOversightTab from "./schedule/MinutesOversightTab";
+import StaffCalendar from "./staff-calendar";
 
 const TABS = [
   { key: "schedule" as const, label: "Weekly Schedule" },
   { key: "coverage" as const, label: "Coverage & Substitutes" },
   { key: "minutes" as const, label: "Minutes at Risk" },
+  { key: "staff-calendar" as const, label: "Staff Calendar" },
 ];
 
 type Tab = typeof TABS[number]["key"];
@@ -40,15 +42,15 @@ export default function SchedulingHub() {
           <Calendar className="w-5 h-5 text-emerald-600" />
           Scheduling
         </h1>
-        <p className="text-xs text-gray-400 mt-1">Weekly schedule blocks, absences, coverage, and service minute oversight</p>
+        <p className="text-xs text-gray-400 mt-1">Weekly schedule blocks, absences, coverage, service minute oversight, and staff availability</p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
               tab === t.key
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-gray-500 hover:text-gray-700"
@@ -62,6 +64,7 @@ export default function SchedulingHub() {
       {tab === "schedule" && <Schedule embedded />}
       {tab === "coverage" && <CoveragePage embedded />}
       {tab === "minutes" && <MinutesOversightTab />}
+      {tab === "staff-calendar" && <StaffCalendar embedded />}
     </div>
   );
 }

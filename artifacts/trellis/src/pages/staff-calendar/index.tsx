@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,9 +26,17 @@ import { CoverageGapsPanel } from "./CoverageGapsPanel";
 import { ScheduleFormDialog } from "./ScheduleFormDialog";
 import { ConflictsDialog } from "./ConflictsDialog";
 
-export default function StaffCalendar() {
+interface StaffCalendarProps {
+  embedded?: boolean;
+}
+
+export default function StaffCalendar({ embedded = false }: StaffCalendarProps) {
   const { role } = useRole();
   const isAdmin = role === "admin" || role === "coordinator";
+
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const initialStaffId = searchParams.get("staffId") ?? "all";
 
   const [schedules, setSchedules] = useState<StaffSchedule[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
@@ -38,7 +47,7 @@ export default function StaffCalendar() {
   const [serviceTypeList, setServiceTypeList] = useState<ServiceTypeOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filterStaff, setFilterStaff] = useState<string>("all");
+  const [filterStaff, setFilterStaff] = useState<string>(initialStaffId);
   const [filterSchool, setFilterSchool] = useState<string>("all");
   const [filterServiceType, setFilterServiceType] = useState<string>("all");
 
@@ -309,53 +318,66 @@ export default function StaffCalendar() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className={embedded ? "space-y-4" : "p-6 space-y-4"}>
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-[600px] w-full" />
       </div>
     );
   }
 
-  return (
-    <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-600" />
-            Staff Scheduling & Availability
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Cross-building provider schedule — {schedules.length} entries, {conflicts.length} conflict{conflicts.length !== 1 ? "s" : ""}
+  const actionBar = (
+    <div className="flex items-center gap-2">
+      {conflicts.length > 0 && (
+        <Button variant="outline" size="sm" onClick={() => setShowConflicts(true)} className="text-red-600 border-red-200 hover:bg-red-50">
+          <AlertTriangle className="w-3.5 h-3.5 mr-1" /> {conflicts.length} Conflict{conflicts.length !== 1 ? "s" : ""}
+        </Button>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Download className="w-3.5 h-3.5 mr-1" /> Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleExportPdf}>
+            <FileText className="w-4 h-4 mr-2" /> PDF / Print
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportCsv}>
+            <Sheet className="w-4 h-4 mr-2" /> CSV Download
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {isAdmin && (
+        <Button size="sm" onClick={() => openCreate()} className="bg-emerald-600 hover:bg-emerald-700">
+          <Plus className="w-3.5 h-3.5 mr-1" /> Add Schedule
+        </Button>
+      )}
+    </div>
+  );
+
+  const content = (
+    <div className="space-y-4">
+      {!embedded ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-emerald-600" />
+              Staff Scheduling & Availability
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Cross-building provider schedule — {schedules.length} entries, {conflicts.length} conflict{conflicts.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          {actionBar}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            {schedules.length} entries · {conflicts.length} conflict{conflicts.length !== 1 ? "s" : ""}
           </p>
+          {actionBar}
         </div>
-        <div className="flex items-center gap-2">
-          {conflicts.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => setShowConflicts(true)} className="text-red-600 border-red-200 hover:bg-red-50">
-              <AlertTriangle className="w-3.5 h-3.5 mr-1" /> {conflicts.length} Conflict{conflicts.length !== 1 ? "s" : ""}
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Download className="w-3.5 h-3.5 mr-1" /> Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportPdf}>
-                <FileText className="w-4 h-4 mr-2" /> PDF / Print
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportCsv}>
-                <Sheet className="w-4 h-4 mr-2" /> CSV Download
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isAdmin && (
-            <Button size="sm" onClick={() => openCreate()} className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="w-3.5 h-3.5 mr-1" /> Add Schedule
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
       <FilterBar
         staffList={staffList} schoolList={schoolList} serviceTypeList={serviceTypeList}
@@ -417,4 +439,7 @@ export default function StaffCalendar() {
       <ConflictsDialog open={showConflicts} setOpen={setShowConflicts} conflicts={conflicts} />
     </div>
   );
+
+  if (embedded) return content;
+  return <div className="p-4 md:p-6 max-w-[1400px] mx-auto">{content}</div>;
 }

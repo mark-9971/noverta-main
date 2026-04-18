@@ -33,7 +33,14 @@ const Dashboard = lazy(() => import("@/pages/dashboard"));
 const Students = lazy(() => import("@/pages/students"));
 const Sessions = lazy(() => import("@/pages/sessions"));
 const Schedule = lazy(() => import("@/pages/schedule"));
-const StaffCalendar = lazy(() => import("@/pages/staff-calendar"));
+function StaffCalendarRedirect() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const parts: string[] = ["tab=staff-calendar"];
+  if (params.has("staffId")) parts.push(`staffId=${params.get("staffId")!}`);
+  if (params.has("date")) parts.push(`date=${params.get("date")!}`);
+  return <Redirect to={`/scheduling?${parts.join("&")}`} />;
+}
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const ActionCenterPage = lazy(() => import("@/pages/action-center"));
@@ -210,7 +217,7 @@ function StaffRouter() {
       <BoundedRoute path="/students" component={Students} fallbackTitle="Students page error" />
       <BoundedRoute path="/sessions" component={Sessions} fallbackTitle="Sessions error" />
       <BoundedRoute path="/schedule" component={Schedule} fallbackTitle="Schedule error" />
-      <BoundedRoute path="/staff-calendar" component={StaffCalendar} fallbackTitle="Staff calendar error" />
+      <Route path="/staff-calendar" component={StaffCalendarRedirect} />
       <BoundedRoute path="/coverage" component={CoveragePage} fallbackTitle="Coverage error" />
       <BoundedRoute path="/staff/:id" component={StaffDetailPage} fallbackTitle="Staff details error" />
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
