@@ -6,11 +6,12 @@ import { Link } from "wouter";
 import {
   AlertTriangle, CheckCircle2, Sparkles, CircleDot,
   Calendar, Activity, GraduationCap, TrendingDown, TrendingUp,
-  ChevronRight, Users,
+  ChevronRight, Users, ChevronDown,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
+import PromptDependencePanel from "./PromptDependencePanel";
 
 interface StudentSummary {
   id: number;
@@ -361,6 +362,35 @@ export default function CaseloadAnalytics({ onViewStudent }: { onViewStudent?: (
           </div>
         )}
       </div>
+
+      {/* Prompt Dependence section */}
+      <PromptDependenceSection onViewStudent={onViewStudent} />
+    </div>
+  );
+}
+
+function PromptDependenceSection({ onViewStudent }: { onViewStudent?: (id: number) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <TrendingDown className="w-4 h-4 text-blue-500" />
+          <span className="font-semibold text-gray-700 text-sm">Prompt Dependence Analytics</span>
+          <span className="text-[11px] text-gray-400 font-normal">
+            — which targets are fading, stalled, or regressing?
+          </span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="p-5 bg-white">
+          <PromptDependencePanel onViewStudent={onViewStudent} />
+        </div>
+      )}
     </div>
   );
 }

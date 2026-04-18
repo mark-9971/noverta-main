@@ -5,6 +5,7 @@ import templatesRouter from "./templates";
 import dataCollectionRouter from "./dataCollection";
 import analyticsRouter from "./analytics";
 import caseloadAnalyticsRouter from "./caseloadAnalytics";
+import promptDependenceRouter from "./promptDependence";
 
 const router: IRouter = Router();
 router.use(
@@ -24,6 +25,7 @@ router.use(
     "/modification-markers",
     "/data-sessions",
     "/aba/caseload-analytics",
+    "/aba/prompt-dependence",
   ],
   requireTierAccess("clinical.program_data"),
 );
@@ -33,5 +35,6 @@ router.use(templatesRouter);
 router.use(dataCollectionRouter);
 router.use(analyticsRouter);
 router.use(caseloadAnalyticsRouter);
+router.use(promptDependenceRouter);
 
 export default router;
