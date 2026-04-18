@@ -150,7 +150,6 @@ export const adminNav: NavSection[] = [
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
-      { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
       { href: "/agencies", label: "Agencies", icon: Truck },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },

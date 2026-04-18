@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, Plus, Calculator } from "lucide-react";
+import { Gift, Plus, Calculator, TrendingDown } from "lucide-react";
+import CostAvoidanceDashboard from "@/pages/cost-avoidance";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import {
@@ -16,6 +17,7 @@ import { ObligationList } from "./ObligationList";
 
 export default function CompensatoryServices() {
   const { selectedSchoolId } = useSchoolContext();
+  const [activeTab, setActiveTab] = useState<"obligations" | "cost-avoidance">("obligations");
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -106,6 +108,11 @@ export default function CompensatoryServices() {
     setTimeout(() => toggleExpanded(id), 100);
   }
 
+  const TABS = [
+    { key: "obligations" as const, label: "Obligations", icon: Gift },
+    { key: "cost-avoidance" as const, label: "Cost Avoidance", icon: TrendingDown },
+  ];
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -114,71 +121,102 @@ export default function CompensatoryServices() {
             <Gift className="w-6 h-6 text-emerald-600" />
             Compensatory Services
           </h1>
-          <p className="text-sm text-gray-400 mt-1">Track and manage owed compensatory minutes</p>
+          <p className="text-sm text-gray-400 mt-1">Track owed minutes and prevent financial exposure</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowCalculator(!showCalculator)} className="gap-1.5">
-            <Calculator className="w-4 h-4" /> Calculate Shortfalls
-          </Button>
-          <Button size="sm" onClick={() => setShowCreateForm(!showCreateForm)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Plus className="w-4 h-4" /> Add Obligation
-          </Button>
-        </div>
+        {activeTab === "obligations" && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCalculator(!showCalculator)} className="gap-1.5">
+              <Calculator className="w-4 h-4" /> Calculate Shortfalls
+            </Button>
+            <Button size="sm" onClick={() => setShowCreateForm(!showCreateForm)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Plus className="w-4 h-4" /> Add Obligation
+            </Button>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{totalOwed}</p><p className="text-[11px] text-gray-400">Total Minutes Owed</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-2xl font-bold text-emerald-700">{totalDelivered}</p><p className="text-[11px] text-gray-400">Minutes Delivered</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{totalRemaining}</p><p className="text-[11px] text-gray-400">Minutes Remaining</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{pendingCount}</p><p className="text-[11px] text-gray-400">Active Obligations</p></CardContent></Card>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-gray-200 -mt-2">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab.key
+                  ? "border-emerald-600 text-emerald-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {showCalculator && (
-        <ShortfallCalculator
-          onClose={() => { setShowCalculator(false); setShortfalls([]); }}
-          onCalculate={runCalculateShortfalls}
-          shortfalls={shortfalls}
-          loading={calcLoading}
-          onGenerate={generateObligations}
-        />
+      {activeTab === "obligations" && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{totalOwed}</p><p className="text-[11px] text-gray-400">Total Minutes Owed</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-2xl font-bold text-emerald-700">{totalDelivered}</p><p className="text-[11px] text-gray-400">Minutes Delivered</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{totalRemaining}</p><p className="text-[11px] text-gray-400">Minutes Remaining</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{pendingCount}</p><p className="text-[11px] text-gray-400">Active Obligations</p></CardContent></Card>
+          </div>
+
+          {showCalculator && (
+            <ShortfallCalculator
+              onClose={() => { setShowCalculator(false); setShortfalls([]); }}
+              onCalculate={runCalculateShortfalls}
+              shortfalls={shortfalls}
+              loading={calcLoading}
+              onGenerate={generateObligations}
+            />
+          )}
+
+          {showCreateForm && (
+            <CreateObligationForm
+              students={students}
+              serviceRequirements={serviceRequirements}
+              onClose={() => setShowCreateForm(false)}
+              onCreated={() => { setShowCreateForm(false); fetchObligations(); }}
+            />
+          )}
+
+          <div className="flex gap-2 flex-wrap">
+            {["all", "pending", "in_progress", "completed", "waived"].map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  statusFilter === s ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {s === "all" ? "All" : (STATUS_CONFIG[s]?.label || s)}
+              </button>
+            ))}
+          </div>
+
+          <ObligationList
+            obligations={obligations}
+            loading={loading}
+            expandedId={expandedId}
+            expandedDetail={expandedDetail}
+            expandedLoading={expandedLoading}
+            showLogSession={showLogSession}
+            onToggleExpanded={toggleExpanded}
+            onUpdateStatus={updateStatus}
+            onShowLog={(id) => setShowLogSession(id)}
+            onCloseLog={() => setShowLogSession(null)}
+            onLogged={handleLogged}
+          />
+        </>
       )}
 
-      {showCreateForm && (
-        <CreateObligationForm
-          students={students}
-          serviceRequirements={serviceRequirements}
-          onClose={() => setShowCreateForm(false)}
-          onCreated={() => { setShowCreateForm(false); fetchObligations(); }}
-        />
+      {activeTab === "cost-avoidance" && (
+        <CostAvoidanceDashboard embedded />
       )}
-
-      <div className="flex gap-2 flex-wrap">
-        {["all", "pending", "in_progress", "completed", "waived"].map(s => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              statusFilter === s ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {s === "all" ? "All" : (STATUS_CONFIG[s]?.label || s)}
-          </button>
-        ))}
-      </div>
-
-      <ObligationList
-        obligations={obligations}
-        loading={loading}
-        expandedId={expandedId}
-        expandedDetail={expandedDetail}
-        expandedLoading={expandedLoading}
-        showLogSession={showLogSession}
-        onToggleExpanded={toggleExpanded}
-        onUpdateStatus={updateStatus}
-        onShowLog={(id) => setShowLogSession(id)}
-        onCloseLog={() => setShowLogSession(null)}
-        onLogged={handleLogged}
-      />
     </div>
   );
 }

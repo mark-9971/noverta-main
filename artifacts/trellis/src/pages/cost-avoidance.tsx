@@ -690,7 +690,7 @@ function ForecastSection() {
   );
 }
 
-export default function CostAvoidanceDashboard() {
+export default function CostAvoidanceDashboard({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
@@ -747,9 +747,11 @@ export default function CostAvoidanceDashboard() {
     return groups;
   }, [filteredRisks]);
 
+  const outerClass = embedded ? "space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6";
+
   if (isLoading) {
     return (
-      <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
+      <div className={outerClass}>
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-32 w-full" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -763,7 +765,7 @@ export default function CostAvoidanceDashboard() {
 
   if (isError || !summary) {
     return (
-      <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
+      <div className={embedded ? "" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto"}>
         <Card className="border-red-200 bg-red-50/30">
           <CardContent className="py-8 text-center">
             <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-3" />
@@ -776,28 +778,30 @@ export default function CostAvoidanceDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <TrendingDown className="w-6 h-6 text-red-500" />
-            Cost Avoidance Dashboard
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Predicted compliance risks with estimated financial exposure
-          </p>
+    <div className={outerClass}>
+      {!embedded && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <TrendingDown className="w-6 h-6 text-red-500" />
+              Cost Avoidance Dashboard
+            </h1>
+            <p className="text-xs text-gray-400 mt-1">
+              Predicted compliance risks with estimated financial exposure
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => alertMutation.mutate()}
+            disabled={alertMutation.isPending}
+            className="h-8 text-xs"
+          >
+            <Bell className="w-3.5 h-3.5 mr-1.5" />
+            {alertMutation.isPending ? "Sending..." : "Send Risk Alerts"}
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => alertMutation.mutate()}
-          disabled={alertMutation.isPending}
-          className="h-8 text-xs"
-        >
-          <Bell className="w-3.5 h-3.5 mr-1.5" />
-          {alertMutation.isPending ? "Sending..." : "Send Risk Alerts"}
-        </Button>
-      </div>
+      )}
 
       <ExposureBanner summary={summary} previousSnapshot={previousSnapshot} />
 
