@@ -129,14 +129,6 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
       { href: "/iep-calendar", label: "IEP Calendar", icon: Calendar },
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-      {
-        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
-        children: [
-          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-        ],
-      },
     ],
   },
   {
@@ -184,8 +176,8 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Service Delivery",
-    icon: Calendar,
+    label: "Staffing",
+    icon: Users,
     collapsible: true,
     defaultOpen: true,
     items: [
@@ -197,6 +189,14 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      {
+        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
+        children: [
+          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+        ],
+      },
     ],
   },
   {
@@ -278,7 +278,7 @@ export const adminNav: NavSection[] = [
 // Restraint & Seclusion, Supervision). Reports link lives in More tools.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
-  "Service Delivery": "My Caseload",
+  "Staffing": "My Caseload",
 };
 const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
   "Directory": "My Directory",
