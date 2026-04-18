@@ -23,10 +23,14 @@ const LIFE_ALERT_DISTRICT_WIDE = ["admin", "coordinator"] as const;
 router.get("/students/life-threatening-alerts", async (req, res): Promise<void> => {
   try {
     const authed = req as AuthedRequest;
-    const { trellisRole, districtId, tenantStaffId } = authed;
+    const { trellisRole, tenantDistrictId, tenantStaffId } = authed;
 
     if (!(LIFE_ALERT_ROLES as readonly string[]).includes(trellisRole ?? "")) {
       res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    if (!tenantDistrictId) {
+      res.status(403).json({ error: "No district context" }); return;
     }
 
     const isDistrictWide = (LIFE_ALERT_DISTRICT_WIDE as readonly string[]).includes(trellisRole ?? "");
@@ -36,13 +40,8 @@ router.get("/students/life-threatening-alerts", async (req, res): Promise<void> 
       eq(medicalAlertsTable.notifyAllStaff, true),
       isNull(studentsTable.deletedAt),
       eq(studentsTable.status, "active"),
+      sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${tenantDistrictId})`,
     ];
-
-    if (districtId) {
-      conditions.push(
-        sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
-      );
-    }
 
     if (!isDistrictWide) {
       if (!tenantStaffId) { res.json([]); return; }
