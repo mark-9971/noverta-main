@@ -171,6 +171,82 @@ export async function seedDemoComplianceVariety(): Promise<DemoComplianceVariety
       AND student_id NOT IN (${sql.raw(variety.join(","))})
   `);
 
+  // ---- 2.5) Drop service delivery for 4 students so risk status matches alerts ----
+  // The behind_on_minutes / projected_shortfall / missed_sessions alerts above
+  // describe service-delivery problems but the underlying session data still
+  // shows them on_track. Convert enough current-month completed sessions to
+  // 'missed' to push delivered/expected_by_now under the at_risk and
+  // out_of_compliance thresholds in artifacts/api-server/src/lib/minuteCalc.ts
+  // (out_of_compliance < 70% of expected, at_risk < 85%).
+  // Idempotent: re-running finds delivery already at target and skips.
+  const riskTargets: Array<{ studentId: number | undefined; targetRatio: number; tag: string }> = [
+    // 2 out_of_compliance — aligned with "missed_sessions" critical alert + extra
+    { studentId: variety[4], targetRatio: 0.55, tag: "ooc-1" },
+    { studentId: variety[7], targetRatio: 0.55, tag: "ooc-2" },
+    // 2 at_risk — aligned with "behind_on_minutes" + "projected_shortfall" alerts
+    { studentId: variety[5], targetRatio: 0.78, tag: "atr-1" },
+    { studentId: variety[6], targetRatio: 0.78, tag: "atr-2" },
+  ];
+  let sessionsFlipped = 0;
+  for (const tgt of riskTargets) {
+    if (!tgt.studentId) continue;
+    const tag = `[demo-variety:risk-drop:${tgt.tag}]`;
+    const srs = await db.execute(sql`
+      SELECT id, required_minutes FROM service_requirements
+      WHERE student_id = ${tgt.studentId} AND interval_type = 'monthly'
+    `);
+    for (const sr of srs.rows as { id: number; required_minutes: number }[]) {
+      const expRow = await db.execute(sql`
+        SELECT (${sr.required_minutes}::float
+                * EXTRACT(DAY FROM CURRENT_DATE)::float
+                / EXTRACT(DAY FROM (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day'))::float
+               ) AS expected_now
+      `);
+      const expectedNow = Number((expRow.rows[0] as { expected_now: number }).expected_now);
+      if (!isFinite(expectedNow) || expectedNow <= 0) continue;
+      const targetDelivered = Math.floor(expectedNow * tgt.targetRatio);
+
+      const delRow = await db.execute(sql`
+        SELECT COALESCE(SUM(duration_minutes), 0)::int AS delivered
+        FROM session_logs
+        WHERE service_requirement_id = ${sr.id}
+          AND deleted_at IS NULL
+          AND is_compensatory = false
+          AND status IN ('completed','makeup')
+          AND session_date::date >= date_trunc('month', CURRENT_DATE)::date
+          AND session_date::date <= (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date
+      `);
+      const delivered = Number((delRow.rows[0] as { delivered: number }).delivered);
+      const minutesToRemove = delivered - targetDelivered;
+      if (minutesToRemove <= 0) continue;
+
+      const flipped = await db.execute(sql`
+        WITH candidates AS (
+          SELECT id, duration_minutes,
+                 SUM(duration_minutes) OVER (ORDER BY session_date DESC, id DESC
+                                             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running
+          FROM session_logs
+          WHERE service_requirement_id = ${sr.id}
+            AND deleted_at IS NULL
+            AND is_compensatory = false
+            AND status IN ('completed','makeup')
+            AND session_date::date >= date_trunc('month', CURRENT_DATE)::date
+            AND session_date::date <= (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::date
+        ),
+        to_flip AS (
+          SELECT id FROM candidates WHERE running - duration_minutes < ${minutesToRemove}
+        )
+        UPDATE session_logs
+        SET status = 'missed',
+            notes = COALESCE(notes, '') || ' ' || ${tag}
+        WHERE id IN (SELECT id FROM to_flip)
+        RETURNING id
+      `);
+      sessionsFlipped += flipped.rows.length;
+    }
+  }
+  console.log(`Risk-drop: flipped ${sessionsFlipped} completed sessions to missed across ${riskTargets.filter(t => t.studentId).length} students.`);
+
   // ---- 3) Insert variety alerts (idempotent via [demo-variety:KEY] tag) ----
   const variants: Array<{ key: string; type: string; sev: string; sid: number; msg: string; action: string }> = [
     { key: "missed-1", type: "missed_sessions", sev: "critical", sid: variety[4] ?? variety[0],
