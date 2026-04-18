@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, ChevronRight, ChevronLeft, Users, FileText,
-  Clock, TrendingUp, Loader2,
+  Clock, TrendingUp, Loader2, Printer,
   BookOpen, MessageSquare, Briefcase,
   RefreshCw, Save,
 } from "lucide-react";
@@ -39,7 +39,7 @@ export default function IepBuilderPage() {
 
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
-  const [pendingDraft, setPendingDraft] = useState<{ wizardStep: number; formData: any; updatedAt: string } | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<{ wizardStep: number; formData: any; updatedAt: string; lastEditorName: string | null } | null>(null);
   const [draftResolved, setDraftResolved] = useState(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSavingRef = useRef(false);
@@ -82,7 +82,7 @@ export default function IepBuilderPage() {
         if (cancelled) return;
         setContext(ctxData as any);
         if (draftRes && draftRes.formData) {
-          setPendingDraft({ wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt });
+          setPendingDraft({ wizardStep: draftRes.wizardStep, formData: draftRes.formData, updatedAt: draftRes.updatedAt, lastEditorName: draftRes.lastEditorName ?? null });
           setShowResumeDialog(true);
         } else {
           setDraftResolved(true);
@@ -222,12 +222,15 @@ export default function IepBuilderPage() {
       {showResumeDialog && pendingDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">Unfinished Draft Found</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Shared Draft Found</h2>
             <p className="text-[13px] text-gray-600 mb-1">
-              You have an unfinished IEP draft from{" "}
-              <span className="font-semibold">{new Date(pendingDraft.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span>.
+              Your team has a shared IEP draft last saved{" "}
+              <span className="font-semibold">{new Date(pendingDraft.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+              {pendingDraft.lastEditorName && (
+                <> by <span className="font-semibold">{pendingDraft.lastEditorName}</span></>
+              )}.
             </p>
-            <p className="text-[12px] text-gray-400 mb-5">You were on step {pendingDraft.wizardStep} of the wizard.</p>
+            <p className="text-[12px] text-gray-400 mb-5">The draft is at step {pendingDraft.wizardStep} of the wizard.</p>
             <div className="flex gap-3">
               <Button className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={resumeDraft}>
                 <RefreshCw className="w-4 h-4 mr-2" /> Resume

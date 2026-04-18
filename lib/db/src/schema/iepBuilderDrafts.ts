@@ -7,7 +7,7 @@ import { staffTable } from "./staff";
 export const iepBuilderDraftsTable = pgTable("iep_builder_drafts", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
-  staffId: integer("staff_id").notNull().references(() => staffTable.id),
+  staffId: integer("staff_id").references(() => staffTable.id),
   wizardStep: integer("wizard_step").notNull().default(1),
   formData: jsonb("form_data").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -15,7 +15,7 @@ export const iepBuilderDraftsTable = pgTable("iep_builder_drafts", {
 }, (table) => [
   index("iep_draft_student_idx").on(table.studentId),
   index("iep_draft_staff_idx").on(table.staffId),
-  unique("iep_draft_student_staff_uniq").on(table.studentId, table.staffId),
+  unique("iep_draft_student_uniq").on(table.studentId),
 ]);
 
 export const insertIepBuilderDraftSchema = createInsertSchema(iepBuilderDraftsTable).omit({ id: true, createdAt: true, updatedAt: true });

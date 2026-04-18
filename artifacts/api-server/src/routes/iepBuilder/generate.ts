@@ -9,7 +9,7 @@ import { eq, desc, and, asc } from "drizzle-orm";
 import { assertStudentInCallerDistrict } from "../../lib/districtScope";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
-  getAge, nextSchoolYear, recommendationForGoal, getStaffIdFromReq,
+  getAge, nextSchoolYear, recommendationForGoal,
 } from "./shared";
 
 const router: IRouter = Router();
@@ -326,12 +326,10 @@ router.post("/students/:studentId/iep-builder/generate", async (req, res): Promi
       disclaimer: "This draft was assembled from your recorded data using rule-based recommendation templates — no language model is involved. All recommendations must be reviewed and approved by the IEP Team. The IEP Team has final authority over all decisions. This document does not constitute a finalized IEP.",
     });
 
-    const staffId = getStaffIdFromReq(req);
-    if (staffId) {
-      db.delete(iepBuilderDraftsTable)
-        .where(and(eq(iepBuilderDraftsTable.studentId, studentId), eq(iepBuilderDraftsTable.staffId, staffId)))
-        .catch(() => {});
-    }
+    // Clean up the shared draft for this student now that generation is complete.
+    db.delete(iepBuilderDraftsTable)
+      .where(eq(iepBuilderDraftsTable.studentId, studentId))
+      .catch(() => {});
   } catch (e: any) {
     console.error("IEP builder generate error:", e);
     res.status(500).json({ error: "Failed to generate IEP draft" });
