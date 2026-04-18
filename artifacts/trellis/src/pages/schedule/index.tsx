@@ -1,13 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useListScheduleBlocks, useListStaff, useListSpedStudents, listSchools, listServiceTypes, createScheduleBlock, updateScheduleBlock, deleteScheduleBlock } from "@workspace/api-client-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSchoolContext } from "@/lib/school-context";
 import { useRole } from "@/lib/role-context";
+import { authFetch } from "@/lib/auth-fetch";
+import { RISK_CONFIG } from "@/lib/constants";
 import { toast } from "sonner";
-import { Settings, RotateCcw, Calendar, Plus } from "lucide-react";
+import { Settings, RotateCcw, Calendar, Plus, ChevronLeft, ChevronRight, Filter, X, AlertTriangle } from "lucide-react";
 import {
   HOURS, BLOCK_COLORS, ScheduleType, SchoolScheduleConfig,
   SCHEDULE_TYPE_LABELS, getRotationColumns, getCurrentRotationDay, fallbackRotationCol,
+  WEEKDAYS,
 } from "./constants";
 import { ScheduleSettingsDialog } from "./ScheduleSettingsDialog";
 import { ScheduleGrid } from "./ScheduleGrid";
@@ -22,12 +26,71 @@ const DEFAULT_FORM: BlockForm = {
   recurrenceType: "weekly", effectiveFrom: "", effectiveTo: "",
 };
 
+// ─── Week nav helpers ─────────────────────────────────────────────────────────
+
+function getMondayOfWeek(offset: number): Date {
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun 1=Mon … 6=Sat
+  const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + diff + offset * 7);
+  mon.setHours(0, 0, 0, 0);
+  return mon;
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(d.getDate() + n);
+  return r;
+}
+
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function todayIso(): string {
+  return isoDate(new Date());
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ComplianceRow {
+  studentId: number;
+  studentName: string;
+  serviceTypeName: string;
+  riskStatus: string;
+  deliveredMinutes: number;
+  requiredMinutes: number;
+  remainingMinutes: number;
+  percentComplete: number;
+}
+
 export default function Schedule({ embedded = false }: { embedded?: boolean } = {}) {
+  // ── filter state ──────────────────────────────────────────────────────────
   const [staffFilter, setStaffFilter] = useState<string>("all");
+  const [studentFilter, setStudentFilter] = useState<string>("all");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  // ── week nav ──────────────────────────────────────────────────────────────
+  const [weekOffset, setWeekOffset] = useState(0);
+  const monday = useMemo(() => getMondayOfWeek(weekOffset), [weekOffset]);
+  const weekDates = useMemo(() => WEEKDAYS.map((_, i) => addDays(monday, i)), [monday]);
+  const todayIsoStr = useMemo(() => todayIso(), []);
+  const weekDateMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    WEEKDAYS.forEach((day, i) => { m[day] = isoDate(weekDates[i]); });
+    return m;
+  }, [weekDates]);
+
+  // ── view / dialog state ───────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [schoolConfig, setSchoolConfig] = useState<SchoolScheduleConfig | null>(null);
-
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<any>(null);
   const [deletingBlock, setDeletingBlock] = useState<any>(null);
@@ -37,10 +100,49 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
 
   const { filterParams, selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
+
+  // ── data fetches ──────────────────────────────────────────────────────────
   const { data: blocks, isLoading, isError, refetch } = useListScheduleBlocks({ ...filterParams } as any);
   const { data: staff } = useListStaff({ ...filterParams } as any);
   const { data: spedStudentsRaw } = useListSpedStudents(filterParams as any);
   const studentList = (Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []) as any[];
+
+  // Compliance data — always fetch so we can badge all blocks
+  const complianceQuery = useQuery<ComplianceRow[]>({
+    queryKey: ["schedule/compliance", filterParams],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (filterParams.schoolId) qs.set("schoolId", String(filterParams.schoolId));
+      if (filterParams.districtId) qs.set("districtId", String(filterParams.districtId));
+      const r = await authFetch(`/api/minute-progress?${qs}`);
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 120_000,
+  });
+  const complianceRows: ComplianceRow[] = complianceQuery.data ?? [];
+
+  // Map studentId → worst risk status (a student may appear multiple times for different services)
+  const complianceMap = useMemo(() => {
+    const PRIORITY = ["out_of_compliance", "at_risk", "slightly_behind", "no_data", "on_track", "completed"];
+    const m = new Map<number, ComplianceRow>();
+    for (const row of complianceRows) {
+      const cur = m.get(row.studentId);
+      if (!cur) { m.set(row.studentId, row); continue; }
+      if (PRIORITY.indexOf(row.riskStatus) < PRIORITY.indexOf(cur.riskStatus)) {
+        m.set(row.studentId, row);
+      }
+    }
+    return m;
+  }, [complianceRows]);
+
+  const atRiskStudentIds = useMemo(() => {
+    return new Set(
+      Array.from(complianceMap.values())
+        .filter(r => ["out_of_compliance", "at_risk", "slightly_behind"].includes(r.riskStatus))
+        .map(r => r.studentId)
+    );
+  }, [complianceMap]);
 
   useEffect(() => {
     listServiceTypes().then((r: any) => setServiceTypesList(Array.isArray(r) ? r : [])).catch(() => {});
@@ -56,13 +158,55 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
     }).catch(() => {});
   }, [selectedSchoolId]);
 
+  // ── filter derivations ────────────────────────────────────────────────────
   const blockList = (blocks as any[]) ?? [];
   const staffList = (staff as any[]) ?? [];
-  const filtered = staffFilter === "all" ? blockList : blockList.filter(b => String(b.staffId) === staffFilter);
 
+  // Unique staff roles for the role filter
+  const staffRoles = useMemo(() => {
+    const seen = new Set<string>();
+    staffList.forEach(s => { if (s.role) seen.add(s.role); });
+    return Array.from(seen).sort();
+  }, [staffList]);
+
+  // Staff filtered by role
+  const staffByRole = useMemo(() => {
+    if (roleFilter === "all") return staffList;
+    return staffList.filter(s => s.role === roleFilter);
+  }, [staffList, roleFilter]);
+
+  const filteredBlocks = useMemo(() => {
+    return blockList.filter(b => {
+      if (staffFilter !== "all" && String(b.staffId) !== staffFilter) return false;
+      if (studentFilter !== "all" && String(b.studentId) !== studentFilter) return false;
+      if (serviceTypeFilter !== "all" && String(b.serviceTypeId) !== serviceTypeFilter) return false;
+      // role filter: filter by staff role — check the staff list
+      if (roleFilter !== "all") {
+        const staffMember = staffList.find(s => s.id === b.staffId);
+        if (!staffMember || staffMember.role !== roleFilter) return false;
+      }
+      return true;
+    });
+  }, [blockList, staffFilter, studentFilter, serviceTypeFilter, roleFilter, staffList]);
+
+  const hasActiveFilters = staffFilter !== "all" || studentFilter !== "all" || serviceTypeFilter !== "all" || roleFilter !== "all";
+
+  // Compliance ribbon data — for the selected student
+  const selectedStudentCompliance = useMemo(() => {
+    if (studentFilter === "all") return null;
+    return complianceRows.filter(r => String(r.studentId) === studentFilter);
+  }, [studentFilter, complianceRows]);
+
+  // ── grid construction ─────────────────────────────────────────────────────
   const scheduleType: ScheduleType = schoolConfig?.scheduleType ?? "standard";
   const columns = getRotationColumns(scheduleType);
   const todayRotationDay = schoolConfig ? getCurrentRotationDay(schoolConfig) : null;
+
+  // For standard schedule: map weekday → actual date from week nav
+  const todayColumn = useMemo(() => {
+    if (scheduleType !== "standard") return todayRotationDay;
+    return WEEKDAYS.find(d => weekDateMap[d] === todayIsoStr) ?? todayRotationDay;
+  }, [scheduleType, weekDateMap, todayIsoStr, todayRotationDay]);
 
   const serviceColorMap: Record<number, string> = {};
   let colorIdx = 0;
@@ -72,7 +216,7 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
     for (const hour of HOURS) grid[col][hour] = [];
   }
 
-  for (const b of filtered) {
+  for (const b of filteredBlocks) {
     if (!serviceColorMap[b.serviceTypeId]) {
       serviceColorMap[b.serviceTypeId] = BLOCK_COLORS[colorIdx % BLOCK_COLORS.length];
       colorIdx++;
@@ -90,12 +234,26 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
     }
   }
 
+  // Compute which days the selected student has NO scheduled session (gap detection)
+  const studentGapDays = useMemo(() => {
+    if (studentFilter === "all") return new Set<string>();
+    const scheduled = new Set<string>();
+    filteredBlocks.forEach(b => {
+      const col = scheduleType === "standard" ? b.dayOfWeek : (b.rotationDay ?? fallbackRotationCol(b.dayOfWeek, scheduleType));
+      scheduled.add(col);
+    });
+    return new Set(columns.filter(c => !scheduled.has(c)));
+  }, [studentFilter, filteredBlocks, columns, scheduleType]);
+
+  // ── dialog helpers ────────────────────────────────────────────────────────
   function openAddBlock(col?: string, hour?: string) {
     setEditingBlock(null);
     const isStandard = scheduleType === "standard";
     setBlockForm({
       ...DEFAULT_FORM,
       staffId: staffFilter !== "all" ? staffFilter : "",
+      studentId: studentFilter !== "all" ? studentFilter : "",
+      serviceTypeId: serviceTypeFilter !== "all" ? serviceTypeFilter : "",
       dayOfWeek: isStandard && col ? col : "monday",
       startTime: hour || "09:00",
       endTime: hour ? `${String(Number(hour.split(":")[0]) + 1).padStart(2, "0")}:00` : "10:00",
@@ -180,10 +338,14 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
 
   const isAdmin = role === "admin";
 
+  // ─── render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6"}>
-      {!embedded && <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
+    <div className={embedded ? "space-y-4" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6"}>
+
+      {/* ── Top bar (standalone only) ── */}
+      {!embedded && (
+        <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Weekly Schedule</h1>
             <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
@@ -194,67 +356,221 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
               {scheduleType !== "standard" && <RotateCcw className="w-2.5 h-2.5" />}
               {SCHEDULE_TYPE_LABELS[scheduleType]}
             </span>
-            {todayRotationDay && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
-                <Calendar className="w-2.5 h-2.5" />
-                Today: Day {todayRotationDay}
+          </div>
+        </div>
+      )}
+
+      {/* ── Planning bar: week nav + filters + actions ── */}
+      <div className="flex flex-col gap-3">
+
+        {/* Week navigation row */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeekOffset(w => w - 1)}
+              className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors"
+              title="Previous week"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white min-w-[220px] justify-center">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+              <span className="text-[13px] font-semibold text-gray-700 whitespace-nowrap">
+                {fmtDate(monday)} – {fmtDate(addDays(monday, 4))}
               </span>
+              {weekOffset === 0 && (
+                <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">This week</span>
+              )}
+            </div>
+            <button
+              onClick={() => setWeekOffset(w => w + 1)}
+              className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors"
+              title="Next week"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            {weekOffset !== 0 && (
+              <button
+                onClick={() => setWeekOffset(0)}
+                className="text-[11px] font-medium text-gray-500 hover:text-emerald-700 px-2 py-1 rounded border border-gray-200 bg-white transition-colors"
+              >
+                Today
+              </button>
             )}
           </div>
-          <p className="text-xs md:text-sm text-gray-400 mt-0.5">{blockList.length} recurring schedule blocks</p>
+
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => openAddBlock()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Block
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-gray-500 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5" /> Settings
+              </button>
+            )}
+            <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <button onClick={() => setViewMode("grid")} className={`px-3 py-1.5 text-[12px] font-medium transition-all ${viewMode === "grid" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>Grid</button>
+              <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-[12px] font-medium transition-all ${viewMode === "list" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>List</button>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
-          {isAdmin && (
-            <button
-              onClick={() => openAddBlock()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Block
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-gray-500 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" /> Settings
-            </button>
-          )}
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-xs font-medium text-gray-500">Filter:</span>
+          </div>
+
+          {/* Role filter */}
+          <Select value={roleFilter} onValueChange={v => { setRoleFilter(v); setStaffFilter("all"); }}>
+            <SelectTrigger className="w-[140px] h-8 text-xs bg-white">
+              <SelectValue placeholder="All Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {staffRoles.map(r => (
+                <SelectItem key={r} value={r}>{r.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Staff filter */}
           <Select value={staffFilter} onValueChange={setStaffFilter}>
-            <SelectTrigger className="flex-1 sm:w-52 h-9 text-[13px] bg-white">
-              <SelectValue placeholder="All staff" />
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-white">
+              <SelectValue placeholder="All Staff" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Staff</SelectItem>
-              {staffList.map((s: any) => (
+              {staffByRole.map((s: any) => (
                 <SelectItem key={s.id} value={String(s.id)}>
-                  {s.firstName} {s.lastName} ({s.role?.toUpperCase()})
+                  {s.firstName} {s.lastName}
+                  {s.role && <span className="text-gray-400 ml-1">({s.role.toUpperCase()})</span>}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <button onClick={() => setViewMode("grid")} className={`px-3 py-1.5 text-[12px] font-medium transition-all ${viewMode === "grid" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>Grid</button>
-            <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-[12px] font-medium transition-all ${viewMode === "list" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>List</button>
-          </div>
-        </div>
-      </div>}
 
-      {scheduleType !== "standard" && schoolConfig?.scheduleNotes && (
-        <div className="flex items-start gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-[12px] text-emerald-800">
-          <Calendar className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <span>{schoolConfig.scheduleNotes}</span>
+          {/* Student filter */}
+          <Select value={studentFilter} onValueChange={setStudentFilter}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-white">
+              <SelectValue placeholder="All Students" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Students</SelectItem>
+              {studentList.map((s: any) => {
+                const name = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || `Student ${s.id}`;
+                const status = complianceMap.get(s.id);
+                return (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {name}
+                    {status && status.riskStatus !== "on_track" && status.riskStatus !== "completed" && (
+                      <span className="ml-1 text-red-500">●</span>
+                    )}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {/* Service type filter */}
+          <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-white">
+              <SelectValue placeholder="All Service Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Services</SelectItem>
+              {serviceTypesList.map((st: any) => (
+                <SelectItem key={st.id} value={String(st.id)}>{st.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setStaffFilter("all"); setStudentFilter("all"); setServiceTypeFilter("all"); setRoleFilter("all"); }}
+              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1 rounded border border-gray-200 bg-white transition-colors"
+            >
+              <X className="w-3 h-3" /> Clear
+            </button>
+          )}
+
+          <span className="text-xs text-gray-400 ml-1">
+            {filteredBlocks.length} block{filteredBlocks.length !== 1 ? "s" : ""}
+            {hasActiveFilters ? " (filtered)" : ""}
+          </span>
+        </div>
+
+        {/* Schedule notes */}
+        {scheduleType !== "standard" && schoolConfig?.scheduleNotes && (
+          <div className="flex items-start gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-[12px] text-emerald-800">
+            <Calendar className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>{schoolConfig.scheduleNotes}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Compliance ribbon (shown when a student is selected) ── */}
+      {studentFilter !== "all" && selectedStudentCompliance && selectedStudentCompliance.length > 0 && (
+        <div className="rounded-xl border overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Compliance — {selectedStudentCompliance[0]?.studentName}</span>
+            {studentGapDays.size > 0 && (
+              <span className="ml-auto text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                No sessions scheduled: {Array.from(studentGapDays).map(d => d.slice(0,3).toUpperCase()).join(", ")}
+              </span>
+            )}
+          </div>
+          <div className="flex divide-x divide-gray-100">
+            {selectedStudentCompliance.map((row, i) => {
+              const cfg = RISK_CONFIG[row.riskStatus] ?? RISK_CONFIG.on_track;
+              const pct = Math.min(100, Math.round(row.percentComplete));
+              return (
+                <div key={i} className="flex-1 px-4 py-3 min-w-0">
+                  <div className="text-[11px] text-gray-400 truncate">{row.serviceTypeName}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${pct >= 90 ? "bg-emerald-500" : pct >= 75 ? "bg-amber-400" : pct >= 50 ? "bg-orange-400" : "bg-red-500"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className={`text-[11px] font-semibold shrink-0 ${cfg.color}`}>{pct}%</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium border ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                    {row.remainingMinutes > 0 && (
+                      <span className="text-[10px] text-gray-400">{row.remainingMinutes} min shortfall</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
+      {/* ── Grid / List ── */}
       {viewMode === "grid" ? (
         <ScheduleGrid
           scheduleType={scheduleType}
           columns={columns}
           grid={grid}
           serviceColorMap={serviceColorMap}
-          todayRotationDay={todayRotationDay}
+          todayColumn={todayColumn}
+          weekDateMap={scheduleType === "standard" ? weekDateMap : {}}
+          complianceMap={complianceMap}
+          atRiskStudentIds={atRiskStudentIds}
+          gapColumns={studentGapDays}
           isAdmin={isAdmin}
           isLoading={isLoading}
           isError={isError}
@@ -267,9 +583,11 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
         <ScheduleListView
           scheduleType={scheduleType}
           columns={columns}
-          filtered={filtered}
+          filtered={filteredBlocks}
           serviceColorMap={serviceColorMap}
-          todayRotationDay={todayRotationDay}
+          todayColumn={todayColumn}
+          complianceMap={complianceMap}
+          atRiskStudentIds={atRiskStudentIds}
           isAdmin={isAdmin}
           isLoading={isLoading}
           isError={isError}
@@ -295,7 +613,7 @@ export default function Schedule({ embedded = false }: { embedded?: boolean } = 
         editingBlock={editingBlock}
         blockForm={blockForm}
         setBlockForm={setBlockForm}
-        staffList={staffList}
+        staffList={staffByRole}
         studentList={studentList}
         serviceTypesList={serviceTypesList}
         saving={blockSaving}
