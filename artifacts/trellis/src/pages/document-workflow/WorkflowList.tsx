@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, ArrowRight } from "lucide-react";
 import { Workflow } from "./types";
 import { AgingBadge, StatusBadge, StageProgress, daysAgo, formatDate } from "./shared";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 
 interface Props {
   workflows: Workflow[];
@@ -62,11 +63,13 @@ export function WorkflowList({
             {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
           </div>
         ) : workflows.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No workflows found</p>
-            <p className="text-sm text-gray-400 mt-1">Start a workflow to route a document through review and approval</p>
-          </div>
+          <DemoEmptyState setupHint="Document review workflows (PWNs, evaluation reports, IEP approvals) are routed by case managers as documents move toward signature. The sample dataset does not include in-flight workflows.">
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No workflows found</p>
+              <p className="text-sm text-gray-400 mt-1">Start a workflow to route a document through review and approval</p>
+            </div>
+          </DemoEmptyState>
         ) : (
           <div className="divide-y">
             {workflows.map(wf => {

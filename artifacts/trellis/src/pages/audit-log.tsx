@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { listAuditLogs, getAuditLogStats, customFetch } from "@workspace/api-client-react";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 const PAGE_SIZE = 50;
 
 interface AuditLogEntry {
@@ -420,9 +421,11 @@ export default function AuditLogPage() {
             Failed to load audit logs. You may not have admin access.
           </div>
         ) : logs.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            No audit log entries found
-          </div>
+          <DemoEmptyState setupHint="The audit log records changes made by real users in production. The sample dataset is created by an automated seeder, so there is no end-user activity to show here.">
+            <div className="p-12 text-center text-gray-400">
+              No audit log entries found
+            </div>
+          </DemoEmptyState>
         ) : (
           <>
             <div className="overflow-x-auto">

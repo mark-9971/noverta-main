@@ -34,6 +34,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 
 interface Agency {
   id: number;
@@ -147,12 +148,25 @@ export default function AgenciesPage() {
       {isLoading ? (
         <div className="text-center py-12 text-gray-500">Loading agencies...</div>
       ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">{search ? "No agencies match your search" : "No agencies yet. Add one to get started."}</p>
-          </CardContent>
-        </Card>
+        search ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No agencies match your search</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="py-2">
+              <DemoEmptyState setupHint="Real tenants add their contracted service agencies and provider rosters during onboarding so contract utilization can be tracked.">
+                <div className="py-12 text-center">
+                  <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No agencies yet. Add one to get started.</p>
+                </div>
+              </DemoEmptyState>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <Card>
           <Table>

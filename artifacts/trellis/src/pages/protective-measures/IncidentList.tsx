@@ -8,6 +8,7 @@ import {
 import { listProtectiveIncidents, getProtectiveSummary } from "@workspace/api-client-react";
 import { useRole } from "@/lib/role-context";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 import { StudentQuickView } from "@/components/student-quick-view";
 import { TrendsPanel } from "@/pages/protective-measures/TrendsPanel";
 import {
@@ -205,22 +206,24 @@ export function IncidentList({ filterType, setFilterType, filterStatus, setFilte
         {isLoading ? (
           <div className="p-12 text-center text-sm text-gray-400">Loading incidents...</div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={Shield}
-            title="No Restraint or Seclusion Incidents"
-            compact
-          >
-            <EmptyStateDetail>
-              Massachusetts regulation 603 CMR 46.00 requires districts to document every restraint, seclusion, and time-out event involving a student. This page tracks those incidents for compliance and reporting.
-            </EmptyStateDetail>
-            <EmptyStateHeading>When to record an incident:</EmptyStateHeading>
-            <EmptyStateStep number={1}><strong>Physical restraint</strong> — any bodily force used to limit a student's movement.</EmptyStateStep>
-            <EmptyStateStep number={2}><strong>Seclusion</strong> — involuntary confinement in a room the student cannot leave.</EmptyStateStep>
-            <EmptyStateStep number={3}><strong>Time-out</strong> — removal from the classroom to a separate area.</EmptyStateStep>
-            <EmptyStateDetail>
-              Trellis tracks parent notification deadlines, DESE reporting requirements, and helps ensure your district meets the 24-hour verbal and 5-day written notice timelines.
-            </EmptyStateDetail>
-          </EmptyState>
+          <DemoEmptyState setupHint="Restraint and seclusion incidents are reported by school staff as they happen, then routed for parent notification and DESE compliance. The sample dataset has none — and that is intentional.">
+            <EmptyState
+              icon={Shield}
+              title="No Restraint or Seclusion Incidents"
+              compact
+            >
+              <EmptyStateDetail>
+                Massachusetts regulation 603 CMR 46.00 requires districts to document every restraint, seclusion, and time-out event involving a student. This page tracks those incidents for compliance and reporting.
+              </EmptyStateDetail>
+              <EmptyStateHeading>When to record an incident:</EmptyStateHeading>
+              <EmptyStateStep number={1}><strong>Physical restraint</strong> — any bodily force used to limit a student's movement.</EmptyStateStep>
+              <EmptyStateStep number={2}><strong>Seclusion</strong> — involuntary confinement in a room the student cannot leave.</EmptyStateStep>
+              <EmptyStateStep number={3}><strong>Time-out</strong> — removal from the classroom to a separate area.</EmptyStateStep>
+              <EmptyStateDetail>
+                Trellis tracks parent notification deadlines, DESE reporting requirements, and helps ensure your district meets the 24-hour verbal and 5-day written notice timelines.
+              </EmptyStateDetail>
+            </EmptyState>
+          </DemoEmptyState>
         ) : (
           <div className="divide-y divide-gray-100">
             {filtered.map(inc => (

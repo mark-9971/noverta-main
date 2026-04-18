@@ -9,6 +9,7 @@ import { CheckCircle, XCircle, Plus, Ban, Pencil, Save, X, Download, FilterX } f
 import { toast } from "sonner";
 import { STATUS_COLORS, STATUS_LABELS, STATUS_FILTERS, type ClaimStatus } from "./shared";
 import type { DrillFilter } from "./index";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 
@@ -321,7 +322,11 @@ export function ClaimsQueueTab({
                   ))
                 ) : claims.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-8 text-center text-gray-400 text-sm">No claims found</td>
+                    <td colSpan={12} className="py-2">
+                      <DemoEmptyState setupHint="Medicaid claims are generated from billable sessions once CPT codes, NPIs, and Medicaid IDs are configured for real students and providers. The sample district does not include billable claim history.">
+                        <div className="py-8 text-center text-gray-400 text-sm">No claims found</div>
+                      </DemoEmptyState>
+                    </td>
                   </tr>
                 ) : claims.map((c: any) => editingId === c.id ? (
                   <tr key={c.id} className="border-b border-gray-50 bg-emerald-50/40">

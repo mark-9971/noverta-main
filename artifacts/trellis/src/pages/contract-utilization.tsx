@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { DemoEmptyState } from "@/components/DemoEmptyState";
 import { customFetch } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -196,9 +197,13 @@ export default function ContractUtilizationPage() {
         <div className="text-center py-12 text-gray-500">Loading utilization data...</div>
       ) : utilization.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No contracts found. Create agency contracts to start tracking utilization.</p>
+          <CardContent className="py-2">
+            <DemoEmptyState setupHint="Real tenants link contracted agencies to specific service obligations during onboarding so hours consumed vs. purchased can be tracked here.">
+              <div className="py-12 text-center">
+                <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No contracts found. Create agency contracts to start tracking utilization.</p>
+              </div>
+            </DemoEmptyState>
           </CardContent>
         </Card>
       ) : (
