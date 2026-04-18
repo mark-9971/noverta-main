@@ -16,6 +16,120 @@ import type { GoalProgressEntry } from "@workspace/db";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { toMaProgressCode, formatPromptLevel, promptLevelPhrase } from "../routes/iep/utils";
 
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+/** Returns a clinically readable unit string for a measurement type. */
+function measurementUnit(measurementType: string | null): string {
+  switch (measurementType) {
+    case "frequency": return "times per session";
+    case "duration":  return "seconds per session";
+    case "latency":   return "seconds (latency)";
+    case "interval":  return "% of intervals";
+    case "rate":      return "per minute";
+    default:          return "per session";
+  }
+}
+
+/** Returns a brief readable label for a measurement type. */
+function measurementLabel(measurementType: string | null): string {
+  switch (measurementType) {
+    case "frequency": return "frequency";
+    case "duration":  return "duration (seconds)";
+    case "latency":   return "response latency";
+    case "interval":  return "interval recording";
+    case "rate":      return "rate";
+    default:          return "observation";
+  }
+}
+
+function stdDev(values: number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((a, v) => a + v, 0) / values.length;
+  const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+/**
+ * Computes a richer behavior narrative for an IEP goal linked to a behavior target.
+ * All statements are grounded in observed data — no clinical conclusions are invented.
+ */
+function buildBehaviorNarrative(opts: {
+  studentFirstName: string;
+  targetName: string;
+  measurementType: string | null;
+  targetDirection: string | null;
+  baseVal: number | null;
+  goalVal: number | null;
+  avgVal: number;
+  firstAvg: number | null;
+  lastAvg: number | null;
+  sessionCount: number;
+  dataPoints: number;
+  sd: number;
+  progressRating: string;
+}): string {
+  const {
+    studentFirstName: name, targetName, measurementType, targetDirection,
+    baseVal, goalVal, avgVal, firstAvg, lastAvg, sessionCount, dataPoints,
+    sd, progressRating,
+  } = opts;
+
+  const unit = measurementUnit(measurementType);
+  const label = measurementLabel(measurementType);
+  const dirWord = targetDirection === "increase" ? "increase" : "decrease";
+
+  const basePhrase = baseVal !== null
+    ? ` (baseline: ${baseVal} ${unit})`
+    : "";
+
+  const goalPhrase = goalVal !== null
+    ? ` toward a goal of ${goalVal} ${unit}`
+    : "";
+
+  const sessionPhrase = sessionCount > 0
+    ? ` across ${sessionCount} data collection session${sessionCount === 1 ? "" : "s"}`
+    : "";
+
+  const trendPhrase =
+    firstAvg !== null && lastAvg !== null && Math.abs(lastAvg - firstAvg) > 0.3
+      ? targetDirection === "decrease"
+        ? lastAvg < firstAvg
+          ? ` Over the reporting period, this behavior has trended downward (${firstAvg.toFixed(1)} → ${lastAvg.toFixed(1)} ${unit}).`
+          : ` Over the reporting period, this behavior has trended upward (${firstAvg.toFixed(1)} → ${lastAvg.toFixed(1)} ${unit}).`
+        : lastAvg > firstAvg
+          ? ` Over the reporting period, this behavior has trended upward (${firstAvg.toFixed(1)} → ${lastAvg.toFixed(1)} ${unit}).`
+          : ` Over the reporting period, this behavior has trended downward (${firstAvg.toFixed(1)} → ${lastAvg.toFixed(1)} ${unit}).`
+      : "";
+
+  const variabilityNote =
+    dataPoints >= 4 && sd > avgVal * 0.5 && avgVal > 0
+      ? " Note: Notable session-to-session variability was observed; data should be interpreted with caution."
+      : "";
+
+  let opening = `Regarding "${targetName}" (measured by ${label}): `;
+
+  switch (progressRating) {
+    case "mastered":
+      opening += `${name} has met the behavior goal. Current average is ${avgVal} ${unit}${goalPhrase}${basePhrase}${sessionPhrase}.`;
+      break;
+    case "sufficient_progress":
+      opening += `${name} is making sufficient progress toward a ${dirWord} in this behavior. Current average is ${avgVal} ${unit}${basePhrase}${goalPhrase}${sessionPhrase}.`;
+      break;
+    case "some_progress":
+      opening += `${name} is making some progress. Current average is ${avgVal} ${unit}${basePhrase}${goalPhrase}${sessionPhrase}.`;
+      break;
+    case "insufficient_progress":
+      opening += `${name} is making insufficient progress on this behavior goal. Current average is ${avgVal} ${unit}${basePhrase}${goalPhrase}${sessionPhrase}. Program modifications are recommended.`;
+      break;
+    default:
+      opening += `${name} has a current average of ${avgVal} ${unit}${sessionPhrase}.`;
+  }
+
+  return opening + trendPhrase + variabilityNote;
+}
+
+/* ── Main export ──────────────────────────────────────────────────────────── */
+
 export async function computeGoalProgressEntries(
   studentId: number,
   studentFirstName: string,
@@ -53,8 +167,14 @@ export async function computeGoalProgressEntries(
       let behaviorValue: number | null = null;
       let behaviorGoal: number | null = null;
       let narrative = "";
+      let behaviorTargetName: string | null = null;
+      let behaviorMeasurementType: string | null = null;
+      let behaviorTargetDirection: string | null = null;
+      let behaviorVariability: number | null = null;
+      let behaviorSessionCount: number | null = null;
 
       if (goal.programTargetId && sessionIds.length > 0) {
+        /* ─── Skill-acquisition goal (program target) ─── */
         const progData = await db
           .select({
             trialsCorrect: programDataTable.trialsCorrect,
@@ -123,7 +243,9 @@ export async function computeGoalProgressEntries(
         } else {
           narrative = `No program data was collected for this goal during the reporting period.`;
         }
+
       } else if (goal.behaviorTargetId && sessionIds.length > 0) {
+        /* ─── Behavior goal (behavior target) ─── */
         const behData = await db
           .select({
             value: behaviorDataTable.value,
@@ -147,59 +269,90 @@ export async function computeGoalProgressEntries(
             .select()
             .from(behaviorTargetsTable)
             .where(eq(behaviorTargetsTable.id, goal.behaviorTargetId!));
+
+          // Surface target metadata in the entry
+          behaviorTargetName = target?.name ?? null;
+          behaviorMeasurementType = target?.measurementType ?? null;
+          behaviorTargetDirection = target?.targetDirection ?? null;
+
+          const values = behData.map(d => parseFloat(d.value));
           const lastPoints = behData.slice(-3);
           const avgVal =
             Math.round((lastPoints.reduce((s, d) => s + parseFloat(d.value), 0) / lastPoints.length) * 10) / 10;
           behaviorValue = avgVal;
-          behaviorGoal = target?.goalValue ? parseFloat(target.goalValue) : null;
+          const goalVal = target?.goalValue ? parseFloat(target.goalValue) : null;
           const baseVal = target?.baselineValue ? parseFloat(target.baselineValue) : null;
+          behaviorGoal = goalVal;
 
-          currentPerformance = `Average of ${avgVal} per session (last 3 sessions)`;
+          // Compute variability
+          const sd = Math.round(stdDev(values) * 10) / 10;
+          behaviorVariability = behData.length >= 4 ? sd : null;
+
+          // Distinct session count
+          const uniqueSessions = new Set(behData.map(d => d.sessionDate));
+          behaviorSessionCount = uniqueSessions.size;
+
+          // First-half / second-half averages for trend
+          let firstHalfAvg: number | null = null;
+          let secondHalfAvg: number | null = null;
+          if (behData.length >= 4) {
+            const half = Math.floor(behData.length / 2);
+            const fh = values.slice(0, half);
+            const sh = values.slice(half);
+            firstHalfAvg = Math.round((fh.reduce((a, v) => a + v, 0) / fh.length) * 10) / 10;
+            secondHalfAvg = Math.round((sh.reduce((a, v) => a + v, 0) / sh.length) * 10) / 10;
+            const isDecreaseGoal = target?.targetDirection === "decrease";
+            if (isDecreaseGoal) {
+              if (secondHalfAvg < firstHalfAvg - 0.5) trendDirection = "improving";
+              else if (secondHalfAvg > firstHalfAvg + 0.5) trendDirection = "declining";
+            } else {
+              if (secondHalfAvg > firstHalfAvg + 0.5) trendDirection = "improving";
+              else if (secondHalfAvg < firstHalfAvg - 0.5) trendDirection = "declining";
+            }
+          }
+
+          const unit = measurementUnit(target?.measurementType ?? null);
+          currentPerformance = target?.name
+            ? `"${target.name}": average of ${avgVal} ${unit} (last 3 sessions)`
+            : `Average of ${avgVal} ${unit} (last 3 sessions)`;
 
           const goalMet =
-            behaviorGoal !== null &&
-            ((target?.targetDirection === "decrease" && avgVal <= behaviorGoal) ||
-              (target?.targetDirection === "increase" && avgVal >= behaviorGoal));
+            goalVal !== null &&
+            ((target?.targetDirection === "decrease" && avgVal <= goalVal) ||
+              (target?.targetDirection === "increase" && avgVal >= goalVal));
 
           if (goalMet) {
             progressRating = "mastered";
-            narrative = `${studentFirstName} has met the behavior goal. Current average is ${avgVal} per session, meeting the target of ${behaviorGoal}.`;
-          } else if (baseVal !== null && behaviorGoal !== null) {
-            const totalRange = Math.abs(behaviorGoal - baseVal);
+          } else if (baseVal !== null && goalVal !== null) {
+            const totalRange = Math.abs(goalVal - baseVal);
             const progress = Math.abs(avgVal - baseVal);
             const pctToGoal = totalRange > 0 ? progress / totalRange : 0;
-            if (pctToGoal >= 0.75) {
-              progressRating = "sufficient_progress";
-              narrative = `${studentFirstName} is making sufficient progress. The behavior has ${target?.targetDirection === "decrease" ? "decreased" : "increased"} from a baseline of ${baseVal} to a current average of ${avgVal} (goal: ${behaviorGoal}).`;
-            } else if (pctToGoal >= 0.25) {
-              progressRating = "some_progress";
-              narrative = `${studentFirstName} is making some progress. Current average is ${avgVal} (baseline: ${baseVal}, goal: ${behaviorGoal}). ${target?.targetDirection === "decrease" ? "The behavior has decreased but remains above target." : "The behavior has increased but remains below target."}`;
-            } else {
-              progressRating = "insufficient_progress";
-              narrative = `${studentFirstName} is making insufficient progress on this behavior goal. Current average is ${avgVal} (baseline: ${baseVal}, goal: ${behaviorGoal}). Program modifications are recommended.`;
-            }
+            if (pctToGoal >= 0.75) progressRating = "sufficient_progress";
+            else if (pctToGoal >= 0.25) progressRating = "some_progress";
+            else progressRating = "insufficient_progress";
           } else {
             progressRating = "some_progress";
-            narrative = `${studentFirstName} has a current average of ${avgVal} per session across ${behData.length} data points.`;
           }
 
-          if (behData.length >= 4) {
-            const firstHalf = behData.slice(0, Math.floor(behData.length / 2));
-            const secondHalf = behData.slice(Math.floor(behData.length / 2));
-            const firstAvg = firstHalf.reduce((s, d) => s + parseFloat(d.value), 0) / firstHalf.length;
-            const secondAvg = secondHalf.reduce((s, d) => s + parseFloat(d.value), 0) / secondHalf.length;
-            const isDecreaseGoal = target?.targetDirection === "decrease";
-            if (isDecreaseGoal) {
-              if (secondAvg < firstAvg - 0.5) trendDirection = "improving";
-              else if (secondAvg > firstAvg + 0.5) trendDirection = "declining";
-            } else {
-              if (secondAvg > firstAvg + 0.5) trendDirection = "improving";
-              else if (secondAvg < firstAvg - 0.5) trendDirection = "declining";
-            }
-          }
+          narrative = buildBehaviorNarrative({
+            studentFirstName,
+            targetName: target?.name ?? "this behavior",
+            measurementType: target?.measurementType ?? null,
+            targetDirection: target?.targetDirection ?? null,
+            baseVal,
+            goalVal,
+            avgVal,
+            firstAvg: firstHalfAvg,
+            lastAvg: secondHalfAvg,
+            sessionCount: uniqueSessions.size,
+            dataPoints,
+            sd,
+            progressRating,
+          });
         } else {
           narrative = `No behavior data was collected for this goal during the reporting period.`;
         }
+
       } else {
         narrative = `This goal was not addressed during the reporting period or has no linked data target.`;
       }
@@ -223,6 +376,11 @@ export async function computeGoalProgressEntries(
         percentCorrect,
         behaviorValue,
         behaviorGoal,
+        behaviorTargetName,
+        behaviorMeasurementType,
+        behaviorTargetDirection,
+        behaviorVariability,
+        behaviorSessionCount,
         benchmarks: goal.benchmarks ?? null,
         measurementMethod: goal.measurementMethod ?? null,
         serviceArea: goal.serviceArea ?? null,

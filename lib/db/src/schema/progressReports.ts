@@ -51,6 +51,16 @@ export interface GoalProgressEntry {
   benchmarks?: string | null;
   measurementMethod?: string | null;
   serviceArea?: string | null;
+  /** Name of the linked behavior target — populated for behavior-linked goals */
+  behaviorTargetName?: string | null;
+  /** Measurement type of the behavior target (frequency / duration / latency / interval) */
+  behaviorMeasurementType?: string | null;
+  /** Direction the behavior is being tracked (increase / decrease) */
+  behaviorTargetDirection?: string | null;
+  /** Approximate standard deviation of observations in the period — null if < 4 data points */
+  behaviorVariability?: number | null;
+  /** Number of distinct sessions with behavior data in the period */
+  behaviorSessionCount?: number | null;
 }
 
 export interface ServiceDeliveryBreakdown {

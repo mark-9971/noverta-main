@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Download, Edit3, ArrowLeft, Loader2, ChevronDown, ChevronUp, Printer,
+  Edit3, ArrowLeft, Loader2, ChevronDown, ChevronUp, Printer, AlertTriangle,
 } from "lucide-react";
 import { ProgressReport, RATING_CONFIG, STATUS_CONFIG, formatDate } from "./types";
 import { TrendIcon } from "./TrendIcon";
@@ -93,14 +93,38 @@ export function ReportDetail({ report, onBack, onEdit, onStatusChange, onPrint, 
             {goals.map((g, idx) => {
               const rc = RATING_CONFIG[g.progressRating] || RATING_CONFIG.not_addressed;
               const expanded = expandedGoals.has(idx);
+              const isBehavior = !!g.behaviorTargetName;
+              const highVariability =
+                isBehavior &&
+                g.behaviorVariability !== null &&
+                g.behaviorVariability !== undefined &&
+                g.behaviorValue !== null &&
+                g.behaviorValue !== undefined &&
+                g.behaviorValue > 0 &&
+                g.behaviorVariability > g.behaviorValue * 0.5;
+              const mtLabel: Record<string, string> = {
+                frequency: "Frequency",
+                duration: "Duration",
+                latency: "Latency",
+                interval: "Interval",
+                rate: "Rate",
+              };
               return (
                 <div key={idx} className={`border rounded-lg overflow-hidden ${rc.bg}`}>
                   <button type="button" className="w-full flex items-center gap-3 px-4 py-3 text-left" onClick={() => toggleGoal(idx)}>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm">{g.goalArea} — Goal #{g.goalNumber}</span>
                         <span className={`text-xs font-medium ${rc.color}`}>{g.progressCode}</span>
                         <TrendIcon direction={g.trendDirection} />
+                        {isBehavior && (
+                          <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">Behavior</span>
+                        )}
+                        {highVariability && (
+                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                            <AlertTriangle className="w-3 h-3" /> Variable
+                          </span>
+                        )}
                       </div>
                       {!expanded && <p className="text-xs text-gray-500 mt-0.5 truncate">{g.currentPerformance}</p>}
                     </div>
@@ -111,12 +135,40 @@ export function ReportDetail({ report, onBack, onEdit, onStatusChange, onPrint, 
                       <div><span className="text-gray-600 font-medium">Annual Goal:</span> {g.annualGoal}</div>
                       {g.baseline && <div><span className="text-gray-600 font-medium">Baseline:</span> {g.baseline}</div>}
                       {g.targetCriterion && <div><span className="text-gray-600 font-medium">Target:</span> {g.targetCriterion}</div>}
+                      {isBehavior && (
+                        <div className="flex flex-wrap gap-3 text-xs">
+                          <span className="bg-violet-50 text-violet-700 px-2 py-0.5 rounded">
+                            <span className="font-medium">Target:</span> {g.behaviorTargetName}
+                          </span>
+                          {g.behaviorMeasurementType && (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              {mtLabel[g.behaviorMeasurementType] ?? g.behaviorMeasurementType}
+                            </span>
+                          )}
+                          {g.behaviorTargetDirection && (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded capitalize">
+                              Goal: {g.behaviorTargetDirection}
+                            </span>
+                          )}
+                          {g.behaviorSessionCount !== null && g.behaviorSessionCount !== undefined && (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              {g.behaviorSessionCount} session{g.behaviorSessionCount === 1 ? "" : "s"} w/ data
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div><span className="text-gray-600 font-medium">Current Performance:</span> {g.currentPerformance}</div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
                         <span><span className="text-gray-600 font-medium">Data Points:</span> {g.dataPoints}</span>
                         <span className="flex items-center gap-1"><span className="text-gray-600 font-medium">Trend:</span> <TrendIcon direction={g.trendDirection} /> {g.trendDirection}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${rc.color}`}>{rc.label}</span>
                       </div>
+                      {highVariability && (
+                        <div className="flex items-start gap-1.5 bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <span>Notable session-to-session variability observed (SD ≈ {g.behaviorVariability}). Data should be interpreted with caution and reviewed at team level.</span>
+                        </div>
+                      )}
                       <div className="bg-white/70 rounded p-2.5 text-gray-700 italic">{g.narrative}</div>
                     </div>
                   )}

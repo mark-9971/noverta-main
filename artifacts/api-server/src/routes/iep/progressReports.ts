@@ -6,10 +6,10 @@ import {
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, sessionLogsTable,
   iepDocumentsTable, schoolsTable, districtsTable,
-  iepAccommodationsTable,
+  iepAccommodationsTable, behaviorInterventionPlansTable,
 } from "@workspace/db";
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
-import { eq, desc, and, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
+import { eq, desc, and, gte, lte, asc, count, sum, isNull, ne } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { createAutoVersion } from "../../lib/documentVersioning";
 import { getEnforcedDistrictId, requireRoles, type AuthedRequest } from "../../middlewares/auth";
@@ -418,6 +418,155 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
     const insufficientCount = goalProgressEntries.filter(g => g.progressRating === "insufficient_progress").length;
     const notAddressedCount = goalProgressEntries.filter(g => g.progressRating === "not_addressed").length;
 
+    /* ─── Behavior & BIP context ────────────────────────────────────────────
+     * Pull (1) active BIPs and (2) all active behavior targets so we can
+     * surface BIP status and flag any behavior targets that are NOT linked
+     * to an IEP goal — those would otherwise be invisible in the report.
+     * ─────────────────────────────────────────────────────────────────────── */
+    const activeBips = await db
+      .select({
+        id: behaviorInterventionPlansTable.id,
+        targetBehavior: behaviorInterventionPlansTable.targetBehavior,
+        hypothesizedFunction: behaviorInterventionPlansTable.hypothesizedFunction,
+        status: behaviorInterventionPlansTable.status,
+        effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+        replacementBehaviors: behaviorInterventionPlansTable.replacementBehaviors,
+        progressCriteria: behaviorInterventionPlansTable.progressCriteria,
+      })
+      .from(behaviorInterventionPlansTable)
+      .where(
+        and(
+          eq(behaviorInterventionPlansTable.studentId, studentId),
+          ne(behaviorInterventionPlansTable.status, "discontinued"),
+          ne(behaviorInterventionPlansTable.status, "archived"),
+        )
+      )
+      .orderBy(asc(behaviorInterventionPlansTable.status));
+
+    // Fetch IDs of behavior targets already linked to an IEP goal — these already
+    // appear in goalProgressEntries and don't need to be re-listed here.
+    const iepGoalBtIds = await db
+      .select({ behaviorTargetId: iepGoalsTable.behaviorTargetId })
+      .from(iepGoalsTable)
+      .where(and(eq(iepGoalsTable.studentId, studentId), eq(iepGoalsTable.active, true)));
+    const linkedBtIdSet = new Set(
+      iepGoalBtIds.map(r => r.behaviorTargetId).filter((id): id is number => id !== null && id !== undefined),
+    );
+
+    // All active behavior targets for this student
+    const allActiveBTs = await db
+      .select()
+      .from(behaviorTargetsTable)
+      .where(and(eq(behaviorTargetsTable.studentId, studentId), eq(behaviorTargetsTable.active, true)));
+
+    // Non-goal-linked targets — find ones with data in the period
+    const unlinkedBTs = allActiveBTs.filter(bt => !linkedBtIdSet.has(bt.id));
+
+    interface UnlinkedBTSummary {
+      name: string;
+      measurementType: string;
+      targetDirection: string;
+      avgValue: number | null;
+      dataPoints: number;
+      trendDirection: string;
+    }
+
+    const unlinkedSummaries: UnlinkedBTSummary[] = await Promise.all(
+      unlinkedBTs.map(async (bt): Promise<UnlinkedBTSummary> => {
+        const behData = await db
+          .select({
+            value: behaviorDataTable.value,
+            sessionDate: dataSessionsTable.sessionDate,
+          })
+          .from(behaviorDataTable)
+          .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
+          .where(
+            and(
+              eq(behaviorDataTable.behaviorTargetId, bt.id),
+              gte(dataSessionsTable.sessionDate, periodStart),
+              lte(dataSessionsTable.sessionDate, periodEnd),
+            )
+          )
+          .orderBy(asc(dataSessionsTable.sessionDate));
+
+        let avgValue: number | null = null;
+        let trend = "stable";
+        if (behData.length > 0) {
+          const vals = behData.map(d => parseFloat(d.value));
+          const last3 = vals.slice(-3);
+          avgValue = Math.round(last3.reduce((a, v) => a + v, 0) / last3.length * 10) / 10;
+          if (vals.length >= 4) {
+            const half = Math.floor(vals.length / 2);
+            const fhAvg = vals.slice(0, half).reduce((a, v) => a + v, 0) / half;
+            const shAvg = vals.slice(half).reduce((a, v) => a + v, 0) / (vals.length - half);
+            const isDecreaseGoal = bt.targetDirection === "decrease";
+            if (isDecreaseGoal) {
+              trend = shAvg < fhAvg - 0.5 ? "improving" : shAvg > fhAvg + 0.5 ? "declining" : "stable";
+            } else {
+              trend = shAvg > fhAvg + 0.5 ? "improving" : shAvg < fhAvg - 0.5 ? "declining" : "stable";
+            }
+          }
+        }
+        return {
+          name: bt.name,
+          measurementType: bt.measurementType,
+          targetDirection: bt.targetDirection,
+          avgValue,
+          dataPoints: behData.length,
+          trendDirection: trend,
+        };
+      }),
+    );
+
+    const unlinkedWithData = unlinkedSummaries.filter(s => s.dataPoints > 0);
+
+    /* ─── Build behavior section text ─────────────────────────────────────── */
+    const behaviorSectionLines: string[] = [];
+
+    if (activeBips.length > 0) {
+      behaviorSectionLines.push(`Behavior Intervention Plan (BIP) Status:`);
+      for (const bip of activeBips) {
+        const statusLabel = bip.status.charAt(0).toUpperCase() + bip.status.slice(1);
+        const effectiveLine = bip.effectiveDate ? ` (effective ${bip.effectiveDate})` : "";
+        behaviorSectionLines.push(`  • ${bip.targetBehavior} — Status: ${statusLabel}${effectiveLine}`);
+        if (bip.hypothesizedFunction) {
+          behaviorSectionLines.push(`    Hypothesized function: ${bip.hypothesizedFunction}`);
+        }
+        if (bip.replacementBehaviors) {
+          behaviorSectionLines.push(`    Replacement behaviors: ${bip.replacementBehaviors}`);
+        }
+      }
+      behaviorSectionLines.push("");
+    }
+
+    if (unlinkedWithData.length > 0) {
+      behaviorSectionLines.push(`Tracked Behaviors (not linked to current IEP goals):`);
+      for (const s of unlinkedWithData) {
+        const unitMap: Record<string, string> = {
+          frequency: "times/session",
+          duration: "seconds/session",
+          latency: "seconds",
+          interval: "% intervals",
+          rate: "/min",
+        };
+        const unit = unitMap[s.measurementType] ?? "/session";
+        const avgStr = s.avgValue !== null ? ` — avg ${s.avgValue} ${unit}` : "";
+        const trendStr = s.trendDirection !== "stable" ? `, ${s.trendDirection}` : "";
+        const dirStr = s.targetDirection === "decrease" ? "(target: ↓)" : "(target: ↑)";
+        behaviorSectionLines.push(`  • ${s.name} ${dirStr}${avgStr}${trendStr} [${s.dataPoints} data point(s)]`);
+      }
+      behaviorSectionLines.push("");
+    }
+
+    const behaviorSection = behaviorSectionLines.length > 0
+      ? `\n${behaviorSectionLines.join("\n")}`
+      : "";
+
+    /* ─── Recommendations: also flag unlinked behaviors ───────────────────── */
+    const unlinkedBehaviorRec = unlinkedWithData.length > 0
+      ? ` Additionally, ${unlinkedWithData.length} behavior target(s) are being tracked but are not linked to current IEP goals — the IEP Team should consider whether these behaviors require a formal behavior goal.`
+      : "";
+
     const svcSummaryLines = serviceBreakdown.map(s =>
       `${s.serviceType}: ${s.deliveredMinutes} of ${s.requiredMinutes} minutes delivered (${s.compliancePercent}% compliance), ${s.completedSessions} sessions completed, ${s.missedSessions} missed`
     );
@@ -446,6 +595,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       `  M (Mastered): ${masteredCount} | SP (Sufficient Progress): ${sufficientCount}\n` +
       `  IP (Insufficient Progress): ${someCount + insufficientCount} | NA (Not Addressed): ${notAddressedCount}\n` +
       `  Total Goals: ${goalProgressEntries.length}\n\n` +
+      behaviorSection +
       `Progress Code Key (per 603 CMR 28.07):\n` +
       `  M = Mastered — Goal has been achieved\n` +
       `  SP = Sufficient Progress — Student is on track to meet goal within IEP period\n` +
@@ -485,11 +635,11 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       parentNotificationDate: null,
       parentNotificationMethod: null,
       nextReportDate,
-      recommendations: insufficientCount > 0
+      recommendations: (insufficientCount > 0
         ? `${insufficientCount} goal(s) show insufficient progress. The IEP Team should consider program modifications, increased service intensity, or updated strategies for these areas. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.`
         : masteredCount > 0
         ? `${masteredCount} goal(s) have been mastered. The IEP Team should consider developing new goals or advancing criteria for mastered areas. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.`
-        : "Continue current programming and monitor progress. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.",
+        : "Continue current programming and monitor progress. Per 603 CMR 28.07(8), parents/guardians are entitled to request an IEP Team meeting to discuss progress at any time.") + unlinkedBehaviorRec,
     }).returning();
 
     logAudit(req, {
