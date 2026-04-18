@@ -558,4 +558,82 @@ describe("runComplianceRiskAlerts — alert message content", () => {
     await cleanupDistrict(customDistrict.id);
     await cleanupServiceType(customSvcType.id);
   });
+
+  it("respects a 90% complianceMinuteThreshold (regression: not hardcoded 85%)", async () => {
+    // A district raises the bar to 90%. A student at 89% should now be alerted
+    // (would have been ignored under the old hardcoded 85% threshold), and a
+    // student at 90% should not.
+    const customDistrict = await createDistrict({
+      name: "Test District 90 Threshold",
+      complianceMinuteThreshold: 90,
+    });
+    const customSchool = await createSchool(customDistrict.id);
+    const customStaff = await createStaff(customSchool.id, { role: "provider" });
+    const customSvcType = await createServiceType();
+
+    const atThresholdStudent = await createStudent(customSchool.id);
+    const [atReq] = await db.insert(serviceRequirementsTable).values({
+      studentId: atThresholdStudent.id,
+      serviceTypeId: customSvcType.id,
+      providerId: customStaff.id,
+      requiredMinutes: 100,
+      intervalType: "monthly",
+      startDate: monthStartStr(),
+      active: true,
+    }).returning();
+    insertedServiceReqIds.push(atReq.id);
+    const [atLog] = await db.insert(sessionLogsTable).values({
+      studentId: atThresholdStudent.id,
+      staffId: customStaff.id,
+      serviceTypeId: customSvcType.id,
+      serviceRequirementId: atReq.id,
+      sessionDate: todayStr(),
+      durationMinutes: 90, // 90% — exactly at threshold, no alert
+      status: "completed",
+      isMakeup: false,
+      isCompensatory: false,
+    }).returning();
+    insertedSessionIds.push(atLog.id);
+
+    const justBelowStudent = await createStudent(customSchool.id);
+    const [belowReq] = await db.insert(serviceRequirementsTable).values({
+      studentId: justBelowStudent.id,
+      serviceTypeId: customSvcType.id,
+      providerId: customStaff.id,
+      requiredMinutes: 100,
+      intervalType: "monthly",
+      startDate: monthStartStr(),
+      active: true,
+    }).returning();
+    insertedServiceReqIds.push(belowReq.id);
+    const [belowLog] = await db.insert(sessionLogsTable).values({
+      studentId: justBelowStudent.id,
+      staffId: customStaff.id,
+      serviceTypeId: customSvcType.id,
+      serviceRequirementId: belowReq.id,
+      sessionDate: todayStr(),
+      durationMinutes: 89, // 89% — below 90% threshold but above old 85% default
+      status: "completed",
+      isMakeup: false,
+      isCompensatory: false,
+    }).returning();
+    insertedSessionIds.push(belowLog.id);
+
+    await runComplianceRiskAlertsForDate(MONDAY);
+
+    const atAlerts = await fetchAlertsForStudent(atThresholdStudent.id);
+    expect(atAlerts).toHaveLength(0);
+
+    const belowAlerts = await fetchAlertsForStudent(justBelowStudent.id);
+    expect(belowAlerts).toHaveLength(1);
+    expect(belowAlerts[0].message).toContain("threshold: 90%");
+    expect(belowAlerts[0].message).toContain("89%");
+
+    // Cleanup.
+    await db.delete(alertsTable).where(eq(alertsTable.studentId, justBelowStudent.id));
+    await db.delete(sessionLogsTable).where(inArray(sessionLogsTable.id, [atLog.id, belowLog.id]));
+    await db.delete(serviceRequirementsTable).where(inArray(serviceRequirementsTable.id, [atReq.id, belowReq.id]));
+    await cleanupDistrict(customDistrict.id);
+    await cleanupServiceType(customSvcType.id);
+  });
 });
