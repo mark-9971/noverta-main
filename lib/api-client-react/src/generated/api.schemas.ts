@@ -770,6 +770,12 @@ export const PilotHealthMetricTrend = {
 
 export type PilotHealthMetricDetail = { [key: string]: unknown };
 
+export type PilotHealthMetricHistoryItem = {
+  /** ISO date (YYYY-MM-DD) marking the end of the 30-day window. */
+  periodEnd: string;
+  value: number;
+};
+
 export interface PilotHealthMetric {
   label: string;
   description: string;
@@ -780,6 +786,8 @@ export interface PilotHealthMetric {
   target: number;
   onTrack: boolean;
   detail?: PilotHealthMetricDetail;
+  /** Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric. */
+  history?: PilotHealthMetricHistoryItem[] | null;
 }
 
 export type PilotHealthResponseMetrics = {
@@ -3371,10 +3379,6 @@ export type WrittenReportIncidentBody = { [key: string]: unknown };
 
 export type WrittenReportIncident200 = { [key: string]: unknown };
 
-export type DeseReportIncidentBody = { [key: string]: unknown };
-
-export type DeseReportIncident200 = { [key: string]: unknown };
-
 export type TransitionIncidentStatusBody = {
   /** The target status to transition to */
   toStatus: string;
@@ -3387,6 +3391,10 @@ export type TransitionIncidentStatus200 = { [key: string]: unknown };
 export type TransitionIncidentStatus400 = {
   error?: string;
 };
+
+export type DeseReportIncidentBody = { [key: string]: unknown };
+
+export type DeseReportIncident200 = { [key: string]: unknown };
 
 export type SignIncidentBody = { [key: string]: unknown };
 

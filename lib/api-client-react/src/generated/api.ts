@@ -5,14 +5,6 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   MutationFunction,
@@ -133,8 +125,6 @@ import type {
   DeleteTeamMeeting200,
   DeseReportIncident200,
   DeseReportIncidentBody,
-  TransitionIncidentStatus200,
-  TransitionIncidentStatusBody,
   District,
   DistrictDetail,
   DistrictOverview,
@@ -377,6 +367,9 @@ import type {
   SupervisionSession,
   SupervisionSessionWithNames,
   SupervisionTrendPoint,
+  TransitionIncidentStatus200,
+  TransitionIncidentStatus400,
+  TransitionIncidentStatusBody,
   UnenrollStudent200,
   UpdateAccommodation200,
   UpdateAccommodationBody,
@@ -2395,8 +2388,8 @@ export const getListStudentsUrl = (params?: ListStudentsParams) => {
 export const listStudents = async (
   params?: ListStudentsParams,
   options?: RequestInit,
-): Promise<PaginatedResult<StudentSummary>> => {
-  return customFetch<PaginatedResult<StudentSummary>>(getListStudentsUrl(params), {
+): Promise<StudentSummary[]> => {
+  return customFetch<StudentSummary[]>(getListStudentsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4549,8 +4542,8 @@ export const getListSessionsUrl = (params?: ListSessionsParams) => {
 export const listSessions = async (
   params?: ListSessionsParams,
   options?: RequestInit,
-): Promise<PaginatedResult<SessionLog>> => {
-  return customFetch<PaginatedResult<SessionLog>>(getListSessionsUrl(params), {
+): Promise<SessionLog[]> => {
+  return customFetch<SessionLog[]>(getListSessionsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -6067,8 +6060,8 @@ export const getListAlertsUrl = (params?: ListAlertsParams) => {
 export const listAlerts = async (
   params?: ListAlertsParams,
   options?: RequestInit,
-): Promise<PaginatedResult<Alert>> => {
-  return customFetch<PaginatedResult<Alert>>(getListAlertsUrl(params), {
+): Promise<Alert[]> => {
+  return customFetch<Alert[]>(getListAlertsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -14095,35 +14088,6 @@ export function useListProgramSteps<
 }
 
 /**
- * @summary List phase history for a program target
- */
-export interface ProgramTargetPhaseHistoryItem {
-  id: number;
-  programTargetId: number;
-  phase: string;
-  previousPhase: string | null;
-  startedAt: string;
-  endedAt: string | null;
-  reason: string | null;
-  changedByClerkId: string | null;
-  changedByStaffId: number | null;
-}
-
-export const getListProgramTargetPhaseHistoryUrl = (id: number) => {
-  return `/api/program-targets/${id}/phase-history`;
-};
-
-export const listProgramTargetPhaseHistory = async (
-  id: number,
-  options?: RequestInit,
-): Promise<ProgramTargetPhaseHistoryItem[]> => {
-  return customFetch<ProgramTargetPhaseHistoryItem[]>(getListProgramTargetPhaseHistoryUrl(id), {
-    ...options,
-    method: "GET",
-  });
-};
-
-/**
  * @summary Create step
  */
 export const getCreateProgramStepUrl = (id: number) => {
@@ -18194,6 +18158,98 @@ export const useWrittenReportIncident = <
 };
 
 /**
+ * @summary Transition incident status
+ */
+export const getTransitionIncidentStatusUrl = (id: number) => {
+  return `/api/protective-measures/incidents/${id}/transition`;
+};
+
+export const transitionIncidentStatus = async (
+  id: number,
+  transitionIncidentStatusBody: TransitionIncidentStatusBody,
+  options?: RequestInit,
+): Promise<TransitionIncidentStatus200> => {
+  return customFetch<TransitionIncidentStatus200>(
+    getTransitionIncidentStatusUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(transitionIncidentStatusBody),
+    },
+  );
+};
+
+export const getTransitionIncidentStatusMutationOptions = <
+  TError = ErrorType<TransitionIncidentStatus400 | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transitionIncidentStatus>>,
+    TError,
+    { id: number; data: BodyType<TransitionIncidentStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transitionIncidentStatus>>,
+  TError,
+  { id: number; data: BodyType<TransitionIncidentStatusBody> },
+  TContext
+> => {
+  const mutationKey = ["transitionIncidentStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transitionIncidentStatus>>,
+    { id: number; data: BodyType<TransitionIncidentStatusBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return transitionIncidentStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TransitionIncidentStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transitionIncidentStatus>>
+>;
+export type TransitionIncidentStatusMutationBody =
+  BodyType<TransitionIncidentStatusBody>;
+export type TransitionIncidentStatusMutationError =
+  ErrorType<TransitionIncidentStatus400 | void>;
+
+/**
+ * @summary Transition incident status
+ */
+export const useTransitionIncidentStatus = <
+  TError = ErrorType<TransitionIncidentStatus400 | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transitionIncidentStatus>>,
+    TError,
+    { id: number; data: BodyType<TransitionIncidentStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transitionIncidentStatus>>,
+  TError,
+  { id: number; data: BodyType<TransitionIncidentStatusBody> },
+  TContext
+> => {
+  return useMutation(getTransitionIncidentStatusMutationOptions(options));
+};
+
+/**
  * @summary File DESE report
  */
 export const getDeseReportIncidentUrl = (id: number) => {
@@ -18278,97 +18334,6 @@ export const useDeseReportIncident = <
   TContext
 > => {
   return useMutation(getDeseReportIncidentMutationOptions(options));
-};
-
-/**
- * @summary Transition incident status
- */
-export const getTransitionIncidentStatusUrl = (id: number) => {
-  return `/api/protective-measures/incidents/${id}/transition`;
-};
-
-export const transitionIncidentStatus = async (
-  id: number,
-  transitionIncidentStatusBody: TransitionIncidentStatusBody,
-  options?: RequestInit,
-): Promise<TransitionIncidentStatus200> => {
-  return customFetch<TransitionIncidentStatus200>(
-    getTransitionIncidentStatusUrl(id),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(transitionIncidentStatusBody),
-    },
-  );
-};
-
-export const getTransitionIncidentStatusMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof transitionIncidentStatus>>,
-    TError,
-    { id: number; data: BodyType<TransitionIncidentStatusBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof transitionIncidentStatus>>,
-  TError,
-  { id: number; data: BodyType<TransitionIncidentStatusBody> },
-  TContext
-> => {
-  const mutationKey = ["transitionIncidentStatus"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof transitionIncidentStatus>>,
-    { id: number; data: BodyType<TransitionIncidentStatusBody> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return transitionIncidentStatus(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type TransitionIncidentStatusMutationResult = NonNullable<
-  Awaited<ReturnType<typeof transitionIncidentStatus>>
->;
-export type TransitionIncidentStatusMutationBody =
-  BodyType<TransitionIncidentStatusBody>;
-export type TransitionIncidentStatusMutationError = ErrorType<unknown>;
-
-/**
- * @summary Transition incident status
- */
-export const useTransitionIncidentStatus = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof transitionIncidentStatus>>,
-    TError,
-    { id: number; data: BodyType<TransitionIncidentStatusBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof transitionIncidentStatus>>,
-  TError,
-  { id: number; data: BodyType<TransitionIncidentStatusBody> },
-  TContext
-> => {
-  return useMutation(getTransitionIncidentStatusMutationOptions(options));
 };
 
 /**

@@ -7535,6 +7535,19 @@ components:
         detail:
           type: object
           additionalProperties: true
+        history:
+          type: array
+          nullable: true
+          description: Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.
+          items:
+            type: object
+            properties:
+              periodEnd:
+                type: string
+                description: ISO date (YYYY-MM-DD) marking the end of the 30-day window.
+              value:
+                type: number
+            required: [periodEnd, value]
       required: [label, description, value, unit, target, onTrack]
 
     PilotHealthResponse:

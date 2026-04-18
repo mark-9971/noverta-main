@@ -316,7 +316,6 @@ export const UpdateDistrictBody = zod.object({
   name: zod.string().optional(),
   state: zod.string().nullish(),
   region: zod.string().nullish(),
-  alertDigestMode: zod.boolean().optional(),
 });
 
 export const UpdateDistrictResponse = zod.object({
@@ -324,7 +323,6 @@ export const UpdateDistrictResponse = zod.object({
   name: zod.string(),
   state: zod.string().nullish(),
   region: zod.string().nullish(),
-  alertDigestMode: zod.boolean().optional(),
   createdAt: zod.string(),
   updatedAt: zod.string().optional(),
 });
@@ -865,8 +863,6 @@ export const ListStaffResponseItem = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean(),
-  alertDigestMode: zod.boolean().nullish(),
   createdAt: zod.string(),
 });
 export const ListStaffResponse = zod.array(ListStaffResponseItem);
@@ -962,8 +958,6 @@ export const UpdateStaffBody = zod.object({
   qualifications: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean().nullish(),
-  alertDigestMode: zod.boolean().nullish(),
 });
 
 export const UpdateStaffResponse = zod.object({
@@ -980,8 +974,6 @@ export const UpdateStaffResponse = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean(),
-  alertDigestMode: zod.boolean().nullish(),
   createdAt: zod.string(),
 });
 
@@ -1680,7 +1672,6 @@ export const ListScheduleBlocksQueryParams = zod.object({
   dayOfWeek: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
-  schoolYearId: zod.coerce.number().nullish(),
 });
 
 export const ListScheduleBlocksResponseItem = zod.object({
@@ -1739,11 +1730,6 @@ export const UpdateScheduleBlockBody = zod.object({
   endTime: zod.string().nullish(),
   location: zod.string().nullish(),
   notes: zod.string().nullish(),
-  dayOfWeek: zod.string().nullish(),
-  blockLabel: zod.string().nullish(),
-  recurrenceType: zod.string().nullish(),
-  effectiveFrom: zod.string().nullish(),
-  effectiveTo: zod.string().nullish(),
 });
 
 export const UpdateScheduleBlockResponse = zod.object({
@@ -2361,6 +2347,21 @@ export const GetPilotHealthReportResponse = zod.object({
       target: zod.number(),
       onTrack: zod.boolean(),
       detail: zod.record(zod.string(), zod.unknown()).optional(),
+      history: zod
+        .array(
+          zod.object({
+            periodEnd: zod
+              .string()
+              .describe(
+                "ISO date (YYYY-MM-DD) marking the end of the 30-day window.",
+              ),
+            value: zod.number(),
+          }),
+        )
+        .nullish()
+        .describe(
+          "Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.",
+        ),
     }),
     serviceLoggingAdoption: zod.object({
       label: zod.string(),
@@ -2379,6 +2380,21 @@ export const GetPilotHealthReportResponse = zod.object({
       target: zod.number(),
       onTrack: zod.boolean(),
       detail: zod.record(zod.string(), zod.unknown()).optional(),
+      history: zod
+        .array(
+          zod.object({
+            periodEnd: zod
+              .string()
+              .describe(
+                "ISO date (YYYY-MM-DD) marking the end of the 30-day window.",
+              ),
+            value: zod.number(),
+          }),
+        )
+        .nullish()
+        .describe(
+          "Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.",
+        ),
     }),
     incidentReportingTimeliness: zod.object({
       label: zod.string(),
@@ -2397,6 +2413,21 @@ export const GetPilotHealthReportResponse = zod.object({
       target: zod.number(),
       onTrack: zod.boolean(),
       detail: zod.record(zod.string(), zod.unknown()).optional(),
+      history: zod
+        .array(
+          zod.object({
+            periodEnd: zod
+              .string()
+              .describe(
+                "ISO date (YYYY-MM-DD) marking the end of the 30-day window.",
+              ),
+            value: zod.number(),
+          }),
+        )
+        .nullish()
+        .describe(
+          "Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.",
+        ),
     }),
     annualReviewVisibility: zod.object({
       label: zod.string(),
@@ -2415,6 +2446,21 @@ export const GetPilotHealthReportResponse = zod.object({
       target: zod.number(),
       onTrack: zod.boolean(),
       detail: zod.record(zod.string(), zod.unknown()).optional(),
+      history: zod
+        .array(
+          zod.object({
+            periodEnd: zod
+              .string()
+              .describe(
+                "ISO date (YYYY-MM-DD) marking the end of the 30-day window.",
+              ),
+            value: zod.number(),
+          }),
+        )
+        .nullish()
+        .describe(
+          "Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.",
+        ),
     }),
     staffEngagement: zod.object({
       label: zod.string(),
@@ -2433,6 +2479,21 @@ export const GetPilotHealthReportResponse = zod.object({
       target: zod.number(),
       onTrack: zod.boolean(),
       detail: zod.record(zod.string(), zod.unknown()).optional(),
+      history: zod
+        .array(
+          zod.object({
+            periodEnd: zod
+              .string()
+              .describe(
+                "ISO date (YYYY-MM-DD) marking the end of the 30-day window.",
+              ),
+            value: zod.number(),
+          }),
+        )
+        .nullish()
+        .describe(
+          "Trailing time-series of the metric (oldest first), one entry per 30-day window. Null when historical computation is not supported for this metric.",
+        ),
     }),
   }),
 });
@@ -4571,6 +4632,20 @@ export const WrittenReportIncidentParams = zod.object({
 export const WrittenReportIncidentBody = zod.object({}).passthrough();
 
 export const WrittenReportIncidentResponse = zod.object({}).passthrough();
+
+/**
+ * @summary Transition incident status
+ */
+export const TransitionIncidentStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const TransitionIncidentStatusBody = zod.object({
+  toStatus: zod.string().describe("The target status to transition to"),
+  note: zod.string().describe("Note explaining the reason for this transition"),
+});
+
+export const TransitionIncidentStatusResponse = zod.object({}).passthrough();
 
 /**
  * @summary File DESE report

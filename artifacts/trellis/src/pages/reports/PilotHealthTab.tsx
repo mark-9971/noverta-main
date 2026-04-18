@@ -20,6 +20,7 @@ import {
   Download,
   Printer,
 } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, YAxis, Tooltip } from "recharts";
 
 const METRIC_ICONS: Record<string, React.ReactNode> = {
   iepRosterCoverage: <BookOpen className="w-4 h-4" />,
@@ -155,9 +156,55 @@ function MetricDetail({ metricKey, metric }: { metricKey: MetricKey; metric: Pil
   }
 }
 
+function Sparkline({ history, unit, target, lowerIsBetter }: {
+  history: { periodEnd: string; value: number }[];
+  unit: string;
+  target: number;
+  lowerIsBetter: boolean;
+}) {
+  if (!history || history.length < 2) return null;
+  const values = history.map(h => h.value);
+  const min = Math.min(...values, lowerIsBetter ? target : 0);
+  const max = Math.max(...values, lowerIsBetter ? 0 : target);
+  const last = values[values.length - 1];
+  const onTarget = lowerIsBetter ? last <= target : last >= target;
+  const stroke = onTarget ? "#059669" : last >= (lowerIsBetter ? target : target * 0.8) && !lowerIsBetter ? "#d97706" : lowerIsBetter && last <= target * 2 ? "#d97706" : "#dc2626";
+  const fmt = (v: number) => unit === "percent" ? `${v}%` : `${v}`;
+  return (
+    <div className="mt-3 print:hidden" aria-label="Trend over time">
+      <div className="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+        <span>Trend over last {history.length} periods</span>
+        <span>{fmt(history[0].value)} → {fmt(last)}</span>
+      </div>
+      <div style={{ width: "100%", height: 40 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+            <YAxis hide domain={[min, max]} />
+            <Tooltip
+              contentStyle={{ fontSize: 11, padding: "4px 6px", borderRadius: 4 }}
+              formatter={(v: number) => [fmt(v), "Value"]}
+              labelFormatter={(l: string) => `Period ending ${l}`}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={stroke}
+              strokeWidth={1.75}
+              dot={{ r: 2, stroke, fill: stroke }}
+              activeDot={{ r: 3 }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function MetricCard({ metricKey, metric }: { metricKey: MetricKey; metric: PilotHealthMetric }) {
   const icon = METRIC_ICONS[metricKey];
   const isCount = metric.unit === "count";
+  const lowerIsBetter = metricKey === "annualReviewVisibility";
 
   return (
     <Card className={`border ${metric.onTrack ? "border-emerald-100 bg-emerald-50/30" : "border-red-100 bg-red-50/20"}`}>
@@ -192,6 +239,14 @@ function MetricCard({ metricKey, metric }: { metricKey: MetricKey; metric: Pilot
 
         <MetricDetail metricKey={metricKey} metric={metric} />
         <MetricBar value={metric.value} target={metric.target} unit={metric.unit} />
+        {metric.history && metric.history.length >= 2 && (
+          <Sparkline
+            history={metric.history}
+            unit={metric.unit}
+            target={metric.target}
+            lowerIsBetter={lowerIsBetter}
+          />
+        )}
         <p className="text-[11px] text-gray-500 mt-2.5 leading-relaxed">{metric.description}</p>
       </CardContent>
     </Card>

@@ -103,6 +103,20 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
     const m2cur = await loggingAdoption(d30, today);
     const m2prv = await loggingAdoption(d60, d30);
 
+    // Build trailing 6 × 30-day window edges (oldest → newest)
+    const HISTORY_WINDOWS = 6;
+    const windowEdges: { from: string; to: string }[] = [];
+    for (let i = HISTORY_WINDOWS - 1; i >= 0; i--) {
+      const to = new Date(now.getTime() - i * 30 * 86400_000).toISOString().split("T")[0];
+      const from = new Date(now.getTime() - (i + 1) * 30 * 86400_000).toISOString().split("T")[0];
+      windowEdges.push({ from, to });
+    }
+    const m2History: { periodEnd: string; value: number }[] = [];
+    for (const w of windowEdges) {
+      const r = await loggingAdoption(w.from, w.to);
+      m2History.push({ periodEnd: w.to, value: r.expectedSessions > 0 ? r.pct : 0 });
+    }
+
     // ── M3: Incident Reporting Timeliness ─────────────────────────────────
     // % of restraint / seclusion incidents logged within 24h of the incident date.
     async function incidentTimeliness(from: string, to: string) {
@@ -119,6 +133,12 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
     }
     const m3cur = await incidentTimeliness(d30, today);
     const m3prv = await incidentTimeliness(d60, d30);
+
+    const m3History: { periodEnd: string; value: number }[] = [];
+    for (const w of windowEdges) {
+      const r = await incidentTimeliness(w.from, w.to);
+      m3History.push({ periodEnd: w.to, value: r.pct });
+    }
 
     // ── M4: Annual Review Visibility ──────────────────────────────────────
     // "Zero IEPs expire without a 30-day advance alert being visible and acknowledged."
@@ -163,6 +183,12 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
     const m4cur = await overdueUnalerted(today);
     const m4prv = await overdueUnalerted(d30);
 
+    const m4History: { periodEnd: string; value: number }[] = [];
+    for (const w of windowEdges) {
+      const r = await overdueUnalerted(w.to);
+      m4History.push({ periodEnd: w.to, value: r.unacknowledged });
+    }
+
     // ── M5: Staff Engagement ──────────────────────────────────────────────
     // "Every case manager and coordinator logs in at least 3 times per week,
     // averaged over the 90-day pilot." Session log submissions used as proxy.
@@ -201,6 +227,28 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
       m5prvEngaged = await engagedCount(d180, d90);
     }
 
+    // M5 history: per 30-day window, % staff averaging ≥MIN_AVG sessions/week
+    const m5History: { periodEnd: string; value: number }[] = [];
+    for (const w of windowEdges) {
+      if (totalStaff === 0) {
+        m5History.push({ periodEnd: w.to, value: 0 });
+        continue;
+      }
+      const ids = staffRows.map(s => s.id);
+      const rows = await db.select({ staffId: sessionLogsTable.staffId, n: count() })
+        .from(sessionLogsTable)
+        .where(and(
+          gte(sessionLogsTable.sessionDate, w.from) as ReturnType<typeof eq>,
+          lte(sessionLogsTable.sessionDate, w.to) as ReturnType<typeof eq>,
+          sql`${sessionLogsTable.staffId} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})` as ReturnType<typeof eq>,
+        ))
+        .groupBy(sessionLogsTable.staffId);
+      const weeksInWindow = (new Date(w.to).getTime() - new Date(w.from).getTime()) / 86400_000 / 7;
+      const byStaff = new Map(rows.map(r => [r.staffId, r.n]));
+      const engaged = ids.filter(id => (byStaff.get(id) ?? 0) / weeksInWindow >= MIN_AVG).length;
+      m5History.push({ periodEnd: w.to, value: Math.round((engaged / totalStaff) * 100) });
+    }
+
     const m5cur = totalStaff > 0 ? Math.round((m5engaged / totalStaff) * 100) : 0;
     const m5prv = totalStaff > 0 ? Math.round((m5prvEngaged / totalStaff) * 100) : null;
 
@@ -217,6 +265,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
           target: 100,
           detail: { studentsWithIep, totalStudents, proxyMode: true },
           onTrack: m1Val >= 98,
+          history: null,
         },
         serviceLoggingAdoption: {
           label: "Service Logging Adoption",
@@ -228,6 +277,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
           target: 80,
           detail: { timelyLogs: m2cur.timelyLogs, totalLogged: m2cur.totalLogged, expectedSessions: m2cur.expectedSessions, previousTimelyLogs: m2prv.timelyLogs, previousExpectedSessions: m2prv.expectedSessions },
           onTrack: m2cur.pct >= 80,
+          history: m2History,
         },
         incidentReportingTimeliness: {
           label: "Incident Reporting Timeliness",
@@ -239,6 +289,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
           target: 100,
           detail: { timelyIncidents: m3cur.ok, totalIncidents: m3cur.n, previousTimelyIncidents: m3prv.ok, previousTotalIncidents: m3prv.n },
           onTrack: m3cur.n === 0 || m3cur.pct >= 100,
+          history: m3History,
         },
         annualReviewVisibility: {
           label: "Annual Review Visibility",
@@ -250,6 +301,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
           target: 0,
           detail: { overdueIeps: m4cur.total, unacknowledgedOverdue: m4cur.unacknowledged, previousOverdueIeps: m4prv.total, previousUnacknowledged: m4prv.unacknowledged },
           onTrack: m4cur.unacknowledged === 0,
+          history: m4History,
         },
         staffEngagement: {
           label: "Staff Engagement",
@@ -261,6 +313,7 @@ router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, 
           target: 80,
           detail: { engagedStaff: m5engaged, totalActiveStaff: totalStaff, minWeeklyAvg: MIN_AVG, pilotWeeks: PILOT_WEEKS, previousEngagedStaff: m5prvEngaged },
           onTrack: m5cur >= 80,
+          history: m5History,
         },
       },
     });
