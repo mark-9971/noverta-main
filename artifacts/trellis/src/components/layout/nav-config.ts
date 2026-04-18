@@ -140,6 +140,15 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
+      {
+        href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
+        children: [
+          { href: "/parent-communication?tab=all", label: "All Contacts", icon: MessageSquare },
+          { href: "/parent-communication?tab=overdue", label: "Overdue Follow-ups", icon: Clock },
+          { href: "/parent-communication?tab=notifications", label: "Notifications Needed", icon: Bell },
+          { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
+        ],
+      },
     ],
   },
   {
@@ -253,27 +262,10 @@ export const adminNav: NavSection[] = [
       },
     ],
   },
-  {
-    label: "Engagement",
-    icon: MessageSquare,
-    collapsible: true,
-    defaultOpen: false,
-    items: [
-      {
-        href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
-        children: [
-          { href: "/parent-communication?tab=all", label: "All Contacts", icon: MessageSquare },
-          { href: "/parent-communication?tab=overdue", label: "Overdue Follow-ups", icon: Clock },
-          { href: "/parent-communication?tab=notifications", label: "Notifications Needed", icon: Bell },
-          { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
-        ],
-      },
-    ],
-  },
 ];
 
 // SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
-// All other sections are visible: Compliance, IEPs, Scheduling, ABA, Staffing, Engagement.
+// All other sections are visible: Compliance, IEPs, IEP Scheduling, Accommodations & Transitions, Evaluations & Progress, ABA, Staffing.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Staffing": "My Caseload",
