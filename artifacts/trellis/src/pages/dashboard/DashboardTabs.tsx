@@ -10,7 +10,7 @@ import { MetricCard } from "./MetricCard";
 import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
 import {
   AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection,
-  ContractRenewalsCard, DeadlinesSection,
+  ContractRenewalsCard, DeadlinesSection, IepExpirationCard,
 } from "./SecondarySections";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
@@ -313,6 +313,9 @@ export function DashboardTabs({
         {accommodationCompliance && (
           <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />
         )}
+
+        {/* IEP expiration countdown — renewals due within 90 days */}
+        <IepExpirationCard />
 
         {/* Evaluations & Transitions — evaluation timeline risk */}
         <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />

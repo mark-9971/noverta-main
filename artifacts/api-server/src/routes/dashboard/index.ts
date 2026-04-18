@@ -5,6 +5,7 @@ import complianceMetricsRouter from "./complianceMetrics";
 import chartsDataRouter from "./chartsData";
 import complianceTrendsRouter from "./complianceTrends";
 import schoolComplianceRouter from "./schoolCompliance";
+import iepExpirationsRouter from "./iepExpirations";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(complianceMetricsRouter);
 router.use(chartsDataRouter);
 router.use(complianceTrendsRouter);
 router.use(schoolComplianceRouter);
+router.use(iepExpirationsRouter);
 
 export default router;

@@ -22,6 +22,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import {
   AccommodationComplianceCard, EvalsTransitionsSection,
   MeetingsSection, ContractRenewalsCard, DeadlinesSection,
+  IepExpirationCard,
 } from "./SecondarySections";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
@@ -501,6 +502,7 @@ export default function PilotAdminHome() {
         onFirstOpen={() => setOpsEnabled(true)}
       >
         {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
+        <IepExpirationCard enabled={opsEnabled} />
         <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
         <MeetingsSection meetingDash={meetingDash} />
         {dashSummary?.contractRenewals && dashSummary.contractRenewals.length > 0 && (

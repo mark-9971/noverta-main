@@ -1,7 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon } from "lucide-react";
+import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, CheckCircle2, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/auth-fetch";
+import { useSchoolContext } from "@/lib/school-context";
 
 export function AccommodationComplianceCard({ accommodationCompliance }: { accommodationCompliance: any }) {
   if (!accommodationCompliance) return null;
@@ -191,5 +194,106 @@ export function DeadlinesSection({ deadlines }: { deadlines: any[] }) {
         <p className="text-sm text-gray-400 py-4 text-center">No upcoming deadlines.</p>
       )}
     </CollapsibleSection>
+  );
+}
+
+interface IepExpiration {
+  studentId: number;
+  studentName: string;
+  iepEndDate: string;
+  daysRemaining: number;
+}
+
+const BAND_CONFIG = [
+  { label: "Expiring within 30 days", min: 0, max: 30, bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500", text: "text-red-700", badgeBg: "bg-red-100", badgeText: "text-red-700" },
+  { label: "Expiring in 31–60 days",  min: 31, max: 60, bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-400", text: "text-amber-700", badgeBg: "bg-amber-100", badgeText: "text-amber-700" },
+  { label: "Expiring in 61–90 days",  min: 61, max: 90, bg: "bg-yellow-50", border: "border-yellow-200", dot: "bg-yellow-400", text: "text-yellow-700", badgeBg: "bg-yellow-100", badgeText: "text-yellow-700" },
+] as const;
+
+export function IepExpirationCard({ enabled = true }: { enabled?: boolean }) {
+  const { filterParams } = useSchoolContext();
+  const qs = new URLSearchParams(filterParams).toString();
+
+  const { data, isLoading } = useQuery<IepExpiration[]>({
+    queryKey: ["dashboard/iep-expirations", filterParams],
+    queryFn: () =>
+      authFetch(`/api/dashboard/iep-expirations${qs ? `?${qs}` : ""}`).then((r) =>
+        r.ok ? r.json() : []
+      ),
+    staleTime: 120_000,
+    enabled,
+  });
+
+  const students = data ?? [];
+  const total = students.length;
+
+  const formatDate = (iso: string) =>
+    new Date(iso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  return (
+    <Card className="border-gray-200/60" data-testid="iep-expiration-card">
+      <CardHeader className="pb-0 flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-gray-500" />
+          <CardTitle className="text-sm font-semibold text-gray-600">IEP Renewals Due</CardTitle>
+          {total > 0 && (
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+              {total} expiring soon
+            </span>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : total === 0 ? (
+          <div className="flex items-center gap-3 py-3 px-4 rounded-lg bg-emerald-50 border border-emerald-200">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-emerald-700">All IEPs current — no renewals due in the next 90 days.</span>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {BAND_CONFIG.map((band) => {
+              const group = students.filter(
+                (s) => s.daysRemaining >= band.min && s.daysRemaining <= band.max
+              );
+              if (group.length === 0) return null;
+              return (
+                <div key={band.label}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${band.dot}`} />
+                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{band.label}</span>
+                    <span className={`ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${band.badgeBg} ${band.badgeText}`}>{group.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {group.map((s) => (
+                      <Link key={s.studentId} href={`/students/${s.studentId}/iep`}>
+                        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${band.bg} ${band.border} hover:brightness-95 transition-all cursor-pointer`}>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[13px] font-medium text-gray-800 truncate block">{s.studentName}</span>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-[12px] text-gray-500">{formatDate(s.iepEndDate)}</div>
+                            <div className={`text-[11px] font-semibold ${band.text}`}>
+                              {s.daysRemaining === 0 ? "Expires today" : `${s.daysRemaining} day${s.daysRemaining === 1 ? "" : "s"} left`}
+                            </div>
+                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
