@@ -1,0 +1,65 @@
+Admin Dashboard Design Exploration (5 Iterations)
+What & Why
+Build a dedicated slide deck artifact presenting five visually distinct design concepts for the admin main dashboard. Each concept is a fully rendered React component showing a realistic layout with real-sounding data. The deck exists purely as a design-review artifact — no changes to the production app. The user will review the concepts and choose a direction before any implementation begins.
+
+Done looks like
+A slide deck artifact is accessible and shows all five dashboard concepts
+Each slide (or pair of slides) presents one concept with a full-page visual mockup and a short argument panel ("Why this works / Why it may not")
+An intro slide comparing all five at a glance (thumbnail grid)
+All five concepts are noticeably different from each other in layout, information density, and interaction model
+The current dashboard is referenced as the baseline for comparison
+The Five Concepts
+1 — Command Center (Dark, Dense)
+Dark background, compact data-density, rotating stat carousel at the top cycling through key KPIs every 4s (Compliance Rate, Cost Exposure, High-Risk Students, Urgent Actions). Four quadrant panels below: Compliance | Financial Risk | Student List | Operations. Power-user focused. Complex.
+
+Argument for: Maximizes information per pixel; ideal for admins monitoring many districts simultaneously; the rotating carousel draws attention to real-time movement.
+Argument against: High cognitive load; overwhelming for new users; dark mode may feel out of place in a school admin context.
+2 — Focus Mode (Minimal, Guided)
+White, single-column layout. One large hero stat (today's compliance rate). Below it: a prioritized action queue ("Here's what needs your attention today, ranked by urgency"). Each action item is a card that expands in-place. No charts. No clutter.
+
+Argument for: Removes decision fatigue; tells the admin exactly what to do next; best for daily-driver use by coordinators who trust the system.
+Argument against: Loses the big-picture overview; power users will feel constrained; hides trend data that admins need to spot degradation over time.
+3 — Wedge Hub (Tabbed Pillars)
+Five tabs across the top: Compliance | Cost Risk | Students | Operations | System Health. Each tab is its own self-contained mini-dashboard with charts, lists, and quick actions relevant to that pillar. A status dot on each tab turns amber/red when that pillar has issues. Supports the "cycle between dashboards" vision.
+
+Argument for: Matches the mental model of the wedge itself; each stakeholder (compliance officer vs. finance vs. ops) can bookmark their tab; reduces scroll length per view.
+Argument against: Fragmented attention — critical cross-pillar alerts may be missed if an admin stays on one tab; requires more clicks to get a full district picture.
+4 — Narrative Scroll (Story-Driven)
+Tall, scrollable single-page layout that tells the compliance story top-to-bottom: (1) District Health Banner → (2) Risk Breakdown → (3) Top 10 At-Risk Students → (4) Cost Exposure Timeline → (5) Actions Needed. Styled like a live report. Section anchors in a sticky left rail for fast jumping.
+
+Argument for: No hidden data — everything visible in one scroll; excellent for weekly review meetings where an admin presents to leadership; section anchors make navigation fast.
+Argument against: Doesn't suit quick daily check-ins; long pages feel slow; mobile/tablet unfriendly.
+5 — Kanban Workflow Board (Action-First)
+Swimlane columns: Urgent (red) | Due This Week (amber) | Watch (gray) | Recently Resolved (green). Each card represents one actionable item (student compliance gap, missed session, upcoming IEP). Clicking a card opens a right-side detail panel without leaving the board. Metrics are surfaced as count badges on column headers, not as a separate stat row.
+
+Argument for: Operationally powerful — admins can triage, delegate, and close items directly; mirrors workflows teams already use (Trello, Jira); zero context-switching.
+Argument against: Hides macro trends entirely; compliance rate and cost exposure are buried in badge counts; not suitable for reporting to leadership.
+Out of scope
+Changes to the production app or any existing dashboard code
+Backend API changes
+Mobile/responsive optimization of the concepts (desktop-first for the review)
+Final implementation of any chosen concept (that is a follow-up task)
+Steps
+Create slide deck artifact — Bootstrap a new slides artifact for the design exploration. Title: "Admin Dashboard — 5 Design Concepts".
+
+Build shared data fixtures — Create a single realistic mock-data file (compliance rate, student risk counts, cost exposure, session trend data) used by all five concepts so comparisons are apples-to-apples.
+
+Build Concept 1 — Command Center — Dark-mode layout with rotating KPI carousel (auto-cycling every 4s), four quadrant panels, dense typography. Slide includes a two-column argument panel.
+
+Build Concept 2 — Focus Mode — Minimal white layout, hero compliance stat, prioritized expandable action queue. Slide includes argument panel.
+
+Build Concept 3 — Wedge Hub (Tabbed) — Five interactive tabs (Compliance, Cost Risk, Students, Operations, System Health), each a self-contained mini-dashboard. Status dot indicators on tabs. Slide includes argument panel.
+
+Build Concept 4 — Narrative Scroll — Tall scrollable layout with sticky left rail section anchors, telling the compliance story in five sections. Slide includes argument panel.
+
+Build Concept 5 — Kanban Workflow Board — Swimlane columns (Urgent / This Week / Watch / Resolved) with click-to-expand detail panel, count badges on column headers. Slide includes argument panel.
+
+Build intro comparison slide — A thumbnail grid showing all five concepts side-by-side with a one-line description and a "vs. current dashboard" reference panel. This is the first slide.
+
+Relevant files
+artifacts/trellis/src/pages/dashboard/index.tsx
+artifacts/trellis/src/pages/dashboard/PilotAdminHome.tsx
+artifacts/trellis/src/pages/dashboard/MetricCard.tsx
+artifacts/trellis/src/pages/dashboard/ChartsSection.tsx
+artifacts/trellis/src/pages/dashboard/AlertBanners.tsx
+artifacts/trellis/src/components/dashboard/CostRiskPanel.tsx

@@ -8,6 +8,18 @@ import {
 import { eq, and, sql, gte, lte, isNull } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
+
+/** Resolves district for platform admins (via ?districtId query param) and district-scoped users (via token). */
+function resolveDistrictId(req: Request): number | null {
+  const enforced = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforced !== null) return enforced;
+  const qd = req.query.districtId;
+  if (qd) {
+    const n = Number(qd);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
 import { logAudit } from "../../lib/auditLog";
@@ -372,7 +384,7 @@ async function computeReportData(districtId: number, schoolId?: number): Promise
 
 router.get("/reports/weekly-compliance-summary", async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = resolveDistrictId(req);
     if (!districtId) {
       res.status(403).json({ error: "District context required" });
       return;
@@ -404,7 +416,7 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
   let doc: InstanceType<typeof PDFDocument> | null = null;
   let piped = false;
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = resolveDistrictId(req);
     if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
@@ -688,7 +700,7 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
 
 router.get("/reports/weekly-compliance-summary.csv", async (req: Request, res: Response): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = resolveDistrictId(req);
     if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
