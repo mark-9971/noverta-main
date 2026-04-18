@@ -147,6 +147,7 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
         trialsTotal: programResults[pt.id].total,
         prompted: programResults[pt.id].prompted,
         promptLevelUsed: programResults[pt.id].promptLevel,
+        stepNumber: pt.currentStep ?? null,
       }));
 
     await createDataSession(studentId, {

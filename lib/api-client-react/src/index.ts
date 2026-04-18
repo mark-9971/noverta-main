@@ -1,6 +1,7 @@
 export * from "./generated/api";
 export * from "./generated/api.schemas";
 export * from "./modification-markers";
+export * from "./step-trends";
 export {
   customFetch,
   setBaseUrl,

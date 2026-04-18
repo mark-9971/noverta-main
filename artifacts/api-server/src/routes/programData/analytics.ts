@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   behaviorDataTable, programDataTable, staffTable,
-  phaseChangesTable, protocolModificationMarkersTable,
+  phaseChangesTable, protocolModificationMarkersTable, programStepsTable,
 } from "@workspace/db";
 import { eq, and, sql, gte, lte, asc, isNotNull, or } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
@@ -394,6 +394,48 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
   } catch (e: any) {
     console.error("GET IOA summary error:", e);
     res.status(500).json({ error: "Failed to fetch IOA summary" });
+  }
+});
+
+/* ── Task Analysis Step Trends ──────────────────────────────────────────── */
+
+router.get("/program-targets/:targetId/step-trends", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId);
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+
+    const [steps, dataRows] = await Promise.all([
+      db.select({
+        stepNumber: programStepsTable.stepNumber,
+        name: programStepsTable.name,
+        sdInstruction: programStepsTable.sdInstruction,
+        mastered: programStepsTable.mastered,
+        active: programStepsTable.active,
+      }).from(programStepsTable)
+        .where(eq(programStepsTable.programTargetId, targetId))
+        .orderBy(asc(programStepsTable.stepNumber)),
+
+      db.select({
+        sessionDate: dataSessionsTable.sessionDate,
+        stepNumber: programDataTable.stepNumber,
+        trialsCorrect: programDataTable.trialsCorrect,
+        trialsTotal: programDataTable.trialsTotal,
+        prompted: programDataTable.prompted,
+        percentCorrect: programDataTable.percentCorrect,
+        promptLevelUsed: programDataTable.promptLevelUsed,
+      }).from(programDataTable)
+        .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
+        .where(and(
+          eq(programDataTable.programTargetId, targetId),
+          isNotNull(programDataTable.stepNumber),
+        ))
+        .orderBy(asc(dataSessionsTable.sessionDate)),
+    ]);
+
+    res.json({ steps, trends: dataRows });
+  } catch (e: any) {
+    console.error("GET step-trends error:", e);
+    res.status(500).json({ error: "Failed to fetch step trends" });
   }
 });
 

@@ -51,6 +51,7 @@ export default function LogDataSessionModal({ studentId, behaviorTargets, progra
         trialsTotal: parseInt(programValues[pt.id].total) || 10,
         prompted: parseInt(programValues[pt.id].prompted) || 0,
         promptLevelUsed: programValues[pt.id].promptLevel,
+        stepNumber: pt.currentStep ?? null,
       }));
 
     await createDataSession(studentId, { sessionDate, startTime, endTime, notes: notes || null, behaviorData, programData });

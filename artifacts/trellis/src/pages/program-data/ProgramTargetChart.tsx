@@ -8,8 +8,9 @@ import {
   listProgramTargetModificationMarkers, createProgramTargetModificationMarker, deleteModificationMarker,
   type ProtocolModificationMarker,
 } from "@workspace/api-client-react";
-import { TrendingUp, ChevronDown, ChevronUp, Zap, Plus, Trash2, Save, X } from "lucide-react";
+import { TrendingUp, ChevronDown, ChevronUp, Zap, Plus, Trash2, Save, X, Layers } from "lucide-react";
 import { toast } from "sonner";
+import { TaskAnalysisStepGraph } from "./TaskAnalysisStepGraph";
 
 const MARKER_TYPE_CONFIG: Record<string, { label: string; abbr: string }> = {
   prompt_hierarchy:       { label: "Prompt Hierarchy Changed",       abbr: "PH" },
@@ -419,6 +420,16 @@ export function ProgramTargetChart({ target, trends, defaultExpanded = false }: 
               <p className="text-[9px] text-gray-400">No protocol modifications recorded.</p>
             )}
           </div>
+
+          {/* ── Task Analysis Step Graph ── */}
+          {target.programType === "task_analysis" && (
+            <div className="mt-3 border-t border-blue-100 pt-3">
+              <p className="text-[10px] font-semibold text-blue-700 flex items-center gap-1 mb-2">
+                <Layers className="w-3 h-3" /> Step-Level Analysis
+              </p>
+              <TaskAnalysisStepGraph target={target} />
+            </div>
+          )}
         </div>
       )}
     </div>
