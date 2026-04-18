@@ -7,12 +7,12 @@ import { assertStudentInDistrict, getUserInfo, parsePositiveInt, VALID_DOC_TYPES
 
 const router = Router();
 
-router.get("/document-workflow/versions/:documentType/:documentId", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/document-workflow/versions/:documentType/:documentId", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
   const { documentType } = req.params;
   const docId = parsePositiveInt(req.params.documentId);
-  if (!docId) return res.status(400).json({ error: "Invalid document ID" });
+  if (!docId) return void res.status(400).json({ error: "Invalid document ID" });
 
   const versions = await db.select().from(documentVersionsTable)
     .where(and(
@@ -25,26 +25,26 @@ router.get("/document-workflow/versions/:documentType/:documentId", async (req, 
   res.json(versions);
 });
 
-router.post("/document-workflow/versions", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/versions", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const { documentType, title, changeDescription, snapshotData } = req.body;
   const documentId = parsePositiveInt(req.body.documentId);
   const studentId = parsePositiveInt(req.body.studentId);
 
   if (!documentType || !documentId || !studentId || !title) {
-    return res.status(400).json({ error: "Missing required fields: documentType, documentId, studentId, title" });
+    return void res.status(400).json({ error: "Missing required fields: documentType, documentId, studentId, title" });
   }
   if (!VALID_DOC_TYPES.includes(documentType)) {
-    return res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
+    return void res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
   }
   if (typeof title !== "string" || title.length > 500) {
-    return res.status(400).json({ error: "Title must be a string under 500 characters" });
+    return void res.status(400).json({ error: "Title must be a string under 500 characters" });
   }
 
   const student = await assertStudentInDistrict(studentId, districtId);
-  if (!student) return res.status(404).json({ error: "Student not found in your district" });
+  if (!student) return void res.status(404).json({ error: "Student not found in your district" });
 
   const MAX_RETRIES = 5;
   let version: typeof documentVersionsTable.$inferSelect | undefined;
@@ -83,7 +83,7 @@ router.post("/document-workflow/versions", async (req, res) => {
   }
 
   if (!version) {
-    return res.status(409).json({ error: "Could not allocate a unique version number. Please try again." });
+    return void res.status(409).json({ error: "Could not allocate a unique version number. Please try again." });
   }
 
   logAudit(req, {

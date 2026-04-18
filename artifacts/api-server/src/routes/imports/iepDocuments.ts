@@ -549,7 +549,7 @@ router.post(
       const result = await importIepForStudent(studentId, extracted);
 
       await db.insert(importsTable).values({
-        districtId: getEnforcedDistrictId(req as AuthedRequest),
+        districtId: getEnforcedDistrictId(req as unknown as AuthedRequest) as number,
         importType: "iep_documents",
         fileName: req.file.originalname || "iep-upload.pdf",
         rowsProcessed: 1,
@@ -693,7 +693,7 @@ router.post(
       }
 
       await db.insert(importsTable).values({
-        districtId: getEnforcedDistrictId(req as AuthedRequest),
+        districtId: getEnforcedDistrictId(req as unknown as AuthedRequest) as number,
         importType: "iep_documents",
         fileName: `Bulk IEP upload (${files.length} files)`,
         rowsProcessed: files.length,

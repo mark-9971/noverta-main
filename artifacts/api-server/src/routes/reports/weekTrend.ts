@@ -7,7 +7,7 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 
 function resolveDistrictId(req: Request): number | null {
-  const enforced = getEnforcedDistrictId(req as AuthedRequest);
+  const enforced = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforced !== null) return enforced;
   const qd = req.query.districtId;
   if (qd) {

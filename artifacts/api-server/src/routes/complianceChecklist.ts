@@ -50,7 +50,7 @@ function overallStatus(items: ChecklistItem[]): "ok" | "warning" | "critical" {
 
 router.get("/compliance/checklist", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const today = TODAY();
     const schoolIdFilter = req.query.schoolId ? Number(req.query.schoolId) : null;
 

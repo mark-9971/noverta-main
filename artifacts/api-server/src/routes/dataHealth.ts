@@ -7,11 +7,11 @@ const router: IRouter = Router();
 
 const requireAdmin = requireRoles("admin", "coordinator");
 
-router.get("/data-health", requireAdmin, async (req, res) => {
+router.get("/data-health", requireAdmin, async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (!districtId) {
-      return res.status(403).json({ error: "District scope required" });
+      return void res.status(403).json({ error: "District scope required" });
     }
     const report = await runDataHealthChecks(districtId);
     res.json(report);

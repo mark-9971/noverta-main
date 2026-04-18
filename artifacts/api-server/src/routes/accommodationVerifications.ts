@@ -184,7 +184,7 @@ router.post("/accommodations/:accommodationId/verify", async (req, res): Promise
     return;
   }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const staffId = authed.tenantStaffId;
   if (!staffId) {
     res.status(403).json({ error: "Staff identity required" });
@@ -268,7 +268,7 @@ router.get("/accommodations/:accommodationId/verifications", async (req, res): P
 });
 
 router.get("/accommodation-compliance", async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const enforcedDistrictId = getEnforcedDistrictId(authed);
   const callerRole = authed.trellisRole;
   const callerStaffId = authed.tenantStaffId;
@@ -369,7 +369,7 @@ router.get("/accommodation-compliance", async (req, res): Promise<void> => {
     ORDER BY "overdueCount" DESC, last_name, first_name
   `);
 
-  const typedRows = rows.rows as ComplianceRow[];
+  const typedRows = rows.rows as unknown as ComplianceRow[];
   const totalStudents = typedRows.length;
   const fullyVerified = typedRows.filter(r => Number(r.overdueCount) === 0).length;
 

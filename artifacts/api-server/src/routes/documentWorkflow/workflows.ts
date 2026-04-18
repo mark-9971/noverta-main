@@ -29,25 +29,25 @@ import {
 
 const router = Router();
 
-router.get("/document-workflow/workflows", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/document-workflow/workflows", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   const conditions: SQL[] = [eq(approvalWorkflowsTable.districtId, districtId)];
 
   if (req.query.status) {
     const s = req.query.status as string;
-    if (!VALID_STATUSES.includes(s)) return res.status(400).json({ error: "Invalid status filter" });
+    if (!VALID_STATUSES.includes(s)) return void res.status(400).json({ error: "Invalid status filter" });
     conditions.push(eq(approvalWorkflowsTable.status, s));
   }
   if (req.query.currentStage) {
     const s = req.query.currentStage as string;
-    if (!VALID_STAGES.includes(s)) return res.status(400).json({ error: "Invalid stage filter" });
+    if (!VALID_STAGES.includes(s)) return void res.status(400).json({ error: "Invalid stage filter" });
     conditions.push(eq(approvalWorkflowsTable.currentStage, s));
   }
   if (req.query.studentId) {
     const sid = parsePositiveInt(req.query.studentId);
-    if (!sid) return res.status(400).json({ error: "Invalid studentId filter" });
+    if (!sid) return void res.status(400).json({ error: "Invalid studentId filter" });
     conditions.push(eq(approvalWorkflowsTable.studentId, sid));
   }
 
@@ -75,11 +75,11 @@ router.get("/document-workflow/workflows", async (req, res) => {
   res.json(workflows);
 });
 
-router.get("/document-workflow/workflows/:id", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/document-workflow/workflows/:id", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
 
   const [workflow] = await db.select({
     id: approvalWorkflowsTable.id,
@@ -105,7 +105,7 @@ router.get("/document-workflow/workflows/:id", async (req, res) => {
       eq(approvalWorkflowsTable.districtId, districtId),
     ));
 
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
   const [approvals, reviewers] = await Promise.all([
     db.select().from(workflowApprovalsTable)
@@ -118,29 +118,29 @@ router.get("/document-workflow/workflows/:id", async (req, res) => {
   res.json({ ...workflow, approvals, reviewers });
 });
 
-router.post("/document-workflow/workflows", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/workflows", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const { documentType, title, stages, reviewers } = req.body;
   const documentId = parsePositiveInt(req.body.documentId);
   const studentId = parsePositiveInt(req.body.studentId);
 
   if (!documentType || !documentId || !studentId || !title) {
-    return res.status(400).json({ error: "Missing required fields" });
+    return void res.status(400).json({ error: "Missing required fields" });
   }
   if (!VALID_DOC_TYPES.includes(documentType)) {
-    return res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
+    return void res.status(400).json({ error: `Invalid documentType. Must be one of: ${VALID_DOC_TYPES.join(", ")}` });
   }
   if (typeof title !== "string" || title.length > 500) {
-    return res.status(400).json({ error: "Title must be a string under 500 characters" });
+    return void res.status(400).json({ error: "Title must be a string under 500 characters" });
   }
 
   const student = await assertStudentInDistrict(studentId, districtId);
-  if (!student) return res.status(404).json({ error: "Student not found in your district" });
+  if (!student) return void res.status(404).json({ error: "Student not found in your district" });
 
   const docCheck = await validateDocumentExists(documentType, documentId, studentId);
-  if (!docCheck.exists) return res.status(404).json({ error: docCheck.error || "Document not found for this student" });
+  if (!docCheck.exists) return void res.status(404).json({ error: docCheck.error || "Document not found for this student" });
 
   const workflowStages = Array.isArray(stages) && stages.length > 0 && stages.every((s: unknown) => typeof s === "string" && VALID_STAGES.includes(s))
     ? (stages as string[])
@@ -194,21 +194,21 @@ router.post("/document-workflow/workflows", async (req, res) => {
   res.status(201).json(workflow);
 });
 
-router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/workflows/:id/approve", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
   const comment = typeof req.body.comment === "string" ? req.body.comment.slice(0, 2000) : null;
 
   const [workflow] = await db.select().from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
-  if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
+  if (workflow.status !== "in_progress") return void res.status(400).json({ error: "Workflow is not in progress" });
 
   const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
-  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+  if (!authorized) return void res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
   const stages = workflow.stages as string[];
   const currentIdx = stages.indexOf(workflow.currentStage);
@@ -254,21 +254,21 @@ router.post("/document-workflow/workflows/:id/approve", async (req, res) => {
   res.json(updated);
 });
 
-router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/workflows/:id/reject", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
   const comment = typeof req.body.comment === "string" ? req.body.comment.slice(0, 2000) : null;
 
   const [workflow] = await db.select().from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
-  if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
+  if (workflow.status !== "in_progress") return void res.status(400).json({ error: "Workflow is not in progress" });
 
   const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
-  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+  if (!authorized) return void res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
 
@@ -302,23 +302,23 @@ router.post("/document-workflow/workflows/:id/reject", async (req, res) => {
   res.json(updated);
 });
 
-router.post("/document-workflow/workflows/:id/request-changes", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/workflows/:id/request-changes", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
   const comment = typeof req.body.comment === "string" ? req.body.comment.trim() : "";
 
-  if (!comment) return res.status(400).json({ error: "Comment is required when requesting changes" });
+  if (!comment) return void res.status(400).json({ error: "Comment is required when requesting changes" });
 
   const [workflow] = await db.select().from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
-  if (workflow.status !== "in_progress") return res.status(400).json({ error: "Workflow is not in progress" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
+  if (workflow.status !== "in_progress") return void res.status(400).json({ error: "Workflow is not in progress" });
 
   const authorized = await checkReviewerAuth(id, workflow.currentStage, user.userId);
-  if (!authorized) return res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
+  if (!authorized) return void res.status(403).json({ error: "You are not assigned as a reviewer for this stage" });
 
   const stages = workflow.stages as string[];
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
@@ -354,19 +354,19 @@ router.post("/document-workflow/workflows/:id/request-changes", async (req, res)
   res.json(updated);
 });
 
-router.post("/document-workflow/workflows/:id/reviewers", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.post("/document-workflow/workflows/:id/reviewers", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
 
   const [workflow] = await db.select().from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
   const { stage, userId, name } = req.body;
-  if (!stage || !userId || !name) return res.status(400).json({ error: "stage, userId, and name are required" });
-  if (!VALID_STAGES.includes(stage)) return res.status(400).json({ error: "Invalid stage" });
+  if (!stage || !userId || !name) return void res.status(400).json({ error: "stage, userId, and name are required" });
+  if (!VALID_STAGES.includes(stage)) return void res.status(400).json({ error: "Invalid stage" });
 
   const [reviewer] = await db.insert(workflowReviewersTable).values({
     workflowId: id,
@@ -386,19 +386,19 @@ router.post("/document-workflow/workflows/:id/reviewers", async (req, res) => {
   res.status(201).json(reviewer);
 });
 
-router.post("/document-workflow/workflows/:id/comments", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/workflows/:id/comments", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
 
   const comment = typeof req.body.comment === "string" ? req.body.comment.trim() : "";
-  if (!comment) return res.status(400).json({ error: "Comment text is required" });
+  if (!comment) return void res.status(400).json({ error: "Comment text is required" });
 
   const [workflow] = await db.select().from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
   const parentCommentId = parsePositiveInt(req.body.parentCommentId) || null;
 
@@ -406,7 +406,7 @@ router.post("/document-workflow/workflows/:id/comments", async (req, res) => {
     const [parent] = await db.select({ id: workflowApprovalsTable.id })
       .from(workflowApprovalsTable)
       .where(and(eq(workflowApprovalsTable.id, parentCommentId), eq(workflowApprovalsTable.workflowId, id)));
-    if (!parent) return res.status(404).json({ error: "Parent comment not found" });
+    if (!parent) return void res.status(404).json({ error: "Parent comment not found" });
   }
 
   const [entry] = await db.insert(workflowApprovalsTable).values({
@@ -422,11 +422,11 @@ router.post("/document-workflow/workflows/:id/comments", async (req, res) => {
   res.status(201).json(entry);
 });
 
-router.get("/document-workflow/workflows/:id/document-preview", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/document-workflow/workflows/:id/document-preview", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
   const id = parsePositiveInt(req.params.id);
-  if (!id) return res.status(400).json({ error: "Invalid workflow ID" });
+  if (!id) return void res.status(400).json({ error: "Invalid workflow ID" });
 
   const [workflow] = await db
     .select({
@@ -437,7 +437,7 @@ router.get("/document-workflow/workflows/:id/document-preview", async (req, res)
     .from(approvalWorkflowsTable)
     .where(and(eq(approvalWorkflowsTable.id, id), eq(approvalWorkflowsTable.districtId, districtId)));
 
-  if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+  if (!workflow) return void res.status(404).json({ error: "Workflow not found" });
 
   const { documentType, documentId, studentId } = workflow;
 
@@ -552,7 +552,7 @@ router.get("/document-workflow/workflows/:id/document-preview", async (req, res)
         break;
     }
   } catch {
-    return res.status(500).json({ error: "Failed to fetch document preview" });
+    return void res.status(500).json({ error: "Failed to fetch document preview" });
   }
 
   res.json(preview);

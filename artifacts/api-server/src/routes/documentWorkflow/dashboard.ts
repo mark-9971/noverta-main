@@ -5,9 +5,9 @@ import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/aut
 
 const router = Router();
 
-router.get("/document-workflow/dashboard/summary", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/document-workflow/dashboard/summary", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   const rows = await db.select({
     currentStage: approvalWorkflowsTable.currentStage,

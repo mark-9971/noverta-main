@@ -60,9 +60,9 @@ async function recordAccess(opts: {
 
 router.get("/students/:studentId/progress-summary", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (!Number.isFinite(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
     const days = parseInt(req.query.days as string) || 30;
     const summary = await generateProgressSummary(studentId, days);
@@ -89,9 +89,9 @@ router.get("/students/:studentId/progress-summary", async (req, res): Promise<vo
  */
 router.post("/students/:studentId/progress-summary/share-link", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (!Number.isFinite(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
     const cfg = SHARE_LINK_CONFIG;
     const days = Math.max(1, Math.min(parseInt(req.body.days as string) || 30, 365));
@@ -129,7 +129,7 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
       .where(eq(studentsTable.id, studentId))
       .limit(1);
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const token = generateShareToken();
     const tokenH = hashToken(token);
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
@@ -221,9 +221,9 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
 /** List active (non-revoked) share links for a student, with view stats. */
 router.get("/students/:studentId/progress-summary/share-links", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (!Number.isFinite(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
     const rows = await db
       .select({
@@ -273,12 +273,12 @@ router.get("/students/:studentId/progress-summary/share-links", async (req, res)
 /** Revoke a single share link. Returns 404 cross-tenant. */
 router.delete("/students/:studentId/progress-summary/share-link/:id", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    const id = parseInt(req.params.id);
+    const studentId = parseInt(req.params.studentId as string, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(studentId) || !Number.isFinite(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const [updated] = await db
       .update(shareLinksTable)
       .set({ revokedAt: new Date(), revokedByUserId: authed.userId ?? null })
@@ -312,12 +312,12 @@ router.delete("/students/:studentId/progress-summary/share-link/:id", async (req
  */
 router.post("/students/:studentId/progress-summary/share-link/:id/rotate", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    const id = parseInt(req.params.id);
+    const studentId = parseInt(req.params.studentId as string, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(studentId) || !Number.isFinite(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const token = generateShareToken();
     const tokenH = hashToken(token);
 

@@ -24,7 +24,7 @@ export const requireLegalAcceptance: RequestHandler = async (req, res, next) => 
     return;
   }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const userId = authed.userId;
 
   if (!userId) {

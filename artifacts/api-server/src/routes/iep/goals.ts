@@ -88,9 +88,9 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions: any[] = [eq(iepGoalsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(iepGoalsTable.active, true));
@@ -132,9 +132,9 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
 
 router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     let { from, to } = req.query as { from?: string; to?: string };
 
     if (!from) {
@@ -169,7 +169,7 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
       if (to) dateConditions.push(lte(dataSessionsTable.sessionDate, to as string));
 
       if (goal.programTargetId && pt) {
-        baseline = pt.baselinePercent ? parseFloat(String(pt.baselinePercent)) : null;
+        baseline = goal.baselinePercent ? parseFloat(String(goal.baselinePercent)) : null;
         goalValue = pt.masteryCriterionPercent ?? 80;
         yLabel = "% Correct";
         measurementType = "program";
@@ -326,9 +326,9 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
 
 router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     const { goalArea, goalNumber, annualGoal, baseline, targetCriterion,
             measurementMethod, scheduleOfReporting, programTargetId,
             behaviorTargetId, serviceArea, startDate, endDate, notes,
@@ -416,8 +416,8 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
 
 router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
-    const id = parseInt(req.params.id);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+    const id = parseInt(req.params.id as string, 10);
     const updates: any = {};
     for (const key of ["goalArea","goalNumber","annualGoal","baseline","targetCriterion",
                         "measurementMethod","scheduleOfReporting","programTargetId",
@@ -457,8 +457,8 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
 
 router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
-    const id = parseInt(req.params.id);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+    const id = parseInt(req.params.id as string, 10);
     const [row] = await db.select({
       goal: iepGoalsTable,
       schoolDistrictId: schoolsTable.districtId,
@@ -489,9 +489,9 @@ router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
 
 router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     const { startDate, endDate } = req.body;
 
     const [programTargets, behaviorTargets, serviceReqs] = await Promise.all([
@@ -584,9 +584,9 @@ router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Prom
 /** GET /api/iep-goals/:goalId/annotations — list all annotations for a goal */
 router.get("/iep-goals/:goalId/annotations", async (req, res): Promise<void> => {
   try {
-    const goalId = parseInt(req.params.goalId);
+    const goalId = parseInt(req.params.goalId as string, 10);
     if (isNaN(goalId)) { res.status(400).json({ error: "Invalid goal ID" }); return; }
-    if (!(await assertIepGoalInCallerDistrict(req as AuthedRequest, goalId, res))) return;
+    if (!(await assertIepGoalInCallerDistrict(req as unknown as AuthedRequest, goalId, res))) return;
 
     const rows = await db.select().from(goalAnnotationsTable)
       .where(eq(goalAnnotationsTable.goalId, goalId))
@@ -602,9 +602,9 @@ router.get("/iep-goals/:goalId/annotations", async (req, res): Promise<void> => 
 /** GET /api/students/:studentId/goal-annotations — all annotations for all goals of a student */
 router.get("/students/:studentId/goal-annotations", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
 
     const goalIds = await db.select({ id: iepGoalsTable.id })
       .from(iepGoalsTable)
@@ -632,9 +632,9 @@ router.get("/students/:studentId/goal-annotations", async (req, res): Promise<vo
 /** POST /api/iep-goals/:goalId/annotations — add a new annotation */
 router.post("/iep-goals/:goalId/annotations", async (req, res): Promise<void> => {
   try {
-    const goalId = parseInt(req.params.goalId);
+    const goalId = parseInt(req.params.goalId as string, 10);
     if (isNaN(goalId)) { res.status(400).json({ error: "Invalid goal ID" }); return; }
-    if (!(await assertIepGoalInCallerDistrict(req as AuthedRequest, goalId, res))) return;
+    if (!(await assertIepGoalInCallerDistrict(req as unknown as AuthedRequest, goalId, res))) return;
 
     const { annotationDate, label } = req.body as { annotationDate?: string; label?: string };
     if (!annotationDate || !label?.trim()) {
@@ -642,7 +642,7 @@ router.post("/iep-goals/:goalId/annotations", async (req, res): Promise<void> =>
       return;
     }
 
-    const staffId = (req as AuthedRequest).user?.staffId ?? null;
+    const staffId = (req as unknown as AuthedRequest).tenantStaffId ?? null;
     const [created] = await db.insert(goalAnnotationsTable).values({
       goalId,
       annotationDate,
@@ -668,9 +668,9 @@ router.post("/iep-goals/:goalId/annotations", async (req, res): Promise<void> =>
 /** DELETE /api/goal-annotations/:id — remove an annotation */
 router.delete("/goal-annotations/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid annotation ID" }); return; }
-    if (!(await assertGoalAnnotationInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertGoalAnnotationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const [existing] = await db.select().from(goalAnnotationsTable).where(eq(goalAnnotationsTable.id, id));
     if (!existing) { res.status(404).json({ error: "Annotation not found" }); return; }

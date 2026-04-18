@@ -46,7 +46,7 @@ export function resolveExportScope(req: Request): ExportScope | { error: string;
   if (platformAdmin) {
     return { enforcedDistrictId: null, enforcedSchoolId: null, isPlatformAdmin: true };
   }
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId == null) {
     return { error: "Access denied: your account is not assigned to a district", status: 403 };
   }
@@ -146,8 +146,8 @@ export function districtCondition(enforcedDistrictId: number | null) {
 
 export function recordExport(req: Request, opts: { reportType: string; reportLabel: string; format: string; fileName: string; recordCount: number; parameters?: Record<string, unknown> }) {
   const { platformAdmin } = getPublicMeta(req);
-  const districtId = platformAdmin ? null : getEnforcedDistrictId(req as AuthedRequest);
-  const exportedBy = (req as AuthedRequest).userId ?? "system";
+  const districtId = platformAdmin ? null : getEnforcedDistrictId(req as unknown as AuthedRequest);
+  const exportedBy = (req as unknown as AuthedRequest).userId ?? "system";
   db.insert(exportHistoryTable).values({
     reportType: opts.reportType,
     reportLabel: opts.reportLabel,

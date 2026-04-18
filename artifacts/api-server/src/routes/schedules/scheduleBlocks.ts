@@ -31,7 +31,7 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
   }
   if (params.success && params.data.schoolId) conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id = ${Number(params.data.schoolId)})`);
   {
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       conditions.push(sql`${scheduleBlocksTable.staffId} IN (SELECT id FROM staff WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
     } else if (params.success && params.data.districtId) {
@@ -40,7 +40,7 @@ router.get("/schedule-blocks", async (req, res): Promise<void> => {
   }
 
   const explicitYearId = params.success ? (params.data.schoolYearId ?? null) : null;
-  const enforcedDidForYear = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDidForYear = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const activeYearId = explicitYearId ?? await resolveActiveYearId(req, enforcedDidForYear !== null ? enforcedDidForYear : (params.success ? (params.data.districtId ?? null) : null));
   if (activeYearId != null) {
     conditions.push(eq(scheduleBlocksTable.schoolYearId, activeYearId));
@@ -109,7 +109,7 @@ router.patch("/schedule-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertScheduleBlockInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertScheduleBlockInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const parsed = UpdateScheduleBlockBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -141,7 +141,7 @@ router.delete("/schedule-blocks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertScheduleBlockInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertScheduleBlockInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   await db.update(scheduleBlocksTable).set({ deletedAt: new Date() }).where(eq(scheduleBlocksTable.id, params.data.id));
   res.sendStatus(204);
 });

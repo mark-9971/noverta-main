@@ -105,7 +105,7 @@ router.patch("/alerts/:id/resolve", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertAlertInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertAlertInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const parsed = ResolveAlertBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -142,7 +142,7 @@ router.post("/alerts/bulk-resolve", async (req, res): Promise<void> => {
   }
 
   // Tenant scope: drop any ids that don't belong to caller's district.
-  const scopedIds = await filterAlertIdsInCallerDistrict(req as AuthedRequest, ids);
+  const scopedIds = await filterAlertIdsInCallerDistrict(req as unknown as AuthedRequest, ids);
   if (!scopedIds.length) {
     res.json({ resolved: 0 });
     return;
@@ -168,7 +168,7 @@ router.patch("/alerts/:id/snooze", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertAlertInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertAlertInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
 
   const snoozedUntil = new Date();
   snoozedUntil.setDate(snoozedUntil.getDate() + 7);

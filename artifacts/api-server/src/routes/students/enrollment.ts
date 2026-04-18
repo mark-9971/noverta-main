@@ -15,7 +15,7 @@ const ENROLLMENT_EDIT_ROLES = ["admin", "case_manager"] as const;
 const ENROLLMENT_READ_ROLES = ["admin", "case_manager", "sped_teacher", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const authRole = (req as AuthedRequest).trellisRole;
+  const authRole = (req as unknown as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_READ_ROLES as readonly string[]).includes(authRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -59,7 +59,7 @@ router.get("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -140,7 +140,7 @@ router.post("/students/:id/enrollment", async (req, res): Promise<void> => {
 });
 
 router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
-  const patchRole = (req as AuthedRequest).trellisRole;
+  const patchRole = (req as unknown as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(patchRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -231,7 +231,7 @@ router.patch("/students/:id/enrollment/:eventId", async (req, res): Promise<void
 });
 
 router.delete("/students/:id/enrollment/:eventId", async (req, res): Promise<void> => {
-  const deleteRole = (req as AuthedRequest).trellisRole;
+  const deleteRole = (req as unknown as AuthedRequest).trellisRole;
   if (!(ENROLLMENT_EDIT_ROLES as readonly string[]).includes(deleteRole ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -267,7 +267,7 @@ router.post("/students/:id/archive", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const archiveRole = (req as AuthedRequest).trellisRole;
+  const archiveRole = (req as unknown as AuthedRequest).trellisRole;
   if (archiveRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -309,7 +309,7 @@ router.post("/students/:id/reactivate", async (req, res): Promise<void> => {
   const params = GetStudentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const reactivateRole = (req as AuthedRequest).trellisRole;
+  const reactivateRole = (req as unknown as AuthedRequest).trellisRole;
   if (reactivateRole !== "admin") { res.status(403).json({ error: "Forbidden" }); return; }
 
   const today = new Date().toISOString().slice(0, 10);

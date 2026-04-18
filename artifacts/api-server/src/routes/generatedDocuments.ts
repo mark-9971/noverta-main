@@ -53,7 +53,7 @@ const UpdateBody = z.object({
 const router: IRouter = Router();
 
 async function assertStudentInDistrict(req: Request, studentId: number): Promise<boolean> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const { platformAdmin } = getPublicMeta(authed);
   if (platformAdmin) return true;
   const districtId = getEnforcedDistrictId(authed);
@@ -124,7 +124,7 @@ router.post("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: 
   const parsed = CreateBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (!await assertStudentInDistrict(req, parsed.data.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const sanitizedHtml = parsed.data.htmlSnapshot
@@ -190,7 +190,7 @@ router.patch("/generated-documents/:id/share", requireRoles(...ALLOWED_ROLES), a
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid document id" }); return; }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const guardianVisible = req.body?.guardianVisible;
   if (typeof guardianVisible !== "boolean") {
     res.status(400).json({ error: "guardianVisible (boolean) is required" });

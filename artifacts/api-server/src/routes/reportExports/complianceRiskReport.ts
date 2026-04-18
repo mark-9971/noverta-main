@@ -12,7 +12,7 @@ import { getIntervalDates } from "../../lib/minuteCalc";
 
 /** Resolves district for platform admins (via ?districtId query param) and district-scoped users (via token). */
 function resolveDistrictId(req: Request): number | null {
-  const enforced = getEnforcedDistrictId(req as AuthedRequest);
+  const enforced = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforced !== null) return enforced;
   const qd = req.query.districtId;
   if (qd) {

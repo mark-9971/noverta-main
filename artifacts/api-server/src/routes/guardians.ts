@@ -20,7 +20,7 @@ const patchGuardianSchema = insertGuardianSchema
     message: "At least one field must be provided for update",
   });
 
-type PatchGuardian = z.infer<typeof patchGuardianSchema>;
+type PatchGuardian = (typeof patchGuardianSchema)["_output"];
 
 async function canAccessStudent(req: Request, studentId: number): Promise<boolean> {
   const meta = getPublicMeta(req);

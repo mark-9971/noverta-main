@@ -91,7 +91,7 @@ router.get("/districts/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   // Tenant scope: non-platform users may only read their own district.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const meta = getPublicMeta(req);
   if (!meta.platformAdmin && enforcedDid != null && enforcedDid !== id) {
     res.status(403).json({ error: "You don't have access to this district" });
@@ -118,7 +118,7 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   const meta = getPublicMeta(req);
   // Non-platform users may only PATCH their own district. Tier changes are further
   // gated below to platform admins only.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (!meta.platformAdmin && enforcedDid != null && enforcedDid !== id) {
     res.status(403).json({ error: "You don't have access to this district" });
     return;
@@ -190,7 +190,7 @@ router.delete("/districts/:id", requirePlatformAdmin, async (req, res): Promise<
 });
 
 router.get("/district-default-rate", async (req, res): Promise<void> => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -203,7 +203,7 @@ router.get("/district-default-rate", async (req, res): Promise<void> => {
 });
 
 router.patch("/district-default-rate", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -395,10 +395,10 @@ router.get("/district-overview", requireTierAccess("district.overview"), async (
  * Returns the notification preferences for a district (admin only).
  */
 router.get("/districts/:id/notification-preferences", requireRoles("admin"), async (req, res): Promise<void> => {
-  const districtId = parseInt(req.params.id, 10);
+  const districtId = parseInt(req.params.id as string, 10);
   if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
 
-  const enforcedId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedId !== null && enforcedId !== districtId) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -422,10 +422,10 @@ router.get("/districts/:id/notification-preferences", requireRoles("admin"), asy
  * Body: { weeklyRiskEmailEnabled: boolean }
  */
 router.patch("/districts/:id/notification-preferences", requireRoles("admin"), async (req, res): Promise<void> => {
-  const districtId = parseInt(req.params.id, 10);
+  const districtId = parseInt(req.params.id as string, 10);
   if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
 
-  const enforcedId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedId !== null && enforcedId !== districtId) {
     res.status(403).json({ error: "Forbidden" }); return;
   }

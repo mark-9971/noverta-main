@@ -100,7 +100,7 @@ router.post("/state-reports/export", requireRoles(...ADMIN_ROLES), async (req, r
 
     const auth = getAuth(req);
     const userId = auth?.userId ?? "unknown";
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     await db.insert(exportHistoryTable).values({
       reportType: template.key,
@@ -127,7 +127,7 @@ router.get("/state-reports/history", requireRoles(...ADMIN_ROLES), async (req, r
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Number(req.query.offset) || 0;
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     const rows = await db
       .select()
@@ -156,7 +156,7 @@ router.get("/state-reporting/restraint-30-day", requireRoles(...ADMIN_ROLES), as
     const dateTo = (req.query.dateTo ?? req.query.endDate) as string | undefined;
     const format = (req.query.format as string | undefined) ?? "json";
 
-    const report = await compute30DayWindows(req as AuthedRequest, { schoolId, dateFrom, dateTo });
+    const report = await compute30DayWindows(req as unknown as AuthedRequest, { schoolId, dateFrom, dateTo });
 
     if (format === "csv") {
       const csv = buildRestraint30DayCsv(report.windows);
@@ -165,7 +165,7 @@ router.get("/state-reporting/restraint-30-day", requireRoles(...ADMIN_ROLES), as
 
       const auth = getAuth(req);
       const userId = auth?.userId ?? "unknown";
-      const districtId = getEnforcedDistrictId(req as AuthedRequest);
+      const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
       await db.insert(exportHistoryTable).values({
         reportType: "restraint_30day",
@@ -192,7 +192,7 @@ router.get("/state-reporting/restraint-30-day", requireRoles(...ADMIN_ROLES), as
 
       const auth = getAuth(req);
       const userId = auth?.userId ?? "unknown";
-      const districtId = getEnforcedDistrictId(req as AuthedRequest);
+      const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
       await db.insert(exportHistoryTable).values({
         reportType: "restraint_30day",
@@ -224,7 +224,7 @@ router.get("/state-reporting/iep-timeline", requireRoles(...ADMIN_ROLES), async 
     const schoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
     const phase = (req.query.phase as "PL1" | "PL2" | "all" | undefined) ?? "all";
 
-    const rows = await computeIepTimelines(req as AuthedRequest, { schoolId, phase });
+    const rows = await computeIepTimelines(req as unknown as AuthedRequest, { schoolId, phase });
 
     const summary = {
       total: rows.length,
@@ -258,7 +258,7 @@ router.post("/state-reporting/corrective-action-letter", requireRoles(...ADMIN_R
     }
 
     const schoolId = undefined;
-    const rows = await computeIepTimelines(req as AuthedRequest, { schoolId });
+    const rows = await computeIepTimelines(req as unknown as AuthedRequest, { schoolId });
     const row = rows.find((r) => r.studentId === Number(studentId));
 
     if (!row) {

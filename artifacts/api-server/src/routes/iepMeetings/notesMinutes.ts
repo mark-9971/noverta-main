@@ -12,6 +12,7 @@ import { eq, and, desc, asc, gte, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { meetingAccess, pick } from "./shared";
+import { DEFAULT_PREP_ITEMS, autoDetectPrepItems } from "./scheduling";
 import {
   assertTeamMeetingInCallerDistrict,
   assertPriorWrittenNoticeInCallerDistrict,
@@ -23,9 +24,9 @@ const router: IRouter = Router();
 
 router.post("/iep-meetings/:meetingId/notices", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const meetingId = parseInt(req.params.meetingId);
+    const meetingId = parseInt(req.params.meetingId as string, 10);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, meetingId, res))) return;
 
     const body = req.body;
     if (!body.noticeType || !body.actionProposed) {
@@ -73,9 +74,9 @@ router.post("/iep-meetings/:meetingId/notices", meetingAccess, async (req, res):
 
 router.patch("/iep-meetings/notices/:id", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid notice ID" }); return; }
-    if (!(await assertPriorWrittenNoticeInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertPriorWrittenNoticeInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const allowed = [
       "noticeType", "actionProposed", "actionDescription", "reasonForAction",
@@ -106,9 +107,9 @@ router.patch("/iep-meetings/notices/:id", meetingAccess, async (req, res): Promi
 
 router.post("/iep-meetings/:meetingId/consent", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const meetingId = parseInt(req.params.meetingId);
+    const meetingId = parseInt(req.params.meetingId as string, 10);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, meetingId, res))) return;
 
     const body = req.body;
     if (!body.consentType || !body.decision) {
@@ -151,9 +152,9 @@ router.post("/iep-meetings/:meetingId/consent", meetingAccess, async (req, res):
 
 router.patch("/iep-meetings/consent/:id", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid consent ID" }); return; }
-    if (!(await assertMeetingConsentRecordInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertMeetingConsentRecordInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const allowed = [
       "decision", "decisionDate", "respondentName", "respondentRelationship",
@@ -182,9 +183,9 @@ router.patch("/iep-meetings/consent/:id", meetingAccess, async (req, res): Promi
 
 router.get("/iep-meetings/:id/prep", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const meetingId = parseInt(req.params.id);
+    const meetingId = parseInt(req.params.id as string, 10);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, meetingId, res))) return;
 
     const [meeting] = await db.select({
       id: teamMeetingsTable.id,
@@ -264,13 +265,13 @@ router.get("/iep-meetings/:id/prep", meetingAccess, async (req, res): Promise<vo
 
 router.patch("/iep-meetings/:id/prep/:itemId", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const meetingId = parseInt(req.params.id);
-    const itemId = parseInt(req.params.itemId);
+    const meetingId = parseInt(req.params.id as string, 10);
+    const itemId = parseInt(req.params.itemId as string, 10);
     if (isNaN(meetingId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    if (!(await assertMeetingPrepItemInCallerDistrict(req as AuthedRequest, itemId, res))) return;
+    if (!(await assertMeetingPrepItemInCallerDistrict(req as unknown as AuthedRequest, itemId, res))) return;
 
     const { completed, notes } = req.body as { completed?: boolean; notes?: string };
-    const authedReq = req as AuthedRequest;
+    const authedReq = req as unknown as AuthedRequest;
 
     const updateData: Record<string, unknown> = {};
     if (completed === true) {
@@ -312,9 +313,9 @@ router.patch("/iep-meetings/:id/prep/:itemId", meetingAccess, async (req, res): 
 
 router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const meetingId = parseInt(req.params.id);
+    const meetingId = parseInt(req.params.id as string, 10);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, meetingId, res))) return;
 
     const [meeting] = await db.select({
       id: teamMeetingsTable.id,
@@ -383,7 +384,7 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
             gte(dataSessionsTable.sessionDate, last90d),
           ))
           .orderBy(desc(dataSessionsTable.sessionDate))
-        : Promise.resolve([]),
+        : Promise.resolve([] as { targetId: number | null; value: string | null; date: string }[]),
       behaviorTargetIds.length > 0
         ? db.select({
             targetId: behaviorDataTable.behaviorTargetId,
@@ -397,7 +398,7 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
             gte(dataSessionsTable.sessionDate, last90d),
           ))
           .orderBy(desc(dataSessionsTable.sessionDate))
-        : Promise.resolve([]),
+        : Promise.resolve([] as { targetId: number | null; value: number | null; date: string }[]),
     ]);
 
     const progressByGoalId: Record<number, { dataPoints: number; latestValue: number | null; trend: string }> = {};

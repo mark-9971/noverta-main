@@ -1680,6 +1680,7 @@ export const ListScheduleBlocksQueryParams = zod.object({
   dayOfWeek: zod.coerce.string().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  schoolYearId: zod.coerce.number().nullish(),
 });
 
 export const ListScheduleBlocksResponseItem = zod.object({
@@ -1738,6 +1739,11 @@ export const UpdateScheduleBlockBody = zod.object({
   endTime: zod.string().nullish(),
   location: zod.string().nullish(),
   notes: zod.string().nullish(),
+  dayOfWeek: zod.string().nullish(),
+  blockLabel: zod.string().nullish(),
+  recurrenceType: zod.string().nullish(),
+  effectiveFrom: zod.string().nullish(),
+  effectiveTo: zod.string().nullish(),
 });
 
 export const UpdateScheduleBlockResponse = zod.object({

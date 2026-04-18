@@ -9,7 +9,7 @@ import { getDistrictId } from "./shared";
 const router: IRouter = Router();
 
 router.get("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -39,7 +39,7 @@ router.get("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
 });
 
 router.post("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -72,7 +72,7 @@ router.post("/medicaid/cpt-mappings", async (req, res): Promise<void> => {
 });
 
 router.put("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -109,7 +109,7 @@ router.put("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/medicaid/cpt-mappings/:id", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;

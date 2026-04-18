@@ -15,10 +15,11 @@ export const schoolsTable = pgTable("schools", {
   rotationDays: integer("rotation_days"),           // null for standard; 2 for A/B; 4 or 6 for rotating
   rotationStartDate: text("rotation_start_date"),   // ISO date — Day 1 / Day A anchored here
   scheduleNotes: text("schedule_notes"),            // free-text for admins
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const insertSchoolSchema = createInsertSchema(schoolsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSchoolSchema = createInsertSchema(schoolsTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertSchool = z.infer<typeof insertSchoolSchema>;
 export type School = typeof schoolsTable.$inferSelect;

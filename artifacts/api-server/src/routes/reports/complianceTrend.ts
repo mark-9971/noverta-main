@@ -18,7 +18,7 @@ router.get("/reports/compliance-trend", async (req: Request, res): Promise<void>
       return;
     }
     const { startDate, endDate, granularity, schoolId, schoolYearId: trendYearId } = req.query;
-    const trendEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const trendEnforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const districtId = trendEnforcedDistrictId !== null ? String(trendEnforcedDistrictId) : null;
     const gran = (granularity as string) || "weekly";
     const now = new Date();

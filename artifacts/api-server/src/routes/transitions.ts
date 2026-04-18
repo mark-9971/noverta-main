@@ -12,7 +12,7 @@ import { requireTierAccess } from "../middlewares/tierGate";
 import { sendEmail, buildIncompleteTransitionEmail } from "../lib/email";
 import {
   assertStudentInCallerDistrict, assertStaffInCallerDistrict,
-  assertTransitionPlanInCallerDistrict,
+  assertTransitionPlanInCallerDistrict, assertIepDocumentInCallerDistrict,
 } from "../lib/districtScope";
 
 const router: IRouter = Router();
@@ -162,7 +162,7 @@ router.post("/transitions/plans", transitionAccess, async (req, res): Promise<vo
 
     // Body-IDOR defense: studentId + coordinatorId must be in caller's district.
     // (iepDocumentId ownership is already enforced via studentId match below.)
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
     if (body.coordinatorId != null
       && !(await assertStaffInCallerDistrict(authed, Number(body.coordinatorId), res))) return;
@@ -266,7 +266,7 @@ router.patch("/transitions/plans/:id", transitionAccess, async (req, res): Promi
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid plan id" }); return; }
 
     // Tenant guard on the plan itself, plus any body-supplied coordinator swap.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertTransitionPlanInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, PLAN_PATCH_FIELDS);
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields" }); return; }
@@ -301,7 +301,7 @@ router.delete("/transitions/plans/:id", transitionAccess, async (req, res): Prom
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid plan id" }); return; }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [row] = await db.update(transitionPlansTable).set({ deletedAt: new Date() }).where(and(eq(transitionPlansTable.id, id), isNull(transitionPlansTable.deletedAt))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, { action: "delete", targetTable: "transition_plans", targetId: id, studentId: row.studentId, summary: `Soft-deleted transition plan #${id}` });
@@ -325,7 +325,7 @@ router.post("/transitions/goals", transitionAccess, async (req, res): Promise<vo
       return;
     }
     // Body-IDOR defense: parent plan must be in caller's district.
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, Number(body.transitionPlanId), res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, Number(body.transitionPlanId), res))) return;
     const [parentPlan] = await db.select({ id: transitionPlansTable.id })
       .from(transitionPlansTable)
       .where(and(eq(transitionPlansTable.id, body.transitionPlanId), isNull(transitionPlansTable.deletedAt)));
@@ -363,7 +363,7 @@ router.patch("/transitions/goals/:id", transitionAccess, async (req, res): Promi
       .from(transitionGoalsTable)
       .where(and(eq(transitionGoalsTable.id, id), isNull(transitionGoalsTable.deletedAt)));
     if (!goalRow) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, goalRow.transitionPlanId, res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, goalRow.transitionPlanId, res))) return;
 
     const updates = pick(req.body, GOAL_PATCH_FIELDS);
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields" }); return; }
@@ -386,7 +386,7 @@ router.delete("/transitions/goals/:id", transitionAccess, async (req, res): Prom
       .from(transitionGoalsTable)
       .where(and(eq(transitionGoalsTable.id, id), isNull(transitionGoalsTable.deletedAt)));
     if (!goalRow) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, goalRow.transitionPlanId, res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, goalRow.transitionPlanId, res))) return;
 
     const [row] = await db.update(transitionGoalsTable).set({ deletedAt: new Date() }).where(and(eq(transitionGoalsTable.id, id), isNull(transitionGoalsTable.deletedAt))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
@@ -405,7 +405,7 @@ router.post("/transitions/agency-referrals", transitionAccess, async (req, res):
       res.status(400).json({ error: "transitionPlanId, agencyName, and referralDate are required" });
       return;
     }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, Number(body.transitionPlanId), res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, Number(body.transitionPlanId), res))) return;
     const [parentPlan] = await db.select({ id: transitionPlansTable.id })
       .from(transitionPlansTable)
       .where(and(eq(transitionPlansTable.id, body.transitionPlanId), isNull(transitionPlansTable.deletedAt)));
@@ -444,7 +444,7 @@ router.patch("/transitions/agency-referrals/:id", transitionAccess, async (req, 
       .from(transitionAgencyReferralsTable)
       .where(and(eq(transitionAgencyReferralsTable.id, id), isNull(transitionAgencyReferralsTable.deletedAt)));
     if (!refRow) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, refRow.transitionPlanId, res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, refRow.transitionPlanId, res))) return;
 
     const updates = pick(req.body, REFERRAL_PATCH_FIELDS);
     if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No valid fields" }); return; }
@@ -467,7 +467,7 @@ router.delete("/transitions/agency-referrals/:id", transitionAccess, async (req,
       .from(transitionAgencyReferralsTable)
       .where(and(eq(transitionAgencyReferralsTable.id, id), isNull(transitionAgencyReferralsTable.deletedAt)));
     if (!refRow) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertTransitionPlanInCallerDistrict(req as AuthedRequest, refRow.transitionPlanId, res))) return;
+    if (!(await assertTransitionPlanInCallerDistrict(req as unknown as AuthedRequest, refRow.transitionPlanId, res))) return;
 
     const [row] = await db.update(transitionAgencyReferralsTable).set({ deletedAt: new Date() }).where(and(eq(transitionAgencyReferralsTable.id, id), isNull(transitionAgencyReferralsTable.deletedAt))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }

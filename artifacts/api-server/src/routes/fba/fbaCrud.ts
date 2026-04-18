@@ -11,7 +11,7 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/fbas", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const fbas = await db.select({
       id: fbasTable.id,
       studentId: fbasTable.studentId,
@@ -40,7 +40,7 @@ router.get("/students/:studentId/fbas", async (req, res): Promise<void> => {
 
 router.post("/students/:studentId/fbas", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { targetBehavior, operationalDefinition, conductedBy, referralReason, referralDate,
       settingDescription, status } = req.body;
     if (!targetBehavior || !operationalDefinition) {
@@ -64,7 +64,7 @@ router.post("/students/:studentId/fbas", async (req, res): Promise<void> => {
 
 router.get("/fbas/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [fba] = await db.select().from(fbasTable).where(eq(fbasTable.id, id));
     if (!fba) { res.status(404).json({ error: "FBA not found" }); return; }
     res.json({ ...fba, createdAt: isoDate(fba.createdAt), updatedAt: isoDate(fba.updatedAt) });
@@ -76,9 +76,9 @@ router.get("/fbas/:id", async (req, res): Promise<void> => {
 
 router.patch("/fbas/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertFbaInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertFbaInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const allowed = [
       "targetBehavior", "operationalDefinition", "status", "conductedBy",
       "referralReason", "referralDate", "startDate", "completionDate",

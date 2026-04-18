@@ -51,7 +51,7 @@ router.post("/sessions/bulk", async (req, res): Promise<void> => {
 
   // District ownership check: verify all student IDs belong to caller's district.
   {
-    const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDistrictId !== null) {
       const bulkStudentIds = [...new Set(sessions.map(s => s.studentId as number))];
       for (const sid of bulkStudentIds) {
@@ -118,7 +118,7 @@ router.post("/sessions", async (req, res): Promise<void> => {
 
     // District ownership check: verify the student belongs to the caller's district.
     {
-      const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+      const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
       if (enforcedDistrictId !== null) {
         const rows = await db.execute(sql`
           SELECT 1 FROM students

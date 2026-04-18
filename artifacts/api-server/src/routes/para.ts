@@ -93,7 +93,7 @@ interface GoalDataEntry {
 
 router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const date = (req.query.date as string) || new Date().toISOString().split("T")[0];
 
     let staffId = Number(req.query.staffId);
@@ -248,7 +248,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
 
 router.get("/para/student-targets/:studentId", requireStaff, async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const studentId = Number(req.params.studentId);
     const serviceTypeId = req.query.serviceTypeId ? Number(req.query.serviceTypeId) : null;
 
@@ -409,7 +409,7 @@ interface QuickStartBody {
 
 router.post("/para/sessions/quick-start", requireStaff, async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const body = req.body as QuickStartBody;
 
     if (!body.scheduleBlockId || !body.sessionDate || !body.startTime) {
@@ -495,7 +495,7 @@ interface StopSessionBody {
 
 router.patch("/para/sessions/:sessionId/stop", requireStaff, async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const sessionId = Number(req.params.sessionId);
     const body = req.body as StopSessionBody;
 

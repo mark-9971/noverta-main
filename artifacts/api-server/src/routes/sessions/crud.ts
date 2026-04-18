@@ -34,7 +34,7 @@ router.param("id", sessionIdGuard);
 
 router.get("/sessions", async (req, res): Promise<void> => {
   const params = ListSessionsQueryParams.safeParse(req.query);
-  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  const assignedIds = await getCallerAssignedStudentIds(req as unknown as AuthedRequest);
   if (assignedIds !== null && assignedIds.length === 0) { res.json({ data: [], total: 0, page: 1, pageSize: 100, hasMore: false }); return; }
   const conditions: any[] = [isNull(sessionLogsTable.deletedAt)];
   if (assignedIds !== null) {
@@ -49,7 +49,7 @@ router.get("/sessions", async (req, res): Promise<void> => {
     if (params.data.dateTo) conditions.push(lte(sessionLogsTable.sessionDate, params.data.dateTo));
     if (params.data.schoolId) conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${Number(params.data.schoolId)})`);
     {
-      const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+      const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
       if (enforcedDid !== null) {
         conditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
       } else if (params.data.districtId) {
@@ -151,7 +151,7 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     .from(sessionLogsTable)
     .where(eq(sessionLogsTable.id, params.data.id));
   if (!studentRow) { res.status(404).json({ error: "Not found" }); return; }
-  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentRow.studentId))) return;
+  if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentRow.studentId))) return;
   const [session] = await db
     .select({
       id: sessionLogsTable.id,
@@ -414,7 +414,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertSessionLogInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertSessionLogInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const { goalData: rawGoalData, ...bodyFields } = req.body;
   const parsed = UpdateSessionBody.safeParse(bodyFields);
   if (!parsed.success) {
@@ -443,7 +443,7 @@ router.patch("/sessions/:id", async (req, res): Promise<void> => {
 
   // Stamp the row with who/when last edited it. Audit log retains the full
   // history; this is just the at-a-glance signal.
-  const editorUserId = (req as AuthedRequest).userId ?? null;
+  const editorUserId = (req as unknown as AuthedRequest).userId ?? null;
   if (editorUserId) updateData.lastEditedByUserId = editorUserId;
   updateData.lastEditedAt = new Date();
 
@@ -651,7 +651,7 @@ router.delete("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertSessionLogInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertSessionLogInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
 
   const [existing] = await db.select({
     id: sessionLogsTable.id,
@@ -726,7 +726,7 @@ async function authorizeHistoryAccess(
   req: Request,
   sessionId: number,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const authedReq = req as AuthedRequest;
+  const authedReq = req as unknown as AuthedRequest;
   if (!authedReq.trellisRole || !PRIVILEGED_STAFF_ROLES.includes(authedReq.trellisRole)) {
     return { ok: false, status: 403, error: "Audit history requires privileged staff role" };
   }
@@ -838,7 +838,7 @@ historyRouter.get("/sessions/:id/history", async (req, res): Promise<void> => {
  * normal PATCH flow handles the obligation update with up-to-date math.
  */
 historyRouter.post("/sessions/:id/restore", async (req, res): Promise<void> => {
-  const authedReq = req as AuthedRequest;
+  const authedReq = req as unknown as AuthedRequest;
   if (!authedReq.trellisRole || !hasMinRole(authedReq.trellisRole, "admin")) {
     res.status(403).json({ error: "Restore requires admin role" });
     return;

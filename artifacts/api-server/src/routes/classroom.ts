@@ -48,7 +48,7 @@ router.get("/staff/:id/classroom", async (req, res): Promise<void> => {
   const staffId = Number(req.params.id);
   if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
 
-  if (!(await staffInCallerDistrict(req as AuthedRequest, staffId))) {
+  if (!(await staffInCallerDistrict(req as unknown as AuthedRequest, staffId))) {
     res.status(403).json({ error: "Staff member is not in your district" });
     return;
   }
@@ -193,7 +193,7 @@ router.post("/teacher-observations", async (req, res): Promise<void> => {
   }
 
   // Body-IDOR defense: confirm both student and staff belong to caller's district.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (!(await studentInCallerDistrict(authed, Number(studentId)))) {
     res.status(403).json({ error: "Student is not in your district" });
     return;
@@ -225,7 +225,7 @@ router.get("/teacher-observations", async (req, res): Promise<void> => {
   if (req.query.staffId) conditions.push(eq(teacherObservationsTable.staffId, Number(req.query.staffId)));
 
   // District scope: limit observations to students in caller's district.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null) {
     conditions.push(sql`${teacherObservationsTable.studentId} IN (
       SELECT s.id FROM students s JOIN schools sch ON sch.id = s.school_id
@@ -252,7 +252,7 @@ router.post("/progress-note-contributions", async (req, res): Promise<void> => {
   }
 
   // Body-IDOR defense: confirm staffId and progress-report's student are both in caller's district.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const enforcedDid = getEnforcedDistrictId(authed);
   if (enforcedDid != null) {
     if (!(await staffInCallerDistrict(authed, Number(staffId)))) {
@@ -290,7 +290,7 @@ router.get("/progress-note-contributions", async (req, res): Promise<void> => {
   if (req.query.staffId) conditions.push(eq(progressNoteContributionsTable.staffId, Number(req.query.staffId)));
 
   // District scope: limit to notes whose progress report belongs to a student in caller's district.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null) {
     conditions.push(sql`${progressNoteContributionsTable.progressReportId} IN (
       SELECT pr.id FROM progress_reports pr
@@ -321,7 +321,7 @@ router.get("/students/:id/iep-goals-summary", async (req, res): Promise<void> =>
   const studentId = Number(req.params.id);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
-  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+  if (!(await studentInCallerDistrict(req as unknown as AuthedRequest, studentId))) {
     res.status(403).json({ error: "Student is not in your district" });
     return;
   }
@@ -346,7 +346,7 @@ router.get("/students/:id/progress-reports", async (req, res): Promise<void> => 
   const studentId = Number(req.params.id);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
-  if (!(await studentInCallerDistrict(req as AuthedRequest, studentId))) {
+  if (!(await studentInCallerDistrict(req as unknown as AuthedRequest, studentId))) {
     res.status(403).json({ error: "Student is not in your district" });
     return;
   }

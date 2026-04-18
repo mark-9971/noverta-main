@@ -25,7 +25,7 @@ router.get("/students/:id/snapshot", async (req, res): Promise<void> => {
       return;
     }
 
-    const hasAccess = await assertStudentAccess(req as AuthedRequest, studentId);
+    const hasAccess = await assertStudentAccess(req as unknown as AuthedRequest, studentId);
     if (!hasAccess) { res.status(403).json({ error: "Access denied" }); return; }
 
     const [student] = await db.select({

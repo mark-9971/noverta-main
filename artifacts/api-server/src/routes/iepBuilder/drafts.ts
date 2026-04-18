@@ -46,7 +46,7 @@ const DRAFT_LIST_SQL = (districtFilter: ReturnType<typeof sql> | null) => sql`
 // GET /iep-builder/drafts — list all in-progress shared drafts in the caller's district
 router.get("/iep-builder/drafts", requireStaffOnly, async (req, res): Promise<void> => {
   try {
-    const did = getEnforcedDistrictId(req as AuthedRequest);
+    const did = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const filter = did != null ? sql`WHERE sch.district_id = ${did}` : null;
     const result = await db.execute(DRAFT_LIST_SQL(filter));
     const rows = result.rows as unknown as DraftListRow[];
@@ -70,9 +70,9 @@ router.get("/iep-builder/drafts", requireStaffOnly, async (req, res): Promise<vo
 // GET /students/:studentId/iep-builder/draft — get the shared draft for a student
 router.get("/students/:studentId/iep-builder/draft", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const rows = await db.select({
       id: iepBuilderDraftsTable.id,
       studentId: iepBuilderDraftsTable.studentId,
@@ -111,9 +111,9 @@ router.get("/students/:studentId/iep-builder/draft", async (req, res): Promise<v
 // PUT /students/:studentId/iep-builder/draft — atomic upsert (last-write-wins per student)
 router.put("/students/:studentId/iep-builder/draft", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const staffId = getStaffIdFromReq(req);
     const { wizardStep, formData } = req.body as { wizardStep: unknown; formData: unknown };
     if (wizardStep == null || typeof wizardStep !== "number" || wizardStep < 1 || wizardStep > 5) {
@@ -150,9 +150,9 @@ router.put("/students/:studentId/iep-builder/draft", async (req, res): Promise<v
 // DELETE /students/:studentId/iep-builder/draft — delete the shared draft for a student
 router.delete("/students/:studentId/iep-builder/draft", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     await db.delete(iepBuilderDraftsTable)
       .where(eq(iepBuilderDraftsTable.studentId, studentId));
     res.json({ ok: true });

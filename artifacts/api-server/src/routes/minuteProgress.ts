@@ -19,7 +19,7 @@ router.get("/minute-progress", async (req, res): Promise<void> => {
     if (params.data.riskStatus) filters.riskStatus = params.data.riskStatus;
     if (params.data.schoolId) filters.schoolId = Number(params.data.schoolId);
     // Token-derived district takes precedence over query param
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       filters.districtId = enforcedDid;
     } else if (params.data.districtId) {

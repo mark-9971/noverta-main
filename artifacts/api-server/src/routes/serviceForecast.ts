@@ -16,7 +16,7 @@ const router = Router();
 
 router.get("/service-forecast", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (districtId == null) {
       res.status(403).json({ error: "District scope required" });
       return;

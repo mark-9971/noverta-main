@@ -10,7 +10,7 @@ router.get("/imports", requireAdmin, async (req, res): Promise<void> => {
   // tenant-scope: district admin only — districtId MUST be present (fail closed).
   // Platform admins who need cross-district visibility should use
   // GET /api/support/imports/recent?districtId=<id> instead.
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({
       error: "District scope required. Platform admins: use /api/support/imports/recent?districtId=<id> for cross-district import history.",
@@ -164,7 +164,7 @@ const templates: Record<string, TemplateConfig> = {
 router.get("/imports/templates/:type", requireAdmin, async (req, res): Promise<void> => {
   const { type } = req.params;
 
-  const tmpl = templates[type];
+  const tmpl = templates[type as string];
   if (!tmpl) {
     res.status(404).json({ error: `Unknown template type: ${type}` });
     return;
@@ -176,7 +176,7 @@ router.get("/imports/templates/:type", requireAdmin, async (req, res): Promise<v
   }
   lines.push(tmpl.headers.join(","));
   for (const row of tmpl.rows) {
-    lines.push(row.map(cell => {
+    lines.push(row.map((cell: string) => {
       if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
         return `"${cell.replace(/"/g, '""')}"`;
       }

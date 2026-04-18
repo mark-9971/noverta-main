@@ -33,9 +33,9 @@ async function getDistrictThresholds(districtId: number): Promise<Record<string,
   }
 }
 
-router.get("/caseload-balancing/thresholds", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/thresholds", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
     const thresholds = await getDistrictThresholds(districtId);
@@ -46,20 +46,20 @@ router.get("/caseload-balancing/thresholds", async (req, res) => {
   }
 });
 
-router.put("/caseload-balancing/thresholds", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.put("/caseload-balancing/thresholds", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   const incoming = req.body?.thresholds;
   if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
-    return res.status(400).json({ error: "thresholds must be an object" });
+    return void res.status(400).json({ error: "thresholds must be an object" });
   }
 
   const validated: Record<string, number> = {};
   for (const [role, value] of Object.entries(incoming)) {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 1 || n > 500) {
-      return res.status(400).json({ error: `Invalid threshold for role "${role}": must be a number between 1 and 500` });
+      return void res.status(400).json({ error: `Invalid threshold for role "${role}": must be a number between 1 and 500` });
     }
     validated[role] = n;
   }
@@ -85,9 +85,9 @@ router.put("/caseload-balancing/thresholds", async (req, res) => {
   }
 });
 
-router.get("/caseload-balancing/summary", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/summary", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
     let thresholds: Record<string, number>;
@@ -212,12 +212,12 @@ router.get("/caseload-balancing/summary", async (req, res) => {
   }
 });
 
-router.get("/caseload-balancing/provider/:providerId/students", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/provider/:providerId/students", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
-  const providerId = parseInt(req.params.providerId, 10);
-  if (!Number.isFinite(providerId)) return res.status(400).json({ error: "Invalid provider ID" });
+  const providerId = parseInt(req.params.providerId as string, 10);
+  if (!Number.isFinite(providerId)) return void res.status(400).json({ error: "Invalid provider ID" });
 
   try {
     const [provider] = await db.select({
@@ -227,7 +227,7 @@ router.get("/caseload-balancing/provider/:providerId/students", async (req, res)
     .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
     .where(and(eq(staffTable.id, providerId), eq(schoolsTable.districtId, districtId)));
 
-    if (!provider) return res.status(404).json({ error: "Provider not found in your district" });
+    if (!provider) return void res.status(404).json({ error: "Provider not found in your district" });
 
     const students = await db.select({
       id: studentsTable.id,
@@ -254,9 +254,9 @@ router.get("/caseload-balancing/provider/:providerId/students", async (req, res)
   }
 });
 
-router.get("/caseload-balancing/suggestions", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/suggestions", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
     let thresholds: Record<string, number>;
@@ -446,19 +446,19 @@ router.get("/caseload-balancing/suggestions", async (req, res) => {
   }
 });
 
-router.post("/caseload-balancing/reassign", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = req as AuthedRequest;
+router.post("/caseload-balancing/reassign", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = req as unknown as AuthedRequest;
 
   const { studentId, fromProviderId, toProviderId, overrideIncompatible } = req.body;
   if (!studentId || !fromProviderId || !toProviderId) {
-    return res.status(400).json({ error: "studentId, fromProviderId, and toProviderId are required" });
+    return void res.status(400).json({ error: "studentId, fromProviderId, and toProviderId are required" });
   }
 
-  const callerRole = (req as AuthedRequest).trellisRole;
+  const callerRole = (req as unknown as AuthedRequest).trellisRole;
   if (overrideIncompatible && callerRole !== "admin") {
-    return res.status(403).json({ error: "Only admins can override service-type incompatibility" });
+    return void res.status(403).json({ error: "Only admins can override service-type incompatibility" });
   }
 
   try {
@@ -469,13 +469,13 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
       .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
       .where(and(eq(staffTable.id, toProviderId), eq(schoolsTable.districtId, districtId)));
 
-    if (!fromProvider || !toProvider) return res.status(404).json({ error: "Provider not found in your district" });
-    if (fromProvider.role !== toProvider.role) return res.status(400).json({ error: "Cannot reassign between providers with different roles" });
+    if (!fromProvider || !toProvider) return void res.status(404).json({ error: "Provider not found in your district" });
+    if (fromProvider.role !== toProvider.role) return void res.status(400).json({ error: "Cannot reassign between providers with different roles" });
 
     const [student] = await db.select({ id: studentsTable.id }).from(studentsTable)
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
       .where(and(eq(studentsTable.id, studentId), eq(schoolsTable.districtId, districtId)));
-    if (!student) return res.status(404).json({ error: "Student not found in your district" });
+    if (!student) return void res.status(404).json({ error: "Student not found in your district" });
 
     const [assignment] = await db.select().from(staffAssignmentsTable)
       .where(and(
@@ -483,7 +483,7 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
         eq(staffAssignmentsTable.studentId, studentId),
       ));
 
-    if (!assignment) return res.status(404).json({ error: "No assignment found for this student-provider pair" });
+    if (!assignment) return void res.status(404).json({ error: "No assignment found for this student-provider pair" });
 
     if (!overrideIncompatible) {
       const studentServices = await db.select({
@@ -517,7 +517,7 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
       });
 
       if (incompatible.length > 0) {
-        return res.status(422).json({
+        return void res.status(422).json({
           error: "Service type mismatch",
           code: "SERVICE_TYPE_MISMATCH",
           incompatibleServices: incompatible.map(s => ({
@@ -557,9 +557,9 @@ router.post("/caseload-balancing/reassign", async (req, res) => {
   }
 });
 
-router.get("/caseload-balancing/trends", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/trends", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
     const months = parseInt(req.query.months as string, 10) || 6;
@@ -621,9 +621,9 @@ router.get("/caseload-balancing/trends", async (req, res) => {
   }
 });
 
-router.get("/caseload-balancing/provider-trends", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
+router.get("/caseload-balancing/provider-trends", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
 
   try {
     const weeks = Math.min(parseInt(req.query.weeks as string, 10) || 12, 52);

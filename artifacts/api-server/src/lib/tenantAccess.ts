@@ -30,7 +30,7 @@ export async function getStudentSchoolId(studentId: number): Promise<number | nu
  *   - passes in dev to allow local testing without full Clerk setup
  */
 export async function assertStudentAccess(req: Request, studentId: number): Promise<boolean> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (authed.trellisRole === "admin") return true;
   const requesterSchoolId = await getRequesterSchoolId(req);
   if (requesterSchoolId === null) {
@@ -43,7 +43,7 @@ export async function assertStudentAccess(req: Request, studentId: number): Prom
 const CASELOAD_BROAD_ROLES = ["admin", "coordinator"];
 
 export async function assertCaseloadAccess(req: Request, studentId: number): Promise<boolean> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (CASELOAD_BROAD_ROLES.includes(authed.trellisRole ?? "")) {
     return assertStudentAccess(req, studentId);
   }

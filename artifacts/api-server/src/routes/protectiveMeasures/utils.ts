@@ -17,7 +17,7 @@ export function registerIncidentIdParam(router: IRouter): void {
     const id = Number(idStr);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid incident id" }); return; }
 
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (districtId === null) { next(); return; }
 
     const [incident] = await db

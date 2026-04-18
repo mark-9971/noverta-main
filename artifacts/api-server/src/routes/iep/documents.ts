@@ -15,7 +15,7 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/iep-documents", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const docs = await db.select().from(iepDocumentsTable)
       .where(eq(iepDocumentsTable.studentId, studentId))
       .orderBy(desc(iepDocumentsTable.iepStartDate));
@@ -33,7 +33,7 @@ router.get("/students/:studentId/iep-documents", async (req, res): Promise<void>
 
 router.get("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [doc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     if (!doc) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -72,7 +72,7 @@ router.get("/iep-documents/:id", async (req, res): Promise<void> => {
 
 router.post("/students/:studentId/iep-documents", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { iepStartDate, iepEndDate, meetingDate, studentConcerns, parentConcerns, teamVision,
             plaafpAcademic, plaafpBehavioral, plaafpCommunication, plaafpAdditional,
             transitionAssessment, transitionPostsecGoals, transitionServices, transitionAgencies,
@@ -108,9 +108,9 @@ router.post("/students/:studentId/iep-documents", async (req, res): Promise<void
 
 router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertIepDocumentInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertIepDocumentInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["iepStartDate","iepEndDate","meetingDate","status","studentConcerns","parentConcerns","teamVision",
                         "plaafpAcademic","plaafpBehavioral","plaafpCommunication","plaafpAdditional",
@@ -133,7 +133,7 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
       oldValues: oldVals,
       newValues: updates as Record<string, unknown>,
     });
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     if (districtId) {
       createAutoVersion({
@@ -156,9 +156,9 @@ router.patch("/iep-documents/:id", async (req, res): Promise<void> => {
 
 router.delete("/iep-documents/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertIepDocumentInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertIepDocumentInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [oldDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     await db.delete(iepDocumentsTable).where(eq(iepDocumentsTable.id, id));
     logAudit(req, {

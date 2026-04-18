@@ -226,7 +226,7 @@ router.get("/search", async (req, res): Promise<void> => {
 
 router.get("/staff/:staffId/caseload-summary", async (req, res): Promise<void> => {
   try {
-    const staffId = parseInt(req.params.staffId);
+    const staffId = parseInt(req.params.staffId as string, 10);
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
 
     const assignments = await db.select({
@@ -297,7 +297,7 @@ router.get("/staff/:staffId/caseload-summary", async (req, res): Promise<void> =
 
 router.get("/students/:studentId/iep-summary", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
     const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));

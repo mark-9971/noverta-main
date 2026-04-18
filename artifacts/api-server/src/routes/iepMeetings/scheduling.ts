@@ -4,9 +4,11 @@ import { db } from "@workspace/db";
 import {
   teamMeetingsTable, studentsTable, staffTable,
   priorWrittenNoticesTable, meetingConsentRecordsTable,
-  iepDocumentsTable,
+  iepDocumentsTable, meetingPrepItemsTable, dataSessionsTable,
+  iepGoalsTable, parentMessagesTable, iepMeetingAttendeesTable,
+  iepAccommodationsTable,
 } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, count, gte } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
@@ -118,9 +120,9 @@ router.get("/iep-meetings/dashboard", meetingAccess, async (req, res): Promise<v
 
 router.post("/iep-meetings/:id/complete", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const body = req.body;
     const [row] = await db.update(teamMeetingsTable)
@@ -144,7 +146,7 @@ router.post("/iep-meetings/:id/complete", meetingAccess, async (req, res): Promi
   }
 });
 
-const DEFAULT_PREP_ITEMS = [
+export const DEFAULT_PREP_ITEMS = [
   { itemType: "gather_progress_data", label: "Gather progress data", description: "Review recent session data and goal progress for all IEP goals", required: true, sortOrder: 1 },
   { itemType: "draft_review_goals", label: "Draft/review IEP goals", description: "Ensure all annual goals are drafted or reviewed with current data", required: true, sortOrder: 2 },
   { itemType: "contact_parent", label: "Contact parent/guardian", description: "Send meeting invitation and confirm parent attendance", required: true, sortOrder: 3 },
@@ -155,7 +157,7 @@ const DEFAULT_PREP_ITEMS = [
   { itemType: "prepare_agenda", label: "Prepare meeting agenda", description: "Create or review the meeting agenda items", required: false, sortOrder: 8 },
 ];
 
-async function autoDetectPrepItems(meetingId: number, studentId: number): Promise<Record<string, boolean>> {
+export async function autoDetectPrepItems(meetingId: number, studentId: number): Promise<Record<string, boolean>> {
   const results: Record<string, boolean> = {};
   const last90d = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
 

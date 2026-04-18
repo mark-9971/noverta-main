@@ -146,7 +146,7 @@ router.post("/imports/staff", requireAdmin, async (req, res): Promise<void> => {
     }
 
     const [importRecord] = await db.insert(importsTable).values({
-      districtId: getEnforcedDistrictId(req as AuthedRequest),
+      districtId: getEnforcedDistrictId(req as unknown as AuthedRequest) as number,
       importType: "staff",
       fileName: fileName ?? null,
       status: errored === rows.length ? "failed" : "completed",

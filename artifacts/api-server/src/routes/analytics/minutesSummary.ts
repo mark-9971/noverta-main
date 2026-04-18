@@ -14,7 +14,7 @@ const router: IRouter = Router();
 
 router.get("/analytics/minutes-summary", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const yearWindow = await resolveSchoolYearWindow(req, req.query as Record<string, unknown>, districtId);
     const dateConds: any[] = [isNull(sessionLogsTable.deletedAt)];
     if (yearWindow.startDate) dateConds.push(sql`${sessionLogsTable.sessionDate} >= ${yearWindow.startDate}`);

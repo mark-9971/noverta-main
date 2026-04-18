@@ -10,6 +10,7 @@ export const iepGoalsTable = pgTable("iep_goals", {
   goalNumber: integer("goal_number").notNull().default(1),
   annualGoal: text("annual_goal").notNull(),
   baseline: text("baseline"),
+  baselinePercent: text("baseline_percent"),
   targetCriterion: text("target_criterion"),
   measurementMethod: text("measurement_method"),
   scheduleOfReporting: text("schedule_of_reporting").default("quarterly"),

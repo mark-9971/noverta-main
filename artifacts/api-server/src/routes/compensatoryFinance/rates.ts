@@ -9,7 +9,7 @@ import { getDistrictId } from "./shared";
 const router = Router();
 
 router.get("/compensatory-finance/rates", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
   const configs = await db.select({
@@ -37,7 +37,7 @@ router.get("/compensatory-finance/rates", async (req, res): Promise<void> => {
 });
 
 router.post("/compensatory-finance/rates", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
   const { serviceTypeId, inHouseRate, contractedRate, effectiveDate, notes } = req.body;
@@ -82,7 +82,7 @@ router.post("/compensatory-finance/rates", async (req, res): Promise<void> => {
 });
 
 router.post("/compensatory-finance/rates/import", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
   const { rows, effectiveDate } = req.body;
@@ -144,10 +144,10 @@ router.post("/compensatory-finance/rates/import", async (req, res): Promise<void
 });
 
 router.delete("/compensatory-finance/rates/:id", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as unknown as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as unknown as AuthedRequest);
   if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [existing] = await db.select({ districtId: serviceRateConfigsTable.districtId })

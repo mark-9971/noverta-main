@@ -8,7 +8,7 @@ import { getDistrictId } from "./shared";
 const router: IRouter = Router();
 
 router.get("/medicaid/revenue-summary", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -82,7 +82,7 @@ router.get("/medicaid/revenue-summary", async (req, res): Promise<void> => {
 });
 
 router.get("/medicaid/billable-sessions-preview", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;

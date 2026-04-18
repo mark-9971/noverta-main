@@ -30,7 +30,7 @@ router.get("/students", async (req, res): Promise<void> => {
   const params = ListStudentsQueryParams.safeParse(req.query);
 
   // Provider/para scope: limit list to assigned students. Privileged callers see all.
-  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  const assignedIds = await getCallerAssignedStudentIds(req as unknown as AuthedRequest);
   if (assignedIds !== null && assignedIds.length === 0) {
     const pageSize = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
     res.json({ data: [], total: 0, page: 1, pageSize, hasMore: false });
@@ -75,7 +75,7 @@ router.get("/students", async (req, res): Promise<void> => {
     if (params.data.programId) conditions.push(eq(studentsTable.programId, Number(params.data.programId)));
     if (params.data.schoolId) conditions.push(eq(studentsTable.schoolId, Number(params.data.schoolId)));
     {
-      const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+      const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
       if (enforcedDid !== null) {
         conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
       } else if (params.data.districtId) {
@@ -225,7 +225,7 @@ router.post("/students", async (req, res): Promise<void> => {
     return;
   }
   {
-    const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const schoolId = Number(parsed.data.schoolId ?? 0);
     if (enforcedDistrictId !== null && schoolId > 0) {
       const rows = await db.execute(sql`
@@ -252,7 +252,7 @@ router.post("/students", async (req, res): Promise<void> => {
 });
 
 router.get("/sped-students", async (req, res): Promise<void> => {
-  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  const assignedIds = await getCallerAssignedStudentIds(req as unknown as AuthedRequest);
   if (assignedIds !== null && assignedIds.length === 0) { res.json([]); return; }
   const conditions: any[] = [eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)];
   if (assignedIds !== null) {
@@ -260,7 +260,7 @@ router.get("/sped-students", async (req, res): Promise<void> => {
   }
   if (req.query.schoolId) conditions.push(eq(studentsTable.schoolId, Number(req.query.schoolId)));
   {
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       conditions.push(sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
     } else if (req.query.districtId) {
@@ -293,7 +293,7 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
+  if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, params.data.id))) return;
 
   const [student] = await db
     .select({
@@ -548,7 +548,7 @@ router.get("/students/:id/minute-progress", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
+  if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, params.data.id))) return;
   const progress = await computeAllActiveMinuteProgress({ studentId: params.data.id });
   res.json(progress);
 });
@@ -560,7 +560,7 @@ router.get("/students/:id/sessions", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
+  if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, params.data.id))) return;
   const limit = queryParams.success && queryParams.data.limit ? Number(queryParams.data.limit) : 50;
 
   const sessions = await db
@@ -610,7 +610,7 @@ router.get("/students/:id/alerts", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
+  if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, params.data.id))) return;
   const alerts = await db
     .select()
     .from(alertsTable)

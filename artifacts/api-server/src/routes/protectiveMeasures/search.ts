@@ -10,7 +10,7 @@ const router: IRouter = Router();
 router.get("/protective-measures/incidents", async (req: Request, res: Response) => {
   const { studentId, status, incidentType, startDate, endDate } = req.query;
 
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   const conditions: any[] = [];
 

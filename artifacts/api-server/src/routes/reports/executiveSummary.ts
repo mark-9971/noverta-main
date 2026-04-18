@@ -20,7 +20,7 @@ router.get("/reports/executive-summary", requireReportExport, async (req: Reques
       return;
     }
     const { schoolId, startDate, endDate, schoolYearId: execYearId } = req.query;
-    const execEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const execEnforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const districtId = execEnforcedDistrictId !== null ? String(execEnforcedDistrictId) : null;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().split("T")[0];

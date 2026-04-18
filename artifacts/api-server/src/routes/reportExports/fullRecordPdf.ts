@@ -17,13 +17,13 @@ import type { BufferedPDFDoc } from "./utils";
 const router = Router();
 
 router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Request, res: Response): Promise<void> => {
-  const studentId = parseInt(req.params.studentId);
+  const studentId = parseInt(req.params.studentId as string, 10);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
   const { platformAdmin } = getPublicMeta(req);
 
   if (!platformAdmin) {
-    const callerDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const callerDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (callerDistrictId == null) {
       res.status(403).json({ error: "Access denied: your account is not assigned to a district" });
       return;

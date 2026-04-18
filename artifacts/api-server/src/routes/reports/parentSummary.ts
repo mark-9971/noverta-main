@@ -12,10 +12,10 @@ const router: IRouter = Router();
 
 router.get("/reports/parent-summary/:studentId", async (req: Request, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
 
     // Guardian-level scope: sped_parent users may only access their linked student's report.
     if (authed.trellisRole === "sped_parent") {
@@ -56,7 +56,7 @@ router.get("/reports/parent-summary/:studentId", async (req: Request, res): Prom
       firstName: studentsTable.firstName,
       lastName: studentsTable.lastName,
       grade: studentsTable.grade,
-      dob: studentsTable.dob,
+      dob: studentsTable.dateOfBirth,
       schoolId: studentsTable.schoolId,
       schoolName: schoolsTable.name,
     }).from(studentsTable)

@@ -20,7 +20,7 @@ const router: IRouter = Router();
 
 router.get("/progress-reports/all", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     const conditions = [];
     if (districtId) {
@@ -70,9 +70,9 @@ router.get("/progress-reports/all", async (req, res): Promise<void> => {
 
 router.get("/students/:studentId/progress-reports", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (districtId) {
       const [stu] = await db.select({ schoolId: studentsTable.schoolId }).from(studentsTable).where(eq(studentsTable.id, studentId));
       if (!stu?.schoolId) { res.status(404).json({ error: "Student not found" }); return; }
@@ -129,9 +129,9 @@ router.get("/students/:studentId/progress-reports", async (req, res): Promise<vo
 
 router.get("/progress-reports/:id", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const conditions = [eq(progressReportsTable.id, id)];
     if (districtId) {
       conditions.push(eq(schoolsTable.districtId, districtId));
@@ -191,9 +191,9 @@ router.get("/progress-reports/:id", async (req, res): Promise<void> => {
 
 router.patch("/progress-reports/:id", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
 
     const VALID_STATUS = ["draft", "review", "final", "sent"];
     const updates: Record<string, unknown> = {};
@@ -271,9 +271,9 @@ router.patch("/progress-reports/:id", async (req, res): Promise<void> => {
 
 router.post("/students/:studentId/progress-reports/generate", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { periodStart, periodEnd, reportingPeriod, preparedBy } = req.body;
     if (!periodStart || !periodEnd || !reportingPeriod) {
       res.status(400).json({ error: "periodStart, periodEnd, and reportingPeriod are required" });
@@ -663,7 +663,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
 
 router.post("/progress-reports/batch-generate", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
     const { studentIds, periodStart, periodEnd, reportingPeriod, preparedBy } = req.body;
     if (!Array.isArray(studentIds) || studentIds.length === 0 || !periodStart || !periodEnd || !reportingPeriod) {
@@ -982,7 +982,7 @@ router.post("/progress-reports/batch-generate", async (req, res): Promise<void> 
  */
 router.post("/progress-reports/admin/backfill-goal-progress", requireRoles("admin"), async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = getEnforcedDistrictId(authed);
 
     const baseQuery = db

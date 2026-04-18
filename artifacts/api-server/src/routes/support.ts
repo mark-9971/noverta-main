@@ -1204,7 +1204,7 @@ router.post("/support/view-as/start", async (req: Request, res: Response) => {
     return;
   }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const adminUserId = authed.userId;
   if (targetUserId === adminUserId) {
     // No-op vanity impersonation; reject so audit reviewers don't see noise.
@@ -1289,7 +1289,7 @@ router.get("/support/view-as/active", async (req: Request, res: Response) => {
   // requirePlatformAdmin already populated req.userId (and the view-as middleware
   // will have ALSO overridden it if the token is valid). Resolve the admin id
   // from either viewAsAdminUserId (already overridden) or req.userId (not).
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const adminUserId = authed.viewAsAdminUserId ?? authed.userId;
   const session = await loadActiveViewAsSession(token, adminUserId);
   if (!session) {
@@ -1337,7 +1337,7 @@ router.post("/support/view-as/end", async (req: Request, res: Response) => {
     return;
   }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const adminUserId = authed.viewAsAdminUserId ?? authed.userId;
 
   // Find the row first so we can verify admin ownership BEFORE ending it; this

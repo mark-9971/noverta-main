@@ -14,7 +14,7 @@ import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/aut
 export async function studentIdParamGuard(req: Request, res: Response, next: NextFunction, id: string): Promise<void> {
   const numId = Number(id);
   if (!Number.isFinite(numId) || numId <= 0) { next(); return; }
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDistrictId === null) { next(); return; }
 
   const path = req.path;

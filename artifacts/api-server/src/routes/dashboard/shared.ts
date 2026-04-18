@@ -22,7 +22,7 @@ export async function resolveCallerDistrictId(req: import("express").Request): P
 export function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>): { schoolId?: number; districtId?: number } {
   const filters: { schoolId?: number; districtId?: number } = {};
   // Enforced district from token always takes precedence over client query params.
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDistrictId !== null) {
     filters.districtId = enforcedDistrictId;
   } else if (query.districtId) {

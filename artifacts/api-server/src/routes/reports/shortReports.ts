@@ -23,7 +23,7 @@ router.get("/reports/student-minute-summary", async (req: Request, res): Promise
     if (params.data.riskStatus) filters.riskStatus = params.data.riskStatus;
   }
 
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const yearWindow = await resolveSchoolYearWindow(req, req.query as Record<string, unknown>, enforcedDistrictId);
   const allProgress = await computeAllActiveMinuteProgress({
     ...(filters.riskStatus ? { riskStatus: filters.riskStatus } : {}),
@@ -78,7 +78,7 @@ router.get("/reports/missed-sessions", async (req: Request, res): Promise<void> 
   const params = GetMissedSessionsReportQueryParams.safeParse(req.query);
   const conditions: any[] = [eq(sessionLogsTable.status, "missed"), isNull(sessionLogsTable.deletedAt)];
 
-  const missedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const missedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (missedDistrictId !== null) {
     conditions.push(sql`${sessionLogsTable.studentId} IN (
       SELECT s.id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE sc.district_id = ${missedDistrictId}
@@ -133,7 +133,7 @@ router.get("/reports/missed-sessions", async (req: Request, res): Promise<void> 
 });
 
 router.get("/reports/compliance-risk", async (req: Request, res): Promise<void> => {
-  const riskDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const riskDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const allProgress = await computeAllActiveMinuteProgress(
     riskDistrictId !== null ? { districtId: riskDistrictId } : undefined
   );

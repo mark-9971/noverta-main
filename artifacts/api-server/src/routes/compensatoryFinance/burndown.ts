@@ -12,7 +12,7 @@ import { getDistrictId, getContractedProviderIds, getRateMap, minutesToDollars, 
 const router = Router();
 
 router.get("/compensatory-finance/burndown", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
   const monthsRaw = parseInt(req.query.months as string) || 12;

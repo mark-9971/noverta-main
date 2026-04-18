@@ -92,7 +92,7 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
     // Falling back to "first row" historically leaked another tenant's
     // schools/staff/student counts to a brand-new admin who hadn't yet been
     // attached to a district.
-    const tenantId = getEnforcedDistrictId(req as AuthedRequest);
+    const tenantId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const district = tenantId != null
       ? (await db.select().from(districtsTable).where(eq(districtsTable.id, tenantId)).limit(1))[0] ?? null
       : null;
@@ -165,7 +165,7 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
 
     // DPA acceptance is per-user: check whether the requesting admin has
     // accepted the current version of the Data Processing Agreement.
-    const authedReq = req as AuthedRequest;
+    const authedReq = req as unknown as AuthedRequest;
     if (authedReq.userId) {
       const dpaVersion = LEGAL_VERSIONS["dpa"];
       const [dpaRow] = await db.select({ id: legalAcceptancesTable.id })
@@ -290,7 +290,7 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
       return;
     }
 
-    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
+    const district = await resolveOnboardingDistrict(req as unknown as AuthedRequest, trimmedDistrictName);
 
     // Require an explicit list of schools — no silent "Main Campus" fallback.
     // The wizard must ask the admin who their schools are; making one up causes
@@ -323,7 +323,7 @@ router.post("/onboarding/sis-connect", requireRoles("admin", "coordinator"), asy
 
     await markStepComplete(district.id, "sis_connected", credentialMeta);
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     await db.insert(sisConnectionsTable).values({
       provider,
       label: `${districtName} — ${provider}`,
@@ -367,7 +367,7 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
       return;
     }
 
-    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
+    const district = await resolveOnboardingDistrict(req as unknown as AuthedRequest, trimmedDistrictName);
 
     // School handling: we no longer auto-create a placeholder "Main Campus"
     // when the CSV is silent — that historically produced orphaned schools.
@@ -473,7 +473,7 @@ router.post("/onboarding/sis-upload-csv", requireRoles("admin", "coordinator"), 
       staffImported,
     }));
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     await db.insert(sisConnectionsTable).values({
       provider: "csv",
       label: `${districtName} — CSV Import`,
@@ -518,7 +518,7 @@ router.post("/onboarding/district-confirm", requireRoles("admin", "coordinator")
       }
     }
 
-    const district = await resolveOnboardingDistrict(req as AuthedRequest, trimmedDistrictName);
+    const district = await resolveOnboardingDistrict(req as unknown as AuthedRequest, trimmedDistrictName);
 
     if (Array.isArray(schools)) {
       for (const s of schools) {
@@ -576,7 +576,7 @@ router.post("/onboarding/service-types", requireRoles("admin", "coordinator"), a
       (st: { name: string }) => !existingNames.has(st.name.toLowerCase())
     );
 
-    const tenantDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const tenantDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     if (newTypes.length === 0) {
       const allTypes = await db.select().from(serviceTypesTable);
@@ -630,7 +630,7 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
       (inv: { email: string }) => !emailSet.has(inv.email.toLowerCase())
     );
 
-    const tenantDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const tenantDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     if (newInvites.length === 0) {
       if (tenantDistrictId != null) await markStepComplete(tenantDistrictId, "staff_invited");
@@ -662,7 +662,7 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
 
 router.post("/onboarding/dismiss-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (districtId == null) {
       res.status(400).json({ error: "No district associated with this account." });
       return;
@@ -677,7 +677,7 @@ router.post("/onboarding/dismiss-checklist", requireRoles("admin", "coordinator"
 
 router.post("/onboarding/show-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (districtId == null) {
       res.status(400).json({ error: "No district associated with this account." });
       return;

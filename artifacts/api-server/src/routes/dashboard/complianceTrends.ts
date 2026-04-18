@@ -49,7 +49,7 @@ router.get("/dashboard/compliance-trends", async (req, res): Promise<void> => {
   const monthsRaw = parseInt(String(req.query.months ?? "12"), 10);
   const months = Math.max(3, Math.min(Number.isFinite(monthsRaw) ? monthsRaw : 12, 24));
 
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   // ---- 1. Resolve student pool (district-scoped, currently active) ----
   const studentConditions: any[] = [eq(studentsTable.status, "active")];

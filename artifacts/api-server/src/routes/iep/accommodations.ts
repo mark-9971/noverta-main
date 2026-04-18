@@ -10,8 +10,8 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/accommodations", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const accs = await db.select().from(iepAccommodationsTable)
       .where(and(eq(iepAccommodationsTable.studentId, studentId), eq(iepAccommodationsTable.active, true)))
       .orderBy(asc(iepAccommodationsTable.category));
@@ -29,8 +29,8 @@ router.get("/students/:studentId/accommodations", async (req, res): Promise<void
 
 router.post("/students/:studentId/accommodations", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const { category, description, setting, frequency, provider, iepDocumentId } = req.body;
     if (!description) { res.status(400).json({ error: "description is required" }); return; }
     const [acc] = await db.insert(iepAccommodationsTable).values({
@@ -53,8 +53,8 @@ router.post("/students/:studentId/accommodations", async (req, res): Promise<voi
 
 router.patch("/accommodations/:id", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
-    const id = parseInt(req.params.id);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+    const id = parseInt(req.params.id as string, 10);
     const updates: any = {};
     for (const key of ["category","description","setting","frequency","provider","active"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -91,8 +91,8 @@ router.patch("/accommodations/:id", async (req, res): Promise<void> => {
 
 router.delete("/accommodations/:id", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
-    const id = parseInt(req.params.id);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+    const id = parseInt(req.params.id as string, 10);
     const [row] = await db.select({
       acc: iepAccommodationsTable,
       schoolDistrictId: schoolsTable.districtId,

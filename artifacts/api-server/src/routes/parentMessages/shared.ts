@@ -35,7 +35,7 @@ export function getStaffId(req: Request): number | null {
 }
 
 export async function verifyStudentInDistrict(req: Request, studentId: number): Promise<boolean> {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId === null) return true;
   const result = await db.execute(sql`
     SELECT 1 FROM students
@@ -54,6 +54,6 @@ export async function verifyGuardianBelongsToStudent(guardianId: number, student
 }
 
 export async function resolveGuardianId(req: Request): Promise<number | null> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   return authed.tenantGuardianId ?? null;
 }

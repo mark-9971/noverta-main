@@ -218,10 +218,12 @@ router.get("/analytics/pm-phase-trends", async (req, res): Promise<void> => {
 
     const byStudent: Record<number, { phases: typeof phases; incidents: typeof incidents }> = {};
     for (const p of phases) {
+      if (p.studentId == null) continue;
       if (!byStudent[p.studentId]) byStudent[p.studentId] = { phases: [], incidents: [] };
       byStudent[p.studentId].phases.push(p);
     }
     for (const inc of incidents) {
+      if (inc.studentId == null) continue;
       if (!byStudent[inc.studentId]) byStudent[inc.studentId] = { phases: [], incidents: [] };
       byStudent[inc.studentId].incidents.push(inc);
     }

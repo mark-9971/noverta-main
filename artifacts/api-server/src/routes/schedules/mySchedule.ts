@@ -106,7 +106,7 @@ const CHANGE_REQUEST_SELECT_SQL = `
 `;
 
 router.get("/schedules/my-schedule", requireAuth, async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const staffId = resolveCallerStaffId(authed);
 
   if (!staffId) {
@@ -271,7 +271,7 @@ router.get("/schedules/today", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.post("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const staffId = resolveCallerStaffId(authed);
 
   if (!staffId) {
@@ -319,7 +319,7 @@ router.post("/schedules/change-requests", requireAuth, async (req, res): Promise
 });
 
 router.get("/schedules/change-requests", requireAuth, async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const isReviewer = ["admin", "coordinator", "case_manager"].includes(authed.trellisRole);
   const staffId = resolveCallerStaffId(authed);
   const { pool } = await import("@workspace/db");
@@ -362,7 +362,7 @@ router.get("/schedules/change-requests", requireAuth, async (req, res): Promise<
 });
 
 router.patch("/schedules/change-requests/:id", requireReviewer, async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const id = Number(req.params.id);
   if (!id || isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });

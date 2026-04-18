@@ -72,7 +72,7 @@ function extractDisplayName(req: Request): string {
  *    audit trail captures the timeout.
  */
 async function applyViewAsOverride(req: Request, token: string): Promise<void> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const adminUserId = authed.userId;
   const adminRole = authed.trellisRole;
 
@@ -120,7 +120,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
     if (typeof testUserId === "string" && testUserId && isRole(testRole)) {
-      const authed = req as AuthedRequest;
+      const authed = req as unknown as AuthedRequest;
       authed.userId = testUserId;
       authed.trellisRole = testRole as TrellisRole;
       authed.displayName = `Test ${testRole}`;
@@ -140,21 +140,21 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  (req as AuthedRequest).userId = auth.userId;
+  (req as unknown as AuthedRequest).userId = auth.userId;
   const role = extractRole(req);
   if (!role) {
     recordAccessDenial(req, "no_role", 403, "Authenticated user has no Trellis role in token metadata");
     res.status(403).json({ error: "No role assigned. Contact your administrator." });
     return;
   }
-  (req as AuthedRequest).trellisRole = role;
-  (req as AuthedRequest).displayName = extractDisplayName(req);
+  (req as unknown as AuthedRequest).trellisRole = role;
+  (req as unknown as AuthedRequest).displayName = extractDisplayName(req);
 
   // Extract tenant scope from Clerk token metadata.
   // Preserve a previously resolved tenantDistrictId (e.g. set by the dev-mode fallback in
   // requireDistrictScope) so repeated requireAuth calls don't reset it back to null.
   const meta = getPublicMeta(req);
-  const authedReq = req as AuthedRequest;
+  const authedReq = req as unknown as AuthedRequest;
   authedReq.tenantDistrictId = meta.districtId ?? authedReq.tenantDistrictId ?? null;
   authedReq.tenantStaffId = meta.staffId ?? null;
   authedReq.tenantStudentId = meta.studentId ?? null;
@@ -296,7 +296,7 @@ export async function initDevDistrictFallback(): Promise<void> {
 export function requireDistrictScope(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
     void (async () => {
-      const authed = req as AuthedRequest;
+      const authed = req as unknown as AuthedRequest;
 
       // Test-mode platform-admin bypass.
       //
@@ -348,7 +348,7 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
 export function requireRoles(...allowedRoles: TrellisRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     requireAuth(req, res, () => {
-      const authed = req as AuthedRequest;
+      const authed = req as unknown as AuthedRequest;
       if (!allowedRoles.includes(authed.trellisRole)) {
         recordAccessDenial(req, "role_forbidden", 403, `Role "${authed.trellisRole}" not in allowed list [${allowedRoles.join(", ")}]`);
         res.status(403).json({ error: "You don't have permission to access this resource" });
@@ -362,7 +362,7 @@ export function requireRoles(...allowedRoles: TrellisRole[]) {
 export function requireMinRole(minRole: TrellisRole) {
   return (req: Request, res: Response, next: NextFunction): void => {
     requireAuth(req, res, () => {
-      const authed = req as AuthedRequest;
+      const authed = req as unknown as AuthedRequest;
       if (ROLE_HIERARCHY[authed.trellisRole] < ROLE_HIERARCHY[minRole]) {
         recordAccessDenial(req, "role_forbidden", 403, `Role "${authed.trellisRole}" below required minimum "${minRole}"`);
         res.status(403).json({ error: "You don't have permission to access this resource" });
@@ -402,7 +402,7 @@ export function requirePlatformAdmin(req: Request, res: Response, next: NextFunc
  */
 export function requireGuardianScope(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (authed.trellisRole !== "sped_parent") {
       recordAccessDenial(req, "guardian_scope_required", 403, `Guardian-portal route hit by role "${authed.trellisRole}"`);
       res.status(403).json({ error: "Guardian portal access requires the sped_parent role." });

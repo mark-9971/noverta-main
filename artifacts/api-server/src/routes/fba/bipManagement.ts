@@ -27,7 +27,7 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const statusFilter = req.query.status as string | undefined;
     const conditions: any[] = [eq(behaviorInterventionPlansTable.studentId, studentId)];
     if (statusFilter) conditions.push(eq(behaviorInterventionPlansTable.status, statusFilter));
@@ -87,7 +87,7 @@ router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
 
 router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { fbaId, createdBy, behaviorTargetId, targetBehavior, operationalDefinition, hypothesizedFunction,
       replacementBehaviors, preventionStrategies, teachingStrategies, consequenceStrategies,
       reinforcementSchedule, crisisPlan, implementationNotes, dataCollectionMethod, progressCriteria,
@@ -99,7 +99,7 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
       res.status(400).json({ error: "targetBehavior, operationalDefinition, and hypothesizedFunction are required" });
       return;
     }
-    const authedCreator = req as AuthedRequest;
+    const authedCreator = req as unknown as AuthedRequest;
     const resolvedCreatedBy = createdBy ?? authedCreator.tenantStaffId ?? null;
     const [bip] = await db.insert(behaviorInterventionPlansTable).values({
       studentId, fbaId: fbaId || null, createdBy: resolvedCreatedBy,
@@ -137,7 +137,7 @@ router.post("/students/:studentId/bips", async (req, res): Promise<void> => {
 
 router.get("/bips/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [bip] = await db.select({
       id: behaviorInterventionPlansTable.id,
       studentId: behaviorInterventionPlansTable.studentId,
@@ -193,9 +193,9 @@ router.get("/bips/:id", async (req, res): Promise<void> => {
 
 router.patch("/bips/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertBipInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertBipInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [existing] = await db.select({ status: behaviorInterventionPlansTable.status })
       .from(behaviorInterventionPlansTable).where(eq(behaviorInterventionPlansTable.id, id));
     if (!existing) { res.status(404).json({ error: "BIP not found" }); return; }
@@ -225,9 +225,9 @@ router.patch("/bips/:id", async (req, res): Promise<void> => {
 
 router.delete("/bips/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertBipInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertBipInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [deleted] = await db.delete(behaviorInterventionPlansTable)
       .where(eq(behaviorInterventionPlansTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "BIP not found" }); return; }
@@ -240,14 +240,14 @@ router.delete("/bips/:id", async (req, res): Promise<void> => {
 
 router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [existing] = await db.select().from(behaviorInterventionPlansTable)
       .where(eq(behaviorInterventionPlansTable.id, id));
     if (!existing) { res.status(404).json({ error: "BIP not found" }); return; }
     if (existing.status === "archived") { res.status(400).json({ error: "Cannot version an archived BIP" }); return; }
 
     const body = req.body || {};
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!BIP_APPROVER_ROLES.includes(role)) {
       res.status(403).json({ error: "Only BCBA or admin can create a new BIP version" }); return;
@@ -308,7 +308,7 @@ router.post("/bips/:id/new-version", async (req, res): Promise<void> => {
 
 router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const [fba] = await db.select().from(fbasTable).where(eq(fbasTable.id, fbaId));
     if (!fba) { res.status(404).json({ error: "FBA not found" }); return; }
 
@@ -351,7 +351,7 @@ router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
 
     const strategies = functionStrategies[func] || functionStrategies.attention;
 
-    const authedGen = req as AuthedRequest;
+    const authedGen = req as unknown as AuthedRequest;
     const genCreatedBy = authedGen.tenantStaffId ?? null;
     const [bip] = await db.insert(behaviorInterventionPlansTable).values({
       studentId: fba.studentId,
@@ -383,8 +383,8 @@ router.post("/fbas/:fbaId/generate-bip", async (req, res): Promise<void> => {
 
 router.post("/bips/:id/transition", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const changedById = authed.tenantStaffId ?? null;
     const { toStatus, notes } = req.body;
@@ -445,8 +445,8 @@ router.post("/bips/:id/transition", async (req, res): Promise<void> => {
 
 router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!CLINICAL_ROLES.includes(role)) {
       res.status(403).json({ error: "Insufficient permissions to view BIP history" }); return;
@@ -474,8 +474,8 @@ router.get("/bips/:id/status-history", async (req, res): Promise<void> => {
 
 router.get("/bips/:id/implementers", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!CLINICAL_ROLES.includes(role)) {
       res.status(403).json({ error: "Insufficient permissions to view BIP implementers" }); return;
@@ -506,8 +506,8 @@ router.get("/bips/:id/implementers", async (req, res): Promise<void> => {
 
 router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!BIP_APPROVER_ROLES.includes(role)) {
       res.status(403).json({ error: "Only BCBAs and admins can assign implementers" }); return;
@@ -550,9 +550,9 @@ router.post("/bips/:id/implementers", async (req, res): Promise<void> => {
 
 router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     if (!BIP_APPROVER_ROLES.includes(role)) {
       res.status(403).json({ error: "Only BCBAs and admins can remove implementers" }); return;
@@ -572,8 +572,8 @@ router.delete("/bip-implementers/:id", async (req, res): Promise<void> => {
 
 router.get("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const callerStaffId = authed.tenantStaffId ?? null;
     if (!BIP_APPROVER_ROLES.includes(role)) {
@@ -615,8 +615,8 @@ router.get("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
 
 router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const authed = req as AuthedRequest;
+    const id = parseInt(req.params.id as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const staffId = authed.tenantStaffId ?? null;
     const { logDate, fidelityRating, studentResponse, implementationNotes } = req.body;
@@ -664,9 +664,9 @@ router.post("/bips/:id/fidelity-logs", async (req, res): Promise<void> => {
 
 router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const staffId = authed.tenantStaffId ?? null;
 
@@ -691,8 +691,8 @@ router.delete("/bip-fidelity-logs/:id", async (req, res): Promise<void> => {
 
 router.get("/staff/:staffId/assigned-bips", async (req, res): Promise<void> => {
   try {
-    const staffId = parseInt(req.params.staffId);
-    const authed = req as AuthedRequest;
+    const staffId = parseInt(req.params.staffId as string, 10);
+    const authed = req as unknown as AuthedRequest;
     const role = authed.trellisRole ?? "";
     const callerStaffId = authed.tenantStaffId ?? null;
     if (!BIP_APPROVER_ROLES.includes(role) && callerStaffId !== staffId) {

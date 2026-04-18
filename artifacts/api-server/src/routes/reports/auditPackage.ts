@@ -21,7 +21,7 @@ router.get("/reports/audit-package", requireReportExport, async (req: Request, r
       return;
     }
     const { startDate, endDate, schoolId, studentId } = req.query;
-    const auditEnforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+    const auditEnforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const districtId = auditEnforcedDistrictId !== null ? String(auditEnforcedDistrictId) : null;
     const now = new Date();
     const defaultEnd = now.toISOString().split("T")[0];

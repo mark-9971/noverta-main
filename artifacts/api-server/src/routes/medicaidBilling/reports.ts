@@ -226,7 +226,7 @@ interface SaveSnapshotBody {
 }
 
 router.post("/medicaid/reports/snapshots", async (req, res): Promise<void> => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const districtId = getDistrictId(authed);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
@@ -257,7 +257,7 @@ router.post("/medicaid/reports/snapshots", async (req, res): Promise<void> => {
       dateTo: dateTo || null,
       savedByClerkId: authed.userId,
       savedByName: authed.displayName,
-      data: data as Record<string, unknown>,
+      data: data as unknown as Record<string, unknown>,
     })
     .returning();
 
@@ -265,7 +265,7 @@ router.post("/medicaid/reports/snapshots", async (req, res): Promise<void> => {
 });
 
 router.get("/medicaid/reports/snapshots", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -296,13 +296,13 @@ router.get("/medicaid/reports/snapshots", async (req, res): Promise<void> => {
 });
 
 router.get("/medicaid/reports/snapshots/:id/csv", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
   }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid snapshot id" });
     return;
@@ -341,7 +341,7 @@ router.get("/medicaid/reports/snapshots/:id/csv", async (req, res): Promise<void
 // ─── Claim aging ──────────────────────────────────────────────────────────────
 
 router.get("/medicaid/reports/aging", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -436,7 +436,7 @@ router.get("/medicaid/reports/aging", async (req, res): Promise<void> => {
 // ─── Denial / rejection analysis ──────────────────────────────────────────────
 
 router.get("/medicaid/reports/denials", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -495,7 +495,7 @@ router.get("/medicaid/reports/denials", async (req, res): Promise<void> => {
 // ─── Provider productivity ────────────────────────────────────────────────────
 
 router.get("/medicaid/reports/provider-productivity", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -544,7 +544,7 @@ router.get("/medicaid/reports/provider-productivity", async (req, res): Promise<
 // ─── Revenue trend ────────────────────────────────────────────────────────────
 
 router.get("/medicaid/reports/revenue-trend", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;

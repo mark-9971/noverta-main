@@ -44,7 +44,7 @@ function sessionToJson(s: Record<string, unknown>) {
 
 router.get("/supervision-sessions", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const { supervisorId, superviseeId, startDate, endDate, supervisionType, schoolId } = req.query as Record<string, string>;
 
     const conditions = [];
@@ -215,7 +215,7 @@ router.get("/supervision-sessions/export/csv", requireWriteRole, async (req, res
 
 router.get("/supervision-sessions/:id", async (req, res): Promise<void> => {
   try {
-    const authed = req as unknown as AuthedRequest;
+    const authed = req as unknown as unknown as AuthedRequest;
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -244,7 +244,7 @@ router.patch("/supervision-sessions/:id", requireWriteRole, async (req, res): Pr
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    if (!(await assertSupervisionSessionInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertSupervisionSessionInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const { sessionDate, durationMinutes, supervisionType, topics, feedbackNotes, status } = req.body;
     const updates: Partial<Record<string, string | number | null>> = {};
@@ -280,7 +280,7 @@ router.delete("/supervision-sessions/:id", requireWriteRole, async (req, res): P
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    if (!(await assertSupervisionSessionInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertSupervisionSessionInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const [deleted] = await db.delete(supervisionSessionsTable).where(eq(supervisionSessionsTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
@@ -400,7 +400,7 @@ router.get("/supervision/compliance-summary", requireWriteRole, async (req, res)
 
 router.get("/supervision/staff/:staffId/summary", async (req, res): Promise<void> => {
   try {
-    const authed = req as unknown as AuthedRequest;
+    const authed = req as unknown as unknown as AuthedRequest;
     const staffId = parseInt(String(req.params.staffId));
     if (isNaN(staffId)) { res.status(400).json({ error: "Invalid staff ID" }); return; }
 

@@ -70,7 +70,7 @@ router.get("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request
 
 router.post("/sis/connections", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
       res.status(400).json({ error: "No district configured. Complete onboarding first." });
@@ -240,7 +240,7 @@ router.post("/sis/connections/:id/test", requireRoles(...ADMIN_ROLES), async (re
 
 router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const id = Number(req.params.id);
     const districtId = await getDistrictIdForUser(req);
     if (!districtId) {
@@ -289,7 +289,7 @@ router.post("/sis/connections/:id/sync", requireRoles(...ADMIN_ROLES), async (re
 
 router.post("/sis/connections/:id/upload-csv", requireRoles(...ADMIN_ROLES), async (req: Request, res: Response): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const id = Number(req.params.id);
     const districtId = await getDistrictIdForUser(req);
     if (!districtId) {

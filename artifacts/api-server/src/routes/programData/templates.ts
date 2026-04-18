@@ -56,7 +56,7 @@ router.post("/program-templates", async (req, res): Promise<void> => {
 
 router.put("/program-templates/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const updates: any = {};
     for (const key of ["name","description","category","programType","domain","isGlobal","schoolId",
                         "tier","tags","promptHierarchy","defaultMasteryPercent","defaultMasterySessions",
@@ -75,7 +75,7 @@ router.put("/program-templates/:id", async (req, res): Promise<void> => {
 
 router.delete("/program-templates/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     await db.delete(programTemplatesTable).where(eq(programTemplatesTable.id, id));
     res.json({ ok: true });
   } catch (e: any) {
@@ -85,7 +85,7 @@ router.delete("/program-templates/:id", async (req, res): Promise<void> => {
 
 router.post("/program-templates/:id/duplicate", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [original] = await db.select().from(programTemplatesTable).where(eq(programTemplatesTable.id, id));
     if (!original) { res.status(404).json({ error: "Not found" }); return; }
     const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = original;
@@ -105,7 +105,7 @@ router.post("/program-templates/:id/duplicate", async (req, res): Promise<void> 
 
 router.post("/program-targets/:id/save-as-template", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     const [target] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, id));
     if (!target) { res.status(404).json({ error: "Not found" }); return; }
     const steps = await db.select().from(programStepsTable)
@@ -146,7 +146,7 @@ router.post("/program-targets/:id/save-as-template", async (req, res): Promise<v
 
 router.post("/program-templates/:id/clone-to-student", async (req, res): Promise<void> => {
   try {
-    const templateId = parseInt(req.params.id);
+    const templateId = parseInt(req.params.id as string, 10);
     const { studentId } = req.body;
     if (!studentId) { res.status(400).json({ error: "studentId is required" }); return; }
 

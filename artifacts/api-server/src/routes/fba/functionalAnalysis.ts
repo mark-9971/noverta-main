@@ -11,7 +11,7 @@ const router: IRouter = Router();
 
 router.get("/fbas/:fbaId/fa-sessions", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const sessions = await db.select().from(functionalAnalysesTable)
       .where(eq(functionalAnalysesTable.fbaId, fbaId))
       .orderBy(asc(functionalAnalysesTable.sessionNumber));
@@ -24,7 +24,7 @@ router.get("/fbas/:fbaId/fa-sessions", async (req, res): Promise<void> => {
 
 router.post("/fbas/:fbaId/fa-sessions", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const { sessionNumber, condition, sessionDate, conductedBy, durationMinutes,
       responseCount, responseRate, latencySeconds, durationOfBehaviorSeconds, notes } = req.body;
     if (!condition || !sessionDate) {
@@ -51,9 +51,9 @@ router.post("/fbas/:fbaId/fa-sessions", async (req, res): Promise<void> => {
 
 router.delete("/fa-sessions/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertFunctionalAnalysisInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertFunctionalAnalysisInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [deleted] = await db.delete(functionalAnalysesTable).where(eq(functionalAnalysesTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "FA session not found" }); return; }
     res.json({ success: true });

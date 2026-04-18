@@ -28,7 +28,7 @@ import {
 const router: IRouter = Router();
 
 router.get("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
     return;
@@ -43,7 +43,7 @@ router.get("/sample-data", requireDistrictScope, requireRoles("admin", "coordina
 });
 
 router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
     return;
@@ -69,7 +69,7 @@ router.post("/sample-data", requireDistrictScope, requireRoles("admin", "coordin
 });
 
 router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId == null) {
     res.status(403).json({ error: "No district scope" });
     return;

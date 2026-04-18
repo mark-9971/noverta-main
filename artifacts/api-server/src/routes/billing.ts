@@ -406,7 +406,7 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
           sql`SELECT p.metadata FROM stripe.products p JOIN stripe.prices pr ON pr.product = p.id WHERE pr.id = ${priceId} LIMIT 1`
         );
         interface MetadataRow { metadata: Record<string, string> | string | null }
-        const metaRow = priceResult.rows[0] as MetadataRow | undefined;
+        const metaRow = priceResult.rows[0] as unknown as MetadataRow | undefined;
         if (metaRow?.metadata) {
           const parsed = typeof metaRow.metadata === 'string' ? JSON.parse(metaRow.metadata) as Record<string, string> : metaRow.metadata;
           if (parsed.tier) planTier = parsed.tier;
@@ -419,8 +419,9 @@ router.post("/billing/sync-subscription", adminOnly, async (req: Request, res: R
       else if (interval === "month") billingCycle = "monthly";
     }
 
-    const currentPeriodEnd = stripeSub.current_period_end
-      ? new Date(stripeSub.current_period_end * 1000)
+    const stripeSub_ = stripeSub as unknown as { current_period_end?: number; status: string; items?: { data: { price?: { id?: string; recurring?: { interval?: string } } }[] }; cancel_at_period_end?: boolean };
+    const currentPeriodEnd = stripeSub_.current_period_end
+      ? new Date(stripeSub_.current_period_end * 1000)
       : null;
 
     await db
@@ -489,7 +490,7 @@ router.post("/billing/end-trial", adminOnly, async (req: Request, res: Response)
       .update(districtSubscriptionsTable)
       .set({
         status: updated.status,
-        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000) : null,
+        currentPeriodEnd: (updated as unknown as { current_period_end?: number }).current_period_end ? new Date((updated as unknown as { current_period_end?: number }).current_period_end! * 1000) : null,
       })
       .where(eq(districtSubscriptionsTable.id, sub.id));
 

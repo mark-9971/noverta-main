@@ -44,9 +44,9 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/behavior-targets", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions = [eq(behaviorTargetsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(behaviorTargetsTable.active, true));
@@ -68,7 +68,7 @@ router.get("/students/:studentId/behavior-targets", async (req, res): Promise<vo
 
 router.post("/students/:studentId/behavior-targets", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { name, description, measurementType, targetDirection, baselineValue, goalValue,
             trackingMethod, intervalLengthSeconds, intervalMode, enableHourlyTracking, templateId } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
@@ -103,9 +103,9 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
 
 router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const updates: any = {};
     const VALID_INTERVAL_MODES_PATCH = ["partial_interval", "whole_interval", "momentary_time_sampling"];
     for (const key of ["name","description","measurementType","targetDirection","active","trackingMethod","intervalLengthSeconds","enableHourlyTracking"]) {
@@ -137,9 +137,9 @@ router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
 
 router.get("/students/:studentId/program-targets", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
-    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as unknown as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions = [eq(programTargetsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(programTargetsTable.active, true));
@@ -161,7 +161,7 @@ router.get("/students/:studentId/program-targets", async (req, res): Promise<voi
 
 router.post("/students/:studentId/program-targets", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { name, description, programType, targetCriterion, domain, promptHierarchy,
             currentPromptLevel, autoProgressEnabled, masteryCriterionPercent,
             masteryCriterionSessions, regressionThreshold, regressionSessions,
@@ -232,9 +232,9 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
 
 router.patch("/program-targets/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const VALID_PHASES = ["baseline", "training", "maintenance", "mastered", "reopened"];
     if (req.body.phase !== undefined && !VALID_PHASES.includes(req.body.phase)) {
       res.status(400).json({ error: `phase must be one of: ${VALID_PHASES.join(", ")}` }); return;
@@ -301,7 +301,7 @@ router.get("/program-targets/:id/phase-history", async (req, res): Promise<void>
 
 router.get("/program-targets/:id/steps", async (req, res): Promise<void> => {
   try {
-    const programTargetId = parseInt(req.params.id);
+    const programTargetId = parseInt(req.params.id as string, 10);
     const steps = await db.select().from(programStepsTable)
       .where(eq(programStepsTable.programTargetId, programTargetId))
       .orderBy(asc(programStepsTable.stepNumber));
@@ -313,7 +313,7 @@ router.get("/program-targets/:id/steps", async (req, res): Promise<void> => {
 
 router.post("/program-targets/:id/steps", async (req, res): Promise<void> => {
   try {
-    const programTargetId = parseInt(req.params.id);
+    const programTargetId = parseInt(req.params.id as string, 10);
     const { name, sdInstruction, targetResponse, materials, promptStrategy, errorCorrection, reinforcementNotes } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
     const existing = await db.select({ maxStep: sql<number>`COALESCE(MAX(${programStepsTable.stepNumber}), 0)` })
@@ -333,9 +333,9 @@ router.post("/program-targets/:id/steps", async (req, res): Promise<void> => {
 
 router.patch("/program-steps/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramStepInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertProgramStepInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["name","sdInstruction","targetResponse","materials","promptStrategy","errorCorrection","reinforcementNotes","active","mastered","stepNumber"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -350,9 +350,9 @@ router.patch("/program-steps/:id", async (req, res): Promise<void> => {
 
 router.delete("/program-steps/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramStepInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertProgramStepInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     await db.delete(programStepsTable).where(eq(programStepsTable.id, id));
     res.json({ ok: true });
   } catch (e: any) {

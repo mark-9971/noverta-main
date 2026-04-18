@@ -127,7 +127,7 @@ router.post("/students/:studentId/notes", async (req, res) => {
       return;
     }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const ok = await assertStudentAccess(req, studentId);
     if (!ok) { res.status(403).json({ error: "Access denied" }); return; }
 
@@ -241,7 +241,7 @@ router.patch("/students/:studentId/notes/:noteId", async (req, res) => {
       return;
     }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const ok = await assertStudentAccess(req, studentId);
     if (!ok) { res.status(403).json({ error: "Access denied" }); return; }
     if (!(await assertStudentInCallerDistrict(authed, studentId, res))) return;
@@ -312,7 +312,7 @@ router.delete("/students/:studentId/notes/:noteId", async (req, res) => {
       return;
     }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const ok = await assertStudentAccess(req, studentId);
     if (!ok) { res.status(403).json({ error: "Access denied" }); return; }
     if (!(await assertStudentInCallerDistrict(authed, studentId, res))) return;

@@ -52,7 +52,7 @@ router.post("/service-types", requireServiceAdmin, async (req, res): Promise<voi
 // District admins should configure per-district rates via POST /compensatory-finance/rates.
 router.patch("/service-types/:id", requireServiceAdmin, async (req, res): Promise<void> => {
   // Only platform admins (no enforced district) may edit global service type rows.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null) {
     res.status(403).json({
       error: "District admins cannot edit global service types. Use POST /api/compensatory-finance/rates to configure district-specific billing rates.",
@@ -114,7 +114,7 @@ router.get("/service-requirements", async (req, res): Promise<void> => {
     else if (params.data.active === "false") conditions.push(eq(serviceRequirementsTable.active, false));
   }
   // District scope: limit to requirements whose student belongs to caller's district.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null) {
     conditions.push(sql`${serviceRequirementsTable.studentId} IN (
       SELECT s.id FROM students s JOIN schools sch ON sch.id = s.school_id
@@ -160,7 +160,7 @@ router.post("/service-requirements", requireServiceAdmin, async (req, res): Prom
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  if (!(await studentInCallerDistrict(req as AuthedRequest, Number(parsed.data.studentId)))) {
+  if (!(await studentInCallerDistrict(req as unknown as AuthedRequest, Number(parsed.data.studentId)))) {
     res.status(403).json({ error: "Student is not in your district" });
     return;
   }
@@ -192,7 +192,7 @@ router.get("/service-requirements/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await requireServiceRequirementInDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const [r] = await db
     .select({
       id: serviceRequirementsTable.id,
@@ -235,7 +235,7 @@ router.patch("/service-requirements/:id", requireServiceAdmin, async (req, res):
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await requireServiceRequirementInDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const parsed = UpdateServiceRequirementBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -266,7 +266,7 @@ router.delete("/service-requirements/:id", requireServiceAdmin, async (req, res)
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await requireServiceRequirementInDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await requireServiceRequirementInDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   await db.delete(serviceRequirementsTable).where(eq(serviceRequirementsTable.id, params.data.id));
   res.sendStatus(204);
 });

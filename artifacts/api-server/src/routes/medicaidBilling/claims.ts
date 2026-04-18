@@ -9,7 +9,7 @@ import { getDistrictId } from "./shared";
 const router: IRouter = Router();
 
 router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -164,7 +164,7 @@ router.post("/medicaid/generate-claims", async (req, res): Promise<void> => {
 });
 
 router.get("/medicaid/claims", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -259,7 +259,7 @@ router.get("/medicaid/claims", async (req, res): Promise<void> => {
 });
 
 router.patch("/medicaid/claims/:id", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -337,7 +337,7 @@ router.patch("/medicaid/claims/:id", async (req, res): Promise<void> => {
 });
 
 router.post("/medicaid/claims/batch-action", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -357,7 +357,7 @@ router.post("/medicaid/claims/batch-action", async (req, res): Promise<void> => 
     return;
   }
 
-  const staffId = (req as AuthedRequest).auth?.staffId;
+  const staffId = (req as unknown as AuthedRequest).tenantStaffId;
   const newStatus = action === "approve" ? "approved" : action === "reject" ? "rejected" : "void";
   const updates: Record<string, any> = {
     status: newStatus,
@@ -388,7 +388,7 @@ router.post("/medicaid/claims/batch-action", async (req, res): Promise<void> => 
 });
 
 router.post("/medicaid/claims/export", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;

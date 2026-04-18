@@ -51,7 +51,7 @@ router.get("/reports/exports/history", async (req: Request, res: Response): Prom
 
 router.get("/reports/exports/history/:id/download", async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const scope = resolveExportScope(req);
@@ -161,7 +161,7 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
       return;
     }
     const districtId = scope.enforcedDistrictId;
-    const createdBy = (req as AuthedRequest).userId ?? "system";
+    const createdBy = (req as unknown as AuthedRequest).userId ?? "system";
 
     const now = new Date();
     let nextRunAt: Date;
@@ -195,7 +195,7 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
 
 router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
     const scope = resolveExportScope(req);

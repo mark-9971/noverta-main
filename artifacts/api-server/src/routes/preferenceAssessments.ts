@@ -7,7 +7,7 @@ const router = Router();
 
 // List all preference assessments for a student
 router.get("/students/:studentId/preference-assessments", async (req, res): Promise<void> => {
-  const studentId = parseInt(req.params.studentId);
+  const studentId = parseInt(req.params.studentId as string, 10);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
   const rows = await db
@@ -21,7 +21,7 @@ router.get("/students/:studentId/preference-assessments", async (req, res): Prom
 
 // Create a new preference assessment
 router.post("/students/:studentId/preference-assessments", async (req, res): Promise<void> => {
-  const studentId = parseInt(req.params.studentId);
+  const studentId = parseInt(req.params.studentId as string, 10);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
 
   const { assessmentType, conductedDate, conductedByName, items, notes } = req.body;
@@ -44,7 +44,7 @@ router.post("/students/:studentId/preference-assessments", async (req, res): Pro
 
 // Update a preference assessment
 router.patch("/preference-assessments/:id", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const { assessmentType, conductedDate, conductedByName, items, notes } = req.body;
@@ -67,7 +67,7 @@ router.patch("/preference-assessments/:id", async (req, res): Promise<void> => {
 
 // Delete a preference assessment
 router.delete("/preference-assessments/:id", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   await db.delete(preferenceAssessmentsTable).where(eq(preferenceAssessmentsTable.id, id));

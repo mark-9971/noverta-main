@@ -20,7 +20,7 @@ function schoolToJson(s: typeof schoolsTable.$inferSelect) {
 }
 
 router.get("/schools", async (req, res): Promise<void> => {
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const where = enforcedDid != null ? eq(schoolsTable.districtId, enforcedDid) : undefined;
   const schools = await db.select().from(schoolsTable).where(where).orderBy(schoolsTable.name);
   res.json(schools.map(schoolToJson));
@@ -31,7 +31,7 @@ router.get("/schools/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid school id" }); return; }
   const [school] = await db.select().from(schoolsTable).where(eq(schoolsTable.id, id));
   if (!school) { res.status(404).json({ error: "School not found" }); return; }
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null && school.districtId !== enforcedDid) {
     res.status(403).json({ error: "You don't have access to this school" });
     return;
@@ -71,7 +71,7 @@ router.patch("/schools/:id/schedule-settings", requireSchoolAdmin, async (req, r
   }
 
   // Enforce district scope on UPDATE: confirm the target school belongs to caller's district.
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDid != null) {
     const [existing] = await db.select({ districtId: schoolsTable.districtId }).from(schoolsTable).where(eq(schoolsTable.id, id));
     if (!existing) { res.status(404).json({ error: "School not found" }); return; }
@@ -92,7 +92,7 @@ router.post("/schools", requireSchoolAdmin, async (req, res): Promise<void> => {
     return;
   }
   // Force districtId to caller's enforced district (non-platform users).
-  const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const values = enforcedDid != null
     ? { ...parsed.data, districtId: enforcedDid }
     : parsed.data;

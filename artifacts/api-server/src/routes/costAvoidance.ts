@@ -70,7 +70,7 @@ function daysBetween(dateStr: string, today: string): number {
 }
 
 router.get("/cost-avoidance/risks", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -119,7 +119,7 @@ router.get("/cost-avoidance/risks", async (req, res): Promise<void> => {
 });
 
 router.get("/cost-avoidance/summary", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -157,7 +157,7 @@ router.get("/cost-avoidance/summary", async (req, res): Promise<void> => {
 });
 
 router.get("/cost-avoidance/snapshots", async (req, res): Promise<void> => {
-  const districtId = getDistrictId(req as AuthedRequest);
+  const districtId = getDistrictId(req as unknown as AuthedRequest);
   if (!districtId) {
     res.status(403).json({ error: "District context required" });
     return;
@@ -181,7 +181,7 @@ router.post(
   "/cost-avoidance/capture-snapshot",
   requireRoles("admin", "coordinator"),
   async (req, res): Promise<void> => {
-    const districtId = getDistrictId(req as AuthedRequest);
+    const districtId = getDistrictId(req as unknown as AuthedRequest);
     if (!districtId) {
       res.status(403).json({ error: "District context required" });
       return;
@@ -195,7 +195,7 @@ router.post(
   "/cost-avoidance/generate-alerts",
   requireRoles("admin", "coordinator", "case_manager"),
   async (req, res): Promise<void> => {
-    const districtId = getDistrictId(req as AuthedRequest);
+    const districtId = getDistrictId(req as unknown as AuthedRequest);
     if (!districtId) {
       res.status(403).json({ error: "District context required" });
       return;

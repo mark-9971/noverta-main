@@ -8,7 +8,7 @@ const router = Router();
 
 router.get("/message-templates", async (req: Request, res: Response) => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const templates = await db
       .select()
       .from(messageTemplatesTable)

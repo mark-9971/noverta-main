@@ -19,7 +19,7 @@ router.use(
 
 function parseSchoolDistrictFilters(req: Request, query: Record<string, unknown>) {
   // Token-derived district always takes precedence over client query param.
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   return {
     schoolId: query.schoolId ? Number(query.schoolId) : undefined,
     districtId: enforcedDistrictId !== null
@@ -488,9 +488,9 @@ router.get("/resource-management/budget", async (req, res): Promise<void> => {
 });
 
 router.patch("/staff/:id/rates", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, id, res))) return;
+  if (!(await assertStaffInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
   const { hourlyRate, annualSalary } = req.body || {};
   const updates: { hourlyRate?: string; annualSalary?: string } = {};

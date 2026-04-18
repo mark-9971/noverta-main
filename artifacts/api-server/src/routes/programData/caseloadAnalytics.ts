@@ -29,7 +29,7 @@ function studentStatus(
 
 router.get("/aba/caseload-analytics", async (req, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (!districtId) { res.status(403).json({ error: "No district scope" }); return; }
 
     // 1. All active students in district with target counts

@@ -22,7 +22,7 @@ const LIFE_ALERT_DISTRICT_WIDE = ["admin", "coordinator"] as const;
 
 router.get("/students/life-threatening-alerts", async (req, res): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const { trellisRole, tenantDistrictId, tenantStaffId } = authed;
 
     if (!(LIFE_ALERT_ROLES as readonly string[]).includes(trellisRole ?? "")) {
@@ -82,7 +82,7 @@ const EC_WRITE_ROLES = ["admin", "case_manager"] as const;
 const EC_READ_ROLES = ["admin", "case_manager", "sped_teacher", "para", "provider", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/medical-alerts", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_READ_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -100,7 +100,7 @@ router.get("/students/:id/medical-alerts", async (req, res): Promise<void> => {
 });
 
 router.post("/students/:id/medical-alerts", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -142,7 +142,7 @@ router.post("/students/:id/medical-alerts", async (req, res): Promise<void> => {
 });
 
 router.patch("/medical-alerts/:id", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -194,7 +194,7 @@ router.patch("/medical-alerts/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/medical-alerts/:id", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }

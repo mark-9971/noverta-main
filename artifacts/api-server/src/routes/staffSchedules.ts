@@ -91,7 +91,7 @@ function findAvailableSlots(
 
 router.get("/staff-schedules", async (req, res) => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const { staffId, schoolId, dayOfWeek, serviceTypeId } = req.query;
 
     let query = sql`
@@ -135,7 +135,7 @@ router.get("/staff-schedules", async (req, res) => {
 
 router.get("/staff-schedules/conflicts", async (req, res) => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const { staffId } = req.query;
 
     let query = sql`
@@ -212,7 +212,7 @@ router.get("/staff-schedules/conflicts", async (req, res) => {
 
 router.get("/staff-schedules/coverage-gaps", async (req, res) => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const { schoolId } = req.query;
 
     let schedQuery = sql`
@@ -287,7 +287,7 @@ router.get("/staff-schedules/coverage-gaps", async (req, res) => {
 
 async function handleSchedulesExport(req: Request, res: Response) {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const { staffId, schoolId, dayOfWeek, serviceTypeId, startDate, endDate } = req.query;
 
     let query = sql`
@@ -368,8 +368,8 @@ router.get("/schedules/export", handleSchedulesExport);
 router.get("/staff-schedules/provider-summary/:staffId", async (req, res) => {
   try {
     const staffId = Number(req.params.staffId);
-    if (!(await assertStaffInCallerDistrict(req as AuthedRequest, staffId, res))) return;
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    if (!(await assertStaffInCallerDistrict(req as unknown as AuthedRequest, staffId, res))) return;
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     const result = await db.execute(sql`
       SELECT ss.day_of_week as "dayOfWeek", ss.start_time as "startTime", ss.end_time as "endTime",
@@ -449,7 +449,7 @@ router.post("/staff-schedules", requireRoles("admin", "coordinator"), async (req
       res.status(400).json({ error: "startTime must be before endTime" }); return;
     }
 
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (!(await verifySchoolInDistrict(Number(schoolId), districtId))) {
       res.status(403).json({ error: "School not found in your district" }); return;
     }
@@ -508,7 +508,7 @@ router.post("/staff-schedules", requireRoles("admin", "coordinator"), async (req
 router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (req, res) => {
   try {
     const scheduleId = Number(req.params.id);
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     if (!(await verifyScheduleInDistrict(scheduleId, districtId))) {
       res.status(403).json({ error: "Schedule not found in your district" }); return;
@@ -591,7 +591,7 @@ router.put("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (
 router.delete("/staff-schedules/:id", requireRoles("admin", "coordinator"), async (req, res) => {
   try {
     const scheduleId = Number(req.params.id);
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
     if (!(await verifyScheduleInDistrict(scheduleId, districtId))) {
       res.status(403).json({ error: "Schedule not found in your district" }); return;

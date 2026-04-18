@@ -132,7 +132,7 @@ router.get("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
 
 router.get("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
 
     const [row] = await db.select({
@@ -213,7 +213,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
 
     // Body-IDOR defense: every body-supplied FK (student/school/iepDoc/invitees[].staffId)
     // must belong to caller's district before we accept the write.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
     if (body.schoolId != null
       && !(await assertSchoolInCallerDistrict(authed, Number(body.schoolId), res))) return;
@@ -222,9 +222,9 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
     if (Array.isArray(body.invitees)) {
       const inviteeStaffIds = body.invitees
         .map((inv: Record<string, unknown>) => inv?.staffId)
-        .filter((v): v is number | string => v != null)
-        .map((v) => Number(v))
-        .filter((n) => Number.isFinite(n));
+        .filter((v: unknown): v is number | string => v != null)
+        .map((v: number | string) => Number(v))
+        .filter((n: number) => Number.isFinite(n));
       if (inviteeStaffIds.length > 0 && !(await allStaffInCallerDistrict(authed, inviteeStaffIds))) {
         res.status(403).json({ error: "One or more invitees are not in your district" });
         return;
@@ -267,7 +267,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
         isRequired: inv.isRequired !== false,
       }));
       await db.insert(iepMeetingAttendeesTable).values(attendeeValues);
-      attendeeList = attendeeValues.map((a) => ({ name: a.name, email: a.email }));
+      attendeeList = attendeeValues.map((a: { name: string; email: string | null }) => ({ name: a.name, email: a.email }));
     }
 
     logAudit(req, {
@@ -292,7 +292,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
         row.id, studentName, body.meetingType, body.scheduledDate,
         body.scheduledTime ?? null, body.location ?? null, body.meetingFormat ?? null,
         body.agendaItems ?? null, schoolName,
-        (req as AuthedRequest).displayName ?? undefined, attendeeList,
+        (req as unknown as AuthedRequest).displayName ?? undefined, attendeeList,
       );
     }
 
@@ -305,11 +305,11 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
 
 router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
 
     // Tenant guard: meeting itself + any iepDocumentId swap must be in district.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertTeamMeetingInCallerDistrict(authed, id, res))) return;
     if (req.body?.iepDocumentId != null
       && !(await assertIepDocumentInCallerDistrict(authed, Number(req.body.iepDocumentId), res))) return;
@@ -368,7 +368,7 @@ router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void>
           row.id, studentName, row.meetingType, row.scheduledDate,
           row.scheduledTime, row.location, row.meetingFormat,
           row.agendaItems as string[] | null, schoolName,
-          (req as AuthedRequest).displayName ?? undefined,
+          (req as unknown as AuthedRequest).displayName ?? undefined,
           existingAttendees.map((a) => ({ name: a.name, email: a.email })),
         );
       } catch (err) {
@@ -385,11 +385,11 @@ router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void>
 
 router.delete("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
 
     // Tenant guard before destructive cascade.
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     const [meeting] = await db.select({ id: teamMeetingsTable.id, studentId: teamMeetingsTable.studentId })
       .from(teamMeetingsTable).where(eq(teamMeetingsTable.id, id));

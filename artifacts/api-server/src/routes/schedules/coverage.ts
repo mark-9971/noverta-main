@@ -34,7 +34,7 @@ router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promi
   }
 
   const { pool } = await import("@workspace/db");
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   // 1. Fetch the schedule block details — district-scoped to prevent cross-tenant inference
   //    (only return if the block's staff member belongs to the caller's district)
@@ -248,7 +248,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
   // substitute staff id must belong to the caller's district. Without this an
   // admin in District A could attach a District B substitute to a District B
   // block by passing crafted ids.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (!(await assertScheduleBlockInCallerDistrict(authed, params.data.id, res))) return;
   if (!(await assertStaffInCallerDistrict(authed, parsed.data.substituteStaffId, res))) return;
 
@@ -336,7 +336,7 @@ ${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${note
 
 router.get("/coverage/history", requireAdmin, async (req, res): Promise<void> => {
   const { pool } = await import("@workspace/db");
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   const whereClauses = ["ci.is_covered = true", "sb.deleted_at IS NULL"];
   const queryParams: any[] = [];
@@ -414,7 +414,7 @@ router.get("/coverage/history", requireAdmin, async (req, res): Promise<void> =>
 
 router.get("/coverage/summary", requireAdmin, async (req, res): Promise<void> => {
   const { pool } = await import("@workspace/db");
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const dateParam = String(req.query.date ?? new Date().toISOString().slice(0, 10));
 
   const queryParams: any[] = [dateParam];
@@ -455,7 +455,7 @@ router.get("/coverage/summary", requireAdmin, async (req, res): Promise<void> =>
 
 router.get("/coverage/substitute-report", requireAdmin, async (req, res): Promise<void> => {
   const { pool } = await import("@workspace/db");
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const months = Math.min(Number(req.query.months) || 3, 12);
   const since = new Date();
   since.setMonth(since.getMonth() - months);

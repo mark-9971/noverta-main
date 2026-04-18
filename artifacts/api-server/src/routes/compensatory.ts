@@ -154,7 +154,7 @@ router.post("/compensatory-obligations", async (req, res): Promise<void> => {
   const { studentId, serviceRequirementId, periodStart, periodEnd, minutesOwed, notes, agreedDate, agreedWith, source } = bodyParsed.data;
 
   // Body-IDOR defense: studentId + serviceRequirementId must be in caller's district.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (!(await assertStudentInCallerDistrict(authed, Number(studentId), res))) return;
   if (serviceRequirementId != null
     && !(await assertServiceRequirementInCallerDistrict(authed, Number(serviceRequirementId), res))) return;
@@ -181,7 +181,7 @@ router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> =>
   if (!paramsParsed.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const id = paramsParsed.data.id;
 
-  if (!(await assertCompensatoryObligationInCallerDistrict(req as AuthedRequest, id, res))) return;
+  if (!(await assertCompensatoryObligationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
   const bodyParsed = UpdateCompensatoryObligationBody.safeParse(req.body);
   if (!bodyParsed.success) {
@@ -225,7 +225,7 @@ router.patch("/compensatory-obligations/:id", async (req, res): Promise<void> =>
 router.delete("/compensatory-obligations/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  if (!(await assertCompensatoryObligationInCallerDistrict(req as AuthedRequest, id, res))) return;
+  if (!(await assertCompensatoryObligationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
   await db.delete(compensatoryObligationsTable).where(eq(compensatoryObligationsTable.id, id));
   res.sendStatus(204);
 });
@@ -235,7 +235,7 @@ router.post("/compensatory-obligations/:id/sessions", async (req, res): Promise<
   if (isNaN(obligationId)) { res.status(400).json({ error: "Invalid obligation id" }); return; }
 
   // Tenant guard on the parent obligation + body-supplied staffId.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (!(await assertCompensatoryObligationInCallerDistrict(authed, obligationId, res))) return;
   if (req.body?.staffId != null
     && !(await assertStaffInCallerDistrict(authed, Number(req.body.staffId), res))) return;
@@ -434,7 +434,7 @@ router.post("/compensatory-obligations/generate-from-shortfalls", async (req, re
   // must belong to the caller's district. Without this, a privileged caller
   // could spam-create compensatory obligations against students in any district
   // by submitting crafted shortfall payloads.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   for (const sf of shortfalls) {
     if (sf?.studentId == null
       || !(await assertStudentInCallerDistrict(authed, Number(sf.studentId), res))) return;

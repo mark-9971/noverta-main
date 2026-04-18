@@ -64,7 +64,7 @@ async function resolveClerkEmail(userId: string): Promise<string | null> {
  * Intentionally does NOT require district scope — runs before the app shell renders.
  */
 router.get("/legal/acceptance-status", requireAuth, async (req, res) => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
 
   // Exempt roles: consistent with frontend gate and middleware.
   const EXEMPT_ROLES = ["sped_parent", "sped_student"];
@@ -96,7 +96,7 @@ router.get("/legal/acceptance-status", requireAuth, async (req, res) => {
  * Body: { acceptances: Array<{ documentType: string, documentVersion: string }> }
  */
 router.post("/legal/accept", requireAuth, async (req, res) => {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const { acceptances } = req.body as {
     acceptances?: Array<{ documentType: string; documentVersion: string }>;
   };
@@ -162,7 +162,7 @@ router.get(
   "/legal/acceptance-report",
   requireRoles("admin", "coordinator"),
   async (req, res) => {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const districtId = authed.tenantDistrictId;
     if (!districtId) {
       res.status(403).json({ error: "District scope required" });
@@ -255,7 +255,7 @@ router.post(
   "/legal/request-dpa",
   requireRoles("admin", "coordinator"),
   async (req, res) => {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const { districtName, contactName, contactEmail, contactTitle, notes } =
       req.body as Record<string, string>;
 

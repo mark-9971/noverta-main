@@ -165,7 +165,7 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
       return;
     }
     // Body-IDOR defense: every body-supplied foreign key must belong to caller's district.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
     if (body.assignedEvaluatorId != null
       && !(await assertStaffInCallerDistrict(authed, Number(body.assignedEvaluatorId), res))) return;
@@ -205,11 +205,11 @@ router.post("/evaluations/referrals", evalAccess, async (req, res): Promise<void
 
 router.patch("/evaluations/referrals/:id", evalAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid referral id" }); return; }
 
     // Tenant guard on the referral itself, then on any body-supplied FK swap.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertReferralInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, REFERRAL_PATCH_FIELDS);
     if (updates.assignedEvaluatorId != null
@@ -305,7 +305,7 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
     }
 
     // Body-IDOR defense: validate every cross-tenant FK before insert.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
     if (body.referralId != null
       && !(await assertReferralInCallerDistrict(authed, Number(body.referralId), res))) return;
@@ -386,10 +386,10 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
 
 router.patch("/evaluations/:id", evalAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid evaluation id" }); return; }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertEvaluationInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, EVALUATION_PATCH_FIELDS);
     if (updates.leadEvaluatorId != null
@@ -471,7 +471,7 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
     }
 
     // Body-IDOR defense: student/evaluation FK + team-member staff ids must be in district.
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertStudentInCallerDistrict(authed, Number(body.studentId), res))) return;
     if (body.evaluationId != null
       && !(await assertEvaluationInCallerDistrict(authed, Number(body.evaluationId), res))) return;
@@ -520,10 +520,10 @@ router.post("/evaluations/eligibility", evalAccess, async (req, res): Promise<vo
 
 router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid eligibility id" }); return; }
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     if (!(await assertEligibilityInCallerDistrict(authed, id, res))) return;
     const updates = pick(req.body, ELIGIBILITY_PATCH_FIELDS);
     if (updates.teamMembers !== undefined) {
@@ -566,7 +566,7 @@ router.patch("/evaluations/eligibility/:id", evalAccess, async (req, res): Promi
 
 router.get("/evaluations/student/:studentId/re-eval-status", evalAccess, async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const rows = await db.select()
       .from(eligibilityDeterminationsTable)
       .where(and(

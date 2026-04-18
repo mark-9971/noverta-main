@@ -50,7 +50,7 @@ router.get("/staff", async (req, res): Promise<void> => {
   if (params.success && params.data.status) conditions.push(eq(staffTable.status, params.data.status));
   if (params.success && params.data.schoolId) conditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
   {
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       conditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
     } else if (params.success && params.data.districtId) {
@@ -89,7 +89,7 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
     staffConditions.push(eq(staffTable.schoolId, Number(params.data.schoolId)));
   }
   {
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${enforcedDid})`);
     } else if (params.success && params.data.districtId) {
@@ -97,7 +97,7 @@ router.get("/staff/workload-summary", requireAdmin, async (req, res): Promise<vo
     }
   }
 
-  const enforcedDidForYear = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDidForYear = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const activeYearId = await resolveWorkloadYearId(req, enforcedDidForYear !== null ? enforcedDidForYear : (params.success ? (params.data.districtId ?? null) : null));
 
   // Block-level join conditions (only active recurring blocks in effective window)
@@ -172,7 +172,7 @@ router.get("/staff/:id", async (req, res): Promise<void> => {
   // Verify the requested staff member belongs to the caller's district before
   // returning any data. assertStaffInCallerDistrict returns false and sends 403
   // when the staff member's school is in a different district.
-  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertStaffInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const [staff] = await db.select().from(staffTable).where(and(eq(staffTable.id, params.data.id), isNull(staffTable.deletedAt)));
   if (!staff) {
     res.status(404).json({ error: "Staff not found" });
@@ -230,7 +230,7 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Staff not found" });
     return;
   }
-  if (!(await staffInCallerDistrict(req as AuthedRequest, params.data.id))) {
+  if (!(await staffInCallerDistrict(req as unknown as AuthedRequest, params.data.id))) {
     res.status(403).json({ error: "Forbidden: staff member does not belong to your district" });
     return;
   }
@@ -249,7 +249,7 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
     // Body-IDOR defense: cannot re-home a staff record into a school that
     // belongs to a different district.
     if (parsed.data.schoolId != null
-      && !(await assertSchoolInCallerDistrict(req as AuthedRequest, Number(parsed.data.schoolId), res))) return;
+      && !(await assertSchoolInCallerDistrict(req as unknown as AuthedRequest, Number(parsed.data.schoolId), res))) return;
     updateData.schoolId = parsed.data.schoolId;
   }
   if (parsed.data.status != null) updateData.status = parsed.data.status;
@@ -284,7 +284,7 @@ router.delete("/staff/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  if (!(await assertStaffInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertStaffInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
   const [updated] = await db
     .update(staffTable)
     .set({ deletedAt: new Date() })
@@ -314,7 +314,7 @@ router.post("/staff/:id/absences", requireAdmin, async (req, res): Promise<void>
     startTime: parsed.data.startTime ?? null,
     endTime: parsed.data.endTime ?? null,
     notes: parsed.data.notes ?? null,
-    reportedBy: parsed.data.reportedBy ?? null,
+    reportedBy: parsed.data.reportedBy ? parseInt(parsed.data.reportedBy, 10) : null,
   }).returning();
 
   // Determine day-of-week from absence date
@@ -476,7 +476,7 @@ router.get("/staff/:id/absences", requireAdmin, async (req, res): Promise<void> 
 router.delete("/absences/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteAbsenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-  if (!(await assertStaffAbsenceInCallerDistrict(req as AuthedRequest, params.data.id, res))) return;
+  if (!(await assertStaffAbsenceInCallerDistrict(req as unknown as AuthedRequest, params.data.id, res))) return;
 
   const [absence] = await db.select().from(staffAbsencesTable).where(eq(staffAbsencesTable.id, params.data.id));
   if (!absence) { res.status(404).json({ error: "Absence not found" }); return; }

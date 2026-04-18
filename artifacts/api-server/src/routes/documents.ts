@@ -233,7 +233,7 @@ router.post("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request
     return;
   }
 
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
 
   if (!parsed.data.objectPath.startsWith("/objects/uploads/")) {
     res.status(400).json({ error: "Invalid object path" });
@@ -353,7 +353,7 @@ router.patch("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: Re
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, existing.studentId, res))) return;
 
     const [updated] = await db
       .update(documentsTable)
@@ -390,7 +390,7 @@ router.delete("/documents/:id", requireRoles(...PRIVILEGED_ROLES), async (req: R
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, existing.studentId, res))) return;
 
     await db
       .update(documentsTable)
@@ -431,7 +431,7 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
       res.status(403).json({ error: "You don't have access to this student's records" });
       return;
     }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, doc.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, doc.studentId, res))) return;
 
     // 256-bit random token. Only the SHA-256 hash is persisted, so a DB
     // dump does not yield working URLs.
@@ -480,7 +480,7 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
       signUrl,
       expiresAt: expiresAt.toISOString(),
       schoolName,
-      senderName: (req as AuthedRequest).displayName ?? undefined,
+      senderName: (req as unknown as AuthedRequest).displayName ?? undefined,
     });
     const emailResult = await sendParentFacingEmail({
       messageType: "signature_request",
@@ -510,7 +510,7 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
  * Returns the email delivery status for a specific signature request.
  */
 router.get("/signature-requests/:id/delivery", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid signature request ID" }); return; }
 
   try {
@@ -732,9 +732,9 @@ router.post("/signature-requests/:id/revoke", requireRoles(...PRIVILEGED_ROLES),
       res.status(404).json({ error: "Signature request not found" });
       return;
     }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, doc.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, doc.studentId, res))) return;
 
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const [updated] = await db
       .update(signatureRequestsTable)
       .set({ revokedAt: new Date(), revokedByUserId: authed.userId ?? null })

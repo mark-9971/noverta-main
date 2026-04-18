@@ -16,8 +16,8 @@ const router: IRouter = Router();
 
 router.post("/students/:studentId/iep-builder/generate", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const {
       parentQuestionnaire,
       teacherQuestionnaire,

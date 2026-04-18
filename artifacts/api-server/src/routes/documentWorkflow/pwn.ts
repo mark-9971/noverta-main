@@ -7,18 +7,18 @@ import { assertStudentInDistrict, getUserInfo, parsePositiveInt } from "./shared
 
 const router = Router();
 
-router.post("/document-workflow/generate-pwn", async (req, res) => {
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
-  if (!districtId) return res.status(403).json({ error: "No district scope" });
-  const user = getUserInfo(req as AuthedRequest);
+router.post("/document-workflow/generate-pwn", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+  const user = getUserInfo(req as unknown as AuthedRequest);
   void user;
   const studentId = parsePositiveInt(req.body.studentId);
   const meetingId = req.body.meetingId ? parsePositiveInt(req.body.meetingId) : null;
 
-  if (!studentId) return res.status(400).json({ error: "Valid studentId is required" });
+  if (!studentId) return void res.status(400).json({ error: "Valid studentId is required" });
 
   const student = await assertStudentInDistrict(studentId, districtId);
-  if (!student) return res.status(404).json({ error: "Student not found in your district" });
+  if (!student) return void res.status(404).json({ error: "Student not found in your district" });
 
   let meetingData: { id: number; meetingDate: string | null; meetingType: string | null; notes: string | null; actionItems: { id: string; description: string; assignee: string; dueDate: string | null; status: string }[] | null } | null = null;
   let attendees: { name: string; role: string; attended: boolean | null }[] = [];
@@ -26,7 +26,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
   if (meetingId) {
     const [m] = await db.select({
       id: teamMeetingsTable.id,
-      meetingDate: teamMeetingsTable.meetingDate,
+      meetingDate: teamMeetingsTable.scheduledDate,
       meetingType: teamMeetingsTable.meetingType,
       notes: teamMeetingsTable.notes,
       actionItems: teamMeetingsTable.actionItems,
@@ -34,7 +34,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
       .innerJoin(studentsTable, eq(teamMeetingsTable.studentId, studentsTable.id))
       .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
       .where(and(eq(teamMeetingsTable.id, meetingId), eq(teamMeetingsTable.studentId, studentId), eq(schoolsTable.districtId, districtId)));
-    if (!m) return res.status(404).json({ error: "Meeting not found for this student in your district" });
+    if (!m) return void res.status(404).json({ error: "Meeting not found for this student in your district" });
     meetingData = m;
 
     attendees = await db.select({
@@ -48,7 +48,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
   const goals = await db.select({
     id: iepGoalsTable.id,
     annualGoal: iepGoalsTable.annualGoal,
-    area: iepGoalsTable.area,
+    area: iepGoalsTable.goalArea,
   }).from(iepGoalsTable)
     .innerJoin(iepDocumentsTable, eq(iepGoalsTable.iepDocumentId, iepDocumentsTable.id))
     .where(and(
@@ -87,7 +87,7 @@ router.post("/document-workflow/generate-pwn", async (req, res) => {
     evaluationInfo: `Current IEP goals:\n${goalsText}`,
     otherFactors: `Parent input was considered throughout the process.\n\nTeam composition:\n${teamMembersText}`,
     issuedDate: today,
-    issuedBy: (req as AuthedRequest).tenantStaffId || null,
+    issuedBy: (req as unknown as AuthedRequest).tenantStaffId || null,
     parentResponseDueDate: responseDue,
     status: "draft",
   }).returning();

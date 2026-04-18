@@ -167,7 +167,7 @@ function scoreRelevance(goalAreas: string[], serviceTypes: string[], item: { goa
 
 router.get("/students/:studentId/iep-suggestions", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const student = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId)).limit(1);
     if (!student.length) { res.status(404).json({ error: "Student not found" }); return; }
     const stu = student[0];
@@ -300,8 +300,8 @@ function buildReason(goalAreas: string[], serviceTypes: string[], item: { goalAr
 
 router.post("/students/:studentId/apply-suggestions", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const { behaviors, programs } = req.body;
     const results: any = { behaviorsCreated: 0, programsCreated: 0, skippedDuplicates: 0 };
 

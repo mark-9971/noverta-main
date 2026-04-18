@@ -14,6 +14,7 @@ export const studentsTable = pgTable("students", {
   placementType: text("placement_type"),
   status: text("status").notNull().default("active"),
   schoolId: integer("school_id").references(() => schoolsTable.id),
+  districtId: integer("district_id"),
   programId: integer("program_id").references(() => programsTable.id),
   caseManagerId: integer("case_manager_id").references(() => staffTable.id),
   dateOfBirth: text("date_of_birth"),

@@ -15,7 +15,7 @@ const EC_WRITE_ROLES = ["admin", "case_manager"] as const;
 const EC_READ_ROLES = ["admin", "case_manager", "sped_teacher", "para", "provider", "coordinator", "bcba"] as const;
 
 router.get("/students/:id/emergency-contacts", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_READ_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -33,7 +33,7 @@ router.get("/students/:id/emergency-contacts", async (req, res): Promise<void> =
 });
 
 router.post("/students/:id/emergency-contacts", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -72,7 +72,7 @@ router.post("/students/:id/emergency-contacts", async (req, res): Promise<void> 
 });
 
 router.patch("/emergency-contacts/:id", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }
@@ -120,7 +120,7 @@ router.patch("/emergency-contacts/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/emergency-contacts/:id", async (req, res): Promise<void> => {
-  const role = (req as AuthedRequest).trellisRole;
+  const role = (req as unknown as AuthedRequest).trellisRole;
   if (!(EC_WRITE_ROLES as readonly string[]).includes(role ?? "")) {
     res.status(403).json({ error: "Forbidden" }); return;
   }

@@ -164,7 +164,7 @@ router.post("/imports/goals-data", requireRoles("admin", "coordinator"), async (
     }
 
     const [importRecord] = await db.insert(importsTable).values({
-      districtId: getEnforcedDistrictId(req as AuthedRequest),
+      districtId: getEnforcedDistrictId(req as unknown as AuthedRequest) as number,
       importType: "goals_data",
       fileName: fileName ?? null,
       status: errored === rows.length ? "failed" : "completed",

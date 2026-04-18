@@ -42,7 +42,7 @@ export function sessionToJson(s: any) {
 export const sessionIdGuard: RequestParamHandler = async (req, res, next, id) => {
   const sessionId = Number(id);
   if (!Number.isFinite(sessionId) || sessionId <= 0) { next(); return; }
-  const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const enforcedDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (enforcedDistrictId !== null) {
     const rows = await db.execute(sql`
       SELECT 1 FROM session_logs

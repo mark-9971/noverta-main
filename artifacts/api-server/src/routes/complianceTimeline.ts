@@ -68,7 +68,7 @@ router.get("/compliance-timeline", async (req, res): Promise<void> => {
 
 router.get("/students/:studentId/compliance-events", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const events = await db.select().from(complianceEventsTable)
       .where(eq(complianceEventsTable.studentId, studentId))
       .orderBy(asc(complianceEventsTable.dueDate));
@@ -93,7 +93,7 @@ router.get("/students/:studentId/compliance-events", async (req, res): Promise<v
 
 router.post("/students/:studentId/compliance-events", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { eventType, title, dueDate, notes, schoolYearId: bodyYearId } = req.body;
     if (!eventType || !title || !dueDate) {
       res.status(400).json({ error: "eventType, title, and dueDate are required" });
@@ -113,9 +113,9 @@ router.post("/students/:studentId/compliance-events", async (req, res): Promise<
 
 router.patch("/compliance-events/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertComplianceEventInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertComplianceEventInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
 
     if (req.body.status === "completed" && req.body.resolve !== true) {
       res.status(400).json({ error: "Cannot set status to completed directly. Use resolve:true with resolutionNote." });
@@ -247,8 +247,8 @@ router.get("/goal-bank", async (req, res): Promise<void> => {
 
 router.get("/students/:studentId/iep-documents/:docId/completeness", async (req, res): Promise<void> => {
   try {
-    const docId = parseInt(req.params.docId);
-    const studentId = parseInt(req.params.studentId);
+    const docId = parseInt(req.params.docId as string, 10);
+    const studentId = parseInt(req.params.studentId as string, 10);
 
     const [doc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, docId));
     if (!doc) { res.status(404).json({ error: "IEP document not found" }); return; }
@@ -310,8 +310,8 @@ router.get("/students/:studentId/iep-documents/:docId/completeness", async (req,
 
 router.post("/students/:studentId/iep-documents/:docId/amend", async (req, res): Promise<void> => {
   try {
-    const docId = parseInt(req.params.docId);
-    const studentId = parseInt(req.params.studentId);
+    const docId = parseInt(req.params.docId as string, 10);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { amendmentReason } = req.body;
 
     const [originalDoc] = await db.select().from(iepDocumentsTable).where(eq(iepDocumentsTable.id, docId));
@@ -340,7 +340,7 @@ router.post("/students/:studentId/iep-documents/:docId/amend", async (req, res):
 
 router.get("/students/:studentId/team-meetings", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const meetings = await db.select().from(teamMeetingsTable)
       .where(eq(teamMeetingsTable.studentId, studentId))
       .orderBy(desc(teamMeetingsTable.scheduledDate));
@@ -353,7 +353,7 @@ router.get("/students/:studentId/team-meetings", async (req, res): Promise<void>
 
 router.post("/students/:studentId/team-meetings", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(req.params.studentId as string, 10);
     const { meetingType, scheduledDate, scheduledTime, location, notes, attendees, consentStatus, noticeSentDate } = req.body;
     if (!meetingType || !scheduledDate) {
       res.status(400).json({ error: "meetingType and scheduledDate are required" });
@@ -380,9 +380,9 @@ router.post("/students/:studentId/team-meetings", async (req, res): Promise<void
 
 router.patch("/team-meetings/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const updates: any = {};
     for (const key of ["meetingType", "scheduledDate", "scheduledTime", "duration", "location", "meetingFormat", "status", "agendaItems", "notes", "attendees", "actionItems", "outcome", "followUpDate", "minutesFinalized", "consentStatus", "noticeSentDate"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -398,9 +398,9 @@ router.patch("/team-meetings/:id", async (req, res): Promise<void> => {
 
 router.delete("/team-meetings/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertTeamMeetingInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     await db.delete(teamMeetingsTable).where(eq(teamMeetingsTable.id, id));
     res.json({ success: true });
   } catch (e: any) {

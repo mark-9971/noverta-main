@@ -93,7 +93,7 @@ export async function getStripeSync(): Promise<StripeSyncInstance> {
         max: 2,
       },
       stripeSecretKey: secretKey,
-    }) as StripeSyncInstance;
+    }) as unknown as StripeSyncInstance;
   }
   return stripeSync;
 }

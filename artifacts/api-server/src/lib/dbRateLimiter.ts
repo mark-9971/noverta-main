@@ -37,7 +37,7 @@ export interface RateLimitOptions {
 }
 
 function defaultKeyFn(req: Request): string | null {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   return authed.userId ?? null;
 }
 

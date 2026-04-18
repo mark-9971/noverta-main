@@ -24,7 +24,7 @@ const STAFF_ROLES: TrellisRole[] = ["admin", "case_manager", "bcba", "sped_teach
 
 async function resolveAuthorizedStudentId(req: Request, res: Response): Promise<number | null> {
   const meta = getPublicMeta(req);
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
 
   if (authed.trellisRole === "sped_student") {
     // Prefer token-resolved ID (works in both production and test-bypass mode)
@@ -268,7 +268,7 @@ router.get("/student-portal/wins", async (req: Request, res: Response): Promise<
 
 router.post("/student-portal/wins", async (req: Request, res: Response): Promise<void> => {
   try {
-    const authed = req as AuthedRequest;
+    const authed = req as unknown as AuthedRequest;
     const meta = getPublicMeta(req);
 
     if (!STAFF_ROLES.includes(authed.trellisRole)) {

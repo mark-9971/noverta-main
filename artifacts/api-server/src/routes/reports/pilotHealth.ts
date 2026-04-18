@@ -33,7 +33,7 @@ function expectedSessionsInWindow(intervalType: string, daysDiff: number): numbe
 
 router.get("/reports/pilot-health", requireRoles("admin"), async (req: Request, res): Promise<void> => {
   try {
-    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const d30 = new Date(now.getTime() - 30 * 86400_000).toISOString().split("T")[0];

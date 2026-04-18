@@ -27,7 +27,7 @@ router.get("/protective-measures/incidents/dese-export-bulk", async (req: Reques
   const lastDay = new Date(year, month, 0).getDate();
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   let incidentsQuery = db
     .select()
@@ -168,7 +168,7 @@ router.get("/protective-measures/incidents/dese-export-bulk", async (req: Reques
       fmtDate(inc.deseReportSentAt),
       yesNo(inc.thirtyDayLogSentToDese),
       csvEsc(inc.status),
-      fmtDate(inc.createdAt),
+      fmtDate(inc.createdAt?.toISOString()),
     ].join(",");
   });
 
@@ -275,7 +275,7 @@ router.post("/protective-measures/incidents", async (req: Request, res: Response
   const studentId = Number(body.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
-  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   if (districtId !== null) {
     const scopeRows = await db.execute(
       sql`SELECT sc.district_id FROM students s JOIN schools sc ON s.school_id = sc.id WHERE s.id = ${studentId} LIMIT 1`
@@ -655,7 +655,7 @@ router.get("/protective-measures/incidents/:id/dese-export", async (req: Request
     fmtDate(incident.deseReportSentAt),
     yesNo(incident.thirtyDayLogSentToDese),
     csvEsc(incident.status),
-    fmtDate(incident.createdAt),
+    fmtDate(incident.createdAt?.toISOString()),
   ];
 
   const csv = [headers.join(","), row.join(",")].join("\r\n");

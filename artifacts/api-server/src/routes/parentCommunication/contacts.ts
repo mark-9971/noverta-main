@@ -175,7 +175,7 @@ router.post("/parent-contacts", async (req, res): Promise<void> => {
 
 router.patch("/parent-contacts/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
     const allowedFields = [
@@ -212,7 +212,7 @@ router.patch("/parent-contacts/:id", async (req, res): Promise<void> => {
 
 router.delete("/parent-contacts/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const [deleted] = await db.delete(parentContactsTable).where(eq(parentContactsTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Contact not found" }); return; }

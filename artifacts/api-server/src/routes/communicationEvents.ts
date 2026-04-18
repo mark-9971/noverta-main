@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db, communicationEventsTable, studentsTable, guardiansTable, staffTable } from "@workspace/db";
 import { eq, and, desc, gte, lte, inArray, sql } from "drizzle-orm";
-import { getEnforcedDistrictId, requireRoles } from "../middlewares/auth";
+import { getEnforcedDistrictId, requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 
 const router = Router();
@@ -14,7 +14,7 @@ router.use(
 );
 
 router.get("/communication-events", async (req: Request, res: Response) => {
-  const districtId = getEnforcedDistrictId(req);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const { studentId, startDate, endDate, status, type, limit: limitStr, offset: offsetStr } = req.query as Record<string, string>;
 
   const limit = Math.min(Number(limitStr) || 100, 500);
@@ -86,7 +86,7 @@ router.get("/communication-events", async (req: Request, res: Response) => {
 });
 
 router.get("/communication-events/student/:studentId", async (req: Request, res: Response) => {
-  const districtId = getEnforcedDistrictId(req);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
   const studentId = Number(req.params.studentId);
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
@@ -128,7 +128,7 @@ router.get("/communication-events/student/:studentId", async (req: Request, res:
 });
 
 router.get("/communication-events/summary", async (req: Request, res: Response) => {
-  const districtId = getEnforcedDistrictId(req);
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
 
   const students = await db
     .select({ id: studentsTable.id })

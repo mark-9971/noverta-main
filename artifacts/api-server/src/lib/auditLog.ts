@@ -6,7 +6,7 @@ import { isRole } from "./permissions";
 import { getClientIp } from "./clientIp";
 
 interface AuditEntry {
-  action: "create" | "read" | "update" | "delete" | "rate_limit_exceeded";
+  action: "create" | "read" | "update" | "delete" | "rate_limit_exceeded" | "restore";
   targetTable: string;
   targetId?: string | number | null;
   studentId?: number | null;
@@ -17,7 +17,7 @@ interface AuditEntry {
 }
 
 function resolveActor(req: Request): { userId: string; role: string } {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   if (authed.userId && authed.trellisRole) {
     return { userId: authed.userId, role: authed.trellisRole };
   }
@@ -40,7 +40,7 @@ export function logAudit(req: Request, entry: AuditEntry): void {
   // EFFECTIVE user (the target), so route-level invariants like "this row was
   // created by the case manager" still hold; the impersonation is recorded as a
   // sidecar tag that compliance review can filter on.
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   let metadata = entry.metadata ?? null;
   if (authed.viewAsAdminUserId) {
     metadata = {

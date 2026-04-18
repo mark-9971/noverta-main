@@ -20,8 +20,8 @@ const router: IRouter = Router();
 
 router.get("/students/:studentId/behavior-data/trends", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const { from, to, behaviorTargetId } = req.query;
 
     const conditions = [eq(dataSessionsTable.studentId, studentId)];
@@ -68,8 +68,8 @@ router.get("/students/:studentId/behavior-data/trends", async (req, res): Promis
 
 router.get("/students/:studentId/program-data/trends", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const { from, to, programTargetId } = req.query;
 
     const conditions = [eq(dataSessionsTable.studentId, studentId)];
@@ -119,8 +119,8 @@ router.get("/students/:studentId/program-data/trends", async (req, res): Promise
 
 router.get("/behavior-targets/:targetId/phase-changes", async (req, res): Promise<void> => {
   try {
-    const targetId = parseInt(req.params.targetId);
-    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    const targetId = parseInt(req.params.targetId as string, 10);
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
     const rows = await db.select().from(phaseChangesTable)
       .where(eq(phaseChangesTable.behaviorTargetId, targetId))
       .orderBy(asc(phaseChangesTable.changeDate));
@@ -132,8 +132,8 @@ router.get("/behavior-targets/:targetId/phase-changes", async (req, res): Promis
 
 router.post("/behavior-targets/:targetId/phase-changes", async (req, res): Promise<void> => {
   try {
-    const behaviorTargetId = parseInt(req.params.targetId);
-    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, behaviorTargetId, res))) return;
+    const behaviorTargetId = parseInt(req.params.targetId as string, 10);
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, behaviorTargetId, res))) return;
     const { changeDate, label, notes } = req.body;
     if (!changeDate || !label) { res.status(400).json({ error: "changeDate and label are required" }); return; }
     const [pc] = await db.insert(phaseChangesTable).values({
@@ -154,8 +154,8 @@ router.post("/behavior-targets/:targetId/phase-changes", async (req, res): Promi
 
 router.patch("/phase-changes/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    if (!(await assertPhaseChangeInCallerDistrict(req as AuthedRequest, id, res))) return;
+    const id = parseInt(req.params.id as string, 10);
+    if (!(await assertPhaseChangeInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [existing] = await db.select().from(phaseChangesTable).where(eq(phaseChangesTable.id, id));
     if (!existing) { res.status(404).json({ error: "Not found" }); return; }
     const updates: Record<string, unknown> = {};
@@ -179,8 +179,8 @@ router.patch("/phase-changes/:id", async (req, res): Promise<void> => {
 
 router.delete("/phase-changes/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    if (!(await assertPhaseChangeInCallerDistrict(req as AuthedRequest, id, res))) return;
+    const id = parseInt(req.params.id as string, 10);
+    if (!(await assertPhaseChangeInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [existing] = await db.select().from(phaseChangesTable).where(eq(phaseChangesTable.id, id));
     await db.delete(phaseChangesTable).where(eq(phaseChangesTable.id, id));
     if (existing) {
@@ -200,8 +200,8 @@ router.delete("/phase-changes/:id", async (req, res): Promise<void> => {
 
 router.get("/students/:studentId/phase-changes", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const targets = await db.select({ id: behaviorTargetsTable.id })
       .from(behaviorTargetsTable)
       .where(eq(behaviorTargetsTable.studentId, studentId));
@@ -225,8 +225,8 @@ router.get("/students/:studentId/phase-changes", async (req, res): Promise<void>
 
 router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> => {
   try {
-    const studentId = parseInt(req.params.studentId);
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const studentId = parseInt(req.params.studentId as string, 10);
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const { from, to, behaviorTargetId } = req.query;
 
     const conditions = [

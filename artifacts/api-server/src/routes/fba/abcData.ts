@@ -11,7 +11,7 @@ const router: IRouter = Router();
 
 router.get("/fbas/:fbaId/observations", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const obs = await db.select().from(fbaObservationsTable)
       .where(eq(fbaObservationsTable.fbaId, fbaId))
       .orderBy(asc(fbaObservationsTable.observationDate), asc(fbaObservationsTable.observationTime));
@@ -24,7 +24,7 @@ router.get("/fbas/:fbaId/observations", async (req, res): Promise<void> => {
 
 router.post("/fbas/:fbaId/observations", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const { observerId, observationDate, observationTime, durationMinutes, setting, activity,
       antecedent, antecedentCategory, behavior, behaviorIntensity, behaviorDurationSeconds,
       consequence, consequenceCategory, perceivedFunction, notes } = req.body;
@@ -53,9 +53,9 @@ router.post("/fbas/:fbaId/observations", async (req, res): Promise<void> => {
 
 router.delete("/observations/:id", async (req, res): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string, 10);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertFbaObservationInCallerDistrict(req as AuthedRequest, id, res))) return;
+    if (!(await assertFbaObservationInCallerDistrict(req as unknown as AuthedRequest, id, res))) return;
     const [deleted] = await db.delete(fbaObservationsTable).where(eq(fbaObservationsTable.id, id)).returning();
     if (!deleted) { res.status(404).json({ error: "Observation not found" }); return; }
     res.json({ success: true });
@@ -67,7 +67,7 @@ router.delete("/observations/:id", async (req, res): Promise<void> => {
 
 router.get("/fbas/:fbaId/observations/summary", async (req, res): Promise<void> => {
   try {
-    const fbaId = parseInt(req.params.fbaId);
+    const fbaId = parseInt(req.params.fbaId as string, 10);
     const obs = await db.select().from(fbaObservationsTable)
       .where(eq(fbaObservationsTable.fbaId, fbaId));
 

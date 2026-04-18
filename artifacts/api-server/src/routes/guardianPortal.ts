@@ -17,7 +17,7 @@ router.use(requireGuardianScope);
 
 /** Resolve the guardian record and their linked student from the auth token. */
 async function resolveGuardian(req: Request): Promise<{ guardian: typeof guardiansTable.$inferSelect; studentId: number } | null> {
-  const authed = req as AuthedRequest;
+  const authed = req as unknown as AuthedRequest;
   const guardianId = authed.tenantGuardianId!;
 
   const [guardian] = await db

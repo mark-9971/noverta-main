@@ -20,7 +20,7 @@ router.get("/staff-assignments", async (req, res): Promise<void> => {
     if (params.data.studentId) conditions.push(eq(staffAssignmentsTable.studentId, Number(params.data.studentId)));
   }
   {
-    const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
+    const enforcedDid = getEnforcedDistrictId(req as unknown as AuthedRequest);
     if (enforcedDid !== null) {
       conditions.push(sql`${staffAssignmentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${enforcedDid}))`);
     }
