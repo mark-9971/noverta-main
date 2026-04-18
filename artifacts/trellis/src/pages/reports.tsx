@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, TrendingUp, Shield, Heart, FileDown, Activity } from "lucide-react";
+import { FileText, TrendingUp, Shield, Heart, FileDown, Activity, Clock, AlertTriangle, TrendingDown } from "lucide-react";
 import { useRole, type UserRole } from "@/lib/role-context";
 import { useSearch, useLocation } from "wouter";
 import { ExecutiveSummaryTab } from "./reports/ExecutiveSummaryTab";
@@ -53,9 +53,9 @@ export default function Reports() {
           <TabsTrigger value="executive" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Executive Summary</TabsTrigger>
           <TabsTrigger value="trend" className="gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Compliance Trend</TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5"><FileText className="w-3.5 h-3.5" /> Audit Package</TabsTrigger>
-          <TabsTrigger value="minutes">Minutes</TabsTrigger>
-          <TabsTrigger value="missed">Missed</TabsTrigger>
-          <TabsTrigger value="risk">At-Risk</TabsTrigger>
+          <TabsTrigger value="minutes" className="gap-1.5"><Clock className="w-3.5 h-3.5" /> Service Minutes</TabsTrigger>
+          <TabsTrigger value="missed" className="gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Missed Sessions</TabsTrigger>
+          <TabsTrigger value="risk" className="gap-1.5"><TrendingDown className="w-3.5 h-3.5" /> At-Risk Students</TabsTrigger>
           <TabsTrigger value="parent" className="gap-1.5"><Heart className="w-3.5 h-3.5" /> Parent Summary</TabsTrigger>
           {canExport && <TabsTrigger value="exports" className="gap-1.5"><FileDown className="w-3.5 h-3.5" /> Exports</TabsTrigger>}
           {isAdmin && <TabsTrigger value="pilot-health" className="gap-1.5"><Activity className="w-3.5 h-3.5" /> Pilot Health</TabsTrigger>}

@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight,
+  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight, FileDown,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -101,10 +101,11 @@ export const adminNav: NavSection[] = [
         ],
       },
       {
-        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
+        href: "/compensatory-services", label: "Compensatory", icon: Scale,
         children: [
           { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
           { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+          { href: "/compensatory-finance", label: "Financial Exposure", icon: DollarSign },
         ],
       },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
@@ -113,19 +114,27 @@ export const adminNav: NavSection[] = [
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
     ],
   },
-  // ── 3. IEP / Education ───────────────────────────────────────────────────
+  // ── 3. IEP & Services ─────────────────────────────────────────────────────
+  // IEP Hub (/iep) removed from nav — IEP Builder promoted as the direct entry
+  // point. Hub route is preserved and deep links still work; it's just no longer
+  // a required click in the daily workflow.
   {
-    label: "IEP",
+    label: "IEP & Services",
     icon: GraduationCap,
     collapsible: true,
     defaultOpen: true,
     items: [
       {
-        href: "/iep", label: "IEP Hub", icon: GraduationCap, primary: true,
+        href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true,
         children: [
-          { href: "/iep-search", label: "Search", icon: FileSearch },
           { href: "/iep-builder", label: "Builder", icon: Sparkles },
-          { href: "/iep-meetings", label: "Scheduling", icon: CalendarDays },
+          { href: "/iep-search", label: "Search", icon: FileSearch },
+        ],
+      },
+      {
+        href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays,
+        children: [
+          { href: "/iep-meetings", label: "Meetings", icon: CalendarDays },
           { href: "/iep-calendar", label: "Calendar", icon: Calendar },
         ],
       },
@@ -216,17 +225,17 @@ export const adminNav: NavSection[] = [
           { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
           { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
           { href: "/reports?tab=audit", label: "Audit Package", icon: FileText },
-          { href: "/reports?tab=minutes", label: "Minutes", icon: Clock },
+          { href: "/reports?tab=minutes", label: "Service Minutes", icon: Clock },
           { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
-          { href: "/reports?tab=risk", label: "At-Risk", icon: Shield },
-          { href: "/reports?tab=parent", label: "Parent Summary", icon: Users },
+          { href: "/reports?tab=risk", label: "At-Risk Students", icon: Shield },
+          { href: "/reports?tab=parent", label: "Parent Summary", icon: Heart },
+          { href: "/reports?tab=exports", label: "Exports", icon: FileDown },
         ],
       },
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
-      { href: "/compensatory-finance", label: "Compensatory Finance", icon: DollarSign },
       { href: "/billing", label: "Billing", icon: CreditCard },
     ],
   },
@@ -316,6 +325,55 @@ export const demoFocusedAdminNav: NavSection[] = adminNav
 export function getAdminNavForMode(_isDemo: boolean): NavSection[] {
   return adminNav;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Case Manager nav — IEP-workflow + Compliance focus.
+//
+// Included sections: Overview, Compliance Tools (minus admin-only items),
+//   IEP & Services (full), Staffing (Directory + Sessions only — no scheduling,
+//   no caseload balancing, those belong to coordinators).
+// Excluded sections: ABA, Financial / Executive, Admin / Tools.
+// Excluded Staffing items: Scheduling Hub, Staff Calendar, Caseload Balancing.
+// Excluded Compliance items: State Reports, Restraint & Seclusion.
+// ─────────────────────────────────────────────────────────────────────────────
+const CASE_MANAGER_EXCLUDED_SECTIONS = new Set(["ABA", "Financial / Executive", "Admin / Tools"]);
+const CASE_MANAGER_EXCLUDED_HREFS = new Set([
+  "/state-reporting",
+  "/protective-measures",
+  "/scheduling",
+  "/staff-calendar",
+  "/caseload-balancing",
+]);
+
+export const caseManagerNav: NavSection[] = adminNav
+  .filter(s => !s.label || !CASE_MANAGER_EXCLUDED_SECTIONS.has(s.label))
+  .map(s => ({
+    ...s,
+    items: s.items.filter(i => !CASE_MANAGER_EXCLUDED_HREFS.has(i.href)),
+  }))
+  .filter(s => s.items.length > 0);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Coordinator nav — Staffing + scheduling focus with light compliance oversight.
+//
+// Included sections: Overview, Compliance Tools (trimmed to Compliance +
+//   Compensatory only), Staffing (full — Directory, Sessions, Scheduling Hub,
+//   Staff Calendar, Caseload Balancing).
+// Excluded sections: IEP & Services, ABA, Financial / Executive, Admin / Tools.
+// Compliance trimmed: only /compliance and /compensatory-services exposed.
+// ─────────────────────────────────────────────────────────────────────────────
+const COORDINATOR_EXCLUDED_SECTIONS = new Set(["IEP & Services", "ABA", "Financial / Executive", "Admin / Tools"]);
+const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory-services"]);
+
+export const coordinatorNav: NavSection[] = adminNav
+  .filter(s => !s.label || !COORDINATOR_EXCLUDED_SECTIONS.has(s.label))
+  .map(s => {
+    if (s.label === "Compliance Tools") {
+      return { ...s, items: s.items.filter(i => COORDINATOR_COMPLIANCE_ALLOWED.has(i.href)) };
+    }
+    return s;
+  })
+  .filter(s => s.items.length > 0);
 
 // SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
 // All other sections are visible: IEP, Accommodations & Transitions, Compliance Tools, Staffing, ABA.
@@ -488,8 +546,26 @@ const STAFF_NAV_CONFIG = {
 
 export const roleConfig: Record<string, RoleThemeConfig> = {
   admin: STAFF_NAV_CONFIG.admin,
-  case_manager: STAFF_NAV_CONFIG.admin,
-  coordinator: STAFF_NAV_CONFIG.admin,
+  case_manager: {
+    nav: caseManagerNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "IEP & compliance management.",
+    homeHref: "/",
+  },
+  coordinator: {
+    nav: coordinatorNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Staffing & scheduling.",
+    homeHref: "/",
+  },
   bcba: STAFF_NAV_CONFIG.bcba,
   sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
   provider: STAFF_NAV_CONFIG.sped_teacher,
