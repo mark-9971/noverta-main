@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { X, Save, Settings2, BookOpen, Plus } from "lucide-react";
-import { listProgramSteps, updateProgramTarget, createProgramStep } from "@workspace/api-client-react";
+import { X, Save, Settings2, BookOpen, Plus, Clock } from "lucide-react";
+import { listProgramSteps, updateProgramTarget, createProgramStep, listProgramTargetPhaseHistory, type ProgramTargetPhaseHistoryItem } from "@workspace/api-client-react";
 import { ProgramTarget, ProgramStep, ProgramPhase, PROGRAM_PHASES, PHASE_CONFIG, PROMPT_LABELS, REINFORCEMENT_SCHEDULES } from "./constants";
 
 interface Props {
@@ -14,8 +14,10 @@ interface Props {
 export default function ProgramDetailModal({ program, onClose, onSaved }: Props) {
   const [steps, setSteps] = useState<ProgramStep[]>([]);
   const [loading, setLoading] = useState(true);
+  const [phaseHistory, setPhaseHistory] = useState<ProgramTargetPhaseHistoryItem[]>([]);
+  const [phaseHistoryLoading, setPhaseHistoryLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState({ ...program });
+  const [form, setForm] = useState({ ...program, phaseReason: "" });
   const [saving, setSaving] = useState(false);
   const [newStepName, setNewStepName] = useState("");
   const [newStepSd, setNewStepSd] = useState("");
@@ -23,6 +25,9 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
 
   useEffect(() => {
     listProgramSteps(program.id).then(s => { setSteps(s as any[]); setLoading(false); }).catch(() => setLoading(false));
+    listProgramTargetPhaseHistory(program.id)
+      .then(h => { setPhaseHistory(h); setPhaseHistoryLoading(false); })
+      .catch(() => setPhaseHistoryLoading(false));
   }, [program.id]);
 
   async function saveSettings() {
@@ -41,7 +46,8 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
         reinforcementSchedule: form.reinforcementSchedule,
         reinforcementType: form.reinforcementType,
         phase: form.phase,
-      });
+        phaseReason: form.phaseReason || undefined,
+      } as any);
     onSaved();
     setSaving(false);
   }
@@ -160,6 +166,17 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
                     );
                   })}
                 </div>
+                {(form.phase ?? "training") !== (program.phase ?? "training") && (
+                  <div className="mt-2">
+                    <label className="text-[12px] font-medium text-gray-500">Reason for phase change <span className="text-gray-400 font-normal">(optional)</span></label>
+                    <input
+                      value={form.phaseReason}
+                      onChange={e => setForm({ ...form, phaseReason: e.target.value })}
+                      placeholder="e.g. Met mastery criterion 3 consecutive sessions"
+                      className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -226,6 +243,54 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
                     {program.autoProgressEnabled ? "On" : "Off"}
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                  <h3 className="text-sm font-semibold text-gray-600">Phase History</h3>
+                </div>
+                {phaseHistoryLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : phaseHistory.length === 0 ? (
+                  <p className="text-[12px] text-gray-400 py-3 text-center">No phase transitions recorded yet.</p>
+                ) : (
+                  <div className="relative pl-4">
+                    <div className="absolute left-1.5 top-0 bottom-0 w-px bg-gray-100" />
+                    <div className="space-y-2">
+                      {phaseHistory.map((h, idx) => {
+                        const cfg = PHASE_CONFIG[h.phase as ProgramPhase] ?? PHASE_CONFIG["training"];
+                        const Icon = cfg.icon;
+                        const isCurrent = idx === 0;
+                        return (
+                          <div key={h.id} className="relative flex gap-2.5 items-start">
+                            <div className={`absolute -left-[11px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white ${isCurrent ? cfg.color : "bg-gray-100"}`}>
+                              <Icon className="w-2.5 h-2.5" />
+                            </div>
+                            <div className="ml-2 flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${cfg.color}`}>{cfg.label}</span>
+                                {h.previousPhase && (
+                                  <span className="text-[10px] text-gray-400">
+                                    from {PHASE_CONFIG[h.previousPhase as ProgramPhase]?.label ?? h.previousPhase}
+                                  </span>
+                                )}
+                                {isCurrent && <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Current</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(h.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                  {h.endedAt && ` – ${new Date(h.endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+                                </span>
+                                {h.reason && <span className="text-[10px] text-gray-500 italic">"{h.reason}"</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

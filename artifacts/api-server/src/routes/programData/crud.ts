@@ -3,9 +3,9 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable,
-  programStepsTable,
+  programStepsTable, programTargetPhaseHistoryTable,
 } from "@workspace/db";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, isNull, desc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
@@ -15,6 +15,32 @@ import {
   assertStudentInCallerDistrict,
 } from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
+
+async function recordPhaseTransition(
+  programTargetId: number,
+  newPhase: string,
+  previousPhase: string | null | undefined,
+  opts?: {
+    reason?: string | null;
+    changedByClerkId?: string | null;
+    changedByStaffId?: number | null;
+  },
+): Promise<void> {
+  await db.update(programTargetPhaseHistoryTable)
+    .set({ endedAt: new Date() })
+    .where(and(
+      eq(programTargetPhaseHistoryTable.programTargetId, programTargetId),
+      isNull(programTargetPhaseHistoryTable.endedAt),
+    ));
+  await db.insert(programTargetPhaseHistoryTable).values({
+    programTargetId,
+    phase: newPhase,
+    previousPhase: previousPhase ?? null,
+    reason: opts?.reason ?? null,
+    changedByClerkId: opts?.changedByClerkId ?? null,
+    changedByStaffId: opts?.changedByStaffId ?? null,
+  });
+}
 
 const router: IRouter = Router();
 
@@ -176,6 +202,11 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
       return target;
     });
 
+    const authedReq = req as AuthedRequest;
+    await recordPhaseTransition(result.id, result.phase ?? "training", null, {
+      changedByClerkId: authedReq.userId ?? null,
+      changedByStaffId: authedReq.tenantStaffId ?? null,
+    });
     logAudit(req, {
       action: "create",
       targetTable: "program_targets",
@@ -208,17 +239,26 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [oldTarget] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, id));
-    if (req.body.phase !== undefined && req.body.phase !== oldTarget?.phase) {
+    const phaseChanging = req.body.phase !== undefined && req.body.phase !== oldTarget?.phase;
+    if (phaseChanging) {
       updates.phaseChangedAt = new Date();
     }
     const [updated] = await db.update(programTargetsTable).set(updates).where(eq(programTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    if (phaseChanging) {
+      const authedReq = req as AuthedRequest;
+      await recordPhaseTransition(id, req.body.phase, oldTarget?.phase ?? null, {
+        reason: req.body.phaseReason ?? null,
+        changedByClerkId: authedReq.userId ?? null,
+        changedByStaffId: authedReq.tenantStaffId ?? null,
+      });
+    }
     logAudit(req, {
       action: "update",
       targetTable: "program_targets",
       targetId: id,
       studentId: updated.studentId,
-      summary: `Updated program target #${id}`,
+      summary: `Updated program target #${id}${phaseChanging ? ` (phase: ${oldTarget?.phase} → ${req.body.phase})` : ""}`,
       oldValues: oldTarget ? (Object.fromEntries(Object.keys(updates).map(k => [k, (oldTarget as Record<string, unknown>)[k]]))) : null,
       newValues: updates as Record<string, unknown>,
     });
@@ -226,6 +266,25 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("PATCH program-target error:", e);
     res.status(500).json({ error: "Failed to update program target" });
+  }
+});
+
+router.get("/program-targets/:id/phase-history", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.id);
+    if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    const rows = await db.select().from(programTargetPhaseHistoryTable)
+      .where(eq(programTargetPhaseHistoryTable.programTargetId, programTargetId))
+      .orderBy(desc(programTargetPhaseHistoryTable.startedAt));
+    res.json(rows.map(r => ({
+      ...r,
+      startedAt: r.startedAt.toISOString(),
+      endedAt: r.endedAt ? r.endedAt.toISOString() : null,
+    })));
+  } catch (e: any) {
+    console.error("GET phase-history error:", e);
+    res.status(500).json({ error: "Failed to fetch phase history" });
   }
 });
 

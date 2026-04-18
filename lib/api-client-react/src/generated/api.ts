@@ -14095,6 +14095,35 @@ export function useListProgramSteps<
 }
 
 /**
+ * @summary List phase history for a program target
+ */
+export interface ProgramTargetPhaseHistoryItem {
+  id: number;
+  programTargetId: number;
+  phase: string;
+  previousPhase: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  reason: string | null;
+  changedByClerkId: string | null;
+  changedByStaffId: number | null;
+}
+
+export const getListProgramTargetPhaseHistoryUrl = (id: number) => {
+  return `/api/program-targets/${id}/phase-history`;
+};
+
+export const listProgramTargetPhaseHistory = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ProgramTargetPhaseHistoryItem[]> => {
+  return customFetch<ProgramTargetPhaseHistoryItem[]>(getListProgramTargetPhaseHistoryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+/**
  * @summary Create step
  */
 export const getCreateProgramStepUrl = (id: number) => {
