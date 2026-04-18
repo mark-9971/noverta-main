@@ -1,3 +1,13 @@
+export interface RateConfigSummary {
+  allConfigured: boolean;
+  configuredServiceTypeIds: number[];
+  unconfiguredServiceTypes: { id: number; name: string }[];
+  helpUrl: string;
+  helpText: string;
+  unpricedMinutesOwed: number;
+  unpricedMinutesDelivered: number;
+}
+
 export interface OverviewData {
   totalMinutesOwed: number;
   totalMinutesDelivered: number;
@@ -8,9 +18,10 @@ export interface OverviewData {
   pendingCount: number;
   inProgressCount: number;
   completedCount: number;
-  byServiceType: Array<{ serviceTypeId: number; name: string; minutesOwed: number; minutesDelivered: number; dollarsOwed: number; dollarsDelivered: number; count: number }>;
-  bySchool: Array<{ schoolId: number; name: string; minutesOwed: number; dollarsOwed: number; count: number }>;
-  byProvider: Array<{ providerId: number; name: string; minutesOwed: number; dollarsOwed: number; count: number }>;
+  byServiceType: Array<{ serviceTypeId: number; name: string; minutesOwed: number; minutesDelivered: number; dollarsOwed: number | null; dollarsDelivered: number | null; rateConfigured: boolean; count: number }>;
+  bySchool: Array<{ schoolId: number; name: string; minutesOwed: number; dollarsOwed: number; unpricedMinutes?: number; count: number }>;
+  byProvider: Array<{ providerId: number; name: string; minutesOwed: number; dollarsOwed: number; unpricedMinutes?: number; count: number }>;
+  rateConfig?: RateConfigSummary;
 }
 
 export interface StudentBalance {
@@ -56,7 +67,8 @@ export interface RatesResponse {
 
 export const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
-export function formatDollars(val: number): string {
+export function formatDollars(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return "—";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
 }
 

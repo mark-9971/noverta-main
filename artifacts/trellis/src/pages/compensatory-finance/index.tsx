@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, Users, TrendingUp, Clock, Download, Briefcase, Percent } from "lucide-react";
+import { DollarSign, Users, TrendingUp, Clock, Download, Briefcase, Percent, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDollars, formatMinutesAsHours } from "./types";
 import type { OverviewData, StudentBalance, BurndownPoint, RatesResponse } from "./types";
