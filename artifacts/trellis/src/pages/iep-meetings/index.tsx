@@ -93,6 +93,11 @@ export default function IepMeetings({ embedded = false }: { embedded?: boolean }
     }
   }
 
+  useEffect(() => {
+    if (urlTab === "calendar" && tab !== "calendar") setTab("calendar");
+    else if (!urlTab && urlFilter === "overdue" && tab !== "meetings") setTab("meetings");
+  }, [urlTab, urlFilter]);
+
   useEffect(() => { loadDashboard(); loadStudents(); }, []);
   useEffect(() => { if (tab === "meetings") loadMeetings(); }, [tab, statusFilter, typeFilter]);
 
