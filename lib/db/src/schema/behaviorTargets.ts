@@ -16,6 +16,7 @@ export const behaviorTargetsTable = pgTable("behavior_targets", {
   templateId: integer("template_id"),
   trackingMethod: text("tracking_method").default("per_session"),
   intervalLengthSeconds: integer("interval_length_seconds"),
+  intervalMode: text("interval_mode"),
   enableHourlyTracking: boolean("enable_hourly_tracking").default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

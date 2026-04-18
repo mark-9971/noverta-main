@@ -79,17 +79,31 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
 
     const ioaSessId = isIoaSession ? (ioaSessionId ? parseInt(ioaSessionId) : Math.floor(Math.random() * 2000000000) + 1) : null;
     const behaviorData = behaviorTargets
-      .filter(bt => behaviorCounts[bt.id] > 0 || (isIoaSession && ioaObservedTargets[bt.id]))
-      .map(bt => ({
-        behaviorTargetId: bt.id,
-        value: behaviorCounts[bt.id] ?? 0,
-        hourBlock: `${now.getHours()}:00`,
-        ioaSessionId: ioaSessId,
-        observerNumber: isIoaSession ? ioaObserverNumber : null,
-        observerName: isIoaSession ? (ioaObserverName || null) : null,
-        eventTimestamps: isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null,
-        intervalScores: isIoaSession && intervalScoresMap[bt.id]?.length ? intervalScoresMap[bt.id] : null,
-      }));
+      .filter(bt => {
+        if (bt.measurementType === "interval") return (intervalScoresMap[bt.id] || []).length > 0;
+        return behaviorCounts[bt.id] > 0 || (isIoaSession && ioaObservedTargets[bt.id]);
+      })
+      .map(bt => {
+        const scores = intervalScoresMap[bt.id] || [];
+        const isInterval = bt.measurementType === "interval";
+        const intervalWith = isInterval ? scores.filter(Boolean).length : null;
+        const intervalTotal = isInterval ? scores.length : null;
+        const intervalValue = isInterval && intervalTotal && intervalTotal > 0
+          ? Math.round((intervalWith! / intervalTotal) * 100)
+          : null;
+        return {
+          behaviorTargetId: bt.id,
+          value: isInterval ? (intervalValue ?? 0) : (behaviorCounts[bt.id] ?? 0),
+          intervalCount: intervalTotal,
+          intervalsWith: intervalWith,
+          hourBlock: `${now.getHours()}:00`,
+          ioaSessionId: ioaSessId,
+          observerNumber: isIoaSession ? ioaObserverNumber : null,
+          observerName: isIoaSession ? (ioaObserverName || null) : null,
+          eventTimestamps: isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null,
+          intervalScores: isInterval && scores.length ? scores : (isIoaSession && intervalScoresMap[bt.id]?.length ? intervalScoresMap[bt.id] : null),
+        };
+      });
 
     const programData = programTargets
       .filter(pt => programResults[pt.id]?.total > 0)
@@ -198,6 +212,9 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
               <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={() => {
                 setSaved(false); setElapsed(0);
                 setIsIoaSession(false); setIoaSessionId("");
+                setIntervalScoresMap({});
+                setEventTimestamps({});
+                setIoaObservedTargets({});
                 const bc: Record<number, number> = {};
                 behaviorTargets.forEach(bt => { bc[bt.id] = 0; });
                 setBehaviorCounts(bc);
@@ -317,104 +334,153 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
             <Activity className="w-4 h-4 text-red-500" /> Behavior Tracking
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {behaviorTargets.map(bt => (
-              <Card key={bt.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center">
-                    <div className="flex-1 p-3 md:p-4 min-w-0">
-                      <p className="text-sm font-semibold text-gray-700 truncate">{bt.name}</p>
-                      <p className="text-[10px] text-gray-400">{measureLabel(bt.measurementType)} · Goal: {bt.goalValue ?? "—"}</p>
-                    </div>
-                    <div className="flex items-center gap-0 border-l border-gray-100">
-                      <button
-                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-gray-400 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                        onClick={() => {
-                          setBehaviorCounts(prev => ({ ...prev, [bt.id]: Math.max(0, (prev[bt.id] ?? 0) - 1) }));
-                          if (isIoaSession) {
-                            setEventTimestamps(prev => {
-                              const arr = [...(prev[bt.id] || [])];
-                              arr.pop();
-                              return { ...prev, [bt.id]: arr };
-                            });
-                          }
-                        }}
-                        disabled={!running}
-                      >
-                        <Minus className="w-5 h-5" />
-                      </button>
-                      <div className="w-14 md:w-12 text-center">
-                        <p className="text-2xl md:text-xl font-bold text-emerald-700">{behaviorCounts[bt.id] ?? 0}</p>
-                      </div>
-                      <button
-                        className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
-                        onClick={() => {
-                          setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }));
-                          if (isIoaSession) {
-                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
-                            setEventTimestamps(prev => ({
-                              ...prev,
-                              [bt.id]: [...(prev[bt.id] || []), Date.now()]
-                            }));
-                          }
-                        }}
-                        disabled={!running}
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                  {isIoaSession && bt.measurementType === "interval" && running && (
-                    <div className="border-t border-gray-100 px-3 py-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-gray-500">Intervals:</span>
-                        {(intervalScoresMap[bt.id] || []).map((score, idx) => (
+            {behaviorTargets.map(bt => {
+              const isInterval = bt.measurementType === "interval";
+              const scores = intervalScoresMap[bt.id] || [];
+              const intervalPct = scores.length > 0 ? Math.round((scores.filter(Boolean).length / scores.length) * 100) : null;
+              const modeLabel = isInterval && bt.intervalMode
+                ? { partial_interval: "PI", whole_interval: "WI", momentary_time_sampling: "MTS" }[bt.intervalMode] ?? null
+                : null;
+
+              return (
+                <Card key={bt.id} className="overflow-hidden">
+                  <CardContent className="p-0">
+                    {!isInterval ? (
+                      /* ── Frequency / Duration / Latency / Percentage ── */
+                      <div className="flex items-center">
+                        <div className="flex-1 p-3 md:p-4 min-w-0">
+                          <p className="text-sm font-semibold text-gray-700 truncate">{bt.name}</p>
+                          <p className="text-[10px] text-gray-400">{measureLabel(bt.measurementType)} · Goal: {bt.goalValue ?? "—"}</p>
+                        </div>
+                        <div className="flex items-center gap-0 border-l border-gray-100">
                           <button
-                            key={idx}
+                            className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-gray-400 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                            onClick={() => {
+                              setBehaviorCounts(prev => ({ ...prev, [bt.id]: Math.max(0, (prev[bt.id] ?? 0) - 1) }));
+                              if (isIoaSession) {
+                                setEventTimestamps(prev => {
+                                  const arr = [...(prev[bt.id] || [])];
+                                  arr.pop();
+                                  return { ...prev, [bt.id]: arr };
+                                });
+                              }
+                            }}
+                            disabled={!running}
+                          >
+                            <Minus className="w-5 h-5" />
+                          </button>
+                          <div className="w-14 md:w-12 text-center">
+                            <p className="text-2xl md:text-xl font-bold text-emerald-700">{behaviorCounts[bt.id] ?? 0}</p>
+                          </div>
+                          <button
+                            className="w-12 h-16 md:w-10 md:h-14 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
+                            onClick={() => {
+                              setBehaviorCounts(prev => ({ ...prev, [bt.id]: (prev[bt.id] ?? 0) + 1 }));
+                              if (isIoaSession) {
+                                setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
+                                setEventTimestamps(prev => ({
+                                  ...prev,
+                                  [bt.id]: [...(prev[bt.id] || []), Date.now()]
+                                }));
+                              }
+                            }}
+                            disabled={!running}
+                          >
+                            <Plus className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ── Interval Recording ── */
+                      <div className="p-3 md:p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-700 truncate">{bt.name}</p>
+                            <p className="text-[10px] text-gray-400">
+                              {measureLabel(bt.measurementType, bt.intervalMode)} · Goal: {bt.goalValue ?? "—"}
+                              {bt.intervalLengthSeconds ? ` · ${bt.intervalLengthSeconds}s intervals` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {modeLabel && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{modeLabel}</span>
+                            )}
+                            {intervalPct !== null && (
+                              <span className="text-lg font-bold text-emerald-700">{intervalPct}%</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {bt.intervalMode && (
+                          <p className="text-[10px] text-gray-400 italic">
+                            {bt.intervalMode === "partial_interval" && "Score + if behavior occurred at any point"}
+                            {bt.intervalMode === "whole_interval" && "Score + only if behavior was present the entire interval"}
+                            {bt.intervalMode === "momentary_time_sampling" && "Score + only if behavior is occurring at end of interval"}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {scores.map((score, idx) => (
+                            <button
+                              key={idx}
+                              disabled={!running}
+                              onClick={() => {
+                                setIntervalScoresMap(prev => {
+                                  const arr = [...(prev[bt.id] || [])];
+                                  arr[idx] = !arr[idx];
+                                  return { ...prev, [bt.id]: arr };
+                                });
+                              }}
+                              className={`w-6 h-6 text-[9px] font-bold rounded border transition-colors ${score ? "bg-emerald-100 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+                              title={`Interval ${idx + 1}: tap to toggle`}
+                            >
+                              {score ? "+" : "−"}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-1.5">
+                          <button
+                            disabled={!running}
+                            onClick={() => {
+                              setIntervalScoresMap(prev => ({ ...prev, [bt.id]: [...(prev[bt.id] || []), true] }));
+                            }}
+                            className="flex-1 h-9 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold text-[11px] active:scale-[0.97] disabled:opacity-40 transition-all"
+                          >
+                            + Present
+                          </button>
+                          <button
+                            disabled={!running}
+                            onClick={() => {
+                              setIntervalScoresMap(prev => ({ ...prev, [bt.id]: [...(prev[bt.id] || []), false] }));
+                            }}
+                            className="flex-1 h-9 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 font-semibold text-[11px] active:scale-[0.97] disabled:opacity-40 transition-all"
+                          >
+                            − Absent
+                          </button>
+                          <button
+                            disabled={!running || scores.length === 0}
                             onClick={() => {
                               setIntervalScoresMap(prev => {
                                 const arr = [...(prev[bt.id] || [])];
-                                arr[idx] = !arr[idx];
+                                arr.pop();
                                 return { ...prev, [bt.id]: arr };
                               });
                             }}
-                            className={`w-6 h-6 text-[9px] rounded border ${score ? "bg-emerald-100 border-emerald-300 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-400"}`}
+                            className="h-9 px-2.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 font-semibold text-[11px] active:scale-[0.97] disabled:opacity-30"
                           >
-                            {idx + 1}
+                            Undo
                           </button>
-                        ))}
-                        <button
-                          onClick={() => {
-                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
-                            setIntervalScoresMap(prev => ({
-                              ...prev,
-                              [bt.id]: [...(prev[bt.id] || []), true]
-                            }));
-                          }}
-                          className="w-6 h-6 text-[9px] rounded border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50"
-                          title="Add interval (behavior present)"
-                        >
-                          +
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIoaObservedTargets(prev => ({ ...prev, [bt.id]: true }));
-                            setIntervalScoresMap(prev => ({
-                              ...prev,
-                              [bt.id]: [...(prev[bt.id] || []), false]
-                            }));
-                          }}
-                          className="w-6 h-6 text-[9px] rounded border border-dashed border-gray-300 text-red-400 hover:bg-red-50"
-                          title="Add interval (behavior absent)"
-                        >
-                          −
-                        </button>
+                        </div>
+                        <p className="text-[9px] text-gray-400">
+                          {scores.length} interval{scores.length !== 1 ? "s" : ""} recorded · tap squares to toggle
+                        </p>
                       </div>
-                      <p className="text-[9px] text-gray-400 mt-1">Tap + for present, − for absent. Tap numbered boxes to toggle.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

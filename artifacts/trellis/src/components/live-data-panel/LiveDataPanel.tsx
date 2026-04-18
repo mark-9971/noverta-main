@@ -296,8 +296,11 @@ export function LiveDataPanel({ studentId, studentName, timerStartedAt, onClose,
                             <BehaviorWidget
                               targetName={entry.linkedTarget.name || ""}
                               measurementType={entry.linkedTarget.measurementType || "frequency"}
+                              intervalMode={(entry.linkedTarget.intervalMode as any) ?? null}
+                              intervalLengthSeconds={entry.linkedTarget.intervalLengthSeconds ?? null}
                               data={entry.behaviorData}
                               onChange={bd => updateEntry(goalId, { behaviorData: bd })}
+                              sessionRunning
                             />
                           )}
                           {entry.programData && entry.linkedTarget?.type === "program" && (

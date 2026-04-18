@@ -14,6 +14,8 @@ export interface IepGoal {
     goalValue?: number | null;
     currentPromptLevel?: string | null;
     masteryCriterionPercent?: number | null;
+    intervalMode?: string | null;
+    intervalLengthSeconds?: number | null;
   } | null;
 }
 

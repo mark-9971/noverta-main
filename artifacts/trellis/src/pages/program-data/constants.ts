@@ -1,10 +1,51 @@
 import { Hand, Eye, Mic, Sparkles, FlaskConical, BookOpen, ShieldCheck, Trophy, RefreshCw } from "lucide-react";
 
+export type IntervalMode = "partial_interval" | "whole_interval" | "momentary_time_sampling";
+
+export const INTERVAL_MODE_CONFIG: Record<IntervalMode, {
+  label: string;
+  short: string;
+  abbrev: string;
+  color: string;
+  prompt: string;
+  tendency: string;
+  description: string;
+}> = {
+  partial_interval: {
+    label: "Partial Interval",
+    short: "PI",
+    abbrev: "PI",
+    color: "bg-orange-50 text-orange-700 border-orange-200",
+    prompt: "Did the behavior occur at any point during this interval?",
+    tendency: "Tends to overestimate — use to measure behaviors to reduce",
+    description: "Score the interval + if the behavior occurred at any point, even briefly.",
+  },
+  whole_interval: {
+    label: "Whole Interval",
+    short: "WI",
+    abbrev: "WI",
+    color: "bg-blue-50 text-blue-700 border-blue-200",
+    prompt: "Was the behavior present for the entire interval?",
+    tendency: "Tends to underestimate — use to measure behaviors to increase (e.g., on-task)",
+    description: "Score the interval + only if the behavior was present for the full duration.",
+  },
+  momentary_time_sampling: {
+    label: "Momentary Time Sampling",
+    short: "MTS",
+    abbrev: "MTS",
+    color: "bg-violet-50 text-violet-700 border-violet-200",
+    prompt: "Is the behavior occurring right now?",
+    tendency: "Less reactive to behavior — good for high-frequency or continuous behaviors",
+    description: "Score + only if the behavior is occurring at the exact moment the interval ends.",
+  },
+};
+
 export interface BehaviorTarget {
   id: number; studentId: number; name: string; description: string;
   measurementType: string; targetDirection: string;
   baselineValue: string | null; goalValue: string | null; active: boolean;
-  trackingMethod?: string; intervalLengthSeconds?: number; enableHourlyTracking?: boolean;
+  trackingMethod?: string; intervalLengthSeconds?: number | null;
+  intervalMode?: IntervalMode | null; enableHourlyTracking?: boolean;
 }
 export type ProgramPhase = "baseline" | "training" | "maintenance" | "mastered" | "reopened";
 export const PROGRAM_PHASES: ProgramPhase[] = ["baseline", "training", "maintenance", "mastered", "reopened"];
@@ -107,9 +148,14 @@ export const REINFORCEMENT_SCHEDULES = [
   { value: "variable_interval", label: "Variable Interval (VI)" },
 ];
 
-export function measureLabel(t: string) {
+export function measureLabel(t: string, intervalMode?: IntervalMode | null) {
   if (t === "frequency") return "Count";
-  if (t === "interval") return "% of intervals";
+  if (t === "interval") {
+    if (intervalMode && INTERVAL_MODE_CONFIG[intervalMode]) {
+      return `% intervals (${INTERVAL_MODE_CONFIG[intervalMode].abbrev})`;
+    }
+    return "% of intervals";
+  }
   if (t === "duration") return "Duration (sec)";
   if (t === "latency") return "Latency (sec)";
   return "Percentage";

@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
-  BehaviorTarget, TrendPoint, Student, COLORS, measureLabel,
+  BehaviorTarget, TrendPoint, Student, COLORS, measureLabel, INTERVAL_MODE_CONFIG,
 } from "./constants";
 
 interface PhaseChange {
@@ -237,9 +237,15 @@ export default function BehaviorsTab({ student, behaviorTargets, behaviorTrends,
                   <div className="min-w-0">
                     <p className="text-[14px] font-semibold text-gray-700 truncate">{bt.name}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {measureLabel(bt.measurementType)} · {bt.targetDirection} to {bt.goalValue ?? "—"}
+                      {measureLabel(bt.measurementType, bt.intervalMode)} · {bt.targetDirection} to {bt.goalValue ?? "—"}
                       {bt.enableHourlyTracking && " · Hourly"}
+                      {bt.intervalLengthSeconds && ` · ${bt.intervalLengthSeconds}s`}
                     </p>
+                    {bt.measurementType === "interval" && bt.intervalMode && INTERVAL_MODE_CONFIG[bt.intervalMode] && (
+                      <span className={`inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded border ${INTERVAL_MODE_CONFIG[bt.intervalMode].color}`}>
+                        {INTERVAL_MODE_CONFIG[bt.intervalMode].label}
+                      </span>
+                    )}
                   </div>
                   {improving !== null && (
                     <span className={`flex items-center gap-0.5 text-[10px] md:text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${

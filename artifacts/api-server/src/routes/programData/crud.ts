@@ -70,8 +70,10 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
   try {
     const studentId = parseInt(req.params.studentId);
     const { name, description, measurementType, targetDirection, baselineValue, goalValue,
-            trackingMethod, intervalLengthSeconds, enableHourlyTracking, templateId } = req.body;
+            trackingMethod, intervalLengthSeconds, intervalMode, enableHourlyTracking, templateId } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
+    const VALID_INTERVAL_MODES = ["partial_interval", "whole_interval", "momentary_time_sampling"];
+    const resolvedIntervalMode = VALID_INTERVAL_MODES.includes(intervalMode) ? intervalMode : null;
     const [target] = await db.insert(behaviorTargetsTable).values({
       studentId, name, description: description || null,
       measurementType: measurementType || "frequency",
@@ -80,6 +82,7 @@ router.post("/students/:studentId/behavior-targets", async (req, res): Promise<v
       goalValue: goalValue != null ? String(goalValue) : null,
       trackingMethod: trackingMethod || "per_session",
       intervalLengthSeconds: intervalLengthSeconds || null,
+      intervalMode: resolvedIntervalMode,
       enableHourlyTracking: enableHourlyTracking ?? false,
       templateId: templateId || null,
     }).returning();
@@ -104,8 +107,12 @@ router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
     const updates: any = {};
+    const VALID_INTERVAL_MODES_PATCH = ["partial_interval", "whole_interval", "momentary_time_sampling"];
     for (const key of ["name","description","measurementType","targetDirection","active","trackingMethod","intervalLengthSeconds","enableHourlyTracking"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (req.body.intervalMode !== undefined) {
+      updates.intervalMode = VALID_INTERVAL_MODES_PATCH.includes(req.body.intervalMode) ? req.body.intervalMode : null;
     }
     if (req.body.baselineValue !== undefined) updates.baselineValue = req.body.baselineValue != null ? String(req.body.baselineValue) : null;
     if (req.body.goalValue !== undefined) updates.goalValue = req.body.goalValue != null ? String(req.body.goalValue) : null;
