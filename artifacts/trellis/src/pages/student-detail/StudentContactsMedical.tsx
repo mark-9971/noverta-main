@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Phone, Mail, Plus, Pencil, Trash2, Stethoscope, ShieldAlert, History } from "lucide-react";
+import { Phone, Mail, Plus, Pencil, Trash2, Stethoscope, ShieldAlert, History, RefreshCw } from "lucide-react";
 
 type EnrollmentSourceFilter = "all" | "manual" | "sis";
 
@@ -309,24 +309,43 @@ function EnrollmentSection(props: EnrollmentSectionProps) {
                   note: { label: "Note", color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" },
                 };
                 const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType.replace(/_/g, " "), color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
+                const isSisAutoWithdrawal = ev.eventType === "withdrawn" && ev.source === "sis_sync";
                 const sourceConfig: Record<string, { label: string; cls: string }> = {
                   manual:   { label: "Manual",   cls: "bg-violet-50 text-violet-700 border-violet-200" },
                   system:   { label: "System",   cls: "bg-gray-100 text-gray-500 border-gray-200" },
                   sis:      { label: "SIS",      cls: "bg-sky-50 text-sky-700 border-sky-200" },
                   sis_sync: { label: "SIS Sync", cls: "bg-sky-50 text-sky-700 border-sky-200" },
                 };
-                const src = ev.source ? (sourceConfig[ev.source] ?? { label: ev.source, cls: "bg-gray-100 text-gray-500 border-gray-200" }) : null;
+                const src = ev.source
+                  ? isSisAutoWithdrawal
+                    ? { label: "Auto — SIS sync", cls: "bg-sky-50 text-sky-700 border-sky-200" }
+                    : (sourceConfig[ev.source] ?? { label: ev.source, cls: "bg-gray-100 text-gray-500 border-gray-200" })
+                  : null;
                 const canEdit = ev.source === "manual" && (role === "admin" || role === "case_manager");
+                const sourceTitle = isSisAutoWithdrawal
+                  ? `Automatically created by SIS sync${ev.reason ? ` — ${ev.reason}` : ""}`
+                  : ev.source
+                    ? `Source: ${ev.source}`
+                    : undefined;
                 return (
                   <div key={ev.id ?? idx} className="relative flex items-start gap-3">
-                    <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0`} />
-                    <div className={`flex-1 rounded-lg p-3 ${cfg.bg}`}>
+                    <div className={`absolute -left-3.5 top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white ${cfg.dot} flex-shrink-0 ${isSisAutoWithdrawal ? "ring-2 ring-sky-300" : ""}`} />
+                    <div
+                      className={`flex-1 rounded-lg p-3 ${cfg.bg} ${isSisAutoWithdrawal ? "border border-dashed border-sky-300" : ""}`}
+                      title={isSisAutoWithdrawal ? sourceTitle : undefined}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[12px] font-semibold ${cfg.color}`}>{cfg.label}</span>
                             {src && (
-                              <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${src.cls}`}>{src.label}</span>
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${src.cls}`}
+                                title={sourceTitle}
+                              >
+                                {isSisAutoWithdrawal && <RefreshCw className="w-2.5 h-2.5" />}
+                                {src.label}
+                              </span>
                             )}
                             <span className="text-[11px] text-gray-400">{ev.eventDate}</span>
                           </div>
