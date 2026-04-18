@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
-  Users, Info, ListChecks,
+  Users, ListChecks,
   TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Clock,
 } from "lucide-react";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
@@ -509,14 +509,6 @@ export default function PilotAdminHome() {
         <DeadlinesSection deadlines={deadlines} />
       </CollapsibleSection>
 
-      {/* Footer note */}
-      <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">
-        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-        <span>
-          Trellis tracks whether mandated IEP minutes are being delivered. Service requirements, sessions, and rosters
-          sync from your SIS — Trellis flags gaps but does not replace your SIS.
-        </span>
-      </div>
     </div>
   );
 }
