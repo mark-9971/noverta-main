@@ -96,15 +96,6 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Reports",
-    icon: BarChart3,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/reports", label: "Reports", icon: BarChart3 },
-    ],
-  },
-  {
     // Collapsed by default — finance workflows, not daily compliance ops.
     label: "Billing",
     icon: CreditCard,
@@ -133,6 +124,7 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
+      { href: "/reports", label: "Reports", icon: BarChart3 },
       // Routes still live — pages work, dashboard cards and command palette
       // can still link here. Items are nav-demoted only; nothing is deleted.
       //
@@ -165,13 +157,11 @@ export const adminNav: NavSection[] = [
   },
 ];
 
-// Mirrors the previous behavior: SPED teachers historically did not see the
-// "District" or "Admin" groups. After the IA trim those groups no longer
-// exist; the equivalent admin-only surfaces now live in "Reports", "Billing",
-// and "Settings". "More tools" stays visible because it still hosts items
+// SPED teachers do not see Billing or Settings (admin-only finance/config).
+// "Compliance Tools" and "More tools" stay visible — they host items
 // teachers/BCBAs use day-to-day (Parent Comms, Programs & Behaviors, FBA/BIP,
-// Restraint & Seclusion, Supervision).
-const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Reports", "Billing", "Settings"]);
+// Restraint & Seclusion, Supervision). Reports link lives in More tools.
+const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Billing", "Settings"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Service Delivery": "My Caseload",
 };
