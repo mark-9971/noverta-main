@@ -311,9 +311,15 @@ export const demoFocusedAdminNav: NavSection[] = adminNav
   })
   .filter((s): s is NavSection => s !== null);
 
-/** Returns the appropriate admin nav based on whether the user is in demo mode. */
-export function getAdminNavForMode(isDemo: boolean): NavSection[] {
-  return isDemo ? demoFocusedAdminNav : adminNav;
+/** Returns the appropriate admin nav based on whether the user is in demo mode.
+ *
+ * NOTE: Temporarily returning the full adminNav in both modes — the demo-mode
+ * trim was hiding IEP, ABA, and other modules the user wants visible while
+ * walking through pilots. `demoFocusedAdminNav` is kept above so we can flip
+ * back to the trimmed view later without re-deriving the allow-list.
+ */
+export function getAdminNavForMode(_isDemo: boolean): NavSection[] {
+  return adminNav;
 }
 
 // SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).

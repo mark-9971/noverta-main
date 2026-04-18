@@ -147,6 +147,8 @@ const MISSED_REASON_DEFS = [
 
 interface StudentProfile {
   id: number;
+  firstName: string;
+  lastName: string;
   tier: "minimal" | "moderate" | "intensive";
   scenario: "healthy" | "shortfall" | "compensatory_risk" | "urgent" | "improving" | "new_enrollment";
   disability: string;
@@ -574,6 +576,8 @@ export async function seedDemoDistrict() {
 
     studentProfiles.push({
       id: student.id,
+      firstName,
+      lastName,
       tier,
       scenario,
       disability,
@@ -1044,71 +1048,91 @@ export async function seedDemoDistrict() {
   console.log(`  Inserted ${blockBatch.length} schedule blocks`);
 
   console.log("\nStep 11: Create alerts...");
+  // Alert authoring rules for the demo seed:
+  //   1. Every alert must reference a real student, requirement, or staff row
+  //      so the click-through link in the UI lands somewhere meaningful.
+  //   2. The `type` field must match one of the values handled by
+  //      computeSourceUrl() in pages/alerts.tsx, otherwise the "View Details"
+  //      link silently disappears.
+  //   3. Messages should name the student and cite a concrete shortfall
+  //      number — vague filler like "monitor closely" reads as placeholder
+  //      copy in front of pilot districts.
   const alertBatch: any[] = [];
   for (const sp of studentProfiles) {
+    const firstName = sp.firstName ?? "Student";
+    const svcCount = sp.services.length;
+    const primarySr = srMap[sp.id]?.[0];
+
     if (sp.scenario === "urgent") {
+      // Critical: severely under-delivered, this is the top of the inbox.
+      const pct = rand(38, 49);
       alertBatch.push({
-        type: "compliance",
-        severity: "high",
+        type: "behind_on_minutes",
+        severity: "critical",
         studentId: sp.id,
-        message: `${sp.services.length > 2 ? "Multiple services" : "Service"} critically under-delivered. Student at risk of compensatory obligation.`,
-        suggestedAction: "Schedule make-up sessions immediately and notify case manager.",
+        serviceRequirementId: primarySr?.id,
+        message: `${firstName} is at ${pct}% of required service minutes this period across ${svcCount} service${svcCount === 1 ? "" : "s"}. Compensatory exposure if unresolved.`,
+        suggestedAction: "Open the compliance view, assign make-up sessions this week, and confirm provider availability.",
         resolved: false,
       });
-      if (Math.random() < 0.5) {
+      // Second urgent alert in ~half of cases — scoped to the provider so the
+      // staff filter on /alerts has data, and surfaces missed-session pattern.
+      if (rand(0, 1) === 0 && primarySr?.providerId) {
+        const missed = rand(3, 5);
         alertBatch.push({
-          type: "compliance",
+          type: "missed_sessions",
           severity: "high",
           studentId: sp.id,
-          staffId: srMap[sp.id][0]?.providerId,
-          serviceRequirementId: srMap[sp.id][0]?.id,
-          message: "IEP service delivery below 50% for current reporting period.",
-          suggestedAction: "Review provider availability and consider temporary reassignment.",
+          staffId: primarySr.providerId,
+          serviceRequirementId: primarySr.id,
+          message: `${missed} sessions missed for ${firstName} in the past 14 days with no make-ups logged.`,
+          suggestedAction: "Reschedule missed sessions or document a coverage plan with the case manager.",
           resolved: false,
         });
       }
     }
     if (sp.scenario === "compensatory_risk") {
+      const owed = rand(45, 90);
       alertBatch.push({
-        type: "compliance",
-        severity: "medium",
+        type: "projected_shortfall",
+        severity: "high",
         studentId: sp.id,
-        message: "Cumulative service shortfall approaching compensatory threshold. Review required.",
-        suggestedAction: "Calculate total minutes owed and prepare compensatory services proposal.",
+        serviceRequirementId: primarySr?.id,
+        message: `${firstName} is projected to end the IEP period ~${owed} minutes short. Compensatory plan likely required.`,
+        suggestedAction: "Review delivery pace on the compliance page and prepare a compensatory services proposal.",
         resolved: false,
       });
     }
     if (sp.scenario === "shortfall") {
+      const pct = rand(70, 79);
       alertBatch.push({
-        type: "compliance",
+        type: "behind_on_minutes",
         severity: "medium",
         studentId: sp.id,
-        message: "Service delivery below 80% for current month. Monitor closely.",
-        suggestedAction: "Review scheduling and prioritize make-up sessions.",
-        resolved: Math.random() < 0.3,
+        serviceRequirementId: primarySr?.id,
+        message: `${firstName} is at ${pct}% of required service minutes — below the 80% pace threshold.`,
+        suggestedAction: "Add one extra session this week to bring delivery back on pace.",
+        // Sprinkle a few pre-resolved ones so the Resolved tab isn't empty.
+        resolved: rand(0, 9) < 3,
       });
     }
   }
 
-  alertBatch.push({
-    type: "compliance",
-    severity: "low",
-    message: "Quarterly compliance report due in 14 days. 3 students require progress updates.",
-    suggestedAction: "Send reminder to case managers for progress report submissions.",
-    resolved: false,
-  });
-  alertBatch.push({
-    type: "compliance",
-    severity: "medium",
-    message: "2 provider schedules have unresolved conflicts for next week.",
-    suggestedAction: "Review schedule blocks and resolve overlapping assignments.",
-    resolved: false,
-  });
+  // Replaced the two hardcoded "Quarterly compliance report due in 14 days"
+  // / "2 provider schedules have unresolved conflicts" alerts: those numbers
+  // were fabricated and the alerts had no studentId, so "View Details" was
+  // hidden. We rely on the per-student alerts above (and the live compliance
+  // engine, which the demo seed reset can invoke via runComplianceChecks) to
+  // populate the inbox.
 
   for (const alert of alertBatch) {
     await db.insert(alertsTable).values(alert);
   }
-  console.log(`  Created ${alertBatch.length} alerts`);
+  const sevTally = alertBatch.reduce<Record<string, number>>((acc, a) => {
+    acc[a.severity] = (acc[a.severity] ?? 0) + 1;
+    return acc;
+  }, {});
+  console.log(`  Created ${alertBatch.length} alerts (${Object.entries(sevTally).map(([k, v]) => `${k}=${v}`).join(", ")})`);
 
   console.log("\nStep 12: Create compensatory obligations...");
   let compCount = 0;
