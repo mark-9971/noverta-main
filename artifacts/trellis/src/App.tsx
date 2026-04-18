@@ -67,6 +67,7 @@ const IepSuggestions = lazy(() => import("@/pages/iep-suggestions"));
 const DistrictOverview = lazy(() => import("@/pages/district-overview"));
 const BehaviorAssessmentPage = lazy(() => import("@/pages/behavior-assessment"));
 const IepBuilderPage = lazy(() => import("@/pages/iep-builder"));
+const IepBuilderLanding = lazy(() => import("@/pages/iep-builder-landing"));
 const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
 const IepCalendarPage = lazy(() => import("@/pages/iep-calendar"));
 const ResourceManagement = lazy(() => import("@/pages/resource-management"));
@@ -172,6 +173,7 @@ function StaffRouter() {
   return (
     <Switch>
       <BoundedRoute path="/" component={Dashboard} fallbackTitle="Dashboard error" />
+      <BoundedRoute path="/iep-builder" component={IepBuilderLanding} fallbackTitle="IEP Builder error" />
       <BoundedRoute path="/students/:id/iep-builder" component={IepBuilderPage} fallbackTitle="IEP Builder error" />
       <BoundedRoute path="/students/:id/iep" component={StudentIepPage} fallbackTitle="Student IEP error" />
       <BoundedRoute path="/students/:id" component={StudentDetail} fallbackTitle="Student details error" />

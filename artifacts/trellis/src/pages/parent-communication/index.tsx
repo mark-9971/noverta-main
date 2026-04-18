@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch, useLocation } from "wouter";
 import { MessageSquare, Plus, Clock, Bell, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
@@ -44,7 +45,13 @@ export default function ParentCommunication() {
   const [filterContactType, setFilterContactType] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const [tab, setTab] = useState<"all" | "overdue" | "notifications" | "comms_log">("all");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const rawTab = new URLSearchParams(search).get("tab");
+  const VALID_TABS = ["all", "overdue", "notifications", "comms_log"] as const;
+  type CommTab = typeof VALID_TABS[number];
+  const tab: CommTab = (VALID_TABS.includes(rawTab as CommTab) ? rawTab : "all") as CommTab;
+  function setTab(t: CommTab) { navigate(`/parent-communication?tab=${t}`, { replace: true }); }
   const [commsEvents, setCommsEvents] = useState<CommEvent[]>([]);
   const [commsLoading, setCommsLoading] = useState(false);
 

@@ -1,70 +1,24 @@
-import { useState, useEffect } from "react";
 import { GraduationCap } from "lucide-react";
-import { useSearch, useLocation } from "wouter";
 import IepMeetings from "./iep-meetings";
 import IepCalendar from "./iep-calendar";
-import IepSearch from "./iep-search";
-import AccommodationLookup from "./accommodation-lookup";
-
-const TABS = [
-  { key: "meetings" as const, label: "Meetings" },
-  { key: "calendar" as const, label: "Calendar" },
-  { key: "search" as const, label: "Search" },
-  { key: "accommodations" as const, label: "Accommodations" },
-];
-
-type Tab = typeof TABS[number]["key"];
-const VALID_KEYS = TABS.map(t => t.key);
-
-function resolveTab(search: string): Tab {
-  const p = new URLSearchParams(search).get("tab");
-  return (p && VALID_KEYS.includes(p as Tab) ? p : "meetings") as Tab;
-}
 
 export default function IepHub() {
-  const search = useSearch();
-  const [, navigate] = useLocation();
-  const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
-
-  useEffect(() => {
-    setTabState(resolveTab(search));
-  }, [search]);
-
-  function setTab(t: Tab) {
-    setTabState(t);
-    navigate(`/iep?tab=${t}`, { replace: true });
-  }
-
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2 tracking-tight">
           <GraduationCap className="w-5 h-5 text-emerald-600" />
-          IEP
+          IEP Calendar &amp; Meetings
         </h1>
-        <p className="text-xs text-gray-400 mt-1">Meetings, compliance calendar, document search, and accommodation tracking</p>
+        <p className="text-xs text-gray-400 mt-1">Compliance calendar and upcoming IEP meetings</p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px ${
-              tab === t.key
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <IepCalendar embedded />
 
-      {tab === "meetings" && <IepMeetings embedded />}
-      {tab === "calendar" && <IepCalendar embedded />}
-      {tab === "search" && <IepSearch embedded />}
-      {tab === "accommodations" && <AccommodationLookup embedded />}
+      <div className="pt-2">
+        <h2 className="text-base font-semibold text-gray-700 mb-4">IEP Meetings</h2>
+        <IepMeetings embedded />
+      </div>
     </div>
   );
 }

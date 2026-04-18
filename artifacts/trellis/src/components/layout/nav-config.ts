@@ -7,7 +7,7 @@ import {
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  MoreHorizontal, Trash2, CheckCircle,
+  MoreHorizontal, Trash2, CheckCircle, Bell, Send, Gift,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -98,7 +98,13 @@ export const adminNav: NavSection[] = [
           { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
         ],
       },
-      { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
+      {
+        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
+        children: [
+          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
+          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+        ],
+      },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
@@ -110,15 +116,9 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/iep", label: "IEP", icon: GraduationCap,
-        children: [
-          { href: "/iep?tab=meetings", label: "Meetings", icon: Users },
-          { href: "/iep?tab=calendar", label: "Calendar", icon: Calendar },
-          { href: "/iep?tab=search", label: "Search", icon: Search },
-          { href: "/iep?tab=accommodations", label: "Accommodations", icon: FileText },
-        ],
-      },
+      { href: "/iep-search", label: "IEP Search", icon: Search },
+      { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
+      { href: "/iep", label: "Calendar & Meetings", icon: Calendar },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
@@ -217,10 +217,25 @@ export const adminNav: NavSection[] = [
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+      {
+        href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
+        children: [
+          { href: "/parent-communication?tab=all", label: "All Contacts", icon: MessageSquare },
+          { href: "/parent-communication?tab=overdue", label: "Overdue Follow-ups", icon: Clock },
+          { href: "/parent-communication?tab=notifications", label: "Notifications Needed", icon: Bell },
+          { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
+        ],
+      },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
-      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
+      {
+        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
+          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
+        ],
+      },
     ],
   },
 ];

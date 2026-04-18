@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift, Plus, Calculator, TrendingDown } from "lucide-react";
@@ -17,7 +18,13 @@ import { ObligationList } from "./ObligationList";
 
 export default function CompensatoryServices() {
   const { selectedSchoolId } = useSchoolContext();
-  const [activeTab, setActiveTab] = useState<"obligations" | "cost-avoidance">("obligations");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const rawTab = new URLSearchParams(search).get("tab");
+  const activeTab: "obligations" | "cost-avoidance" = rawTab === "cost-avoidance" ? "cost-avoidance" : "obligations";
+  function setActiveTab(t: "obligations" | "cost-avoidance") {
+    navigate(`/compensatory-services?tab=${t}`, { replace: true });
+  }
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");

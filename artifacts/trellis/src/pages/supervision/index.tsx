@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearch, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSchoolContext } from "@/lib/school-context";
@@ -20,7 +21,15 @@ export default function Supervision() {
   const { selectedSchoolId } = useSchoolContext();
   const { role } = useRole();
   const isAdminOrTeacher = role === "admin" || role === "sped_teacher";
-  const [activeTab, setActiveTab] = useState<"log" | "compliance" | "trend">("log");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const rawTab = new URLSearchParams(search).get("tab");
+  const VALID_TABS = ["log", "compliance", "trend"] as const;
+  type SupervisionTab = typeof VALID_TABS[number];
+  const activeTab: SupervisionTab = (VALID_TABS.includes(rawTab as SupervisionTab) ? rawTab : "log") as SupervisionTab;
+  function setActiveTab(t: SupervisionTab) {
+    navigate(`/supervision?tab=${t}`, { replace: true });
+  }
   const [sessions, setSessions] = useState<SupervisionSession[]>([]);
   const [compliance, setCompliance] = useState<ComplianceSummary[]>([]);
   const [trend, setTrend] = useState<{ weekStart: string; totalMinutes: number }[]>([]);
