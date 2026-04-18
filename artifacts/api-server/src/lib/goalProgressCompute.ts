@@ -206,12 +206,13 @@ export async function computeGoalProgressEntries(
 
       const progressCode = toMaProgressCode(progressRating, trendDirection, dataPoints);
 
-      return {
+      const entry: GoalProgressEntry = {
         iepGoalId: goal.id,
-        goalArea: goal.goalArea || "",
-        goalNumber: goal.goalNumber || 1,
-        annualGoal: goal.annualGoal || "",
-        baseline: goal.baseline || "",
+        goalArea: goal.goalArea ?? "",
+        goalNumber: goal.goalNumber ?? 1,
+        annualGoal: goal.annualGoal ?? "",
+        baseline: goal.baseline ?? null,
+        targetCriterion: goal.targetCriterion ?? null,
         currentPerformance,
         progressRating,
         progressCode,
@@ -222,7 +223,11 @@ export async function computeGoalProgressEntries(
         percentCorrect,
         behaviorValue,
         behaviorGoal,
-      } as GoalProgressEntry;
+        benchmarks: goal.benchmarks ?? null,
+        measurementMethod: goal.measurementMethod ?? null,
+        serviceArea: goal.serviceArea ?? null,
+      };
+      return entry;
     }),
   );
 
