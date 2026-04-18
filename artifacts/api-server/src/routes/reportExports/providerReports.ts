@@ -1,18 +1,12 @@
 // tenant-scope: district-join
 import { Router, type Request, type Response } from "express";
-import { db } from "@workspace/db";
-import {
-  studentsTable, serviceTypesTable, sessionLogsTable, schoolsTable,
-  staffTable, staffAssignmentsTable, iepDocumentsTable,
-} from "@workspace/db";
-import { eq, and, asc, lte, gte, isNull, sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import {
-  resolveExportScope, buildCSV, fmtDate, districtCondition, recordExport,
+  resolveExportScope, buildCSV, fmtDate, recordExport,
   initPdfDoc, pdfHeader, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters,
   PDF_COLORS, ROLE_LABELS,
 } from "./utils";
+import { fetchProviderSessionData, fetchStudentRosterData, fetchCaseloadData } from "./fetchers";
 
 const router = Router();
 
@@ -26,18 +20,16 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
-    if (scope.enforcedDistrictId !== null) {
-      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
-    }
-    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
-    if (providerId) staffConditions.push(eq(staffTable.id, Number(providerId)));
-
-    const staffMembers = await db.select({
-      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
-      role: staffTable.role, schoolName: schoolsTable.name,
-    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
-      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
+    const { staffMembers, sessionData } = await fetchProviderSessionData(
+      scope.enforcedDistrictId,
+      {
+        start,
+        end,
+        schoolId: schoolId ? Number(schoolId) : null,
+        providerId: providerId ? Number(providerId) : null,
+        serviceTypeId: serviceTypeId ? Number(serviceTypeId) : null,
+      },
+    );
 
     if (staffMembers.length === 0) {
       const h = ["Provider", "Role", "School", "Service Type", "Sessions Completed", "Missed Sessions", "Total Minutes", "Unique Students"];
@@ -46,27 +38,6 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
       res.send(buildCSV(h, []));
       return;
     }
-
-    const staffIds = staffMembers.map(s => s.id);
-    const staffIdList = sql.join(staffIds.map(id => sql`${id}`), sql`, `);
-
-    const sessConditions: SQL[] = [
-      sql`${sessionLogsTable.staffId} IN (${staffIdList})`,
-      gte(sessionLogsTable.sessionDate, start),
-      lte(sessionLogsTable.sessionDate, end),
-      isNull(sessionLogsTable.deletedAt),
-    ];
-    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
-
-    const sessionData = await db.select({
-      staffId: sessionLogsTable.staffId,
-      serviceTypeName: serviceTypesTable.name,
-      status: sessionLogsTable.status,
-      durationMinutes: sessionLogsTable.durationMinutes,
-      studentId: sessionLogsTable.studentId,
-    }).from(sessionLogsTable)
-      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-      .where(and(...sessConditions));
 
     const providerMap = new Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }>();
     for (const s of sessionData) {
@@ -115,34 +86,16 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
 
-    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
-    if (scope.enforcedDistrictId !== null) {
-      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
-    }
-    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
-    if (providerId) staffConditions.push(eq(staffTable.id, Number(providerId)));
-
-    const staffMembers = await db.select({
-      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
-      role: staffTable.role, schoolName: schoolsTable.name,
-    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
-      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
-
-    const staffIds = staffMembers.map(s => s.id);
-    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-
-    const sessConditions: SQL[] = [sql`${sessionLogsTable.staffId} IN (${staffIdList})`, gte(sessionLogsTable.sessionDate, start), lte(sessionLogsTable.sessionDate, end), isNull(sessionLogsTable.deletedAt)];
-    if (serviceTypeId) sessConditions.push(eq(sessionLogsTable.serviceTypeId, Number(serviceTypeId)));
-
-    const sessionData = await db.select({
-      staffId: sessionLogsTable.staffId,
-      serviceTypeName: serviceTypesTable.name,
-      status: sessionLogsTable.status,
-      durationMinutes: sessionLogsTable.durationMinutes,
-      studentId: sessionLogsTable.studentId,
-    }).from(sessionLogsTable)
-      .leftJoin(serviceTypesTable, eq(serviceTypesTable.id, sessionLogsTable.serviceTypeId))
-      .where(and(...sessConditions));
+    const { staffMembers, sessionData } = await fetchProviderSessionData(
+      scope.enforcedDistrictId,
+      {
+        start,
+        end,
+        schoolId: schoolId ? Number(schoolId) : null,
+        providerId: providerId ? Number(providerId) : null,
+        serviceTypeId: serviceTypeId ? Number(serviceTypeId) : null,
+      },
+    );
 
     const providerMap = new Map<number, { services: Map<string, { completed: number; missed: number; minutes: number; students: Set<number> }> }>();
     for (const s of sessionData) {
@@ -209,33 +162,10 @@ router.get("/reports/exports/student-roster.csv", async (req: Request, res: Resp
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
 
-    const conditions: SQL[] = [isNull(studentsTable.deletedAt)];
-    if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
-    const dc = districtCondition(scope.enforcedDistrictId);
-    if (dc) conditions.push(dc);
-    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
-
-    const students = await db.select({
-      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
-      grade: studentsTable.grade, dateOfBirth: studentsTable.dateOfBirth, status: studentsTable.status,
-      disabilityCategory: studentsTable.disabilityCategory, placementType: studentsTable.placementType,
-      schoolName: schoolsTable.name, enrolledAt: studentsTable.enrolledAt,
-    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
-      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
-
-    const sIds = students.map(s => s.id);
-    const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-
-    const iepRows = sIds.length > 0 ? await db.select({
-      studentId: iepDocumentsTable.studentId,
-      iepStartDate: iepDocumentsTable.iepStartDate,
-      iepEndDate: iepDocumentsTable.iepEndDate,
-      status: iepDocumentsTable.status,
-    }).from(iepDocumentsTable)
-      .where(and(eq(iepDocumentsTable.active, true), sql`${iepDocumentsTable.studentId} IN (${idList})`)) : [];
-
-    const iepMap = new Map<number, typeof iepRows[0]>();
-    for (const r of iepRows) iepMap.set(r.studentId, r);
+    const { students, iepMap } = await fetchStudentRosterData(
+      scope.enforcedDistrictId,
+      { schoolId: schoolId ? Number(schoolId) : null, statusFilter },
+    );
 
     const headers = ["Last Name", "First Name", "Grade", "School", "Status", "Disability Category", "Placement", "Date of Birth", "Enrolled", "IEP Start", "IEP End", "IEP Status"];
     const csvRows = students.map(s => {
@@ -267,27 +197,10 @@ router.get("/reports/exports/student-roster.pdf", async (req: Request, res: Resp
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
 
-    const conditions: SQL[] = [isNull(studentsTable.deletedAt)];
-    if (statusFilter !== "all") conditions.push(eq(studentsTable.status, statusFilter));
-    const dc = districtCondition(scope.enforcedDistrictId);
-    if (dc) conditions.push(dc);
-    if (schoolId) conditions.push(eq(studentsTable.schoolId, Number(schoolId)));
-
-    const students = await db.select({
-      id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName,
-      grade: studentsTable.grade, status: studentsTable.status, disabilityCategory: studentsTable.disabilityCategory,
-      placementType: studentsTable.placementType, schoolName: schoolsTable.name,
-    }).from(studentsTable).leftJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
-      .where(and(...conditions)).orderBy(asc(studentsTable.lastName));
-
-    const sIds = students.map(s => s.id);
-    const idList = sIds.length > 0 ? sql.join(sIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-
-    const iepRows = sIds.length > 0 ? await db.select({
-      studentId: iepDocumentsTable.studentId, iepEndDate: iepDocumentsTable.iepEndDate, status: iepDocumentsTable.status,
-    }).from(iepDocumentsTable).where(and(eq(iepDocumentsTable.active, true), sql`${iepDocumentsTable.studentId} IN (${idList})`)) : [];
-    const iepMap = new Map<number, typeof iepRows[0]>();
-    for (const r of iepRows) iepMap.set(r.studentId, r);
+    const { students, iepMap } = await fetchStudentRosterData(
+      scope.enforcedDistrictId,
+      { schoolId: schoolId ? Number(schoolId) : null, statusFilter },
+    );
 
     const doc = initPdfDoc();
     res.setHeader("Content-Type", "application/pdf");
@@ -341,27 +254,10 @@ router.get("/reports/exports/caseload-distribution.csv", async (req: Request, re
 
     const { schoolId } = req.query;
 
-    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
-    if (scope.enforcedDistrictId !== null) {
-      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
-    }
-    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
-
-    const staffMembers = await db.select({
-      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
-      role: staffTable.role, schoolName: schoolsTable.name,
-    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
-      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
-
-    const staffIds = staffMembers.map(s => s.id);
-    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-
-    const assignments = staffIds.length > 0 ? await db.select({
-      staffId: staffAssignmentsTable.staffId,
-      studentId: staffAssignmentsTable.studentId,
-      assignmentType: staffAssignmentsTable.assignmentType,
-    }).from(staffAssignmentsTable)
-      .where(sql`${staffAssignmentsTable.staffId} IN (${staffIdList})`) : [];
+    const { staffMembers, assignments } = await fetchCaseloadData(
+      scope.enforcedDistrictId,
+      { schoolId: schoolId ? Number(schoolId) : null },
+    );
 
     const caseloadMap = new Map<number, { students: Set<number>; types: Set<string> }>();
     for (const a of assignments) {
@@ -400,25 +296,10 @@ router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, re
 
     const { schoolId } = req.query;
 
-    const staffConditions: SQL[] = [isNull(staffTable.deletedAt), eq(staffTable.status, "active")];
-    if (scope.enforcedDistrictId !== null) {
-      staffConditions.push(sql`${staffTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${scope.enforcedDistrictId})`);
-    }
-    if (schoolId) staffConditions.push(eq(staffTable.schoolId, Number(schoolId)));
-
-    const staffMembers = await db.select({
-      id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName,
-      role: staffTable.role, schoolName: schoolsTable.name,
-    }).from(staffTable).leftJoin(schoolsTable, eq(schoolsTable.id, staffTable.schoolId))
-      .where(and(...staffConditions)).orderBy(asc(staffTable.lastName));
-
-    const staffIds = staffMembers.map(s => s.id);
-    const staffIdList = staffIds.length > 0 ? sql.join(staffIds.map(id => sql`${id}`), sql`, `) : sql`0`;
-
-    const assignments = staffIds.length > 0 ? await db.select({
-      staffId: staffAssignmentsTable.staffId,
-      studentId: staffAssignmentsTable.studentId,
-    }).from(staffAssignmentsTable).where(sql`${staffAssignmentsTable.staffId} IN (${staffIdList})`) : [];
+    const { staffMembers, assignments } = await fetchCaseloadData(
+      scope.enforcedDistrictId,
+      { schoolId: schoolId ? Number(schoolId) : null },
+    );
 
     const caseloadMap = new Map<number, Set<number>>();
     for (const a of assignments) {
