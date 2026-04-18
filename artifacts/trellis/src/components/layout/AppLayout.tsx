@@ -12,6 +12,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { DemoBanner, useActiveDemoDistrict } from "@/components/DemoBanner";
+import { ViewAsBanner } from "@/components/layout/ViewAsBanner";
 import { SampleDataBanner } from "@/components/SampleDataBanner";
 import { SampleDataTour } from "@/components/SampleDataTour";
 import { ShowcaseTour } from "@/components/ShowcaseTour";
@@ -451,6 +452,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        <ViewAsBanner />
         <DemoBanner />
         <SampleDataBanner />
         <SampleDataTour />

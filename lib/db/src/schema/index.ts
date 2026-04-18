@@ -108,3 +108,4 @@ export * from "./goalAnnotations";
 export * from "./rateLimitBuckets";
 export * from "./uploadQuotas";
 export * from "./emailDeliveries";
+export * from "./viewAsSessions";

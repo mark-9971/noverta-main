@@ -34,6 +34,25 @@ export function logAudit(req: Request, entry: AuditEntry): void {
   const { userId: actorUserId, role: actorRole } = resolveActor(req);
   const ipAddress = getClientIp(req);
 
+  // If the request is being made under an active "view-as" session (a platform
+  // admin acting AS a target user), preserve that context inside the audit row's
+  // metadata. The actorUserId/actorRole columns intentionally reflect the
+  // EFFECTIVE user (the target), so route-level invariants like "this row was
+  // created by the case manager" still hold; the impersonation is recorded as a
+  // sidecar tag that compliance review can filter on.
+  const authed = req as AuthedRequest;
+  let metadata = entry.metadata ?? null;
+  if (authed.viewAsAdminUserId) {
+    metadata = {
+      ...(metadata ?? {}),
+      viewAs: {
+        adminUserId: authed.viewAsAdminUserId,
+        adminRole: authed.viewAsAdminRole ?? null,
+        sessionId: authed.viewAsSessionId ?? null,
+      },
+    };
+  }
+
   db.insert(auditLogsTable)
     .values({
       actorUserId,
@@ -46,7 +65,7 @@ export function logAudit(req: Request, entry: AuditEntry): void {
       summary: entry.summary ?? null,
       oldValues: entry.oldValues ?? null,
       newValues: entry.newValues ?? null,
-      metadata: entry.metadata ?? null,
+      metadata,
     })
     .execute()
     .catch((err) => {

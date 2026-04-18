@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { registerTokenProvider } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
+import { ViewAsProvider } from "@/lib/view-as-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { SchoolProvider } from "@/lib/school-context";
 import { TierProvider } from "@/lib/tier-context";
@@ -349,26 +350,30 @@ function App() {
               <Route path="/data-panel">
                 <ProtectedRoutes>
                   <RoleProvider>
-                    <GatedContent>
-                      <Suspense fallback={<PageLoader />}>
-                        <DataPanelPage />
-                      </Suspense>
-                    </GatedContent>
+                    <ViewAsProvider>
+                      <GatedContent>
+                        <Suspense fallback={<PageLoader />}>
+                          <DataPanelPage />
+                        </Suspense>
+                      </GatedContent>
+                    </ViewAsProvider>
                   </RoleProvider>
                 </ProtectedRoutes>
               </Route>
               <Route>
                 <ProtectedRoutes>
                   <RoleProvider>
-                    <ThemeProvider>
-                      <SchoolProvider>
-                        <TierProvider>
-                          <SessionTimerProvider>
-                            <GatedContent />
-                          </SessionTimerProvider>
-                        </TierProvider>
-                      </SchoolProvider>
-                    </ThemeProvider>
+                    <ViewAsProvider>
+                      <ThemeProvider>
+                        <SchoolProvider>
+                          <TierProvider>
+                            <SessionTimerProvider>
+                              <GatedContent />
+                            </SessionTimerProvider>
+                          </TierProvider>
+                        </SchoolProvider>
+                      </ThemeProvider>
+                    </ViewAsProvider>
                   </RoleProvider>
                 </ProtectedRoutes>
               </Route>

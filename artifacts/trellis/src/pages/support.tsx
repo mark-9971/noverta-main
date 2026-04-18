@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiGet } from "@/lib/api";
 import { useRole } from "@/lib/role-context";
+import { useViewAs } from "@/lib/view-as-context";
 import {
   Building2, Loader2, Search, AlertTriangle, CheckCircle, XCircle,
   Activity, Database, Users, FileWarning, ArrowLeft, ExternalLink, Clock,
   Sparkles, FlaskConical, CreditCard, ShieldOff, ListChecks, Mail, Lock,
-  Layers, UserSearch,
+  Layers, UserSearch, ShieldAlert,
 } from "lucide-react";
 
 type DistrictMode = "demo" | "pilot" | "paid" | "trial" | "unpaid" | "unconfigured";
@@ -458,11 +459,109 @@ function AccessDenialsPanel() {
   );
 }
 
+interface ViewAsCandidate {
+  userId: string;
+  role: string;
+  displayName: string;
+  districtId: number | null;
+  staffId: number | null;
+}
+
+function ViewAsStartDialog({ candidate, onClose }: { candidate: ViewAsCandidate; onClose: () => void }) {
+  const { startSession } = useViewAs();
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const tooShort = reason.trim().length < 8;
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tooShort || submitting) return;
+    setSubmitting(true); setErr(null);
+    const r = await startSession({
+      targetUserId: candidate.userId,
+      reason: reason.trim(),
+      targetSnapshot: {
+        role: candidate.role,
+        displayName: candidate.displayName,
+        districtId: candidate.districtId,
+        staffId: candidate.staffId,
+      },
+    });
+    setSubmitting(false);
+    if (!r.ok) { setErr(r.error); return; }
+    onClose();
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-testid="view-as-dialog"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-md w-full p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-3">
+          <ShieldAlert className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-gray-900">Start view-as session</h3>
+            <p className="text-xs text-gray-600 mt-1">
+              You'll act as <span className="font-medium">{candidate.displayName}</span>{" "}
+              <span className="font-mono text-gray-500">({candidate.role})</span> for up to 30 minutes.
+              All actions you take will be tagged in the audit log with your admin identity.
+            </p>
+          </div>
+        </div>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Reason <span className="text-red-600">*</span>{" "}
+              <span className="text-gray-500 font-normal">(min 8 chars, required)</span>
+            </label>
+            <textarea
+              data-testid="view-as-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Investigating ticket #4821 — user reports IEP draft won't save"
+              className="w-full text-sm px-3 py-2 border border-gray-300 rounded resize-none"
+              autoFocus
+            />
+          </div>
+          {err && <div className="text-xs text-red-600" data-testid="view-as-error">{err}</div>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50"
+            >Cancel</button>
+            <button
+              type="submit"
+              disabled={tooShort || submitting}
+              data-testid="view-as-submit"
+              className="text-sm px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldAlert className="h-3 w-3" />}
+              Start session
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function UserLookupPanel() {
   const [q, setQ] = useState("");
   const [data, setData] = useState<UserLookupReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [viewAsCandidate, setViewAsCandidate] = useState<ViewAsCandidate | null>(null);
+  const { isActive: viewAsActive } = useViewAs();
   const lookup = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!q.trim()) return;
@@ -473,6 +572,9 @@ function UserLookupPanel() {
   };
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {viewAsCandidate && (
+        <ViewAsStartDialog candidate={viewAsCandidate} onClose={() => setViewAsCandidate(null)} />
+      )}
       <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
         <UserSearch className="h-4 w-4 text-gray-500" />
         <h2 className="text-sm font-semibold text-gray-900">User lookup</h2>
@@ -526,6 +628,27 @@ function UserLookupPanel() {
                       <div><span className="text-gray-500">Staff (metadata):</span> {data.clerk.staffId ?? "—"}</div>
                       <div><span className="text-gray-500">Platform admin:</span> {data.clerk.platformAdmin ? "yes" : "no"}</div>
                       <div><span className="text-gray-500">Last sign in:</span> {data.clerk.lastSignInAt ? fmtRelative(new Date(data.clerk.lastSignInAt).toISOString()) : "never"}</div>
+                      {data.clerk.role && !data.clerk.platformAdmin && (
+                        <div className="pt-2 mt-2 border-t border-gray-100">
+                          <button
+                            type="button"
+                            data-testid="view-as-start-button"
+                            disabled={viewAsActive}
+                            onClick={() => setViewAsCandidate({
+                              userId: data.clerk!.userId,
+                              role: data.clerk!.role!,
+                              displayName: data.clerk!.primaryEmail ?? data.clerk!.userId,
+                              districtId: data.clerk!.districtId ?? null,
+                              staffId: data.clerk!.staffId ?? null,
+                            })}
+                            title={viewAsActive ? "End the current view-as session before starting another" : "Open the view-as start dialog"}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ShieldAlert className="h-3 w-3" />
+                            {viewAsActive ? "View-as already active" : "View as this user…"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
               </div>

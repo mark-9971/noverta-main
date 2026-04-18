@@ -5,6 +5,7 @@ import { getPublicMeta } from "../lib/clerkClaims";
 import { recordAccessDenial } from "../lib/accessDenials";
 import { db, staffTable, schoolsTable } from "@workspace/db";
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
+import { loadActiveViewAsSession, VIEW_AS_HEADER, endSessionByToken } from "../lib/viewAsSession";
 
 export interface AuthedRequest extends Request {
   userId: string;
@@ -18,6 +19,16 @@ export interface AuthedRequest extends Request {
   tenantStudentId: number | null;
   /** Guardian ID from the authenticated token (sped_parent role only). */
   tenantGuardianId: number | null;
+
+  /**
+   * View-as / impersonation context. When a platform admin is acting AS another
+   * user via X-View-As-Token, all the tenant-scope fields above are rewritten
+   * to the target user's identity, and these fields are populated with the
+   * original admin's identity so audit log rows tag the impersonation.
+   */
+  viewAsAdminUserId?: string;
+  viewAsAdminRole?: TrellisRole;
+  viewAsSessionId?: number;
 }
 
 function extractRole(req: Request): TrellisRole | null {
@@ -46,6 +57,48 @@ function extractDisplayName(req: Request): string {
   return "User";
 }
 
+/**
+ * Apply a view-as override AFTER base auth has populated req.userId/role/etc.
+ * Looks up the session row by token, validates that it belongs to the calling
+ * admin and is not ended/expired, and rewrites tenant scope to act as the
+ * target user. The original admin id is preserved on the request for audit
+ * tagging via lib/auditLog.ts.
+ *
+ * Failure modes:
+ *  - Token present but invalid/expired/wrong-admin → silently NO-OP (the
+ *    request continues as the admin themselves). End-session and active-info
+ *    endpoints surface the failure explicitly via their own DB lookups.
+ *  - Session expired by clock but row still open → also auto-ends the row so
+ *    audit trail captures the timeout.
+ */
+async function applyViewAsOverride(req: Request, token: string): Promise<void> {
+  const authed = req as AuthedRequest;
+  const adminUserId = authed.userId;
+  const adminRole = authed.trellisRole;
+
+  const session = await loadActiveViewAsSession(token, adminUserId);
+  // NOTE: do NOT auto-end on null here. loadActiveViewAsSession returns null
+  // for several distinct reasons — wrong admin, ended already, or expired —
+  // and we must not collapse them. In particular, ending a session because
+  // the wrong admin presented its token would let admin B silently terminate
+  // admin A's still-valid session by simply hitting any endpoint with the
+  // header. Self-healing of expired-but-open rows is handled by
+  // /support/view-as/active when the legitimate admin polls.
+  if (!session) return;
+
+  authed.viewAsAdminUserId = adminUserId;
+  authed.viewAsAdminRole = adminRole;
+  authed.viewAsSessionId = session.id;
+
+  authed.userId = session.targetUserId;
+  authed.trellisRole = session.targetRole as TrellisRole;
+  authed.displayName = session.targetDisplayName;
+  authed.tenantDistrictId = session.targetDistrictId;
+  authed.tenantStaffId = session.targetStaffId;
+  authed.tenantStudentId = session.targetStudentId;
+  authed.tenantGuardianId = session.targetGuardianId;
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   // Production: explicitly reject any dev-only test headers to prevent spoofing.
   if (process.env.NODE_ENV === "production") {
@@ -71,7 +124,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       authed.tenantStaffId = null;
       authed.tenantStudentId = null;
       authed.tenantGuardianId = null;
-      next();
+      maybeApplyViewAsAndContinue(req, next);
       return;
     }
   }
@@ -102,7 +155,23 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   authedReq.tenantStudentId = meta.studentId ?? null;
   authedReq.tenantGuardianId = meta.guardianId ?? null;
 
-  next();
+  maybeApplyViewAsAndContinue(req, next);
+}
+
+/**
+ * If the request carries an X-View-As-Token header, asynchronously apply the
+ * view-as override and then continue. Otherwise call next() synchronously.
+ *
+ * Centralised here so both the test-mode bypass and the real Clerk path
+ * funnel through the same impersonation gate. Idempotent on repeat
+ * requireAuth calls within a single HTTP request because applyViewAsOverride
+ * consults a per-token in-memory cache.
+ */
+function maybeApplyViewAsAndContinue(req: Request, next: NextFunction): void {
+  const raw = req.headers[VIEW_AS_HEADER];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof token !== "string" || !token) { next(); return; }
+  applyViewAsOverride(req, token).then(() => next()).catch(next);
 }
 
 /**
@@ -301,6 +370,16 @@ export function requireMinRole(minRole: TrellisRole) {
 
 export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
+    // Test-mode bypass: mirror the same pattern requireDistrictScope already
+    // uses for its `x-test-platform-admin: true` header. Without this the
+    // /support routes (including the view-as impersonation endpoints) would
+    // be unreachable from the regression suite, since test mode has no Clerk
+    // session and therefore no `meta.platformAdmin` claim. The header is
+    // explicitly rejected in production by the requireAuth block above.
+    if (process.env.NODE_ENV === "test" && req.headers["x-test-platform-admin"] === "true") {
+      next();
+      return;
+    }
     const meta = getPublicMeta(req);
     if (!meta.platformAdmin) {
       recordAccessDenial(req, "platform_admin_required", 403, "Non-platform-admin attempted to reach a /support endpoint");

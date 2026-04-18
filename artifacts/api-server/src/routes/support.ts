@@ -6,11 +6,19 @@ import {
   db, districtsTable, districtSubscriptionsTable, schoolsTable, studentsTable,
   staffTable, sisConnectionsTable, sisSyncLogsTable, importsTable,
   communicationEventsTable, onboardingProgressTable, auditLogsTable,
+  viewAsSessionsTable,
   TIER_MODULES, MODULE_FEATURES, MODULE_LABELS, TIER_LABELS,
   type DistrictTier, type ProductModule, type FeatureKey,
 } from "@workspace/db";
 import { and, eq, inArray, isNull, sql, desc, ilike, or } from "drizzle-orm";
-import { requirePlatformAdmin } from "../middlewares/auth";
+import { requirePlatformAdmin, type AuthedRequest } from "../middlewares/auth";
+import { logAudit } from "../lib/auditLog";
+import {
+  generateToken, hashToken, loadActiveViewAsSession,
+  endActiveSessionsForAdmin, endSessionByToken,
+  invalidateViewAsTokenCache, VIEW_AS_HEADER, VIEW_AS_TTL_MS,
+} from "../lib/viewAsSession";
+import { isRole } from "../lib/permissions";
 import { runDataHealthChecks } from "../lib/dataHealthChecks";
 import { runDistrictReadinessChecks } from "../lib/pilotReadiness";
 import { deriveDistrictMode } from "../lib/districtMode";
@@ -1143,5 +1151,293 @@ router.get("/support/demo-readiness", async (_req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to compute demo readiness" });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Audited "view-as" / impersonation sessions for platform admins.
+//
+// Lifecycle:
+//   POST /api/support/view-as/start   { targetUserId, reason, [targetSnapshot] }
+//     -> { token, sessionId, expiresAt, target: { ... } }
+//   GET  /api/support/view-as/active  (header X-View-As-Token: <token>)
+//     -> { active: true, session: { ... } } | 404
+//   POST /api/support/view-as/end     (header X-View-As-Token: <token>)
+//     -> { ended: true, sessionId }
+//
+// All three endpoints sit under requirePlatformAdmin, which means a non-admin
+// can never start, query, or extend a session. Hijack protection is layered
+// inside loadActiveViewAsSession: a token only resolves when the caller's
+// userId matches the session's adminUserId, so even a leaked token cannot be
+// replayed by a different platform-admin account.
+// ---------------------------------------------------------------------------
+
+const REASON_MIN_LENGTH = 8;
+const REASON_MAX_LENGTH = 500;
+
+interface StartBody {
+  targetUserId?: string;
+  reason?: string;
+  // Dev/test-only override: in production we resolve the snapshot via Clerk +
+  // staff lookup so admins cannot fabricate a fake target identity. Outside
+  // production (no Clerk user available in unit tests) the snapshot is honored.
+  targetSnapshot?: {
+    role?: string;
+    displayName?: string;
+    districtId?: number | null;
+    staffId?: number | null;
+    studentId?: number | null;
+    guardianId?: number | null;
+  };
+}
+
+router.post("/support/view-as/start", async (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as StartBody;
+  const targetUserId = String(body.targetUserId ?? "").trim();
+  const reason = String(body.reason ?? "").trim();
+
+  if (!targetUserId) { res.status(400).json({ error: "targetUserId is required" }); return; }
+  if (reason.length < REASON_MIN_LENGTH) {
+    res.status(400).json({ error: `reason is required (min ${REASON_MIN_LENGTH} chars)` });
+    return;
+  }
+  if (reason.length > REASON_MAX_LENGTH) {
+    res.status(400).json({ error: `reason must be ${REASON_MAX_LENGTH} chars or fewer` });
+    return;
+  }
+
+  const authed = req as AuthedRequest;
+  const adminUserId = authed.userId;
+  if (targetUserId === adminUserId) {
+    // No-op vanity impersonation; reject so audit reviewers don't see noise.
+    res.status(400).json({ error: "Cannot start a view-as session targeting yourself" });
+    return;
+  }
+
+  // Resolve target snapshot. Production: prefer Clerk + staff lookup so the
+  // admin cannot synthesize a fake target identity. Non-production: accept the
+  // body snapshot as a fallback (test suites supply this directly).
+  const snap = await resolveTargetSnapshot(targetUserId, body.targetSnapshot ?? null);
+  if (!snap) {
+    res.status(404).json({ error: "Could not resolve target user — no Clerk record or staff row found" });
+    return;
+  }
+
+  // End any pre-existing open sessions for this admin so there is exactly one
+  // active impersonation per admin at any time. Captures the supersede in audit.
+  const supersededCount = await endActiveSessionsForAdmin(adminUserId, "superseded");
+
+  const { token, tokenHash } = generateToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + VIEW_AS_TTL_MS);
+
+  const [row] = await db.insert(viewAsSessionsTable).values({
+    adminUserId,
+    reason,
+    targetUserId: snap.userId,
+    targetRole: snap.role,
+    targetDisplayName: snap.displayName,
+    targetDistrictId: snap.districtId,
+    targetStaffId: snap.staffId,
+    targetStudentId: snap.studentId,
+    targetGuardianId: snap.guardianId,
+    tokenHash,
+    startedAt: now,
+    expiresAt,
+  }).returning();
+
+  // Audit the start. We capture this BEFORE the override would apply (this
+  // request is the admin themselves) so actorUserId/actorRole reflect the
+  // real platform admin, not the target.
+  logAudit(req, {
+    action: "create",
+    targetTable: "view_as_sessions",
+    targetId: row.id,
+    summary: `Platform admin started view-as session for ${snap.displayName} (${snap.userId})`,
+    metadata: {
+      reason,
+      targetUserId: snap.userId,
+      targetRole: snap.role,
+      targetDistrictId: snap.districtId,
+      expiresAt: expiresAt.toISOString(),
+      supersededCount,
+    },
+  });
+
+  res.json({
+    token,
+    sessionId: row.id,
+    startedAt: row.startedAt,
+    expiresAt: row.expiresAt,
+    target: {
+      userId: snap.userId,
+      role: snap.role,
+      displayName: snap.displayName,
+      districtId: snap.districtId,
+      staffId: snap.staffId,
+      studentId: snap.studentId,
+      guardianId: snap.guardianId,
+    },
+  });
+});
+
+router.get("/support/view-as/active", async (req: Request, res: Response) => {
+  const raw = req.headers[VIEW_AS_HEADER];
+  const token = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof token !== "string" || !token) {
+    res.status(404).json({ active: false });
+    return;
+  }
+  // requirePlatformAdmin already populated req.userId (and the view-as middleware
+  // will have ALSO overridden it if the token is valid). Resolve the admin id
+  // from either viewAsAdminUserId (already overridden) or req.userId (not).
+  const authed = req as AuthedRequest;
+  const adminUserId = authed.viewAsAdminUserId ?? authed.userId;
+  const session = await loadActiveViewAsSession(token, adminUserId);
+  if (!session) {
+    // Self-heal: if the row exists, belongs to this admin, and is past
+    // expires_at but still ended_at IS NULL, mark it expired so the audit
+    // trail captures the timeout. Done here (not in middleware) so we only
+    // ever auto-end a session for its owning admin.
+    const tokenHash = hashToken(token);
+    const [row] = await db.select().from(viewAsSessionsTable)
+      .where(eq(viewAsSessionsTable.tokenHash, tokenHash)).limit(1);
+    if (row && row.adminUserId === adminUserId && !row.endedAt && row.expiresAt.getTime() <= Date.now()) {
+      await endSessionByToken(token, "expired");
+    }
+    res.status(404).json({ active: false });
+    return;
+  }
+  res.json({
+    active: true,
+    session: {
+      sessionId: session.id,
+      reason: session.reason,
+      startedAt: session.startedAt,
+      expiresAt: session.expiresAt,
+      target: {
+        userId: session.targetUserId,
+        role: session.targetRole,
+        displayName: session.targetDisplayName,
+        districtId: session.targetDistrictId,
+        staffId: session.targetStaffId,
+        studentId: session.targetStudentId,
+        guardianId: session.targetGuardianId,
+      },
+    },
+  });
+});
+
+router.post("/support/view-as/end", async (req: Request, res: Response) => {
+  const raw = req.headers[VIEW_AS_HEADER];
+  const headerToken = Array.isArray(raw) ? raw[0] : raw;
+  const bodyToken = typeof (req.body as { token?: string } | undefined)?.token === "string"
+    ? (req.body as { token: string }).token : undefined;
+  const token = (typeof headerToken === "string" && headerToken) ? headerToken : bodyToken;
+  if (typeof token !== "string" || !token) {
+    res.status(400).json({ error: "X-View-As-Token header (or body.token) is required" });
+    return;
+  }
+
+  const authed = req as AuthedRequest;
+  const adminUserId = authed.viewAsAdminUserId ?? authed.userId;
+
+  // Find the row first so we can verify admin ownership BEFORE ending it; this
+  // prevents a different platform admin from ending someone else's session by
+  // submitting a token they happen to know.
+  const tokenHash = hashToken(token);
+  const [existing] = await db.select().from(viewAsSessionsTable)
+    .where(eq(viewAsSessionsTable.tokenHash, tokenHash)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  if (existing.adminUserId !== adminUserId) {
+    res.status(403).json({ error: "Cannot end another admin's view-as session" });
+    return;
+  }
+  if (existing.endedAt) {
+    invalidateViewAsTokenCache(tokenHash);
+    res.json({ ended: true, sessionId: existing.id, alreadyEnded: true });
+    return;
+  }
+
+  const ended = await endSessionByToken(token, "manual");
+  // logAudit reads viewAsAdminUserId from the request (set by middleware when
+  // the token is still active), so the row is correctly tagged as a view-as op.
+  logAudit(req, {
+    action: "update",
+    targetTable: "view_as_sessions",
+    targetId: existing.id,
+    summary: `Platform admin ended view-as session for ${existing.targetDisplayName} (${existing.targetUserId})`,
+    metadata: {
+      endReason: "manual",
+      durationMs: ended ? ended.endedAt!.getTime() - ended.startedAt.getTime() : null,
+    },
+  });
+
+  res.json({ ended: true, sessionId: existing.id });
+});
+
+interface TargetSnapshot {
+  userId: string;
+  role: string;
+  displayName: string;
+  districtId: number | null;
+  staffId: number | null;
+  studentId: number | null;
+  guardianId: number | null;
+}
+
+async function resolveTargetSnapshot(
+  targetUserId: string,
+  bodySnapshot: StartBody["targetSnapshot"] | null,
+): Promise<TargetSnapshot | null> {
+  // Production: pull role/district from Clerk publicMetadata. Resolve staffId
+  // either from Clerk metadata or by emailing back into the staff table.
+  if (process.env.NODE_ENV === "production") {
+    return await resolveFromClerk(targetUserId);
+  }
+
+  // Non-production: if the caller supplied a snapshot, accept it. This is how
+  // the test suite drives end-to-end coverage without a real Clerk session.
+  if (bodySnapshot && isRole(bodySnapshot.role)) {
+    return {
+      userId: targetUserId,
+      role: bodySnapshot.role,
+      displayName: bodySnapshot.displayName ?? "Target User",
+      districtId: bodySnapshot.districtId ?? null,
+      staffId: bodySnapshot.staffId ?? null,
+      studentId: bodySnapshot.studentId ?? null,
+      guardianId: bodySnapshot.guardianId ?? null,
+    };
+  }
+  // Fall back to Clerk lookup if available (real dev with Clerk).
+  return await resolveFromClerk(targetUserId);
+}
+
+async function resolveFromClerk(targetUserId: string): Promise<TargetSnapshot | null> {
+  try {
+    const user = await clerkClient.users.getUser(targetUserId);
+    if (!user) return null;
+    const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
+    const role = isRole(meta.role) ? (meta.role as string) : null;
+    if (!role) return null;
+    const displayName =
+      user.fullName
+      ?? [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
+      ?? user.primaryEmailAddress?.emailAddress
+      ?? targetUserId;
+    return {
+      userId: targetUserId,
+      role,
+      displayName: displayName || targetUserId,
+      districtId: typeof meta.districtId === "number" ? meta.districtId : null,
+      staffId: typeof meta.staffId === "number" ? meta.staffId : null,
+      studentId: typeof meta.studentId === "number" ? meta.studentId : null,
+      guardianId: typeof meta.guardianId === "number" ? meta.guardianId : null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default router;
