@@ -4,7 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
-import { Loader2, X, FlaskConical, Sparkles, LogIn } from "lucide-react";
+import { Loader2, X, FlaskConical, Sparkles, LogIn, Save, ShieldCheck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   type SISProvider, type OnboardingStatus, type StaffInvite,
   DEFAULT_SERVICE_TYPES,
@@ -250,7 +252,132 @@ function SetupPageInner() {
           onSkip={() => navigate("/")} onInvite={handleStaffInvite}
         />
       )}
+
+      <ComplianceThresholdCard />
     </div>
+  );
+}
+
+interface DistrictSummary {
+  id: number;
+  name: string;
+  complianceMinuteThreshold: number;
+}
+
+function ComplianceThresholdCard() {
+  const queryClient = useQueryClient();
+
+  const { data: districts, isLoading, isError } = useQuery<DistrictSummary[]>({
+    queryKey: ["districts"],
+    queryFn: async () => {
+      const r = await authFetch("/api/districts");
+      if (!r.ok) throw new Error("Failed to fetch district");
+      return r.json();
+    },
+    staleTime: 30_000,
+  });
+
+  // Non-platform admins always receive exactly their own district from GET /districts,
+  // so districts[0] is the correct district in the settings context.
+  const district = districts?.[0];
+  const [draft, setDraft] = useState<string>("");
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (district && !initialized) {
+      setDraft(String(district.complianceMinuteThreshold));
+      setInitialized(true);
+    }
+  }, [district, initialized]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (threshold: number) => {
+      const r = await authFetch(`/api/districts/${district!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ complianceMinuteThreshold: threshold }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to save threshold");
+      }
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["districts"] });
+      toast.success("Compliance threshold updated");
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Failed to save threshold");
+    },
+  });
+
+  function handleSave() {
+    const parsed = Number(draft);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+      toast.error("Threshold must be a whole number between 1 and 100");
+      return;
+    }
+    saveMutation.mutate(parsed);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          Compliance Minute Threshold
+        </CardTitle>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Set the minimum percentage of required service minutes a student must
+          receive to be considered on track. The default is 85%.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+          </div>
+        ) : isError ? (
+          <p className="text-sm text-red-600">Could not load district settings. Please refresh the page.</p>
+        ) : !district ? (
+          <p className="text-sm text-gray-500">No district found.</p>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div className="flex-1 max-w-[220px]">
+              <label className="text-sm font-medium text-gray-700 block mb-1">
+                Threshold (%)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                <span className="text-sm text-gray-400 flex-shrink-0">%</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Currently saved: <strong>{district.complianceMinuteThreshold}%</strong>
+              </p>
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2 transition-colors whitespace-nowrap"
+            >
+              {saveMutation.isPending
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />}
+              Save Threshold
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
