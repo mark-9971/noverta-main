@@ -13,6 +13,7 @@ import { logAudit } from "../../lib/auditLog";
 import { createAutoVersion } from "../../lib/documentVersioning";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { toMaProgressCode, formatPromptLevel, promptLevelPhrase } from "./utils";
+import { computeGoalProgressEntries } from "../../lib/goalProgressCompute";
 
 const router: IRouter = Router();
 
@@ -949,6 +950,81 @@ router.post("/progress-reports/batch-generate", async (req, res): Promise<void> 
   } catch (e: unknown) {
     console.error("Batch generate progress reports error:", e);
     res.status(500).json({ error: "Failed to batch generate progress reports" });
+  }
+});
+
+/**
+ * POST /progress-reports/admin/backfill-goal-progress
+ *
+ * One-time / idempotent backfill: finds every existing progress report whose
+ * goalProgress JSONB column is null or an empty array, recomputes per-goal
+ * progress entries from the actual data sessions for that reporting period,
+ * and writes the result back to the row.
+ *
+ * Returns a summary: { processed, updated, skipped, errors }.
+ * Safe to re-run — already-populated reports (goalProgress.length > 0) are skipped.
+ */
+router.post("/progress-reports/admin/backfill-goal-progress", async (req, res): Promise<void> => {
+  try {
+    const authed = req as AuthedRequest;
+    const districtId = getEnforcedDistrictId(authed);
+
+    const allReports = await db
+      .select({
+        id: progressReportsTable.id,
+        studentId: progressReportsTable.studentId,
+        periodStart: progressReportsTable.periodStart,
+        periodEnd: progressReportsTable.periodEnd,
+        goalProgress: progressReportsTable.goalProgress,
+        studentFirstName: studentsTable.firstName,
+      })
+      .from(progressReportsTable)
+      .innerJoin(studentsTable, eq(progressReportsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(districtId ? eq(schoolsTable.districtId, districtId) : undefined as any);
+
+    const toBackfill = allReports.filter(
+      (r) => !r.goalProgress || (Array.isArray(r.goalProgress) && r.goalProgress.length === 0),
+    );
+
+    let updated = 0;
+    let skipped = allReports.length - toBackfill.length;
+    const errors: { reportId: number; error: string }[] = [];
+
+    for (const report of toBackfill) {
+      try {
+        const entries = await computeGoalProgressEntries(
+          report.studentId,
+          report.studentFirstName,
+          report.periodStart,
+          report.periodEnd,
+        );
+        await db
+          .update(progressReportsTable)
+          .set({ goalProgress: entries, updatedAt: new Date() })
+          .where(eq(progressReportsTable.id, report.id));
+        updated++;
+      } catch (err: any) {
+        errors.push({ reportId: report.id, error: String(err?.message ?? err) });
+      }
+    }
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "progress_reports",
+      summary: `Backfilled goalProgress for ${updated} progress reports (${skipped} already populated, ${errors.length} errors)`,
+      metadata: { updated, skipped, errorCount: errors.length } as Record<string, unknown>,
+    });
+
+    res.json({
+      processed: toBackfill.length,
+      updated,
+      skipped,
+      errors,
+    });
+  } catch (e: any) {
+    console.error("Backfill goal progress error:", e);
+    res.status(500).json({ error: "Failed to backfill goal progress" });
   }
 });
 
