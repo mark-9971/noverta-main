@@ -19,7 +19,7 @@ import {
   staffAssignmentsTable,
   type InsertAlert,
 } from "@workspace/db";
-import { eq, and, lt, ne, sql, isNull, or, lte, inArray } from "drizzle-orm";
+import { eq, and, lt, ne, sql, isNull, or, lte, gt, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import {
   sendEmail,
@@ -55,7 +55,7 @@ async function wasRecentlyReminded(opts: {
   return rows.rows.length > 0;
 }
 
-async function runOverdueContactFollowups(): Promise<void> {
+export async function runOverdueContactFollowups(): Promise<void> {
   const today = new Date().toISOString().substring(0, 10);
 
   const contacts = await db
@@ -130,7 +130,7 @@ async function runOverdueContactFollowups(): Promise<void> {
   }
 }
 
-async function runOverdueEvaluations(): Promise<void> {
+export async function runOverdueEvaluations(): Promise<void> {
   const today = new Date().toISOString().substring(0, 10);
 
   const evals = await db
@@ -269,7 +269,7 @@ async function runDraftTransitionPlans(): Promise<void> {
 
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-async function runOverdueSessionLogCheck(): Promise<void> {
+export async function runOverdueSessionLogCheck(): Promise<void> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -457,15 +457,23 @@ async function runOverdueSessionLogCheck(): Promise<void> {
   }
 
   // Single query: find staff who have already had a successful digest sent in the last 24h
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const recentSends = await db.execute(sql`
-    SELECT DISTINCT staff_id FROM communication_events
-    WHERE type = 'overdue_session_log_reminder'
-      AND staff_id = ANY(${staffIds}::int[])
-      AND status = 'sent'
-      AND sent_at > ${cutoff}::timestamptz
-  `);
-  const recentStaffIds = new Set<number>(recentSends.rows.map((r: any) => Number(r.staff_id)));
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recentSendRows = staffIds.length
+    ? await db
+        .select({ staffId: communicationEventsTable.staffId })
+        .from(communicationEventsTable)
+        .where(
+          and(
+            eq(communicationEventsTable.type, "overdue_session_log_reminder"),
+            inArray(communicationEventsTable.staffId, staffIds),
+            eq(communicationEventsTable.status, "sent"),
+            gt(communicationEventsTable.sentAt, cutoff),
+          ),
+        )
+    : [];
+  const recentStaffIds = new Set<number>(
+    recentSendRows.map(r => Number(r.staffId)).filter(n => !Number.isNaN(n)),
+  );
 
   // Fetch all relevant staff records once
   const staffRows = await db.select().from(staffTable).where(inArray(staffTable.id, [...byStaff.keys()]));
@@ -675,7 +683,7 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
   "caseload-distribution": "Caseload Distribution",
 };
 
-async function runScheduledReports(): Promise<void> {
+export async function runScheduledReports(): Promise<void> {
   const now = new Date();
 
   const dueReports = await db
