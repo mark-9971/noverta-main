@@ -628,3 +628,261 @@ export function buildIncidentReportHtml(opts: {
 
   return html;
 }
+
+function buildSparklineSvg(
+  dataPoints: { date: string; value: number }[],
+  color = "#059669",
+): string {
+  if (dataPoints.length < 2) return "";
+  const W = 320, H = 72;
+  const vals = dataPoints.map(d => d.value);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const padX = 6, padY = 10;
+
+  function ptX(i: number) {
+    return padX + (i / (dataPoints.length - 1)) * (W - 2 * padX);
+  }
+  function ptY(v: number) {
+    return H - padY - ((v - min) / range) * (H - 2 * padY);
+  }
+
+  const polyline = dataPoints
+    .map((d, i) => `${ptX(i).toFixed(1)},${ptY(d.value).toFixed(1)}`)
+    .join(" ");
+
+  const dots = dataPoints
+    .map(
+      (d, i) =>
+        `<circle cx="${ptX(i).toFixed(1)}" cy="${ptY(d.value).toFixed(1)}" r="2.5" fill="${color}" opacity="0.85"/>`,
+    )
+    .join("");
+
+  const topLabel = max !== min ? String(Math.round(max)) : "";
+  const botLabel = min !== max ? String(Math.round(min)) : String(Math.round(min));
+
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    <text x="3" y="${(padY + 2).toFixed(1)}" font-size="8" fill="#9ca3af">${topLabel}</text>
+    <text x="3" y="${(H - 2).toFixed(1)}" font-size="8" fill="#9ca3af">${botLabel}</text>
+    <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
+}
+
+export interface GoalPrintData {
+  id: number;
+  goalArea: string;
+  goalNumber?: string | number | null;
+  annualGoal: string;
+  progressRating: string;
+  trendDirection: string;
+  dataPoints: { date: string; value: number; notes?: string | null }[];
+  dataPointCount: number;
+  latestValue: number | null;
+  baseline_value: number | null;
+  goal_value: number | null;
+  measurementType?: string;
+  yLabel?: string;
+}
+
+export function buildGoalProgressReportHtml(opts: {
+  studentName: string;
+  studentDob?: string | null;
+  studentGrade?: string | null;
+  school?: string | null;
+  district?: string | null;
+  goals: GoalPrintData[];
+}): string {
+  const { studentName, studentDob, studentGrade, school, district, goals } = opts;
+
+  const RATING_LABELS: Record<string, string> = {
+    mastered: "Mastered",
+    sufficient_progress: "Sufficient Progress",
+    some_progress: "Some Progress",
+    insufficient_progress: "Insufficient Progress",
+    not_addressed: "No Data",
+  };
+  const RATING_STYLES: Record<string, string> = {
+    mastered: "background:#d1fae5;color:#065f46",
+    sufficient_progress: "background:#dbeafe;color:#1e40af",
+    some_progress: "background:#fef3c7;color:#92400e",
+    insufficient_progress: "background:#fee2e2;color:#b91c1c",
+    not_addressed: "background:#f3f4f6;color:#374151",
+  };
+  const TREND_LABELS: Record<string, string> = {
+    improving: "\u2191 Improving",
+    declining: "\u2193 Declining",
+    flat: "\u2192 Stable",
+    stable: "\u2192 Stable",
+  };
+  const SPARKLINE_COLORS: Record<string, string> = {
+    mastered: "#059669",
+    sufficient_progress: "#3b82f6",
+    some_progress: "#f59e0b",
+    insufficient_progress: "#ef4444",
+    not_addressed: "#9ca3af",
+  };
+
+  const GOAL_CSS = `
+    .goal-block {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      page-break-inside: avoid;
+    }
+    .goal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .goal-area-tag {
+      font-size: 10px;
+      font-weight: 600;
+      background: #ecfdf5;
+      color: #065f46;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      display: inline-block;
+      margin-bottom: 5px;
+    }
+    .goal-text { font-size: 12px; color: #111827; line-height: 1.55; }
+    .goal-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .rating-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
+    .trend-label { font-size: 10px; color: #6b7280; white-space: nowrap; }
+    .goal-metrics {
+      display: flex; gap: 16px; font-size: 11px; color: #6b7280;
+      margin: 8px 0; padding: 6px 10px; background: #f9fafb; border-radius: 4px; flex-wrap: wrap;
+    }
+    .goal-metrics strong { color: #374151; }
+    .chart-wrap {
+      margin: 10px 0 6px; padding: 8px 10px 4px;
+      background: #fafafa; border: 1px solid #e5e7eb; border-radius: 4px;
+    }
+    .chart-title {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 4px;
+    }
+    .chart-dates {
+      display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af; margin-top: 2px;
+      padding: 0 6px;
+    }
+    .data-section-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;
+      color: #9ca3af; font-weight: 600; margin: 10px 0 4px;
+    }
+    .notes-block {
+      padding: 7px 10px; border-left: 3px solid #059669; background: #f0fdf4;
+      border-radius: 0 4px 4px 0; font-size: 11px; color: #374151; margin-bottom: 6px;
+    }
+    .notes-date { font-size: 9px; color: #6b7280; margin-bottom: 2px; font-weight: 600; }
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 6px;
+    }
+    .summary-tile {
+      border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; text-align: center;
+    }
+    .summary-tile .count { font-size: 22px; font-weight: 700; }
+    .summary-tile .slabel { font-size: 10px; color: #6b7280; }
+  `;
+
+  const ratingCounts: Record<string, number> = {};
+  for (const g of goals) {
+    ratingCounts[g.progressRating] = (ratingCounts[g.progressRating] || 0) + 1;
+  }
+  const orderedRatings = [
+    "mastered", "sufficient_progress", "some_progress", "insufficient_progress", "not_addressed",
+  ];
+
+  const summaryHtml = `<style>${GOAL_CSS}</style>
+    <div class="summary-grid">
+      ${orderedRatings
+        .filter(r => (ratingCounts[r] || 0) > 0)
+        .map(r => {
+          const colorMatch = RATING_STYLES[r]?.match(/color:([^;]+)/);
+          const textColor = colorMatch ? colorMatch[1].trim() : "#111827";
+          return `<div class="summary-tile">
+            <div class="count" style="color:${textColor}">${ratingCounts[r]}</div>
+            <div class="slabel">${esc(RATING_LABELS[r] || r)}</div>
+          </div>`;
+        }).join("")}
+    </div>`;
+
+  const goalsHtml = goals.map(g => {
+    const ratingStyle = RATING_STYLES[g.progressRating] || RATING_STYLES.not_addressed;
+    const ratingLabel = RATING_LABELS[g.progressRating] || g.progressRating;
+    const trendLabel = TREND_LABELS[g.trendDirection] || "\u2192 Stable";
+    const sparkColor = SPARKLINE_COLORS[g.progressRating] || "#059669";
+
+    const sortedPoints = [...g.dataPoints].sort((a, b) => a.date.localeCompare(b.date));
+    const firstDate = sortedPoints.length > 0 ? fmtDate(sortedPoints[0].date) : "\u2014";
+    const lastDate = sortedPoints.length > 0 ? fmtDate(sortedPoints[sortedPoints.length - 1].date) : "\u2014";
+    const sparkSvg = sortedPoints.length >= 2 ? buildSparklineSvg(sortedPoints, sparkColor) : "";
+
+    const recentNotes = sortedPoints.filter(p => p.notes).slice(-3).reverse();
+
+    const metricsHtml = `<div class="goal-metrics">
+      <span>${g.dataPointCount} data point${g.dataPointCount !== 1 ? "s" : ""}</span>
+      ${sortedPoints.length > 0 ? `<span>Period: ${firstDate} \u2013 ${lastDate}</span>` : ""}
+      ${g.latestValue !== null ? `<span>Latest: <strong>${g.measurementType === "program" ? `${Math.round(g.latestValue)}%` : g.latestValue}</strong></span>` : ""}
+      ${g.baseline_value !== null ? `<span>Baseline: ${g.measurementType === "program" ? `${Math.round(g.baseline_value)}%` : g.baseline_value}</span>` : ""}
+      ${g.goal_value !== null ? `<span>Target: ${g.measurementType === "program" ? `${g.goal_value}%` : g.goal_value}</span>` : ""}
+    </div>`;
+
+    const chartHtml = sparkSvg
+      ? `<div class="chart-wrap">
+          <div class="chart-title">Progress Over Time${g.yLabel ? ` \u2014 ${esc(g.yLabel)}` : ""}</div>
+          ${sparkSvg}
+          <div class="chart-dates"><span>${firstDate}</span><span>${lastDate}</span></div>
+        </div>`
+      : g.dataPoints.length === 1
+        ? `<p style="font-size:11px;color:#9ca3af;font-style:italic;margin:6px 0">1 data point recorded \u2014 chart will appear after more data is collected</p>`
+        : "";
+
+    const notesHtml = recentNotes.length > 0
+      ? `<div class="data-section-label">Recent Session Notes</div>
+         ${recentNotes.map(p => `<div class="notes-block"><div class="notes-date">${fmtDate(p.date)}</div>${esc(p.notes || "")}</div>`).join("")}`
+      : "";
+
+    return `<div class="goal-block">
+      <div class="goal-header">
+        <div style="flex:1;min-width:0">
+          <div>
+            <span class="goal-area-tag">${esc(g.goalArea)}</span>
+            ${g.goalNumber ? `<span style="font-size:10px;color:#9ca3af;margin-left:4px">#${esc(String(g.goalNumber))}</span>` : ""}
+          </div>
+          <div class="goal-text">${esc(g.annualGoal)}</div>
+        </div>
+        <div class="goal-badges">
+          <span class="rating-badge" style="${ratingStyle}">${esc(ratingLabel)}</span>
+          <span class="trend-label">${esc(trendLabel)}</span>
+        </div>
+      </div>
+      ${metricsHtml}
+      ${chartHtml}
+      ${notesHtml}
+    </div>`;
+  }).join("");
+
+  return buildDocumentHtml({
+    documentTitle: "IEP Goal Progress Report",
+    documentSubtitle: "Prepared for IEP Team Meeting",
+    studentName,
+    studentDob: studentDob ?? undefined,
+    studentGrade: studentGrade ?? undefined,
+    school: school ?? undefined,
+    district: district ?? undefined,
+    sections: [
+      { heading: `Progress Summary (${goals.length} Goal${goals.length !== 1 ? "s" : ""})`, html: summaryHtml },
+      { heading: "Goal Details", html: goalsHtml },
+    ],
+    signatureLines: [
+      "Case Manager / Date",
+      "Parent/Guardian / Date",
+      "Special Education Director / Date",
+    ],
+    footerHtml: `<p style="margin:2px 0">This document is confidential and subject to FERPA. Generated for IEP team meeting preparation only.</p>`,
+  });
+}

@@ -1,12 +1,20 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2 } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
+import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow } from "@/lib/print-document";
+
+type GoalProgress = GoalPrintData & {
+  linkedTarget?: { type: string; name: string; measurementType: string } | null;
+  behaviorTargetId?: number | null;
+  programTargetId?: number | null;
+  targetDirection?: string | null;
+};
 
 interface StudentGoalSectionProps {
-  goalProgress: any[];
+  goalProgress: GoalProgress[];
   dataLoading: boolean;
   behaviorTargets: any[];
   behaviorTrends: any[];
@@ -48,6 +56,21 @@ export default function StudentGoalSection({
     setGoalAbaView(prev => ({ ...prev, [`goal-${id}`]: !prev[`goal-${id}`] }));
   }
 
+  function handlePrintReport() {
+    const studentName = student
+      ? `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()
+      : "Student";
+    const html = buildGoalProgressReportHtml({
+      studentName,
+      studentDob: student?.dob ?? null,
+      studentGrade: student?.grade ? String(student.grade) : null,
+      school: student?.school ?? null,
+      district: student?.district ?? null,
+      goals: goalProgress,
+    });
+    openPrintWindow(html);
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -56,9 +79,21 @@ export default function StudentGoalSection({
             <Target className="w-4 h-4" />
             IEP Goal Progress
           </CardTitle>
-          <span className="text-xs text-gray-400">
-            {goalProgress.length} active goal{goalProgress.length !== 1 ? "s" : ""}
-          </span>
+          <div className="flex items-center gap-2">
+            {goalProgress.length > 0 && !dataLoading && (
+              <button
+                onClick={handlePrintReport}
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200"
+                title="Print goal progress report for IEP meeting"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Report
+              </button>
+            )}
+            <span className="text-xs text-gray-400">
+              {goalProgress.length} active goal{goalProgress.length !== 1 ? "s" : ""}
+            </span>
+          </div>
         </div>
       </CardHeader>
 
