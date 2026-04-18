@@ -158,9 +158,11 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
     const { name, description, programType, targetCriterion, domain, promptHierarchy,
             currentPromptLevel, autoProgressEnabled, masteryCriterionPercent,
             masteryCriterionSessions, regressionThreshold, regressionSessions,
-            reinforcementSchedule, reinforcementType, tutorInstructions, templateId, steps } = req.body;
+            reinforcementSchedule, reinforcementType, tutorInstructions, templateId, steps,
+            phase } = req.body;
     if (!name) { res.status(400).json({ error: "name is required" }); return; }
 
+    const VALID_PHASES = ["baseline", "training", "maintenance", "mastered", "reopened"];
     const result = await db.transaction(async (tx) => {
       const [target] = await tx.insert(programTargetsTable).values({
         studentId, name, description: description || null,
@@ -168,6 +170,7 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
         targetCriterion: targetCriterion || null,
         domain: domain || null,
         templateId: templateId || null,
+        phase: VALID_PHASES.includes(phase) ? phase : "training",
         promptHierarchy: promptHierarchy || ["full_physical","partial_physical","model","gestural","verbal","independent"],
         currentPromptLevel: currentPromptLevel || "verbal",
         autoProgressEnabled: autoProgressEnabled ?? true,
