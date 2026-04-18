@@ -23,12 +23,14 @@ export const iepGoalsTable = pgTable("iep_goals", {
   iepDocumentId: integer("iep_document_id"),
   notes: text("notes"),
   active: boolean("active").notNull().default(true),
+  masteredAt: timestamp("mastered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("ig_student_active_idx").on(table.studentId, table.active),
   index("ig_student_area_idx").on(table.studentId, table.serviceArea),
   index("ig_iep_doc_idx").on(table.iepDocumentId),
+  index("ig_mastered_at_idx").on(table.masteredAt),
 ]);
 
 export const insertIepGoalSchema = createInsertSchema(iepGoalsTable).omit({ id: true, createdAt: true, updatedAt: true });

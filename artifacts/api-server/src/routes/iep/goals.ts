@@ -6,9 +6,9 @@ import {
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, programStepsTable,
   studentsTable, schoolsTable,
-  goalAnnotationsTable,
+  goalAnnotationsTable, staffAssignmentsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, asc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, asc, desc, sql, isNotNull, inArray } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import {
@@ -17,6 +17,72 @@ import {
   assertGoalAnnotationInCallerDistrict,
 } from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
+
+// ── Mastery detection ────────────────────────────────────────────────────────
+
+/**
+ * Check whether a goal has been mastered and set mastered_at if so.
+ * A goal is mastered when the last N consecutive data points all meet the
+ * threshold (default: 3 sessions at or above 80% for program targets).
+ *
+ * Called after each data save — no scheduler needed.
+ */
+export async function checkAndSetGoalMastery(goalId: number): Promise<boolean> {
+  try {
+    const [goal] = await db.select().from(iepGoalsTable).where(eq(iepGoalsTable.id, goalId));
+    if (!goal || goal.masteredAt) return false; // already mastered or not found
+
+    const MASTERY_SESSIONS = 3;
+    const MASTERY_THRESHOLD = 80; // percent
+
+    let meetsThreshold = false;
+
+    if (goal.programTargetId) {
+      const [pt] = await db.select({ masteryCriterionPercent: programTargetsTable.masteryCriterionPercent, masteryCriterionSessions: programTargetsTable.masteryCriterionSessions })
+        .from(programTargetsTable).where(eq(programTargetsTable.id, goal.programTargetId));
+      const n = pt?.masteryCriterionSessions ?? MASTERY_SESSIONS;
+      const threshold = pt?.masteryCriterionPercent ?? MASTERY_THRESHOLD;
+
+      const recent = await db.select({ percentCorrect: programDataTable.percentCorrect })
+        .from(programDataTable)
+        .innerJoin(dataSessionsTable, eq(programDataTable.dataSessionId, dataSessionsTable.id))
+        .where(eq(programDataTable.programTargetId, goal.programTargetId))
+        .orderBy(desc(dataSessionsTable.sessionDate))
+        .limit(n);
+
+      meetsThreshold = recent.length >= n && recent.every(r => parseFloat(r.percentCorrect ?? "0") >= threshold);
+    } else if (goal.behaviorTargetId) {
+      const [bt] = await db.select({ goalValue: behaviorTargetsTable.goalValue, targetDirection: behaviorTargetsTable.targetDirection })
+        .from(behaviorTargetsTable).where(eq(behaviorTargetsTable.id, goal.behaviorTargetId));
+      if (bt?.goalValue) {
+        const goalVal = parseFloat(bt.goalValue);
+        const direction = bt.targetDirection ?? "increase";
+        const recent = await db.select({ value: behaviorDataTable.value })
+          .from(behaviorDataTable)
+          .innerJoin(dataSessionsTable, eq(behaviorDataTable.dataSessionId, dataSessionsTable.id))
+          .where(eq(behaviorDataTable.behaviorTargetId, goal.behaviorTargetId))
+          .orderBy(desc(dataSessionsTable.sessionDate))
+          .limit(MASTERY_SESSIONS);
+
+        if (recent.length >= MASTERY_SESSIONS) {
+          meetsThreshold = recent.every(r => {
+            const v = parseFloat(r.value);
+            return direction === "decrease" ? v <= goalVal : v >= goalVal;
+          });
+        }
+      }
+    }
+
+    if (meetsThreshold) {
+      await db.update(iepGoalsTable).set({ masteredAt: new Date() }).where(eq(iepGoalsTable.id, goalId));
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("checkAndSetGoalMastery error:", e);
+    return false;
+  }
+}
 
 const router: IRouter = Router();
 
@@ -232,6 +298,7 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
         status: goal.status,
         programTargetId: goal.programTargetId,
         behaviorTargetId: goal.behaviorTargetId,
+        masteredAt: goal.masteredAt ? goal.masteredAt.toISOString() : null,
         linkedTarget: pt
           ? { type: "program" as const, name: pt.name, masteryCriterionPercent: pt.masteryCriterionPercent }
           : bt
@@ -355,7 +422,7 @@ router.patch("/iep-goals/:id", async (req, res): Promise<void> => {
     for (const key of ["goalArea","goalNumber","annualGoal","baseline","targetCriterion",
                         "measurementMethod","scheduleOfReporting","programTargetId",
                         "behaviorTargetId","serviceArea","status","startDate","endDate",
-                        "benchmarks","iepDocumentId","notes","active"]) {
+                        "benchmarks","iepDocumentId","notes","active","masteredAt"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [existing] = await db.select({
@@ -622,6 +689,88 @@ router.delete("/goal-annotations/:id", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("DELETE goal annotation error:", e);
     res.status(500).json({ error: "Failed to delete annotation" });
+  }
+});
+
+// ── Recent Masteries (provider dashboard) ────────────────────────────────────
+
+/**
+ * GET /api/goals/recent-masteries
+ * Returns up to 5 most recently mastered goals across the caller's caseload.
+ * Admins see district-wide masteries. Providers see only their assigned students.
+ */
+router.get("/goals/recent-masteries", async (req, res): Promise<void> => {
+  try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const authedReq = req as AuthedRequest;
+    const limit = Math.min(parseInt(String(req.query.limit ?? "5")), 20);
+    const days = parseInt(String(req.query.days ?? "30"));
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    // Get all schools in the district
+    const schools = await db.select({ id: schoolsTable.id })
+      .from(schoolsTable)
+      .where(districtId ? eq(schoolsTable.districtId, districtId) : sql`1=1`);
+    const schoolIds = schools.map(s => s.id);
+    if (schoolIds.length === 0) { res.json([]); return; }
+
+    // Find students in the district
+    const districtStudents = await db.select({ id: studentsTable.id })
+      .from(studentsTable)
+      .where(inArray(studentsTable.schoolId, schoolIds));
+    let studentIds = districtStudents.map(s => s.id);
+
+    // For provider role, scope to their assigned students
+    const staffId = authedReq.user?.staffId;
+    const role = authedReq.user?.role;
+    if (staffId && role !== "admin" && role !== "coordinator") {
+      const assignments = await db.select({ studentId: staffAssignmentsTable.studentId })
+        .from(staffAssignmentsTable)
+        .where(eq(staffAssignmentsTable.staffId, staffId));
+      const assignedIds = new Set(assignments.map(a => a.studentId).filter(Boolean));
+      // Also check service requirements
+      const srs = await db.select({ studentId: serviceRequirementsTable.studentId })
+        .from(serviceRequirementsTable)
+        .where(eq(serviceRequirementsTable.providerId, staffId));
+      srs.forEach(sr => assignedIds.add(sr.studentId));
+      studentIds = studentIds.filter(id => assignedIds.has(id));
+    }
+
+    if (studentIds.length === 0) { res.json([]); return; }
+
+    const masteries = await db.select({
+      goalId: iepGoalsTable.id,
+      goalArea: iepGoalsTable.goalArea,
+      goalNumber: iepGoalsTable.goalNumber,
+      annualGoal: iepGoalsTable.annualGoal,
+      masteredAt: iepGoalsTable.masteredAt,
+      studentId: studentsTable.id,
+      studentFirstName: studentsTable.firstName,
+      studentLastName: studentsTable.lastName,
+    })
+      .from(iepGoalsTable)
+      .innerJoin(studentsTable, eq(iepGoalsTable.studentId, studentsTable.id))
+      .where(and(
+        inArray(iepGoalsTable.studentId, studentIds),
+        isNotNull(iepGoalsTable.masteredAt),
+        gte(iepGoalsTable.masteredAt, since),
+      ))
+      .orderBy(desc(iepGoalsTable.masteredAt))
+      .limit(limit);
+
+    res.json(masteries.map(m => ({
+      goalId: m.goalId,
+      goalArea: m.goalArea,
+      goalNumber: m.goalNumber,
+      annualGoal: m.annualGoal,
+      masteredAt: m.masteredAt?.toISOString() ?? null,
+      studentId: m.studentId,
+      studentName: `${m.studentFirstName} ${m.studentLastName}`,
+    })));
+  } catch (e: any) {
+    console.error("GET goals/recent-masteries error:", e);
+    res.status(500).json({ error: "Failed to fetch recent masteries" });
   }
 });
 

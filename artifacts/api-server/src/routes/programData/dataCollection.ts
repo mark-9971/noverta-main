@@ -4,11 +4,13 @@ import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   behaviorDataTable, programDataTable, studentsTable, staffTable,
+  iepGoalsTable,
 } from "@workspace/db";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { assertStudentInCallerDistrict, assertDataSessionInCallerDistrict } from "../../lib/districtScope";
 import type { AuthedRequest } from "../../middlewares/auth";
+import { checkAndSetGoalMastery } from "../iep/goals";
 
 const router: IRouter = Router();
 
@@ -190,6 +192,47 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
       summary: `Created data session #${result.id} for student #${studentId} on ${sessionDate}`,
       newValues: { sessionDate, staffId, behaviorDataCount: behaviorData?.length ?? 0, programDataCount: progData?.length ?? 0 } as Record<string, unknown>,
     });
+
+    // Run mastery detection for all goals linked to the saved targets (fire-and-forget)
+    (async () => {
+      try {
+        const progTargetIds: number[] = (progData ?? [])
+          .filter((pd: any) => pd.programTargetId && validProgIds.has(pd.programTargetId))
+          .map((pd: any) => pd.programTargetId);
+        const behTargetIds: number[] = (behaviorData ?? [])
+          .filter((bd: any) => bd.behaviorTargetId && validBehIds.has(bd.behaviorTargetId))
+          .map((bd: any) => bd.behaviorTargetId);
+
+        const linkedGoals: { id: number }[] = [];
+        if (progTargetIds.length > 0) {
+          const pGoals = await db.select({ id: iepGoalsTable.id }).from(iepGoalsTable)
+            .where(and(
+              eq(iepGoalsTable.studentId, studentId),
+              eq(iepGoalsTable.active, true),
+            ));
+          linkedGoals.push(...pGoals.filter(g => {
+            // We'll check all active goals for this student as targets may have changed
+            return true;
+          }));
+        } else if (behTargetIds.length > 0) {
+          const bGoals = await db.select({ id: iepGoalsTable.id }).from(iepGoalsTable)
+            .where(and(eq(iepGoalsTable.studentId, studentId), eq(iepGoalsTable.active, true)));
+          linkedGoals.push(...bGoals);
+        }
+
+        // De-duplicate and run mastery check
+        const seen = new Set<number>();
+        for (const g of linkedGoals) {
+          if (!seen.has(g.id)) {
+            seen.add(g.id);
+            await checkAndSetGoalMastery(g.id);
+          }
+        }
+      } catch (e) {
+        console.error("Post-session mastery detection error:", e);
+      }
+    })();
+
     res.status(201).json({
       ...result, createdAt: result.createdAt.toISOString(), updatedAt: result.updatedAt.toISOString(),
       progressUpdates,

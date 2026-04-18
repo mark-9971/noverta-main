@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Printer, Trophy, X } from "lucide-react";
 import { InteractiveChart } from "@/components/ui/interactive-chart";
 import { AbaGraph } from "@/components/aba-graph";
 import { GoalPrintData, buildGoalProgressReportHtml, openPrintWindow } from "@/lib/print-document";
@@ -11,6 +11,7 @@ type GoalProgress = GoalPrintData & {
   behaviorTargetId?: number | null;
   programTargetId?: number | null;
   targetDirection?: string | null;
+  masteredAt?: string | null;
 };
 
 interface StudentGoalSectionProps {
@@ -37,6 +38,19 @@ const RATING_COLORS: Record<string, { bg: string; text: string; label: string }>
   not_addressed: { bg: "bg-gray-100", text: "text-gray-500", label: "No Data" },
 };
 
+function isMasteredRecently(masteredAt: string | null | undefined): boolean {
+  if (!masteredAt) return false;
+  const d = new Date(masteredAt);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  return diffMs <= 30 * 24 * 60 * 60 * 1000;
+}
+
+function formatMasteryDate(masteredAt: string | null | undefined): string {
+  if (!masteredAt) return "";
+  return new Date(masteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function StudentGoalSection({
   goalProgress,
   dataLoading,
@@ -53,6 +67,7 @@ export default function StudentGoalSection({
   onRemoveAnnotation,
 }: StudentGoalSectionProps) {
   const [expandedCharts, setExpandedCharts] = useState<Record<string | number, boolean>>({});
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   function toggleChart(id: string | number) {
     setExpandedCharts(prev => ({ ...prev, [id]: !prev[id] }));
@@ -76,6 +91,9 @@ export default function StudentGoalSection({
     });
     openPrintWindow(html);
   }
+
+  const recentlyMasteredGoals = goalProgress.filter(g => isMasteredRecently(g.masteredAt));
+  const studentName = student ? `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim() : "this student";
 
   return (
     <Card>
@@ -104,6 +122,32 @@ export default function StudentGoalSection({
       </CardHeader>
 
       <CardContent className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+        {/* 30-day mastery celebration banner */}
+        {!bannerDismissed && recentlyMasteredGoals.length > 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 relative">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Trophy className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-emerald-800">
+                Goal{recentlyMasteredGoals.length > 1 ? "s" : ""} Mastered!
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {recentlyMasteredGoals.length === 1
+                  ? `${studentName} mastered their ${recentlyMasteredGoals[0].goalArea} goal on ${formatMasteryDate(recentlyMasteredGoals[0].masteredAt)}.`
+                  : `${studentName} mastered ${recentlyMasteredGoals.length} goals in the last 30 days — great progress!`}
+              </p>
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="text-emerald-400 hover:text-emerald-600 transition-colors flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {dataLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-20 w-full rounded-lg" />
@@ -117,6 +161,7 @@ export default function StudentGoalSection({
           </div>
         ) : (
           goalProgress.map((g: any) => {
+            const isMastered = !!g.masteredAt;
             const rating = RATING_COLORS[g.progressRating] ?? RATING_COLORS.not_addressed;
             const trendIcon =
               g.trendDirection === "improving" ? <TrendingUp className="w-3.5 h-3.5 text-emerald-600" /> :
@@ -137,15 +182,24 @@ export default function StudentGoalSection({
             }));
 
             return (
-              <div key={g.id} className="border rounded-lg p-3.5 space-y-2.5">
+              <div
+                key={g.id}
+                className={`border rounded-lg p-3.5 space-y-2.5 ${isMastered ? "border-emerald-200 bg-emerald-50/40" : ""}`}
+              >
                 {/* Goal header row */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                         {g.goalArea}
                       </span>
                       {g.goalNumber && <span className="text-xs text-gray-400">#{g.goalNumber}</span>}
+                      {isMastered && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          <Trophy className="w-3 h-3" />
+                          Mastered {formatMasteryDate(g.masteredAt)}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-700 line-clamp-2">{g.annualGoal}</p>
                   </div>
@@ -250,6 +304,7 @@ export default function StudentGoalSection({
                       <InteractiveChart
                         data={g.dataPoints}
                         color={
+                          isMastered ? "#10b981" :
                           g.progressRating === "mastered" ? "#10b981" :
                           g.progressRating === "insufficient_progress" ? "#ef4444" : "#3b82f6"
                         }

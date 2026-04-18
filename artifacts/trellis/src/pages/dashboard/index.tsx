@@ -17,6 +17,7 @@ import type { Alert, ComplianceByService } from "@workspace/api-client-react";
 import type { DashboardTabsProps } from "./DashboardTabs";
 import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
 import { DashboardTabs } from "./DashboardTabs";
+import RecentWins from "@/components/dashboard/RecentWins";
 
 export default function Dashboard() {
   const { role } = useRole();
@@ -152,6 +153,8 @@ function DashboardFull() {
       <LifeThreateningAlertsBanner />
       <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
+
+      {!isAdmin && <RecentWins days={30} />}
 
       {/* Three-tab layout */}
       <DashboardTabs

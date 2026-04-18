@@ -38,7 +38,14 @@ import {
   restraintIncidentsTable,
   transitionPlansTable,
 } from "./schema";
+
 import { eq, and, inArray, sql } from "drizzle-orm";
+
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
 
 // ──────────────────────────────────────────────────────────────────
 // Constants & helpers
@@ -664,6 +671,20 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
       });
     }
   }
+
+  // Mark the first goal of the first 3 "healthy" students as mastered
+  // (spread across last 30 days so they show in the Recent Wins section)
+  const healthyStudents = insertedStudents.filter((_, i) => STUDENT_DEFS[i].scenario === "healthy").slice(0, 3);
+  let masteryDayOffset = 3;
+  for (const hs of healthyStudents) {
+    const hsGoals = goalRows.filter(r => r.studentId === hs.id);
+    if (hsGoals.length > 0) {
+      hsGoals[0].masteredAt = daysAgo(masteryDayOffset);
+      hsGoals[0].status = "mastered";
+      masteryDayOffset += rand(4, 8);
+    }
+  }
+
   await db.insert(iepGoalsTable).values(goalRows);
 
   // ── 6. Service requirements ──
