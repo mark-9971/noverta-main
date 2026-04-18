@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { useMemo } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, FileWarning, ShieldCheck,
-  CalendarClock, Users, ClipboardList, ExternalLink, Info,
+  CalendarClock, Users, ClipboardList, Info, ListChecks,
 } from "lucide-react";
+import { useGetComplianceDeadlines } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
@@ -13,6 +14,11 @@ import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
 import { LifeThreateningAlertsBanner } from "./AlertBanners";
+import { CollapsibleSection } from "./CollapsibleSection";
+import {
+  AccommodationComplianceCard, EvalsTransitionsSection,
+  MeetingsSection, ContractRenewalsCard, DeadlinesSection,
+} from "./SecondarySections";
 import { getGreeting } from "./types";
 
 interface ComplianceRiskReport {
@@ -83,9 +89,8 @@ function fmtMoney(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void }) {
+export default function PilotAdminHome() {
   const { user } = useRole();
-  const [, navigate] = useLocation();
   const { filterParams } = useSchoolContext();
   const firstName = user.name?.split(" ")[0] || "";
   const qs = new URLSearchParams(filterParams).toString();
@@ -121,7 +126,7 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
     staleTime: 5 * 60_000,
   });
 
-  const { data: dashSummary } = useQuery<{ errorsLast24h?: number }>({
+  const { data: dashSummary } = useQuery<{ errorsLast24h?: number; contractRenewals?: { id: number; agencyName: string; endDate: string }[] }>({
     queryKey: ["pilot-home/dashboard-summary", filterParams],
     queryFn: async () => {
       const r = await authFetch(`/api/dashboard/summary${params}`);
@@ -130,6 +135,42 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
     },
     staleTime: 60_000,
   });
+
+  const { data: accommodationCompliance } = useQuery<{ totalStudents: number; overallComplianceRate: number; students: { overdueCount: number }[] }>({
+    queryKey: ["accommodation-compliance-dash"],
+    queryFn: () => authFetch("/api/accommodation-compliance?windowDays=30").then(r => r.ok ? r.json() : null),
+    staleTime: 120_000,
+  });
+
+  const { data: evalDash } = useQuery({
+    queryKey: ["evaluations-dashboard"],
+    queryFn: () => authFetch("/api/evaluations/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
+
+  const { data: transitionDash } = useQuery({
+    queryKey: ["transitions-dashboard"],
+    queryFn: () => authFetch("/api/transitions/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
+
+  const { data: meetingDash } = useQuery({
+    queryKey: ["meetings-dashboard"],
+    queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
+    staleTime: 60_000,
+  });
+
+  const { data: deadlinesRaw } = useGetComplianceDeadlines();
+  const deadlines = (() => {
+    const items: unknown[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : ((deadlinesRaw as { events?: unknown[] })?.events ?? []);
+    return (items as { student?: { firstName: string; lastName: string }; eventType: string; daysRemaining: number }[])
+      .slice(0, 6)
+      .map(e => ({
+        studentName: e.student ? `${e.student.firstName} ${e.student.lastName}` : "Student",
+        eventType: e.eventType,
+        daysUntilDue: e.daysRemaining,
+      }));
+  })();
 
   const summary = risk?.summary;
   const hasData = !!summary && summary.totalStudents > 0;
@@ -183,9 +224,6 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
     actions.push({ label: `Review ${fmtMoney(summary!.combinedExposure)} in compensatory exposure`, href: "/cost-avoidance", tone: "primary" });
   }
   actions.push({ label: "Share this week's compliance summary with your team", href: "/weekly-compliance-summary", tone: "muted" });
-  if (onShowFull) {
-    actions.push({ label: "Open the full operational dashboard", onClick: onShowFull, tone: "muted" });
-  }
 
   const isLoading = riskLoading || weeklyLoading;
 
@@ -202,15 +240,6 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
             Service-minute compliance for SPED
           </p>
         </div>
-        {onShowFull && (
-          <button
-            onClick={onShowFull}
-            className="text-xs md:text-sm text-gray-500 hover:text-gray-800 inline-flex items-center gap-1.5"
-            data-testid="button-show-full-dashboard"
-          >
-            View full district dashboard <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        )}
       </div>
 
       {/* Life-threatening medical alert banner — dismissible per session */}
@@ -456,20 +485,24 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
         <SystemStatusBanner errorsLast24h={dashSummary.errorsLast24h ?? 0} />
       )}
 
+      {/* Operational details — collapsed by default so they don't compete with
+          the compliance story, but fully accessible from the main dashboard. */}
+      <CollapsibleSection title="Operational details" icon={ListChecks} defaultOpen={false}>
+        {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
+        <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
+        <MeetingsSection meetingDash={meetingDash} />
+        {dashSummary?.contractRenewals && dashSummary.contractRenewals.length > 0 && (
+          <ContractRenewalsCard contractRenewals={dashSummary.contractRenewals} />
+        )}
+        <DeadlinesSection deadlines={deadlines} />
+      </CollapsibleSection>
+
       {/* Footer note */}
       <div className="text-xs text-gray-400 flex items-start gap-1.5 px-1">
         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
         <span>
           Trellis tracks whether mandated IEP minutes are being delivered. Service requirements, sessions, and rosters
           sync from your SIS — Trellis flags gaps but does not replace your SIS.
-          {onShowFull && (
-            <>
-              {" "}
-              <button onClick={onShowFull} className="underline hover:text-gray-600 inline-flex items-center gap-0.5">
-                Open the full operational view <ExternalLink className="w-3 h-3" />
-              </button>
-            </>
-          )}
         </span>
       </div>
     </div>
