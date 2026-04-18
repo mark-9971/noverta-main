@@ -11,6 +11,7 @@ import { usePopupWindow } from "@/components/live-data-panel/useDataPanelPopup";
 
 interface Student { id: number; firstName: string; lastName: string; }
 interface ServiceType { id: number; name: string; }
+interface ServiceRequirement { id: number; serviceTypeId: number; serviceTypeName: string | null; active: boolean; }
 
 const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
 
@@ -101,6 +102,8 @@ export function FloatingTimer() {
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [startStep, setStartStep] = useState<"student" | "service">("student");
+  const [studentRequirements, setStudentRequirements] = useState<ServiceRequirement[]>([]);
+  const [suggestedServiceTypeId, setSuggestedServiceTypeId] = useState<number | null>(null);
 
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [loggingTimerId, setLoggingTimerId] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export function FloatingTimer() {
   const { openPopup, closePopup, isPopupOpen } = usePopupWindow();
   const searchRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const selectedStudentIdRef = useRef<number | null>(null);
 
   const [liveEntries, setLiveEntries] = useState<Map<number, CollectedGoalEntry>>(() => new Map());
   const liveEntriesTimerIdRef = useRef<string | null>(null);
@@ -193,13 +197,38 @@ export function FloatingTimer() {
     setStartStep("student");
     setSelectedStudent(null);
     setStudentSearch("");
+    setStudentRequirements([]);
+    setSuggestedServiceTypeId(null);
+    selectedStudentIdRef.current = null;
     loadData();
     setTimeout(() => searchRef.current?.focus(), 100);
   }, [loadData]);
 
-  const handleSelectStudent = (s: Student) => {
+  const handleSelectStudent = async (s: Student) => {
     setSelectedStudent(s);
+    setStudentRequirements([]);
+    setSuggestedServiceTypeId(null);
     setStartStep("service");
+    selectedStudentIdRef.current = s.id;
+    try {
+      const res = await authFetch(`/api/service-requirements?studentId=${s.id}&active=true`);
+      if (!res.ok) return;
+      const reqs: ServiceRequirement[] = await res.json();
+      // Guard against race: discard result if the user already switched to a different student
+      if (selectedStudentIdRef.current !== s.id) return;
+      // Sort by priority descending (higher priority = more important), then by id for stability
+      const sorted = [...reqs].sort((a, b) => {
+        const pa = (a as any).priority ?? 0;
+        const pb = (b as any).priority ?? 0;
+        return pb - pa || a.id - b.id;
+      });
+      setStudentRequirements(sorted);
+      if (sorted.length > 0 && sorted[0].serviceTypeId) {
+        setSuggestedServiceTypeId(sorted[0].serviceTypeId);
+      }
+    } catch {
+      // non-fatal — proceed without suggestions
+    }
   };
 
   const handleSelectService = (svc: ServiceType | null) => {
@@ -373,31 +402,65 @@ export function FloatingTimer() {
               </div>
             )}
 
-            {startStep === "service" && (
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-                {serviceTypes.map(svc => (
+            {startStep === "service" && (() => {
+              const matchedTypeIds = new Set(studentRequirements.map(r => r.serviceTypeId));
+              const sortedServiceTypes = [...serviceTypes].sort((a, b) => {
+                const aMatched = matchedTypeIds.has(a.id) ? 0 : 1;
+                const bMatched = matchedTypeIds.has(b.id) ? 0 : 1;
+                return aMatched - bMatched;
+              });
+              const hasMatches = matchedTypeIds.size > 0;
+              return (
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+                  {hasMatches && (
+                    <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide px-1 pb-1">
+                      Based on IEP services
+                    </p>
+                  )}
+                  {sortedServiceTypes.map((svc, idx) => {
+                    const isMatched = matchedTypeIds.has(svc.id);
+                    const isSuggested = svc.id === suggestedServiceTypeId;
+                    const isFirstOther = hasMatches && !isMatched && sortedServiceTypes[idx - 1] && matchedTypeIds.has(sortedServiceTypes[idx - 1].id);
+                    return (
+                      <div key={svc.id}>
+                        {isFirstOther && (
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-1 pt-2 pb-1">
+                            Other services
+                          </p>
+                        )}
+                        <button
+                          onClick={() => handleSelectService(svc)}
+                          className={`w-full px-4 rounded-lg border text-sm font-medium text-left transition-colors ${
+                            isSuggested
+                              ? "h-14 bg-emerald-50 border-emerald-400 text-emerald-900 hover:bg-emerald-100"
+                              : isMatched
+                              ? "h-12 bg-white border-emerald-200 text-gray-800 hover:bg-emerald-50"
+                              : "h-12 bg-white border-gray-200 text-gray-800 hover:bg-emerald-50 hover:border-emerald-200"
+                          } active:bg-emerald-100`}
+                        >
+                          <span className="block truncate">{svc.name}</span>
+                          {isSuggested && (
+                            <span className="text-[10px] font-semibold text-emerald-600">Suggested</span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
-                    key={svc.id}
-                    onClick={() => handleSelectService(svc)}
-                    className="w-full h-12 px-4 rounded-lg border border-gray-200 text-sm font-medium text-gray-800 text-left hover:bg-emerald-50 hover:border-emerald-200 active:bg-emerald-100 transition-colors"
+                    onClick={() => handleSelectService(null)}
+                    className="w-full h-12 px-4 rounded-lg border border-dashed border-gray-200 text-sm font-medium text-gray-500 text-left hover:bg-gray-50 transition-colors"
                   >
-                    {svc.name}
+                    General (no specific service)
                   </button>
-                ))}
-                <button
-                  onClick={() => handleSelectService(null)}
-                  className="w-full h-12 px-4 rounded-lg border border-dashed border-gray-200 text-sm font-medium text-gray-500 text-left hover:bg-gray-50 transition-colors"
-                >
-                  General (no specific service)
-                </button>
-                <button
-                  onClick={() => setStartStep("student")}
-                  className="w-full text-center text-xs text-gray-400 pt-2 hover:text-gray-600"
-                >
-                  Back to student selection
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={() => setStartStep("student")}
+                    className="w-full text-center text-xs text-gray-400 pt-2 hover:text-gray-600"
+                  >
+                    Back to student selection
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
