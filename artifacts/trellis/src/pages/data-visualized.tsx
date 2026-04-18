@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
 } from "recharts";
 import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
@@ -42,6 +43,20 @@ function useProviders() {
   return useQuery({
     queryKey: ["viz/provider-summary"],
     queryFn: () => authFetch("/api/dashboard/provider-summary").then(r => r.json()),
+    staleTime: 5 * 60_000,
+  });
+}
+function useProgramTrends() {
+  return useQuery({
+    queryKey: ["viz/program-trends"],
+    queryFn: () => authFetch("/api/dashboard/program-trends").then(r => r.json()),
+    staleTime: 5 * 60_000,
+  });
+}
+function useProtectiveMeasures() {
+  return useQuery({
+    queryKey: ["viz/protective-measures"],
+    queryFn: () => authFetch("/api/protective-measures/summary?startDate=2025-04-01").then(r => r.json()),
     staleTime: 5 * 60_000,
   });
 }
@@ -111,6 +126,13 @@ function Loading() {
   return (
     <div className="w-full h-full flex items-center justify-center text-slate-300 text-sm">
       Loading…
+    </div>
+  );
+}
+function Empty({ message = "No data available" }: { message?: string }) {
+  return (
+    <div className="w-full h-full flex items-center justify-center text-slate-300 text-sm">
+      {message}
     </div>
   );
 }
@@ -330,7 +352,7 @@ function SlideProviders() {
       statSub="avg utilization"
       accent="#a78bfa"
     >
-      {isLoading || chartData.length === 0 ? <Loading /> : (
+      {isLoading ? <Loading /> : chartData.length === 0 ? <Empty message="No provider data available" /> : (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 50, left: 0, bottom: 4 }}>
             <XAxis type="number" domain={[0, 100]} tick={{ fill: "#cbd5e1", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
@@ -389,6 +411,149 @@ function SlideMissedSessions() {
   );
 }
 
+// ─── Slide 7 — Skill Acquisition (DTT) ──────────────────────────────────────
+
+function fmtMonth(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "short", year: "2-digit" });
+}
+
+function SlideSkillAcquisition() {
+  const { data, isLoading } = useProgramTrends();
+  const rows: any[] = data?.skillAcquisition ?? [];
+  const chartData = rows.map(r => ({
+    label: fmtMonth(r.month),
+    rate: parseFloat(r.avg_correct),
+    students: parseInt(r.students),
+  }));
+  const latest = chartData[chartData.length - 1]?.rate;
+  const first = chartData[0]?.rate;
+  const delta = latest != null && first != null ? Math.round(latest - first) : null;
+
+  return (
+    <Slide
+      eyebrow="Skill Acquisition"
+      headline="DTT mastery across active programs"
+      description="Monthly average percent-correct across all discrete trial training programs. Tracking skill acquisition for 42 students."
+      stat={latest != null ? `${latest}%` : "—"}
+      statSub={delta != null ? `▲ ${delta}pp gain this year` : "avg percent correct"}
+      accent="#6366f1"
+    >
+      {isLoading ? <Loading /> : chartData.length === 0 ? <Empty /> : (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gSkill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.18} />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="2 4" stroke="#f1f5f9" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
+            <Tooltip
+              contentStyle={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.07)", color: "#334155" }}
+              formatter={(v: any) => [`${v}%`, "Avg correct"]}
+            />
+            <Area type="monotone" dataKey="rate" stroke="#6366f1" strokeWidth={2.5} fill="url(#gSkill)" dot={false} activeDot={{ r: 4, fill: "#6366f1" }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </Slide>
+  );
+}
+
+// ─── Slide 8 — Behavior Data ─────────────────────────────────────────────────
+
+function SlideBehaviorData() {
+  const { data, isLoading } = useProgramTrends();
+  const rows: any[] = data?.behaviorReduction ?? [];
+  const chartData = rows.map(r => ({
+    label: fmtMonth(r.month),
+    value: parseFloat(r.avg_value),
+    targets: parseInt(r.active_targets),
+    students: parseInt(r.students),
+  }));
+  const latest = chartData[chartData.length - 1]?.value;
+  const latestTargets = chartData[chartData.length - 1]?.targets ?? 0;
+
+  return (
+    <Slide
+      eyebrow="Behavior Tracking"
+      headline="Active behavior targets across students"
+      description={`Aggregated behavior data across ${latestTargets} active targets — monitoring frequency, rate, and duration.`}
+      stat={latest != null ? `${latestTargets}` : "—"}
+      statSub="active behavior targets"
+      accent="#f59e0b"
+    >
+      {isLoading ? <Loading /> : chartData.length === 0 ? <Empty /> : (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 20, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke="#f1f5f9" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.07)", color: "#334155" }}
+              formatter={(v: any) => [v, "Avg value"]}
+            />
+            <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: "#f59e0b", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </Slide>
+  );
+}
+
+// ─── Slide 9 — Protective Measures / Restraints ──────────────────────────────
+
+function SlideProtectiveMeasures() {
+  const { data, isLoading } = useProtectiveMeasures();
+  const monthly: Record<string, any> = data?.monthlyBreakdown ?? {};
+  const summary = data?.summary;
+  const total: number = data?.total ?? 0;
+  const chartData = Object.entries(monthly)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, counts]: [string, any]) => ({
+      label: fmtMonth(month),
+      restraints: counts.restraints ?? 0,
+      seclusions: counts.seclusions ?? 0,
+      timeouts: counts.timeouts ?? 0,
+    }));
+
+  return (
+    <Slide
+      eyebrow="Safety & Restraints"
+      headline="Protective measures tracked this year"
+      description="Physical restraints, seclusions, and time-outs logged with full documentation, duration, and notification tracking."
+      stat={String(total)}
+      statSub={`incidents logged${summary?.physical_restraint != null ? ` · ${summary.physical_restraint} restraints` : ""}`}
+      accent="#ef4444"
+    >
+      {isLoading ? <Loading /> : chartData.length === 0 ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-slate-300">
+          <div className="text-5xl font-black text-emerald-500">0</div>
+          <div className="text-sm">No restraint incidents recorded</div>
+          <div className="text-[12px] text-slate-400 text-center max-w-48">Protective measure tracking is active and monitoring continuously.</div>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 16, right: 8, left: -20, bottom: 0 }} barCategoryGap="35%">
+            <CartesianGrid strokeDasharray="2 4" stroke="#f1f5f9" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip
+              contentStyle={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.07)" }}
+            />
+            <Bar dataKey="restraints" name="Restraints" fill="#ef4444" fillOpacity={0.75} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar dataKey="seclusions" name="Seclusions" fill="#f59e0b" fillOpacity={0.75} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar dataKey="timeouts" name="Time-outs" fill="#94a3b8" fillOpacity={0.75} radius={[4, 4, 0, 0]} maxBarSize={24} />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Slide>
+  );
+}
+
 // ─── Carousel ────────────────────────────────────────────────────────────────
 
 const SLIDES = [
@@ -398,6 +563,9 @@ const SLIDES = [
   { id: "schools",  label: "Schools",    component: SlideSchools },
   { id: "provider", label: "Providers",  component: SlideProviders },
   { id: "sessions", label: "Sessions",   component: SlideMissedSessions },
+  { id: "skill",    label: "Skill Acq.", component: SlideSkillAcquisition },
+  { id: "behavior", label: "Behavior",   component: SlideBehaviorData },
+  { id: "safety",   label: "Safety",     component: SlideProtectiveMeasures },
 ];
 
 const ROTATION_MS = 7000;

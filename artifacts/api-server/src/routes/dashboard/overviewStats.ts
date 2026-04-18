@@ -254,6 +254,58 @@ router.get("/dashboard/provider-summary", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+router.get("/dashboard/program-trends", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
+  const districtId = sdFilters.districtId ?? await resolveCallerDistrictId(req);
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+  const startDate = twelveMonthsAgo.toISOString().slice(0, 10);
+
+  const schoolFilter = districtId
+    ? sql`AND s.school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})`
+    : sql``;
+
+  const [skillRows, behaviorRows] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        SUBSTRING(ds.session_date, 1, 7) AS month,
+        ROUND(AVG(pd.percent_correct)::numeric, 1) AS avg_correct,
+        COUNT(DISTINCT pt.id) AS active_programs,
+        COUNT(DISTINCT ds.student_id) AS students
+      FROM program_data pd
+      JOIN data_sessions ds ON ds.id = pd.data_session_id
+      JOIN program_targets pt ON pt.id = pd.program_target_id
+      JOIN students s ON s.id = ds.student_id
+      WHERE pd.percent_correct IS NOT NULL
+        AND ds.session_date >= ${startDate}
+        AND pt.program_type = 'discrete_trial'
+        ${schoolFilter}
+      GROUP BY month
+      ORDER BY month
+    `),
+    db.execute(sql`
+      SELECT
+        SUBSTRING(ds.session_date, 1, 7) AS month,
+        ROUND(AVG(bd.value)::numeric, 2) AS avg_value,
+        COUNT(DISTINCT bd.behavior_target_id) AS active_targets,
+        COUNT(DISTINCT ds.student_id) AS students
+      FROM behavior_data bd
+      JOIN data_sessions ds ON ds.id = bd.data_session_id
+      JOIN students s ON s.id = ds.student_id
+      WHERE ds.session_date >= ${startDate}
+        ${schoolFilter}
+      GROUP BY month
+      ORDER BY month
+    `),
+  ]);
+
+  res.json({
+    skillAcquisition: skillRows.rows,
+    behaviorReduction: behaviorRows.rows,
+  });
+});
+
 router.get("/dashboard/para-summary", async (req, res): Promise<void> => {
   const sdFilters = parseSchoolDistrictFilters(req, req.query);
   const paraConditions: any[] = [eq(staffTable.status, "active"), eq(staffTable.role, "para")];
