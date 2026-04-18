@@ -3,7 +3,7 @@ import { useClerk } from "@clerk/react";
 import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import {
-  Menu, X, MoreHorizontal, Search, Sprout, ChevronRight, LogOut, Lock
+  Menu, X, MoreHorizontal, Search, Sprout, ChevronRight, LogOut, Lock, UserCog
 } from "lucide-react";
 import { useGetDashboardAlertsSummary } from "@workspace/api-client-react";
 import { Toaster, toast } from "sonner";
@@ -430,6 +430,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="text-[11px] truncate leading-tight mt-0.5 text-sidebar-foreground/50">{user.subtitle}</p>
             </div>
             <ThemePicker />
+            <Link
+              href="/my-settings"
+              className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
+              title="My Settings"
+              data-testid="link-my-settings"
+            >
+              <UserCog className="w-3.5 h-3.5" />
+            </Link>
             <button
               onClick={() => signOut({ redirectUrl: "/sign-in" })}
               className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
