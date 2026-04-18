@@ -208,7 +208,6 @@ export const adminNav: NavSection[] = [
           { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
         ],
       },
-      { href: "/agencies", label: "Agencies", icon: Truck },
     ],
   },
   {
@@ -219,6 +218,7 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
+      { href: "/agencies", label: "Agencies", icon: Truck },
       {
         href: "/reports", label: "Reports", icon: BarChart3,
         children: [
