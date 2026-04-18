@@ -4,14 +4,15 @@ import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable, dataSessionsTable,
   behaviorDataTable, programDataTable, staffTable,
-  phaseChangesTable,
+  phaseChangesTable, protocolModificationMarkersTable,
 } from "@workspace/db";
-import { eq, and, sql, gte, lte, asc, isNotNull } from "drizzle-orm";
+import { eq, and, sql, gte, lte, asc, isNotNull, or } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import {
   assertStudentInCallerDistrict,
   assertBehaviorTargetInCallerDistrict,
   assertPhaseChangeInCallerDistrict,
+  assertProgramTargetInCallerDistrict,
 } from "../../lib/districtScope";
 import type { AuthedRequest } from "../../middlewares/auth";
 
@@ -393,6 +394,105 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
   } catch (e: any) {
     console.error("GET IOA summary error:", e);
     res.status(500).json({ error: "Failed to fetch IOA summary" });
+  }
+});
+
+/* ── Protocol Modification Markers ──────────────────────────────────────── */
+
+const VALID_MARKER_TYPES = [
+  "prompt_hierarchy", "operational_definition",
+  "reinforcement_schedule", "treatment_protocol", "custom",
+];
+
+router.get("/behavior-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId);
+    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    const rows = await db.select().from(protocolModificationMarkersTable)
+      .where(eq(protocolModificationMarkersTable.behaviorTargetId, targetId))
+      .orderBy(asc(protocolModificationMarkersTable.markerDate));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch modification markers" });
+  }
+});
+
+router.post("/behavior-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
+  try {
+    const behaviorTargetId = parseInt(req.params.targetId);
+    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, behaviorTargetId, res))) return;
+    const { markerDate, markerType, label, notes } = req.body;
+    if (!markerDate || !label) { res.status(400).json({ error: "markerDate and label are required" }); return; }
+    const resolvedType = VALID_MARKER_TYPES.includes(markerType) ? markerType : "custom";
+    const [row] = await db.insert(protocolModificationMarkersTable).values({
+      behaviorTargetId, markerDate, markerType: resolvedType, label, notes: notes || null,
+    }).returning();
+    logAudit(req, {
+      action: "create", targetTable: "protocol_modification_markers", targetId: row.id,
+      summary: `Created modification marker #${row.id} (${resolvedType}) for behavior target #${behaviorTargetId}`,
+      newValues: { markerDate, markerType: resolvedType, label, notes } as Record<string, unknown>,
+    });
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create modification marker" });
+  }
+});
+
+router.get("/program-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.targetId);
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    const rows = await db.select().from(protocolModificationMarkersTable)
+      .where(eq(protocolModificationMarkersTable.programTargetId, targetId))
+      .orderBy(asc(protocolModificationMarkersTable.markerDate));
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch {
+    res.status(500).json({ error: "Failed to fetch modification markers" });
+  }
+});
+
+router.post("/program-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.targetId);
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    const { markerDate, markerType, label, notes } = req.body;
+    if (!markerDate || !label) { res.status(400).json({ error: "markerDate and label are required" }); return; }
+    const resolvedType = VALID_MARKER_TYPES.includes(markerType) ? markerType : "custom";
+    const [row] = await db.insert(protocolModificationMarkersTable).values({
+      programTargetId, markerDate, markerType: resolvedType, label, notes: notes || null,
+    }).returning();
+    logAudit(req, {
+      action: "create", targetTable: "protocol_modification_markers", targetId: row.id,
+      summary: `Created modification marker #${row.id} (${resolvedType}) for program target #${programTargetId}`,
+      newValues: { markerDate, markerType: resolvedType, label, notes } as Record<string, unknown>,
+    });
+    res.status(201).json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch {
+    res.status(500).json({ error: "Failed to create modification marker" });
+  }
+});
+
+router.delete("/modification-markers/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(404).json({ error: "Not found" }); return; }
+    const [existing] = await db.select().from(protocolModificationMarkersTable)
+      .where(eq(protocolModificationMarkersTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (existing.behaviorTargetId) {
+      if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, existing.behaviorTargetId, res))) return;
+    } else if (existing.programTargetId) {
+      if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, existing.programTargetId, res))) return;
+    }
+    await db.delete(protocolModificationMarkersTable).where(eq(protocolModificationMarkersTable.id, id));
+    logAudit(req, {
+      action: "delete", targetTable: "protocol_modification_markers", targetId: id,
+      summary: `Deleted modification marker #${id}`,
+      oldValues: { markerDate: existing.markerDate, markerType: existing.markerType, label: existing.label } as Record<string, unknown>,
+    });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to delete modification marker" });
   }
 });
 

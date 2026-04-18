@@ -3,8 +3,21 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { listProgramTargetPhaseHistory, type ProgramTargetPhaseHistoryItem } from "@workspace/api-client-react";
-import { TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  listProgramTargetPhaseHistory, type ProgramTargetPhaseHistoryItem,
+  listProgramTargetModificationMarkers, createProgramTargetModificationMarker, deleteModificationMarker,
+  type ProtocolModificationMarker,
+} from "@workspace/api-client-react";
+import { TrendingUp, ChevronDown, ChevronUp, Zap, Plus, Trash2, Save, X } from "lucide-react";
+import { toast } from "sonner";
+
+const MARKER_TYPE_CONFIG: Record<string, { label: string; abbr: string }> = {
+  prompt_hierarchy:       { label: "Prompt Hierarchy Changed",       abbr: "PH" },
+  operational_definition: { label: "Operational Definition Changed", abbr: "OD" },
+  reinforcement_schedule: { label: "Reinforcement Schedule Changed", abbr: "RS" },
+  treatment_protocol:     { label: "Treatment Protocol Updated",     abbr: "TP" },
+  custom:                 { label: "Protocol Change",                abbr: "⚡" },
+};
 import { ProgramTarget, TrendPoint, PHASE_CONFIG, ProgramPhase } from "./constants";
 
 export const PHASE_CHART_COLORS: Record<ProgramPhase, string> = {
@@ -68,12 +81,54 @@ export function ProgramTargetChart({ target, trends, defaultExpanded = false }: 
   const [loaded, setLoaded] = useState(false);
   const [showTrend, setShowTrend] = useState(true);
 
+  /* ── Modification markers ── */
+  const [modMarkers, setModMarkers] = useState<ProtocolModificationMarker[]>([]);
+  const [addingMarker, setAddingMarker] = useState(false);
+  const [newMarkerDate, setNewMarkerDate] = useState("");
+  const [newMarkerType, setNewMarkerType] = useState("prompt_hierarchy");
+  const [newMarkerLabel, setNewMarkerLabel] = useState("");
+
   useEffect(() => {
     if (!expanded || loaded) return;
-    listProgramTargetPhaseHistory(target.id)
-      .then(h => { setPhaseHistory(h); setLoaded(true); })
+    Promise.all([
+      listProgramTargetPhaseHistory(target.id),
+      listProgramTargetModificationMarkers(target.id),
+    ])
+      .then(([h, mm]) => {
+        setPhaseHistory(h);
+        setModMarkers(mm.sort((a, b) => a.markerDate.localeCompare(b.markerDate)));
+        setLoaded(true);
+      })
       .catch(() => setLoaded(true));
   }, [expanded, loaded, target.id]);
+
+  async function handleAddMarker() {
+    if (!newMarkerDate || !newMarkerLabel.trim()) return;
+    try {
+      const created = await createProgramTargetModificationMarker(target.id, {
+        markerDate: newMarkerDate,
+        markerType: newMarkerType,
+        label: newMarkerLabel.trim(),
+      });
+      setModMarkers(prev => [...prev, created].sort((a, b) => a.markerDate.localeCompare(b.markerDate)));
+      toast.success("Protocol modification marker added");
+      setAddingMarker(false);
+      setNewMarkerDate("");
+      setNewMarkerLabel("");
+    } catch {
+      toast.error("Failed to add marker");
+    }
+  }
+
+  async function handleDeleteMarker(id: number) {
+    try {
+      await deleteModificationMarker(id);
+      setModMarkers(prev => prev.filter(m => m.id !== id));
+      toast.success("Marker removed");
+    } catch {
+      toast.error("Failed to remove marker");
+    }
+  }
 
   const sortedHistory = useMemo(() =>
     [...phaseHistory].sort((a, b) => a.startedAt.localeCompare(b.startedAt)),
@@ -229,6 +284,21 @@ export function ProgramTargetChart({ target, trends, defaultExpanded = false }: 
                     />
                   ))}
 
+                  {modMarkers.map(m => {
+                    const abbr = MARKER_TYPE_CONFIG[m.markerType]?.abbr ?? "⚡";
+                    return (
+                      <ReferenceLine
+                        key={`mm-${m.id}`}
+                        x={m.markerDate}
+                        stroke="#f97316"
+                        strokeDasharray="3 2"
+                        strokeWidth={1}
+                        strokeOpacity={0.85}
+                        label={{ value: `${abbr}`, position: "top", fontSize: 8, fill: "#f97316" }}
+                      />
+                    );
+                  })}
+
                   <Line
                     type="linear"
                     dataKey="value"
@@ -257,12 +327,98 @@ export function ProgramTargetChart({ target, trends, defaultExpanded = false }: 
 
               <p className="text-[8px] text-gray-400 text-center mt-0.5">
                 Dot color = phase active on that date &nbsp;·&nbsp;
-                Vertical dashed lines = phase transitions
+                Vertical dashed = phase transitions &nbsp;·&nbsp;
+                <span className="text-orange-400">Orange dotted = protocol modifications</span>
               </p>
             </>
           ) : (
             <p className="text-[11px] text-gray-400 py-4 text-center">No data points yet.</p>
           )}
+
+          {/* ── Protocol Modification Markers ── */}
+          <div className="mt-2 border-t border-orange-100 pt-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-semibold text-orange-600 flex items-center gap-0.5">
+                <Zap className="w-2.5 h-2.5" /> Protocol Modifications
+              </span>
+              <button
+                onClick={() => setAddingMarker(v => !v)}
+                className="text-[9px] text-orange-500 hover:text-orange-600 flex items-center gap-0.5"
+              >
+                <Plus className="w-2.5 h-2.5" /> Add
+              </button>
+            </div>
+
+            {addingMarker && (
+              <div className="space-y-1 mb-1.5 p-1.5 bg-orange-50 rounded border border-orange-100">
+                <div className="flex gap-1 flex-wrap">
+                  <input
+                    type="date"
+                    value={newMarkerDate}
+                    onChange={e => setNewMarkerDate(e.target.value)}
+                    className="text-[10px] border border-orange-200 rounded px-1.5 py-0.5 bg-white"
+                  />
+                  <select
+                    value={newMarkerType}
+                    onChange={e => {
+                      setNewMarkerType(e.target.value);
+                      if (!newMarkerLabel) setNewMarkerLabel(MARKER_TYPE_CONFIG[e.target.value]?.label ?? "");
+                    }}
+                    className="text-[10px] border border-orange-200 rounded px-1.5 py-0.5 bg-white flex-1"
+                  >
+                    {Object.entries(MARKER_TYPE_CONFIG).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={newMarkerLabel}
+                  onChange={e => setNewMarkerLabel(e.target.value)}
+                  placeholder="Brief description"
+                  className="w-full text-[10px] border border-orange-200 rounded px-1.5 py-0.5 bg-white"
+                />
+                <div className="flex gap-1">
+                  <button
+                    onClick={handleAddMarker}
+                    className="text-[9px] px-2 py-0.5 rounded bg-orange-500 text-white flex items-center gap-0.5"
+                  >
+                    <Save className="w-2.5 h-2.5" /> Save
+                  </button>
+                  <button
+                    onClick={() => setAddingMarker(false)}
+                    className="text-[9px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 flex items-center gap-0.5"
+                  >
+                    <X className="w-2.5 h-2.5" /> Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {modMarkers.length > 0 ? (
+              <div className="space-y-0.5">
+                {modMarkers.map(m => {
+                  const cfg = MARKER_TYPE_CONFIG[m.markerType] ?? MARKER_TYPE_CONFIG.custom;
+                  return (
+                    <div key={m.id} className="flex items-center justify-between text-[10px] px-1.5 py-1 bg-orange-50 rounded border border-orange-100">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-orange-500 flex-shrink-0">{cfg.abbr}</span>
+                        <span className="text-gray-400 flex-shrink-0">
+                          {new Date(m.markerDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                        <span className="text-gray-700 truncate">{m.label}</span>
+                      </div>
+                      <button onClick={() => handleDeleteMarker(m.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0 ml-1">
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[9px] text-gray-400">No protocol modifications recorded.</p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine
@@ -6,10 +6,22 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp
+  Download, Plus, Trash2, TrendingUp, Target, Calendar, X, Save, ChevronDown, ChevronUp, Zap
 } from "lucide-react";
 import { toast } from "sonner";
-import { createPhaseChange, deletePhaseChange, getIoaSummary } from "@workspace/api-client-react";
+import {
+  createPhaseChange, deletePhaseChange, getIoaSummary,
+  listBehaviorTargetModificationMarkers, createBehaviorTargetModificationMarker, deleteModificationMarker,
+  type ProtocolModificationMarker,
+} from "@workspace/api-client-react";
+
+const MARKER_TYPE_CONFIG: Record<string, { label: string; abbr: string }> = {
+  prompt_hierarchy:       { label: "Prompt Hierarchy Changed",       abbr: "PH" },
+  operational_definition: { label: "Operational Definition Changed", abbr: "OD" },
+  reinforcement_schedule: { label: "Reinforcement Schedule Changed", abbr: "RS" },
+  treatment_protocol:     { label: "Treatment Protocol Updated",     abbr: "TP" },
+  custom:                 { label: "Protocol Change",                abbr: "⚡" },
+};
 
 interface PhaseChange {
   id: number;
@@ -78,6 +90,51 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const chartRef = useRef<HTMLDivElement>(null);
+
+  /* ── Modification markers ── */
+  const [modMarkers, setModMarkers] = useState<ProtocolModificationMarker[]>([]);
+  const [addingMarker, setAddingMarker] = useState(false);
+  const [newMarkerDate, setNewMarkerDate] = useState("");
+  const [newMarkerType, setNewMarkerType] = useState("prompt_hierarchy");
+  const [newMarkerLabel, setNewMarkerLabel] = useState("");
+  const [newMarkerNotes, setNewMarkerNotes] = useState("");
+
+  useEffect(() => {
+    listBehaviorTargetModificationMarkers(target.id)
+      .then(setModMarkers)
+      .catch(() => {});
+  }, [target.id]);
+
+  async function handleAddMarker() {
+    if (!newMarkerDate || !newMarkerLabel.trim()) return;
+    const autoLabel = newMarkerLabel.trim() || MARKER_TYPE_CONFIG[newMarkerType]?.label || "Protocol Change";
+    try {
+      const created = await createBehaviorTargetModificationMarker(target.id, {
+        markerDate: newMarkerDate,
+        markerType: newMarkerType,
+        label: autoLabel,
+        notes: newMarkerNotes || undefined,
+      });
+      setModMarkers(prev => [...prev, created].sort((a, b) => a.markerDate.localeCompare(b.markerDate)));
+      toast.success("Protocol modification marker added");
+      setAddingMarker(false);
+      setNewMarkerDate("");
+      setNewMarkerLabel("");
+      setNewMarkerNotes("");
+    } catch {
+      toast.error("Failed to add modification marker");
+    }
+  }
+
+  async function handleDeleteMarker(id: number) {
+    try {
+      await deleteModificationMarker(id);
+      setModMarkers(prev => prev.filter(m => m.id !== id));
+      toast.success("Marker removed");
+    } catch {
+      toast.error("Failed to remove marker");
+    }
+  }
 
   const chartData = useMemo(() => {
     const sorted = [...data]
@@ -380,6 +437,21 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
                       label={{ value: pc.label, position: "top", fontSize: 9, fill: "#374151" }}
                     />
                   ))}
+
+                  {modMarkers.map(m => {
+                    const abbr = MARKER_TYPE_CONFIG[m.markerType]?.abbr ?? "⚡";
+                    return (
+                      <ReferenceLine
+                        key={`mm-${m.id}`}
+                        x={m.markerDate}
+                        stroke="#f97316"
+                        strokeDasharray="3 2"
+                        strokeWidth={1}
+                        strokeOpacity={0.85}
+                        label={{ value: `${abbr}: ${m.label}`, position: "top", fontSize: 8, fill: "#f97316" }}
+                      />
+                    );
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -445,6 +517,105 @@ export function AbaGraph({ target, data, phaseChanges, onPhaseChangesUpdate, rea
               </div>
             ) : (
               <p className="text-[10px] text-gray-400">No phase changes marked.</p>
+            )}
+          </div>
+
+          {/* ── Protocol Modification Markers ── */}
+          <div className="mt-3 border-t border-orange-100 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold text-orange-600 flex items-center gap-1">
+                <Zap className="w-3 h-3" /> Protocol Modifications
+              </span>
+              {!readOnly && (
+                <button
+                  onClick={() => setAddingMarker(!addingMarker)}
+                  className="text-[10px] text-orange-500 hover:text-orange-600 flex items-center gap-0.5"
+                >
+                  <Plus className="w-3 h-3" /> Add Marker
+                </button>
+              )}
+            </div>
+
+            {addingMarker && (
+              <div className="space-y-1.5 mb-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    type="date"
+                    value={newMarkerDate}
+                    onChange={e => setNewMarkerDate(e.target.value)}
+                    className="text-[11px] border border-orange-200 rounded px-2 py-1 bg-white"
+                  />
+                  <select
+                    value={newMarkerType}
+                    onChange={e => {
+                      setNewMarkerType(e.target.value);
+                      if (!newMarkerLabel) setNewMarkerLabel(MARKER_TYPE_CONFIG[e.target.value]?.label ?? "");
+                    }}
+                    className="text-[11px] border border-orange-200 rounded px-2 py-1 bg-white"
+                  >
+                    {Object.entries(MARKER_TYPE_CONFIG).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  value={newMarkerLabel}
+                  onChange={e => setNewMarkerLabel(e.target.value)}
+                  placeholder="Brief description (e.g., switched to least-to-most)"
+                  className="w-full text-[11px] border border-orange-200 rounded px-2 py-1 bg-white"
+                />
+                <input
+                  type="text"
+                  value={newMarkerNotes}
+                  onChange={e => setNewMarkerNotes(e.target.value)}
+                  placeholder="Optional notes"
+                  className="w-full text-[11px] border border-orange-200 rounded px-2 py-1 bg-white"
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-6 text-[10px] bg-orange-500 hover:bg-orange-600 text-white" onClick={handleAddMarker}>
+                    <Save className="w-3 h-3 mr-0.5" /> Save
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setAddingMarker(false)}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {modMarkers.length > 0 ? (
+              <div className="space-y-1">
+                {modMarkers.map(m => {
+                  const cfg = MARKER_TYPE_CONFIG[m.markerType] ?? MARKER_TYPE_CONFIG.custom;
+                  return (
+                    <div key={m.id} className="flex items-start justify-between text-[11px] px-2 py-1.5 bg-orange-50 rounded border border-orange-100">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="font-bold text-orange-500 flex-shrink-0 w-5 text-center">{cfg.abbr}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-orange-600 text-[9px] font-semibold flex-shrink-0">{cfg.label}</span>
+                            <span className="text-gray-400">·</span>
+                            <span className="text-gray-500">
+                              {new Date(m.markerDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                          </div>
+                          <p className="text-gray-700 font-medium truncate">{m.label}</p>
+                          {m.notes && <p className="text-gray-400 text-[10px] truncate">{m.notes}</p>}
+                        </div>
+                      </div>
+                      {!readOnly && (
+                        <button onClick={() => handleDeleteMarker(m.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0 ml-2">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">
+                No protocol modifications recorded. Use markers to document changes within a phase (prompt hierarchies, reinforcement schedules, etc.) that differ from phase transitions.
+              </p>
             )}
           </div>
 

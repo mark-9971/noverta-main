@@ -21,6 +21,7 @@ router.use(
     "/program-templates",
     "/program-steps",
     "/phase-changes",
+    "/modification-markers",
     "/data-sessions",
     "/aba/caseload-analytics",
   ],
