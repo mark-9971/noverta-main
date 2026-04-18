@@ -245,7 +245,7 @@ function buildPrintHtml(data: ReportData): string {
 </body></html>`;
 }
 
-export default function ComplianceRiskReportPage() {
+export default function ComplianceRiskReportPage({ embedded }: { embedded?: boolean } = {}) {
   const [schoolFilter, setSchoolFilter] = useState<string>("all");
   const [showAllStudents, setShowAllStudents] = useState(false);
 
@@ -299,13 +299,18 @@ export default function ComplianceRiskReportPage() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Compliance Risk Report</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {data ? `${data.meta.districtName} — ${data.meta.reportPeriod}` : "Loading..."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Compliance Risk Report</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {data ? `${data.meta.districtName} — ${data.meta.reportPeriod}` : "Loading..."}
+            </p>
+          </div>
+        )}
+        {embedded && data && (
+          <p className="text-xs text-gray-400">{data.meta.districtName} — {data.meta.reportPeriod}</p>
+        )}
+        <div className="flex items-center gap-2 ml-auto">
           <Select value={schoolFilter} onValueChange={setSchoolFilter}>
             <SelectTrigger className="w-[200px] h-9">
               <SelectValue placeholder="All Schools" />

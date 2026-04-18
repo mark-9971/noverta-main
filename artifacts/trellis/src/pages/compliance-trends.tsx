@@ -33,7 +33,7 @@ function fmtMonth(ym: string): string {
   return d.toLocaleString("en-US", { month: "short", year: "2-digit" }).replace(" ", " '");
 }
 
-export default function ComplianceTrendsPage() {
+export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean } = {}) {
   const { filterParams } = useSchoolContext();
   const [months, setMonths] = useState(12);
   const [data, setData] = useState<TrendsResponse | null>(null);
@@ -74,15 +74,17 @@ export default function ComplianceTrendsPage() {
   })) ?? [], [data]);
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+    <div className={embedded ? "space-y-5" : "p-6 space-y-6 max-w-[1400px] mx-auto"}>
       <header className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Compliance Trends</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Real time-series across service delivery, student risk, compensatory exposure, and logging timeliness.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Compliance Trends</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Real time-series across service delivery, student risk, compensatory exposure, and logging timeliness.
+            </p>
+          </div>
+        )}
+        <div className="flex items-center gap-2 ml-auto">
           <label className="text-xs text-gray-500">Window</label>
           <select
             value={months}

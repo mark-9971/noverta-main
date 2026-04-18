@@ -68,15 +68,12 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "Compliance",
+    label: "Compliance Tools",
     icon: ListChecks,
     collapsible: true,
     defaultOpen: true,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/compliance/trends", label: "Compliance Trends", icon: FileBarChart, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/compliance-risk-report", label: "Compliance Risk Report", icon: FileBarChart },
-      { href: "/weekly-compliance-summary", label: "Weekly Compliance Summary", icon: FileBarChart },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },

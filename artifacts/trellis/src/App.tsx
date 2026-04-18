@@ -34,7 +34,6 @@ const StaffCalendar = lazy(() => import("@/pages/staff-calendar"));
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const Compliance = lazy(() => import("@/pages/compliance"));
-const ComplianceTrendsPage = lazy(() => import("@/pages/compliance-trends"));
 const LeadershipPacketPage = lazy(() => import("@/pages/leadership-packet"));
 const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
@@ -84,7 +83,6 @@ const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"
 const BillingPage = lazy(() => import("@/pages/billing"));
 const MedicaidBillingPage = lazy(() => import("@/pages/medicaid-billing"));
 const CostAvoidancePage = lazy(() => import("@/pages/cost-avoidance"));
-const ComplianceRiskReportPage = lazy(() => import("@/pages/compliance-risk-report"));
 const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance-summary"));
 const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
@@ -185,7 +183,7 @@ function StaffRouter() {
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <HashRedirect to="/compliance#timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <HashRedirect to="/compliance#checklist" />}</Route>
-      <BoundedRoute path="/compliance/trends" component={ComplianceTrendsPage} fallbackTitle="Compliance trends error" featureKey="compliance.service_minutes" />
+      <Route path="/compliance/trends">{() => <HashRedirect to="/compliance#trends" />}</Route>
       <BoundedRoute path="/leadership-packet" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
@@ -229,7 +227,7 @@ function StaffRouter() {
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
-      <BoundedRoute path="/compliance-risk-report" component={ComplianceRiskReportPage} fallbackTitle="Compliance risk report error" />
+      <Route path="/compliance-risk-report">{() => <HashRedirect to="/compliance#risk-report" />}</Route>
       <BoundedRoute path="/weekly-compliance-summary" component={WeeklyComplianceSummaryPage} fallbackTitle="Weekly compliance summary error" />
       <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />

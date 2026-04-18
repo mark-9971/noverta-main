@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
-  Printer, ArrowRight, CheckCircle,
+  Printer, ArrowRight, CheckCircle, FileBarChart,
 } from "lucide-react";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -20,12 +20,16 @@ import { type FeatureKey } from "@/lib/module-tiers";
 import { authFetch } from "@/lib/auth-fetch";
 import ComplianceChecklist from "./compliance-checklist";
 import ComplianceTimelinePage from "./compliance-timeline";
+import ComplianceTrendsPage from "./compliance-trends";
+import ComplianceRiskReportPage from "./compliance-risk-report";
 import RecommendationsPanel from "@/components/compliance/RecommendationsPanel";
 
 const TABS = [
   { key: "minutes", label: "Service Minutes", icon: Timer },
   { key: "checklist", label: "Checklist", icon: ListChecks },
   { key: "timeline", label: "Timeline", icon: Calendar },
+  { key: "trends", label: "Trends", icon: TrendingDown },
+  { key: "risk-report", label: "Risk Report", icon: FileBarChart },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -642,13 +646,6 @@ export default function CompliancePage() {
                 <Printer className="w-3.5 h-3.5" /> Weekly Summary
               </Button>
             </Link>
-            {/* Risk Report is the wedge artifact — render as primary action so
-                admins are pulled toward it from every compliance surface. */}
-            <Link href="/compliance-risk-report">
-              <Button size="sm" className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700">
-                <AlertTriangle className="w-3.5 h-3.5" /> Open Compliance Risk Report
-              </Button>
-            </Link>
           </div>
         )}
       </div>
@@ -677,6 +674,8 @@ export default function CompliancePage() {
         </FeatureGate>
       )}
       {activeTab === "timeline" && <ComplianceTimelinePage embedded />}
+      {activeTab === "trends" && <ComplianceTrendsPage embedded />}
+      {activeTab === "risk-report" && <ComplianceRiskReportPage embedded />}
     </div>
   );
 }
