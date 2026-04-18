@@ -481,9 +481,26 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
                         {CATEGORY_LABELS[thread.category] ?? thread.category}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {thread.messageCount} message{thread.messageCount !== 1 ? "s" : ""} &middot; {new Date(thread.lastMessageAt).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <p className="text-xs text-gray-400">
+                        {thread.messageCount} message{thread.messageCount !== 1 ? "s" : ""} &middot; {new Date(thread.lastMessageAt).toLocaleDateString()}
+                      </p>
+                      {(() => {
+                        const lastStaffMsg = [...thread.messages].reverse().find(m => m.senderType === "staff");
+                        if (!lastStaffMsg) return null;
+                        return lastStaffMsg.readAt ? (
+                          <span className="flex items-center gap-0.5 text-[10px] text-emerald-600">
+                            <CheckCheck className="w-3 h-3" />
+                            Read
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+                            <Check className="w-3 h-3" />
+                            Unread
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
                 {expandedThread === thread.threadId ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -496,18 +513,28 @@ export default function StudentMessages({ studentId, studentName, guardians }: {
                       <div key={msg.id} className={`p-3 rounded-lg ${msg.senderType === "staff" ? "bg-emerald-50/80 ml-0 mr-8" : "bg-white border border-gray-200 ml-8 mr-0"}`}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-semibold text-gray-700">{msg.senderName}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-gray-400">
-                              {new Date(msg.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                            </span>
-                            {msg.senderType === "staff" && (
-                              msg.readAt
-                                ? <CheckCheck className="w-3 h-3 text-emerald-600" title="Read" />
-                                : <Check className="w-3 h-3 text-gray-300" title="Sent" />
-                            )}
-                          </div>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(msg.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                          </span>
                         </div>
                         <p className="text-sm text-gray-700 whitespace-pre-line">{msg.body}</p>
+                        {msg.senderType === "staff" && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            {msg.readAt ? (
+                              <>
+                                <CheckCheck className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                                <span className="text-[10px] text-emerald-600">
+                                  Read at {new Date(msg.readAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                <span className="text-[10px] text-gray-400">Not yet read</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
