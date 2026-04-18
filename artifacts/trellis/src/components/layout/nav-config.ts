@@ -188,6 +188,57 @@ export const spedTeacherNav: NavSection[] = adminNav
     return { ...s, label, items };
   });
 
+// Purpose-built nav for BCBAs. Surfaces ABA clinical tools at the top
+// rather than burying them in a collapsed "More tools" drawer.
+// No "More tools" section — every item BCBAs need is promoted.
+export const bcbaNav: NavSection[] = [
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/today", label: "Today", icon: Sun, primary: true },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
+    ],
+  },
+  {
+    label: "My Caseload",
+    icon: Users,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/students", label: "My Students", icon: Users, primary: true },
+      { href: "/sessions", label: "My Sessions", icon: Clipboard },
+      { href: "/schedule", label: "Schedule", icon: Calendar },
+    ],
+  },
+  {
+    label: "ABA / BCBA",
+    icon: Activity,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+    ],
+  },
+  {
+    label: "Compliance",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
+      { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
+    ],
+  },
+];
+
 export const paraNav: NavSection[] = [
   {
     items: [
@@ -252,6 +303,16 @@ const STAFF_NAV_CONFIG = {
     subtitle: "Service-minute compliance for SPED.",
     homeHref: "/",
   },
+  bcba: {
+    nav: bcbaNav,
+    color: "bg-indigo-600",
+    textColor: "text-indigo-600",
+    bgActive: "bg-indigo-50 text-indigo-700 font-semibold",
+    iconActive: "text-indigo-600",
+    label: "Trellis",
+    subtitle: "ABA & behavior support.",
+    homeHref: "/today",
+  },
   sped_teacher: {
     nav: spedTeacherNav,
     color: "bg-emerald-700",
@@ -268,7 +329,7 @@ export const roleConfig: Record<string, RoleThemeConfig> = {
   admin: STAFF_NAV_CONFIG.admin,
   case_manager: STAFF_NAV_CONFIG.admin,
   coordinator: STAFF_NAV_CONFIG.admin,
-  bcba: STAFF_NAV_CONFIG.sped_teacher,
+  bcba: STAFF_NAV_CONFIG.bcba,
   sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
   provider: STAFF_NAV_CONFIG.sped_teacher,
   para: {
