@@ -119,7 +119,7 @@ function ExposureTrendChart({ snapshots }: { snapshots: Snapshot[] }) {
         <CardHeader className="pb-0">
           <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
             <Activity className="w-4 h-4 text-indigo-400" />
-            Exposure Trend — last 12 weeks
+            Exposure Trend — last 8 weeks
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
@@ -147,7 +147,7 @@ function ExposureTrendChart({ snapshots }: { snapshots: Snapshot[] }) {
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
           <Activity className="w-4 h-4 text-indigo-400" />
-          Exposure Trend — last 12 weeks
+          Exposure Trend — last 8 weeks
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
@@ -705,7 +705,7 @@ export default function CostAvoidanceDashboard({ embedded = false }: { embedded?
 
   const { data: snapshotData } = useQuery<{ snapshots: Snapshot[] }>({
     queryKey: ["cost-avoidance-snapshots"],
-    queryFn: () => authFetch("/api/cost-avoidance/snapshots?weeks=12").then(r => {
+    queryFn: () => authFetch("/api/cost-avoidance/snapshots?weeks=8").then(r => {
       if (!r.ok) throw new Error("Failed to load snapshots");
       return r.json();
     }),
