@@ -189,9 +189,14 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/students", label: "Student List", icon: Users, primary: true },
+      {
+        href: "/students", label: "Directory", icon: Users, primary: true,
+        children: [
+          { href: "/students", label: "Students", icon: Users },
+          { href: "/staff", label: "Staff", icon: UserCheck },
+        ],
+      },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
-      { href: "/staff", label: "Staff", icon: UserCheck },
     ],
   },
   {
@@ -276,7 +281,7 @@ const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Service Delivery": "My Caseload",
 };
 const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
-  "Student List": "My Students",
+  "Directory": "My Directory",
   "Sessions": "My Sessions",
 };
 
