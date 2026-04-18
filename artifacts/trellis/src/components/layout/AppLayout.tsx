@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useClerk } from "@clerk/react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   Menu, X, MoreHorizontal, Search, Sprout, ChevronRight, LogOut, Lock
@@ -194,11 +194,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const initials = user.initials || user.name.split(" ").map(n => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "T";
 
+  const search = useSearch();
+
   function isActive(item: NavItem) {
     if (item.comingSoon) return false;
     return item.href === homeHref
       ? location === item.href
       : location.startsWith(item.href);
+  }
+
+  function isChildActive(childHref: string) {
+    const [childPath, childQuery] = childHref.split("?");
+    const childParams = new URLSearchParams(childQuery ?? "");
+    const currentParams = new URLSearchParams(search);
+    if (!location.startsWith(childPath)) return false;
+    for (const [k, v] of childParams.entries()) {
+      if (currentParams.get(k) !== v) return false;
+    }
+    return true;
   }
 
   function sectionHasActiveItem(section: NavSection) {
@@ -326,24 +339,53 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       const fk = item.featureKey;
                       const isItemLocked = fk && !tierLoading ? !hasAccess(fk) : false;
                       const tierInfo = fk && isItemLocked ? getFeatureInfo(fk) : null;
+                      const parentActive = isActive(item);
+                      const showChildren = parentActive && item.children && item.children.length > 0;
                       return (
-                        <NavItemRow
-                          key={item.href}
-                          item={item}
-                          active={isActive(item)}
-                          theme={theme}
-                          config={config}
-                          openAlerts={openAlerts}
-                          onNavigate={() => setSidebarOpen(false)}
-                          locked={isItemLocked}
-                          lockedTierLabel={tierInfo?.requiredTierLabel}
-                          onLockedClick={() => {
-                            toast.info(`${item.label} requires the ${tierInfo?.requiredTierLabel ?? "higher"} plan`, {
-                              description: "Contact your administrator or visit Billing to upgrade.",
-                              duration: 4000,
-                            });
-                          }}
-                        />
+                        <div key={item.href}>
+                          <NavItemRow
+                            item={item}
+                            active={parentActive}
+                            theme={theme}
+                            config={config}
+                            openAlerts={openAlerts}
+                            onNavigate={() => setSidebarOpen(false)}
+                            locked={isItemLocked}
+                            lockedTierLabel={tierInfo?.requiredTierLabel}
+                            onLockedClick={() => {
+                              toast.info(`${item.label} requires the ${tierInfo?.requiredTierLabel ?? "higher"} plan`, {
+                                description: "Contact your administrator or visit Billing to upgrade.",
+                                duration: 4000,
+                              });
+                            }}
+                          />
+                          {showChildren && (
+                            <div className="ml-3 pl-3 mt-0.5 mb-1 border-l-2 border-sidebar-border/60 space-y-0.5">
+                              {item.children!.map((child) => {
+                                const childActive = isChildActive(child.href);
+                                return (
+                                  <Link
+                                    key={child.href}
+                                    href={child.href}
+                                    onClick={() => setSidebarOpen(false)}
+                                    className={cn(
+                                      "flex items-center gap-2 px-2 py-[5px] rounded-md text-[12px] font-medium transition-all duration-100",
+                                      childActive
+                                        ? "bg-sidebar-accent text-sidebar-primary font-semibold"
+                                        : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                                    )}
+                                  >
+                                    <child.icon className={cn(
+                                      "w-3.5 h-3.5 flex-shrink-0",
+                                      childActive ? "text-sidebar-primary" : "text-sidebar-foreground/40"
+                                    )} />
+                                    <span className="truncate">{child.label}</span>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

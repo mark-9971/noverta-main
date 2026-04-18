@@ -13,6 +13,12 @@ import { type FeatureKey } from "@/lib/module-tiers";
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
+export type SubNavItem = {
+  href: string;
+  label: string;
+  icon: IconComponent;
+};
+
 export type NavItem = {
   href: string;
   label: string;
@@ -21,6 +27,7 @@ export type NavItem = {
   alertBadge?: boolean;
   comingSoon?: boolean;
   featureKey?: FeatureKey;
+  children?: SubNavItem[];
 };
 
 export type NavSection = {
@@ -86,7 +93,15 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/iep", label: "IEP", icon: GraduationCap },
+      {
+        href: "/iep", label: "IEP", icon: GraduationCap,
+        children: [
+          { href: "/iep?tab=meetings", label: "Meetings", icon: Users },
+          { href: "/iep?tab=calendar", label: "Calendar", icon: Calendar },
+          { href: "/iep?tab=search", label: "Search", icon: Search },
+          { href: "/iep?tab=accommodations", label: "Accommodations", icon: FileText },
+        ],
+      },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
@@ -97,7 +112,14 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      {
+        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
+          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
+          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
+        ],
+      },
     ],
   },
   {
@@ -108,7 +130,13 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
-      { href: "/scheduling", label: "Scheduling", icon: Calendar },
+      {
+        href: "/scheduling", label: "Scheduling", icon: Calendar,
+        children: [
+          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+        ],
+      },
       { href: "/staff", label: "Staff", icon: UserCheck },
     ],
   },

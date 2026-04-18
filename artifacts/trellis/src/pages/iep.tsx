@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GraduationCap } from "lucide-react";
+import { useSearch, useLocation } from "wouter";
 import IepMeetings from "./iep-meetings";
 import IepCalendar from "./iep-calendar";
 import IepSearch from "./iep-search";
@@ -13,9 +14,26 @@ const TABS = [
 ];
 
 type Tab = typeof TABS[number]["key"];
+const VALID_KEYS = TABS.map(t => t.key);
+
+function resolveTab(search: string): Tab {
+  const p = new URLSearchParams(search).get("tab");
+  return (p && VALID_KEYS.includes(p as Tab) ? p : "meetings") as Tab;
+}
 
 export default function IepHub() {
-  const [tab, setTab] = useState<Tab>("meetings");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
+
+  useEffect(() => {
+    setTabState(resolveTab(search));
+  }, [search]);
+
+  function setTab(t: Tab) {
+    setTabState(t);
+    navigate(`/iep?tab=${t}`, { replace: true });
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">

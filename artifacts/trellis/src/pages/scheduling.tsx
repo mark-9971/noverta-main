@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
+import { useSearch, useLocation } from "wouter";
 import Schedule from "./schedule";
 import CoveragePage from "./coverage";
 
@@ -9,9 +10,26 @@ const TABS = [
 ];
 
 type Tab = typeof TABS[number]["key"];
+const VALID_KEYS = TABS.map(t => t.key);
+
+function resolveTab(search: string): Tab {
+  const p = new URLSearchParams(search).get("tab");
+  return (p && VALID_KEYS.includes(p as Tab) ? p : "schedule") as Tab;
+}
 
 export default function SchedulingHub() {
-  const [tab, setTab] = useState<Tab>("schedule");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
+
+  useEffect(() => {
+    setTabState(resolveTab(search));
+  }, [search]);
+
+  function setTab(t: Tab) {
+    setTabState(t);
+    navigate(`/scheduling?tab=${t}`, { replace: true });
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">

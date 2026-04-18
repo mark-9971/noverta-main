@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearch, useLocation } from "wouter";
 import { listStudents } from "@workspace/api-client-react";
 import {
   Activity, ChevronLeft, ChevronRight, Search, Users,
@@ -31,10 +32,20 @@ const SECTIONS = [
   },
 ];
 
+type Section = "analytics" | "programs" | "fba";
+const VALID_SECTIONS: Section[] = ["analytics", "programs", "fba"];
+
+function resolveSection(search: string): Section {
+  const p = new URLSearchParams(search).get("tab");
+  return (p && VALID_SECTIONS.includes(p as Section) ? p : "analytics") as Section;
+}
+
 export default function AbaHub() {
+  const search = useSearch();
+  const [, navigate] = useLocation();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [section, setSection] = useState<"analytics" | "programs" | "fba">("analytics");
+  const [section, setSectionState] = useState<Section>(() => resolveSection(search));
   const [searchQuery, setSearchQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,6 +59,16 @@ export default function AbaHub() {
       if (list.length > 0) setSelectedStudentId(list[0].id);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  // Sync section when URL search param changes (e.g. sidebar child link clicked)
+  useEffect(() => {
+    setSectionState(resolveSection(search));
+  }, [search]);
+
+  function setSection(s: Section) {
+    setSectionState(s);
+    navigate(`/aba?tab=${s}`, { replace: true });
+  }
 
   // Close picker on outside click
   useEffect(() => {
