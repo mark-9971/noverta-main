@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ClerkProvider, RedirectToSignIn, useAuth } from "@clerk/react";
+import { ClerkProvider, RedirectToSignIn, useAuth, useUser } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { registerTokenProvider } from "@/lib/auth-fetch";
@@ -14,6 +14,7 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LegalAcceptanceGate } from "@/components/LegalAcceptanceGate";
+import { setSentryUser } from "@/lib/sentry";
 import { lazy, Suspense, useEffect } from "react";
 
 const PageLoader = () => (
@@ -114,6 +115,30 @@ const queryClient = new QueryClient({
 });
 
 const STAFF_ROLES: UserRole[] = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider", "para"];
+
+function SentryUserSync() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (isSignedIn && user) {
+      const role = user.publicMetadata?.role as string | undefined;
+      const districtId = user.publicMetadata?.districtId as string | undefined;
+      const tags: Record<string, string> = {};
+      if (role) tags.role = role;
+      if (districtId) tags.districtId = districtId;
+      setSentryUser(
+        user.id,
+        Object.keys(tags).length > 0 ? tags : undefined,
+      );
+    } else {
+      setSentryUser(null);
+    }
+  }, [isLoaded, isSignedIn, user]);
+
+  return null;
+}
 
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
@@ -305,6 +330,7 @@ function App() {
       signUpUrl={`${base}/sign-up`}
       afterSignOutUrl={`${base}/sign-in`}
     >
+      <SentryUserSync />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={base}>

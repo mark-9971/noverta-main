@@ -4,7 +4,12 @@ let initialized = false;
 
 export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return;
+  if (!dsn) {
+    if (import.meta.env.PROD) {
+      console.warn("[Sentry] VITE_SENTRY_DSN is not set — client-side error tracking is disabled.");
+    }
+    return;
+  }
 
   Sentry.init({
     dsn,
@@ -29,13 +34,20 @@ export function captureException(err: unknown, context?: Record<string, unknown>
   });
 }
 
-export function setSentryUser(userId: string, tags?: Record<string, string>) {
+const SENTRY_USER_TAGS = ["role", "districtId"] as const;
+
+export function setSentryUser(userId: string | null, tags?: Record<string, string>) {
   if (!initialized) return;
-  Sentry.setUser({ id: userId });
-  if (tags) {
-    for (const [key, value] of Object.entries(tags)) {
-      Sentry.setTag(key, value);
+  if (!userId) {
+    Sentry.setUser(null);
+    for (const tag of SENTRY_USER_TAGS) {
+      Sentry.setTag(tag, "");
     }
+    return;
+  }
+  Sentry.setUser({ id: userId });
+  for (const tag of SENTRY_USER_TAGS) {
+    Sentry.setTag(tag, tags?.[tag] ?? "");
   }
 }
 
