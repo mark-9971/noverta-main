@@ -20,6 +20,7 @@ import { eq, and, ilike, or, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { logAudit, diffObjects } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
+import { getCallerAssignedStudentIds, assertStudentAccessibleToCaller } from "../../lib/staffScope";
 import { studentIdParamGuard } from "./idGuard";
 
 const router: IRouter = Router();
@@ -27,6 +28,13 @@ router.param("id", studentIdParamGuard);
 
 router.get("/students", async (req, res): Promise<void> => {
   const params = ListStudentsQueryParams.safeParse(req.query);
+
+  // Provider/para scope: limit list to assigned students. Privileged callers see all.
+  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  if (assignedIds !== null && assignedIds.length === 0) {
+    res.json([]);
+    return;
+  }
 
   let query = db
     .select({
@@ -53,6 +61,9 @@ router.get("/students", async (req, res): Promise<void> => {
     .leftJoin(staffTable, eq(staffTable.id, studentsTable.caseManagerId));
 
   const conditions: any[] = [isNull(studentsTable.deletedAt), eq(studentsTable.status, "active")];
+  if (assignedIds !== null) {
+    conditions.push(sql`${studentsTable.id} IN (${sql.join(assignedIds.map(id => sql`${id}`), sql`, `)})`);
+  }
   if (params.success) {
     const statusValue = params.data.status ?? "active";
     if (statusValue === "all") {
@@ -201,7 +212,12 @@ router.post("/students", async (req, res): Promise<void> => {
 });
 
 router.get("/sped-students", async (req, res): Promise<void> => {
+  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  if (assignedIds !== null && assignedIds.length === 0) { res.json([]); return; }
   const conditions: any[] = [eq(studentsTable.status, "active"), isNull(studentsTable.deletedAt)];
+  if (assignedIds !== null) {
+    conditions.push(sql`${studentsTable.id} IN (${sql.join(assignedIds.map(id => sql`${id}`), sql`, `)})`);
+  }
   if (req.query.schoolId) conditions.push(eq(studentsTable.schoolId, Number(req.query.schoolId)));
   {
     const enforcedDid = getEnforcedDistrictId(req as AuthedRequest);
@@ -236,6 +252,8 @@ router.get("/students/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+
+  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
 
   const [student] = await db
     .select({
@@ -490,6 +508,7 @@ router.get("/students/:id/minute-progress", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
   const progress = await computeAllActiveMinuteProgress({ studentId: params.data.id });
   res.json(progress);
 });
@@ -501,6 +520,7 @@ router.get("/students/:id/sessions", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
   const limit = queryParams.success && queryParams.data.limit ? Number(queryParams.data.limit) : 50;
 
   const sessions = await db
@@ -550,6 +570,7 @@ router.get("/students/:id/alerts", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, params.data.id))) return;
   const alerts = await db
     .select()
     .from(alertsTable)

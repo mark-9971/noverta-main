@@ -1,0 +1,49 @@
+1. School-year scoping audit + fix
+
+Prompt:
+Audit all compliance-related queries, APIs, hooks, and pages for school-year scoping. Fix any place where compliance, risk, weekly summary, KPI cards, or minute-progress data silently falls back to all-time instead of the active school year. Default safely to the active school year when none is selected. Preserve backward compatibility. After changes, run build/typecheck and give me a file-by-file summary plus any remaining risks.
+
+2. Rates-not-configured warning pass
+
+Prompt:
+Trace financial exposure calculations end-to-end. Wherever exposure is shown, make sure missing service rates never silently render as $0 or blank without explanation. Add a clear warning/banner and render unavailable values honestly. Do not invent fake rates for real districts. Verify the demo district has real seeded rates. Run checks and report exactly what changed.
+
+3. Demo district “first-click aha” hardening
+
+Prompt:
+Audit and improve the demo district so the first load clearly shows at-risk students, exposure, alerts, and believable supporting session history. Adjust seed/demo data only as needed to make the wedge compelling immediately. Preserve realism. Verify dashboard, risk report, alerts, and one student drill-down all support the story on first click.
+
+4. Wedge-only demo navigation mode
+
+Prompt:
+Implement a safe demo-focused navigation mode for Trellis. Keep the main demo experience centered on dashboard, alerts, students, sessions, delivery/schedule, compliance, risk report, weekly summary, and essential settings only. Hide or demote distracting modules from the primary nav without deleting anything. Preserve direct routes and reversibility. Verify no dead links or broken flows.
+
+5. Trust-state warnings cleanup
+
+Prompt:
+Add honest trust states for these cases: no service requirements, no sessions/no data, not-started service delivery, and aggregate metrics that currently overstate health. Make sure cards/rings/tables do not count unknown or no-data cases as healthy by default. Keep language concise and operational. Verify affected screens after the change.
+
+6. Progress report empty-section fix
+
+Prompt:
+Audit why progress reports show blank goal sections. Determine whether the cause is seed data, backfill, generation logic, or rendering. Fix the root cause where safe, add honest empty-state messaging where data is genuinely unavailable, and verify new reports populate correctly going forward. Preserve report integrity and auditability.
+
+7. Session logging happy-path polish
+
+Prompt:
+Audit the happy path for session logging across full log, quick log, and mobile/provider flows. Identify friction points such as too many required fields, weak defaults, unclear success states, or hidden validation failures. Make only minimal, safe UX improvements that help a provider log a standard session quickly and confidently without weakening audit/compliance needs. Verify save behavior still works.
+
+8. Alerts page actionability pass
+
+Prompt:
+Audit the alerts page and underlying alert generation/display logic. Improve alert titles, severity clarity, destination links, and actionability so the page feels like a real compliance inbox. Ensure demo data produces meaningful alerts on first load. Keep alerts grounded in real underlying data. Report any alert types that still feel weak or vague.
+
+9. Record-level district ownership hardening
+
+Prompt:
+Audit API endpoints that use path params or direct record lookups and identify where broad district middleware exists but record-level district ownership checks are missing. Add safe ownership enforcement without breaking same-district access. Prefer shared helpers where possible. Run verification on representative endpoints and summarize remaining hardening gaps.
+
+10. Provider/para assigned-student access pass
+
+Prompt:
+Audit provider and para access across student-linked APIs and pages. Restrict these roles to assigned students only where intended, while preserving privileged access for admin/coordinator/case-manager roles. Use the existing assignment source of truth if present. Verify key provider workflows still work and report any edge cases or remaining access leaks.

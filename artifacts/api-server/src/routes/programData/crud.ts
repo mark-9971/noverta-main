@@ -13,12 +13,14 @@ import {
   assertProgramTargetInCallerDistrict,
   assertProgramStepInCallerDistrict,
 } from "../../lib/districtScope";
+import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
 
 const router: IRouter = Router();
 
 router.get("/students/:studentId/behavior-targets", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions = [eq(behaviorTargetsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(behaviorTargetsTable.active, true));
@@ -103,6 +105,7 @@ router.patch("/behavior-targets/:id", async (req, res): Promise<void> => {
 router.get("/students/:studentId/program-targets", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions = [eq(programTargetsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(programTargetsTable.active, true));

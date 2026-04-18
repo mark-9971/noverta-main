@@ -25,6 +25,7 @@ import { hasMinRole, PRIVILEGED_STAFF_ROLES } from "../../lib/permissions";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
+import { getCallerAssignedStudentIds, assertStudentAccessibleToCaller } from "../../lib/staffScope";
 import { assertSessionLogInCallerDistrict } from "../../lib/districtScope";
 import { validateGoalData, sessionToJson, sessionIdGuard, type GoalEntry } from "./shared";
 
@@ -33,7 +34,12 @@ router.param("id", sessionIdGuard);
 
 router.get("/sessions", async (req, res): Promise<void> => {
   const params = ListSessionsQueryParams.safeParse(req.query);
+  const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
+  if (assignedIds !== null && assignedIds.length === 0) { res.json([]); return; }
   const conditions: any[] = [isNull(sessionLogsTable.deletedAt)];
+  if (assignedIds !== null) {
+    conditions.push(sql`${sessionLogsTable.studentId} IN (${sql.join(assignedIds.map(id => sql`${id}`), sql`, `)})`);
+  }
   if (params.success) {
     if (params.data.studentId) conditions.push(eq(sessionLogsTable.studentId, Number(params.data.studentId)));
     if (params.data.staffId) conditions.push(eq(sessionLogsTable.staffId, Number(params.data.staffId)));
@@ -129,6 +135,12 @@ router.get("/sessions/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  const [studentRow] = await db
+    .select({ studentId: sessionLogsTable.studentId })
+    .from(sessionLogsTable)
+    .where(eq(sessionLogsTable.id, params.data.id));
+  if (!studentRow) { res.status(404).json({ error: "Not found" }); return; }
+  if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentRow.studentId))) return;
   const [session] = await db
     .select({
       id: sessionLogsTable.id,

@@ -11,6 +11,7 @@ import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
   try {
     const studentId = parseInt(req.params.studentId);
     if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     const activeOnly = req.query.active !== "false";
     const conditions: any[] = [eq(iepGoalsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(iepGoalsTable.active, true));
@@ -61,6 +63,7 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
   try {
     const studentId = parseInt(req.params.studentId);
     if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     let { from, to } = req.query as { from?: string; to?: string };
 
     if (!from) {
@@ -253,6 +256,7 @@ router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> =>
   try {
     const studentId = parseInt(req.params.studentId);
     if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     const { goalArea, goalNumber, annualGoal, baseline, targetCriterion,
             measurementMethod, scheduleOfReporting, programTargetId,
             behaviorTargetId, serviceArea, startDate, endDate, notes,
@@ -415,6 +419,7 @@ router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Prom
   try {
     const studentId = parseInt(req.params.studentId);
     if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentAccessibleToCaller(req as AuthedRequest, res, studentId))) return;
     const { startDate, endDate } = req.body;
 
     const [programTargets, behaviorTargets, serviceReqs] = await Promise.all([
