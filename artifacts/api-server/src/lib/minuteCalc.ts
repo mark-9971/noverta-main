@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable } from "@workspace/db";
+import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";
 
 export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance" | "completed";
