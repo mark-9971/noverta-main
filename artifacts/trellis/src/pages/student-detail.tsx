@@ -1018,6 +1018,22 @@ export default function StudentDetail() {
 
         <StudentSnapshot studentId={studentId} />
 
+        <StudentGoalSection
+          goalProgress={goalProgress}
+          dataLoading={dataLoading}
+          behaviorTargets={behaviorTargets}
+          behaviorTrends={behaviorTrends}
+          programTrends={programTrends}
+          phaseChangesByTarget={phaseChangesByTarget}
+          goalAbaView={goalAbaView}
+          setGoalAbaView={setGoalAbaView}
+          loadPhaseChanges={loadPhaseChanges}
+          student={s}
+          annotationsByGoal={annotationsByGoal}
+          onAddAnnotation={handleAddAnnotation}
+          onRemoveAnnotation={handleRemoveAnnotation}
+        />
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card>
             <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">

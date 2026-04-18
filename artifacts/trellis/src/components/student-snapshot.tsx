@@ -287,77 +287,36 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[13px] font-semibold text-gray-700 flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-600" />
-              Goal Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {goals.length === 0 ? (
-              <p className="text-[12px] text-gray-400 py-3">No active goals</p>
-            ) : (
-              <div className="space-y-2 max-h-[280px] overflow-y-auto">
-                {goals.map(goal => {
-                  const cfg = RATING_CONFIG[goal.progressRating] || RATING_CONFIG.not_addressed;
-                  return (
-                    <div key={goal.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-semibold text-gray-500">{goal.goalArea} #{goal.goalNumber}</span>
-                          <TrendIcon direction={goal.trendDirection} />
-                        </div>
-                        <p className="text-[11px] text-gray-600 truncate mt-0.5">{goal.annualGoal}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {goal.latestValue !== null && (
-                          <span className="text-[12px] font-semibold text-gray-700">{Math.round(goal.latestValue)}</span>
-                        )}
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cfg.color} ${cfg.bg}`}>
-                          {cfg.label}
-                        </span>
-                      </div>
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-[13px] font-semibold text-gray-700 flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-amber-600" />
+            Upcoming Deadlines
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-4">
+          {deadlines.length === 0 ? (
+            <p className="text-[12px] text-gray-400 py-3">No upcoming deadlines</p>
+          ) : (
+            <div className="space-y-2">
+              {deadlines.map((dl, i) => {
+                const cfg = URGENCY_CONFIG[dl.urgency];
+                return (
+                  <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg border ${cfg.border} ${cfg.bg}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[12px] font-semibold ${cfg.color}`}>{dl.label}</p>
+                      <p className="text-[11px] text-gray-500">{formatDate(dl.date)}</p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-[13px] font-semibold text-gray-700 flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-amber-600" />
-              Upcoming Deadlines
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            {deadlines.length === 0 ? (
-              <p className="text-[12px] text-gray-400 py-3">No upcoming deadlines</p>
-            ) : (
-              <div className="space-y-2">
-                {deadlines.map((dl, i) => {
-                  const cfg = URGENCY_CONFIG[dl.urgency];
-                  return (
-                    <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg border ${cfg.border} ${cfg.bg}`}>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] font-semibold ${cfg.color}`}>{dl.label}</p>
-                        <p className="text-[11px] text-gray-500">{formatDate(dl.date)}</p>
-                      </div>
-                      <span className={`text-[11px] font-bold ${cfg.color} whitespace-nowrap`}>
-                        {dl.daysUntil < 0 ? `${Math.abs(dl.daysUntil)}d overdue` : dl.daysUntil === 0 ? "Today" : `${dl.daysUntil}d`}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    <span className={`text-[11px] font-bold ${cfg.color} whitespace-nowrap`}>
+                      {dl.daysUntil < 0 ? `${Math.abs(dl.daysUntil)}d overdue` : dl.daysUntil === 0 ? "Today" : `${dl.daysUntil}d`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
