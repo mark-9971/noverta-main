@@ -82,7 +82,37 @@ export const adminNav: NavSection[] = [
       },
     ],
   },
-  // ── 2. IEP / Education ───────────────────────────────────────────────────
+  // ── 2. Compliance ─────────────────────────────────────────────────────────
+  {
+    label: "Compliance Tools",
+    icon: ListChecks,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      {
+        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
+        children: [
+          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
+          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
+          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
+          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
+          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
+          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
+        ],
+      },
+      {
+        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
+        children: [
+          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
+          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
+        ],
+      },
+      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
+      { href: "/state-reporting", label: "State Reports", icon: Building2 },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
+    ],
+  },
+  // ── 3. IEP / Education ───────────────────────────────────────────────────
   {
     label: "IEP",
     icon: GraduationCap,
@@ -123,63 +153,7 @@ export const adminNav: NavSection[] = [
       },
     ],
   },
-  // ── 3. Compliance ─────────────────────────────────────────────────────────
-  {
-    label: "Compliance Tools",
-    icon: ListChecks,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      {
-        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
-        children: [
-          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
-          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
-          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
-          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
-          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
-        ],
-      },
-      {
-        href: "/compensatory-services", label: "Compensatory Services", icon: Scale,
-        children: [
-          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
-          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
-        ],
-      },
-      { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
-      { href: "/state-reporting", label: "State Reports", icon: Building2 },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
-    ],
-  },
-  // ── 4. Staffing (Service Delivery) ────────────────────────────────────────
-  {
-    label: "Staffing",
-    icon: Users,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      {
-        href: "/students", label: "Directory", icon: Users, primary: true,
-        children: [
-          { href: "/students", label: "Students", icon: Users },
-          { href: "/staff", label: "Staff", icon: UserCheck },
-        ],
-      },
-      { href: "/sessions", label: "Sessions", icon: Clipboard },
-      {
-        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
-        children: [
-          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-          { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-          { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
-        ],
-      },
-    ],
-  },
-  // ── 5. ABA ────────────────────────────────────────────────────────────────
+  // ── 4. ABA ────────────────────────────────────────────────────────────────
   {
     label: "ABA",
     icon: Activity,
@@ -203,6 +177,32 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
+    ],
+  },
+  // ── 5. Staffing (Service Delivery) ────────────────────────────────────────
+  {
+    label: "Staffing",
+    icon: Users,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      {
+        href: "/students", label: "Directory", icon: Users, primary: true,
+        children: [
+          { href: "/students", label: "Students", icon: Users },
+          { href: "/staff", label: "Staff", icon: UserCheck },
+        ],
+      },
+      { href: "/sessions", label: "Sessions", icon: Clipboard },
+      {
+        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
+        children: [
+          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+          { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
+        ],
+      },
     ],
   },
   // ── 6+ sorted below ───────────────────────────────────────────────────────
