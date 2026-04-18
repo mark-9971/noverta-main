@@ -8,6 +8,7 @@ import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
   Printer, ArrowRight, CheckCircle, FileBarChart, ShieldCheck, ShieldAlert, ExternalLink, Share2, Copy, Check,
+  FileText, Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
@@ -19,6 +20,7 @@ import { useSchoolContext } from "@/lib/school-context";
 import { FeatureGate } from "@/components/FeatureGate";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { authFetch } from "@/lib/auth-fetch";
+import { buildBoardSummaryHtml, openPrintWindow } from "@/lib/print-document";
 import ComplianceChecklist from "./compliance-checklist";
 import ComplianceTimelinePage from "./compliance-timeline";
 import ComplianceTrendsPage from "./compliance-trends";
@@ -179,6 +181,12 @@ function DeseComplianceBanner() {
   );
 }
 
+function nameToInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return (parts[0]?.[0] ?? "?").toUpperCase() + ".";
+  return ((parts[0]?.[0] ?? "?").toUpperCase() + "." + (parts[parts.length - 1]?.[0] ?? "?").toUpperCase() + ".");
+}
+
 function ServiceMinutesContent() {
   const { typedFilter } = useSchoolContext();
   const [riskFilter, setRiskFilter] = useState<string>("all");
@@ -186,6 +194,7 @@ function ServiceMinutesContent() {
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [showAllStudents, setShowAllStudents] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const { data: progress, isLoading: progressLoading, isError, refetch } = useListMinuteProgress(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
 
@@ -208,6 +217,88 @@ function ServiceMinutesContent() {
       return count < 2;
     },
   });
+
+  async function handleGenerateExecutiveSummary() {
+    if (!riskReport) return;
+    setGeneratingPdf(true);
+    try {
+      const p = new URLSearchParams();
+      if (schoolId) p.set("schoolId", String(schoolId));
+      if (schoolYearId) p.set("schoolYearId", String(schoolYearId));
+
+      const now = new Date();
+      const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+      const trendParams = new URLSearchParams(p);
+      trendParams.set("granularity", "weekly");
+      trendParams.set("startDate", fourWeeksAgo.toISOString().split("T")[0]!);
+      trendParams.set("endDate", now.toISOString().split("T")[0]!);
+
+      const [execRes, trendRes] = await Promise.allSettled([
+        authFetch(`/api/reports/executive-summary${p.toString() ? `?${p.toString()}` : ""}`),
+        authFetch(`/api/reports/compliance-trend?${trendParams.toString()}`),
+      ]);
+
+      let annualReviewsDue30: number | null = null;
+      if (execRes.status === "fulfilled" && execRes.value.ok) {
+        const execData: { iepDeadlines?: { within30?: number } } = await execRes.value.json();
+        const raw = execData?.iepDeadlines?.within30;
+        annualReviewsDue30 = typeof raw === "number" ? raw : null;
+      }
+
+      let trendWeeks: { label: string; rate: number }[] = [];
+      if (trendRes.status === "fulfilled" && trendRes.value.ok) {
+        const trendData: { trend?: { label?: string; periodStart?: string; complianceRate?: number }[] } = await trendRes.value.json();
+        const trend = trendData?.trend ?? [];
+        const last4 = trend.slice(-4);
+        trendWeeks = last4.map(w => ({
+          label: w.label ?? w.periodStart?.slice(5, 10) ?? "",
+          rate: typeof w.complianceRate === "number" ? Math.round(w.complianceRate) : 0,
+        }));
+      }
+
+      const rs = riskReport.summary;
+
+      const topRisk = [...(riskReport.needsAttention ?? [])]
+        .sort((a, b) => (b.estimatedExposure ?? 0) - (a.estimatedExposure ?? 0))
+        .slice(0, 5)
+        .map(r => ({
+          initials: nameToInitials(r.studentName),
+          service: r.service,
+          shortfallMinutes: r.shortfallMinutes,
+          exposure: r.estimatedExposure,
+        }));
+
+      const providerRates = (riskReport.providerSummary ?? []).map(p => ({
+        name: p.providerName,
+        rate: p.complianceRate,
+        shortfall: p.totalShortfall,
+      }));
+
+      const schoolYear = riskReport.meta?.reportPeriod ?? new Date().getFullYear() + "–" + (new Date().getFullYear() + 1);
+
+      const html = buildBoardSummaryHtml({
+        districtName: riskReport.meta?.districtName ?? "District",
+        schoolYear,
+        generatedAt: new Date().toISOString(),
+        complianceRate: rs.overallComplianceRate,
+        trendWeeks,
+        kpis: {
+          studentsServed: rs.totalStudents,
+          servicesDeliveredPct: rs.overallComplianceRate,
+          financialExposure: rs.combinedExposure,
+          annualReviewsDue30,
+        },
+        topRiskStudents: topRisk,
+        providerRates,
+      });
+
+      openPrintWindow(html);
+    } catch (err) {
+      console.error("Failed to generate executive summary PDF:", err);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
 
   const isLoading = progressLoading || reportLoading;
   const progressList = (progress as any[]) ?? [];
@@ -323,6 +414,22 @@ function ServiceMinutesContent() {
 
   return (
     <div className="space-y-5">
+      {hasReport && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            onClick={handleGenerateExecutiveSummary}
+            disabled={generatingPdf}
+          >
+            {generatingPdf
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…</>
+              : <><FileText className="w-3.5 h-3.5" /> Generate Executive Summary</>
+            }
+          </Button>
+        </div>
+      )}
       {reportError && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />

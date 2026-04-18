@@ -266,6 +266,324 @@ export function openPrintWindow(html: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 300_000);
 }
 
+export interface BoardSummaryData {
+  districtName: string;
+  schoolYear: string;
+  generatedAt: string;
+  complianceRate: number;
+  trendWeeks: { label: string; rate: number }[];
+  kpis: {
+    studentsServed: number;
+    servicesDeliveredPct: number;
+    financialExposure: number;
+    annualReviewsDue30: number | null;
+  };
+  topRiskStudents: {
+    initials: string;
+    service: string;
+    shortfallMinutes: number;
+    exposure: number | null;
+  }[];
+  providerRates: {
+    name: string;
+    rate: number;
+    shortfall: number;
+  }[];
+}
+
+function fmtDollarsLocal(n: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+}
+
+function buildSparklineSvg(weeks: { label: string; rate: number }[]): string {
+  if (weeks.length === 0) return "";
+  const W = 160, H = 44, PAD = 6;
+  const minRate = Math.max(0, Math.min(...weeks.map(w => w.rate)) - 5);
+  const maxRate = Math.min(100, Math.max(...weeks.map(w => w.rate)) + 5);
+  const range = Math.max(1, maxRate - minRate);
+  const xStep = (W - PAD * 2) / Math.max(1, weeks.length - 1);
+
+  const points = weeks.map((w, i) => ({
+    x: PAD + i * xStep,
+    y: PAD + ((maxRate - w.rate) / range) * (H - PAD * 2),
+    rate: w.rate,
+    label: w.label,
+  }));
+
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const lastPt = points[points.length - 1]!;
+  const lastRate = lastPt.rate;
+  const lineColor = lastRate >= 90 ? "#059669" : lastRate >= 75 ? "#d97706" : "#dc2626";
+
+  const dots = points.map(p =>
+    `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${lineColor}" />`
+  ).join("");
+
+  const labels = points.map(p =>
+    `<text x="${p.x.toFixed(1)}" y="${H}" text-anchor="middle" font-size="8" fill="#9ca3af">${p.label}</text>`
+  ).join("");
+
+  return `<svg width="${W}" height="${H + 10}" viewBox="0 0 ${W} ${H + 10}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    ${labels}
+  </svg>`;
+}
+
+export function buildBoardSummaryHtml(data: BoardSummaryData): string {
+  const { districtName, schoolYear, generatedAt, complianceRate, trendWeeks, kpis, topRiskStudents, providerRates } = data;
+
+  const dateStr = new Date(generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const rateColor = complianceRate >= 90 ? "#059669" : complianceRate >= 75 ? "#d97706" : "#dc2626";
+  const rateBg = complianceRate >= 90 ? "#d1fae5" : complianceRate >= 75 ? "#fef3c7" : "#fee2e2";
+  const rateBorder = complianceRate >= 90 ? "#6ee7b7" : complianceRate >= 75 ? "#fcd34d" : "#fca5a5";
+
+  const sparkline = buildSparklineSvg(trendWeeks);
+
+  const kpiBoxes = [
+    { label: "Students Served", value: String(kpis.studentsServed), icon: "👥", color: "#6366f1", bg: "#eef2ff", border: "#c7d2fe" },
+    { label: "Services Delivered", value: `${kpis.servicesDeliveredPct}%`, icon: "✓", color: "#059669", bg: "#d1fae5", border: "#6ee7b7" },
+    { label: "Financial Exposure", value: fmtDollarsLocal(kpis.financialExposure), icon: "$", color: kpis.financialExposure > 0 ? "#dc2626" : "#059669", bg: kpis.financialExposure > 0 ? "#fee2e2" : "#d1fae5", border: kpis.financialExposure > 0 ? "#fca5a5" : "#6ee7b7" },
+    { label: "IEP Reviews Due (30d)", value: kpis.annualReviewsDue30 !== null ? String(kpis.annualReviewsDue30) : "N/A", icon: "📅", color: kpis.annualReviewsDue30 !== null && kpis.annualReviewsDue30 > 0 ? "#d97706" : "#059669", bg: kpis.annualReviewsDue30 !== null && kpis.annualReviewsDue30 > 0 ? "#fef3c7" : "#d1fae5", border: kpis.annualReviewsDue30 !== null && kpis.annualReviewsDue30 > 0 ? "#fcd34d" : "#6ee7b7" },
+  ];
+
+  const topRiskRows = topRiskStudents.slice(0, 5).map((s, i) => `
+    <tr style="${i % 2 === 1 ? "background:#fafafa;" : ""}">
+      <td style="padding:7px 10px;font-weight:700;color:#374151;font-size:12px">${esc(s.initials)}</td>
+      <td style="padding:7px 10px;color:#6b7280;font-size:11px">${esc(s.service)}</td>
+      <td style="padding:7px 10px;text-align:right;color:#dc2626;font-weight:600;font-size:12px">${s.shortfallMinutes} min</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:700;font-size:12px;color:${s.exposure != null && s.exposure > 0 ? "#dc2626" : "#6b7280"}">
+        ${s.exposure != null ? fmtDollarsLocal(s.exposure) : "—"}
+      </td>
+    </tr>`).join("");
+
+  const providerBars = providerRates.map(p => {
+    const pct = Math.min(100, Math.max(0, p.rate));
+    const color = pct >= 90 ? "#059669" : pct >= 75 ? "#d97706" : "#dc2626";
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:110px;flex-shrink:0;font-size:11px;color:#374151;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(p.name)}">${esc(p.name)}</div>
+        <div style="flex:1;height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:5px;transition:width 0.3s"></div>
+        </div>
+        <div style="width:38px;text-align:right;font-size:11px;font-weight:700;color:${color}">${pct.toFixed(0)}%</div>
+        ${p.shortfall > 0 ? `<div style="width:50px;text-align:right;font-size:10px;color:#dc2626">-${p.shortfall}m</div>` : `<div style="width:50px"></div>`}
+      </div>`;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; script-src 'none'">
+  <title>District Compliance Health Summary — ${esc(districtName)}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 11px;
+      color: #111827;
+      background: white;
+    }
+    @page { size: landscape; margin: 0.4in 0.5in; }
+    @media print {
+      body { font-size: 10px; }
+      .no-print { display: none !important; }
+    }
+    .page {
+      width: 100%;
+      max-width: 10.5in;
+      margin: 0 auto;
+      padding: 0.3in 0.4in;
+    }
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 3px solid #059669;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .header-left h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: -0.02em;
+    }
+    .header-left .subtitle {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+    .header-right {
+      text-align: right;
+      font-size: 10px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+    .main-grid {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .left-col { flex: 0 0 200px; }
+    .right-col { flex: 1; min-width: 0; }
+    .rate-box {
+      background: ${rateBg};
+      border: 2px solid ${rateBorder};
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .rate-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+    .rate-value {
+      font-size: 52px;
+      font-weight: 900;
+      color: ${rateColor};
+      line-height: 1;
+    }
+    .rate-sub {
+      font-size: 10px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .sparkline-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 6px;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #047857;
+      border-bottom: 1.5px solid #059669;
+      padding-bottom: 3px;
+      margin-bottom: 8px;
+    }
+    .kpi-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    table.risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin: 0;
+    }
+    table.risk-table th {
+      background: #f3f4f6;
+      padding: 6px 10px;
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6b7280;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    table.risk-table th:last-child,
+    table.risk-table td:last-child { text-align: right; }
+    table.risk-table td {
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .two-col {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+    }
+    .two-col > div { flex: 1; min-width: 0; }
+    .footer {
+      margin-top: 14px;
+      padding-top: 8px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 9px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="header-left">
+        <h1>District Compliance Health Summary</h1>
+        <div class="subtitle">${esc(districtName)} &nbsp;·&nbsp; ${esc(schoolYear)}</div>
+      </div>
+      <div class="header-right">
+        <div><strong>Generated:</strong> ${esc(dateStr)}</div>
+        <div style="margin-top:2px;font-size:9px;color:#d1d5db">Trellis SPED Management Platform</div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="left-col">
+        <div class="rate-box">
+          <div class="rate-label">Compliance Rate</div>
+          <div class="rate-value">${complianceRate}%</div>
+          <div class="rate-sub">overall service delivery</div>
+          ${sparkline ? `<div class="sparkline-wrap">${sparkline}</div><div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px">4-week trend</div>` : ""}
+        </div>
+
+        <div class="section-title">At a Glance</div>
+        ${kpiBoxes.map(k => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:${k.bg};border:1px solid ${k.border};border-radius:6px;margin-bottom:6px">
+            <div style="font-size:10px;color:#6b7280;font-weight:600">${esc(k.label)}</div>
+            <div style="font-size:14px;font-weight:800;color:${k.color}">${esc(k.value)}</div>
+          </div>`).join("")}
+      </div>
+
+      <div class="right-col">
+        <div class="two-col">
+          <div>
+            <div class="section-title">Top Financial Risks (Students)</div>
+            ${topRiskStudents.length === 0
+              ? `<div style="color:#9ca3af;font-size:11px;padding:8px 0">No at-risk students identified.</div>`
+              : `<table class="risk-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Service</th>
+                    <th style="text-align:right">Shortfall</th>
+                    <th style="text-align:right">Exposure</th>
+                  </tr>
+                </thead>
+                <tbody>${topRiskRows}</tbody>
+              </table>
+              <div style="font-size:9px;color:#9ca3af;margin-top:4px">Student initials shown for privacy (FERPA)</div>`
+            }
+          </div>
+
+          <div>
+            <div class="section-title">Staff Delivery Rates</div>
+            ${providerRates.length === 0
+              ? `<div style="color:#9ca3af;font-size:11px;padding:8px 0">No provider data available.</div>`
+              : providerBars
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated by Trellis SPED Management Platform &nbsp;·&nbsp; ${esc(dateStr)} &nbsp;·&nbsp; Confidential — For Board/Superintendent Use Only
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 export async function saveGeneratedDocument(params: {
   studentId: number;
   type: "incident_report" | "progress_report" | "iep_draft";
