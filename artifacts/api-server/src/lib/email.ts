@@ -295,6 +295,8 @@ export interface SendAdminEmailParams {
   text?: string;
   /** Optional tag used in log lines to identify the notification type. */
   notificationType?: string;
+  /** Optional file attachments forwarded to the email provider. */
+  attachments?: { filename: string; content: Buffer }[];
 }
 
 export interface SendAdminEmailResult {
@@ -312,7 +314,7 @@ export interface SendAdminEmailResult {
  * digest emails are operational, not student-record events (same policy as billingEmail.ts).
  */
 export async function sendAdminEmail(params: SendAdminEmailParams): Promise<SendAdminEmailResult> {
-  const { to, subject, html, text, notificationType = "admin_email" } = params;
+  const { to, subject, html, text, notificationType = "admin_email", attachments } = params;
 
   const resend = getResendClient();
   if (!resend) {
@@ -326,7 +328,7 @@ export async function sendAdminEmail(params: SendAdminEmailParams): Promise<Send
       await sleep(RETRY_DELAY_MS[attempt - 1] ?? 1200);
     }
     try {
-      const result = await resend.emails.send({ from: FROM_EMAIL, to, subject, html, text });
+      const result = await resend.emails.send({ from: FROM_EMAIL, to, subject, html, text, attachments });
       if (result.error) {
         const errMsg = result.error.message ?? "Resend API error";
         if (attempt < MAX_RETRIES && isTransientError(errMsg)) { lastError = errMsg; continue; }

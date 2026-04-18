@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Download, Clock, AlertTriangle, Users, TrendingUp, Camera, ChevronDown, ChevronUp, ArrowRight, Trash2 } from "lucide-react";
+import { Download, Clock, AlertTriangle, Users, TrendingUp, Camera, ChevronDown, ChevronUp, ArrowRight, Trash2, Mail } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import type { DrillFilter } from "./index";
 
 // ─── CSV export helper ────────────────────────────────────────────────────────
@@ -147,11 +150,147 @@ const REPORT_LABELS: Record<string, string> = {
   "revenue-trend": "Revenue Trend",
 };
 
+function EmailSnapshotDialog({
+  snapshot,
+  onClose,
+}: {
+  snapshot: SnapshotMeta | null;
+  onClose: () => void;
+}) {
+  const [toEmail, setToEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string>("");
+
+  async function handleSend() {
+    if (!snapshot) return;
+    const trimmed = toEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setErrorMsg("Please enter a valid email address");
+      setStatus("error");
+      return;
+    }
+    setStatus("sending");
+    setErrorMsg("");
+    try {
+      const res = await authFetch(`/api/medicaid/reports/snapshots/${snapshot.id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toEmail: trimmed, message: message.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to send email");
+      }
+      setStatus("sent");
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send email";
+      setErrorMsg(msg);
+      setStatus("error");
+    }
+  }
+
+  const reportTypeLabel = snapshot ? REPORT_LABELS[snapshot.reportType] ?? snapshot.reportType : "";
+  const periodLabel = snapshot
+    ? snapshot.dateFrom && snapshot.dateTo
+      ? `${snapshot.dateFrom} → ${snapshot.dateTo}`
+      : snapshot.dateFrom
+        ? `From ${snapshot.dateFrom}`
+        : snapshot.dateTo
+          ? `To ${snapshot.dateTo}`
+          : "All dates"
+    : "";
+
+  return (
+    <Dialog open={!!snapshot} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Mail className="w-4 h-4 text-indigo-500" />
+            Email this snapshot
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Sends the snapshot data as a CSV attachment to the recipient you specify.
+          </DialogDescription>
+        </DialogHeader>
+
+        {snapshot && (
+          <div className="space-y-3">
+            <div className="rounded-md bg-gray-50 border border-gray-100 p-2.5 text-xs space-y-0.5">
+              <p><span className="text-gray-500">Report:</span> <span className="font-medium text-gray-800">{reportTypeLabel}</span></p>
+              <p><span className="text-gray-500">Period:</span> <span className="font-mono text-gray-700">{periodLabel}</span></p>
+              <p><span className="text-gray-500">Saved by:</span> <span className="text-gray-700">{snapshot.savedByName}</span></p>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="snapshot-email-to" className="text-xs">Recipient email</Label>
+              <Input
+                id="snapshot-email-to"
+                type="email"
+                placeholder="leadership@district.org"
+                value={toEmail}
+                onChange={(e) => setToEmail(e.target.value)}
+                disabled={status === "sending" || status === "sent"}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="snapshot-email-message" className="text-xs">Optional message</Label>
+              <Textarea
+                id="snapshot-email-message"
+                placeholder="Add a short note for the recipient (optional)"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                disabled={status === "sending" || status === "sent"}
+                rows={4}
+                className="text-sm"
+              />
+            </div>
+
+            {status === "error" && errorMsg && (
+              <p className="text-xs text-red-600">{errorMsg}</p>
+            )}
+            {status === "sent" && (
+              <p className="text-xs text-emerald-600">Email sent.</p>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={status === "sending"}
+            className="h-8 text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSend}
+            disabled={status === "sending" || status === "sent" || !toEmail.trim()}
+            className="h-8 text-xs gap-1"
+          >
+            <Mail className="w-3 h-3" />
+            {status === "sending" ? "Sending…" : status === "sent" ? "Sent" : "Send email"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SavedSnapshotsPanel() {
   const [open, setOpen] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [emailSnapshot, setEmailSnapshot] = useState<SnapshotMeta | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -280,8 +419,18 @@ function SavedSnapshotsPanel() {
                             variant="outline"
                             onClick={() => handleDownload(s)}
                             className="h-6 text-[11px] gap-1"
+                            title="Download snapshot as CSV"
                           >
                             <Download className="w-3 h-3" /> CSV
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEmailSnapshot(s)}
+                            className="h-6 text-[11px] gap-1"
+                            title="Email snapshot CSV to a recipient"
+                          >
+                            <Mail className="w-3 h-3" /> Send email
                           </Button>
                           {confirmId === s.id ? (
                             <>
@@ -324,6 +473,11 @@ function SavedSnapshotsPanel() {
           )}
         </CardContent>
       )}
+      <EmailSnapshotDialog
+        key={emailSnapshot?.id ?? "none"}
+        snapshot={emailSnapshot}
+        onClose={() => setEmailSnapshot(null)}
+      />
     </Card>
   );
 }

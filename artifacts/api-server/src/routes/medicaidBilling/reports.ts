@@ -14,6 +14,7 @@ import {
   type ProductivityData,
   type RevenueTrendData,
 } from "../../lib/medicaidReports";
+import { sendAdminEmail } from "../../lib/email";
 
 // tenant-scope: district-join
 const router: IRouter = Router();
@@ -300,6 +301,108 @@ router.delete("/medicaid/reports/snapshots/:id", async (req, res): Promise<void>
   }
 
   res.status(204).send();
+});
+
+router.post("/medicaid/reports/snapshots/:id/email", async (req, res): Promise<void> => {
+  const authed = req as unknown as AuthedRequest;
+  const districtId = getDistrictId(authed);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid snapshot id" });
+    return;
+  }
+
+  const body = (req.body ?? {}) as { toEmail?: string; message?: string; view?: string };
+  const toEmail = (body.toEmail ?? "").trim();
+  const message = (body.message ?? "").trim();
+
+  // Basic email validation
+  if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+    res.status(400).json({ error: "A valid recipient email is required" });
+    return;
+  }
+
+  const [snapshot] = await db
+    .select()
+    .from(medicaidReportSnapshotsTable)
+    .where(and(
+      eq(medicaidReportSnapshotsTable.id, id),
+      eq(medicaidReportSnapshotsTable.districtId, districtId),
+    ))
+    .limit(1);
+
+  if (!snapshot) {
+    res.status(404).json({ error: "Snapshot not found" });
+    return;
+  }
+
+  if (!isValidReportType(snapshot.reportType)) {
+    res.status(422).json({ error: "Unknown report type in stored snapshot" });
+    return;
+  }
+
+  const csv = snapshotToCsv(snapshot.reportType, snapshot.data as ReportData, body.view);
+  const period = [snapshot.dateFrom, snapshot.dateTo].filter(Boolean).join(" to ") || "all dates";
+  const filename = `${snapshot.reportType}-snapshot-${snapshot.id}.csv`;
+  const reportLabel: Record<string, string> = {
+    aging: "Claim Aging",
+    denials: "Denial Analysis",
+    "provider-productivity": "Provider Productivity",
+    "revenue-trend": "Revenue Trend",
+  };
+  const label = snapshot.label || `${reportLabel[snapshot.reportType] ?? snapshot.reportType} snapshot`;
+  const senderName = authed.displayName || "A Trellis user";
+  const savedOn = new Date(snapshot.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const subject = `Trellis Billing Report: ${label}`;
+
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const messageBlock = message
+    ? `<div style="background:#f9fafb;border-left:3px solid #6366f1;padding:12px 16px;margin:16px 0;font-size:13px;color:#374151;white-space:pre-wrap">${escape(message)}</div>`
+    : "";
+
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+<div style="background:#065f46;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
+<h2 style="margin:0;font-size:18px">Trellis — ${escape(label)}</h2>
+</div>
+<div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+<p style="margin-top:0">${escape(senderName)} shared a saved billing report snapshot with you from Trellis.</p>
+<ul style="color:#374151;font-size:13px">
+<li><strong>Report:</strong> ${escape(reportLabel[snapshot.reportType] ?? snapshot.reportType)}</li>
+<li><strong>Period:</strong> ${escape(period)}</li>
+<li><strong>Saved on:</strong> ${escape(savedOn)} by ${escape(snapshot.savedByName ?? "Unknown")}</li>
+</ul>
+${messageBlock}
+<p style="color:#6b7280;font-size:13px">The snapshot data is attached as a CSV file.</p>
+</div>
+<div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
+</div>`;
+
+  const text = `${senderName} shared a Trellis billing report snapshot.\n\nReport: ${reportLabel[snapshot.reportType] ?? snapshot.reportType}\nPeriod: ${period}\nSaved on: ${savedOn} by ${snapshot.savedByName ?? "Unknown"}\n\n${message ? message + "\n\n" : ""}The snapshot data is attached as a CSV file.`;
+
+  const result = await sendAdminEmail({
+    to: [toEmail],
+    subject,
+    html,
+    text,
+    notificationType: "medicaid_snapshot_email",
+    attachments: [{ filename, content: Buffer.from(csv, "utf-8") }],
+  });
+
+  if (!result.success) {
+    if (result.notConfigured) {
+      res.status(503).json({ error: "Email provider not configured. Add RESEND_API_KEY to enable email delivery." });
+      return;
+    }
+    res.status(502).json({ error: result.error ?? "Failed to send email" });
+    return;
+  }
+
+  res.json({ success: true });
 });
 
 // ─── Claim aging ──────────────────────────────────────────────────────────────
