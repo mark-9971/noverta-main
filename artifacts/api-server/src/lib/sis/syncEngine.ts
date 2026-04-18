@@ -138,13 +138,28 @@ async function archiveMissingStudents(
         .set({ status: "inactive" })
         .where(eq(studentsTable.id, student.id));
 
-      await tx.insert(enrollmentEventsTable).values({
-        studentId: student.id,
-        eventType: "withdrawn",
-        eventDate: syncDate,
-        source: "sis_sync",
-        reason: "Not found in SIS feed",
-      });
+      // Guard against duplicate withdrawal events: if a previous sync today
+      // already wrote a withdrawn/sis_sync event for this student, skip the
+      // insert so retries/requeues don't pile up identical rows.
+      const existing = await tx.select({ id: enrollmentEventsTable.id })
+        .from(enrollmentEventsTable)
+        .where(and(
+          eq(enrollmentEventsTable.studentId, student.id),
+          eq(enrollmentEventsTable.eventType, "withdrawn"),
+          eq(enrollmentEventsTable.source, "sis_sync"),
+          eq(enrollmentEventsTable.eventDate, syncDate),
+        ))
+        .limit(1);
+
+      if (existing.length === 0) {
+        await tx.insert(enrollmentEventsTable).values({
+          studentId: student.id,
+          eventType: "withdrawn",
+          eventDate: syncDate,
+          source: "sis_sync",
+          reason: "Not found in SIS feed",
+        });
+      }
     });
 
     counters.studentsArchived++;

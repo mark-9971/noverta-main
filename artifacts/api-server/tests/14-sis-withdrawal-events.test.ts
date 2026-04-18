@@ -173,6 +173,62 @@ describe("archiveMissingStudents — withdrawal enrollment events", () => {
     expect(events[0].eventDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("does not create a duplicate withdrawal event when a full sync runs twice with the student still missing", async () => {
+    const connectionId = await createConnection();
+
+    const [missingStudent] = await db
+      .insert(studentsTable)
+      .values({
+        firstName: "Eve",
+        lastName: "TwiceMissing",
+        schoolId,
+        status: "active",
+        externalId: "sis-ext-twice-missing-001",
+        sisConnectionId: connectionId,
+        sisManaged: "true",
+      })
+      .returning();
+
+    // The SIS feed never includes Eve, on either sync.
+    mockFetchStudents.mockResolvedValue({
+      records: [
+        {
+          externalId: "sis-ext-other-twice-001",
+          firstName: "Frank",
+          lastName: "Other",
+          enrollmentStatus: "active",
+        },
+      ],
+      errors: [],
+    });
+
+    // First sync archives Eve and writes one withdrawn event.
+    const first = await runSync(connectionId, "full", "test:dup-withdrawal-1");
+    expect(first.studentsArchived).toBe(1);
+
+    // Reactivate her so archiveMissingStudents will consider her again on the
+    // second sync — this simulates a retry/requeue where the same date's run
+    // re-evaluates the same student.
+    await db
+      .update(studentsTable)
+      .set({ status: "active" })
+      .where(eq(studentsTable.id, missingStudent.id));
+
+    const second = await runSync(connectionId, "full", "test:dup-withdrawal-2");
+    expect(second.studentsArchived).toBe(1);
+
+    // Despite two syncs archiving her on the same date, only ONE withdrawn
+    // event should exist for this student.
+    const events = await db
+      .select()
+      .from(enrollmentEventsTable)
+      .where(eq(enrollmentEventsTable.studentId, missingStudent.id));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].eventType).toBe("withdrawn");
+    expect(events[0].source).toBe("sis_sync");
+  });
+
   it("does not create a withdrawal event for a student who was already inactive", async () => {
     const connectionId = await createConnection();
 
