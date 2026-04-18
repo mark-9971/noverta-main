@@ -248,9 +248,9 @@ export function ClaimsQueueTab({
             <button
               key={value}
               title={title}
-              onClick={() => { setStatusFilter(value); setSelectedIds(new Set()); onClearDrill?.(); setAgeBucketFilter(""); setRejectionReasonFilter(""); }}
+              onClick={() => { setStatusFilter(value); setSelectedIds(new Set()); onClearDrill?.(); }}
               className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                statusFilter === value && !ageBucketFilter && !rejectionReasonFilter ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                statusFilter === value ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
               {label}
@@ -271,6 +271,45 @@ export function ClaimsQueueTab({
             <Download className="w-3 h-3" /> Export CSV
           </Button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] font-medium text-gray-500 mr-1">Age:</span>
+        {[
+          { value: "", label: "Any" },
+          { value: "0-30", label: "0–30" },
+          { value: "31-60", label: "31–60" },
+          { value: "61-90", label: "61–90" },
+          { value: "90+", label: "90+" },
+        ].map(({ value, label }) => (
+          <button
+            key={value || "any"}
+            onClick={() => { setAgeBucketFilter(value); setSelectedIds(new Set()); onClearDrill?.(); }}
+            className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
+              ageBucketFilter === value ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+            title={value ? `Claims aged ${label} days` : "All ages"}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-[11px] font-medium text-gray-500 ml-2 mr-1">Rejection reason:</span>
+        <Input
+          value={rejectionReasonFilter}
+          onChange={e => { setRejectionReasonFilter(e.target.value); onClearDrill?.(); }}
+          placeholder="Filter by reason…"
+          className="w-48 h-7 text-xs"
+          title="Exact rejection reason text. Leave blank to ignore."
+        />
+        {rejectionReasonFilter && (
+          <button
+            onClick={() => { setRejectionReasonFilter(""); onClearDrill?.(); }}
+            className="text-[11px] text-gray-400 hover:text-gray-600"
+            title="Clear rejection reason filter"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {selectedIds.size > 0 && (
