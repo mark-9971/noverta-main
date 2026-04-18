@@ -3375,6 +3375,19 @@ export type DeseReportIncidentBody = { [key: string]: unknown };
 
 export type DeseReportIncident200 = { [key: string]: unknown };
 
+export type TransitionIncidentStatusBody = {
+  /** The target status to transition to */
+  toStatus: string;
+  /** Note explaining the reason for this transition */
+  note: string;
+};
+
+export type TransitionIncidentStatus200 = { [key: string]: unknown };
+
+export type TransitionIncidentStatus400 = {
+  error?: string;
+};
+
 export type SignIncidentBody = { [key: string]: unknown };
 
 export type SignIncident200 = { [key: string]: unknown };

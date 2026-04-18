@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { authFetch } from "@/lib/auth-fetch";
+import { useTransitionIncidentStatus } from "@workspace/api-client-react";
 import { STATUS_COLORS, STATUS_LABELS, VALID_TRANSITIONS } from "@/pages/protective-measures/constants";
 
 export function IncidentTransitionDialog({
@@ -15,30 +15,25 @@ export function IncidentTransitionDialog({
   const transitions = VALID_TRANSITIONS[incident.status] ?? [];
   const [toStatus, setToStatus] = useState(transitions[0]?.toStatus ?? "");
   const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
   const selectedTransition = transitions.find(t => t.toStatus === toStatus);
   const isReturn = selectedTransition?.isReturn ?? false;
 
-  async function handleSubmit() {
+  const transitionMutation = useTransitionIncidentStatus({
+    mutation: {
+      onSuccess: () => {
+        toast.success(`Status updated to "${STATUS_LABELS[toStatus]}"`);
+        onTransitioned();
+      },
+      onError: (err: Error) => {
+        toast.error(err.message || "Failed to transition status");
+      },
+    },
+  });
+
+  function handleSubmit() {
     if (!note.trim()) { toast.error("A note is required for this transition"); return; }
     if (!toStatus) { toast.error("Select a target status"); return; }
-    setSaving(true);
-    try {
-      const res = await authFetch(`/api/protective-measures/incidents/${incident.id}/transition`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toStatus, note: note.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error || "Failed");
-      }
-      toast.success(`Status updated to "${STATUS_LABELS[toStatus]}"`);
-      onTransitioned();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to transition status");
-    }
-    setSaving(false);
+    transitionMutation.mutate({ id: incident.id, data: { toStatus, note: note.trim() } });
   }
 
   if (transitions.length === 0) return null;
@@ -90,13 +85,13 @@ export function IncidentTransitionDialog({
           />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" disabled={saving}>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" disabled={transitionMutation.isPending}>
             Cancel
           </button>
           <button onClick={handleSubmit}
             className={`px-4 py-2 text-sm rounded-lg font-medium transition-colors ${transitions.find(t => t.toStatus === toStatus)?.color || "bg-emerald-700 text-white"}`}
-            disabled={saving}>
-            {saving ? "Saving…" : (transitions.find(t => t.toStatus === toStatus)?.label ?? "Confirm")}
+            disabled={transitionMutation.isPending}>
+            {transitionMutation.isPending ? "Saving…" : (transitions.find(t => t.toStatus === toStatus)?.label ?? "Confirm")}
           </button>
         </div>
       </div>

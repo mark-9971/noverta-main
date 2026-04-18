@@ -9,7 +9,7 @@ import {
   deseReportIncident, getProtectiveIncident,
   listStaff, parentNotifyIncident, parentNotificationDraftIncident,
   sendParentNotificationIncident, signIncidentSignature, updateProtectiveIncident,
-  writtenReportIncident,
+  useTransitionIncidentStatus, writtenReportIncident,
 } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
 import {
@@ -41,21 +41,14 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
     queryClient.invalidateQueries({ queryKey: ["protective-summary"] });
   };
 
-  const reviewMutation = useMutation({
-    mutationFn: ({ notes }: { notes: string }) =>
-      authFetch(`/api/protective-measures/incidents/${id}/transition`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toStatus: "under_review", note: notes }),
-      }).then(async r => {
-        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error((e as { error?: string }).error || "Review failed"); }
-        return r.json();
-      }),
-    onSuccess: () => {
-      invalidateAll();
-      queryClient.invalidateQueries({ queryKey: ["incident-status-history", id] });
+  const reviewMutation = useTransitionIncidentStatus({
+    mutation: {
+      onSuccess: () => {
+        invalidateAll();
+        queryClient.invalidateQueries({ queryKey: ["incident-status-history", id] });
+      },
+      onError: (err: Error) => { toast.error(err.message || "Failed to submit review"); },
     },
-    onError: (err: Error) => { toast.error(err.message || "Failed to submit review"); },
   });
 
   const notifyMutation = useMutation({
@@ -567,7 +560,7 @@ export function IncidentDetailView({ id, onBack, onExpandToFull }: { id: number;
                   placeholder="Review notes (required)..." rows={3} className="w-full px-2 py-1.5 border border-emerald-200 rounded text-xs bg-white resize-none" />
                 <div className="flex gap-2">
                   <button onClick={() => setShowReview(false)} className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded">Cancel</button>
-                  <button onClick={() => { if (reviewForm.notes.trim()) reviewMutation.mutate({ notes: reviewForm.notes }); }}
+                  <button onClick={() => { if (reviewForm.notes.trim()) reviewMutation.mutate({ id, data: { toStatus: "under_review", note: reviewForm.notes } }); }}
                     disabled={!reviewForm.notes.trim() || reviewMutation.isPending}
                     className="flex-1 px-2 py-1.5 text-xs bg-emerald-700 text-white rounded disabled:opacity-50">
                     {reviewMutation.isPending ? "Submitting…" : "Submit Review"}

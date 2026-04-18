@@ -4632,6 +4632,54 @@ paths:
               schema:
                 type: object
 
+  /protective-measures/incidents/{id}/transition:
+    post:
+      operationId: transitionIncidentStatus
+      tags: [protective-measures]
+      summary: Transition incident status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - toStatus
+                - note
+              properties:
+                toStatus:
+                  type: string
+                  description: The target status to transition to
+                note:
+                  type: string
+                  description: Note explaining the reason for this transition
+      responses:
+        "200":
+          description: Transitioned
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Invalid transition
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        "401":
+          description: Unauthorized
+        "404":
+          description: Incident not found
+
   /protective-measures/incidents/{id}/dese-report:
     post:
       operationId: deseReportIncident
