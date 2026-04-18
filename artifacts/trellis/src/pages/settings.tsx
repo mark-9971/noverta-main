@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
@@ -15,12 +15,14 @@ const SystemStatusPage = lazy(() => import("@/pages/system-status"));
 const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
 const BillingRatesPage = lazy(() => import("@/pages/billing-rates"));
 const DistrictDataPage = lazy(() => import("@/pages/district-data"));
+const NotificationPreferencesPage = lazy(() => import("@/pages/notification-preferences"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
   { key: "school-year", label: "School Year", icon: CalendarDays },
   { key: "billing-rates", label: "Billing Rates", icon: DollarSign },
   { key: "sis", label: "SIS Integration", icon: Database },
+  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "audit-log", label: "Audit Log", icon: Shield },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
   { key: "system-status", label: "System Status", icon: Activity },
@@ -151,6 +153,7 @@ export default function SettingsHubPage() {
         {activeTab === "school-year" && <SchoolYearPage />}
         {activeTab === "billing-rates" && <BillingRatesPage />}
         {activeTab === "sis" && <SisSettingsPage />}
+        {activeTab === "notifications" && <NotificationPreferencesPage />}
         {activeTab === "audit-log" && <AuditLogPage />}
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}
         {activeTab === "system-status" && <SystemStatusPage />}
