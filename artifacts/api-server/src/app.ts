@@ -14,7 +14,7 @@ import * as Sentry from "@sentry/node";
 import { recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 import { db } from "@workspace/db";
-import { communicationEventsTable, errorLogsTable, staffTable, schoolsTable, districtsTable } from "@workspace/db";
+import { communicationEventsTable, emailDeliveriesTable, errorLogsTable, staffTable, schoolsTable, districtsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { Webhook as SvixWebhook } from "svix";
 
@@ -108,6 +108,33 @@ app.post(
       const now = new Date();
       const eventType = String(event.type ?? '');
 
+      // --- Update email_deliveries rows (for parent-facing emails) ---
+      const [existingDelivery] = await db
+        .select({ id: emailDeliveriesTable.id, status: emailDeliveriesTable.status })
+        .from(emailDeliveriesTable)
+        .where(eq(emailDeliveriesTable.providerMessageId, providerMessageId))
+        .limit(1);
+
+      if (existingDelivery) {
+        const PRE_TERMINAL_D = new Set(['queued', 'accepted']);
+        const dBase = { lastWebhookEventType: eventType, lastWebhookAt: now, updatedAt: now };
+        let dSet: Record<string, unknown> = { ...dBase };
+        if (eventType === 'email.sent') {
+          if (existingDelivery.status === 'queued') { dSet.status = 'accepted'; dSet.acceptedAt = now; }
+        } else if (eventType === 'email.delivered') {
+          if (PRE_TERMINAL_D.has(existingDelivery.status)) { dSet.status = 'delivered'; dSet.deliveredAt = now; }
+        } else if (eventType === 'email.bounced') {
+          dSet.failedAt = now;
+          if (PRE_TERMINAL_D.has(existingDelivery.status)) { dSet.status = 'bounced'; dSet.failedReason = eventType; }
+        } else if (eventType === 'email.complained') {
+          if (PRE_TERMINAL_D.has(existingDelivery.status)) { dSet.status = 'complained'; dSet.failedAt = now; dSet.failedReason = eventType; }
+        } else if (eventType === 'email.failed') {
+          if (PRE_TERMINAL_D.has(existingDelivery.status)) { dSet.status = 'failed'; dSet.failedAt = now; dSet.failedReason = eventType; }
+        }
+        await db.update(emailDeliveriesTable).set(dSet).where(eq(emailDeliveriesTable.id, existingDelivery.id));
+      }
+
+      // --- Update communication_events rows (for incident/missed-service emails) ---
       // Look up the row first so we can enforce monotonic-state semantics
       // (a late `email.sent` after `email.delivered` must NOT downgrade us
       //  back to accepted).
@@ -118,8 +145,13 @@ app.post(
         .limit(1);
 
       if (!existing) {
-        logger.info({ providerMessageId, eventType }, 'Resend webhook: no matching communication_event row');
-        res.status(200).json({ ok: true, note: 'unknown email_id' });
+        // The email may belong to email_deliveries only (parent-facing email).
+        if (existingDelivery) {
+          logger.info({ providerMessageId, eventType }, 'Resend webhook: updated email_deliveries row');
+        } else {
+          logger.info({ providerMessageId, eventType }, 'Resend webhook: no matching row in either table');
+        }
+        res.status(200).json({ ok: true, note: existingDelivery ? 'email_delivery_updated' : 'unknown email_id' });
         return;
       }
 

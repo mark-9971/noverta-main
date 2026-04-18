@@ -4,10 +4,11 @@ import {
   db,
   shareLinksTable,
   shareLinkAccessLogTable,
+  emailDeliveriesTable,
   studentsTable,
   schoolsTable,
 } from "@workspace/db";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { assertStudentInCallerDistrict } from "../../lib/districtScope";
@@ -21,6 +22,7 @@ import {
   tokenHashPrefix,
   tokenRateLimiter,
 } from "../../lib/shareLinks";
+import { sendParentFacingEmail, buildShareLinkEmail } from "../../lib/email";
 
 const router: IRouter = Router();
 
@@ -154,6 +156,53 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
 
     const guardianRecipients = await resolveGuardianRecipients(studentId);
 
+    // Determine public URL for the share link.
+    const host = req.get("host") ?? "";
+    const protocol = req.protocol ?? "https";
+    const shareUrl = `${protocol}://${host}/api/shared/progress/${token}`;
+
+    // Fetch student name and school name for the email.
+    let studentName = `Student #${studentId}`;
+    let schoolName: string | undefined;
+    try {
+      const [studentRow] = await db
+        .select({ firstName: studentsTable.firstName, lastName: studentsTable.lastName, schoolName: schoolsTable.name })
+        .from(studentsTable)
+        .leftJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+        .where(eq(studentsTable.id, studentId))
+        .limit(1);
+      if (studentRow) {
+        studentName = `${studentRow.firstName} ${studentRow.lastName}`;
+        schoolName = studentRow.schoolName ?? undefined;
+      }
+    } catch { /* non-fatal */ }
+
+    // Send email to specified recipient or to all guardian recipients.
+    const recipientEmail: string | undefined = typeof req.body.recipientEmail === "string" ? req.body.recipientEmail : undefined;
+    const recipientName: string | undefined = typeof req.body.recipientName === "string" ? req.body.recipientName : undefined;
+
+    let emailDelivery: { id: number; status: string } | null = null;
+    if (recipientEmail && row?.id) {
+      const { subject, html, text } = buildShareLinkEmail({
+        recipientName,
+        studentName,
+        shareUrl,
+        expiresAt: expiresAt.toISOString(),
+        schoolName,
+        senderName: authed.displayName ?? undefined,
+      });
+      const emailResult = await sendParentFacingEmail({
+        messageType: "share_link",
+        toEmail: recipientEmail,
+        toName: recipientName,
+        subject,
+        bodyHtml: html,
+        bodyText: text,
+        shareLinkId: row.id,
+      });
+      emailDelivery = { id: emailResult.emailDeliveryId, status: emailResult.status };
+    }
+
     res.status(201).json({
       id: row?.id,
       token,
@@ -161,6 +210,7 @@ router.post("/students/:studentId/progress-summary/share-link", async (req, res)
       maxViews,
       url: `/api/shared/progress/${token}`,
       guardianRecipients,
+      emailDelivery,
     });
   } catch (e: unknown) {
     console.error("POST share-link error:", e);
@@ -191,7 +241,29 @@ router.get("/students/:studentId/progress-summary/share-links", async (req, res)
       .where(eq(shareLinksTable.studentId, studentId))
       .orderBy(desc(shareLinksTable.createdAt));
 
-    res.json(rows);
+    // Attach the latest email delivery for each share link.
+    const shareLinkIds = rows.map((r) => r.id);
+    const deliveryMap = new Map<number, { status: string; recipientEmail: string | null; deliveredAt: Date | null }>();
+    if (shareLinkIds.length > 0) {
+      const deliveries = await db
+        .select({
+          shareLinkId: emailDeliveriesTable.shareLinkId,
+          status: emailDeliveriesTable.status,
+          recipientEmail: emailDeliveriesTable.recipientEmail,
+          deliveredAt: emailDeliveriesTable.deliveredAt,
+          createdAt: emailDeliveriesTable.createdAt,
+        })
+        .from(emailDeliveriesTable)
+        .where(inArray(emailDeliveriesTable.shareLinkId, shareLinkIds))
+        .orderBy(desc(emailDeliveriesTable.createdAt));
+      for (const d of deliveries) {
+        if (d.shareLinkId && !deliveryMap.has(d.shareLinkId)) {
+          deliveryMap.set(d.shareLinkId, { status: d.status, recipientEmail: d.recipientEmail, deliveredAt: d.deliveredAt });
+        }
+      }
+    }
+
+    res.json(rows.map((r) => ({ ...r, emailDelivery: deliveryMap.get(r.id) ?? null })));
   } catch (e: unknown) {
     console.error("GET share-links error:", e);
     res.status(500).json({ error: "Failed to list share links" });

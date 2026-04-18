@@ -1,4 +1,5 @@
-import { db, communicationEventsTable } from "@workspace/db";
+import { db, communicationEventsTable, emailDeliveriesTable } from "@workspace/db";
+import type { EmailDeliveryMessageType } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 
@@ -712,5 +713,304 @@ export function buildOverdueSessionLogEmail(opts: {
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform${schoolName ? ` — ${schoolName}` : ""}.</p></div>
 </div></body></html>`;
   const text = `Hi ${staffName},\n\n${count} scheduled session${count !== 1 ? "s" : ""} from the past week ${count === 1 ? "is" : "are"} missing a log entry:\n\n${textRows}\n\nPlease log them or mark as missed in Trellis.${schoolName ? `\n\n${schoolName}` : ""}`;
+  return { subject, html, text };
+}
+
+// ---------------------------------------------------------------------------
+// Parent-facing email: signature requests, share links, IEP meeting invitations
+// These are tracked in `email_deliveries` (not `communication_events`).
+// ---------------------------------------------------------------------------
+
+export interface SendParentFacingEmailParams {
+  messageType: EmailDeliveryMessageType;
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  signatureRequestId?: number;
+  shareLinkId?: number;
+  iepMeetingId?: number;
+}
+
+export interface SendParentFacingEmailResult {
+  success: boolean;
+  emailDeliveryId: number;
+  providerMessageId?: string;
+  status: "accepted" | "not_configured" | "failed";
+  error?: string;
+}
+
+export async function sendParentFacingEmail(
+  params: SendParentFacingEmailParams,
+): Promise<SendParentFacingEmailResult> {
+  const { messageType, toEmail, toName, subject, bodyHtml, bodyText, signatureRequestId, shareLinkId, iepMeetingId } = params;
+  const resend = getResendClient();
+  const now = new Date();
+
+  if (!resend) {
+    console.warn(`[ParentEmail:${messageType}] RESEND_API_KEY not configured — email not sent to ${toEmail}`);
+    const [row] = await db.insert(emailDeliveriesTable).values({
+      messageType,
+      recipientEmail: toEmail,
+      recipientName: toName ?? null,
+      subject,
+      status: "not_configured",
+      signatureRequestId: signatureRequestId ?? null,
+      shareLinkId: shareLinkId ?? null,
+      iepMeetingId: iepMeetingId ?? null,
+      attemptedAt: now,
+      failedAt: now,
+      failedReason: "RESEND_API_KEY not configured",
+    }).returning();
+    return { success: false, emailDeliveryId: row.id, status: "not_configured", error: "Email provider not configured" };
+  }
+
+  const [pending] = await db.insert(emailDeliveriesTable).values({
+    messageType,
+    recipientEmail: toEmail,
+    recipientName: toName ?? null,
+    subject,
+    status: "queued",
+    signatureRequestId: signatureRequestId ?? null,
+    shareLinkId: shareLinkId ?? null,
+    iepMeetingId: iepMeetingId ?? null,
+    attemptedAt: now,
+  }).returning();
+
+  let lastError = "";
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) await sleep(RETRY_DELAY_MS[attempt - 1] ?? 1200);
+    try {
+      const result = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: toName ? `${toName} <${toEmail}>` : toEmail,
+        subject,
+        html: bodyHtml,
+        text: bodyText,
+      });
+
+      if (result.error) {
+        const errMsg = result.error.message ?? "Resend API error";
+        if (attempt < MAX_RETRIES && isTransientError(errMsg)) { lastError = errMsg; continue; }
+        const failNow = new Date();
+        await db.update(emailDeliveriesTable)
+          .set({ status: "failed", failedAt: failNow, failedReason: errMsg, updatedAt: failNow })
+          .where(eq(emailDeliveriesTable.id, pending.id));
+        return { success: false, emailDeliveryId: pending.id, status: "failed", error: errMsg };
+      }
+
+      const acceptedNow = new Date();
+      await db.update(emailDeliveriesTable)
+        .set({ status: "accepted", providerMessageId: result.data?.id ?? null, acceptedAt: acceptedNow, updatedAt: acceptedNow })
+        .where(eq(emailDeliveriesTable.id, pending.id));
+      return { success: true, emailDeliveryId: pending.id, providerMessageId: result.data?.id, status: "accepted" };
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < MAX_RETRIES && isTransientError(msg)) { lastError = msg; continue; }
+      const failNow = new Date();
+      await db.update(emailDeliveriesTable)
+        .set({ status: "failed", failedAt: failNow, failedReason: msg, updatedAt: failNow })
+        .where(eq(emailDeliveriesTable.id, pending.id));
+      return { success: false, emailDeliveryId: pending.id, status: "failed", error: msg };
+    }
+  }
+
+  const failNow = new Date();
+  await db.update(emailDeliveriesTable)
+    .set({ status: "failed", failedAt: failNow, failedReason: `Max retries: ${lastError}`, updatedAt: failNow })
+    .where(eq(emailDeliveriesTable.id, pending.id));
+  return { success: false, emailDeliveryId: pending.id, status: "failed", error: `Delivery failed after ${MAX_RETRIES + 1} attempts` };
+}
+
+export function buildSignatureRequestEmail(opts: {
+  recipientName: string;
+  documentTitle: string;
+  signUrl: string;
+  expiresAt: string;
+  schoolName?: string;
+  senderName?: string;
+}): { subject: string; html: string; text: string } {
+  const { recipientName, documentTitle, signUrl, expiresAt, schoolName, senderName } = opts;
+  const subject = `Signature Required: ${documentTitle}`;
+  const expDate = new Date(expiresAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${subject}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}
+    .wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+    .header{background:#065f46;color:#fff;padding:20px 28px}
+    .body{padding:28px}
+    .btn{display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:700;font-size:15px;margin:16px 0}
+    .notice{background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;font-size:12px;color:#92400e;margin-top:20px}
+    .footer{background:#f3f4f6;padding:14px 28px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1 style="margin:0;font-size:18px">Signature Requested</h1>
+    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Trellis SPED Compliance Platform</p>
+  </div>
+  <div class="body">
+    <p>Dear ${recipientName},</p>
+    <p>Your signature is required on the following document${schoolName ? ` from <strong>${schoolName}</strong>` : ""}:</p>
+    <p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;font-weight:600;font-size:15px">${documentTitle}</p>
+    <p>Please click the button below to review and sign the document:</p>
+    <a href="${signUrl}" class="btn">Review &amp; Sign Document →</a>
+    <div class="notice">
+      <strong>This link expires on ${expDate}.</strong> If you did not expect this request or have questions, please contact the school directly.
+    </div>
+    <p style="margin-top:20px;font-size:12px;color:#6b7280">If the button doesn't work, copy and paste this link into your browser:<br><a href="${signUrl}" style="color:#059669;word-break:break-all">${signUrl}</a></p>
+  </div>
+  <div class="footer">
+    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Requested by ${senderName}` : ""}.</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const text = `Dear ${recipientName},\n\nYour signature is required on: ${documentTitle}${schoolName ? ` (from ${schoolName})` : ""}.\n\nPlease visit the following link to review and sign:\n${signUrl}\n\nThis link expires on ${expDate}.\n\nIf you have questions, please contact the school directly.`;
+
+  return { subject, html, text };
+}
+
+export function buildShareLinkEmail(opts: {
+  recipientName?: string;
+  studentName: string;
+  shareUrl: string;
+  expiresAt: string;
+  schoolName?: string;
+  senderName?: string;
+}): { subject: string; html: string; text: string } {
+  const { recipientName, studentName, shareUrl, expiresAt, schoolName, senderName } = opts;
+  const subject = `Progress Report Available: ${studentName}`;
+  const expDate = new Date(expiresAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const greeting = recipientName ? `Dear ${recipientName},` : "Hello,";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${subject}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}
+    .wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+    .header{background:#065f46;color:#fff;padding:20px 28px}
+    .body{padding:28px}
+    .btn{display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:700;font-size:15px;margin:16px 0}
+    .notice{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;font-size:12px;color:#1e40af;margin-top:20px}
+    .footer{background:#f3f4f6;padding:14px 28px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1 style="margin:0;font-size:18px">Progress Report Ready</h1>
+    <p style="margin:4px 0 0;font-size:12px;opacity:.85">Trellis SPED Compliance Platform</p>
+  </div>
+  <div class="body">
+    <p>${greeting}</p>
+    <p>A progress report for <strong>${studentName}</strong> has been shared with you${schoolName ? ` by ${schoolName}` : ""}.</p>
+    <p>Click the button below to view the report:</p>
+    <a href="${shareUrl}" class="btn">View Progress Report →</a>
+    <div class="notice">
+      <strong>Access expires ${expDate}.</strong> This link is unique to you — please do not forward it. Contact the school for a new link if needed.
+    </div>
+    <p style="margin-top:20px;font-size:12px;color:#6b7280">If the button doesn't work, copy and paste this link into your browser:<br><a href="${shareUrl}" style="color:#059669;word-break:break-all">${shareUrl}</a></p>
+  </div>
+  <div class="footer">
+    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Shared by ${senderName}` : ""}.</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const text = `${greeting}\n\nA progress report for ${studentName} has been shared with you${schoolName ? ` by ${schoolName}` : ""}.\n\nView the report here:\n${shareUrl}\n\nThis link expires on ${expDate}. Please do not forward — contact the school for a new link if needed.`;
+
+  return { subject, html, text };
+}
+
+export function buildIepMeetingInvitationEmail(opts: {
+  recipientName?: string;
+  studentName: string;
+  meetingType: string;
+  scheduledDate: string;
+  scheduledTime?: string | null;
+  location?: string | null;
+  meetingFormat?: string | null;
+  agendaItems?: string[] | null;
+  schoolName?: string;
+  senderName?: string;
+}): { subject: string; html: string; text: string } {
+  const { recipientName, studentName, meetingType, scheduledDate, scheduledTime, location, meetingFormat, agendaItems, schoolName, senderName } = opts;
+
+  const meetingTypeLabel = meetingType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const subject = `Meeting Invitation: ${meetingTypeLabel} — ${studentName} on ${scheduledDate}`;
+  const greeting = recipientName ? `Dear ${recipientName},` : "Hello,";
+
+  const timeRow = scheduledTime ? `<li><strong>Time:</strong> ${scheduledTime}</li>` : "";
+  const locationRow = location ? `<li><strong>Location/Link:</strong> ${location}</li>` : "";
+  const formatRow = meetingFormat ? `<li><strong>Format:</strong> ${meetingFormat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</li>` : "";
+
+  const agendaHtml = agendaItems && agendaItems.length > 0
+    ? `<p style="margin-top:16px"><strong>Agenda:</strong></p><ul style="color:#374151">${agendaItems.map(a => `<li>${a}</li>`).join("")}</ul>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${subject}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}
+    .wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+    .header{background:#1e3a5f;color:#fff;padding:20px 28px}
+    .body{padding:28px}
+    .card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px 20px;margin:16px 0}
+    .footer{background:#f3f4f6;padding:14px 28px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <h1 style="margin:0;font-size:18px">IEP Meeting Invitation</h1>
+    <p style="margin:4px 0 0;font-size:12px;opacity:.85">${meetingTypeLabel}${schoolName ? ` — ${schoolName}` : ""}</p>
+  </div>
+  <div class="body">
+    <p>${greeting}</p>
+    <p>You are invited to a <strong>${meetingTypeLabel}</strong> for <strong>${studentName}</strong>.</p>
+    <div class="card">
+      <ul style="margin:0;padding-left:20px;line-height:2">
+        <li><strong>Date:</strong> ${scheduledDate}</li>
+        ${timeRow}
+        ${locationRow}
+        ${formatRow}
+      </ul>
+    </div>
+    ${agendaHtml}
+    <p>Please contact${senderName ? ` ${senderName}` : " the school"} if you have questions or need to reschedule.</p>
+  </div>
+  <div class="footer">
+    <p>Sent by Trellis SPED Compliance Platform${schoolName ? ` on behalf of ${schoolName}` : ""}${senderName ? `. Contact: ${senderName}` : ""}.</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const timeText = scheduledTime ? `Time: ${scheduledTime}\n` : "";
+  const locationText = location ? `Location/Link: ${location}\n` : "";
+  const agendaText = agendaItems && agendaItems.length > 0 ? `\nAgenda:\n${agendaItems.map(a => `  • ${a}`).join("\n")}` : "";
+
+  const text = `${greeting}\n\nYou are invited to a ${meetingTypeLabel} for ${studentName}.\n\nDate: ${scheduledDate}\n${timeText}${locationText}${agendaText}\n\nPlease contact ${senderName ?? "the school"} if you have questions.${schoolName ? `\n\n${schoolName}` : ""}`;
+
   return { subject, html, text };
 }

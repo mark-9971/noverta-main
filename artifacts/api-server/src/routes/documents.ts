@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { Readable } from "stream";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
-import { db, documentsTable, signatureRequestsTable } from "@workspace/db";
+import { db, documentsTable, signatureRequestsTable, emailDeliveriesTable, schoolsTable, studentsTable } from "@workspace/db";
 import type { Document } from "@workspace/db";
 import type { SignatureRequest } from "@workspace/db";
 import { eq, and, isNull, or, desc, inArray, sql } from "drizzle-orm";
@@ -14,6 +14,7 @@ import { assertStudentInCallerDistrict } from "../lib/districtScope";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { getClientIp } from "../lib/clientIp";
 import { SlidingWindowLimiter } from "../lib/rateLimiter";
+import { sendParentFacingEmail, buildSignatureRequestEmail } from "../lib/email";
 
 // tenant-scope: param-guard
 /**
@@ -153,11 +154,37 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
         .where(inArray(signatureRequestsTable.documentId, docIds));
     }
 
+    // Fetch the latest email delivery for each signature request.
+    const sigReqIds = sigRequests.map((sr) => sr.id);
+    const deliveryMap = new Map<number, { status: string; deliveredAt: Date | null; failedAt: Date | null }>();
+    if (sigReqIds.length > 0) {
+      const deliveries = await db
+        .select({
+          signatureRequestId: emailDeliveriesTable.signatureRequestId,
+          status: emailDeliveriesTable.status,
+          deliveredAt: emailDeliveriesTable.deliveredAt,
+          failedAt: emailDeliveriesTable.failedAt,
+          createdAt: emailDeliveriesTable.createdAt,
+        })
+        .from(emailDeliveriesTable)
+        .where(inArray(emailDeliveriesTable.signatureRequestId, sigReqIds))
+        .orderBy(desc(emailDeliveriesTable.createdAt));
+      // Keep only the most recent delivery per signature request.
+      for (const d of deliveries) {
+        if (d.signatureRequestId && !deliveryMap.has(d.signatureRequestId)) {
+          deliveryMap.set(d.signatureRequestId, { status: d.status, deliveredAt: d.deliveredAt, failedAt: d.failedAt });
+        }
+      }
+    }
+
     const docsWithSigs = docs.map((doc) => ({
       ...doc,
       signatureRequests: sigRequests
         .filter((sr) => sr.documentId === doc.id)
-        .map(({ token, signatureData, ...rest }) => rest),
+        .map(({ token, signatureData, ...rest }) => ({
+          ...rest,
+          emailDelivery: deliveryMap.get(rest.id) ?? null,
+        })),
     }));
 
     logAudit(req, {
@@ -408,15 +435,85 @@ router.post("/documents/:id/signature-requests", requireRoles(...PRIVILEGED_ROLE
     });
 
     const base = `${req.protocol}://${req.get("host")}`;
+    const signUrl = `${base}/sign/${token}`;
+
+    // Fetch school name for the email (best-effort, non-blocking).
+    let schoolName: string | undefined;
+    try {
+      const [schoolRow] = await db
+        .select({ name: schoolsTable.name })
+        .from(studentsTable)
+        .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+        .where(eq(studentsTable.id, doc.studentId))
+        .limit(1);
+      schoolName = schoolRow?.name ?? undefined;
+    } catch { /* non-fatal */ }
+
+    // Send signature email and record delivery (fire, await result for badge).
+    const { subject, html, text } = buildSignatureRequestEmail({
+      recipientName: sigReq.recipientName,
+      documentTitle: doc.title,
+      signUrl,
+      expiresAt: expiresAt.toISOString(),
+      schoolName,
+      senderName: (req as AuthedRequest).displayName ?? undefined,
+    });
+    const emailResult = await sendParentFacingEmail({
+      messageType: "signature_request",
+      toEmail: sigReq.recipientEmail,
+      toName: sigReq.recipientName,
+      subject,
+      bodyHtml: html,
+      bodyText: text,
+      signatureRequestId: sigReq.id,
+    });
+
     const { token: _t, tokenHash: _th, signatureData: _s, ...safeFields } = sigReq;
     res.status(201).json({
       ...safeFields,
       expiresAt: expiresAt.toISOString(),
-      signUrl: `${base}/sign/${token}`,
+      signUrl,
+      emailDelivery: { id: emailResult.emailDeliveryId, status: emailResult.status },
     });
   } catch (error) {
     console.error("Error creating signature request:", error);
     res.status(500).json({ error: "Failed to create signature request" });
+  }
+});
+
+/**
+ * GET /api/signature-requests/:id/delivery
+ * Returns the email delivery status for a specific signature request.
+ */
+router.get("/signature-requests/:id/delivery", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid signature request ID" }); return; }
+
+  try {
+    const [delivery] = await db
+      .select({
+        id: emailDeliveriesTable.id,
+        status: emailDeliveriesTable.status,
+        recipientEmail: emailDeliveriesTable.recipientEmail,
+        attemptedAt: emailDeliveriesTable.attemptedAt,
+        acceptedAt: emailDeliveriesTable.acceptedAt,
+        deliveredAt: emailDeliveriesTable.deliveredAt,
+        failedAt: emailDeliveriesTable.failedAt,
+        failedReason: emailDeliveriesTable.failedReason,
+      })
+      .from(emailDeliveriesTable)
+      .where(eq(emailDeliveriesTable.signatureRequestId, id))
+      .orderBy(desc(emailDeliveriesTable.createdAt))
+      .limit(1);
+
+    if (!delivery) {
+      res.json({ status: "not_sent" });
+      return;
+    }
+    res.json(delivery);
+  } catch (err) {
+    console.error("GET /signature-requests/:id/delivery error:", err);
+    res.status(500).json({ error: "Failed to fetch delivery status" });
   }
 });
 

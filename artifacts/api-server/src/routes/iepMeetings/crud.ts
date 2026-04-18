@@ -3,9 +3,10 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   teamMeetingsTable, studentsTable, staffTable, schoolsTable,
-  iepMeetingAttendeesTable,
+  iepMeetingAttendeesTable, emailDeliveriesTable,
+  priorWrittenNoticesTable, meetingConsentRecordsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, gte, lte, count } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
@@ -15,6 +16,56 @@ import {
   assertIepDocumentInCallerDistrict, assertTeamMeetingInCallerDistrict,
   allStaffInCallerDistrict,
 } from "../../lib/districtScope";
+import { sendParentFacingEmail, buildIepMeetingInvitationEmail } from "../../lib/email";
+
+/**
+ * Send meeting invitation emails to all attendees who have an email address.
+ * Non-blocking / best-effort: failures are logged but do not abort the route.
+ */
+async function sendMeetingInvitations(
+  meetingId: number,
+  studentName: string,
+  meetingType: string,
+  scheduledDate: string,
+  scheduledTime: string | null | undefined,
+  location: string | null | undefined,
+  meetingFormat: string | null | undefined,
+  agendaItems: string[] | null | undefined,
+  schoolName: string | undefined,
+  senderName: string | undefined,
+  attendees: { name: string; email: string | null }[],
+): Promise<void> {
+  const emailAttendees = attendees.filter((a) => a.email && /\S+@\S+\.\S+/.test(a.email));
+  await Promise.allSettled(
+    emailAttendees.map(async (a) => {
+      try {
+        const { subject, html, text } = buildIepMeetingInvitationEmail({
+          recipientName: a.name,
+          studentName,
+          meetingType,
+          scheduledDate,
+          scheduledTime,
+          location,
+          meetingFormat,
+          agendaItems: agendaItems ?? null,
+          schoolName,
+          senderName,
+        });
+        await sendParentFacingEmail({
+          messageType: "iep_meeting_invitation",
+          toEmail: a.email!,
+          toName: a.name,
+          subject,
+          bodyHtml: html,
+          bodyText: text,
+          iepMeetingId: meetingId,
+        });
+      } catch (err) {
+        console.error(`[IEP Meeting] Failed to send invitation to ${a.email}:`, err);
+      }
+    }),
+  );
+}
 
 const router: IRouter = Router();
 
@@ -42,6 +93,28 @@ router.get("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(asc(teamMeetingsTable.scheduledDate));
 
+    // Batch-fetch email delivery summaries for these meetings.
+    const meetingIds = meetings.map((m) => m.meeting.id);
+    const deliverySummaryMap = new Map<number, { totalSent: number; delivered: number; bounced: number; pending: number }>();
+    if (meetingIds.length > 0) {
+      const deliveries = await db
+        .select({
+          iepMeetingId: emailDeliveriesTable.iepMeetingId,
+          status: emailDeliveriesTable.status,
+        })
+        .from(emailDeliveriesTable)
+        .where(inArray(emailDeliveriesTable.iepMeetingId, meetingIds));
+      for (const d of deliveries) {
+        if (!d.iepMeetingId) continue;
+        const s = deliverySummaryMap.get(d.iepMeetingId) ?? { totalSent: 0, delivered: 0, bounced: 0, pending: 0 };
+        s.totalSent++;
+        if (d.status === "delivered") s.delivered++;
+        else if (d.status === "bounced" || d.status === "complained" || d.status === "failed") s.bounced++;
+        else s.pending++;
+        deliverySummaryMap.set(d.iepMeetingId, s);
+      }
+    }
+
     res.json(meetings.map(m => ({
       ...m.meeting,
       studentName: `${m.studentFirstName} ${m.studentLastName}`,
@@ -49,6 +122,7 @@ router.get("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       schoolName: m.schoolName,
       createdAt: m.meeting.createdAt.toISOString(),
       updatedAt: m.meeting.updatedAt.toISOString(),
+      emailDeliverySummary: deliverySummaryMap.get(m.meeting.id) ?? null,
     })));
   } catch (e: unknown) {
     console.error("GET /iep-meetings error:", e);
@@ -182,6 +256,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       ...(schoolYearId != null ? { schoolYearId } : {}),
     }).returning();
 
+    let attendeeList: { name: string; email: string | null }[] = [];
     if (body.invitees && Array.isArray(body.invitees) && body.invitees.length > 0) {
       const attendeeValues = body.invitees.map((inv: Record<string, unknown>) => ({
         meetingId: row.id,
@@ -192,6 +267,7 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
         isRequired: inv.isRequired !== false,
       }));
       await db.insert(iepMeetingAttendeesTable).values(attendeeValues);
+      attendeeList = attendeeValues.map((a) => ({ name: a.name, email: a.email }));
     }
 
     logAudit(req, {
@@ -201,6 +277,24 @@ router.post("/iep-meetings", meetingAccess, async (req, res): Promise<void> => {
       studentId: body.studentId,
       summary: `Scheduled ${body.meetingType} meeting for student #${body.studentId} on ${body.scheduledDate}`,
     });
+
+    // Send invitation emails to all attendees who have an email address.
+    if (attendeeList.length > 0) {
+      const [studentRow] = await db
+        .select({ firstName: studentsTable.firstName, lastName: studentsTable.lastName, schoolName: schoolsTable.name })
+        .from(studentsTable)
+        .leftJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+        .where(eq(studentsTable.id, body.studentId))
+        .limit(1);
+      const studentName = studentRow ? `${studentRow.firstName} ${studentRow.lastName}` : `Student #${body.studentId}`;
+      const schoolName = studentRow?.schoolName ?? undefined;
+      void sendMeetingInvitations(
+        row.id, studentName, body.meetingType, body.scheduledDate,
+        body.scheduledTime ?? null, body.location ?? null, body.meetingFormat ?? null,
+        body.agendaItems ?? null, schoolName,
+        (req as AuthedRequest).displayName ?? undefined, attendeeList,
+      );
+    }
 
     res.status(201).json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch (e: unknown) {
@@ -252,6 +346,35 @@ router.patch("/iep-meetings/:id", meetingAccess, async (req, res): Promise<void>
       summary: `Updated meeting #${id}`,
       newValues: updates,
     });
+
+    // Re-send invitations if significant fields changed (date, time, location).
+    const SIGNIFICANT_FIELDS = new Set(["scheduledDate", "scheduledTime", "location", "meetingFormat"]);
+    const hasSignificantChange = Object.keys(updates).some((k) => SIGNIFICANT_FIELDS.has(k));
+    if (hasSignificantChange) {
+      try {
+        const existingAttendees = await db
+          .select({ name: iepMeetingAttendeesTable.name, email: iepMeetingAttendeesTable.email })
+          .from(iepMeetingAttendeesTable)
+          .where(eq(iepMeetingAttendeesTable.meetingId, id));
+        const [studentRow] = await db
+          .select({ firstName: studentsTable.firstName, lastName: studentsTable.lastName, schoolName: schoolsTable.name })
+          .from(studentsTable)
+          .leftJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+          .where(eq(studentsTable.id, row.studentId))
+          .limit(1);
+        const studentName = studentRow ? `${studentRow.firstName} ${studentRow.lastName}` : `Student #${row.studentId}`;
+        const schoolName = studentRow?.schoolName ?? undefined;
+        void sendMeetingInvitations(
+          row.id, studentName, row.meetingType, row.scheduledDate,
+          row.scheduledTime, row.location, row.meetingFormat,
+          row.agendaItems as string[] | null, schoolName,
+          (req as AuthedRequest).displayName ?? undefined,
+          existingAttendees.map((a) => ({ name: a.name, email: a.email })),
+        );
+      } catch (err) {
+        console.error("[IEP PATCH] Failed to resend invitations:", err);
+      }
+    }
 
     res.json({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() });
   } catch (e: unknown) {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  CalendarDays, CheckCircle2, ChevronDown, Download, Loader2, MapPin, Plus, Printer,
+  CalendarDays, CheckCircle2, ChevronDown, Download, Loader2, Mail, MailCheck, MailX, MapPin, Plus, Printer,
   Save, UserPlus, Users, Video, X
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +19,33 @@ export interface TeamMeeting {
   actionItems: ActionItem[] | null;
   outcome: string | null; followUpDate: string | null; minutesFinalized: boolean | null;
   consentStatus: string | null; noticeSentDate: string | null;
+  emailDeliverySummary?: { total: number; delivered: number; failed: number; pending: number } | null;
+}
+
+function MeetingInviteDeliveryBadge({ summary }: { summary?: TeamMeeting["emailDeliverySummary"] }) {
+  if (!summary || summary.total === 0) return null;
+  if (summary.failed > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-red-500 font-medium" title={`${summary.failed} invite(s) failed`}>
+        <MailX className="w-3 h-3" /> {summary.failed} invite{summary.failed !== 1 ? "s" : ""} failed
+      </span>
+    );
+  }
+  if (summary.delivered > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium" title={`${summary.delivered}/${summary.total} invite(s) delivered`}>
+        <MailCheck className="w-3 h-3" /> {summary.delivered}/{summary.total} delivered
+      </span>
+    );
+  }
+  if (summary.pending > 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 font-medium" title={`${summary.pending} invite(s) sent`}>
+        <Mail className="w-3 h-3" /> {summary.pending} invite{summary.pending !== 1 ? "s" : ""} sent
+      </span>
+    );
+  }
+  return null;
 }
 
 import type { Student, IepDocument } from "./IepDocumentSection";
@@ -240,6 +267,7 @@ function MeetingCard({ meeting, onSaved, onDelete }: {
                 {m.location && <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{m.location}</span>}
                 {totalAttendees > 0 && <span className="flex items-center gap-0.5"><Users className="w-3 h-3" />{m.status === "completed" ? `${presentCount}/${totalAttendees} present` : `${totalAttendees} invited`}</span>}
                 {openActionCount > 0 && <span className="text-amber-600 font-medium">{openActionCount} open action{openActionCount !== 1 ? "s" : ""}</span>}
+                <MeetingInviteDeliveryBadge summary={m.emailDeliverySummary} />
               </div>
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />

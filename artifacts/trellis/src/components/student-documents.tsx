@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FileText, Upload, Download, Trash2, Send, CheckCircle, Clock, X, Copy, FileUp, Loader2 } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Send, CheckCircle, Clock, X, Copy, FileUp, Loader2, Mail, MailX, MailCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,48 @@ interface DocumentRecord {
     recipientEmail: string;
     status: string;
     signedAt: string | null;
+    emailDelivery: {
+      status: string;
+      sentAt: string | null;
+      deliveredAt: string | null;
+      failedAt: string | null;
+    } | null;
   }[];
+}
+
+type EmailDelivery = {
+  status: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  failedAt: string | null;
+} | null;
+
+function EmailDeliveryBadge({ delivery }: { delivery: EmailDelivery }) {
+  if (!delivery) return null;
+  const { status } = delivery;
+  if (status === "not_configured") return null;
+  if (status === "delivered") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium" title="Email delivered">
+        <MailCheck className="w-3 h-3" /> delivered
+      </span>
+    );
+  }
+  if (status === "bounced" || status === "complained" || status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-red-500 font-medium" title={`Email ${status}`}>
+        <MailX className="w-3 h-3" /> {status}
+      </span>
+    );
+  }
+  if (status === "sent" || status === "queued") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 font-medium" title="Email sent">
+        <Mail className="w-3 h-3" /> sent
+      </span>
+    );
+  }
+  return null;
 }
 
 function formatFileSize(bytes: number): string {
@@ -290,15 +331,16 @@ export default function StudentDocuments({ studentId }: { studentId: number }) {
                     {doc.signatureRequests.length > 0 && (
                       <div className="mt-1.5 space-y-1">
                         {doc.signatureRequests.map((sr) => (
-                          <div key={sr.id} className="flex items-center gap-1.5 text-xs">
+                          <div key={sr.id} className="flex items-center gap-1.5 text-xs flex-wrap">
                             {sr.status === "signed" ? (
-                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                              <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
                             ) : (
-                              <Clock className="w-3 h-3 text-amber-500" />
+                              <Clock className="w-3 h-3 text-amber-500 flex-shrink-0" />
                             )}
                             <span className={sr.status === "signed" ? "text-emerald-600" : "text-amber-600"}>
                               {sr.recipientName}: {sr.status === "signed" ? `Signed ${sr.signedAt ? formatDate(sr.signedAt) : ""}` : "Pending"}
                             </span>
+                            <EmailDeliveryBadge delivery={sr.emailDelivery} />
                           </div>
                         ))}
                       </div>
