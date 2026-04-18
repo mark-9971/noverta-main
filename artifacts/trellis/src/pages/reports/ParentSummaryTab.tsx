@@ -73,7 +73,9 @@ export function ParentSummaryTab() {
     setError(null);
     setSummary(null);
     try {
-      const data = await authFetch(`/api/reports/parent-summary/${studentId}`);
+      const res = await authFetch(`/api/reports/parent-summary/${studentId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
       setSummary(data as ParentSummaryData);
       setSelectedReportId(null);
     } catch { setError("Failed to load parent summary. Make sure this student has a progress report."); }
