@@ -119,7 +119,6 @@ export const adminNav: NavSection[] = [
       { href: "/iep", label: "IEP Hub", icon: GraduationCap },
       { href: "/iep-search", label: "IEP Search", icon: Search },
       { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
-      { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
     ],
   },
   {
@@ -183,6 +182,7 @@ export const adminNav: NavSection[] = [
           { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
         ],
       },
+      { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
     ],
   },
   {
