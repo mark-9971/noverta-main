@@ -173,6 +173,14 @@ export const adminNav: NavSection[] = [
           { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
         ],
       },
+      {
+        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
+          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
+        ],
+      },
     ],
   },
   {
@@ -255,14 +263,6 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
-      {
-        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
-        children: [
-          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
-          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
-        ],
-      },
     ],
   },
 ];
