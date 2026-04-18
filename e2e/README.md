@@ -56,3 +56,33 @@ emails bypass email verification, so the suite can sign in
 non-interactively against the same Clerk instance the app uses. The test
 is self-cleaning: any leftover sample data from a prior run is removed
 before the seed step.
+
+## Running in CI
+
+The suite runs automatically on every pull request targeting `main` via
+`.github/workflows/e2e.yml`. The workflow:
+
+1. Spins up a Postgres 16 service container.
+2. Installs deps with pnpm, builds the workspace libs, the API server,
+   and the Trellis web app.
+3. Pushes the Drizzle schema to the Postgres service.
+4. Starts the API server (`PORT=8090`) and the Vite preview of the web
+   app (`PORT=5173`) in the background.
+5. Starts a tiny Node reverse proxy (`scripts/ci-proxy.mjs`) on
+   `:8080` that routes `/api/*` to the API and everything else to the
+   web preview, mirroring the Replit dev proxy.
+6. Waits for all three services to be healthy.
+7. Runs `npx playwright test` from `e2e/`.
+8. On failure, uploads the Playwright HTML report, traces, screenshots,
+   videos under the `playwright-report` artifact and the service logs
+   under `service-logs`.
+
+The following GitHub Actions secrets must be configured on the
+repository (Settings → Secrets and variables → Actions):
+
+| Secret                  | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key for the test Clerk instance.   |
+| `CLERK_SECRET_KEY`      | Clerk secret key for `@clerk/testing` provisioning.  |
+| `E2E_ADMIN_EMAIL`       | Clerk test admin email (e.g. `…+clerk_test@…`).      |
+| `E2E_ADMIN_PASSWORD`    | Password for the Clerk test admin user.              |
