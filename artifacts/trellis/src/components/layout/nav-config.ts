@@ -74,7 +74,6 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/data-visualized", label: "At a Glance", icon: Sparkles, primary: true },
-      { href: "/leadership-packet", label: "Leadership Packet", icon: FileBarChart, primary: true },
       // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
       // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
       { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
@@ -130,6 +129,7 @@ export const adminNav: NavSection[] = [
           { href: "/reports?tab=parent", label: "Parent Summary", icon: Heart },
           { href: "/reports?tab=exports", label: "Bulk Exports", icon: FileDown },
           { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
+          { href: "/leadership-packet", label: "Leadership Packet", icon: FileBarChart },
         ],
       },
       {
