@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Target, Plus, ArrowUp, ArrowDown, Wand2, FileUp } from "lucide-react";
+import { TrendingUp, Plus, ArrowUp, ArrowDown, Wand2, FileUp } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import {
-  ProgramTarget, TrendPoint, Student, COLORS, PROMPT_LABELS,
+  ProgramTarget, TrendPoint, Student, COLORS, PROMPT_LABELS, PHASE_CONFIG, ProgramPhase,
 } from "./constants";
 
 interface Props {
@@ -85,7 +85,9 @@ export default function ProgramsTab({
           const lastPct = data.length > 0 ? parseFloat(data[data.length - 1].percentCorrect!) : null;
           const last3 = data.slice(-3);
           const avgLast3 = last3.length > 0 ? Math.round(last3.reduce((s, d) => s + parseFloat(d.percentCorrect!), 0) / last3.length) : null;
-          const mastered = avgLast3 !== null && avgLast3 >= (pt.masteryCriterionPercent ?? 80);
+          const phase = (pt.phase ?? "training") as ProgramPhase;
+          const phaseInfo = PHASE_CONFIG[phase];
+          const PhaseIcon = phaseInfo.icon;
           const promptInfo = PROMPT_LABELS[pt.currentPromptLevel ?? "verbal"];
           const totalTrials = last3.reduce((s, d) => s + (d.trialsTotal ?? 0), 0);
           const promptedTrials = last3.reduce((s, d) => s + (d.prompted ?? 0), 0);
@@ -102,16 +104,18 @@ export default function ProgramsTab({
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {promptInfo && (
+                    {promptInfo && phase === "training" && (
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${promptInfo.color}`}>
                         {promptInfo.short}
                       </span>
                     )}
-                    {mastered && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                        <Target className="w-3 h-3" />
-                      </span>
-                    )}
+                    <span
+                      className={`flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${phaseInfo.color}`}
+                      title={phaseInfo.description}
+                    >
+                      <PhaseIcon className="w-3 h-3" />
+                      {phaseInfo.short}
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 mt-3" onClick={() => onEditProgram(pt)}>

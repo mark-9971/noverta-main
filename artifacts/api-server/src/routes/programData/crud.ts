@@ -196,14 +196,21 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
     const id = parseInt(req.params.id);
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, id, res))) return;
+    const VALID_PHASES = ["baseline", "training", "maintenance", "mastered", "reopened"];
+    if (req.body.phase !== undefined && !VALID_PHASES.includes(req.body.phase)) {
+      res.status(400).json({ error: `phase must be one of: ${VALID_PHASES.join(", ")}` }); return;
+    }
     const updates: any = {};
     for (const key of ["name","description","programType","targetCriterion","domain","active",
                         "promptHierarchy","currentPromptLevel","currentStep","autoProgressEnabled",
                         "masteryCriterionPercent","masteryCriterionSessions","regressionThreshold",
-                        "regressionSessions","reinforcementSchedule","reinforcementType","tutorInstructions"]) {
+                        "regressionSessions","reinforcementSchedule","reinforcementType","tutorInstructions","phase"]) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
     const [oldTarget] = await db.select().from(programTargetsTable).where(eq(programTargetsTable.id, id));
+    if (req.body.phase !== undefined && req.body.phase !== oldTarget?.phase) {
+      updates.phaseChangedAt = new Date();
+    }
     const [updated] = await db.update(programTargetsTable).set(updates).where(eq(programTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     logAudit(req, {

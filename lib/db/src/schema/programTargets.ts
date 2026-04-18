@@ -3,6 +3,9 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
 
+export const PROGRAM_PHASES = ["baseline", "training", "maintenance", "mastered", "reopened"] as const;
+export type ProgramPhase = typeof PROGRAM_PHASES[number];
+
 export const programTargetsTable = pgTable("program_targets", {
   id: serial("id").primaryKey(),
   studentId: integer("student_id").notNull().references(() => studentsTable.id),
@@ -12,6 +15,8 @@ export const programTargetsTable = pgTable("program_targets", {
   targetCriterion: text("target_criterion"),
   domain: text("domain"),
   active: boolean("active").notNull().default(true),
+  phase: text("phase").notNull().default("training"),
+  phaseChangedAt: timestamp("phase_changed_at", { withTimezone: true }),
   templateId: integer("template_id"),
   promptHierarchy: jsonb("prompt_hierarchy").$type<string[]>().default(["full_physical", "partial_physical", "model", "gestural", "verbal", "independent"]),
   currentPromptLevel: text("current_prompt_level").default("verbal"),
@@ -28,6 +33,7 @@ export const programTargetsTable = pgTable("program_targets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("pt_student_active_idx").on(table.studentId, table.active),
+  index("pt_phase_idx").on(table.studentId, table.phase),
 ]);
 
 export const insertProgramTargetSchema = createInsertSchema(programTargetsTable).omit({ id: true, createdAt: true, updatedAt: true });

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X, Save, Settings2, BookOpen, Plus } from "lucide-react";
 import { listProgramSteps, updateProgramTarget, createProgramStep } from "@workspace/api-client-react";
-import { ProgramTarget, ProgramStep, PROMPT_LABELS, REINFORCEMENT_SCHEDULES } from "./constants";
+import { ProgramTarget, ProgramStep, ProgramPhase, PROGRAM_PHASES, PHASE_CONFIG, PROMPT_LABELS, REINFORCEMENT_SCHEDULES } from "./constants";
 
 interface Props {
   program: ProgramTarget;
@@ -40,6 +40,7 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
         regressionSessions: form.regressionSessions,
         reinforcementSchedule: form.reinforcementSchedule,
         reinforcementType: form.reinforcementType,
+        phase: form.phase,
       });
     onSaved();
     setSaving(false);
@@ -139,6 +140,29 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
               </div>
 
               <div>
+                <label className="text-[12px] font-medium text-gray-500">Program Phase</label>
+                <div className="mt-1 grid grid-cols-1 gap-1.5">
+                  {PROGRAM_PHASES.map(p => {
+                    const cfg = PHASE_CONFIG[p];
+                    const Icon = cfg.icon;
+                    const selected = (form.phase ?? "training") === p;
+                    return (
+                      <button key={p} type="button"
+                        onClick={() => setForm({ ...form, phase: p as ProgramPhase })}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${selected ? `${cfg.color} border-current` : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"}`}>
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-[12px] font-semibold">{cfg.label}</span>
+                          <span className="text-[10px] text-gray-400 ml-2">{cfg.description}</span>
+                        </div>
+                        {selected && <span className="ml-auto text-[10px] font-semibold">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
                 <label className="text-[12px] font-medium text-gray-500">Reinforcement Schedule</label>
                 <select value={form.reinforcementSchedule ?? "continuous"} onChange={e => setForm({ ...form, reinforcementSchedule: e.target.value })}
                   className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2.5 md:py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-200">
@@ -160,6 +184,26 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
                   <BookOpen className="w-4 h-4 inline mr-1.5" /> <strong>Tutor Instructions:</strong> {program.tutorInstructions}
                 </div>
               )}
+
+              {(() => {
+                const ph = (program.phase ?? "training") as ProgramPhase;
+                const cfg = PHASE_CONFIG[ph];
+                const PhIcon = cfg.icon;
+                return (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${cfg.color}`}>
+                    <PhIcon className="w-4 h-4 flex-shrink-0" />
+                    <div>
+                      <span className="text-[12px] font-bold">{cfg.label}</span>
+                      <span className="text-[11px] ml-2 opacity-75">{cfg.description}</span>
+                    </div>
+                    {program.phaseChangedAt && (
+                      <span className="ml-auto text-[10px] opacity-60">
+                        since {new Date(program.phaseChangedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-gray-50 rounded-lg p-3 text-center">

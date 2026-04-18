@@ -1,4 +1,4 @@
-import { Hand, Eye, Mic, Sparkles } from "lucide-react";
+import { Hand, Eye, Mic, Sparkles, FlaskConical, BookOpen, ShieldCheck, Trophy, RefreshCw } from "lucide-react";
 
 export interface BehaviorTarget {
   id: number; studentId: number; name: string; description: string;
@@ -6,9 +6,57 @@ export interface BehaviorTarget {
   baselineValue: string | null; goalValue: string | null; active: boolean;
   trackingMethod?: string; intervalLengthSeconds?: number; enableHourlyTracking?: boolean;
 }
+export type ProgramPhase = "baseline" | "training" | "maintenance" | "mastered" | "reopened";
+export const PROGRAM_PHASES: ProgramPhase[] = ["baseline", "training", "maintenance", "mastered", "reopened"];
+
+export const PHASE_CONFIG: Record<ProgramPhase, {
+  label: string;
+  short: string;
+  color: string;
+  icon: any;
+  description: string;
+}> = {
+  baseline: {
+    label: "Baseline",
+    short: "BL",
+    color: "bg-gray-100 text-gray-600",
+    icon: FlaskConical,
+    description: "Collecting baseline data before instruction begins",
+  },
+  training: {
+    label: "Training",
+    short: "TR",
+    color: "bg-blue-50 text-blue-700",
+    icon: BookOpen,
+    description: "Active skill acquisition — instruction in progress",
+  },
+  maintenance: {
+    label: "Maintenance",
+    short: "MN",
+    color: "bg-purple-50 text-purple-700",
+    icon: ShieldCheck,
+    description: "Skill learned — probing for retention and generalization",
+  },
+  mastered: {
+    label: "Mastered",
+    short: "MA",
+    color: "bg-emerald-50 text-emerald-700",
+    icon: Trophy,
+    description: "Mastery criterion met and confirmed",
+  },
+  reopened: {
+    label: "Reopened",
+    short: "RO",
+    color: "bg-amber-50 text-amber-700",
+    icon: RefreshCw,
+    description: "Previously mastered — skill regression detected, re-entered training",
+  },
+};
+
 export interface ProgramTarget {
   id: number; studentId: number; name: string; description: string;
   programType: string; targetCriterion: string; domain: string; active: boolean;
+  phase?: ProgramPhase; phaseChangedAt?: string | null;
   promptHierarchy?: string[]; currentPromptLevel?: string; currentStep?: number;
   autoProgressEnabled?: boolean; masteryCriterionPercent?: number;
   masteryCriterionSessions?: number; regressionThreshold?: number;
