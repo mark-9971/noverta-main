@@ -287,6 +287,168 @@ export async function saveGeneratedDocument(params: {
   }
 }
 
+export interface DailyCoverageSession {
+  absenceDate: string | null;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  studentName: string | null;
+  serviceTypeName: string | null;
+  originalStaffName: string | null;
+  substituteStaffName: string | null;
+  isCovered: boolean;
+  location: string | null;
+}
+
+export interface DailyCoverageSummary {
+  date: string;
+  totalSessions: number;
+  covered: number;
+  uncovered: number;
+  coverageRate: number;
+  absentStaffCount: number;
+}
+
+export function buildDailyCoverageReportHtml(opts: {
+  date: string;
+  summary: DailyCoverageSummary;
+  sessions: DailyCoverageSession[];
+  school?: string | null;
+  district?: string | null;
+}): string {
+  const { date, summary, sessions, school, district } = opts;
+
+  const displayDate = fmtDate(date);
+
+  const absentStaffNames = Array.from(
+    new Set(sessions.map(s => s.originalStaffName).filter(Boolean))
+  ) as string[];
+
+  const uncovered = sessions.filter(s => !s.isCovered);
+  const covered = sessions.filter(s => s.isCovered);
+
+  const DAY_LABELS: Record<string, string> = {
+    monday: "Mon", tuesday: "Tue", wednesday: "Wed",
+    thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
+  };
+
+  function fmt12(t: string): string {
+    const [h, m] = t.split(":").map(Number);
+    const ampm = (h ?? 0) < 12 ? "AM" : "PM";
+    const h12 = (h ?? 0) % 12 || 12;
+    return `${h12}:${String(m ?? 0).padStart(2, "0")} ${ampm}`;
+  }
+
+  function sessionRow(s: DailyCoverageSession, showSub: boolean): string {
+    const day = DAY_LABELS[s.dayOfWeek] ?? s.dayOfWeek;
+    const time = `${fmt12(s.startTime)}–${fmt12(s.endTime)}`;
+    const student = esc(s.studentName ?? "—");
+    const service = esc(s.serviceTypeName ?? "—");
+    const original = esc(s.originalStaffName ?? "—");
+    const location = esc(s.location ?? "—");
+    if (showSub) {
+      return `<tr>
+        <td>${student}</td>
+        <td>${service}</td>
+        <td>${day} ${time}</td>
+        <td>${original}</td>
+        <td>${esc(s.substituteStaffName ?? "—")}</td>
+        <td>${location}</td>
+      </tr>`;
+    }
+    return `<tr>
+      <td>${student}</td>
+      <td>${service}</td>
+      <td>${day} ${time}</td>
+      <td>${original}</td>
+      <td>${location}</td>
+    </tr>`;
+  }
+
+  const rateColor = summary.coverageRate >= 80 ? "#065f46" : "#92400e";
+  const rateBg = summary.coverageRate >= 80 ? "#d1fae5" : "#fef3c7";
+
+  const summaryGrid = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+      <div style="background:#f9fafb;border:1px solid ${GRAY_200};border-radius:6px;padding:12px 14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#111827">${summary.totalSessions}</div>
+        <div style="font-size:10px;color:${GRAY_600};text-transform:uppercase;letter-spacing:0.04em;margin-top:2px">Total Sessions</div>
+      </div>
+      <div style="background:#f9fafb;border:1px solid ${GRAY_200};border-radius:6px;padding:12px 14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#065f46">${summary.covered}</div>
+        <div style="font-size:10px;color:${GRAY_600};text-transform:uppercase;letter-spacing:0.04em;margin-top:2px">Covered</div>
+      </div>
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:12px 14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#92400e">${summary.uncovered}</div>
+        <div style="font-size:10px;color:#92400e;text-transform:uppercase;letter-spacing:0.04em;margin-top:2px">Uncovered</div>
+      </div>
+      <div style="background:${rateBg};border:1px solid ${rateBg};border-radius:6px;padding:12px 14px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:${rateColor}">${summary.coverageRate}%</div>
+        <div style="font-size:10px;color:${rateColor};text-transform:uppercase;letter-spacing:0.04em;margin-top:2px">Coverage Rate</div>
+      </div>
+    </div>`;
+
+  const absentSection = absentStaffNames.length > 0
+    ? `<h2>Absent Staff (${absentStaffNames.length})</h2>
+       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+         ${absentStaffNames.map(n => `<span style="background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">${esc(n)}</span>`).join("")}
+       </div>`
+    : `<h2>Absent Staff</h2><p style="color:${GRAY_600};font-size:12px">No absences recorded for today.</p>`;
+
+  const uncoveredSection = uncovered.length > 0
+    ? `<h2>Sessions Needing Coverage (${uncovered.length})</h2>
+       <table>
+         <thead><tr><th>Student</th><th>Service</th><th>Time</th><th>Original Provider</th><th>Location</th></tr></thead>
+         <tbody>${uncovered.map(s => sessionRow(s, false)).join("")}</tbody>
+       </table>`
+    : `<h2>Sessions Needing Coverage</h2>
+       <p style="color:#065f46;font-size:12px;font-weight:600">All sessions are covered. ✓</p>`;
+
+  const coveredSection = covered.length > 0
+    ? `<h2>Covered Sessions (${covered.length})</h2>
+       <table>
+         <thead><tr><th>Student</th><th>Service</th><th>Time</th><th>Original Provider</th><th>Substitute</th><th>Location</th></tr></thead>
+         <tbody>${covered.map(s => sessionRow(s, true)).join("")}</tbody>
+       </table>`
+    : "";
+
+  const metaItems = [
+    ...(school ? [`<div class="meta-item"><span class="meta-label">School:</span><span>${esc(school)}</span></div>`] : []),
+    ...(district ? [`<div class="meta-item"><span class="meta-label">District:</span><span>${esc(district)}</span></div>`] : []),
+    `<div class="meta-item"><span class="meta-label">Report Date:</span><span>${displayDate}</span></div>`,
+    `<div class="meta-item"><span class="meta-label">Absent Staff:</span><span>${summary.absentStaffCount}</span></div>`,
+    `<div class="meta-item"><span class="meta-label">Generated:</span><span>${new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span></div>`,
+  ].join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; script-src 'none'">
+  <title>Daily Coverage Report — ${esc(displayDate)}</title>
+  <style>${SHARED_CSS}</style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="doc-header">
+      <h1>Daily Coverage Report</h1>
+      <div class="subtitle">Front Office Coverage Sheet — ${esc(displayDate)}</div>
+    </div>
+    <div class="meta-grid">${metaItems}</div>
+    ${summaryGrid}
+    ${absentSection}
+    ${uncoveredSection}
+    ${coveredSection}
+    <div class="footer">
+      <p style="margin:4px 0">Generated by Trellis · ${esc(displayDate)} · For internal use only.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return html;
+}
+
 function yesNo(v: boolean | null | undefined): string {
   return v ? "Yes" : "No";
 }
