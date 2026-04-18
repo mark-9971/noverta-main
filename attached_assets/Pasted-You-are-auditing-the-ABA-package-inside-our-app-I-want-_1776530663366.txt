@@ -1,0 +1,198 @@
+You are auditing the ABA package inside our app.
+
+I want a **deep current-state assessment** of everything we currently have for ABA data recording, tracking, analysis, programming, reporting, and behavior support.
+
+Do not sell. Do not generalize. Do not give me vague praise.
+I want a brutally specific inventory of what exists today in code and product behavior.
+
+## Goal
+
+Tell me exactly how comprehensive our current ABA package is compared to a serious end-to-end ABA data platform.
+
+## Audit focus
+
+You must inspect and report on the current state of all of the following areas:
+
+### 1. Program / goal architecture
+
+* how goals/programs/targets are modeled
+* whether there is a real program editor
+* whether goals can be customized beyond simple text fields
+* whether prompts, prompt hierarchies, prompt fading/progression, mastery criteria, sublevels, branches, baseline/training/maintenance/completed states, and reopen/regression rules exist
+* whether goals link cleanly to IEP objectives
+* whether there is support for task analysis / chaining / behavior reduction / skill acquisition / maintenance
+
+### 2. Live data collection
+
+* all supported data types
+* whether live session capture exists
+* whether post-session entry exists
+* whether frequency, rate, duration, latency, interval, partial interval, whole interval, momentary time sampling, task analysis, trial-by-trial, prompt-level capture, ABC data, rating scales, opportunity-based data, and permanent product are supported
+* what is actually implemented vs partially implemented vs missing
+* whether the workflow is usable for front-line staff in real time
+
+### 3. Session workflows
+
+* session start/stop
+* timers
+* quick log / mobile log
+* missed-session flow
+* session notes
+* signatures
+* session history
+* audit trail
+* offline support if any
+* whether session data and note data are properly connected
+
+### 4. Graphing and visual analysis
+
+* what graphs currently exist
+* whether phase lines exist
+* whether graph annotations exist
+* whether program modifications can be shown on graphs
+* whether prompt graphs or maintenance graphs exist
+* whether baseline/training/maintenance/completed views exist
+* whether there is any serious visual analysis layer or only basic charts
+
+### 5. Progress reports
+
+* whether progress reports are generated from actual data
+* what sections are included
+* whether goal progress, narrative summaries, mastery status, maintenance status, behavior summaries, prompt dependence, recommendations, and dosage/session metrics are included
+* what is automated vs manual
+* whether existing report generation is clinically strong or thin
+
+### 6. BIP / behavior support
+
+* whether there is a standalone BIP or treatment-guideline module
+* whether operational definitions, function hypotheses, antecedent strategies, replacement behaviors, consequence procedures, reinforcement strategies, crisis/escalation responses, and review/update workflows exist
+* whether BIP content is connected to performance data or just static documentation
+
+### 7. Student operational summary / runbook
+
+* whether the app has a staff-friendly learner summary that explains:
+
+  * supports needed
+  * preferred/nonpreferred activities
+  * reinforcement info
+  * communication supports
+  * problem times
+  * triggers
+  * transition guidance
+  * behavior escalation guidance
+  * schedules
+  * accommodations
+* whether any staff member could realistically understand how to work with a complex student quickly using the current UI
+
+### 8. ABC / FBA / incident analysis
+
+* whether ABC data capture exists
+* whether incident logs exist
+* whether there is any pattern analysis across antecedents, settings, times, staff, or consequences
+* whether there is any bridge from ABC/FBA information into active programming or BIP updates
+
+### 9. Mastery / maintenance / instructional decision logic
+
+* whether the system understands:
+
+  * baseline
+  * acquisition/training
+  * maintenance
+  * mastered/completed
+  * reopened/regressed
+* whether mastery criteria are configurable
+* whether maintenance probes exist
+* whether progression or prompt fading can be automated or assisted
+* whether instructional-decision support exists at all
+
+### 10. Restrictiveness score
+
+* whether anything like a restrictiveness, intrusiveness, support-level, or intensity score exists
+* if not, what adjacent data structures already exist that could support building one
+
+### 11. Supervision / fidelity / IOA
+
+* whether IOA exists
+* whether treatment integrity or procedural fidelity exists
+* whether supervisor review tools exist
+* whether staff competency/performance review tied to student programming exists
+
+### 12. Analytics and cross-student reporting
+
+* whether there are macro-level analytics for ABA outcomes
+* whether we can see mastery rates, stalled goals, prompt dependence, behavior trends, maintenance failures, or staff consistency across students/programs
+* whether analytics are clinically meaningful or mostly dashboard-level/basic
+
+## Required output format
+
+### A. Executive verdict
+
+In 1–2 paragraphs:
+
+* what our ABA package actually is today
+* what it is strongest at
+* what it is missing to be considered comprehensive
+
+### B. Feature inventory table
+
+For each major ABA capability area above, provide:
+
+* current status: strong / moderate / weak / absent
+* what exists today
+* what is partial
+* what is missing
+* key files/routes/components/apis involved
+
+### C. Supported data-collection types
+
+Give me a precise list of every data-collection type currently implemented in code.
+Separate:
+
+* clearly implemented
+* partially implemented / unclear
+* missing
+
+### D. Workflow audit
+
+Walk through the current end-to-end ABA workflow in the app:
+
+* create goal/program
+* assign to student
+* run session
+* collect data
+* graph/analyze
+* update plan
+* generate report
+  Explain where the workflow is strong and where it breaks down.
+
+### E. Biggest gaps vs a serious ABA platform
+
+Give me the top gaps compared with a robust platform like Motivity / CentralReach / Hi Rasmus / Rethink / Passage-style ABA tooling.
+Be specific and code-aware.
+
+### F. Top 20 recommended build tasks
+
+Prioritized, dependency-aware, and specific.
+For each:
+
+* task title
+* why it matters clinically
+* likely files/modules affected
+* effort: small / medium / large
+
+## Important instructions
+
+* Audit first. Do not code.
+* Trace real code paths, routes, components, schemas, and APIs.
+* Distinguish carefully between:
+
+  * exists in code
+  * exists only in docs
+  * exists but is weak
+  * exists in UI but not clinically strong
+* Be skeptical.
+* Do not over-credit thin or demo-only functionality.
+* If something is unclear, say so explicitly.
+
+The standard is not “does it have some ABA features?”
+The standard is: “could this compete as a serious, end-to-end ABA data and programming package?”

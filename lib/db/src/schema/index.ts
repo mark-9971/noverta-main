@@ -110,3 +110,4 @@ export * from "./uploadQuotas";
 export * from "./emailDeliveries";
 export * from "./viewAsSessions";
 export * from "./complianceSnapshots";
+export * from "./preferenceAssessments";
