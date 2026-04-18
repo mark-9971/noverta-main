@@ -9,7 +9,7 @@ import { eq, and, desc, isNull, sql, lte, gte, or } from "drizzle-orm";
 import { logAudit } from "../lib/auditLog";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
-import { sendEmail, buildIncompleteTransitionEmail } from "../lib/email";
+import { sendEmail, buildIncompleteTransitionEmail, getAppBaseUrl } from "../lib/email";
 import {
   assertStudentInCallerDistrict, assertStaffInCallerDistrict,
   assertTransitionPlanInCallerDistrict, assertIepDocumentInCallerDistrict,
@@ -237,6 +237,8 @@ router.post("/transitions/plans", transitionAccess, async (req, res): Promise<vo
             studentName: `${student.firstName} ${student.lastName}`,
             planDate: planDateStr,
             schoolName: school?.name ?? "the school",
+            studentId: row.studentId,
+            appBaseUrl: getAppBaseUrl() ?? undefined,
           });
           await sendEmail({
             studentId: row.studentId,

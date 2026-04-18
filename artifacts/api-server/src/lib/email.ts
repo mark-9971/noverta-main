@@ -132,6 +132,17 @@ export interface SendEmailResult {
 const FROM_EMAIL = "Trellis SPED <noreply@trellis.education>";
 const FROM_EMAIL_FALLBACK = "noreply@trellis.education";
 
+/**
+ * Resolve the base URL for deep links into the app from emails.
+ * Prefers APP_BASE_URL; falls back to REPLIT_DEV_DOMAIN; returns null otherwise.
+ */
+export function getAppBaseUrl(): string | null {
+  const raw =
+    process.env.APP_BASE_URL ??
+    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
+  return raw ? raw.replace(/\/+$/, "") : null;
+}
+
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = [600, 1200];
 
@@ -454,9 +465,16 @@ export function buildIncompleteTransitionEmail(opts: {
   studentName: string;
   planDate: string;
   schoolName: string;
+  studentId?: number;
+  appBaseUrl?: string;
 }): { subject: string; html: string; text: string } {
-  const { coordinatorName, studentName, planDate, schoolName } = opts;
+  const { coordinatorName, studentName, planDate, schoolName, studentId, appBaseUrl } = opts;
   const subject = `Action Required — Transition Plan Incomplete: ${studentName}`;
+  const studentLink = appBaseUrl && studentId != null ? `${appBaseUrl}/students/${studentId}` : null;
+  const linkHtml = studentLink
+    ? `<p style="margin-top:20px"><a href="${studentLink}" style="background:#1e3a5f;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View Student Record →</a></p>`
+    : "";
+  const linkText = studentLink ? `\n\nView student record: ${studentLink}` : "";
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#1e3a5f;color:#fff;padding:20px 24px}.body{padding:24px}.notice{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
 <body><div class="wrapper">
@@ -472,10 +490,11 @@ export function buildIncompleteTransitionEmail(opts: {
   <li>Course of study aligned to post-secondary goals</li>
   <li>Age of majority notification (if applicable)</li>
 </ul>
+${linkHtml}
 </div>
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
-  const text = `TRANSITION PLAN INCOMPLETE\n\nDear ${coordinatorName},\n\nA transition plan for ${studentName} (plan date: ${planDate}) is in draft status and requires completion.\n\nPlease complete the plan including graduation pathway, transition goals, and course of study.\n\n${schoolName}`;
+  const text = `TRANSITION PLAN INCOMPLETE\n\nDear ${coordinatorName},\n\nA transition plan for ${studentName} (plan date: ${planDate}) is in draft status and requires completion.\n\nPlease complete the plan including graduation pathway, transition goals, and course of study.${linkText}\n\n${schoolName}`;
   return { subject, html, text };
 }
 
@@ -486,11 +505,18 @@ export function buildOverdueEvaluationEmail(opts: {
   dueDate: string;
   daysOverdue: number;
   schoolName: string;
+  studentId?: number;
+  appBaseUrl?: string;
 }): { subject: string; html: string; text: string } {
-  const { staffName, studentName, evaluationType, dueDate, daysOverdue, schoolName } = opts;
+  const { staffName, studentName, evaluationType, dueDate, daysOverdue, schoolName, studentId, appBaseUrl } = opts;
   const typeLabel = evaluationType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
   const overduePart = daysOverdue >= 0 ? `${daysOverdue} day(s) overdue` : `due on ${dueDate}`;
   const subject = `Action Required — ${typeLabel} Evaluation Overdue: ${studentName}`;
+  const studentLink = appBaseUrl && studentId != null ? `${appBaseUrl}/students/${studentId}` : null;
+  const linkHtml = studentLink
+    ? `<p style="margin-top:20px"><a href="${studentLink}" style="background:#7f1d1d;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View Student Record →</a></p>`
+    : "";
+  const linkText = studentLink ? `\n\nView student record: ${studentLink}` : "";
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#7f1d1d;color:#fff;padding:20px 24px}.body{padding:24px}.alert{background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
 <body><div class="wrapper">
@@ -506,10 +532,11 @@ export function buildOverdueEvaluationEmail(opts: {
   <li>Status: <strong>${overduePart}</strong></li>
 </ul>
 <p>Please take immediate action to complete this evaluation or document the reason for the delay in Trellis.</p>
+${linkHtml}
 </div>
 <div class="footer"><p>Sent by Trellis SPED Compliance Platform on behalf of ${schoolName}.</p></div>
 </div></body></html>`;
-  const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.\n\n${schoolName}`;
+  const text = `EVALUATION OVERDUE ALERT\n\nDear ${staffName},\n\nThe ${typeLabel} evaluation for ${studentName} is ${overduePart}.\n\nDue date: ${dueDate}\n\nPlease complete this evaluation or document the reason for the delay.${linkText}\n\n${schoolName}`;
   return { subject, html, text };
 }
 
@@ -686,19 +713,29 @@ ${dashboardLink}
 
 export function buildOverdueSessionLogEmail(opts: {
   staffName: string;
-  missingLogs: { studentName: string; date: string; serviceTypeName?: string | null }[];
+  missingLogs: { studentName: string; date: string; serviceTypeName?: string | null; studentId?: number }[];
   schoolName?: string;
+  appBaseUrl?: string;
 }): { subject: string; html: string; text: string } {
-  const { staffName, missingLogs, schoolName } = opts;
+  const { staffName, missingLogs, schoolName, appBaseUrl } = opts;
   const count = missingLogs.length;
   const subject = `Reminder: ${count} session log${count !== 1 ? "s" : ""} need${count === 1 ? "s" : ""} to be completed`;
 
-  const rows = missingLogs.map(m => `<tr>
-    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:600">${m.studentName}</td>
+  const rows = missingLogs.map(m => {
+    const link = appBaseUrl && m.studentId != null ? `${appBaseUrl}/students/${m.studentId}` : null;
+    const nameCell = link
+      ? `<a href="${link}" style="color:#1d4ed8;text-decoration:none;font-weight:600">${m.studentName}</a>`
+      : m.studentName;
+    return `<tr>
+    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:600">${nameCell}</td>
     <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#6b7280">${m.date}${m.serviceTypeName ? ` · ${m.serviceTypeName}` : ""}</td>
-  </tr>`).join("");
+  </tr>`;
+  }).join("");
 
-  const textRows = missingLogs.map(m => `  • ${m.studentName} — ${m.date}${m.serviceTypeName ? ` (${m.serviceTypeName})` : ""}`).join("\n");
+  const textRows = missingLogs.map(m => {
+    const link = appBaseUrl && m.studentId != null ? ` — ${appBaseUrl}/students/${m.studentId}` : "";
+    return `  • ${m.studentName} — ${m.date}${m.serviceTypeName ? ` (${m.serviceTypeName})` : ""}${link}`;
+  }).join("\n");
 
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#b45309;color:#fff;padding:20px 24px}.body{padding:24px}.alert{background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;font-size:13px;margin-bottom:16px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}table{width:100%;border-collapse:collapse;margin-top:8px}</style></head>

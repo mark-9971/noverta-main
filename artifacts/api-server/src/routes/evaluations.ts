@@ -9,7 +9,7 @@ import { logAudit } from "../lib/auditLog";
 import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
 import { createAutoVersion } from "../lib/documentVersioning";
 import { requireTierAccess } from "../middlewares/tierGate";
-import { sendEmail, buildOverdueEvaluationEmail } from "../lib/email";
+import { sendEmail, buildOverdueEvaluationEmail, getAppBaseUrl } from "../lib/email";
 import {
   assertStudentInCallerDistrict, assertStaffInCallerDistrict,
   assertSchoolInCallerDistrict, assertReferralInCallerDistrict,
@@ -361,6 +361,8 @@ router.post("/evaluations", evalAccess, async (req, res): Promise<void> => {
             dueDate: row.dueDate!,
             daysOverdue,
             schoolName: school?.name ?? "the school",
+            studentId: row.studentId,
+            appBaseUrl: getAppBaseUrl() ?? undefined,
           });
           await sendEmail({
             studentId: row.studentId,

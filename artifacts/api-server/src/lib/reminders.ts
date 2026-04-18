@@ -28,6 +28,7 @@ import {
   buildOverdueEvaluationEmail,
   buildIncompleteTransitionEmail,
   buildOverdueSessionLogEmail,
+  getAppBaseUrl,
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
 import { generateReportCSVDirect, buildScheduledReportPdf } from "../routes/reportExports/historyAndScheduled";
@@ -182,6 +183,8 @@ export async function runOverdueEvaluations(): Promise<void> {
         dueDate: ev.dueDate,
         daysOverdue,
         schoolName: school?.name ?? "the school",
+        studentId: ev.studentId,
+        appBaseUrl: getAppBaseUrl() ?? undefined,
       });
 
       await sendEmail({
@@ -248,6 +251,8 @@ async function runDraftTransitionPlans(): Promise<void> {
         studentName: student ? `${student.firstName} ${student.lastName}` : "Student",
         planDate: plan.planDate ?? new Date().toISOString().substring(0, 10),
         schoolName: school?.name ?? "the school",
+        studentId: plan.studentId,
+        appBaseUrl: getAppBaseUrl() ?? undefined,
       });
 
       await sendEmail({
@@ -494,12 +499,14 @@ export async function runOverdueSessionLogCheck(): Promise<void> {
           studentName: s ? `${s.firstName} ${s.lastName}` : "Unknown student",
           date: i.date,
           serviceTypeName: svc?.name ?? null,
+          studentId: i.studentId,
         };
       });
 
     const emailContent = buildOverdueSessionLogEmail({
       staffName: `${staff.firstName} ${staff.lastName}`,
       missingLogs: itemsForEmail,
+      appBaseUrl: getAppBaseUrl() ?? undefined,
     });
 
     await sendEmail({
