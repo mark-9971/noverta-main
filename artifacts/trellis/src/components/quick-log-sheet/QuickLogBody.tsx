@@ -49,6 +49,8 @@ export interface QuickLogBodyProps {
   onDone: () => void;
 }
 
+
+
 export function QuickLogBody(p: QuickLogBodyProps) {
   return (
     <div className="flex-1 overflow-y-auto">
@@ -109,8 +111,12 @@ export function QuickLogBody(p: QuickLogBodyProps) {
           outcome={p.outcome!}
           note={p.note}
           makeupNeeded={p.makeupNeeded}
+          missedReasonLabel={p.missedReasonLabel}
+          sessionDate={p.sessionDate}
+          goalCount={p.goalCount}
           onNoteChange={p.setNote}
-          onContinue={p.goReview}
+          onSubmit={p.onSubmit}
+          submitting={p.submitting}
         />
       )}
       {p.step === "review" && (

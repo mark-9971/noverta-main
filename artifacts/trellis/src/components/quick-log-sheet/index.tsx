@@ -294,10 +294,10 @@ export function QuickLogSheet({
     : undefined;
 
   const isSuccessStep = step === "success";
-  const STEP_TOTAL = outcome === "missed" ? 7 : 6;
+  const STEP_TOTAL = outcome === "missed" ? 6 : 5;
   const stepIdx = isSuccessStep
     ? STEP_TOTAL
-    : (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note", "review"].filter(Boolean) as Step[]).indexOf(step) + 1;
+    : (["student", "service", "duration", "outcome", outcome === "missed" ? "reason" : null, "note"].filter(Boolean) as Step[]).indexOf(step) + 1;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ touchAction: "manipulation" }}>

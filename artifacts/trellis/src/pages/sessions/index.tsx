@@ -40,6 +40,7 @@ function smartDateFrom(role: string): string {
 export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const { teacherId, role } = useRole();
   const canRestore = role === "admin";
+  const isProvider = role !== "admin" && role !== "coordinator";
   const { typedFilter } = useSchoolContext();
   const { years: schoolYears, activeYear } = useSchoolYears();
 
@@ -338,7 +339,7 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   }
 
   return (
-    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6"}>
+    <div className={embedded ? "space-y-4 md:space-y-6" : `p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6${!embedded && isProvider ? " pb-24 sm:pb-6" : ""}`}>
       <div className="flex items-center justify-between gap-3">
         {!embedded && (
           <div className="min-w-0">
@@ -350,12 +351,20 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
           <p className="text-xs text-gray-400">{sessionList.length} sessions · Page {page + 1}</p>
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px]" onClick={() => setQuickLogOpen(true)}>
-            <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
-          </Button>
-          <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white text-[13px]" onClick={() => setShowAddModal(true)}>
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Log </span>Session
-          </Button>
+          {isProvider ? (
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] hidden sm:flex" onClick={() => setQuickLogOpen(true)}>
+              <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
+            </Button>
+          ) : (
+            <>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px]" onClick={() => setQuickLogOpen(true)}>
+                <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
+              </Button>
+              <Button size="sm" variant="outline" className="text-[13px]" onClick={() => setShowAddModal(true)}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> <span className="hidden sm:inline">Full </span>Form
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -477,6 +486,18 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
         onSuccess={() => refetch()}
         staffId={teacherId}
       />
+
+      {!embedded && isProvider && (
+        <div className="fixed bottom-0 left-0 right-0 sm:hidden z-40 px-4 pb-5 pt-2 bg-white/95 backdrop-blur border-t border-gray-100">
+          <button
+            onClick={() => setQuickLogOpen(true)}
+            className="w-full h-14 bg-emerald-600 text-white text-[16px] font-bold rounded-2xl flex items-center justify-center gap-2.5 shadow-lg active:bg-emerald-700 transition-colors"
+          >
+            <Zap className="w-5 h-5" />
+            Quick Log Session
+          </button>
+        </div>
+      )}
     </div>
   );
 }
