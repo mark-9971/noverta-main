@@ -7,8 +7,27 @@ import { RevenueDashboardTab } from "./RevenueDashboardTab";
 import { ExportTab } from "./ExportTab";
 import { BillingReportsTab } from "./BillingReportsTab";
 
+export type DrillFilter = {
+  status?: string;
+  ageBucket?: string;
+  rejectionReason?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  label?: string;
+};
+
 export default function MedicaidBillingPage() {
   const [activeTab, setActiveTab] = useState("claims");
+  const [drillFilter, setDrillFilter] = useState<DrillFilter | null>(null);
+
+  function handleDrillDown(filter: DrillFilter) {
+    setDrillFilter(filter);
+    setActiveTab("claims");
+  }
+
+  function handleClearDrill() {
+    setDrillFilter(null);
+  }
 
   const tabs = [
     { key: "claims", label: "Claims Queue", icon: FileText },
@@ -31,12 +50,12 @@ export default function MedicaidBillingPage() {
         </p>
       </div>
 
-      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={tabs} active={activeTab} onChange={(k) => { setActiveTab(k); if (k !== "claims") setDrillFilter(null); }} />
 
-      {activeTab === "claims" && <ClaimsQueueTab />}
+      {activeTab === "claims" && <ClaimsQueueTab drillFilter={drillFilter} onClearDrill={handleClearDrill} />}
       {activeTab === "mappings" && <CptMappingsTab />}
       {activeTab === "revenue" && <RevenueDashboardTab />}
-      {activeTab === "reports" && <BillingReportsTab />}
+      {activeTab === "reports" && <BillingReportsTab onDrillDown={handleDrillDown} />}
       {activeTab === "export" && <ExportTab />}
     </div>
   );

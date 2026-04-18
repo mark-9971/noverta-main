@@ -170,12 +170,37 @@ router.get("/medicaid/claims", async (req, res): Promise<void> => {
     return;
   }
 
-  const { status, dateFrom, dateTo, serviceTypeId, limit: limitStr, offset: offsetStr } = req.query as Record<string, string>;
+  const { status, dateFrom, dateTo, serviceTypeId, ageBucket, rejectionReason, limit: limitStr, offset: offsetStr } = req.query as Record<string, string>;
   const conditions: any[] = [eq(medicaidClaimsTable.districtId, districtId)];
   if (status) conditions.push(eq(medicaidClaimsTable.status, status));
   if (dateFrom) conditions.push(gte(medicaidClaimsTable.serviceDate, dateFrom));
   if (dateTo) conditions.push(lte(medicaidClaimsTable.serviceDate, dateTo));
   if (serviceTypeId) conditions.push(eq(medicaidClaimsTable.serviceTypeId, Number(serviceTypeId)));
+  if (ageBucket) {
+    const ageDays = sql<number>`(current_date - ${medicaidClaimsTable.createdAt}::date)`;
+    // Align with the aging report: only non-void claims belong in a bucket
+    if (!status) conditions.push(sql`${medicaidClaimsTable.status} != 'void'`);
+    if (ageBucket === "0-30") {
+      conditions.push(sql`${ageDays} <= 30`);
+    } else if (ageBucket === "31-60") {
+      conditions.push(sql`${ageDays} > 30`);
+      conditions.push(sql`${ageDays} <= 60`);
+    } else if (ageBucket === "61-90") {
+      conditions.push(sql`${ageDays} > 60`);
+      conditions.push(sql`${ageDays} <= 90`);
+    } else if (ageBucket === "90+") {
+      conditions.push(sql`${ageDays} > 90`);
+    }
+  }
+  // "__NO_REASON__" is a sentinel for claims with null/blank rejection_reason
+  // (the denials report groups these under "No reason provided")
+  if (rejectionReason) {
+    if (rejectionReason === "__NO_REASON__") {
+      conditions.push(sql`(${medicaidClaimsTable.rejectionReason} IS NULL OR trim(${medicaidClaimsTable.rejectionReason}) = '')`);
+    } else {
+      conditions.push(eq(medicaidClaimsTable.rejectionReason, rejectionReason));
+    }
+  }
 
   const limit = Math.min(Number(limitStr) || 100, 500);
   const offset = Number(offsetStr) || 0;

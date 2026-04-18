@@ -1,19 +1,50 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Plus, Ban, Pencil, Save, X } from "lucide-react";
+import { CheckCircle, XCircle, Plus, Ban, Pencil, Save, X, Download, FilterX } from "lucide-react";
 import { toast } from "sonner";
 import { STATUS_COLORS, STATUS_LABELS, STATUS_FILTERS, type ClaimStatus } from "./shared";
+import type { DrillFilter } from "./index";
 
-export function ClaimsQueueTab() {
+// ─── CSV helpers ──────────────────────────────────────────────────────────────
+
+function csvEscape(val: unknown): string {
+  const s = String(val ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) return `"'${s.replace(/"/g, '""')}"`;
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadCsv(header: string, rows: string[][], filename: string) {
+  const csv = [header, ...rows.map(r => r.map(csvEscape).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function ClaimsQueueTab({
+  drillFilter,
+  onClearDrill,
+}: {
+  drillFilter?: DrillFilter | null;
+  onClearDrill?: () => void;
+}) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [ageBucketFilter, setAgeBucketFilter] = useState("");
+  const [rejectionReasonFilter, setRejectionReasonFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
@@ -24,14 +55,28 @@ export function ClaimsQueueTab() {
   });
   const [genDateTo, setGenDateTo] = useState(() => new Date().toISOString().slice(0, 10));
 
+  useEffect(() => {
+    if (drillFilter) {
+      setStatusFilter(drillFilter.status ?? "");
+      setDateFrom(drillFilter.dateFrom ?? "");
+      setDateTo(drillFilter.dateTo ?? "");
+      setAgeBucketFilter(drillFilter.ageBucket ?? "");
+      setRejectionReasonFilter(drillFilter.rejectionReason ?? "");
+      setSelectedIds(new Set());
+      setEditingId(null);
+    }
+  }, [drillFilter]);
+
   const params = new URLSearchParams();
   if (statusFilter) params.set("status", statusFilter);
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
+  if (ageBucketFilter) params.set("ageBucket", ageBucketFilter);
+  if (rejectionReasonFilter) params.set("rejectionReason", rejectionReasonFilter);
   params.set("limit", "200");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["medicaid-claims", statusFilter, dateFrom, dateTo],
+    queryKey: ["medicaid-claims", statusFilter, dateFrom, dateTo, ageBucketFilter, rejectionReasonFilter],
     queryFn: () => authFetch(`/api/medicaid/claims?${params}`).then(r => r.ok ? r.json() : null),
     staleTime: 30_000,
   });
@@ -130,8 +175,54 @@ export function ClaimsQueueTab() {
     setSelectedIds(next);
   };
 
+  function handleExportCsv() {
+    const header = "Claim ID,Service Date,Student,Student Medicaid ID,Provider,Provider NPI,Service,CPT,Modifier,Units,Amount,Status,Rejection Reason";
+    const rows: string[][] = claims.map((c: any) => [
+      String(c.id),
+      c.serviceDate,
+      c.studentName ?? "",
+      c.studentMedicaidId ?? "",
+      c.staffName ?? "",
+      c.providerNpi ?? "",
+      c.serviceTypeName ?? "",
+      c.cptCode ?? "",
+      c.modifier ?? "",
+      String(c.units ?? ""),
+      parseFloat(c.billedAmount ?? "0").toFixed(2),
+      c.status,
+      c.rejectionReason ?? "",
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsv(header, rows, `claims-${today}.csv`);
+  }
+
+  const isDrillMode = !!drillFilter;
+
   return (
     <div className="space-y-4">
+      {isDrillMode && (
+        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2.5">
+          <div className="text-xs text-indigo-700">
+            <span className="font-semibold">Filtered from report:</span>{" "}
+            <span>{drillFilter?.label}</span>
+          </div>
+          <button
+            onClick={() => {
+              setStatusFilter("pending");
+              setDateFrom("");
+              setDateTo("");
+              setAgeBucketFilter("");
+              setRejectionReasonFilter("");
+              onClearDrill?.();
+            }}
+            className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 transition-colors"
+          >
+            <FilterX className="w-3.5 h-3.5" />
+            Clear filter
+          </button>
+        </div>
+      )}
+
       <Card className="border-gray-200/60">
         <CardContent className="py-4 px-5">
           <div className="flex items-center gap-3 flex-wrap">
@@ -156,9 +247,9 @@ export function ClaimsQueueTab() {
             <button
               key={value}
               title={title}
-              onClick={() => { setStatusFilter(value); setSelectedIds(new Set()); }}
+              onClick={() => { setStatusFilter(value); setSelectedIds(new Set()); onClearDrill?.(); setAgeBucketFilter(""); setRejectionReasonFilter(""); }}
               className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                statusFilter === value ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                statusFilter === value && !ageBucketFilter && !rejectionReasonFilter ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
               {label}
@@ -168,6 +259,16 @@ export function ClaimsQueueTab() {
         <div className="flex items-center gap-2 ml-auto">
           <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-32 h-7 text-xs" placeholder="From" />
           <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-32 h-7 text-xs" placeholder="To" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={claims.length === 0}
+            className="h-7 text-xs gap-1"
+            title="Export visible claims to CSV with claim IDs"
+          >
+            <Download className="w-3 h-3" /> Export CSV
+          </Button>
         </div>
       </div>
 

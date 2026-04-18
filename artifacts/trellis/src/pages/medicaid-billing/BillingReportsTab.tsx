@@ -8,7 +8,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
 } from "recharts";
-import { Download, Clock, AlertTriangle, Users, TrendingUp } from "lucide-react";
+import { Download, Clock, AlertTriangle, Users, TrendingUp, ArrowRight } from "lucide-react";
+import type { DrillFilter } from "./index";
 
 // ─── CSV export helper ────────────────────────────────────────────────────────
 
@@ -28,6 +29,25 @@ function downloadCsv(header: string, rows: string[][], filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+async function fetchAllClaims(params: URLSearchParams): Promise<any[]> {
+  const PAGE = 500;
+  const all: any[] = [];
+  let offset = 0;
+  while (true) {
+    const p = new URLSearchParams(params);
+    p.set("limit", String(PAGE));
+    p.set("offset", String(offset));
+    const res = await authFetch(`/api/medicaid/claims?${p}`);
+    if (!res.ok) break;
+    const json = await res.json();
+    const page: any[] = json.claims ?? [];
+    all.push(...page);
+    if (all.length >= (json.total ?? 0) || page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 // ─── Shared date range picker ─────────────────────────────────────────────────
@@ -64,7 +84,7 @@ const BUCKET_COLORS: Record<string, string> = {
 };
 const BUCKET_ORDER = ["0-30", "31-60", "61-90", "90+"];
 
-function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+function AgingReport({ dateFrom, dateTo, onDrillDown }: { dateFrom: string; dateTo: string; onDrillDown: (f: DrillFilter) => void }) {
   const params = new URLSearchParams();
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
@@ -106,6 +126,35 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
     downloadCsv(header, exportRows, `claim-aging-${dateFrom}-to-${dateTo}.csv`);
   }
 
+  async function handleExportClaimsWithIds() {
+    const p = new URLSearchParams();
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    const allClaims = await fetchAllClaims(p);
+    const nonVoid = allClaims.filter((c: any) => c.status !== "void");
+    const header = "Claim ID,Age Bucket,Service Date,Student,Student Medicaid ID,Provider,Provider NPI,Service,CPT,Units,Amount,Status";
+    const rows: string[][] = nonVoid.map((c: any) => {
+      const days = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 86_400_000);
+      const bucket = days <= 30 ? "0-30" : days <= 60 ? "31-60" : days <= 90 ? "61-90" : "90+";
+      return [
+        String(c.id), BUCKET_LABELS[bucket] ?? bucket, c.serviceDate,
+        c.studentName ?? "", c.studentMedicaidId ?? "",
+        c.staffName ?? "", c.providerNpi ?? "",
+        c.serviceTypeName ?? "", c.cptCode ?? "",
+        String(c.units ?? ""), parseFloat(c.billedAmount ?? "0").toFixed(2), c.status,
+      ];
+    });
+    downloadCsv(header, rows, `claim-aging-detail-${dateFrom}-to-${dateTo}.csv`);
+  }
+
+  function handleBucketClick(bucket: string) {
+    onDrillDown({ ageBucket: bucket, dateFrom, dateTo, label: `Aging: ${BUCKET_LABELS[bucket] ?? bucket}` });
+  }
+
+  function handleRowClick(bucket: string, status: string) {
+    onDrillDown({ ageBucket: bucket, status, dateFrom, dateTo, label: `Aging: ${BUCKET_LABELS[bucket] ?? bucket} · ${status}` });
+  }
+
   const grandTotal = Object.values(bucketTotals).reduce((s, b) => s + parseFloat(b.totalBilled), 0);
   const totalClaims = Object.values(bucketTotals).reduce((s, b) => s + b.claimCount, 0);
 
@@ -117,11 +166,16 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
             <Clock className="w-4 h-4 text-amber-500" />
             <CardTitle className="text-sm font-semibold text-gray-700">Claim Aging</CardTitle>
           </div>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1">
-            <Download className="w-3 h-3" /> Export CSV
-          </Button>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1" title="Export aggregate summary">
+              <Download className="w-3 h-3" /> Summary CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleExportClaimsWithIds} disabled={!data} className="h-7 text-xs gap-1 text-indigo-600 border-indigo-200 hover:bg-indigo-50" title="Export individual claims with Claim IDs">
+              <Download className="w-3 h-3" /> Claims with IDs
+            </Button>
+          </div>
         </div>
-        <p className="text-[11px] text-gray-400 mt-1">Days since claim draft was created, by status. Focuses on non-voided claims.</p>
+        <p className="text-[11px] text-gray-400 mt-1">Days since claim draft was created, by status. Focuses on non-voided claims. Click any row or bucket to view those claims — or export them with IDs.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
@@ -134,11 +188,20 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
               {BUCKET_ORDER.map(b => {
                 const total = bucketTotals[b];
                 return (
-                  <div key={b} className="rounded-lg border p-3 space-y-1" style={{ borderColor: BUCKET_COLORS[b] + "40" }}>
-                    <p className="text-[11px] font-medium" style={{ color: BUCKET_COLORS[b] }}>{BUCKET_LABELS[b]}</p>
+                  <button
+                    key={b}
+                    onClick={() => handleBucketClick(b)}
+                    className="rounded-lg border p-3 space-y-1 text-left hover:shadow-sm transition-shadow group"
+                    style={{ borderColor: BUCKET_COLORS[b] + "40" }}
+                    title={`View claims in ${BUCKET_LABELS[b]} bucket`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium" style={{ color: BUCKET_COLORS[b] }}>{BUCKET_LABELS[b]}</p>
+                      <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: BUCKET_COLORS[b] }} />
+                    </div>
                     <p className="text-xl font-bold text-gray-900">{total?.claimCount ?? 0}</p>
                     <p className="text-[10px] text-gray-500">${parseFloat(total?.totalBilled ?? "0").toLocaleString(undefined, { minimumFractionDigits: 2 })} est.</p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -162,6 +225,7 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
                     <th className="text-right pb-2 font-medium text-gray-500">Claims</th>
                     <th className="text-right pb-2 font-medium text-gray-500">Est. Value</th>
                     <th className="text-right pb-2 font-medium text-gray-500">Avg Age (days)</th>
+                    <th className="w-6"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,12 +234,20 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
                       const cell = rows[b]?.[status];
                       if (!cell) return null;
                       return (
-                        <tr key={`${b}-${status}`} className="border-b border-gray-50 hover:bg-gray-50/50">
+                        <tr
+                          key={`${b}-${status}`}
+                          className="border-b border-gray-50 hover:bg-indigo-50/40 cursor-pointer group"
+                          onClick={() => handleRowClick(b, status)}
+                          title={`View ${cell.claimCount} ${status} claims in ${BUCKET_LABELS[b]} bucket`}
+                        >
                           <td className="py-1.5 font-medium" style={{ color: BUCKET_COLORS[b] }}>{BUCKET_LABELS[b]}</td>
                           <td className="py-1.5 text-gray-600 capitalize">{status}</td>
                           <td className="py-1.5 text-right text-gray-800">{cell.claimCount}</td>
                           <td className="py-1.5 text-right text-gray-800">${parseFloat(cell.totalBilled).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                           <td className="py-1.5 text-right text-gray-500">{cell.avgDaysOld}</td>
+                          <td className="py-1.5 text-right">
+                            <ArrowRight className="w-3 h-3 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity inline-block" />
+                          </td>
                         </tr>
                       );
                     }).filter(Boolean)
@@ -184,7 +256,7 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
                     <td colSpan={2} className="py-2 text-gray-700">Total</td>
                     <td className="py-2 text-right text-gray-900">{totalClaims}</td>
                     <td className="py-2 text-right text-gray-900">${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 </tbody>
               </table>
@@ -198,7 +270,7 @@ function AgingReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
 
 // ─── Denial / Rejection Analysis ──────────────────────────────────────────────
 
-function DenialsReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+function DenialsReport({ dateFrom, dateTo, onDrillDown }: { dateFrom: string; dateTo: string; onDrillDown: (f: DrillFilter) => void }) {
   const params = new URLSearchParams();
   if (dateFrom) params.set("dateFrom", dateFrom);
   if (dateTo) params.set("dateTo", dateTo);
@@ -220,6 +292,33 @@ function DenialsReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
     downloadCsv(header, rows, `denial-analysis-${dateFrom}-to-${dateTo}.csv`);
   }
 
+  function handleReasonClick(reason: string) {
+    // "No reason provided" is a display label for null/blank rejection_reason;
+    // pass the sentinel so the API can filter with IS NULL / trim = ''
+    const apiReason = reason === "No reason provided" ? "__NO_REASON__" : reason;
+    onDrillDown({ status: "rejected", rejectionReason: apiReason, dateFrom, dateTo, label: `Denials: ${reason}` });
+  }
+
+  function handleAllDenialsClick() {
+    onDrillDown({ status: "rejected", dateFrom, dateTo, label: "All Denied Claims" });
+  }
+
+  async function handleExportDenialClaimsWithIds() {
+    const p = new URLSearchParams({ status: "rejected" });
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    const claims = await fetchAllClaims(p);
+    const header = "Claim ID,Service Date,Student,Student Medicaid ID,Provider,Provider NPI,Service,CPT,Units,Amount,Rejection Reason";
+    const rows: string[][] = claims.map((c: any) => [
+      String(c.id), c.serviceDate, c.studentName ?? "", c.studentMedicaidId ?? "",
+      c.staffName ?? "", c.providerNpi ?? "", c.serviceTypeName ?? "",
+      c.cptCode ?? "", String(c.units ?? ""),
+      parseFloat(c.billedAmount ?? "0").toFixed(2),
+      c.rejectionReason ?? "",
+    ]);
+    downloadCsv(header, rows, `denied-claims-detail-${dateFrom}-to-${dateTo}.csv`);
+  }
+
   return (
     <Card className="border-gray-200/60">
       <CardHeader className="pb-2">
@@ -228,11 +327,16 @@ function DenialsReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
             <AlertTriangle className="w-4 h-4 text-red-500" />
             <CardTitle className="text-sm font-semibold text-gray-700">Denial / Rejection Analysis</CardTitle>
           </div>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1">
-            <Download className="w-3 h-3" /> Export CSV
-          </Button>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={!data} className="h-7 text-xs gap-1" title="Export aggregate by reason">
+              <Download className="w-3 h-3" /> Summary CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleExportDenialClaimsWithIds} disabled={!data} className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50" title="Export denied claims with Claim IDs">
+              <Download className="w-3 h-3" /> Claims with IDs
+            </Button>
+          </div>
         </div>
-        <p className="text-[11px] text-gray-400 mt-1">Breakdown of internally rejected claims by reason and service type.</p>
+        <p className="text-[11px] text-gray-400 mt-1">Breakdown of internally rejected claims by reason and service type. Click a reason to drill into those claims — or export all denied claims with IDs.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
@@ -242,11 +346,18 @@ function DenialsReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-red-50 border border-red-100 p-3">
-                <p className="text-[11px] text-red-600 font-medium">Rejection Rate</p>
+              <button
+                onClick={handleAllDenialsClick}
+                className="rounded-lg bg-red-50 border border-red-100 p-3 text-left group hover:bg-red-100/60 transition-colors"
+                title="View all denied claims"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-red-600 font-medium">Rejection Rate</p>
+                  <ArrowRight className="w-3 h-3 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
                 <p className="text-2xl font-bold text-red-700">{denialRate}%</p>
                 <p className="text-[10px] text-red-400">{totals.rejectedClaims} of {totals.totalClaims} claims</p>
-              </div>
+              </button>
               <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 col-span-2">
                 <p className="text-[11px] text-gray-500 font-medium">Est. Value Rejected</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -263,15 +374,23 @@ function DenialsReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
                   {byReason.map((r: any, i: number) => {
                     const pct = totals.rejectedClaims > 0 ? Math.round((r.claimCount / totals.rejectedClaims) * 100) : 0;
                     return (
-                      <div key={i} className="space-y-1">
+                      <button
+                        key={i}
+                        className="w-full space-y-1 text-left hover:bg-red-50/60 rounded p-1 -mx-1 group transition-colors"
+                        onClick={() => handleReasonClick(r.reason)}
+                        title={`View ${r.claimCount} claims denied for: ${r.reason}`}
+                      >
                         <div className="flex justify-between items-baseline">
                           <span className="text-[11px] text-gray-700 max-w-[200px] truncate" title={r.reason}>{r.reason}</span>
-                          <span className="text-[11px] text-gray-500 shrink-0 ml-2">{r.claimCount} ({pct}%)</span>
+                          <span className="text-[11px] text-gray-500 shrink-0 ml-2 flex items-center gap-1">
+                            {r.claimCount} ({pct}%)
+                            <ArrowRight className="w-3 h-3 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </span>
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-1.5">
                           <div className="h-1.5 rounded-full bg-red-400 transition-all" style={{ width: `${pct}%` }} />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -518,7 +637,7 @@ function RevenueTrendReport({ dateFrom, dateTo }: { dateFrom: string; dateTo: st
 
 // ─── Main Reports Tab ─────────────────────────────────────────────────────────
 
-export function BillingReportsTab() {
+export function BillingReportsTab({ onDrillDown }: { onDrillDown: (f: DrillFilter) => void }) {
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 6);
@@ -536,10 +655,11 @@ export function BillingReportsTab() {
       <div className="flex items-center gap-3">
         <span className="text-xs font-medium text-gray-500">Date range:</span>
         <DateRangePicker dateFrom={dateFrom} dateTo={dateTo} onFrom={setDateFrom} onTo={setDateTo} />
+        <span className="text-[11px] text-gray-400 ml-2">Click any row or bucket to drill into the individual claims behind those numbers.</span>
       </div>
 
-      <AgingReport dateFrom={dateFrom} dateTo={dateTo} />
-      <DenialsReport dateFrom={dateFrom} dateTo={dateTo} />
+      <AgingReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={onDrillDown} />
+      <DenialsReport dateFrom={dateFrom} dateTo={dateTo} onDrillDown={onDrillDown} />
       <ProviderProductivityReport dateFrom={dateFrom} dateTo={dateTo} />
       <RevenueTrendReport dateFrom={dateFrom} dateTo={dateTo} />
     </div>
