@@ -18,6 +18,7 @@ import { eq, sql, and, isNull, inArray } from "drizzle-orm";
 import type { GoalProgressEntry, ServiceDeliveryBreakdown } from "./schema/progressReports";
 
 function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randf(min: number, max: number) { return min + Math.random() * (max - min); }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function addDays(dateStr: string, days: number) {
   const d = new Date(dateStr + "T00:00:00Z");
@@ -190,31 +191,53 @@ const TIER_SERVICE_MAP: Record<string, number[][]> = {
   ],
 };
 
-const TIER_MINUTES: Record<string, Record<number, { base: number; variance: number }>> = {
+// Required-minutes RANGES (monthly) per intensity tier × service-type index.
+// Each entry is a [min, max] envelope from which the actual requirement is
+// uniformly sampled. The bounds are deliberately wider than any single
+// "typical" value — they encode the full physical band a tier might land
+// inside, not a target. Service-idx 0 = ABA, 4 = paraprofessional support
+// (both run far more minutes than therapy services).
+const TIER_MINUTE_RANGES: Record<string, Record<number, readonly [number, number]>> = {
   minimal: {
-    1: { base: 120, variance: 30 },
-    2: { base: 120, variance: 30 },
-    3: { base: 120, variance: 30 },
-    5: { base: 90, variance: 20 },
+    1: [60, 180],
+    2: [60, 180],
+    3: [60, 180],
+    5: [45, 150],
   },
   moderate: {
-    0: { base: 900, variance: 200 },
-    1: { base: 180, variance: 40 },
-    2: { base: 180, variance: 40 },
-    3: { base: 150, variance: 30 },
-    4: { base: 1200, variance: 300 },
-    5: { base: 120, variance: 30 },
-    6: { base: 60, variance: 15 },
+    0: [600, 1500],
+    1: [120, 300],
+    2: [120, 300],
+    3: [90, 240],
+    4: [600, 1800],
+    5: [60, 240],
+    6: [30, 120],
   },
   intensive: {
-    0: { base: 1500, variance: 300 },
-    1: { base: 240, variance: 60 },
-    2: { base: 240, variance: 60 },
-    3: { base: 180, variance: 40 },
-    4: { base: 1800, variance: 300 },
-    5: { base: 150, variance: 30 },
-    6: { base: 60, variance: 15 },
+    0: [900, 2100],
+    1: [150, 360],
+    2: [150, 360],
+    3: [120, 300],
+    4: [1200, 2700],
+    5: [90, 270],
+    6: [30, 120],
   },
+};
+
+// Per-scenario delivery envelopes. Sampled per student so the scenario name
+// describes a band rather than a single fixed delivery percentage.
+//   missRate  = probability a scheduled session is recorded as "missed"
+//   delivery  = upper bound on the per-session "actually delivered" gate
+const SCENARIO_DELIVERY_RANGES: Record<string, {
+  missRate: readonly [number, number];
+  delivery: readonly [number, number];
+}> = {
+  healthy:           { missRate: [0.02, 0.08], delivery: [0.85, 1.00] },
+  improving:         { missRate: [0.03, 0.10], delivery: [0.78, 0.95] },
+  shortfall:         { missRate: [0.10, 0.22], delivery: [0.60, 0.82] },
+  compensatory_risk: { missRate: [0.18, 0.32], delivery: [0.40, 0.65] },
+  urgent:            { missRate: [0.25, 0.40], delivery: [0.30, 0.55] },
+  new_enrollment:    { missRate: [0.02, 0.10], delivery: [0.85, 0.98] },
 };
 
 const SESSION_DURATIONS: Record<number, { typical: number; min: number; max: number }> = {
@@ -648,8 +671,8 @@ export async function seedDemoDistrict() {
 
     for (const svcTypeId of sp.services) {
       const svcIdx = serviceTypeIds.indexOf(svcTypeId);
-      const minuteConfig = TIER_MINUTES[sp.tier]?.[svcIdx] || { base: 120, variance: 30 };
-      const minutes = Math.round(minuteConfig.base + (Math.random() * 2 - 1) * minuteConfig.variance);
+      const minuteRange = TIER_MINUTE_RANGES[sp.tier]?.[svcIdx] ?? [60, 240];
+      const minutes = rand(minuteRange[0], minuteRange[1]);
       const providerId = pickProvider(svcTypeId);
 
       const [sr] = await db.insert(serviceRequirementsTable).values({
@@ -704,7 +727,9 @@ export async function seedDemoDistrict() {
     studentGoalsByArea[sp.id] = {};
     studentAllGoals[sp.id] = [];
     let goalNum = 1;
-    const TARGET_GOALS = 22;
+    // Sampled per-student so the demo doesn't show every student with the
+    // same goal count. Replaces the fixed 22.
+    const TARGET_GOALS = rand(16, 28);
 
     // First pass: 4-5 goals per service area covered by student services
     for (const svcTypeId of sp.services) {
@@ -712,7 +737,7 @@ export async function seedDemoDistrict() {
       const templates = GOAL_TEMPLATES[svcIdx];
       if (!templates) continue;
 
-      const numGoals = Math.min(rand(4, 5), templates.goals.length);
+      const numGoals = Math.min(rand(3, 7), templates.goals.length);
       const shuffled = [...templates.goals].sort(() => Math.random() - 0.5);
 
       for (let g = 0; g < numGoals; g++) {
@@ -805,17 +830,14 @@ export async function seedDemoDistrict() {
     const enrollStart = sp.scenario === "new_enrollment" ? "2026-02-03" : "2025-09-02";
     const eligibleDays = schoolDays.filter(d => d >= enrollStart);
 
-    let missRate: number;
-    let deliveryRatio: number;
-    switch (sp.scenario) {
-      case "healthy": missRate = 0.04; deliveryRatio = 0.95; break;
-      case "improving": missRate = 0.06; deliveryRatio = 0.88; break;
-      case "shortfall": missRate = 0.15; deliveryRatio = 0.70; break;
-      case "compensatory_risk": missRate = 0.25; deliveryRatio = 0.55; break;
-      case "urgent": missRate = 0.30; deliveryRatio = 0.45; break;
-      case "new_enrollment": missRate = 0.05; deliveryRatio = 0.92; break;
-      default: missRate = 0.05; deliveryRatio = 0.90;
-    }
+    // Sample per-student inside each scenario's range so two "shortfall"
+    // students don't both land at exactly missRate=0.15 / delivery=0.70.
+    const profile = SCENARIO_DELIVERY_RANGES[sp.scenario] ?? {
+      missRate: [0.03, 0.10] as const,
+      delivery: [0.80, 0.95] as const,
+    };
+    const missRate = randf(profile.missRate[0], profile.missRate[1]);
+    const deliveryRatio = randf(profile.delivery[0], profile.delivery[1]);
 
     for (const sr of srs) {
       const svc = SESSION_DURATIONS[serviceTypeIds.indexOf(sr.serviceTypeId)] || SESSION_DURATIONS[3];

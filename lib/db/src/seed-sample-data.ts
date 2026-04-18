@@ -40,7 +40,41 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 // Constants & helpers
 // ──────────────────────────────────────────────────────────────────
 function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randf(min: number, max: number) { return min + Math.random() * (max - min); }
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// Broad bounds (not target outcomes) used by the sample seeder. These define
+// the *physical* envelope the generator may pull from — actual values for any
+// individual row are randomized within these bounds. They intentionally do
+// NOT encode "this kind of student should land at X%" — that role is filled
+// by the per-scenario completion ranges below.
+const SAMPLE_BOUNDS = {
+  // Required service minutes per requirement (monthly). Wide enough to cover
+  // brief consults through full-day intensive supports.
+  requiredMinutes: [60, 360] as const,
+  // School-day session start window (08:00 – 14:30, in minute-of-day).
+  startMinuteOfDay: [8 * 60, 14 * 60 + 30] as const,
+  // Sessions seeded per (requirement × 2-week window).
+  sessionsPerRequirement: [2, 5] as const,
+  // Fraction of a single requirement's monthly minutes used as the
+  // compensatory obligation seed value.
+  compensatoryOwedFraction: {
+    urgent: [0.30, 0.60] as const,
+    compensatory_risk: [0.15, 0.45] as const,
+  },
+  // Fraction of an obligation that has already been delivered.
+  compensatoryDeliveredFraction: [0.05, 0.40] as const,
+};
+
+// Sampled per-(student × session) so that two "shortfall" students do not
+// land on the exact same delivery percentage. The bands are deliberately
+// wider than the bands they replaced (was: 0.9 / 0.6 / 0.3 / 0.45 fixed).
+const COMPLETION_RATE_RANGES: Record<Scenario, readonly [number, number]> = {
+  healthy: [0.78, 0.98],
+  shortfall: [0.45, 0.78],
+  urgent: [0.15, 0.45],
+  compensatory_risk: [0.30, 0.60],
+};
 function addDays(dateStr: string, days: number) {
   const d = new Date(dateStr + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);
@@ -274,7 +308,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
         studentId: spec.id,
         serviceTypeId: stId,
         providerId: provider?.id ?? null,
-        requiredMinutes: pick([120, 150, 180, 240]),
+        requiredMinutes: rand(SAMPLE_BOUNDS.requiredMinutes[0], SAMPLE_BOUNDS.requiredMinutes[1]),
         intervalType: "monthly",
         deliveryType: "direct",
         setting: "Resource Room",
@@ -305,19 +339,27 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     if (isWeekday(ds)) dates.push(ds);
   }
 
-  const completionRate: Record<Scenario, number> = {
-    healthy: 0.9, shortfall: 0.6, urgent: 0.3, compensatory_risk: 0.45,
-  };
-
   for (const spec of studentSpecs) {
     const srs = srByStudent.get(spec.id) ?? [];
     for (const sr of srs) {
-      // ~3 sessions per requirement across the window
-      const numSessions = 3;
+      // Sessions per requirement sampled per requirement so different rows
+      // produce naturally varied densities rather than always 3.
+      const numSessions = rand(
+        SAMPLE_BOUNDS.sessionsPerRequirement[0],
+        SAMPLE_BOUNDS.sessionsPerRequirement[1],
+      );
       const chosenDates = [...dates].sort(() => Math.random() - 0.5).slice(0, numSessions);
+      const [completionLo, completionHi] = COMPLETION_RATE_RANGES[spec.scenario];
       for (const date of chosenDates) {
-        const completed = Math.random() < completionRate[spec.scenario];
-        const startMin = pick([9, 10, 11, 13, 14]) * 60;
+        // Sample completion threshold per session so two "shortfall" students
+        // do not produce identical delivery percentages.
+        const completionRate = randf(completionLo, completionHi);
+        const completed = Math.random() < completionRate;
+        // Sample start time anywhere in the school-day window, snapped to a
+        // 5-minute grid (replaces the fixed [9,10,11,13,14] hour list).
+        const startMin = Math.round(
+          rand(SAMPLE_BOUNDS.startMinuteOfDay[0], SAMPLE_BOUNDS.startMinuteOfDay[1]) / 5,
+        ) * 5;
         sessionRows.push({
           studentId: spec.id,
           staffId: sr.providerId,
@@ -349,7 +391,9 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
   for (const sr of insertedSrs) {
     if (!sr.providerId) continue;
     const day = pick(DAYS);
-    const startMin = pick([9, 10, 11, 13, 14]) * 60;
+    const startMin = Math.round(
+      rand(SAMPLE_BOUNDS.startMinuteOfDay[0], SAMPLE_BOUNDS.startMinuteOfDay[1]) / 5,
+    ) * 5;
     blockRows.push({
       staffId: sr.providerId,
       studentId: sr.studentId,
@@ -460,16 +504,25 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
     const srs = srByStudent.get(spec.id) ?? [];
     if (srs.length === 0) continue;
     const sr = srs[0];
-    const minutesOwed = Math.round(sr.requiredMinutes * (spec.scenario === "urgent" ? 0.45 : 0.30));
-    const periodStart = addDays(today, -45);
-    const periodEnd = addDays(periodStart, 29);
+    const owedRange = SAMPLE_BOUNDS.compensatoryOwedFraction[
+      spec.scenario as "urgent" | "compensatory_risk"
+    ];
+    const minutesOwed = Math.round(sr.requiredMinutes * randf(owedRange[0], owedRange[1]));
+    // Vary obligation period length within a sensible monthly window rather
+    // than always using a 30-day block anchored to "today − 45".
+    const periodLength = rand(20, 45);
+    const periodStart = addDays(today, -rand(30, 75));
+    const periodEnd = addDays(periodStart, periodLength - 1);
+    const [delivLo, delivHi] = SAMPLE_BOUNDS.compensatoryDeliveredFraction;
     compRows.push({
       studentId: spec.id,
       serviceRequirementId: sr.id,
       periodStart,
       periodEnd,
       minutesOwed,
-      minutesDelivered: spec.scenario === "urgent" ? 0 : Math.round(minutesOwed * 0.2),
+      minutesDelivered: spec.scenario === "urgent"
+        ? 0
+        : Math.round(minutesOwed * randf(delivLo, delivHi)),
       status: "pending",
       notes: spec.scenario === "urgent"
         ? "Significant shortfall — compensatory plan required."
