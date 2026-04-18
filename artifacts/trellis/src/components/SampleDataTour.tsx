@@ -241,7 +241,7 @@ export function SampleDataTour() {
       window.removeEventListener("scroll", onResize, true);
     };
     
-  }, [active, stepIdx, location, navigate]);
+  }, [active, stepIdx]);
 
   const step = STEPS[stepIdx];
   const isLast = stepIdx === STEPS.length - 1;

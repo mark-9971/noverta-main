@@ -947,7 +947,7 @@ export function buildIncidentReportHtml(opts: {
   return html;
 }
 
-function buildSparklineSvg(
+function buildTimeSeriesSparklineSvg(
   dataPoints: { date: string; value: number }[],
   color = "#059669",
 ): string {
@@ -1137,7 +1137,7 @@ export function buildGoalProgressReportHtml(opts: {
     const sortedPoints = [...g.dataPoints].sort((a, b) => a.date.localeCompare(b.date));
     const firstDate = sortedPoints.length > 0 ? fmtDate(sortedPoints[0].date) : "\u2014";
     const lastDate = sortedPoints.length > 0 ? fmtDate(sortedPoints[sortedPoints.length - 1].date) : "\u2014";
-    const sparkSvg = sortedPoints.length >= 2 ? buildSparklineSvg(sortedPoints, sparkColor) : "";
+    const sparkSvg = sortedPoints.length >= 2 ? buildTimeSeriesSparklineSvg(sortedPoints, sparkColor) : "";
 
     const recentNotes = sortedPoints.filter(p => p.notes).slice(-3).reverse();
 
