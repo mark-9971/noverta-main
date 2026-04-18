@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
 import { useSearch } from "wouter";
@@ -15,11 +16,16 @@ import { PwnDialog } from "./PwnDialog";
 import { ConsentDialog } from "./ConsentDialog";
 import { fetchJson, postJson, patchJson, deleteJson, formatDate, daysFromNow } from "./api";
 
+const IepCalendar = lazy(() => import("@/pages/iep-calendar"));
+
 export default function IepMeetings({ embedded = false }: { embedded?: boolean } = {}) {
   const search = useSearch();
   const urlParams = new URLSearchParams(search);
   const urlFilter = urlParams.get("filter");
-  const [tab, setTab] = useState<"dashboard" | "meetings">(urlFilter === "overdue" ? "meetings" : "dashboard");
+  const urlTab = urlParams.get("tab");
+  const [tab, setTab] = useState<"dashboard" | "meetings" | "calendar">(
+    urlTab === "calendar" ? "calendar" : urlFilter === "overdue" ? "meetings" : "dashboard"
+  );
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
@@ -171,6 +177,7 @@ export default function IepMeetings({ embedded = false }: { embedded?: boolean }
   const tabs = [
     { id: "dashboard" as const, label: "Overview" },
     { id: "meetings" as const, label: "All Meetings" },
+    { id: "calendar" as const, label: "Calendar" },
   ];
 
   return (
@@ -203,6 +210,12 @@ export default function IepMeetings({ embedded = false }: { embedded?: boolean }
           formatDate={formatDate}
           daysFromNow={daysFromNow}
         />
+      )}
+
+      {tab === "calendar" && (
+        <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
+          <IepCalendar embedded={true} />
+        </Suspense>
       )}
 
       {tab === "meetings" && (

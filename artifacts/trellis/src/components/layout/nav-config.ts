@@ -164,7 +164,7 @@ export const adminNav: NavSection[] = [
         href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays,
         children: [
           { href: "/iep-meetings", label: "Meetings", icon: CalendarDays },
-          { href: "/iep-calendar", label: "Calendar", icon: Calendar },
+          { href: "/iep-meetings?tab=calendar", label: "Calendar", icon: Calendar },
         ],
       },
       {

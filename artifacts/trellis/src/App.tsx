@@ -81,7 +81,6 @@ const BehaviorAssessmentPage = lazy(() => import("@/pages/behavior-assessment"))
 const IepBuilderPage = lazy(() => import("@/pages/iep-builder"));
 const IepBuilderLanding = lazy(() => import("@/pages/iep-builder-landing"));
 const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
-const IepCalendarPage = lazy(() => import("@/pages/iep-calendar"));
 const ResourceManagement = lazy(() => import("@/pages/resource-management"));
 const CaseloadBalancing = lazy(() => import("@/pages/caseload-balancing"));
 const CompensatoryServices = lazy(() => import("@/pages/compensatory-services"));
@@ -259,7 +258,7 @@ function StaffRouter() {
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
       <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="compliance.protective_measures" />
       <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" featureKey="district.executive" />
-      <BoundedRoute path="/iep-calendar" component={IepCalendarPage} fallbackTitle="IEP calendar error" />
+      <Route path="/iep-calendar"><Redirect to="/iep-meetings?tab=calendar" /></Route>
       <BoundedRoute path="/analytics" component={AnalyticsPage} fallbackTitle="Analytics error" />
       <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" featureKey="clinical.fba_bip" />
       <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
