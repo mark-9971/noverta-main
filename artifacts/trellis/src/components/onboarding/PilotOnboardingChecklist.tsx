@@ -11,9 +11,11 @@ import {
   Building2, CalendarDays, Users, GraduationCap, ListChecks,
   UserCheck, ClipboardCheck, ShieldCheck, CheckCircle2, Circle,
   ChevronUp, ChevronDown, Rocket, ArrowRight, FileWarning, FileText,
+  EyeOff, Eye,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useChecklistVisibility } from "./useChecklistVisibility";
 
 type ItemKey =
   | "districtProfileConfigured"
@@ -44,6 +46,7 @@ interface PilotChecklistResponse {
   };
   district: { name: string } | null;
   activeSchoolYearLabel: string | null;
+  checklistDismissed?: boolean;
 }
 
 interface ItemDef {
@@ -163,11 +166,19 @@ interface Props {
   variant?: "compact" | "full";
   /** Default expanded state for the compact variant. */
   defaultExpanded?: boolean;
+  /**
+   * When true, shows a dismiss/hide button in the header. Defaults to true
+   * for the compact variant (dashboard widget) and false for the full variant
+   * (dedicated onboarding page). Pass allowDismiss={true} to the full variant
+   * when rendering on the dashboard so admins can hide it from there too.
+   */
+  allowDismiss?: boolean;
 }
 
 export default function PilotOnboardingChecklist({
   variant = "compact",
   defaultExpanded = true,
+  allowDismiss,
 }: Props) {
   const { data, isLoading, isError, error } = useQuery<PilotChecklistResponse, Error & { status?: number }>({
     queryKey: ["onboarding/pilot-checklist"],
@@ -188,6 +199,14 @@ export default function PilotOnboardingChecklist({
     },
   });
   const [expanded, setExpanded] = useState(defaultExpanded);
+
+  const canDismiss = allowDismiss ?? variant === "compact";
+  const {
+    isDismissing,
+    isShowing,
+    dismiss,
+    show,
+  } = useChecklistVisibility();
 
   if (isError) {
     const status = (error as Error & { status?: number })?.status;
@@ -214,8 +233,30 @@ export default function PilotOnboardingChecklist({
 
   const { pilotChecklist, counts } = data;
   const pct = Math.round((pilotChecklist.completedCount / pilotChecklist.totalSteps) * 100);
+  const isDismissed = (data.checklistDismissed ?? false) && canDismiss;
 
   if (variant === "compact" && pilotChecklist.isComplete) return null;
+
+  if (isDismissed) {
+    return (
+      <div
+        className="flex items-center gap-2 text-xs text-gray-400 px-1"
+        data-testid="pilot-checklist-dismissed-strip"
+      >
+        <EyeOff className="w-3.5 h-3.5 flex-shrink-0" />
+        <span>Setup checklist is hidden.</span>
+        <button
+          type="button"
+          onClick={() => show()}
+          disabled={isShowing}
+          className="text-emerald-700 hover:text-emerald-800 font-medium inline-flex items-center gap-1 disabled:opacity-50"
+          data-testid="button-pilot-checklist-show"
+        >
+          <Eye className="w-3 h-3" /> Show it again
+        </button>
+      </div>
+    );
+  }
 
   const allItems = PILOT_CHECKLIST_ITEMS;
   const nextStep = allItems.find(item => !pilotChecklist[item.key]);
@@ -223,40 +264,54 @@ export default function PilotOnboardingChecklist({
   return (
     <Card className="border-emerald-200/60" data-testid="card-pilot-checklist">
       <CardHeader className="pb-2 pt-4 px-4">
-        <button
-          type="button"
-          onClick={() => variant === "compact" && setExpanded(e => !e)}
-          className={`w-full flex items-center justify-between gap-3 ${variant === "compact" ? "cursor-pointer" : "cursor-default"}`}
-          data-testid="button-pilot-checklist-toggle"
-        >
-          <CardTitle className="text-sm font-bold text-gray-800 flex items-center gap-2">
-            <Rocket className="w-4 h-4 text-emerald-600" />
-            District onboarding
-            <span className="text-xs font-medium text-gray-400 tabular-nums">
-              {pilotChecklist.completedCount}/{pilotChecklist.totalSteps}
-            </span>
-            {pilotChecklist.isComplete && (
-              <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                Pilot ready
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => variant === "compact" && setExpanded(e => !e)}
+            className={`flex-1 flex items-center justify-between gap-3 ${variant === "compact" ? "cursor-pointer" : "cursor-default"}`}
+            data-testid="button-pilot-checklist-toggle"
+          >
+            <CardTitle className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <Rocket className="w-4 h-4 text-emerald-600" />
+              District onboarding
+              <span className="text-xs font-medium text-gray-400 tabular-nums">
+                {pilotChecklist.completedCount}/{pilotChecklist.totalSteps}
               </span>
-            )}
-          </CardTitle>
-          <div className="flex items-center gap-3">
-            <div className="w-28 sm:w-40 bg-gray-100 rounded-full h-1.5">
-              <div
-                className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${pct}%` }}
-                aria-label={`${pct}% complete`}
-              />
+              {pilotChecklist.isComplete && (
+                <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                  Pilot ready
+                </span>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="w-28 sm:w-40 bg-gray-100 rounded-full h-1.5">
+                <div
+                  className="h-1.5 rounded-full bg-emerald-500 transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                  aria-label={`${pct}% complete`}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-500 tabular-nums w-9 text-right">{pct}%</span>
+              {variant === "compact" && (
+                expanded
+                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
             </div>
-            <span className="text-xs font-medium text-gray-500 tabular-nums w-9 text-right">{pct}%</span>
-            {variant === "compact" && (
-              expanded
-                ? <ChevronUp className="w-4 h-4 text-gray-400" />
-                : <ChevronDown className="w-4 h-4 text-gray-400" />
-            )}
-          </div>
-        </button>
+          </button>
+          {canDismiss && (
+            <button
+              type="button"
+              onClick={() => dismiss()}
+              disabled={isDismissing}
+              title="Hide setup checklist"
+              className="flex-shrink-0 p-1 rounded text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              data-testid="button-pilot-checklist-dismiss"
+            >
+              <EyeOff className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         {!pilotChecklist.isComplete && nextStep && (
           <p className="text-xs text-gray-500 mt-1.5 ml-6">
             Next up: <Link href={nextStep.actionHref} className="text-emerald-700 hover:text-emerald-800 font-medium">{nextStep.label}</Link>

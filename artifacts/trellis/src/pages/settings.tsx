@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard } from "lucide-react";
+import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 
 const SetupPage = lazy(() => import("@/pages/setup"));
 const SchoolYearPage = lazy(() => import("@/pages/school-year"));
@@ -86,7 +87,20 @@ export default function SettingsHubPage() {
       </div>
 
       <Suspense fallback={<TabLoader />}>
-        {activeTab === "general" && <SetupPage />}
+        {activeTab === "general" && (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4 text-gray-500" />
+                <h2 className="text-sm font-semibold text-gray-700">Dashboard preferences</h2>
+              </div>
+              <ChecklistVisibilityToggle />
+            </div>
+            <div className="border-t border-gray-100 pt-4">
+              <SetupPage />
+            </div>
+          </div>
+        )}
         {activeTab === "school-year" && <SchoolYearPage />}
         {activeTab === "billing-rates" && <BillingRatesPage />}
         {activeTab === "sis" && <SisSettingsPage />}

@@ -320,7 +320,7 @@ export default function PilotAdminHome() {
           <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />
         ) : (
           <>
-            <PilotOnboardingChecklist variant="full" />
+            <PilotOnboardingChecklist variant="full" allowDismiss={true} />
             {/* Co-dominant readiness audit: surfaces alongside the setup checklist
                 for as long as the district is pre-ready. Once isComplete = true,
                 both collapse and PilotReadinessPanel falls back to its lower

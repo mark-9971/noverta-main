@@ -147,10 +147,12 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
     let districtConfirmed = false;
     let districtConfirmedMeta: { schoolYear?: string } | null = null;
     let dpaAccepted = false;
+    let checklistDismissed = false;
 
     if (districtId) {
       sisConnected = await getStepStatus(districtId, "sis_connected");
       districtConfirmed = await getStepStatus(districtId, "district_confirmed");
+      checklistDismissed = await getStepStatus(districtId, "checklist_dismissed");
       const [confirmedRow] = await db.select().from(onboardingProgressTable)
         .where(and(
           eq(onboardingProgressTable.districtId, districtId),
@@ -234,6 +236,7 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
       completedCount,
       totalSteps,
       isComplete,
+      checklistDismissed,
       pilotChecklist: {
         ...pilotChecklist,
         completedCount: pilotCompletedCount,
@@ -651,6 +654,45 @@ router.post("/onboarding/invite-staff", requireRoles("admin", "coordinator"), as
   } catch (err) {
     console.error("Staff invite error:", err);
     res.status(500).json({ error: "Failed to invite staff" });
+  }
+});
+
+router.post("/onboarding/dismiss-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    if (districtId == null) {
+      res.status(400).json({ error: "No district associated with this account." });
+      return;
+    }
+    await markStepComplete(districtId, "checklist_dismissed");
+    res.json({ checklistDismissed: true });
+  } catch (err) {
+    console.error("Dismiss checklist error:", err);
+    res.status(500).json({ error: "Failed to dismiss checklist" });
+  }
+});
+
+router.post("/onboarding/show-checklist", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    if (districtId == null) {
+      res.status(400).json({ error: "No district associated with this account." });
+      return;
+    }
+    const existing = await db.select().from(onboardingProgressTable)
+      .where(and(
+        eq(onboardingProgressTable.districtId, districtId),
+        eq(onboardingProgressTable.stepKey, "checklist_dismissed"),
+      ));
+    if (existing.length > 0) {
+      await db.update(onboardingProgressTable)
+        .set({ completed: false })
+        .where(eq(onboardingProgressTable.id, existing[0].id));
+    }
+    res.json({ checklistDismissed: false });
+  } catch (err) {
+    console.error("Show checklist error:", err);
+    res.status(500).json({ error: "Failed to show checklist" });
   }
 });
 
