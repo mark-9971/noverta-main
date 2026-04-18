@@ -81,8 +81,8 @@ export function LifeThreateningAlertsBanner() {
   }, [sessionId]);
 
   const { data } = useQuery<LifeThreateningAlert[]>({
-    queryKey: ["dashboard-life-threatening-alerts"],
-    queryFn: () => authFetch("/api/dashboard/life-threatening-alerts").then(r => r.ok ? r.json() : []),
+    queryKey: ["students-life-threatening-alerts"],
+    queryFn: () => authFetch("/api/students/life-threatening-alerts").then(r => r.ok ? r.json() : []),
     staleTime: 5 * 60_000,
     enabled: !dismissed,
   });

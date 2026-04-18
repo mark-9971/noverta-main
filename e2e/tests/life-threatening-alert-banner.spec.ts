@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
  * E2E coverage for Task #82: Life-threatening medical alert banner.
  *
  * What is tested:
- *   1. API endpoint /api/dashboard/life-threatening-alerts is accessible for
+ *   1. API endpoint /api/students/life-threatening-alerts is accessible for
  *      authenticated admin users and returns the expected shape.
  *   2. The banner is rendered (or correctly absent) on the admin dashboard,
  *      and in the full dashboard view.
@@ -45,11 +45,11 @@ async function signIn(page: Page): Promise<void> {
 // 1. API shape tests (real request, no mocking)
 // ---------------------------------------------------------------------------
 
-test.describe("GET /api/dashboard/life-threatening-alerts", () => {
+test.describe("GET /api/students/life-threatening-alerts", () => {
   test("returns an array for an authenticated admin", async ({ page }) => {
     await signIn(page);
 
-    const res = await page.request.get("/api/dashboard/life-threatening-alerts");
+    const res = await page.request.get("/api/students/life-threatening-alerts");
     expect(res.ok(), `Expected 200 but got ${res.status()}`).toBeTruthy();
 
     const body = await res.json();
@@ -90,7 +90,7 @@ test.describe("LifeThreateningAlertsBanner — visibility", () => {
     await signIn(page);
 
     // Intercept the life-threatening-alerts API with synthetic data
-    await page.route("**/api/dashboard/life-threatening-alerts", (route) => {
+    await page.route("**/api/students/life-threatening-alerts", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -115,7 +115,7 @@ test.describe("LifeThreateningAlertsBanner — visibility", () => {
   test("banner is visible on DashboardFull when alerts are returned", async ({ page }) => {
     await signIn(page);
 
-    await page.route("**/api/dashboard/life-threatening-alerts", (route) => {
+    await page.route("**/api/students/life-threatening-alerts", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -134,7 +134,7 @@ test.describe("LifeThreateningAlertsBanner — visibility", () => {
   test("banner is hidden when no alerts are returned", async ({ page }) => {
     await signIn(page);
 
-    await page.route("**/api/dashboard/life-threatening-alerts", (route) => {
+    await page.route("**/api/students/life-threatening-alerts", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -161,7 +161,7 @@ test.describe("LifeThreateningAlertsBanner — dismissal", () => {
   test("dismiss button hides the banner within the same session", async ({ page }) => {
     await signIn(page);
 
-    await page.route("**/api/dashboard/life-threatening-alerts", (route) => {
+    await page.route("**/api/students/life-threatening-alerts", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -189,7 +189,7 @@ test.describe("LifeThreateningAlertsBanner — dismissal", () => {
   test("pre-seeding session-keyed localStorage key keeps banner dismissed on reload", async ({ page }) => {
     await signIn(page);
 
-    await page.route("**/api/dashboard/life-threatening-alerts", (route) => {
+    await page.route("**/api/students/life-threatening-alerts", (route) => {
       route.fulfill({
         status: 200,
         contentType: "application/json",

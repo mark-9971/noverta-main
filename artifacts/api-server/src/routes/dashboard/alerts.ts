@@ -13,6 +13,8 @@ import {
   parseSchoolDistrictFilters,
   buildAlertStudentFilter,
 } from "./shared";
+import type { AuthedRequest } from "../../middlewares/auth";
+import type { SQL } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -168,14 +170,15 @@ const LIFE_ALERT_DISTRICT_WIDE_ROLES = ["admin", "coordinator"];
 
 router.get("/dashboard/life-threatening-alerts", async (req, res): Promise<void> => {
   try {
-    const { trellisRole, districtId, tenantStaffId } = req as any;
+    const authed = req as AuthedRequest;
+    const { trellisRole, districtId, tenantStaffId } = authed;
     if (!LIFE_ALERT_READ_ROLES.includes(trellisRole ?? "")) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
 
-    const isDistrictWide = LIFE_ALERT_DISTRICT_WIDE_ROLES.includes(trellisRole);
+    const isDistrictWide = LIFE_ALERT_DISTRICT_WIDE_ROLES.includes(trellisRole ?? "");
 
-    const conditions: any[] = [
+    const conditions: SQL[] = [
       eq(medicalAlertsTable.severity, "life_threatening"),
       eq(medicalAlertsTable.notifyAllStaff, true),
       isNull(studentsTable.deletedAt),
@@ -198,7 +201,7 @@ router.get("/dashboard/life-threatening-alerts", async (req, res): Promise<void>
         or(
           eq(studentsTable.caseManagerId, tenantStaffId),
           sql`${studentsTable.id} IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${tenantStaffId})`
-        )
+        ) as SQL
       );
     }
 
