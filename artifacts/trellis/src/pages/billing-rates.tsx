@@ -801,11 +801,24 @@ function RateRow({
     ? `$${parseFloat(activeRate!).toFixed(2)}/hr`
     : null;
 
-  const fallbackLabel = serviceType.defaultBillingRate
-    ? `$${parseFloat(serviceType.defaultBillingRate).toFixed(2)}/hr (catalog)`
+  const fallbackSource: "catalog" | "district_default" | "system" = serviceType.defaultBillingRate
+    ? "catalog"
     : districtDefaultRate
-      ? `$${parseFloat(districtDefaultRate).toFixed(2)}/hr (district default)`
-      : `$${SYSTEM_DEFAULT_RATE}.00/hr (system default)`;
+      ? "district_default"
+      : "system";
+  const fallbackSourceLabel =
+    fallbackSource === "catalog"
+      ? "catalog"
+      : fallbackSource === "district_default"
+        ? "district default"
+        : "system default";
+  const fallbackRateValue =
+    fallbackSource === "catalog"
+      ? parseFloat(serviceType.defaultBillingRate!)
+      : fallbackSource === "district_default"
+        ? parseFloat(districtDefaultRate!)
+        : SYSTEM_DEFAULT_RATE;
+  const fallbackLabel = `$${fallbackRateValue.toFixed(2)}/hr (${fallbackSourceLabel})`;
 
   const handleSave = () => {
     const trimmed = value.trim();
@@ -838,8 +851,11 @@ function RateRow({
               <CheckCircle2 className="w-2.5 h-2.5" /> District rate
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5">
-              <AlertCircle className="w-2.5 h-2.5" /> Using fallback
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5"
+              title={`No per-service rate set — using ${fallbackSourceLabel} rate`}
+            >
+              <AlertCircle className="w-2.5 h-2.5" /> Using {fallbackSourceLabel}
             </span>
           )}
         </div>
@@ -966,13 +982,6 @@ export default function BillingRatesPage() {
     queryClient.invalidateQueries({ queryKey: ["cost-avoidance-risks"] });
   };
 
-  const { data: districtDefaultData } = useQuery<DistrictDefaultRateResponse>({
-    queryKey: ["district-default-rate"],
-    queryFn: () => authFetch("/api/district-default-rate").then(r => r.json()),
-    staleTime: 30_000,
-  });
-
-  const districtDefaultRate = districtDefaultData?.defaultHourlyRate ?? null;
   const configsByServiceType = new Map<number, RateConfig>();
   for (const c of (ratesData?.configs ?? [])) {
     if (!configsByServiceType.has(c.serviceTypeId)) {
