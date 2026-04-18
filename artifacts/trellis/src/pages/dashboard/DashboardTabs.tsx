@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Shield, Clipboard, ArrowRight, FileBarChart, DollarSign,
-  BarChart2, Briefcase, CalendarClock, AlertCircle,
+  BarChart2, Briefcase, CalendarClock, AlertCircle, Target,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Users, Clock, Bell, CheckCircle } from "lucide-react";
@@ -81,12 +81,15 @@ export interface DashboardTabsProps {
   meetingDash: MeetingDashboard | null;
   accommodationCompliance: AccommodationComplianceData | null;
   deadlines: DeadlineItem[];
+  goalMasteryRate: number | null;
+  goalMasterySubtitle?: string;
 }
 
 export function DashboardTabs({
   isAdmin, myCaseload, hasTrackedData, onTrackPct, complianceSubtitle,
   s, ro, alerts, recent, riskPieData, trendData, serviceData,
   evalDash, transitionDash, meetingDash, accommodationCompliance, deadlines,
+  goalMasteryRate, goalMasterySubtitle,
 }: DashboardTabsProps) {
   const quickActions = [
     { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
@@ -161,8 +164,8 @@ export function DashboardTabs({
           </Link>
         )}
 
-        {/* 4 top-line metric cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {/* 5 top-line metric cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title={myCaseload ? "Your Caseload" : "Compliance Rate"}
             value={myCaseload ? myCaseload.assignedStudents : (hasTrackedData ? `${onTrackPct}%` : "—")}
@@ -202,6 +205,14 @@ export function DashboardTabs({
             accent="red"
             subtitle={myCaseload ? "your students" : "shortfall behind required"}
             href={myCaseload ? "/compliance" : "/compliance-risk-report"}
+          />
+          <MetricCard
+            title="Goal Mastery Rate"
+            value={goalMasteryRate !== null ? `${goalMasteryRate}%` : "—"}
+            icon={Target}
+            accent={goalMasteryRate === null ? "emerald" : (goalMasteryRate >= 75 ? "emerald" : goalMasteryRate >= 55 ? "amber" : "red")}
+            subtitle={goalMasterySubtitle ?? "on track or mastered"}
+            href="/progress-reports"
           />
         </div>
 

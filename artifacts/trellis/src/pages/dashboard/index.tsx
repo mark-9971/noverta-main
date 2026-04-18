@@ -80,6 +80,15 @@ function DashboardFull() {
     staleTime: 120_000,
   });
 
+  const { data: goalMasteryData } = useQuery<{ totalActiveGoals: number; ratedGoals: number; onTrackOrMasteredGoals: number; masteryRate: number | null }>({
+    queryKey: ["goal-mastery-rate", filterParams],
+    queryFn: () => {
+      const params = new URLSearchParams(filterParams);
+      return authFetch(`/api/dashboard/goal-mastery-rate?${params.toString()}`).then(r => r.ok ? r.json() : null);
+    },
+    staleTime: 60_000,
+  });
+
   const deadlines: DashboardTabsProps["deadlines"] = (() => {
     type RawEvent = { student?: { firstName: string; lastName: string }; eventType: string; daysRemaining?: number };
     const raw = deadlinesRaw as { events?: RawEvent[] } | RawEvent[] | undefined;
@@ -179,6 +188,14 @@ function DashboardFull() {
         meetingDash={meetingDash}
         accommodationCompliance={accommodationCompliance}
         deadlines={deadlines}
+        goalMasteryRate={goalMasteryData?.masteryRate ?? null}
+        goalMasterySubtitle={
+          goalMasteryData?.ratedGoals
+            ? `${goalMasteryData.onTrackOrMasteredGoals} of ${goalMasteryData.ratedGoals} goals rated`
+            : goalMasteryData?.totalActiveGoals
+              ? "No ratings recorded yet"
+              : undefined
+        }
       />
     </div>
   );

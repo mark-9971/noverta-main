@@ -16,6 +16,9 @@ import {
   buildSessionStudentFilter,
   buildAlertStudentFilter,
 } from "./shared";
+import type { AuthedRequest } from "../../middlewares/auth";
+
+const CASELOAD_ROLES_SERVER = new Set(["case_manager", "provider", "bcba", "sped_teacher"]);
 
 const router: IRouter = Router();
 
@@ -303,6 +306,65 @@ router.get("/dashboard/program-trends", async (req, res): Promise<void> => {
   res.json({
     skillAcquisition: skillRows.rows,
     behaviorReduction: behaviorRows.rows,
+  });
+});
+
+router.get("/dashboard/goal-mastery-rate", async (req, res): Promise<void> => {
+  const sdFilters = parseSchoolDistrictFilters(req, req.query);
+  const authed = req as AuthedRequest;
+  const callerRole = authed.trellisRole;
+
+  // Server-enforced caseload scoping: providers/case-managers see only their
+  // own students regardless of any query params. Admins/coordinators always
+  // get the district-wide view; the staffId query param is ignored entirely.
+  const enforcedStaffId: number | null = CASELOAD_ROLES_SERVER.has(callerRole)
+    ? (authed.tenantStaffId ?? null)
+    : null;
+
+  const schoolFilter = sdFilters.schoolId
+    ? sql`AND g.student_id IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
+    : sdFilters.districtId
+      ? sql`AND g.student_id IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
+      : sql``;
+  const staffFilter = enforcedStaffId !== null
+    ? sql`AND g.student_id IN (SELECT student_id FROM staff_assignments WHERE staff_id = ${enforcedStaffId})`
+    : sql``;
+
+  const result = await db.execute(sql`
+    WITH latest_ratings AS (
+      SELECT DISTINCT ON ((entry->>'iepGoalId')::int)
+        (entry->>'iepGoalId')::int AS goal_id,
+        entry->>'progressRating'   AS rating
+      FROM progress_reports pr,
+           LATERAL jsonb_array_elements(pr.goal_progress) AS entry
+      WHERE jsonb_array_length(pr.goal_progress) > 0
+      ORDER BY (entry->>'iepGoalId')::int, pr.period_end DESC, pr.created_at DESC
+    )
+    SELECT
+      COUNT(g.id)                                                                           AS total_goals,
+      COUNT(lr.goal_id)                                                                     AS rated_goals,
+      COUNT(lr.goal_id) FILTER (WHERE lr.rating IN ('mastered', 'sufficient_progress'))     AS on_track_goals
+    FROM iep_goals g
+    LEFT JOIN latest_ratings lr ON lr.goal_id = g.id
+    WHERE g.active = true
+      AND g.status = 'active'
+      ${schoolFilter}
+      ${staffFilter}
+  `);
+
+  const row = result.rows[0] as Record<string, unknown>;
+  const totalGoals = Number(row?.total_goals ?? 0);
+  const ratedGoals = Number(row?.rated_goals ?? 0);
+  const onTrackGoals = Number(row?.on_track_goals ?? 0);
+  // Denominator is ALL active goals (unrated goals are implicitly not on-track).
+  // Null only when there are no active goals at all.
+  const masteryRate = totalGoals > 0 ? Math.round((onTrackGoals / totalGoals) * 100) : null;
+
+  res.json({
+    totalActiveGoals: totalGoals,
+    ratedGoals,
+    onTrackOrMasteredGoals: onTrackGoals,
+    masteryRate,
   });
 });
 
