@@ -14,7 +14,7 @@ import type { CoverageTab } from "./utils";
 
 const COVERAGE_ROLES = ["admin", "coordinator", "case_manager"];
 
-export default function CoveragePage() {
+export default function CoveragePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { role } = useRole();
   const [tab, setTab] = useState<CoverageTab>("uncovered");
   const { typedFilter } = useSchoolContext();
@@ -31,13 +31,15 @@ export default function CoveragePage() {
   ];
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-[18px] font-semibold text-gray-900">Coverage & Substitutes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Track absences, assign substitutes, and monitor coverage patterns.
-        </p>
-      </div>
+    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1100px] mx-auto space-y-4 md:space-y-6"}>
+      {!embedded && (
+        <div>
+          <h1 className="text-[18px] font-semibold text-gray-900">Coverage & Substitutes</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Track absences, assign substitutes, and monitor coverage patterns.
+          </p>
+        </div>
+      )}
 
       <DailySummary schoolId={schoolId} />
 

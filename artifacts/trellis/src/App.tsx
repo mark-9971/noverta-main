@@ -41,6 +41,8 @@ const ImportData = lazy(() => import("@/pages/import-data"));
 const DataHealthPage = lazy(() => import("@/pages/data-health"));
 const ProgramDataPage = lazy(() => import("@/pages/program-data"));
 const AbaHub = lazy(() => import("@/pages/aba"));
+const IepHub = lazy(() => import("@/pages/iep"));
+const SchedulingHub = lazy(() => import("@/pages/scheduling"));
 const StudentIepPage = lazy(() => import("@/pages/student-iep"));
 const StaffDetailPage = lazy(() => import("@/pages/staff-detail"));
 const IepSearchPage = lazy(() => import("@/pages/iep-search"));
@@ -196,6 +198,8 @@ function StaffRouter() {
       <BoundedRoute path="/data-health" component={DataHealthPage} fallbackTitle="Data health error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
       <BoundedRoute path="/aba" component={AbaHub} fallbackTitle="ABA hub error" featureKey="clinical.program_data" />
+      <BoundedRoute path="/iep" component={IepHub} fallbackTitle="IEP hub error" />
+      <BoundedRoute path="/scheduling" component={SchedulingHub} fallbackTitle="Scheduling hub error" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
       <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="clinical.protective_measures" />
       <BoundedRoute path="/executive" component={ExecutiveDashboard} fallbackTitle="Executive dashboard error" featureKey="district.executive" />

@@ -15,7 +15,7 @@ import { PwnDialog } from "./PwnDialog";
 import { ConsentDialog } from "./ConsentDialog";
 import { fetchJson, postJson, patchJson, deleteJson, formatDate, daysFromNow } from "./api";
 
-export default function IepMeetings() {
+export default function IepMeetings({ embedded = false }: { embedded?: boolean } = {}) {
   const search = useSearch();
   const urlParams = new URLSearchParams(search);
   const urlFilter = urlParams.get("filter");
@@ -174,16 +174,18 @@ export default function IepMeetings() {
   ];
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">IEP Meetings</h1>
-          <p className="text-xs md:text-sm text-gray-400 mt-1">Team meeting scheduling, attendance, PWN & consent tracking</p>
+    <div className={embedded ? "space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6"}>
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">IEP Meetings</h1>
+            <p className="text-xs md:text-sm text-gray-400 mt-1">Team meeting scheduling, attendance, PWN & consent tracking</p>
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Plus className="w-4 h-4 mr-1.5" /> Schedule Meeting
+          </Button>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          <Plus className="w-4 h-4 mr-1.5" /> Schedule Meeting
-        </Button>
-      </div>
+      )}
 
       <div className="flex gap-1 border-b border-gray-200">
         {tabs.map(t => (

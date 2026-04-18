@@ -73,7 +73,7 @@ function getFirstDayOfWeek(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-export default function IepCalendar() {
+export default function IepCalendar({ embedded = false }: { embedded?: boolean } = {}) {
   const { filterParams } = useSchoolContext();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [summary, setSummary] = useState<CalendarSummary | null>(null);
@@ -131,12 +131,14 @@ export default function IepCalendar() {
   }, [events]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className={embedded ? "space-y-6" : "p-6 space-y-6 max-w-7xl mx-auto"}>
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">IEP Calendar</h1>
-          <p className="text-sm text-gray-500 mt-1">Track compliance deadlines for annual reviews, reevaluations, and more</p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">IEP Calendar</h1>
+            <p className="text-sm text-gray-500 mt-1">Track compliance deadlines for annual reviews, reevaluations, and more</p>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <select
             value={filterType}

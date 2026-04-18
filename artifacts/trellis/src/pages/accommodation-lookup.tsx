@@ -98,7 +98,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export default function AccommodationLookup() {
+export default function AccommodationLookup({ embedded = false }: { embedded?: boolean } = {}) {
   const [, navigate] = useLocation();
   const [data, setData] = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,17 +148,19 @@ export default function AccommodationLookup() {
   const compliantStudents = filtered.filter(s => s.overdueCount === 0);
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? "space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6"}>
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-emerald-600" />
-            Accommodation Verification
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track and verify IEP accommodation implementation across your caseload
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-600" />
+              Accommodation Verification
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track and verify IEP accommodation implementation across your caseload
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground whitespace-nowrap">Window:</label>
           <select

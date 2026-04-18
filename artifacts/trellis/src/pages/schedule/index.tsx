@@ -22,7 +22,7 @@ const DEFAULT_FORM: BlockForm = {
   recurrenceType: "weekly", effectiveFrom: "", effectiveTo: "",
 };
 
-export default function Schedule() {
+export default function Schedule({ embedded = false }: { embedded?: boolean } = {}) {
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -181,8 +181,8 @@ export default function Schedule() {
   const isAdmin = role === "admin";
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6">
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-4 md:space-y-6"}>
+      {!embedded && <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Weekly Schedule</h1>
@@ -239,7 +239,7 @@ export default function Schedule() {
             <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 text-[12px] font-medium transition-all ${viewMode === "list" ? "bg-gray-800 text-white" : "text-gray-500 hover:bg-gray-50"}`}>List</button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {scheduleType !== "standard" && schoolConfig?.scheduleNotes && (
         <div className="flex items-start gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-[12px] text-emerald-800">

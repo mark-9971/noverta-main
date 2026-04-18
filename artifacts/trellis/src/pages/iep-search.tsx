@@ -6,7 +6,7 @@ import { Search, Target, BookOpen, Users, ChevronRight, Filter } from "lucide-re
 import { searchIep } from "@workspace/api-client-react";
 
 
-export default function IepSearch() {
+export default function IepSearch({ embedded = false }: { embedded?: boolean } = {}) {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState("all");
   const [results, setResults] = useState<any>(null);
@@ -27,11 +27,13 @@ export default function IepSearch() {
   const totalResults = results ? (results.goals?.length || 0) + (results.accommodations?.length || 0) + (results.students?.length || 0) : 0;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-5">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Global IEP Search</h1>
-        <p className="text-xs md:text-sm text-gray-400 mt-1">Search across all students' goals, accommodations, and records</p>
-      </div>
+    <div className={embedded ? "space-y-5" : "p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-5"}>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Global IEP Search</h1>
+          <p className="text-xs md:text-sm text-gray-400 mt-1">Search across all students' goals, accommodations, and records</p>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4">

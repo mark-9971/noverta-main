@@ -86,12 +86,9 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/iep", label: "IEP", icon: GraduationCap },
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/accommodation-lookup", label: "Accommodations", icon: ShieldCheck },
     ],
   },
   {
@@ -102,18 +99,9 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
-      { href: "/schedule", label: "Schedule", icon: Calendar },
-      { href: "/coverage", label: "Coverage", icon: UserCheck },
+      { href: "/scheduling", label: "Scheduling", icon: Calendar },
       { href: "/staff", label: "Staff", icon: UserCheck },
-    ],
-  },
-  {
-    label: "ABA",
-    icon: Activity,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/aba", label: "ABA", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
     ],
   },
   {
@@ -224,8 +212,7 @@ export const bcbaNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
+      { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
