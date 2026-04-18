@@ -36,7 +36,7 @@ export function captureException(err: unknown, context?: Record<string, unknown>
 
 const SENTRY_USER_TAGS = ["role", "districtId"] as const;
 
-export function setSentryUser(userId: string | null, tags?: Record<string, string>) {
+export function setSentryUser(userId: string | null, tags?: Record<string, string>, email?: string | null) {
   if (!initialized) return;
   if (!userId) {
     Sentry.setUser(null);
@@ -45,7 +45,7 @@ export function setSentryUser(userId: string | null, tags?: Record<string, strin
     }
     return;
   }
-  Sentry.setUser({ id: userId });
+  Sentry.setUser(email ? { id: userId, email } : { id: userId });
   for (const tag of SENTRY_USER_TAGS) {
     Sentry.setTag(tag, tags?.[tag] ?? "");
   }

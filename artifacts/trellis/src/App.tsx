@@ -143,6 +143,7 @@ function SentryUserSync() {
       setSentryUser(
         user.id,
         Object.keys(tags).length > 0 ? tags : undefined,
+        user.primaryEmailAddress?.emailAddress,
       );
     } else {
       setSentryUser(null);
