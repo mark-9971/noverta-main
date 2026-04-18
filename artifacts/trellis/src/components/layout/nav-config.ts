@@ -94,7 +94,6 @@ export const adminNav: NavSection[] = [
         href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
         children: [
           { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/compliance?tab=sessions", label: "Sessions", icon: Clipboard },
           { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
           { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
           { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
@@ -137,13 +136,7 @@ export const adminNav: NavSection[] = [
           { href: "/progress-reports", label: "Progress Reports", icon: FileText },
         ],
       },
-      {
-        href: "/transitions", label: "Transition Planning", icon: Sprout,
-        children: [
-          { href: "/transitions", label: "Transition Planning", icon: Sprout },
-          { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
-        ],
-      },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
       {
         href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
         children: [
@@ -201,10 +194,10 @@ export const adminNav: NavSection[] = [
         children: [
           { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
           { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-          { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-          { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
         ],
       },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
     ],
   },
   // ── 6+ sorted below ───────────────────────────────────────────────────────
@@ -344,9 +337,12 @@ export const spedTeacherNav: NavSection[] = adminNav
       label: SPED_TEACHER_ITEM_LABEL_MAP[item.label] ?? item.label,
     }));
     if (s.label === "Overview") {
+      // Teachers use /today as their home — exclude the admin Dashboard (/)
+      // so it doesn't match every route via startsWith("/") active-state logic.
+      const teacherItems = items.filter(i => i.href !== "/");
       items = [
         { href: "/today", label: "Today", icon: Sun, primary: true },
-        ...items,
+        ...teacherItems,
         { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
         { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
       ];
@@ -377,7 +373,6 @@ export const bcbaNav: NavSection[] = [
     items: [
       { href: "/students", label: "My Students", icon: Users, primary: true },
       { href: "/sessions", label: "My Sessions", icon: Clipboard },
-      { href: "/schedule", label: "Schedule", icon: Calendar },
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
     ],
   },
@@ -415,8 +410,7 @@ export const paraNav: NavSection[] = [
   {
     label: "Session Work",
     items: [
-      { href: "/schedule", label: "Schedule", icon: Calendar, primary: true },
-      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
       { href: "/sessions", label: "Session Log", icon: Clipboard },
       { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
     ],
@@ -488,7 +482,7 @@ const STAFF_NAV_CONFIG = {
     iconActive: "text-emerald-700",
     label: "Trellis",
     subtitle: "Service-minute compliance for SPED.",
-    homeHref: "/",
+    homeHref: "/today",
   },
 } satisfies Record<string, RoleThemeConfig>;
 
