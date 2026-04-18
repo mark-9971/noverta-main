@@ -8,6 +8,7 @@ export * from "./serviceRequirements";
 export * from "./missedReasons";
 export * from "./sessionLogs";
 export * from "./staffAbsences";
+export * from "./staffCredentials";
 export * from "./scheduleBlocks";
 export * from "./coverageInstances";
 export * from "./staffAssignments";

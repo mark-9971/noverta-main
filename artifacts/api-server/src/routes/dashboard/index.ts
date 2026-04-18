@@ -9,6 +9,7 @@ import iepExpirationsRouter from "./iepExpirations";
 import makeupObligationsRouter from "./makeupObligations";
 import providerCompletionRatesRouter from "./providerCompletionRates";
 import parentEngagementRouter from "./parentEngagement";
+import credentialExpirationRouter from "./credentialExpiration";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(iepExpirationsRouter);
 router.use(makeupObligationsRouter);
 router.use(providerCompletionRatesRouter);
 router.use(parentEngagementRouter);
+router.use(credentialExpirationRouter);
 
 export default router;

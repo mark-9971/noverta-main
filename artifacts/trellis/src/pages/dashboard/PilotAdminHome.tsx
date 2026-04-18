@@ -23,7 +23,9 @@ import {
   AccommodationComplianceCard, EvalsTransitionsSection,
   MeetingsSection, ContractRenewalsCard, DeadlinesSection,
   IepExpirationCard,
+  CredentialExpirationCard,
 } from "./SecondarySections";
+import type { CredentialExpirationItem } from "./SecondarySections";
 import ProviderCompletionCard from "./ProviderCompletionCard";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
@@ -199,6 +201,13 @@ export default function PilotAdminHome() {
     queryKey: ["meetings-dashboard"],
     queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
+  });
+
+  const { data: credentialExpiration } = useQuery<CredentialExpirationItem[]>({
+    queryKey: ["credential-expiration"],
+    queryFn: () => authFetch("/api/dashboard/credential-expiration").then(r => r.ok ? r.json() : []),
+    staleTime: 120_000,
     enabled: opsEnabled,
   });
 
@@ -537,6 +546,7 @@ export default function PilotAdminHome() {
         {dashSummary?.contractRenewals && dashSummary.contractRenewals.length > 0 && (
           <ContractRenewalsCard contractRenewals={dashSummary.contractRenewals} />
         )}
+        <CredentialExpirationCard credentials={credentialExpiration ?? []} />
         <DeadlinesSection deadlines={deadlines} />
       </CollapsibleSection>
 

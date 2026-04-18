@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, CheckCircle2, Clock, FileText } from "lucide-react";
+import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, BadgeCheck, CheckCircle2, Clock, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { useQuery } from "@tanstack/react-query";
@@ -263,6 +263,92 @@ export function ContractRenewalsCard({ contractRenewals }: { contractRenewals: {
             );
           })}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export interface CredentialExpirationItem {
+  credentialId: number;
+  staffId: number;
+  staffName: string;
+  credentialType: string;
+  issuingBody: string | null;
+  licenseNumber: string | null;
+  expirationDate: string;
+  daysUntilExpiration: number;
+  urgency: "critical" | "warning";
+}
+
+export function CredentialExpirationCard({ credentials }: { credentials: CredentialExpirationItem[] }) {
+  if (credentials.length === 0) {
+    return (
+      <Card className="border-emerald-200 bg-emerald-50/30">
+        <CardContent className="py-4 px-5 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-emerald-700">All credentials up to date</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const critical = credentials.filter(c => c.urgency === "critical");
+  const warning = credentials.filter(c => c.urgency === "warning");
+  const borderClass = critical.length > 0 ? "border-red-200" : "border-amber-200";
+
+  return (
+    <Card className={borderClass}>
+      <CardHeader className="pb-0 flex-row items-center justify-between">
+        <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+          <BadgeCheck className="w-4 h-4 text-gray-400" />
+          Staff Credentials Expiring Soon
+          {critical.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+              {critical.length} urgent
+            </span>
+          )}
+        </CardTitle>
+        <Link href="/staff" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+          Staff directory <ArrowRight className="w-3 h-3" />
+        </Link>
+      </CardHeader>
+      <CardContent className="pt-4 pb-4">
+        <div className="space-y-2">
+          {credentials.map(c => {
+            const isCritical = c.urgency === "critical";
+            return (
+              <Link key={c.credentialId} href={`/staff/${c.staffId}`}>
+                <div className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-shadow ${isCritical ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                  <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${isCritical ? "text-red-500" : "text-amber-500"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-gray-800 truncate">{c.staffName}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                      {c.credentialType}{c.issuingBody ? ` · ${c.issuingBody}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-[12px] font-bold ${isCritical ? "text-red-700" : "text-amber-700"}`}>
+                      {c.daysUntilExpiration === 0 ? "Expires today" : `${c.daysUntilExpiration}d left`}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {new Date(c.expirationDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+        {critical.length > 0 && (
+          <p className="text-[11px] text-red-600 mt-3 font-medium">
+            {critical.length} credential{critical.length !== 1 ? "s" : ""} expiring within 14 days — action required.
+          </p>
+        )}
+        {warning.length > 0 && (
+          <p className="text-[11px] text-amber-600 mt-1">
+            {warning.length} credential{warning.length !== 1 ? "s" : ""} expiring in 15–60 days.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
