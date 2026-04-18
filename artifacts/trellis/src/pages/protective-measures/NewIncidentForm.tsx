@@ -181,7 +181,12 @@ export function NewIncidentForm({ onClose, editId }: { onClose: () => void; edit
 
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
-    queryFn: ({ signal }) => listStudents(undefined, { signal }),
+    queryFn: async ({ signal }) => {
+      const res = await listStudents(undefined, { signal });
+      // listStudents returns PaginatedResult<StudentSummary>
+      // ({ data, total, page, pageSize, hasMore }); extract the array.
+      return Array.isArray(res) ? res : ((res as any)?.data ?? []);
+    },
   });
 
   const { data: staff = [] } = useQuery({

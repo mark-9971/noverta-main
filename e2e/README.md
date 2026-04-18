@@ -15,6 +15,54 @@ Trellis dev environment.
   for each step exists, then verifies that both "Finish" and "Skip
   tour" persist the seen flag and prevent the tour from re-appearing on
   reload while sample data is still loaded.
+- `tests/incident-form-wizard.spec.ts` — UI coverage for the 5-step
+  `NewIncidentForm` wizard on `/protective-measures`. Asserts step-1 and
+  step-2 required-field guards, walks the happy path through all five
+  steps and confirms the new incident appears in the list, exercises the
+  Back button, and verifies the step-5 summary review and signature
+  fields render. Suppresses `SampleDataTour` via an init script so the
+  wizard isn't redirected mid-flow.
+- `tests/incident-lifecycle.spec.ts` — end-to-end coverage of the
+  restraint incident lifecycle and 603 CMR 46.00 parent-notification
+  flow (create draft → open → under_review → resolved → dese_reported,
+  plus draft → approve → send and return-for-correction round-trips).
+  Uses `page.request.*` for state assertions so it's independent of UI
+  layout.
+
+## Incident E2E validation step
+
+The `incident-e2e` validation command runs both incident specs end-to-end
+against the live dev workflows (`artifacts/api-server` + `artifacts/trellis`)
+using a Chromium binary resolved via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`:
+
+```bash
+cd e2e && \
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') \
+  npx playwright test \
+    tests/incident-form-wizard.spec.ts \
+    tests/incident-lifecycle.spec.ts \
+    --reporter=line
+```
+
+In CI use the same command — the workflow installs Chromium via
+`pnpm --filter @workspace/e2e exec playwright install --with-deps chromium`
+in a previous step.
+
+Authentication: the specs send the dev-bypass headers (`x-test-user-id`,
+`x-test-role`, `x-test-district-id`) on every `page.request.*` call so the
+api-server's `requireAuth` middleware accepts them in lieu of a Clerk session
+when `NODE_ENV=test` or `DEV_AUTH_BYPASS=1` is set on the api-server (the
+defaults for the Replit dev workflow). Clerk sign-in still runs so any UI
+gated on `useUser` renders normally.
+
+Known issue: `incident-lifecycle.spec.ts` calls `POST /api/sample-data` in
+`beforeEach`. On environments whose database schema is behind the current
+`@workspace/db` schema (missing columns such as `districts.demo_expires_at`
+or `schools.deleted_at`), the seed call returns 500 and the lifecycle suite
+fails before any incident assertion runs. This is a pre-existing schema-drift
+problem that is unrelated to the test infrastructure; running schema migrations
+against the dev DB unblocks the suite. The wizard suite does not depend on
+sample-data seeding and runs green regardless.
 
 ## Running locally
 

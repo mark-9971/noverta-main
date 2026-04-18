@@ -22,7 +22,10 @@ export function QuickReportForm({ onClose }: { onClose: () => void }) {
 
   const { data: students = [] } = useQuery<any[]>({
     queryKey: ["students-list"],
-    queryFn: ({ signal }) => listStudents(undefined, { signal }),
+    queryFn: async ({ signal }) => {
+      const res = await listStudents(undefined, { signal });
+      return Array.isArray(res) ? res : ((res as any)?.data ?? []);
+    },
   });
 
   const { data: staff = [] } = useQuery({

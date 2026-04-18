@@ -33,7 +33,39 @@ const ADMIN_PASSWORD =
 // Shared helpers (mirrored from incident-lifecycle.spec.ts for independence)
 // ---------------------------------------------------------------------------
 
+/**
+ * Dev-bypass auth headers — same shape the Trellis frontend sends in
+ * dev mode (VITE_DEV_AUTH_BYPASS=1). The api-server's requireAuth
+ * middleware accepts these in lieu of a Clerk session whenever
+ * NODE_ENV=test or DEV_AUTH_BYPASS=1, both of which are true for the
+ * dev workflows that back this E2E run. This keeps `page.request.*`
+ * authenticated without requiring a Clerk session round-trip.
+ */
+const DEV_BYPASS_HEADERS = {
+  "x-test-user-id": "dev_bypass_admin",
+  "x-test-role": "admin",
+  "x-test-district-id": "6",
+} as const;
+
 async function signIn(page: Page): Promise<void> {
+  // Suppress the SampleDataTour overlay (fires automatically when sample
+  // data is loaded) so it doesn't redirect us to /compliance-risk-report
+  // mid-test. We pretend every per-user/per-district tour key has already
+  // been seen.
+  await page.addInitScript(() => {
+    const origGet = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      if (key.startsWith("trellis.sampleTour.v1")) return "seen";
+      return origGet.call(this, key);
+    };
+  });
+
+  // Send the dev-bypass headers on every page.request.* call so server
+  // endpoints accept us as the dev admin (the same identity the running
+  // Trellis app uses in this workflow). Clerk sign-in is still performed
+  // below so that frontend pages which gate on `useUser` render normally.
+  await page.context().setExtraHTTPHeaders({ ...DEV_BYPASS_HEADERS });
+
   await setupClerkTestingToken({ page });
   await page.goto("/setup");
   await clerk.signIn({
@@ -44,9 +76,13 @@ async function signIn(page: Page): Promise<void> {
       password: ADMIN_PASSWORD,
     },
   });
-  await page.goto("/setup");
+  // Navigate to the page our tests actually exercise and confirm the
+  // AppLayout has rendered. This is independent of /setup, which the
+  // SampleDataTour can redirect away from, and proves the app is ready
+  // to receive UI interactions.
+  await page.goto("/protective-measures");
   await expect(
-    page.getByRole("heading", { name: "Set Up Trellis" }),
+    page.getByRole("button", { name: /Report Incident/i }),
   ).toBeVisible({ timeout: 60_000 });
 }
 
@@ -86,7 +122,9 @@ async function getFirstStudent(page: Page): Promise<StudentRow> {
   const res = await page.request.get("/api/students?limit=1");
   expect(res.ok(), "GET /api/students should succeed").toBeTruthy();
   const data = await res.json();
-  const rows: StudentRow[] = Array.isArray(data) ? data : (data.students ?? []);
+  const rows: StudentRow[] = Array.isArray(data)
+    ? data
+    : (data.students ?? data.data ?? []);
   expect(
     rows.length,
     "At least one student must exist (seed sample data first)",

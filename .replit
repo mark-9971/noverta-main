@@ -29,7 +29,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-lifecycle.spec.ts tests/incident-form-wizard.spec.ts tests/quick-report-form.spec.ts --list 2>&1 | tee /tmp/e2e-list.txt && grep -q 'incident-lifecycle' /tmp/e2e-list.txt && grep -q 'incident-form-wizard' /tmp/e2e-list.txt && grep -q 'quick-report-form' /tmp/e2e-list.txt && npx tsc --noEmit"
+args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-form-wizard.spec.ts tests/incident-lifecycle.spec.ts tests/quick-report-form.spec.ts --reporter=line"
 
 [agent]
 stack = "PNPM_WORKSPACE"

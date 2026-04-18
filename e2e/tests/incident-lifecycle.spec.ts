@@ -34,7 +34,33 @@ const ADMIN_PASSWORD =
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Dev-bypass auth headers — the api-server's requireAuth middleware accepts
+ * these when NODE_ENV=test or DEV_AUTH_BYPASS=1, both of which are true for
+ * the dev workflows that back this E2E run. This keeps page.request.* calls
+ * authenticated as the dev admin (matches the identity the running Trellis
+ * frontend uses in this workflow).
+ */
+const DEV_BYPASS_HEADERS = {
+  "x-test-user-id": "dev_bypass_admin",
+  "x-test-role": "admin",
+  "x-test-district-id": "6",
+} as const;
+
 async function signIn(page: Page): Promise<void> {
+  // Suppress the SampleDataTour overlay (auto-fires when sample data is
+  // present) so it doesn't redirect us to /compliance-risk-report mid-test.
+  await page.addInitScript(() => {
+    const origGet = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      if (key.startsWith("trellis.sampleTour.v1")) return "seen";
+      return origGet.call(this, key);
+    };
+  });
+
+  // Authenticate page.request.* via dev-bypass headers.
+  await page.context().setExtraHTTPHeaders({ ...DEV_BYPASS_HEADERS });
+
   await setupClerkTestingToken({ page });
   await page.goto("/setup");
   await clerk.signIn({
@@ -45,12 +71,10 @@ async function signIn(page: Page): Promise<void> {
       password: ADMIN_PASSWORD,
     },
   });
-  // Second goto + explicit heading wait matches the pattern used by existing
-  // E2E specs and ensures page.request inherits the signed-in Clerk session
-  // before any API calls are made.
-  await page.goto("/setup");
+  // Confirm the AppLayout has rendered before tests issue API calls.
+  await page.goto("/protective-measures");
   await expect(
-    page.getByRole("heading", { name: "Set Up Trellis" }),
+    page.getByRole("button", { name: /Report Incident/i }),
   ).toBeVisible({ timeout: 60_000 });
 }
 
@@ -103,7 +127,9 @@ async function getFirstStudent(page: Page): Promise<StudentRow> {
   const res = await page.request.get("/api/students?limit=1");
   expect(res.ok(), "GET /api/students should succeed").toBeTruthy();
   const data = await res.json();
-  const rows: StudentRow[] = Array.isArray(data) ? data : (data.students ?? []);
+  const rows: StudentRow[] = Array.isArray(data)
+    ? data
+    : (data.data ?? data.students ?? []);
   expect(
     rows.length,
     "At least one student must exist (seed sample data first)",
