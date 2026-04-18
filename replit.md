@@ -18,12 +18,14 @@ Trellis is a SPED service-delivery and compliance-risk platform for Massachusett
 -   **Security & Audit:** Implements FERPA-compliant audit logging and robust tenant isolation.
 -   **Risk Mitigation:** Provides tools for protective measures (603 CMR 46.00/46.06), compliance risk forecasting, and compensatory service tracking.
 -   **Data-Driven Insights:** Offers comprehensive reporting, analytics, and data health checks for district administrators.
+-   **Goal:** Trellis's ambition is to streamline SPED operations, ensuring compliance and improving outcomes for students. It offers tools for managing student data, sessions, schedules, staff, reports, and communication, with a focus on ease of use and actionable insights. Key capabilities include comprehensive compliance reporting, automated workflows, and data-driven recommendations, designed to empower SPED administrators and clinicians.
 
-**Goal:** Trellis's ambition is to streamline SPED operations, ensuring compliance and improving outcomes for students. It offers tools for managing student data, sessions, schedules, staff, reports, and communication, with a focus on ease of use and actionable insights. Key capabilities include comprehensive compliance reporting, automated workflows, and data-driven recommendations, designed to empower SPED administrators and clinicians.
+**Standing tagline:** "Service-minute compliance for SPED."
 
 ## User Preferences
 
 I want iterative development and detailed explanations of your thought process. Ask clarifying questions before making major architectural changes or implementing complex features. Do not change the fundamental project structure or core technologies without explicit approval.
+NEVER hide, demote, remove, or delete nav items, pages, routes, components, or features. Reorganization that *adds* discoverability (e.g., listing a link in two nav groups) is fine; anything that reduces visibility is not. Re-parents that orphan a link from its previous group also count as hiding — preserve the original location and add the new one. The wedge-task prompt that said "hide or demote distracting modules" is overridden by this rule.
 
 ## System Architecture
 
@@ -50,6 +52,8 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Tenant Isolation:** Strict tenant isolation is enforced at the API level to prevent cross-district data access, especially in production environments.
 -   **FERPA Audit Logging:** An append-only audit trail tracks all access and modifications to student records, capturing actor identity, action type, affected records, and value diffs.
 -   **Soft Delete & Recovery:** Key entities (students, staff, sessions) use soft-deletion, allowing administrators to restore accidentally deleted records.
+-   **Billing Modes:** Districts operate in `demo`, `pilot`, `paid`, `trial`, `unpaid`, or `unconfigured` modes, managed by `GET /api/billing/status` and `GET /api/district-tier`.
+-   **Module & Tier Gating:** Product modules (Compliance Core, Clinical & Instruction, District Operations, Engagement & Access) are gated by subscription tier (Essentials, Professional, Enterprise).
 
 **Feature Specifications:**
 
@@ -87,6 +91,8 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Pilot Success Metrics Dashboard:** Tracks key performance indicators for pilot programs.
 -   **Generated Document Pipeline:** Stores rendered HTML snapshots of documents for re-printing and sharing.
 -   **Security Hardening:** Implements tenant isolation, path-scoped role guards, and a permission matrix test suite.
+-   **Compliance Trends Page:** Provides a unified time-series view of four key compliance metrics (service minutes, at-risk students, compensatory exposure, logging completion).
+-   **Per-tenant sample data:** Admins/coordinators can one-click seed a small realistic district inside their own tenant for quick setup.
 
 ## External Dependencies
 
