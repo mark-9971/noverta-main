@@ -151,9 +151,9 @@ function DashboardFull() {
         </div>
       </div>
 
-      {/* Unified first-run checklist (replaces the legacy SetupChecklist).
-          Single canonical 8-step tracker, hidden once the district is
-          pilot-ready. Full first-run path lives at /onboarding. */}
+      {/* Unified first-run checklist — single canonical 8-step tracker,
+          hidden once the district is pilot-ready.
+          Full first-run path lives at /onboarding. */}
       {isAdmin && <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />}
 
       {/*

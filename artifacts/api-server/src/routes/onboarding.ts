@@ -213,9 +213,9 @@ async function onboardingChecklistHandler(req: import("express").Request, res: R
     const totalSteps = 4;
     const isComplete = coreSteps.every(Boolean);
 
-    // Pilot-readiness checklist (9 user-facing steps). This is independent of
-    // the legacy 4-step `completedCount`/`totalSteps`/`isComplete` above so we
-    // do not break the existing SetupChecklist widget.
+    // Pilot-readiness checklist (9 user-facing steps). The legacy top-level
+    // `completedCount`/`totalSteps`/`isComplete` above are kept because
+    // PilotAdminHome still reads them for the "steps remaining" action label.
     const pilotChecklist = {
       districtProfileConfigured: districtConfirmed && steps.schoolsConfigured && steps.serviceTypesConfigured,
       schoolYearConfigured,
