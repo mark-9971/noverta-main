@@ -1,0 +1,275 @@
+I want you to act like a senior product designer + UX auditor + user workflow strategist for this entire app.
+
+Your job is NOT to redesign yet.
+Your first job is to deeply inspect the whole product and produce a complete UX / navigation / workflow audit so I can decide what to overhaul first.
+
+I am considering a major overhaul of:
+- UX
+- navigation / information architecture
+- user workflows
+- page structure
+- feature discoverability
+- layout consistency
+- clarity of actions and next steps
+
+I do NOT want vague advice.
+I want a concrete, app-specific audit based on the actual code, routes, screens, components, forms, dashboards, tables, modals, buttons, menus, and role-based experiences that exist right now.
+
+Please inspect the full app and return a structured report with the sections below.
+
+==================================================
+1. PRODUCT MAP
+==================================================
+
+Create a full inventory of the product experience:
+- every major page
+- every route
+- every main navigation item
+- every submenu / secondary nav
+- every important workflow
+- every major feature/module
+- every role-specific area if roles exist
+
+For each page/area, explain:
+- what it appears to be for
+- who it is for
+- what key actions a user can take there
+- what data is shown
+- how a user likely gets there
+- what the next logical action should be
+
+==================================================
+2. CURRENT INFORMATION ARCHITECTURE
+==================================================
+
+Map the current structure of the app:
+- top-level navigation
+- nested navigation
+- duplicated navigation patterns
+- places where the same concept appears in multiple areas
+- places where labels are inconsistent
+- areas that feel buried, confusing, redundant, or disconnected
+
+Then explain:
+- what the current IA is trying to do
+- where it works
+- where it breaks down
+- what feels like feature sprawl
+- what feels like “developer-built” instead of “user-centered”
+
+==================================================
+3. CORE USER JOURNEYS
+==================================================
+
+Identify the most important end-to-end user journeys in this product.
+
+Examples:
+- onboarding
+- creating a student/client
+- reviewing a dashboard
+- logging a service/session
+- tracking minutes/compliance
+- writing documentation
+- reviewing alerts/tasks
+- generating reports
+- parent or staff communication
+- daily para/provider workflow
+- admin oversight workflow
+
+For each core journey, describe:
+- ideal user goal
+- current step-by-step path through the app
+- friction points
+- unnecessary clicks
+- confusion points
+- missing guidance
+- dead ends
+- where the workflow is too fragmented
+- where the user has to think too hard
+
+==================================================
+4. UX PROBLEMS BY SEVERITY
+==================================================
+
+Give me a prioritized list of UX issues grouped by:
+
+CRITICAL
+- things that block clarity, adoption, or usability
+
+HIGH
+- things that create major confusion or poor workflow
+
+MEDIUM
+- things that reduce polish, consistency, or efficiency
+
+LOW
+- things that are annoying but not urgent
+
+For each issue include:
+- issue title
+- where it occurs
+- why it is a UX problem
+- what user type it affects
+- how it impacts adoption / usability / pilot-readiness
+- recommended fix direction
+
+==================================================
+5. NAVIGATION OVERHAUL ANALYSIS
+==================================================
+
+I want a serious analysis of navigation.
+
+Please evaluate:
+- whether the current nav is intuitive
+- whether features are grouped logically
+- whether the labels make sense
+- whether major actions are too buried
+- whether there are too many destinations
+- whether important workflows are split across unrelated sections
+- whether the app needs fewer top-level items
+- whether it needs role-specific nav
+- whether there should be dashboard-based entry points instead of feature-based browsing
+
+Then propose:
+- an improved top-level navigation structure
+- improved section names
+- what should be merged
+- what should be split
+- what should be removed from nav entirely
+- what should live inside workflows instead of the sidebar/nav
+- what should become global actions, tabs, drawers, or quick actions instead of standalone pages
+
+==================================================
+6. PAGE-BY-PAGE UX REVIEW
+==================================================
+
+For each major page, review:
+- page purpose clarity
+- hierarchy / layout
+- information density
+- readability
+- CTA clarity
+- table/form usability
+- empty states
+- error states
+- consistency with the rest of the app
+- whether the page tries to do too much
+- whether the page should be split or simplified
+
+For each page give:
+- what is good
+- what is confusing
+- what is overloaded
+- what is missing
+- recommended redesign direction
+
+==================================================
+7. DESIGN SYSTEM / CONSISTENCY AUDIT
+==================================================
+
+Inspect the UI patterns and identify consistency issues:
+- buttons
+- form layouts
+- spacing
+- headings
+- cards
+- tables
+- tabs
+- badges
+- alerts
+- filters
+- modals
+- drawers
+- empty states
+- icons
+- terminology
+- status indicators
+
+Tell me:
+- where the UI feels inconsistent
+- where similar actions look different
+- where visual hierarchy is weak
+- what design system patterns should be standardized first
+
+==================================================
+8. ROLE-BASED UX
+==================================================
+
+If this app has multiple user roles, analyze each role’s experience:
+- what they see
+- what they need most often
+- whether the current experience is optimized for them
+- what is irrelevant clutter for them
+- what should be hidden, simplified, or restructured by role
+
+I want blunt feedback on whether this app currently feels like:
+- one bloated interface for everyone
+or
+- intentionally tailored experiences for different users
+
+==================================================
+9. PILOT-READINESS FROM A UX PERSPECTIVE
+==================================================
+
+Assess whether the app is pilot-ready from a UX standpoint.
+
+Answer:
+- Could a real first-time user understand this without hand-holding?
+- Could an admin onboard a team without confusion?
+- Could a daily user build habits in it?
+- What UX issues would hurt trust immediately in a live pilot?
+- What are the top 10 UX fixes required before pilot/demo use?
+
+==================================================
+10. RECOMMENDED OVERHAUL PLAN
+==================================================
+
+After the audit, give me a concrete phased plan:
+
+PHASE 1 = highest impact / lowest complexity UX fixes
+PHASE 2 = navigation and workflow restructuring
+PHASE 3 = page redesign / information architecture cleanup
+PHASE 4 = deeper UX polish / consistency / role optimization
+
+For each phase include:
+- exact goals
+- exact pages/modules involved
+- why it matters
+- estimated difficulty
+- dependencies
+- what to do first
+
+==================================================
+11. DELIVERABLE FORMAT
+==================================================
+
+I want the final output in this format:
+
+A. Executive summary
+B. What the app currently feels like to a user
+C. Biggest UX problems
+D. Current navigation map
+E. Proposed navigation map
+F. Core workflow breakdowns
+G. Page-by-page recommendations
+H. Top 20 UX overhaul tasks in priority order
+
+==================================================
+12. IMPORTANT RULES
+==================================================
+
+- Base everything on the actual codebase and current UI structure
+- Be specific to this product, not generic SaaS advice
+- Be blunt
+- Call out redundancy, clutter, weak workflow logic, and unclear architecture
+- If something is good, say so
+- If something is confusing or overbuilt, say so clearly
+- Do not just describe screens — evaluate them
+- Do not redesign visuals yet unless necessary to explain structure
+- Focus on usability, nav clarity, workflow efficiency, and adoption
+- Think like: “What would make this dramatically easier to understand and use?”
+
+At the end, give me:
+1. the 5 most important UX overhaul priorities
+2. the best new sidebar/navigation structure
+3. the best first 10 implementation tasks for the overhaul
