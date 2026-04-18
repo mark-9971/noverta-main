@@ -69,6 +69,7 @@ export type EmailType =
   | "overdue_session_log_reminder"
   | "progress_report"
   | "cost_avoidance_risk_alert"
+  | "cost_avoidance_digest"
   | "general";
 
 export interface SendEmailParams {
@@ -573,6 +574,97 @@ ${linkHtml}
 </div></body></html>`;
 
   const text = `CRITICAL COST AVOIDANCE RISK ALERT\n\nDear ${staffName},\n\nA critical compliance risk has been identified:\n\nStudent: ${studentName}\nRisk: ${riskTitle}\nCategory: ${categoryLabel}\nStatus: ${daysLabel}\n${estimatedExposure != null ? `Estimated exposure: $${estimatedExposure.toLocaleString()}` : `Risk basis: ${exposureBasis}`}\n\nDescription: ${riskDescription}\n\nAction needed: ${actionNeeded}\n${linkText}\nThis is an automated alert from Trellis SPED Compliance Platform.`;
+
+  return { subject, html, text };
+}
+
+export interface DigestRiskItem {
+  studentName: string;
+  studentId: number;
+  riskTitle: string;
+  category: string;
+  daysRemaining: number;
+  estimatedExposure: number | null;
+  exposureBasis: string;
+  actionNeeded: string;
+}
+
+export function buildCostAvoidanceDigestEmail(opts: {
+  staffName: string;
+  risks: DigestRiskItem[];
+  digestDate: string;
+  appBaseUrl?: string;
+}): { subject: string; html: string; text: string } {
+  const { staffName, risks, digestDate, appBaseUrl } = opts;
+  const count = risks.length;
+  const subject = `[Daily Digest] ${count} Critical Risk${count !== 1 ? "s" : ""} Require Your Attention — ${digestDate}`;
+
+  const categoryLabel = (cat: string) =>
+    cat === "evaluation_deadline" ? "Evaluation Deadline"
+    : cat === "iep_annual_review" ? "IEP Annual Review"
+    : "Service Shortfall";
+
+  const daysLabel = (days: number) => {
+    if (days < 0) {
+      const abs = Math.abs(days);
+      return `${abs} day${abs !== 1 ? "s" : ""} overdue`;
+    }
+    if (days === 0) return "Due today";
+    return `${days} day${days !== 1 ? "s" : ""} remaining`;
+  };
+
+  const riskRows = risks.map((r, i) => {
+    const studentLink = appBaseUrl ? `${appBaseUrl}/students/${r.studentId}` : null;
+    const nameHtml = studentLink
+      ? `<a href="${studentLink}" style="color:#1d4ed8;text-decoration:none;font-weight:600">${r.studentName}</a>`
+      : `<strong>${r.studentName}</strong>`;
+    const exposureText = r.estimatedExposure != null
+      ? `$${r.estimatedExposure.toLocaleString()} est. exposure`
+      : r.exposureBasis;
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9fafb"}">
+  <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6">${nameHtml}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px">${r.riskTitle}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:12px">${categoryLabel(r.category)}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:${r.daysRemaining < 0 ? "#b91c1c" : "#92400e"};font-size:12px;font-weight:600">${daysLabel(r.daysRemaining)}</td>
+  <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:12px">${exposureText}</td>
+</tr>`;
+  }).join("");
+
+  const textRows = risks.map((r, i) =>
+    `${i + 1}. ${r.studentName}\n   Risk: ${r.riskTitle}\n   Category: ${categoryLabel(r.category)}\n   Status: ${daysLabel(r.daysRemaining)}\n   ${r.estimatedExposure != null ? `Estimated exposure: $${r.estimatedExposure.toLocaleString()}` : r.exposureBasis}\n   Action: ${r.actionNeeded}`
+  ).join("\n\n");
+
+  const dashboardLink = appBaseUrl
+    ? `<p style="margin-top:20px"><a href="${appBaseUrl}/alerts" style="background:#dc2626;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">View All Alerts in Trellis →</a></p>`
+    : "";
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:700px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#7f1d1d;color:#fff;padding:20px 24px}.body{padding:24px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}table{width:100%;border-collapse:collapse;margin-top:8px}th{background:#f3f4f6;text-align:left;padding:8px 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:2px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header">
+  <h1 style="margin:0;font-size:17px">Daily Critical Risk Digest — ${digestDate}</h1>
+  <p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Compliance — ${count} item${count !== 1 ? "s" : ""} require your attention</p>
+</div>
+<div class="body">
+<p>Hi ${staffName},</p>
+<p>The following <strong>${count} critical compliance risk${count !== 1 ? "s" : ""}</strong> across your students require immediate attention today (${digestDate}):</p>
+<table>
+  <thead><tr>
+    <th>Student</th>
+    <th>Risk</th>
+    <th>Category</th>
+    <th>Status</th>
+    <th>Exposure / Basis</th>
+  </tr></thead>
+  <tbody>${riskRows}</tbody>
+</table>
+${dashboardLink}
+<p style="margin-top:16px;font-size:12px;color:#6b7280">This digest replaces individual alerts. You will receive one digest per day when multiple critical risks are active for your students.</p>
+</div>
+<div class="footer"><p>Sent by Trellis SPED Compliance Platform. Manage alert preferences in Trellis Settings.</p></div>
+</div></body></html>`;
+
+  const text = `DAILY CRITICAL RISK DIGEST — ${digestDate}\n\nHi ${staffName},\n\n${count} critical compliance risk${count !== 1 ? "s" : ""} require your attention:\n\n${textRows}\n\nLog in to Trellis to take action. This digest replaces individual per-alert emails.\n\nTrellis SPED Compliance Platform`;
 
   return { subject, html, text };
 }

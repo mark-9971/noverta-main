@@ -16,7 +16,7 @@ import {
   communicationEventsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, inArray, ne, desc } from "drizzle-orm";
-import { sendEmail, buildCostAvoidanceRiskEmail } from "./email";
+import { sendEmail, buildCostAvoidanceRiskEmail, buildCostAvoidanceDigestEmail, DigestRiskItem } from "./email";
 
 type UrgencyWindow = "overdue" | "7" | "14" | "30";
 
@@ -78,6 +78,12 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   const today = new Date().toISOString().slice(0, 10);
   const horizon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  // Fetch district-level digest mode setting
+  const [districtRow] = await db.select({ alertDigestMode: districtsTable.alertDigestMode })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId));
+  const districtDigestMode = districtRow?.alertDigestMode ?? false;
+
   const activeStudents = await db.select({
     id: studentsTable.id,
     firstName: studentsTable.firstName,
@@ -124,15 +130,18 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
 
   // Rate-limit: fetch communication events for cost avoidance risk emails sent
   // in the last 7 days so we can avoid flooding the same staff member.
+  // We query both individual alert events and digest events so that risks
+  // delivered via digest are correctly suppressed on subsequent runs.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   // Only count successfully accepted/delivered emails toward the rate limit.
   // Failed or not_configured events should not suppress retry emails.
   const recentEmailEvents = await db.select({
+    type: communicationEventsTable.type,
     metadata: communicationEventsTable.metadata,
   })
     .from(communicationEventsTable)
     .where(and(
-      eq(communicationEventsTable.type, "cost_avoidance_risk_alert"),
+      inArray(communicationEventsTable.type, ["cost_avoidance_risk_alert", "cost_avoidance_digest"]),
       gte(communicationEventsTable.createdAt, sevenDaysAgo),
       inArray(communicationEventsTable.status, ["accepted", "delivered", "sent"]),
     ));
@@ -140,18 +149,35 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   const recentlyEmailedBaseKeys = new Set<string>();
   for (const ev of recentEmailEvents) {
     const meta = ev.metadata as Record<string, unknown> | null;
-    if (meta?.riskBaseKey && typeof meta.riskBaseKey === "string") {
-      recentlyEmailedBaseKeys.add(meta.riskBaseKey);
+    if (!meta) continue;
+    if (ev.type === "cost_avoidance_risk_alert") {
+      // Individual alert events store a single riskBaseKey string
+      if (typeof meta.riskBaseKey === "string") {
+        recentlyEmailedBaseKeys.add(meta.riskBaseKey);
+      }
+    } else if (ev.type === "cost_avoidance_digest") {
+      // Digest events store an array of riskBaseKeys covering all batched risks
+      if (Array.isArray(meta.riskBaseKeys)) {
+        for (const key of meta.riskBaseKeys) {
+          if (typeof key === "string") recentlyEmailedBaseKeys.add(key);
+        }
+      }
     }
   }
 
   // Collect staff info for email lookup
-  const staffEmailCache = new Map<number, { name: string; email: string | null; receiveRiskAlerts: boolean }>();
+  const staffEmailCache = new Map<number, { name: string; email: string | null; receiveRiskAlerts: boolean; alertDigestMode: boolean | null }>();
 
   const rawBaseUrl =
     process.env.APP_BASE_URL ??
     (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
   const appBaseUrl = rawBaseUrl ? rawBaseUrl.replace(/\/+$/, "") : null;
+
+  // Pending digest risks keyed by staffId — collected during the main loop and
+  // flushed into a single digest email per staff member after the loop.
+  // riskBaseKey is stored alongside each item so we can mark it claimed only
+  // after a successful send (and use it for individual fallback if needed).
+  const pendingDigestRisks = new Map<number, { risks: DigestRiskItem[]; riskBaseKeys: string[]; alertIds: (number | undefined)[] }>();
 
   let created = 0;
   let skipped = 0;
@@ -195,12 +221,14 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
         lastName: staffTable.lastName,
         email: staffTable.email,
         receiveRiskAlerts: staffTable.receiveRiskAlerts,
+        alertDigestMode: staffTable.alertDigestMode,
       }).from(staffTable).where(eq(staffTable.id, risk.staffId));
       if (staffRow) {
         staffEmailCache.set(risk.staffId, {
           name: `${staffRow.firstName} ${staffRow.lastName}`,
           email: staffRow.email,
           receiveRiskAlerts: staffRow.receiveRiskAlerts,
+          alertDigestMode: staffRow.alertDigestMode,
         });
       }
     }
@@ -210,39 +238,181 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
     // Respect the staff member's opt-out preference
     if (staffInfo.receiveRiskAlerts === false) continue;
 
-    const { subject, html, text } = buildCostAvoidanceRiskEmail({
-      staffName: staffInfo.name,
-      studentName: risk.studentName,
-      studentId: risk.studentId,
-      riskTitle: risk.title,
-      riskDescription: risk.exposureBasis,
-      daysRemaining: risk.daysRemaining,
-      estimatedExposure: risk.estimatedExposure,
-      exposureBasis: risk.exposureBasis,
-      actionNeeded: risk.actionNeeded,
-      category: risk.category,
-      appBaseUrl: appBaseUrl ?? undefined,
-    });
+    // Effective digest mode: staff-level override takes precedence over district default
+    const effectiveDigestMode = staffInfo.alertDigestMode ?? districtDigestMode;
 
-    const emailResult = await sendEmail({
-      studentId: risk.studentId,
-      type: "cost_avoidance_risk_alert",
-      subject,
-      bodyHtml: html,
-      bodyText: text,
-      toEmail: staffInfo.email,
-      toName: staffInfo.name,
-      staffId: risk.staffId,
-      linkedAlertId: inserted?.id,
-      metadata: { riskBaseKey, dedupeKey: risk.dedupeKey, category: risk.category },
-    });
+    if (effectiveDigestMode) {
+      // Digest mode: collect this risk to send in a single batched email.
+      // We do NOT mark the base key claimed here — that happens only after a
+      // successful digest send (or individual fallback) in the flush phase,
+      // so a failed or skipped digest never silently drops an alert.
+      const digestItem: DigestRiskItem = {
+        studentName: risk.studentName,
+        studentId: risk.studentId,
+        riskTitle: risk.title,
+        category: risk.category,
+        daysRemaining: risk.daysRemaining,
+        estimatedExposure: risk.estimatedExposure,
+        exposureBasis: risk.exposureBasis,
+        actionNeeded: risk.actionNeeded,
+      };
+      const existing = pendingDigestRisks.get(risk.staffId);
+      if (existing) {
+        existing.risks.push(digestItem);
+        existing.riskBaseKeys.push(riskBaseKey);
+        existing.alertIds.push(inserted?.id);
+      } else {
+        pendingDigestRisks.set(risk.staffId, { risks: [digestItem], riskBaseKeys: [riskBaseKey], alertIds: [inserted?.id] });
+      }
+    } else {
+      // Individual mode: send a separate email per critical risk (existing behavior)
+      const { subject, html, text } = buildCostAvoidanceRiskEmail({
+        staffName: staffInfo.name,
+        studentName: risk.studentName,
+        studentId: risk.studentId,
+        riskTitle: risk.title,
+        riskDescription: risk.exposureBasis,
+        daysRemaining: risk.daysRemaining,
+        estimatedExposure: risk.estimatedExposure,
+        exposureBasis: risk.exposureBasis,
+        actionNeeded: risk.actionNeeded,
+        category: risk.category,
+        appBaseUrl: appBaseUrl ?? undefined,
+      });
 
-    // Only suppress future emails for this risk if the provider accepted the send.
-    // A failed or not_configured result leaves the base key unclaimed so the
-    // next alert generation run can retry delivery.
-    if (emailResult.success) {
-      recentlyEmailedBaseKeys.add(riskBaseKey);
-      emailsSent++;
+      const emailResult = await sendEmail({
+        studentId: risk.studentId,
+        type: "cost_avoidance_risk_alert",
+        subject,
+        bodyHtml: html,
+        bodyText: text,
+        toEmail: staffInfo.email,
+        toName: staffInfo.name,
+        staffId: risk.staffId,
+        linkedAlertId: inserted?.id,
+        metadata: { riskBaseKey, dedupeKey: risk.dedupeKey, category: risk.category },
+      });
+
+      // Only suppress future emails for this risk if the provider accepted the send.
+      // A failed or not_configured result leaves the base key unclaimed so the
+      // next alert generation run can retry delivery.
+      if (emailResult.success) {
+        recentlyEmailedBaseKeys.add(riskBaseKey);
+        emailsSent++;
+      }
+    }
+  }
+
+  // Flush digest emails: one per staff member for all their batched critical risks
+  if (pendingDigestRisks.size > 0) {
+    const todayStart = new Date(today);
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    // Which staff already received a digest today?
+    const digestStaffIds = [...pendingDigestRisks.keys()];
+    const todayDigestEvents = await db.select({
+      staffId: communicationEventsTable.staffId,
+    }).from(communicationEventsTable).where(and(
+      eq(communicationEventsTable.type, "cost_avoidance_digest"),
+      inArray(communicationEventsTable.status, ["accepted", "delivered", "sent"]),
+      gte(communicationEventsTable.createdAt, todayStart),
+      lte(communicationEventsTable.createdAt, todayEnd),
+    ));
+    const digestStaffIdSet = new Set(digestStaffIds);
+    const alreadyDigestedToday = new Set(
+      todayDigestEvents.map(e => e.staffId).filter((id): id is number => id != null && digestStaffIdSet.has(id))
+    );
+
+    for (const [staffId, { risks: digestRisks, riskBaseKeys, alertIds }] of pendingDigestRisks) {
+      const staffInfo = staffEmailCache.get(staffId);
+      if (!staffInfo?.email) continue;
+
+      // If a digest has already been sent today, fall back to per-risk individual
+      // emails for each newly queued item (isolated spike outside digest window).
+      const sendIndividually = async () => {
+        for (let i = 0; i < digestRisks.length; i++) {
+          const r = digestRisks[i];
+          const baseKey = riskBaseKeys[i];
+          if (recentlyEmailedBaseKeys.has(baseKey)) continue;
+
+          const { subject, html, text } = buildCostAvoidanceRiskEmail({
+            staffName: staffInfo.name,
+            studentName: r.studentName,
+            studentId: r.studentId,
+            riskTitle: r.riskTitle,
+            riskDescription: r.exposureBasis,
+            daysRemaining: r.daysRemaining,
+            estimatedExposure: r.estimatedExposure,
+            exposureBasis: r.exposureBasis,
+            actionNeeded: r.actionNeeded,
+            category: r.category,
+            appBaseUrl: appBaseUrl ?? undefined,
+          });
+
+          const result = await sendEmail({
+            studentId: r.studentId,
+            type: "cost_avoidance_risk_alert",
+            subject,
+            bodyHtml: html,
+            bodyText: text,
+            toEmail: staffInfo.email!,
+            toName: staffInfo.name,
+            staffId,
+            linkedAlertId: alertIds[i],
+            metadata: { riskBaseKey: baseKey, category: r.category, digestFallback: true },
+          });
+
+          if (result.success) {
+            recentlyEmailedBaseKeys.add(baseKey);
+            emailsSent++;
+          }
+        }
+      };
+
+      if (alreadyDigestedToday.has(staffId)) {
+        // Digest already sent today — send spikes as individual emails
+        await sendIndividually();
+        continue;
+      }
+
+      const firstStudentId = digestRisks[0]?.studentId ?? 0;
+      const { subject, html, text } = buildCostAvoidanceDigestEmail({
+        staffName: staffInfo.name,
+        risks: digestRisks,
+        digestDate: today,
+        appBaseUrl: appBaseUrl ?? undefined,
+      });
+
+      const emailResult = await sendEmail({
+        studentId: firstStudentId,
+        type: "cost_avoidance_digest",
+        subject,
+        bodyHtml: html,
+        bodyText: text,
+        toEmail: staffInfo.email,
+        toName: staffInfo.name,
+        staffId,
+        metadata: {
+          digestDate: today,
+          riskCount: digestRisks.length,
+          studentIds: digestRisks.map(r => r.studentId),
+          categories: [...new Set(digestRisks.map(r => r.category))],
+          // Persist per-risk base keys so the 7-day suppression preload can
+          // recognize these risks as "recently emailed" on subsequent runs.
+          riskBaseKeys,
+        },
+      });
+
+      if (emailResult.success) {
+        // Mark all batched base keys as claimed so the 7-day deduper suppresses them
+        for (const baseKey of riskBaseKeys) {
+          recentlyEmailedBaseKeys.add(baseKey);
+        }
+        emailsSent++;
+      } else {
+        // Digest send failed — fall back to individual emails so no risk is silently dropped
+        await sendIndividually();
+      }
     }
   }
 

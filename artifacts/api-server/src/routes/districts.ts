@@ -137,6 +137,14 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
     updateData.complianceMinuteThreshold = t;
   }
 
+  if (req.body.alertDigestMode !== undefined) {
+    if (typeof req.body.alertDigestMode !== "boolean") {
+      res.status(400).json({ error: "alertDigestMode must be a boolean" });
+      return;
+    }
+    updateData.alertDigestMode = req.body.alertDigestMode;
+  }
+
   if (req.body.tier !== undefined || req.body.tierOverride !== undefined) {
     if (!meta.platformAdmin) {
       res.status(403).json({ error: "Only platform administrators can change subscription tier" });

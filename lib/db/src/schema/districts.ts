@@ -16,6 +16,7 @@ export const districtsTable = pgTable("districts", {
   isSandbox: boolean("is_sandbox").notNull().default(false),
   hasSampleData: boolean("has_sample_data").notNull().default(false),
   complianceMinuteThreshold: integer("compliance_minute_threshold").notNull().default(85),
+  alertDigestMode: boolean("alert_digest_mode").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
