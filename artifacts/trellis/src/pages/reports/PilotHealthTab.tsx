@@ -1,8 +1,10 @@
 import { useGetPilotHealthReport } from "@workspace/api-client-react";
 import type { PilotHealthMetric } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { downloadCsv } from "./utils";
 import {
   CheckCircle,
   AlertTriangle,
@@ -15,6 +17,8 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Download,
+  Printer,
 } from "lucide-react";
 
 const METRIC_ICONS: Record<string, React.ReactNode> = {
@@ -224,6 +228,37 @@ export function PilotHealthTab() {
   const onTrackCount = METRIC_ORDER.filter(k => m[k]?.onTrack).length;
   const totalMetrics = METRIC_ORDER.length;
 
+  function exportCsv() {
+    if (!data) return;
+    const headers = ["Metric", "Value", "Target", "Unit", "On Track", "Trend", "Description"];
+    const rows: string[][] = METRIC_ORDER.map(key => {
+      const metric = data.metrics[key];
+      if (!metric) return [key, "", "", "", "", "", ""];
+      return [
+        metric.label,
+        metric.unit === "percent" ? `${metric.value}%` : String(metric.value),
+        metric.unit === "percent" ? `${metric.target}%` : String(metric.target),
+        metric.unit,
+        metric.onTrack ? "Yes" : "No",
+        metric.trend ?? "",
+        metric.description ?? "",
+      ];
+    });
+    downloadCsv(
+      `pilot_health_${new Date().toISOString().split("T")[0]}.csv`,
+      headers,
+      rows,
+      { generatedAt: data.generatedAt },
+    );
+  }
+
+  const overallStatus =
+    onTrackCount === totalMetrics
+      ? "Pilot On Track"
+      : onTrackCount >= 3
+      ? "Needs Attention"
+      : "Action Required";
+
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -236,24 +271,74 @@ export function PilotHealthTab() {
             {onTrackCount} of {totalMetrics} metrics on track · Generated {new Date(data.generatedAt).toLocaleString()}
           </p>
         </div>
-        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-          onTrackCount === totalMetrics
-            ? "bg-emerald-100 text-emerald-700"
-            : onTrackCount >= 3
-            ? "bg-amber-100 text-amber-700"
-            : "bg-red-100 text-red-700"
-        }`}>
-          {onTrackCount === totalMetrics ? (
-            <><CheckCircle className="w-3.5 h-3.5" /> Pilot On Track</>
-          ) : onTrackCount >= 3 ? (
-            <><AlertTriangle className="w-3.5 h-3.5" /> Needs Attention</>
-          ) : (
-            <><XCircle className="w-3.5 h-3.5" /> Action Required</>
-          )}
+        <div className="flex items-center gap-2 flex-wrap print:hidden">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+            onTrackCount === totalMetrics
+              ? "bg-emerald-100 text-emerald-700"
+              : onTrackCount >= 3
+              ? "bg-amber-100 text-amber-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {onTrackCount === totalMetrics ? (
+              <><CheckCircle className="w-3.5 h-3.5" /> Pilot On Track</>
+            ) : onTrackCount >= 3 ? (
+              <><AlertTriangle className="w-3.5 h-3.5" /> Needs Attention</>
+            ) : (
+              <><XCircle className="w-3.5 h-3.5" /> Action Required</>
+            )}
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={exportCsv}>
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-[12px]" onClick={() => window.print()}>
+            <Printer className="w-3.5 h-3.5" /> Print / Save as PDF
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="hidden print:block mb-6">
+        <h2 className="text-xl font-bold text-gray-900 text-center">Pilot Health Dashboard</h2>
+        <p className="text-sm text-gray-500 text-center mt-1">
+          {onTrackCount} of {totalMetrics} metrics on track · {overallStatus} · Generated {new Date(data.generatedAt).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="hidden print:block mb-6">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gray-300">
+              <th className="text-left py-2 pr-4 font-semibold text-gray-700">Metric</th>
+              <th className="text-right py-2 pr-4 font-semibold text-gray-700">Value</th>
+              <th className="text-right py-2 pr-4 font-semibold text-gray-700">Target</th>
+              <th className="text-center py-2 font-semibold text-gray-700">On Track</th>
+            </tr>
+          </thead>
+          <tbody>
+            {METRIC_ORDER.map(key => {
+              const metric = m[key];
+              if (!metric) return null;
+              return (
+                <tr key={key} className="border-b border-gray-100">
+                  <td className="py-2 pr-4 text-gray-800">{metric.label}</td>
+                  <td className="py-2 pr-4 text-right font-medium text-gray-900">
+                    {metric.unit === "percent" ? `${metric.value}%` : metric.value}
+                  </td>
+                  <td className="py-2 pr-4 text-right text-gray-500">
+                    {metric.unit === "percent" ? `${metric.target}%` : metric.target}
+                  </td>
+                  <td className="py-2 text-center font-semibold">
+                    <span style={{ color: metric.onTrack ? "#059669" : "#dc2626" }}>
+                      {metric.onTrack ? "Yes" : "No"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 print:hidden">
         {METRIC_ORDER.map(key => {
           const metric = m[key];
           if (!metric) return null;
