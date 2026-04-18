@@ -73,14 +73,14 @@ export default function SchoolYearPage() {
       const [currStartYear] = preview.currentYear.startDate.split("-");
       const nextStart = parseInt(currStartYear) + 1;
       const nextEnd = nextStart + 1;
-      setNewLabel(`${nextStart}\u2013${String(nextEnd).slice(2)}`);
+      setNewLabel(`${nextStart}-${String(nextEnd).slice(2)}`);
       setNewStartDate(`${nextStart}-09-01`);
       setNewEndDate(`${nextEnd}-08-31`);
     } else {
       // Bootstrap: no year exists yet — default to current calendar year's school year
       const now = new Date();
       const schoolYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-      setNewLabel(`${schoolYearStart}\u2013${String(schoolYearStart + 1).slice(2)}`);
+      setNewLabel(`${schoolYearStart}-${String(schoolYearStart + 1).slice(2)}`);
       setNewStartDate(`${schoolYearStart}-09-01`);
       setNewEndDate(`${schoolYearStart + 1}-08-31`);
     }
@@ -310,10 +310,10 @@ export default function SchoolYearPage() {
               <Input
                 value={newLabel}
                 onChange={e => setNewLabel(e.target.value)}
-                placeholder="e.g. 2025–26"
+                placeholder="e.g. 2025-26"
                 className="text-sm"
               />
-              <p className="text-[11px] text-gray-400">Use the format "2025–26" (em dash)</p>
+              <p className="text-[11px] text-gray-400">Use the format "2025-26"</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
