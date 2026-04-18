@@ -113,3 +113,9 @@ id = "3s8YStfp_jFCyjAOVacEZ"
 uri = "file://trellis-ux-audit.txt"
 type = "text"
 title = "Trellis UX Audit"
+
+[[outputs]]
+id = "NUFQJva0D1hxYaVsrl0ga"
+uri = "file://.local/trellis-page-audit.txt"
+type = "text"
+title = "Trellis — Full Product & Page Audit"
