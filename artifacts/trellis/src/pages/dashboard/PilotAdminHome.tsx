@@ -447,6 +447,15 @@ export default function PilotAdminHome() {
                   <p className="text-xs text-gray-500 truncate mt-0.5">
                     {[s.school, s.grade && `Grade ${s.grade}`, s.service, s.providerName !== "Unassigned" && s.providerName].filter(Boolean).join(" · ")}
                   </p>
+                  <div className="md:hidden mt-1.5 flex items-center gap-2" data-testid={`mobile-progress-${s.studentId}`}>
+                    <div className="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${s.riskStatus === "out_of_compliance" ? "bg-red-500" : "bg-amber-400"}`}
+                        style={{ width: `${Math.min(100, Math.max(0, s.percentComplete))}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-600 tabular-nums">{s.percentComplete.toFixed(0)}%</span>
+                  </div>
                 </div>
                 <div className="hidden md:block text-right min-w-[72px]">
                   <div className="text-sm font-semibold text-gray-900 tabular-nums">{s.percentComplete.toFixed(0)}%</div>
