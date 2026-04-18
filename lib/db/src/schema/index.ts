@@ -111,3 +111,4 @@ export * from "./emailDeliveries";
 export * from "./viewAsSessions";
 export * from "./complianceSnapshots";
 export * from "./preferenceAssessments";
+export * from "./districtArchiveJobs";

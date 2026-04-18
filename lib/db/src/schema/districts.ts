@@ -19,6 +19,9 @@ export const districtsTable = pgTable("districts", {
   alertDigestMode: boolean("alert_digest_mode").notNull().default(false),
   defaultHourlyRate: numeric("default_hourly_rate", { precision: 10, scale: 2 }),
   caseloadThresholds: jsonb("caseload_thresholds").$type<Record<string, number>>(),
+  deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
+  deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
+  deleteInitiatedBy: text("delete_initiated_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

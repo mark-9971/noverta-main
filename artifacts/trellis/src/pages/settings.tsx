@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
@@ -14,6 +14,7 @@ const RecentlyDeletedPage = lazy(() => import("@/pages/recently-deleted"));
 const SystemStatusPage = lazy(() => import("@/pages/system-status"));
 const LegalCompliancePage = lazy(() => import("@/pages/legal-compliance"));
 const BillingRatesPage = lazy(() => import("@/pages/billing-rates"));
+const DistrictDataPage = lazy(() => import("@/pages/district-data"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
@@ -24,6 +25,7 @@ const TABS = [
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
   { key: "system-status", label: "System Status", icon: Activity },
   { key: "legal", label: "Legal & Compliance", icon: Scale },
+  { key: "data-privacy", label: "Data & Privacy", icon: HardDrive },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -153,6 +155,7 @@ export default function SettingsHubPage() {
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}
         {activeTab === "system-status" && <SystemStatusPage />}
         {activeTab === "legal" && <LegalCompliancePage />}
+        {activeTab === "data-privacy" && <DistrictDataPage />}
       </Suspense>
     </div>
   );

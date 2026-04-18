@@ -69,6 +69,7 @@ import costAvoidanceRouter from "./costAvoidance";
 import serviceForecastRouter from "./serviceForecast";
 import compensatoryFinanceRouter from "./compensatoryFinance";
 import sampleDataRouter from "./sampleData";
+import districtDataRouter from "./districtData";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
 import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
@@ -268,6 +269,7 @@ router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
 router.use(sampleDataRouter);
+router.use(districtDataRouter);
 router.use(evaluationsRouter);
 router.use(transitionsRouter);
 router.use(iepMeetingsRouter);
