@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ClipboardCheck, Timer, ListChecks, Calendar, AlertTriangle,
   Clock, DollarSign, Users, TrendingDown, ChevronDown, ChevronUp,
-  Printer, ArrowRight, CheckCircle, FileBarChart,
+  Printer, ArrowRight, CheckCircle, FileBarChart, Clipboard,
 } from "lucide-react";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -23,9 +23,11 @@ import ComplianceTimelinePage from "./compliance-timeline";
 import ComplianceTrendsPage from "./compliance-trends";
 import ComplianceRiskReportPage from "./compliance-risk-report";
 import RecommendationsPanel from "@/components/compliance/RecommendationsPanel";
+import Sessions from "./sessions";
 
 const TABS = [
   { key: "minutes", label: "Service Minutes", icon: Timer },
+  { key: "sessions", label: "Sessions", icon: Clipboard },
   { key: "checklist", label: "Checklist", icon: ListChecks },
   { key: "timeline", label: "Timeline", icon: Calendar },
   { key: "trends", label: "Trends", icon: TrendingDown },
@@ -668,6 +670,7 @@ export default function CompliancePage() {
       </div>
 
       {activeTab === "minutes" && <ServiceMinutesContent />}
+      {activeTab === "sessions" && <Sessions embedded />}
       {activeTab === "checklist" && (
         <FeatureGate featureKey={"compliance.checklist" satisfies FeatureKey}>
           <ComplianceChecklist embedded />

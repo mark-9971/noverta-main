@@ -37,7 +37,7 @@ function smartDateFrom(role: string): string {
   return role === "admin" || role === "coordinator" ? weekStartStr() : todayStr();
 }
 
-export default function Sessions() {
+export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const { teacherId, role } = useRole();
   const canRestore = role === "admin";
   const { typedFilter } = useSchoolContext();
@@ -338,12 +338,17 @@ export default function Sessions() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
+    <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6"}>
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Session Log</h1>
-          <p className="text-xs md:text-sm text-gray-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
-        </div>
+        {!embedded && (
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Session Log</h1>
+            <p className="text-xs md:text-sm text-gray-400 mt-1">{sessionList.length} sessions · Page {page + 1}</p>
+          </div>
+        )}
+        {embedded && (
+          <p className="text-xs text-gray-400">{sessionList.length} sessions · Page {page + 1}</p>
+        )}
         <div className="flex items-center gap-2 flex-shrink-0">
           <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-[13px]" onClick={() => setQuickLogOpen(true)}>
             <Zap className="w-3.5 h-3.5 mr-1.5" /> Quick Log
