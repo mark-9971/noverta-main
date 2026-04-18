@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Copy, Edit3, Trash2, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Copy, Edit3, Trash2, BookOpen, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { ProgramTemplate, PROGRAM_TYPE_LABELS, PROMPT_LABELS } from "./template-types";
 
 interface TemplatePreviewProps {
@@ -10,11 +10,12 @@ interface TemplatePreviewProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onBulkAssign?: () => void;
   cloning: boolean;
 }
 
 export function TemplatePreview({
-  template, onClose, onClone, onEdit, onDuplicate, onDelete, cloning,
+  template, onClose, onClone, onEdit, onDuplicate, onDelete, onBulkAssign, cloning,
 }: TemplatePreviewProps) {
   const [showSteps, setShowSteps] = useState(true);
   const stepsArr = (template.steps as any[]) ?? [];
@@ -111,21 +112,35 @@ export function TemplatePreview({
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 flex items-center justify-between">
-          <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={onEdit}>
-              <Edit3 className="w-3 h-3 mr-1" /> Edit
-            </Button>
-            <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={onDuplicate}>
-              <Copy className="w-3 h-3 mr-1" /> Duplicate
-            </Button>
-            <Button variant="outline" size="sm" className="text-[11px] h-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
-              <Trash2 className="w-3 h-3 mr-1" /> Delete
-            </Button>
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={onEdit}>
+                <Edit3 className="w-3 h-3 mr-1" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" className="text-[11px] h-8" onClick={onDuplicate}>
+                <Copy className="w-3 h-3 mr-1" /> Duplicate
+              </Button>
+              <Button variant="outline" size="sm" className="text-[11px] h-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
+                <Trash2 className="w-3 h-3 mr-1" /> Delete
+              </Button>
+            </div>
+            <div className="flex gap-1.5">
+              {onBulkAssign && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-8 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                  onClick={onBulkAssign}
+                >
+                  <Users className="w-3 h-3 mr-1" /> Bulk Assign
+                </Button>
+              )}
+              <Button size="sm" className="text-[12px] h-8 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onClone} disabled={cloning}>
+                <Copy className="w-3 h-3 mr-1" /> Apply to Student
+              </Button>
+            </div>
           </div>
-          <Button size="sm" className="text-[12px] h-8 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={onClone} disabled={cloning}>
-            <Copy className="w-3 h-3 mr-1" /> Apply to Student
-          </Button>
         </div>
       </div>
     </div>

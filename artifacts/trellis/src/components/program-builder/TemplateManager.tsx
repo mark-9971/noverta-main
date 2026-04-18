@@ -11,6 +11,7 @@ import { ProgramTemplate } from "./template-types";
 import { TemplateList } from "./TemplateList";
 import { TemplatePreview } from "./TemplatePreview";
 import { TemplateEditor } from "./TemplateEditor";
+import { BulkAssignModal } from "./BulkAssignModal";
 
 interface TemplateManagerProps {
   studentId: number;
@@ -27,6 +28,7 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
   const [selectedTemplate, setSelectedTemplate] = useState<ProgramTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<ProgramTemplate | null>(null);
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<ProgramTemplate | null>(null);
   const [cloning, setCloning] = useState<number | null>(null);
   const { accessible: hasPremiumTemplates, requiredTierLabel } = useFeatureAccess("clinical.premium_templates");
 
@@ -146,7 +148,16 @@ export default function TemplateManager({ studentId, onCloned, onTemplateUpdated
           onEdit={() => { setEditingTemplate(selectedTemplate); setSelectedTemplate(null); }}
           onDuplicate={() => { duplicateTemplate(selectedTemplate.id); setSelectedTemplate(null); }}
           onDelete={() => { deleteTemplate(selectedTemplate.id); }}
+          onBulkAssign={() => { setBulkAssignTarget(selectedTemplate); setSelectedTemplate(null); }}
           cloning={cloning === selectedTemplate.id}
+        />
+      )}
+
+      {bulkAssignTarget && (
+        <BulkAssignModal
+          template={bulkAssignTarget}
+          onClose={() => setBulkAssignTarget(null)}
+          onAssigned={() => { loadTemplates(); onTemplateUpdated(); }}
         />
       )}
 

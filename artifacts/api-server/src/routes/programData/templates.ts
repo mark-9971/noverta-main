@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import {
   programTargetsTable, programStepsTable, programTemplatesTable,
 } from "@workspace/db";
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -200,6 +200,214 @@ router.post("/program-templates/:id/clone-to-student", async (req, res): Promise
   } catch (e: any) {
     console.error("Clone template error:", e);
     res.status(500).json({ error: "Failed to clone template" });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * GET /program-templates/:id/assigned-students
+ * Returns the set of studentIds that currently have an active program target
+ * cloned from this template.  Used by the bulk-assign modal for pre-flight
+ * collision detection so clinicians can see which students already have
+ * the program before committing.
+ * ───────────────────────────────────────────────────────────────────────────── */
+router.get("/program-templates/:id/assigned-students", async (req, res): Promise<void> => {
+  try {
+    const templateId = parseInt(req.params.id);
+    const rows = await db
+      .select({ studentId: programTargetsTable.studentId })
+      .from(programTargetsTable)
+      .where(
+        and(
+          eq(programTargetsTable.templateId, templateId),
+          eq(programTargetsTable.active, true),
+        ),
+      );
+    res.json({ studentIds: rows.map(r => r.studentId) });
+  } catch (e: any) {
+    console.error("assigned-students error:", e);
+    res.status(500).json({ error: "Failed to fetch assigned students" });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * POST /program-templates/:id/bulk-clone
+ * Bulk-assigns a template to multiple students safely.
+ *
+ * Body:
+ *   studentIds   number[]           Required. Max 200 per call.
+ *   onDuplicate  "skip" | "reassign"  Default "skip".
+ *                  skip     — students who already have an active target from
+ *                             this template are left untouched.
+ *                  reassign — their existing active target is deactivated and
+ *                             a fresh copy is created.
+ *
+ * Response:
+ *   { total, assigned, skipped, reassigned, errors, results[] }
+ *   where each result is:
+ *     { studentId, status: "assigned"|"skipped"|"reassigned"|"error", message?, targetId?, existingTargetId? }
+ * ───────────────────────────────────────────────────────────────────────────── */
+router.post("/program-templates/:id/bulk-clone", async (req, res): Promise<void> => {
+  try {
+    const templateId = parseInt(req.params.id);
+    const { studentIds, onDuplicate = "skip" } = req.body as {
+      studentIds: unknown;
+      onDuplicate?: string;
+    };
+
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      res.status(400).json({ error: "studentIds (non-empty array) is required" });
+      return;
+    }
+    if (studentIds.length > 200) {
+      res.status(400).json({ error: "Maximum 200 students per bulk operation" });
+      return;
+    }
+    if (onDuplicate !== "skip" && onDuplicate !== "reassign") {
+      res.status(400).json({ error: "onDuplicate must be 'skip' or 'reassign'" });
+      return;
+    }
+
+    const [template] = await db
+      .select()
+      .from(programTemplatesTable)
+      .where(eq(programTemplatesTable.id, templateId));
+    if (!template) { res.status(404).json({ error: "Template not found" }); return; }
+
+    // Pre-fetch all existing active assignments for this template in a single
+    // query rather than N individual queries.
+    const normalizedIds = studentIds
+      .map(id => Number(id))
+      .filter(id => Number.isInteger(id) && id > 0);
+
+    const existingMap = new Map<number, number>(); // studentId → targetId
+    if (normalizedIds.length > 0) {
+      const existing = await db
+        .select({ studentId: programTargetsTable.studentId, id: programTargetsTable.id })
+        .from(programTargetsTable)
+        .where(
+          and(
+            inArray(programTargetsTable.studentId, normalizedIds),
+            eq(programTargetsTable.templateId, templateId),
+            eq(programTargetsTable.active, true),
+          ),
+        );
+      for (const row of existing) existingMap.set(row.studentId, row.id);
+    }
+
+    type AssignResult = {
+      studentId: number;
+      status: "assigned" | "skipped" | "reassigned" | "error";
+      message?: string;
+      targetId?: number;
+      existingTargetId?: number;
+    };
+
+    const results: AssignResult[] = [];
+    let assignedCount = 0;
+    let skippedCount = 0;
+    let reassignedCount = 0;
+    let errorCount = 0;
+
+    const stepsData = (template.steps as Array<Record<string, unknown>>) ?? [];
+
+    for (const rawId of studentIds) {
+      const studentId = Number(rawId);
+      if (!Number.isInteger(studentId) || studentId <= 0) {
+        results.push({ studentId: studentId || 0, status: "error", message: "Invalid student ID" });
+        errorCount++;
+        continue;
+      }
+
+      const existingTargetId = existingMap.get(studentId);
+
+      if (existingTargetId !== undefined) {
+        if (onDuplicate === "skip") {
+          results.push({ studentId, status: "skipped", message: "Already has this program", existingTargetId });
+          skippedCount++;
+          continue;
+        }
+        // onDuplicate === "reassign": deactivate the existing target first
+        try {
+          await db
+            .update(programTargetsTable)
+            .set({ active: false })
+            .where(eq(programTargetsTable.id, existingTargetId));
+        } catch {
+          results.push({ studentId, status: "error", message: "Failed to deactivate existing program" });
+          errorCount++;
+          continue;
+        }
+      }
+
+      try {
+        const target = await db.transaction(async (tx) => {
+          const [t] = await tx.insert(programTargetsTable).values({
+            studentId,
+            name: template.name,
+            description: template.description,
+            programType: template.programType,
+            domain: template.domain,
+            templateId: template.id,
+            promptHierarchy: template.promptHierarchy as string[],
+            currentPromptLevel: "verbal",
+            autoProgressEnabled: true,
+            masteryCriterionPercent: template.defaultMasteryPercent ?? 80,
+            masteryCriterionSessions: template.defaultMasterySessions ?? 3,
+            regressionThreshold: template.defaultRegressionThreshold ?? 50,
+            regressionSessions: 2,
+            reinforcementSchedule: template.defaultReinforcementSchedule || "continuous",
+            reinforcementType: template.defaultReinforcementType,
+            tutorInstructions: template.tutorInstructions,
+            targetCriterion: `${template.defaultMasteryPercent ?? 80}% across ${template.defaultMasterySessions ?? 3} sessions`,
+          }).returning();
+
+          for (let i = 0; i < stepsData.length; i++) {
+            const s = stepsData[i];
+            await tx.insert(programStepsTable).values({
+              programTargetId: t.id,
+              stepNumber: i + 1,
+              name: String(s.name ?? ""),
+              sdInstruction: s.sdInstruction ? String(s.sdInstruction) : null,
+              targetResponse: s.targetResponse ? String(s.targetResponse) : null,
+              materials: s.materials ? String(s.materials) : null,
+              promptStrategy: s.promptStrategy ? String(s.promptStrategy) : null,
+              errorCorrection: s.errorCorrection ? String(s.errorCorrection) : null,
+            });
+          }
+
+          return t;
+        });
+
+        const isReassign = existingTargetId !== undefined;
+        results.push({ studentId, status: isReassign ? "reassigned" : "assigned", targetId: target.id });
+        if (isReassign) reassignedCount++; else assignedCount++;
+      } catch (e) {
+        console.error(`bulk-clone student ${studentId} error:`, e);
+        results.push({ studentId, status: "error", message: "Failed to assign program" });
+        errorCount++;
+      }
+    }
+
+    const successCount = assignedCount + reassignedCount;
+    if (successCount > 0) {
+      await db
+        .update(programTemplatesTable)
+        .set({ usageCount: sql`${programTemplatesTable.usageCount} + ${successCount}` })
+        .where(eq(programTemplatesTable.id, templateId));
+    }
+
+    res.status(200).json({
+      templateId,
+      total: studentIds.length,
+      assigned: assignedCount,
+      skipped: skippedCount,
+      reassigned: reassignedCount,
+      errors: errorCount,
+      results,
+    });
+  } catch (e: any) {
+    console.error("Bulk clone error:", e);
+    res.status(500).json({ error: "Failed to bulk assign template" });
   }
 });
 
