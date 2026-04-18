@@ -11,8 +11,13 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, desc, sql, inArray, gt, isNull, isNotNull, or, count } from "drizzle-orm";
 import { runComplianceChecks } from "../lib/complianceEngine";
+import { runComplianceBreachAlerts, runDistrictBreachAlerts } from "../lib/complianceBreachAlerts";
+import { districtsTable } from "@workspace/db";
+import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { assertAlertInCallerDistrict, filterAlertIdsInCallerDistrict } from "../lib/districtScope";
+
+const requireBreachAdmin = requireRoles("admin", "coordinator");
 
 const router: IRouter = Router();
 
@@ -186,12 +191,65 @@ router.patch("/alerts/:id/snooze", async (req, res): Promise<void> => {
   res.json(alertToJson(alert));
 });
 
-router.post("/alerts/run-checks", async (req, res): Promise<void> => {
+// Scoped helper: only platform admins (no enforced district) get to scan all
+// districts. District-scoped admins/coordinators are limited to their own
+// district so a single tenant cannot trigger emails for other districts.
+async function runBreachScanForCaller(
+  req: AuthedRequest,
+): Promise<{
+  districtsScanned: number;
+  restraintAlertsCreated: number;
+  iepAlertsCreated: number;
+  emailsSent: number;
+  emailsSkippedNoRecipient: number;
+}> {
+  const callerDistrictId = getEnforcedDistrictId(req);
+  if (callerDistrictId == null) {
+    return runComplianceBreachAlerts();
+  }
+  const [district] = await db
+    .select({ id: districtsTable.id, name: districtsTable.name })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, callerDistrictId));
+  if (!district) {
+    return {
+      districtsScanned: 0,
+      restraintAlertsCreated: 0,
+      iepAlertsCreated: 0,
+      emailsSent: 0,
+      emailsSkippedNoRecipient: 0,
+    };
+  }
+  const r = await runDistrictBreachAlerts(district.id, district.name);
+  return { districtsScanned: 1, ...r };
+}
+
+router.post("/alerts/run-checks", requireBreachAdmin, async (req, res): Promise<void> => {
   const result = await runComplianceChecks();
+  const breachResult = await runBreachScanForCaller(req as AuthedRequest);
   res.json({
     newAlerts: result.newAlerts,
     resolvedAlerts: result.resolvedAlerts,
-    message: `Compliance check complete. Created ${result.newAlerts} new alerts, resolved ${result.resolvedAlerts} old alerts.`,
+    restraintBreachAlerts: breachResult.restraintAlertsCreated,
+    iepTimelineBreachAlerts: breachResult.iepAlertsCreated,
+    breachAlertEmailsSent: breachResult.emailsSent,
+    message:
+      `Compliance check complete. Created ${result.newAlerts} new alerts, resolved ${result.resolvedAlerts} old alerts. ` +
+      `Compliance breach scan: ${breachResult.restraintAlertsCreated} restraint, ${breachResult.iepAlertsCreated} IEP timeline alerts created; ${breachResult.emailsSent} emails sent.`,
+  });
+});
+
+router.post("/alerts/run-compliance-breach-checks", requireBreachAdmin, async (req, res): Promise<void> => {
+  const result = await runBreachScanForCaller(req as AuthedRequest);
+  res.json({
+    ...result,
+    message:
+      `Compliance breach scan complete across ${result.districtsScanned} district(s): ` +
+      `${result.restraintAlertsCreated} restraint alerts, ${result.iepAlertsCreated} IEP timeline alerts, ` +
+      `${result.emailsSent} emails sent` +
+      (result.emailsSkippedNoRecipient > 0
+        ? ` (${result.emailsSkippedNoRecipient} skipped — no admin on file).`
+        : "."),
   });
 });
 

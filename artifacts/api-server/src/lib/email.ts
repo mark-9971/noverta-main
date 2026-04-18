@@ -85,6 +85,8 @@ export type EmailType =
   | "progress_report"
   | "cost_avoidance_risk_alert"
   | "cost_avoidance_digest"
+  | "restraint_compliance_alert"
+  | "iep_timeline_compliance_alert"
   | "general";
 
 export interface SendEmailParams {
