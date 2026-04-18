@@ -11,6 +11,8 @@ import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { requirePlatformAdmin, getEnforcedDistrictId, requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { buildWeeklyRiskDigestPreviewForDistrict } from "../lib/costAvoidanceWeeklyDigest";
+import { sendAdminEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -445,6 +447,113 @@ router.patch("/districts/:id/notification-preferences", requireRoles("admin"), a
   } catch (err) {
     console.error("[districts] PATCH notification-preferences error:", err);
     res.status(500).json({ error: "Failed to update notification preferences" });
+  }
+});
+
+/**
+ * GET /districts/:id/weekly-risk-digest-preview
+ * Returns the rendered weekly risk digest email so admins can see what staff will receive.
+ * Default response is HTML (suitable for iframe). Pass ?format=json for {subject, html, text}.
+ */
+router.get("/districts/:id/weekly-risk-digest-preview", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id as string, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  try {
+    const result = await buildWeeklyRiskDigestPreviewForDistrict(districtId);
+    if (!result.ok) {
+      res.status(404).json({ error: result.error });
+      return;
+    }
+    const format = (req.query.format as string | undefined)?.toLowerCase();
+    if (format === "json") {
+      res.json({
+        subject: result.subject,
+        html: result.html,
+        text: result.text,
+        sample: result.sample,
+      });
+      return;
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.send(result.html);
+  } catch (err) {
+    console.error("[districts] GET weekly-risk-digest-preview error:", err);
+    res.status(500).json({ error: "Failed to build digest preview" });
+  }
+});
+
+/**
+ * POST /districts/:id/weekly-risk-digest-preview/send-test
+ * Sends a one-off copy of the current weekly risk digest to the calling admin's email.
+ * Does not affect the regular weekly send schedule or idempotency tracking.
+ */
+router.post("/districts/:id/weekly-risk-digest-preview/send-test", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id as string, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const meta = getPublicMeta(req);
+  if (!meta.staffId) {
+    res.status(400).json({ error: "Caller has no linked staff record; cannot determine email." });
+    return;
+  }
+
+  try {
+    const [staffRow] = await db
+      .select({ email: staffTable.email })
+      .from(staffTable)
+      .where(eq(staffTable.id, meta.staffId))
+      .limit(1);
+
+    const recipient = staffRow?.email;
+    if (!recipient) {
+      res.status(400).json({ error: "No email address on file for the calling admin." });
+      return;
+    }
+
+    const preview = await buildWeeklyRiskDigestPreviewForDistrict(districtId);
+    if (!preview.ok) {
+      res.status(404).json({ error: preview.error });
+      return;
+    }
+
+    const testSubject = `[TEST] ${preview.subject}`;
+    const result = await sendAdminEmail({
+      to: [recipient],
+      subject: testSubject,
+      html: preview.html,
+      text: preview.text,
+      notificationType: "WeeklyRiskDigestTest",
+    });
+
+    if (result.notConfigured) {
+      res.status(200).json({
+        sent: false,
+        notConfigured: true,
+        recipient,
+        message: "Email provider not configured — would have sent test email.",
+      });
+      return;
+    }
+    if (!result.success) {
+      res.status(502).json({ sent: false, recipient, error: result.error ?? "send failed" });
+      return;
+    }
+    res.json({ sent: true, recipient, sample: preview.sample });
+  } catch (err) {
+    console.error("[districts] POST weekly-risk-digest-preview/send-test error:", err);
+    res.status(500).json({ error: "Failed to send test digest email" });
   }
 });
 

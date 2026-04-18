@@ -168,7 +168,7 @@ function severityColor(severity: string): string {
   return "#ca8a04";
 }
 
-function buildWeeklyRiskDigestEmail(opts: {
+export function buildWeeklyRiskDigestEmail(opts: {
   districtName: string;
   weekLabel: string;
   currentExposure: number;
@@ -305,6 +305,61 @@ function buildWeeklyRiskDigestEmail(opts: {
   ].join("\n");
 
   return { subject, html, text };
+}
+
+export async function buildWeeklyRiskDigestPreviewForDistrict(districtId: number): Promise<
+  | { ok: true; subject: string; html: string; text: string; sample: boolean }
+  | { ok: false; error: string }
+> {
+  const districtResult = await pool.query<{ id: number; name: string }>(
+    "SELECT id, name FROM districts WHERE id = $1 LIMIT 1",
+    [districtId],
+  );
+  const district = districtResult.rows[0];
+  if (!district) return { ok: false, error: "district not found" };
+
+  const { current, prior } = await fetchCurrentAndPriorSnapshot(districtId);
+  const topRisks = await fetchTopRisksForDistrict(districtId, 3);
+
+  let weekLabel: string;
+  let currentExposure: number;
+  let priorExposure: number | null;
+  let totalRisks: number;
+  let criticalCount: number;
+  let highCount: number;
+  let sample = false;
+
+  if (current) {
+    const weekStart = new Date(current.weekStart);
+    weekLabel = `Week of ${weekStart.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
+    currentExposure = current.totalExposure;
+    priorExposure = prior?.totalExposure ?? null;
+    totalRisks = current.totalRisks;
+    criticalCount = current.criticalCount;
+    highCount = current.highCount;
+  } else {
+    sample = true;
+    const today = new Date();
+    weekLabel = `Week of ${today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} (sample preview — no snapshot yet)`;
+    currentExposure = 0;
+    priorExposure = null;
+    totalRisks = 0;
+    criticalCount = 0;
+    highCount = 0;
+  }
+
+  const { subject, html, text } = buildWeeklyRiskDigestEmail({
+    districtName: district.name,
+    weekLabel,
+    currentExposure,
+    priorExposure,
+    totalRisks,
+    criticalCount,
+    highCount,
+    topRisks,
+  });
+
+  return { ok: true, subject, html, text, sample };
 }
 
 export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promise<{
