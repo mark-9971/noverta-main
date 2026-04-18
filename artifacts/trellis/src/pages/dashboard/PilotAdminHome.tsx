@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
   Users, Info, ListChecks,
-  TrendingUp, TrendingDown, Minus, Compass, FileBarChart,
+  TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Clock,
 } from "lucide-react";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
@@ -26,7 +26,7 @@ import {
 import { getGreeting, formatLastUpdated } from "./types";
 
 interface ComplianceRiskReport {
-  meta: { districtName: string; reportPeriod: string };
+  meta: { districtName: string; reportPeriod: string; generatedAt?: string };
   summary: {
     totalStudents: number;
     overallComplianceRate: number;
@@ -87,6 +87,34 @@ function fmtMoney(n: number): string {
   if (!n) return "$0";
   if (n >= 1000) return `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
   return `$${Math.round(n).toLocaleString()}`;
+}
+
+function formatSyncAge(isoStr: string): string {
+  const diffMs = Date.now() - new Date(isoStr).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 6) return `${diffHr} hr ago`;
+  return new Date(isoStr).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function LastSyncedLabel({ isoStr }: { isoStr: string }) {
+  const [label, setLabel] = useState(() => formatSyncAge(isoStr));
+
+  useEffect(() => {
+    setLabel(formatSyncAge(isoStr));
+    const timer = setInterval(() => setLabel(formatSyncAge(isoStr)), 30_000);
+    return () => clearInterval(timer);
+  }, [isoStr]);
+
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 mt-1.5">
+      <Clock className="w-3 h-3 flex-shrink-0" />
+      Updated {label}
+    </span>
+  );
 }
 
 export default function PilotAdminHome() {
@@ -311,6 +339,11 @@ export default function PilotAdminHome() {
               <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
               {hasData ? band.label : "Awaiting data"}
             </div>
+            {risk?.meta?.generatedAt && (
+              <div>
+                <LastSyncedLabel isoStr={risk.meta.generatedAt} />
+              </div>
+            )}
             <p className="mt-3 text-sm text-gray-600 max-w-xl">
               {hasData
                 ? band.line
