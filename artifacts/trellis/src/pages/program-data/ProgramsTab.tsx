@@ -7,6 +7,7 @@ import {
 import {
   ProgramTarget, TrendPoint, Student, COLORS, PROMPT_LABELS, PHASE_CONFIG, ProgramPhase,
 } from "./constants";
+import { ProgramTargetChart } from "./ProgramTargetChart";
 
 interface Props {
   student: Student | undefined;
@@ -54,15 +55,32 @@ export default function ProgramsTab({
                 <Tooltip labelFormatter={d => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                   formatter={(v: any) => [`${v}%`, undefined]} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <ReferenceLine y={80} stroke="#10b981" strokeDasharray="5 5" strokeOpacity={0.5} label={{ value: "Mastery", position: "right", fontSize: 10, fill: "#10b981" }} />
-                {uniqueProgramNames.map((name, i) => (
-                  <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]}
-                    strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
-                ))}
+                {uniqueProgramNames.map((name, i) => {
+                  const pt = programTargets.find(p => p.name === name);
+                  const crit = pt?.masteryCriterionPercent ?? 80;
+                  const color = COLORS[i % COLORS.length];
+                  return [
+                    <Line key={name} type="monotone" dataKey={name} stroke={color}
+                      strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />,
+                    <ReferenceLine
+                      key={`mastery-${name}`}
+                      y={crit}
+                      stroke={color}
+                      strokeDasharray="5 5"
+                      strokeOpacity={0.35}
+                      label={{ value: `${crit}%`, position: "right", fontSize: 9, fill: color }}
+                    />,
+                  ];
+                })}
               </LineChart>
             </ResponsiveContainer>
           ) : (
             <div className="py-12 text-center text-gray-400 text-sm">No program data yet.</div>
+          )}
+          {programTargets.length > 0 && (
+            <p className="text-[9px] text-gray-400 text-center mt-1">
+              Dashed horizontal lines = mastery criterion per program. Open individual cards for lifecycle-aware charts.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -161,6 +179,8 @@ export default function ProgramsTab({
                     </button>
                   </div>
                 </div>
+
+                <ProgramTargetChart target={pt} trends={programTrends} />
               </CardContent>
             </Card>
           );
