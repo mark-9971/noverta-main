@@ -13,6 +13,10 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, inArray, ne } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  ensureWeeklyDigestColumn,
+  sendWeeklyRiskDigestsForAllDistricts,
+} from "./costAvoidanceWeeklyDigest";
 
 async function ensureCostAvoidanceSnapshotsTable(): Promise<void> {
   try {
@@ -300,6 +304,11 @@ export async function captureSnapshotsForAllDistricts(): Promise<void> {
     }
   }
   logger.info({ count: districts.length }, "Cost avoidance snapshots captured for all districts");
+
+  // Send weekly digest emails to district admins after snapshots are fresh.
+  sendWeeklyRiskDigestsForAllDistricts().catch((err) =>
+    logger.warn({ err }, "Weekly risk digest run failed (non-fatal)"),
+  );
 }
 
 let snapshotTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -329,6 +338,7 @@ export function startCostAvoidanceSnapshotScheduler(): void {
   if (snapshotTimeout) return;
 
   ensureCostAvoidanceSnapshotsTable()
+    .then(() => ensureWeeklyDigestColumn())
     .then(() => captureSnapshotsForAllDistricts())
     .catch((err) =>
       logger.warn({ err }, "Initial cost avoidance snapshot run failed (non-fatal)")

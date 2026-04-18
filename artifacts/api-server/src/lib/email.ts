@@ -260,6 +260,64 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   return { success: false, status: "failed", communicationEventId: pending.id, error: `Delivery failed after ${MAX_RETRIES + 1} attempts: ${lastError}` };
 }
 
+export interface SendAdminEmailParams {
+  /** One or more recipient email addresses. */
+  to: string[];
+  subject: string;
+  html: string;
+  text?: string;
+  /** Optional tag used in log lines to identify the notification type. */
+  notificationType?: string;
+}
+
+export interface SendAdminEmailResult {
+  success: boolean;
+  /** True when RESEND_API_KEY is absent — email was intentionally skipped. */
+  notConfigured?: boolean;
+  error?: string;
+}
+
+/**
+ * Send an operational admin email (e.g. weekly digest) to one or more recipients.
+ *
+ * This function reuses the shared Resend client, retry logic, and transient-error
+ * detection from sendEmail but does NOT write a communication_events row — admin
+ * digest emails are operational, not student-record events (same policy as billingEmail.ts).
+ */
+export async function sendAdminEmail(params: SendAdminEmailParams): Promise<SendAdminEmailResult> {
+  const { to, subject, html, text, notificationType = "admin_email" } = params;
+
+  const resend = getResendClient();
+  if (!resend) {
+    console.log(`[${notificationType}] RESEND_API_KEY not configured — would send to ${to.join(", ")}`);
+    return { success: false, notConfigured: true };
+  }
+
+  let lastError = "";
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await sleep(RETRY_DELAY_MS[attempt - 1] ?? 1200);
+    }
+    try {
+      const result = await resend.emails.send({ from: FROM_EMAIL, to, subject, html, text });
+      if (result.error) {
+        const errMsg = result.error.message ?? "Resend API error";
+        if (attempt < MAX_RETRIES && isTransientError(errMsg)) { lastError = errMsg; continue; }
+        console.error(`[${notificationType}] Send failed (attempt ${attempt + 1}):`, errMsg);
+        return { success: false, error: errMsg };
+      }
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < MAX_RETRIES && isTransientError(msg)) { lastError = msg; continue; }
+      console.error(`[${notificationType}] Send threw (attempt ${attempt + 1}):`, msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  return { success: false, error: `Max retries exceeded: ${lastError}` };
+}
+
 export function buildIncidentNotificationEmail(opts: {
   studentName: string;
   guardianName: string;

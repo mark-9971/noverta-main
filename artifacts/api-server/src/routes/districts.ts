@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   districtsTable, schoolsTable, studentsTable, staffTable,
   alertsTable, sessionLogsTable, serviceRequirementsTable,
@@ -10,7 +10,7 @@ import { getPublicMeta } from "../lib/clerkClaims";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { computeAllActiveMinuteProgress } from "../lib/minuteCalc";
 import { requireTierAccess } from "../middlewares/tierGate";
-import { requirePlatformAdmin, getEnforcedDistrictId, type AuthedRequest } from "../middlewares/auth";
+import { requirePlatformAdmin, getEnforcedDistrictId, requireRoles, type AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -339,6 +339,64 @@ router.get("/district-overview", requireTierAccess("district.overview"), async (
     complianceSummary: { onTrack: totalOnTrack, atRisk: totalAtRisk, outOfCompliance: totalOoc, total: totalCompliance },
     alertsSummary: { total: totalAlerts, critical: totalCritical },
   });
+});
+
+/**
+ * GET /districts/:id/notification-preferences
+ * Returns the notification preferences for a district (admin only).
+ */
+router.get("/districts/:id/notification-preferences", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  try {
+    const result = await db.execute(
+      sql`SELECT weekly_risk_email_enabled FROM districts WHERE id = ${districtId} LIMIT 1`,
+    );
+    const row = result.rows[0] as { weekly_risk_email_enabled: boolean } | undefined;
+    if (!row) { res.status(404).json({ error: "District not found" }); return; }
+    res.json({ weeklyRiskEmailEnabled: row.weekly_risk_email_enabled ?? true });
+  } catch (err) {
+    console.error("[districts] GET notification-preferences error:", err);
+    res.status(500).json({ error: "Failed to fetch notification preferences" });
+  }
+});
+
+/**
+ * PATCH /districts/:id/notification-preferences
+ * Toggle the weekly risk email digest for a district.
+ * Body: { weeklyRiskEmailEnabled: boolean }
+ */
+router.patch("/districts/:id/notification-preferences", requireRoles("admin"), async (req, res): Promise<void> => {
+  const districtId = parseInt(req.params.id, 10);
+  if (isNaN(districtId)) { res.status(400).json({ error: "Invalid district id" }); return; }
+
+  const enforcedId = getEnforcedDistrictId(req as AuthedRequest);
+  if (enforcedId !== null && enforcedId !== districtId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const { weeklyRiskEmailEnabled } = req.body ?? {};
+  if (typeof weeklyRiskEmailEnabled !== "boolean") {
+    res.status(400).json({ error: "weeklyRiskEmailEnabled must be a boolean" }); return;
+  }
+
+  try {
+    const updated = await pool.query<{ id: number }>(
+      "UPDATE districts SET weekly_risk_email_enabled = $1 WHERE id = $2 RETURNING id",
+      [weeklyRiskEmailEnabled, districtId],
+    );
+    if (updated.rowCount === 0) { res.status(404).json({ error: "District not found" }); return; }
+    res.json({ success: true, weeklyRiskEmailEnabled });
+  } catch (err) {
+    console.error("[districts] PATCH notification-preferences error:", err);
+    res.status(500).json({ error: "Failed to update notification preferences" });
+  }
 });
 
 export default router;
