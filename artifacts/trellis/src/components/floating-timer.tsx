@@ -124,6 +124,13 @@ export function FloatingTimer() {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const selectedStudentIdRef = useRef<number | null>(null);
 
+  const activeTimersRef = useRef(timers);
+  activeTimersRef.current = timers;
+  const showStartRef = useRef(showStart);
+  showStartRef.current = showStart;
+  const handleStopRef = useRef<(timer: TimerEntry) => void>(() => {});
+  const openStartFlowRef = useRef<() => void>(() => {});
+
   const [liveEntries, setLiveEntries] = useState<Map<number, CollectedGoalEntry>>(() => new Map());
   const liveEntriesTimerIdRef = useRef<string | null>(null);
 
@@ -203,6 +210,23 @@ export function FloatingTimer() {
     loadData();
     setTimeout(() => searchRef.current?.focus(), 100);
   }, [loadData]);
+  openStartFlowRef.current = openStartFlow;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        const activeTimers = activeTimersRef.current;
+        if (activeTimers.length === 1) {
+          handleStopRef.current(activeTimers[0]);
+        } else if (activeTimers.length === 0 && !showStartRef.current) {
+          openStartFlowRef.current();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleSelectStudent = async (s: Student) => {
     setSelectedStudent(s);
@@ -277,6 +301,7 @@ export function FloatingTimer() {
     setQuickLogGoalData(goalData);
     setQuickLogOpen(true);
   };
+  handleStopRef.current = handleStop;
 
   const handleLogCompleted = (timer: TimerEntry) => {
     if (!timer.stoppedAt) return;
@@ -340,10 +365,14 @@ export function FloatingTimer() {
     return (
       <button
         onClick={openStartFlow}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center"
-        aria-label="Start session timer"
+        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center group"
+        aria-label="Start session timer (Ctrl+Shift+T)"
+        title="Start session timer (Ctrl+Shift+T)"
       >
         <Play className="w-6 h-6 ml-0.5" />
+        <span className="absolute bottom-full right-0 mb-2 px-2 py-1 rounded-md bg-gray-800 text-white text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          Ctrl+Shift+T
+        </span>
       </button>
     );
   }
@@ -540,8 +569,12 @@ export function FloatingTimer() {
                 <button
                   onClick={() => handleStop(timer)}
                   className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
+                  title={timers.length === 1 ? "Stop & Log (Ctrl+Shift+T)" : undefined}
                 >
                   <Square className="w-3 h-3" /> Stop & Log
+                  {timers.length === 1 && (
+                    <span className="ml-1 text-[9px] opacity-60 font-normal hidden sm:inline">⌃⇧T</span>
+                  )}
                 </button>
                 <button
                   onClick={() => handleDiscard(timer.id)}
@@ -583,10 +616,14 @@ export function FloatingTimer() {
 
           <button
             onClick={openStartFlow}
-            className="w-12 h-12 rounded-xl shadow-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center"
-            aria-label="Start new timer"
+            className="relative w-12 h-12 rounded-xl shadow-lg bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center group"
+            aria-label="Start new timer (Ctrl+Shift+T)"
+            title="Start new timer (Ctrl+Shift+T)"
           >
             <Plus className="w-5 h-5" />
+            <span className="absolute bottom-full right-0 mb-2 px-2 py-1 rounded-md bg-gray-800 text-white text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Ctrl+Shift+T
+            </span>
           </button>
         </div>
       </div>
