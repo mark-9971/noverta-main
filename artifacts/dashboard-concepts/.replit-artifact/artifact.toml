@@ -1,0 +1,31 @@
+kind = "slides"
+previewPath = "/dashboard-concepts/"
+title = "Admin Dashboard — 5 Design Concepts"
+version = "1.0.0"
+id = "artifacts/dashboard-concepts"
+router = "path"
+
+[[integratedSkills]]
+name = "slides"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/dashboard-concepts/" ]
+localPort = 18647
+
+[services.development]
+run = "pnpm --filter @workspace/dashboard-concepts run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dashboard-concepts", "run", "build" ]
+publicDir = "artifacts/dashboard-concepts/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18647"
+BASE_PATH = "/dashboard-concepts/"

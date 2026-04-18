@@ -1,0 +1,58 @@
+[
+  {
+    "id": "dc001111-2222-3333-4444-555566667701",
+    "position": 1,
+    "filepath": "src/pages/slides/S01_Overview.tsx",
+    "title": "Overview — 5 Concepts",
+    "description": "Thumbnail grid comparing all five design directions at a glance.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667702",
+    "position": 2,
+    "filepath": "src/pages/slides/S02_CommandCenter.tsx",
+    "title": "Concept 1 — Command Center",
+    "description": "Dark, dense layout with rotating KPI carousel and four quadrant panels.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667703",
+    "position": 3,
+    "filepath": "src/pages/slides/S03_FocusMode.tsx",
+    "title": "Concept 2 — Focus Mode",
+    "description": "Minimal white layout with one hero stat and a prioritized action queue.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667704",
+    "position": 4,
+    "filepath": "src/pages/slides/S04_WedgeHub.tsx",
+    "title": "Concept 3 — Wedge Hub",
+    "description": "Five tabbed pillars each a self-contained mini-dashboard with status dots.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667705",
+    "position": 5,
+    "filepath": "src/pages/slides/S05_NarrativeScroll.tsx",
+    "title": "Concept 4 — Narrative Scroll",
+    "description": "Tall scrollable layout with sticky section anchors telling the compliance story.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667706",
+    "position": 6,
+    "filepath": "src/pages/slides/S06_KanbanBoard.tsx",
+    "title": "Concept 5 — Kanban Board",
+    "description": "Swimlane columns with expandable item cards and badge counts.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "dc001111-2222-3333-4444-555566667707",
+    "position": 7,
+    "filepath": "src/pages/slides/S07_NextSteps.tsx",
+    "title": "Which Direction?",
+    "description": "Comparison rubric — pick a direction before prototyping begins.",
+    "speakerNotes": ""
+  }
+]
