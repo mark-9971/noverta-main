@@ -1,0 +1,84 @@
+A. Strategic Interpretation
+1. CORE WEDGE — What must work perfectly to win the pilot
+
+The only question MetroWest needs answered daily: "Are we legally covered?" The core loop is Know → Why → Act → Prove:
+
+Know which students are behind on mandated minutes (Dashboard, Compliance page)
+Why (missed session logs, Action Center alerts)
+Act (schedule makeup sessions, log sessions fast)
+Prove (compliance report, IEP timeline, audit trail)
+Truly core pages: Dashboard, Action Center, Compliance, Student Detail, Sessions/Quick-log, Alerts. Everything else is supporting or post-pilot.
+
+2. BIGGEST PRODUCT RISKS
+
+Compliance ↔ Scheduling is disconnected. The Scheduling Hub has no panel showing "Student X needs 45 more minutes this month — here's what's scheduled vs. what's needed." Admin has to open two different pages to answer one question.
+Nav cognitive overload. 40+ visible items across ABA, Billing, Agencies, State Reports, Restraint/Seclusion, Guardian Portal, Student Portal. In a demo, this looks complex. A MetroWest coordinator should see 8 items, not 40.
+Session quick-log is good but not surfaced from compliance context. There's no "Log a session now" shortcut from the student's compliance alert.
+Too much is unfinished-looking for a demo. ABA Hub, Medicaid Billing, and State Reports are pilot distractions that make the product feel beta.
+3. BEST MONETIZATION STORY
+
+Feature	Tier
+Dashboard, Action Center, Compliance, Alerts, Session logging, basic IEP	CORE
+Scheduling Hub + compliance overlay, Advanced reports, Compensatory tracker, ABA data	PRO
+Executive Dashboard, District Overview, Multi-school, Medicaid Billing, Agencies, SSO	ELITE
+Never gate: Session quick-log, basic compliance alerts, the Compliance page itself. These are survival features — gating them kills the value prop.
+
+4. DANGEROUS DISTRACTIONS — do not touch for pilot
+
+ABA Hub (complex, not MetroWest priority), Restraint & Seclusion (niche + legal complexity), Medicaid Billing (state credentialing required), Student Portal, Guardian Portal, State Reports, Agencies. Leave them in the nav but collapsed; spend zero engineering time on them.
+
+B. Pilot Execution Board (condensed)
+MUST DO BEFORE PILOT:
+
+Scheduling Hub → "Minutes at Risk" compliance panel (bridges the scheduling↔compliance gap) | M | HIGH
+Action Center alert → quick-log direct link (close the Know→Act loop) | S | HIGH
+Nav cleanup: hide/deemphasize the 20 pilot-distraction items | XS | HIGH
+Dashboard admin view: verify the 4 KPI cards lead clearly | XS | MEDIUM
+Compliance trend graph: verify historical data renders correctly | XS | HIGH
+SHOULD DO IF TIME ALLOWS:
+
+Staff Calendar merged into Scheduling Hub as a tab
+IEP Search removed from standalone nav, absorbed into IEP Builder
+"Schedule more sessions" CTA from Compliance → Scheduling Hub
+POST-PILOT:
+
+Proper PRO/ELITE tier gating flows
+ABA hub polish
+Medicaid billing
+Guardian/Student portals
+DO NOT TOUCH NOW:
+
+Restraint & Seclusion, State Reports, Agencies, Medicaid Billing, Student Portal, Guardian Portal
+C. 3-Wave Plan
+Wave 1 — Pilot-critical workflow (start now)
+Goals: Close the compliance↔scheduling gap. Make the demo flow work for a non-technical admin.
+Tasks:
+
+Add "Minutes at Risk" panel to Scheduling Hub (new third tab)
+Add direct quick-log link from Action Center compliance alerts
+Nav: collapse Financial/Executive and Admin/Tools by default (already partially done), hide Restraint, hide State Reports from primary nav
+Verify Compliance trend graph works end-to-end with historical seed data
+Wave 2 — Navigation consolidation
+Goals: Cut nav weight by 40%, make Staff Calendar and IEP Search feel native.
+Tasks: Merge Staff Calendar into Scheduling Hub, absorb IEP Search into IEP Builder, redirect legacy routes.
+
+Wave 3 — Monetization architecture
+Goals: Show upgrade path clearly without breaking free tier.
+Tasks: PRO/ELITE gate polish, upgrade modals, tier badge system that doesn't wall off survival features.
+
+D. Audit Validation Table
+Claim	Verdict	Evidence	Difficulty
+Scheduling Hub lacks compliance minutes overlay	CONFIRMED	/scheduling.tsx has only two tabs: Weekly Schedule and Coverage. No compliance data surfaced.	M
+Scheduling Hub lacks week navigation	PARTIAL	Has rotation-type awareness (A/B days, etc.) but no date-picker calendar nav. Staff Calendar has that.	S
+Scheduling Hub lacks persistent auto-scheduler accept flow	PARTIAL	Backend scheduler exists at scheduler.ts, UI entry point is minimal.	L
+Action Center does not ingest schedule-based minutes gaps	NOT CONFIRMED	Action Center already pulls from compliance risk report + minute calc engine. action-center.tsx has riskToWorkItem, alertToWorkItem for behind_on_minutes/projected_shortfall. Already wired.	—
+Sessions quick-log is not the default fastest provider workflow	PARTIAL	Quick-log is excellent (1-tap repeat, presets, Para My Day integration). Discoverability from compliance context is the gap, not the UX itself.	S
+Dashboard needs simplification toward district health at a glance	PARTIAL	Admin view (PilotAdminHome.tsx) has good KPI cards. District Overview page exists. Complexity is real but not critical.	S
+Staff Calendar duplicates Scheduling Hub with better filters	CONFIRMED	Both exist at /scheduling and /staff-calendar. Staff Calendar has individual date view; Scheduling Hub has recurring blocks + coverage.	M
+IEP Meetings and IEP Calendar should be merged	CONFIRMED	IEP Meetings has sub-nav with Calendar child. /iep-meetings already contains calendar route. Minor consolidation only.	XS
+Billing should move out of main nav	NOT CONFIRMED	Billing is already in Financial/Executive section which is defaultOpen: false. Already collapsed from primary view.	—
+IEP Search should be absorbed instead of kept standalone	CONFIRMED	/iep-search exists as a child under IEP Builder in nav. Already demoted per nav-config comments, but route still exists.	XS
+E. First Build Batch — Executing Now
+Highest-value first move: "Minutes at Risk" panel in Scheduling Hub.
+
+This is the single most impactful gap in the entire product. Every other compliance feature exists — but when a scheduler opens the Scheduling Hub to build a session plan, they have no idea which students need priority scheduling. Adding a "Minutes at Risk" tab to the Scheduling Hub closes the most important demo workflow: compliance alert → scheduling decision → session logged

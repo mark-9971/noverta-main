@@ -133,8 +133,6 @@ export const adminNav: NavSection[] = [
       },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
-      { href: "/state-reporting", label: "State Reports", icon: Building2 },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
     ],
   },
   // ── 3. IEP & Services ─────────────────────────────────────────────────────
@@ -226,6 +224,7 @@ export const adminNav: NavSection[] = [
         children: [
           { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
           { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
         ],
       },
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
@@ -255,6 +254,8 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
+      { href: "/state-reporting", label: "State Reports", icon: Building2 },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
       {

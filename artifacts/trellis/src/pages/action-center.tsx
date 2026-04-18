@@ -13,8 +13,9 @@ import {
   Search, AlertTriangle, Calendar, Users, FileSearch,
   CalendarDays, Clock, Shield, ArrowRight, Zap,
   CheckCircle2, Target, RefreshCw, ChevronRight,
-  ShieldAlert, FileWarning, UserCheck, Inbox,
+  ShieldAlert, FileWarning, UserCheck, Inbox, ClipboardEdit,
 } from "lucide-react";
+import { QuickLogSheet } from "@/components/quick-log-sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,9 +244,10 @@ const PRIORITY_STYLES: Record<Priority, { border: string; iconBg: string; iconCo
   comingup:  { border: "border-l-gray-200",   iconBg: "bg-gray-50",   iconColor: "text-gray-400" },
 };
 
-function WorkItemRow({ item }: { item: WorkItem }) {
+function WorkItemRow({ item, onLogSession }: { item: WorkItem; onLogSession?: (studentId: number, studentName: string) => void }) {
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
+  const showLogBtn = !!onLogSession && !!item.studentId && (item.category === "compliance" || item.category === "session");
 
   return (
     <div className={`flex items-start gap-3 p-3.5 rounded-lg border border-l-4 border-gray-100 bg-white ${style.border} hover:bg-gray-50/50 transition-colors`}>
@@ -269,12 +271,23 @@ function WorkItemRow({ item }: { item: WorkItem }) {
         </div>
         <div className="text-[11px] text-gray-400 mt-0.5 leading-snug">{item.detail}</div>
       </div>
-      <Link
-        href={item.href}
-        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap flex items-center gap-0.5 flex-shrink-0 mt-0.5"
-      >
-        {item.actionLabel}
-      </Link>
+      <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+        {showLogBtn && (
+          <button
+            onClick={() => onLogSession!(item.studentId!, item.studentName ?? "")}
+            className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
+            title="Log a session for this student"
+          >
+            <ClipboardEdit className="w-3 h-3" /> Log
+          </button>
+        )}
+        <Link
+          href={item.href}
+          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap flex items-center gap-0.5"
+        >
+          {item.actionLabel}
+        </Link>
+      </div>
     </div>
   );
 }
@@ -338,7 +351,14 @@ const TABS: { key: Priority; label: string; icon: React.ComponentType<{ classNam
 
 export default function ActionCenter() {
   const [activeTab, setActiveTab] = useState<Priority>("urgent");
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [quickLogStudent, setQuickLogStudent] = useState<{ id: number; name: string } | null>(null);
   const { user } = useRole();
+
+  function openQuickLog(studentId: number, studentName: string) {
+    setQuickLogStudent({ id: studentId, name: studentName });
+    setQuickLogOpen(true);
+  }
   const { filterParams } = useSchoolContext();
   const params = useMemo(() => {
     const qs = new URLSearchParams(filterParams as any).toString();
@@ -597,11 +617,20 @@ export default function ActionCenter() {
             ))}
             {/* Per-student/per-alert items */}
             {visibleItems.map(item => (
-              <WorkItemRow key={item.id} item={item} />
+              <WorkItemRow key={item.id} item={item} onLogSession={openQuickLog} />
             ))}
           </div>
         )}
       </div>
+
+      <QuickLogSheet
+        isOpen={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onSuccess={() => { setQuickLogOpen(false); refetchAlerts(); }}
+        staffId={null}
+        prefillStudentId={quickLogStudent?.id}
+        prefillStudentName={quickLogStudent?.name}
+      />
 
       {/* ── Quick links footer ── */}
       <div className="pt-2 border-t border-gray-100">
