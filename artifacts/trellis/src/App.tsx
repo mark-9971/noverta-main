@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider, RedirectToSignIn, useAuth, useUser } from "@clerk/react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { registerTokenProvider } from "@/lib/auth-fetch";
+import { registerTokenProvider, setAuthFetchExtraHeaders, getDevAuthBypassHeaders } from "@/lib/auth-fetch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RoleProvider, useRole, type UserRole } from "@/lib/role-context";
 import { ViewAsProvider } from "@/lib/view-as-context";
@@ -153,10 +153,23 @@ function SentryUserSync() {
   return null;
 }
 
+// Dev-only auth bypass: when VITE_DEV_AUTH_BYPASS=1, skip the Clerk sign-in gate
+// and inject x-test-* headers so API calls authenticate as a test admin. This lets
+// the agent test the app without a real Clerk session. Production rejects the
+// headers server-side regardless. Never enable this in production.
+const DEV_AUTH_BYPASS =
+  import.meta.env.VITE_DEV_AUTH_BYPASS === "1" && import.meta.env.MODE !== "production";
+
+if (DEV_AUTH_BYPASS) {
+  setAuthFetchExtraHeaders(getDevAuthBypassHeaders());
+}
+
 function ProtectedRoutes({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, getToken } = useAuth();
 
   registerTokenProvider(() => getToken());
+
+  if (DEV_AUTH_BYPASS) return <>{children}</>;
 
   if (!isLoaded) return (
     <div className="flex items-center justify-center min-h-screen bg-white">

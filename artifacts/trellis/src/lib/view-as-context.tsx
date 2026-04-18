@@ -20,7 +20,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type ReactNode,
 } from "react";
-import { setAuthFetchExtraHeaders, authFetch } from "@/lib/auth-fetch";
+import { setAuthFetchExtraHeaders, authFetch, getDevAuthBypassHeaders } from "@/lib/auth-fetch";
 
 const STORAGE_KEY = "trellis_view_as_token";
 const HEADER_NAME = "X-View-As-Token";
@@ -75,8 +75,12 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
   const hydratedRef = useRef(false);
 
   // Apply the token to all outgoing authFetch calls whenever it changes.
+  // Preserve dev auth bypass headers so this provider doesn't clobber them.
   useEffect(() => {
-    if (token) setAuthFetchExtraHeaders({ [HEADER_NAME]: token });
+    const bypassHeaders = getDevAuthBypassHeaders();
+    const hasBypass = Object.keys(bypassHeaders).length > 0;
+    if (token) setAuthFetchExtraHeaders({ ...bypassHeaders, [HEADER_NAME]: token });
+    else if (hasBypass) setAuthFetchExtraHeaders(bypassHeaders);
     else setAuthFetchExtraHeaders(null);
   }, [token]);
 

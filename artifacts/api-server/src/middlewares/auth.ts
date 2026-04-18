@@ -109,9 +109,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     }
   }
 
-  // Test-mode bypass: allowed ONLY when NODE_ENV === "test" (never "development" or any other env).
-  // Used by the permission-matrix CI tests which run without a real Clerk session.
-  if (process.env.NODE_ENV === "test") {
+  // Test-mode bypass: allowed when NODE_ENV === "test" (CI permission-matrix tests),
+  // OR when DEV_AUTH_BYPASS === "1" in any non-production environment (agent/local testing
+  // without a real Clerk session). Production rejection above (lines 104-110) prevents
+  // these headers from ever working in production regardless of any flag.
+  const allowTestBypass =
+    process.env.NODE_ENV === "test" ||
+    (process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_BYPASS === "1");
+  if (allowTestBypass) {
     const testUserId = req.headers["x-test-user-id"];
     const testRole = req.headers["x-test-role"];
     if (typeof testUserId === "string" && testUserId && isRole(testRole)) {

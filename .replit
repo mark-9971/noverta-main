@@ -111,3 +111,5 @@ channel = "stable-25_05"
 
 [userenv.development]
 NODE_ENV = "test"
+DEV_AUTH_BYPASS = "1"
+VITE_DEV_AUTH_BYPASS = "1"
