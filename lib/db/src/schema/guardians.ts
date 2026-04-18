@@ -14,6 +14,9 @@ export const guardiansTable = pgTable("guardians", {
   interpreterNeeded: boolean("interpreter_needed").default(false).notNull(),
   language: text("language"),
   notes: text("notes"),
+  portalInvitedAt: timestamp("portal_invited_at", { withTimezone: true }),
+  portalAcceptedAt: timestamp("portal_accepted_at", { withTimezone: true }),
+  lastPortalLoginAt: timestamp("last_portal_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdate(() => new Date()),
 }, (table) => [

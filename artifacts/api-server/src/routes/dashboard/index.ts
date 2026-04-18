@@ -8,6 +8,7 @@ import schoolComplianceRouter from "./schoolCompliance";
 import iepExpirationsRouter from "./iepExpirations";
 import makeupObligationsRouter from "./makeupObligations";
 import providerCompletionRatesRouter from "./providerCompletionRates";
+import parentEngagementRouter from "./parentEngagement";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(schoolComplianceRouter);
 router.use(iepExpirationsRouter);
 router.use(makeupObligationsRouter);
 router.use(providerCompletionRatesRouter);
+router.use(parentEngagementRouter);
 
 export default router;

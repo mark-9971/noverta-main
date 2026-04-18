@@ -15,6 +15,7 @@ import {
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
 import MakeupSessionsCard from "@/components/dashboard/MakeupSessionsCard";
+import ParentEngagementCard from "./ParentEngagementCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -343,6 +344,9 @@ export function DashboardTabs({
             </CardContent>
           </Card>
         )}
+
+        {/* Parent portal engagement */}
+        {isAdmin && <ParentEngagementCard />}
 
         {/* Contract renewals */}
         {isAdmin && s?.contractRenewals && s.contractRenewals.length > 0 && (
