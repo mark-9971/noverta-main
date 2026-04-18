@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { serviceRateConfigsTable, serviceTypesTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getDistrictId } from "./shared";
 
@@ -79,6 +79,68 @@ router.post("/compensatory-finance/rates", async (req, res): Promise<void> => {
   }).returning();
 
   res.json(config);
+});
+
+router.post("/compensatory-finance/rates/import", async (req, res): Promise<void> => {
+  const districtId = getDistrictId(req as AuthedRequest);
+  if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
+
+  const { rows, effectiveDate } = req.body;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows must be a non-empty array" });
+    return;
+  }
+  if (!effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+    res.status(400).json({ error: "effectiveDate must be YYYY-MM-DD format" });
+    return;
+  }
+
+  const byServiceTypeId = new Map<number, string>();
+  for (const row of rows) {
+    const stId = Number(row.serviceTypeId);
+    const rate = Number(row.inHouseRate);
+    if (!Number.isInteger(stId) || stId <= 0) {
+      res.status(400).json({ error: `Invalid serviceTypeId: ${row.serviceTypeId}` });
+      return;
+    }
+    if (!Number.isFinite(rate) || rate <= 0) {
+      res.status(400).json({ error: `Invalid inHouseRate: ${row.inHouseRate}` });
+      return;
+    }
+    byServiceTypeId.set(stId, rate.toFixed(2));
+  }
+
+  const validated = Array.from(byServiceTypeId.entries()).map(([serviceTypeId, inHouseRate]) => ({ serviceTypeId, inHouseRate }));
+
+  const submittedIds = validated.map(v => v.serviceTypeId);
+  const existingTypes = await db.select({ id: serviceTypesTable.id })
+    .from(serviceTypesTable)
+    .where(sql`${serviceTypesTable.id} = ANY(ARRAY[${sql.join(submittedIds.map(id => sql`${id}`), sql`, `)}]::int[])`);
+  const existingIdSet = new Set(existingTypes.map(t => t.id));
+  const missingIds = submittedIds.filter(id => !existingIdSet.has(id));
+  if (missingIds.length > 0) {
+    res.status(400).json({ error: `Unknown serviceTypeId(s): ${missingIds.join(", ")}` });
+    return;
+  }
+
+  const inserts = validated.map(v => ({
+    districtId,
+    serviceTypeId: v.serviceTypeId,
+    inHouseRate: v.inHouseRate,
+    contractedRate: null as string | null,
+    effectiveDate,
+    notes: "Imported from CSV" as string | null,
+  }));
+
+  await db.insert(serviceRateConfigsTable).values(inserts).onConflictDoUpdate({
+    target: [serviceRateConfigsTable.districtId, serviceRateConfigsTable.serviceTypeId, serviceRateConfigsTable.effectiveDate],
+    set: {
+      inHouseRate: sql`excluded.in_house_rate`,
+      notes: sql`excluded.notes`,
+    },
+  });
+
+  res.json({ imported: validated.length });
 });
 
 router.delete("/compensatory-finance/rates/:id", async (req, res): Promise<void> => {
