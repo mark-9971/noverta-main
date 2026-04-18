@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Activity, GraduationCap, X, Save, Play, Pause, Square, Minus, Plus, Check, CheckCircle, RotateCcw, Hand, BookOpen,
+  CloudOff, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import { createDataSession } from "@workspace/api-client-react";
+import { useOfflineQueue } from "@/lib/useOfflineQueue";
+import { PendingSessionsPanel } from "@/components/PendingSessionsPanel";
 import {
   BehaviorTarget, ProgramTarget, Student, PROMPT_LABELS, measureLabel,
 } from "./constants";
@@ -19,6 +22,8 @@ interface Props {
 }
 
 export default function LiveDataCollection({ studentId, student, behaviorTargets, programTargets, onSessionSaved }: Props) {
+  const { enqueue, dequeue, pendingCount } = useOfflineQueue();
+
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [behaviorCounts, setBehaviorCounts] = useState<Record<number, number>>({});
@@ -26,6 +31,8 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
   const [trialHistory, setTrialHistory] = useState<Record<number, Array<{ correct: boolean; prompted: boolean }>>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
   const [isIoaSession, setIsIoaSession] = useState(false);
   const [ioaObserverNumber, setIoaObserverNumber] = useState<1 | 2>(1);
   const [ioaSessionId, setIoaSessionId] = useState<string>("");
@@ -63,6 +70,8 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
   function startSession() {
     setRunning(true);
     setSaved(false);
+    setSaveError(null);
+    setSavedOffline(false);
     setElapsed(0);
     setEventTimestamps({});
     setIoaObservedTargets({});
@@ -83,6 +92,9 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
 
   async function saveSession() {
     setSaving(true);
+    setSaveError(null);
+    setSavedOffline(false);
+
     const now = new Date();
     const endTime = now.toTimeString().slice(0, 5);
     const sessionDate = now.toISOString().split("T")[0];
@@ -150,22 +162,60 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
         stepNumber: pt.currentStep ?? null,
       }));
 
-    await createDataSession(studentId, {
-        sessionDate,
-        startTime: startTimeRef.current,
-        endTime,
-        behaviorData,
-        programData,
-        sessionType,
-      } as any);
+    const payload = {
+      sessionDate,
+      startTime: startTimeRef.current,
+      endTime,
+      behaviorData,
+      programData,
+      sessionType,
+    };
 
-    setSaved(true);
-    if (isIoaSession && ioaSessId) {
-      toast.success(`IOA session saved. Session ID: ${ioaSessId} — share this with Observer ${ioaObserverNumber === 1 ? "2" : "1"}`);
+    /*
+     * Safety-first: enqueue locally BEFORE the network call.
+     * If the request succeeds → dequeue.
+     * If the tab closes mid-request or the network fails → the queued copy
+     * survives and can be retried from PendingSessionsPanel.
+     *
+     * WARNING: the API is NOT idempotent. A successful request that loses
+     * its response (network drop after server commit) will produce a duplicate
+     * if retried. We surface this risk to the user before they retry.
+     */
+    const queueId = enqueue({
+      studentId,
+      studentName: `${student.firstName} ${student.lastName}`,
+      payload,
+    });
+
+    try {
+      await createDataSession(studentId, payload as any);
+
+      /* Success — remove from queue */
+      dequeue(queueId);
+
+      setSaved(true);
+      setSaveError(null);
+      if (isIoaSession && ioaSessId) {
+        toast.success(`IOA session saved. Session ID: ${ioaSessId} — share this with Observer ${ioaObserverNumber === 1 ? "2" : "1"}`);
+      }
+      onSessionSaved();
+    } catch (err: any) {
+      /*
+       * Network or server error — the data is already in the local queue.
+       * Do NOT mark as saved. Leave the UI in the stopped state so staff
+       * can see what happened and retry when connectivity returns.
+       */
+      const message = err?.message ?? "Network error — please check your connection.";
+      setSaveError(message);
+      setSavedOffline(true);
+      toast.error("Session could not be saved to the server. Data is stored locally — use the retry panel to upload when connected.", {
+        duration: 8000,
+      });
+    } finally {
+      setSaving(false);
     }
-    onSessionSaved();
-    setSaving(false);
   }
+
 
   function formatTime(seconds: number) {
     const m = Math.floor(seconds / 60);
@@ -210,7 +260,16 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
 
   return (
     <div className="space-y-4">
-      <Card className={`border-2 ${running ? "border-emerald-300 bg-emerald-50/30" : saved ? "border-emerald-300 bg-emerald-50/30" : "border-gray-200"}`}>
+      {/* Pending sessions from previous failures — shown at the top so staff notice them */}
+      <PendingSessionsPanel studentId={studentId} />
+
+      <Card className={`border-2 ${
+        running ? "border-emerald-300 bg-emerald-50/30"
+        : saved ? "border-emerald-300 bg-emerald-50/30"
+        : savedOffline ? "border-amber-300 bg-amber-50/30"
+        : saveError ? "border-red-300 bg-red-50/20"
+        : "border-gray-200"
+      }`}>
         <CardContent className="p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -219,11 +278,42 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
             </div>
             <div className="text-right">
               <p className="text-3xl md:text-4xl font-mono font-bold text-gray-800">{formatTime(elapsed)}</p>
-              <p className="text-xs text-gray-400">{running ? "Recording..." : saved ? "Session Saved" : "Ready"}</p>
+              <p className="text-xs text-gray-400">
+                {running ? "Recording..."
+                  : saved ? "Session Saved"
+                  : savedOffline ? "Saved locally"
+                  : "Ready"}
+              </p>
             </div>
           </div>
+
+          {/* Offline save banner */}
+          {savedOffline && !saved && (
+            <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 flex items-start gap-2">
+              <CloudOff className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[12px] font-semibold text-amber-800">Session saved locally — not yet uploaded</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  Your data is safe on this device. Use the sync panel above to upload when you have a connection.
+                  Do not refresh or close this browser tab until you have synced.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Network error banner (transient, before local save confirmed) */}
+          {saveError && !savedOffline && (
+            <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-2.5 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[12px] font-semibold text-red-800">Save failed</p>
+                <p className="text-[11px] text-red-700 mt-0.5">{saveError}</p>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
-            {!running && !saved && (
+            {!running && !saved && !savedOffline && (
               <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={startSession}>
                 <Play className="w-4 h-4 mr-2" /> Start Session
               </Button>
@@ -233,7 +323,7 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
                 <Pause className="w-4 h-4 mr-2" /> Stop
               </Button>
             )}
-            {!running && elapsed > 0 && !saved && (
+            {!running && elapsed > 0 && !saved && !savedOffline && (
               <>
                 <Button className="flex-1 h-12 md:h-10 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold" onClick={saveSession} disabled={saving}>
                   <Save className="w-4 h-4 mr-2" /> {saving ? "Saving..." : "Save Session"}
@@ -243,9 +333,21 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
                 </Button>
               </>
             )}
+            {/* Offline-saved state — keep data visible, prompt to sync */}
+            {savedOffline && !saved && (
+              <Button
+                className="flex-1 h-12 md:h-10 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold"
+                onClick={saveSession}
+                disabled={saving}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                {saving ? "Retrying..." : "Retry Upload Now"}
+              </Button>
+            )}
             {saved && (
               <Button className="flex-1 h-12 md:h-10 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold" onClick={() => {
                 setSaved(false); setElapsed(0);
+                setSaveError(null); setSavedOffline(false);
                 setIsIoaSession(false); setIoaSessionId("");
                 setIntervalScoresMap({});
                 setDurationBoutsMap({});
