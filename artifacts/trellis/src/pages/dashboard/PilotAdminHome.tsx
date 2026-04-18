@@ -24,6 +24,7 @@ import {
   MeetingsSection, ContractRenewalsCard, DeadlinesSection,
 } from "./SecondarySections";
 import { getGreeting, formatLastUpdated } from "./types";
+import { computeHealthScore, type HealthScore } from "@/lib/health-score";
 
 interface ComplianceRiskReport {
   meta: { districtName: string; reportPeriod: string; generatedAt?: string };
@@ -219,6 +220,23 @@ export default function PilotAdminHome() {
   const band = useMemo(() => statusBand(rate), [rate]);
   const tone = toneStyles[band.tone];
 
+  const healthScore = useMemo(() => {
+    if (!summary || summary.totalStudents <= 0) return null;
+    const exposurePerStudent = summary.combinedExposure / summary.totalStudents;
+    let providerLoggingRate: number;
+    if (!weekly) return null;
+    const missed = weekly.providersWithMissedThisWeek ?? [];
+    if (missed.length === 0) {
+      providerLoggingRate = 1.0;
+    } else {
+      const totalCompleted = missed.reduce((s, p) => s + p.completedSessions, 0);
+      const totalMissed = missed.reduce((s, p) => s + p.missedSessions, 0);
+      const total = totalCompleted + totalMissed;
+      providerLoggingRate = total > 0 ? totalCompleted / total : 1.0;
+    }
+    return computeHealthScore(rate, exposurePerStudent, providerLoggingRate);
+  }, [summary, weekly, rate]);
+
   // Top students (dedupe needsAttention service-level rows, take worst per student)
   const topStudents = useMemo(() => {
     if (!risk?.needsAttention?.length) return [];
@@ -266,10 +284,15 @@ export default function PilotAdminHome() {
             Service-minute compliance for SPED
           </p>
         </div>
-        {/* Showcase tour entry — visible to admins on demo districts.
-            The ShowcaseTour component itself is gated to admins where
-            sample data is loaded; this button hides in the same case. */}
-        <ShowcaseTourButton />
+        <div className="flex items-center gap-2">
+          {healthScore && (
+            <HealthScoreBadge score={healthScore} />
+          )}
+          {/* Showcase tour entry — visible to admins on demo districts.
+              The ShowcaseTour component itself is gated to admins where
+              sample data is loaded; this button hides in the same case. */}
+          <ShowcaseTourButton />
+        </div>
       </div>
 
       {/* Life-threatening medical alert banner — dismissible per session */}
@@ -604,3 +627,40 @@ function ShowcaseTourButton() {
   );
 }
 
+const healthScoreColors: Record<"green" | "amber" | "red", { bg: string; text: string; ring: string; numText: string }> = {
+  green: { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200", numText: "text-emerald-800" },
+  amber: { bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200",   numText: "text-amber-800" },
+  red:   { bg: "bg-red-50",     text: "text-red-700",     ring: "ring-red-200",     numText: "text-red-800" },
+};
+
+function HealthScoreBadge({ score }: { score: HealthScore }) {
+  const cls = healthScoreColors[score.color];
+  return (
+    <div
+      className={`relative group flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl ring-1 ${cls.ring} ${cls.bg} cursor-default select-none`}
+      data-testid="health-score-badge"
+      aria-label={`District health score: ${score.grade} (${score.numeric}/100)`}
+    >
+      <div className="text-center leading-none">
+        <div className={`text-2xl font-black tabular-nums ${cls.numText}`}>{score.grade}</div>
+        <div className={`text-[10px] font-semibold ${cls.text} mt-0.5 tabular-nums`}>{score.numeric}/100</div>
+      </div>
+      <div className={`text-xs font-medium ${cls.text} hidden sm:block leading-tight max-w-[72px]`}>
+        District<br />Health
+      </div>
+
+      {/* Tooltip */}
+      <div
+        className="pointer-events-none absolute right-0 top-full mt-2 z-50 w-72 rounded-lg bg-gray-900 text-white text-[11px] leading-relaxed px-3 py-2.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        role="tooltip"
+      >
+        <p className="font-semibold mb-1.5 text-xs">District Health Score — {score.grade} ({score.numeric}/100)</p>
+        <ul className="space-y-1 text-gray-300">
+          <li>📋 Compliance: {score.breakdown.compliancePoints.toFixed(0)} pts <span className="text-gray-500">(60% weight)</span></li>
+          <li>💰 Exposure risk: {score.breakdown.exposurePoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
+          <li>📝 Provider logging: {score.breakdown.loggingPoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
+        </ul>
+      </div>
+    </div>
+  );
+}
