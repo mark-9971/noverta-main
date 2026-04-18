@@ -5,11 +5,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
 import { authFetch } from "@/lib/auth-fetch";
-import { Calendar, Plus, AlertTriangle } from "lucide-react";
+import { Calendar, Plus, AlertTriangle, Download, FileText, Sheet } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { openPrintWindow, esc } from "@/lib/print-document";
 import {
   StaffSchedule, Conflict, CoverageGap, ProviderSummary,
   StaffOption, SchoolOption, ServiceTypeOption, FormDataT,
-  SCHOOL_COLORS, timeToMinutes,
+  SCHOOL_COLORS, WEEKDAYS, WEEKDAY_LABELS, formatTime, timeToMinutes,
 } from "./types";
 import { FilterBar } from "./FilterBar";
 import { ScheduleGrid } from "./ScheduleGrid";
@@ -118,6 +125,111 @@ export default function StaffCalendar() {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredSchedules]);
 
+  function buildSchedulePrintHtml(): string {
+    const dateStr = new Date().toLocaleDateString("en-US", { weekday: undefined, year: "numeric", month: "long", day: "numeric" });
+    const staffMap = new Map<number, { name: string; blocks: StaffSchedule[] }>();
+    for (const s of filteredSchedules) {
+      if (!staffMap.has(s.staff_id)) {
+        staffMap.set(s.staff_id, { name: `${s.staffFirstName} ${s.staffLastName}`, blocks: [] });
+      }
+      staffMap.get(s.staff_id)!.blocks.push(s);
+    }
+    const sortedStaff = Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    const rowsHtml = sortedStaff.map(({ name, blocks }) => {
+      const cells = WEEKDAYS.map(day => {
+        const dayBlocks = blocks.filter(b => b.day_of_week === day);
+        if (!dayBlocks.length) return `<td style="background:#f9fafb;border:1px solid #e5e7eb;padding:6px;vertical-align:top;min-width:100px">&nbsp;</td>`;
+        const entries = dayBlocks.map(b =>
+          `<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px;padding:3px 5px;margin-bottom:3px;font-size:11px">
+            <div style="font-weight:600">${esc(formatTime(b.start_time))}–${esc(formatTime(b.end_time))}</div>
+            <div style="color:#065f46">${esc(b.schoolName)}</div>
+            ${b.label ? `<div style="color:#374151;font-style:italic">${esc(b.label)}</div>` : ""}
+          </div>`
+        ).join("");
+        return `<td style="border:1px solid #e5e7eb;padding:6px;vertical-align:top;min-width:100px">${entries}</td>`;
+      }).join("");
+      return `<tr>
+        <td style="border:1px solid #e5e7eb;padding:6px 8px;font-weight:500;white-space:nowrap;background:#f9fafb">${esc(name)}</td>
+        ${cells}
+      </tr>`;
+    }).join("");
+
+    const dayHeaders = WEEKDAYS.map(d =>
+      `<th style="border:1px solid #e5e7eb;padding:8px;background:#f3f4f6;font-weight:600;text-align:center">${WEEKDAY_LABELS[d]}</th>`
+    ).join("");
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Staff Schedule</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; color: #111827; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+  table { border-collapse: collapse; width: 100%; }
+  @media print { body { margin: 10px; } }
+</style>
+</head>
+<body>
+  <h1>Staff Scheduling &amp; Availability</h1>
+  <div class="meta">Generated ${dateStr} &bull; ${filteredSchedules.length} schedule entries</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="border:1px solid #e5e7eb;padding:8px;background:#f3f4f6;font-weight:600;text-align:left">Staff Member</th>
+        ${dayHeaders}
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</body>
+</html>`;
+  }
+
+  function handleExportPdf() {
+    if (!filteredSchedules.length) {
+      toast.error("No schedule entries to export");
+      return;
+    }
+    openPrintWindow(buildSchedulePrintHtml());
+  }
+
+  async function handleExportCsv() {
+    if (!filteredSchedules.length) {
+      toast.error("No schedule entries to export");
+      return;
+    }
+    try {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const friday = new Date(monday);
+      friday.setDate(monday.getDate() + 4);
+      const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+      const params = new URLSearchParams();
+      if (filterStaff !== "all") params.set("staffId", filterStaff);
+      if (filterSchool !== "all") params.set("schoolId", filterSchool);
+      if (filterServiceType !== "all") params.set("serviceTypeId", filterServiceType);
+      params.set("startDate", isoDate(monday));
+      params.set("endDate", isoDate(friday));
+      const url = `/api/schedules/export?${params}`;
+      const r = await authFetch(url);
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "staff-schedules.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error("Failed to download CSV");
+    }
+  }
+
   function openCreate(day?: string) {
     setEditingSchedule(null);
     setFormData({
@@ -222,6 +334,21 @@ export default function StaffCalendar() {
               <AlertTriangle className="w-3.5 h-3.5 mr-1" /> {conflicts.length} Conflict{conflicts.length !== 1 ? "s" : ""}
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="w-3.5 h-3.5 mr-1" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportPdf}>
+                <FileText className="w-4 h-4 mr-2" /> PDF / Print
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportCsv}>
+                <Sheet className="w-4 h-4 mr-2" /> CSV Download
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {isAdmin && (
             <Button size="sm" onClick={() => openCreate()} className="bg-emerald-600 hover:bg-emerald-700">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Schedule

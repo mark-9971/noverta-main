@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { db, staffSchedulesTable, staffTable, schoolsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
@@ -284,6 +284,86 @@ router.get("/staff-schedules/coverage-gaps", async (req, res) => {
     res.status(500).json({ error: "Failed to check coverage gaps" });
   }
 });
+
+async function handleSchedulesExport(req: Request, res: Response) {
+  try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const { staffId, schoolId, dayOfWeek, serviceTypeId, startDate, endDate } = req.query;
+
+    let query = sql`
+      SELECT ss.*, 
+        s.first_name as "staffFirstName", s.last_name as "staffLastName",
+        sc.name as "schoolName",
+        st.name as "serviceTypeName"
+      FROM staff_schedules ss
+      JOIN staff s ON s.id = ss.staff_id
+      JOIN schools sc ON sc.id = ss.school_id
+      LEFT JOIN service_types st ON st.id = ss.service_type_id
+      WHERE 1=1
+    `;
+
+    if (districtId) {
+      query = sql`${query} AND sc.district_id = ${districtId}`;
+    }
+    if (staffId) {
+      query = sql`${query} AND ss.staff_id = ${Number(staffId)}`;
+    }
+    if (schoolId) {
+      query = sql`${query} AND ss.school_id = ${Number(schoolId)}`;
+    }
+    if (dayOfWeek && VALID_DAYS.includes(String(dayOfWeek))) {
+      query = sql`${query} AND ss.day_of_week = ${String(dayOfWeek)}`;
+    }
+    if (serviceTypeId) {
+      query = sql`${query} AND ss.service_type_id = ${Number(serviceTypeId)}`;
+    }
+    if (startDate) {
+      query = sql`${query} AND (ss.effective_to IS NULL OR ss.effective_to >= ${String(startDate)})`;
+    }
+    if (endDate) {
+      query = sql`${query} AND (ss.effective_from IS NULL OR ss.effective_from <= ${String(endDate)})`;
+    }
+
+    query = sql`${query} ORDER BY s.last_name, s.first_name, ss.day_of_week, ss.start_time`;
+
+    const result = await db.execute(query);
+    const rows = ("rows" in result ? result.rows : result) as Array<Record<string, unknown>>;
+
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const csvEsc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+
+    const csvRows: string[] = [
+      ["Staff Name", "School", "Day", "Start Time", "End Time", "Service Type", "Label", "Notes"].join(","),
+    ];
+
+    for (const row of rows) {
+      const day = String(row.day_of_week || "");
+      const staffName = `${String(row.staffFirstName || "")} ${String(row.staffLastName || "")}`.trim();
+      const cells = [
+        csvEsc(staffName),
+        csvEsc(String(row.schoolName || "")),
+        capitalize(day),
+        String(row.start_time || ""),
+        String(row.end_time || ""),
+        csvEsc(String(row.serviceTypeName || "")),
+        csvEsc(String(row.label || "")),
+        csvEsc(String(row.notes || "")),
+      ];
+      csvRows.push(cells.join(","));
+    }
+
+    const csv = csvRows.join("\r\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", 'attachment; filename="staff-schedules.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error("GET schedules/export error:", err);
+    res.status(500).json({ error: "Failed to export schedules" });
+  }
+}
+
+router.get("/staff-schedules/export", handleSchedulesExport);
+router.get("/schedules/export", handleSchedulesExport);
 
 router.get("/staff-schedules/provider-summary/:staffId", async (req, res) => {
   try {

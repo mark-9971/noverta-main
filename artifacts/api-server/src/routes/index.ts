@@ -135,6 +135,8 @@ router.use("/staff-assignments", requireDistrictScope);
 router.use("/staff-assignments", requireStaffOnly);
 router.use("/staff-schedules", requireDistrictScope);
 router.use("/staff-schedules", requireStaffOnly);
+router.use("/schedules/export", requireDistrictScope);
+router.use("/schedules/export", requireStaffOnly);
 // Reports router previously had a blanket router.use(requirePrivilegedStaff) with no
 // path, which bled into every subsequent router. Scoped here instead.
 router.use("/reports", requireRoles("admin", "coordinator", "case_manager", "sped_teacher", "bcba", "provider"));
