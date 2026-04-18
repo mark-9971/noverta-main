@@ -140,9 +140,8 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   }
 
   if (req.body.alertDigestMode !== undefined) {
-    const VALID_MODES = ["immediate", "daily", "weekly", "disabled"] as const;
-    if (!VALID_MODES.includes(req.body.alertDigestMode)) {
-      res.status(400).json({ error: `alertDigestMode must be one of: ${VALID_MODES.join(", ")}` });
+    if (typeof req.body.alertDigestMode !== "boolean") {
+      res.status(400).json({ error: "alertDigestMode must be a boolean" });
       return;
     }
     updateData.alertDigestMode = req.body.alertDigestMode;

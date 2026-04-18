@@ -11,10 +11,13 @@ interface DistrictStatus {
 export default function NotificationPreferencesPage() {
   const [districtId, setDistrictId] = useState<number | null>(null);
   const [weeklyEnabled, setWeeklyEnabled] = useState<boolean | null>(null);
+  const [digestEnabled, setDigestEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingDigest, setSavingDigest] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [digestSavedAt, setDigestSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,13 +29,20 @@ export default function NotificationPreferencesPage() {
         if (cancelled) return;
         setDistrictId(status.districtId);
 
-        const prefRes = await authFetch(
-          `/api/districts/${status.districtId}/notification-preferences`,
-        );
+        const [prefRes, districtRes] = await Promise.all([
+          authFetch(`/api/districts/${status.districtId}/notification-preferences`),
+          authFetch(`/api/districts/${status.districtId}`),
+        ]);
         if (!prefRes.ok) throw new Error("Failed to load notification preferences");
         const data = (await prefRes.json()) as { weeklyRiskEmailEnabled: boolean };
         if (cancelled) return;
         setWeeklyEnabled(data.weeklyRiskEmailEnabled);
+        if (districtRes.ok) {
+          const dist = (await districtRes.json()) as { alertDigestMode?: boolean };
+          if (!cancelled) setDigestEnabled(dist.alertDigestMode === true);
+        } else {
+          if (!cancelled) setDigestEnabled(false);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
@@ -69,6 +79,31 @@ export default function NotificationPreferencesPage() {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleDigest(next: boolean) {
+    if (districtId === null) return;
+    const prev = digestEnabled;
+    setDigestEnabled(next);
+    setSavingDigest(true);
+    setError(null);
+    try {
+      const res = await authFetch(`/api/districts/${districtId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertDigestMode: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to update preference");
+      }
+      setDigestSavedAt(Date.now());
+    } catch (e) {
+      setDigestEnabled(prev);
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSavingDigest(false);
     }
   }
 
@@ -122,6 +157,35 @@ export default function NotificationPreferencesPage() {
             onCheckedChange={toggleWeekly}
             data-testid="switch-weekly-risk-email"
             aria-label="Weekly Risk Exposure Summary"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-800">Daily digest emails (batch critical risks into one email per day)</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            When enabled, critical cost-avoidance risk alerts for assigned students are batched
+            into a single daily email per staff member instead of being sent immediately. Individual
+            staff can override this default from their profile.
+          </p>
+          {digestSavedAt !== null && !savingDigest && !error && (
+            <p
+              className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-700"
+              data-testid="notif-prefs-digest-saved"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Saved
+            </p>
+          )}
+        </div>
+        <div className="flex-shrink-0 pt-0.5">
+          <Switch
+            checked={digestEnabled === true}
+            disabled={savingDigest || digestEnabled === null}
+            onCheckedChange={toggleDigest}
+            data-testid="switch-district-digest-mode"
+            aria-label="Daily digest emails"
           />
         </div>
       </div>
