@@ -62,7 +62,7 @@ function SessionBar({ count, max }: { count: number; max: number }) {
   );
 }
 
-export default function CaseloadAnalytics() {
+export default function CaseloadAnalytics({ onViewStudent }: { onViewStudent?: (id: number) => void }) {
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | StudentSummary["status"]>("all");
@@ -324,7 +324,7 @@ export default function CaseloadAnalytics() {
                   </div>
                 )}
 
-                {/* Last session */}
+                {/* Last session + actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100/80">
                   <p className="text-[10px] text-gray-400">
                     Last session: {s.lastSessionDate
@@ -333,11 +333,22 @@ export default function CaseloadAnalytics() {
                         : `${s.daysSinceSession}d ago`)
                       : "Never"}
                   </p>
-                  <Link href={`/students/${s.id}`}>
-                    <button className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-0.5">
-                      View <ChevronRight className="w-3 h-3" />
-                    </button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {onViewStudent ? (
+                      <button
+                        onClick={() => onViewStudent(s.id)}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5 px-2 py-0.5 rounded-md hover:bg-indigo-50 transition-colors"
+                      >
+                        View Programs <ChevronRight className="w-3 h-3" />
+                      </button>
+                    ) : (
+                      <Link href={`/students/${s.id}`}>
+                        <button className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-0.5">
+                          View <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
