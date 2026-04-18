@@ -11,6 +11,7 @@ import { eq, and, sql, desc, isNull } from "drizzle-orm";
 import { requireRoles, type AuthedRequest } from "../middlewares/auth";
 import { STAFF_ROLES } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
+import { isBlockActiveOnDate } from "../lib/scheduleUtils";
 
 const router: IRouter = Router();
 
@@ -135,6 +136,9 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
           blockLabel: scheduleBlocksTable.blockLabel,
           blockType: scheduleBlocksTable.blockType,
           notes: scheduleBlocksTable.notes,
+          isRecurring: scheduleBlocksTable.isRecurring,
+          recurrenceType: scheduleBlocksTable.recurrenceType,
+          effectiveFrom: scheduleBlocksTable.effectiveFrom,
           studentFirst: studentsTable.firstName,
           studentLast: studentsTable.lastName,
           serviceTypeName: serviceTypesTable.name,
@@ -162,6 +166,14 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
         )),
     ]);
 
+    const targetDate = new Date(date + "T12:00:00");
+    const activeBlocks = blocks.filter(b =>
+      isBlockActiveOnDate(
+        { id: b.id, isRecurring: b.isRecurring, recurrenceType: b.recurrenceType, effectiveFrom: b.effectiveFrom },
+        targetDate,
+      )
+    );
+
     const consumed = new Set<number>();
 
     // Pass 1: exact time matching — consume sessions with matching startTime
@@ -175,7 +187,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
       }
     }
     const loggedByExact = new Set<number>();
-    for (const b of blocks) {
+    for (const b of activeBlocks) {
       const k = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}:${b.startTime}`;
       const candidates = exactSessionsByKey.get(k);
       if (candidates) {
@@ -196,7 +208,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
       fallbackCounts.set(k, (fallbackCounts.get(k) ?? 0) + 1);
     }
     const loggedByFallback = new Set<number>();
-    for (const b of blocks) {
+    for (const b of activeBlocks) {
       if (loggedByExact.has(b.id)) continue;
       const k = `${b.studentId ?? ""}:${b.serviceTypeId ?? ""}`;
       const count = fallbackCounts.get(k) ?? 0;
@@ -211,7 +223,7 @@ router.get("/para/my-day", requireStaff, async (req, res): Promise<void> => {
     res.json({
       date,
       dayOfWeek,
-      blocks: blocks.map(b => ({
+      blocks: activeBlocks.map(b => ({
         id: b.id,
         staffId: b.staffId,
         studentId: b.studentId,
