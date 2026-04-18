@@ -49,7 +49,7 @@ export default function Reports() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList className="flex-wrap">
+        <TabsList className="flex-wrap h-auto gap-0.5 justify-start">
           <TabsTrigger value="executive" className="gap-1.5"><Shield className="w-3.5 h-3.5" /> Executive Summary</TabsTrigger>
           <TabsTrigger value="trend" className="gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Compliance Trend</TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5"><FileText className="w-3.5 h-3.5" /> Audit Package</TabsTrigger>

@@ -226,16 +226,16 @@ export function ClaimsQueueTab({
 
       <Card className="border-gray-200/60">
         <CardContent className="py-4 px-5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold text-gray-700">Generate Claim Drafts</span>
-            <Input type="date" value={genDateFrom} onChange={e => setGenDateFrom(e.target.value)} className="w-36 h-8 text-xs" />
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-gray-700 w-full sm:w-auto">Generate Claim Drafts</span>
+            <Input type="date" value={genDateFrom} onChange={e => setGenDateFrom(e.target.value)} className="w-32 sm:w-36 h-8 text-xs" />
             <span className="text-xs text-gray-400">to</span>
-            <Input type="date" value={genDateTo} onChange={e => setGenDateTo(e.target.value)} className="w-36 h-8 text-xs" />
+            <Input type="date" value={genDateTo} onChange={e => setGenDateTo(e.target.value)} className="w-32 sm:w-36 h-8 text-xs" />
             <Button size="sm" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs">
               <Plus className="w-3 h-3 mr-1" />
               {generateMutation.isPending ? "Generating..." : "Generate Drafts"}
             </Button>
-            <span className="text-[11px] text-gray-400 ml-auto">
+            <span className="text-[11px] text-gray-400 sm:ml-auto w-full sm:w-auto">
               Builds local claim drafts only. Filing happens in your Medicaid billing system.
             </span>
           </div>
@@ -243,7 +243,7 @@ export function ClaimsQueueTab({
       </Card>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {STATUS_FILTERS.map(({ value, label, title }) => (
             <button
               key={value}
@@ -257,7 +257,7 @@ export function ClaimsQueueTab({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
           <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-32 h-7 text-xs" placeholder="From" />
           <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-32 h-7 text-xs" placeholder="To" />
           <Button

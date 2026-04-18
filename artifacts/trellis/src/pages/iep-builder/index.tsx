@@ -386,17 +386,17 @@ export default function IepBuilderPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-start sm:items-center gap-3 mb-6 flex-wrap">
         <button
           onClick={() => navigate(`/students/${studentId}/iep`)}
-          className="text-gray-400 hover:text-gray-600"
+          className="text-gray-400 hover:text-gray-600 flex-shrink-0 mt-1 sm:mt-0"
           aria-label="Back to student IEP"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">IEP Annual Review Draft Builder</h1>
-          <p className="text-[13px] text-gray-500">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">IEP Annual Review Draft Builder</h1>
+          <p className="text-[12px] sm:text-[13px] text-gray-500 truncate">{context.student.name} · {context.nextSchoolYear.label} School Year</p>
         </div>
         {isDirty ? (
           <div className="flex items-center gap-1.5 text-[11px] text-amber-500 bg-amber-50 rounded-lg px-2.5 py-1.5 flex-shrink-0">

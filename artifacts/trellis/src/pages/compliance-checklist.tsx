@@ -304,7 +304,7 @@ export default function ComplianceChecklist({ embedded }: { embedded?: boolean }
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {(["critical", "warning", "ok"] as const).map(s => {
           const cfg = STATUS_CONFIG[s];
           const Icon = cfg.icon;
@@ -313,18 +313,18 @@ export default function ComplianceChecklist({ embedded }: { embedded?: boolean }
             <button
               key={s}
               onClick={() => setStatusFilter(statusFilter === s ? "all" : s)}
-              className={`rounded-xl border p-4 text-left transition-all hover:shadow-sm ${
+              className={`rounded-xl border p-3 sm:p-4 text-left transition-all hover:shadow-sm ${
                 statusFilter === s
                   ? `${cfg.border} ${cfg.bg} ring-2 ring-offset-1 ${s === "critical" ? "ring-red-300" : s === "warning" ? "ring-amber-300" : "ring-emerald-300"}`
                   : "border-gray-100 bg-white hover:border-gray-200"
               }`}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <Icon className={`w-4 h-4 ${cfg.iconClass}`} />
-                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{cfg.label}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${cfg.iconClass}`} />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">{cfg.label}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-800">{isLoading ? "—" : count}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">student{count === 1 ? "" : "s"}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-800">{isLoading ? "—" : count}</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5">student{count === 1 ? "" : "s"}</p>
             </button>
           );
         })}

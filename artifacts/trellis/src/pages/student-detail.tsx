@@ -862,7 +862,7 @@ export default function StudentDetail() {
                 })()}
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:flex-shrink-0">
               {s.status === "inactive" && (
                 <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                   <Archive className="w-3 h-3" /> Inactive
