@@ -11,7 +11,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
-import { DemoBanner } from "@/components/DemoBanner";
+import { DemoBanner, useActiveDemoDistrict } from "@/components/DemoBanner";
 import { SampleDataBanner } from "@/components/SampleDataBanner";
 import { SampleDataTour } from "@/components/SampleDataTour";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
@@ -23,8 +23,10 @@ import { useTheme, DARK_SIDEBAR_THEMES, type ThemeId } from "@/lib/theme-context
 import { useTier } from "@/lib/tier-context";
 import {
   type NavItem, type NavSection, type RoleThemeConfig,
-  roleConfig, platformAdminSection,
+  roleConfig, platformAdminSection, getAdminNavForMode,
 } from "./nav-config";
+
+const DEMO_ADMIN_ROLES = new Set(["admin", "case_manager", "coordinator"]);
 
 const SHOW_COMING_SOON = false;
 const LS_PREFIX = "trellis_nav_";
@@ -162,7 +164,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { hasAccess, getFeatureInfo, loading: tierLoading } = useTier();
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const openAlerts = ((alertsSummary as Record<string, unknown>)?.total as number) ?? 0;
-  const config = roleConfig[role] ?? roleConfig["sped_teacher"];
+  const baseConfig = roleConfig[role] ?? roleConfig["sped_teacher"];
+  const demoDistrict = useActiveDemoDistrict();
+  const isDemoMode = demoDistrict !== null;
+  const config: RoleThemeConfig = (isDemoMode && DEMO_ADMIN_ROLES.has(role))
+    ? { ...baseConfig, nav: getAdminNavForMode(true) }
+    : baseConfig;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

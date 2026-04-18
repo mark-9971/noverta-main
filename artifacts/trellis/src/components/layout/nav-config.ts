@@ -260,6 +260,62 @@ export const adminNav: NavSection[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Demo-focused admin nav.
+//
+// Used when the active district is a demo district. Trims the sprawling admin
+// IA down to the wedge-only surfaces a pilot prospect needs to see:
+//   Dashboard, Alerts, Compliance, Compensatory Services, Students/Staff,
+//   Sessions, Scheduling, Reports, Compensatory Finance, Executive Dashboard,
+//   Settings.
+//
+// Hidden (NOT removed — routes still resolve, deep links still work):
+//   IEP Hub, Evaluations, Transitions, Parent Comms, Document Workflow,
+//   State Reports, Restraint & Seclusion, ABA section, District Overview,
+//   Agencies, Leadership Packet, Contract Utilization, Resource Management,
+//   Medicaid Billing, Billing, Data Health Check, Data Import.
+//
+// To switch back to the full admin nav, the user can leave demo mode
+// (district.isDemo = false) — no code change required.
+// ─────────────────────────────────────────────────────────────────────────────
+const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
+  "/",
+  "/alerts",
+  "/compliance",
+  "/compensatory-services",
+  "/students",
+  "/sessions",
+  "/scheduling",
+  "/reports",
+  "/compensatory-finance",
+  "/executive",
+  "/settings",
+]);
+
+const DEMO_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
+  "Overview": true,
+  "Compliance Tools": true,
+  "Staffing": true,
+  "Financial / Executive": true,
+  "Admin / Tools": false,
+};
+
+export const demoFocusedAdminNav: NavSection[] = adminNav
+  .map(section => {
+    const items = section.items.filter(item => DEMO_NAV_ALLOWED_HREFS.has(item.href));
+    if (items.length === 0) return null;
+    const defaultOpen = section.label && section.label in DEMO_SECTION_DEFAULT_OPEN
+      ? DEMO_SECTION_DEFAULT_OPEN[section.label]
+      : section.defaultOpen;
+    return { ...section, items, defaultOpen };
+  })
+  .filter((s): s is NavSection => s !== null);
+
+/** Returns the appropriate admin nav based on whether the user is in demo mode. */
+export function getAdminNavForMode(isDemo: boolean): NavSection[] {
+  return isDemo ? demoFocusedAdminNav : adminNav;
+}
+
 // SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
 // All other sections are visible: IEP, Accommodations & Transitions, Compliance Tools, Staffing, ABA.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
