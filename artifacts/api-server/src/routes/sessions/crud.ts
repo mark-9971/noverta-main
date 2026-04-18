@@ -17,7 +17,7 @@ import {
   UpdateSessionBody,
   DeleteSessionParams,
 } from "@workspace/api-zod";
-import { eq, and, gte, lte, desc, asc, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, inArray, isNull, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { logAudit, diffObjects } from "../../lib/auditLog";
 import { auditLogsTable } from "@workspace/db";
@@ -35,7 +35,7 @@ router.param("id", sessionIdGuard);
 router.get("/sessions", async (req, res): Promise<void> => {
   const params = ListSessionsQueryParams.safeParse(req.query);
   const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
-  if (assignedIds !== null && assignedIds.length === 0) { res.json([]); return; }
+  if (assignedIds !== null && assignedIds.length === 0) { res.json({ data: [], total: 0, page: 1, pageSize: 100, hasMore: false }); return; }
   const conditions: any[] = [isNull(sessionLogsTable.deletedAt)];
   if (assignedIds !== null) {
     conditions.push(sql`${sessionLogsTable.studentId} IN (${sql.join(assignedIds.map(id => sql`${id}`), sql`, `)})`);
@@ -63,8 +63,10 @@ router.get("/sessions", async (req, res): Promise<void> => {
   const limit = params.success && params.data.limit ? Number(params.data.limit) : 100;
   const offset = params.success && params.data.offset ? Number(params.data.offset) : 0;
 
-  const sessions = await db
-    .select({
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [sessions, totalResult] = await Promise.all([
+    db.select({
       id: sessionLogsTable.id,
       studentId: sessionLogsTable.studentId,
       serviceRequirementId: sessionLogsTable.serviceRequirementId,
@@ -96,11 +98,13 @@ router.get("/sessions", async (req, res): Promise<void> => {
     .leftJoin(staffTable, eq(staffTable.id, sessionLogsTable.staffId))
     .leftJoin(studentsTable, eq(studentsTable.id, sessionLogsTable.studentId))
     .leftJoin(missedReasonsTable, eq(missedReasonsTable.id, sessionLogsTable.missedReasonId))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(whereClause)
     .orderBy(desc(sessionLogsTable.sessionDate))
     .limit(limit)
-    .offset(offset);
-
+    .offset(offset),
+    db.select({ total: count() }).from(sessionLogsTable).where(whereClause),
+  ]);
+  const total = totalResult[0]?.total ?? 0;
 
   const sessionIds = sessions.map(s => s.id);
   let goalCountMap: Record<number, number> = {};
@@ -118,15 +122,22 @@ router.get("/sessions", async (req, res): Promise<void> => {
     }
   }
 
-  res.json(sessions.map(s => ({
-    ...s,
-    studentName: s.studentFirst ? `${s.studentFirst} ${s.studentLast}` : null,
-    serviceTypeName: s.serviceTypeName,
-    staffName: s.staffFirst ? `${s.staffFirst} ${s.staffLast}` : null,
-    missedReasonLabel: s.missedReasonLabel,
-    createdAt: s.createdAt.toISOString(),
-    goalCount: goalCountMap[s.id] ?? 0,
-  })));
+  const page = Math.floor(offset / limit) + 1;
+  res.json({
+    data: sessions.map(s => ({
+      ...s,
+      studentName: s.studentFirst ? `${s.studentFirst} ${s.studentLast}` : null,
+      serviceTypeName: s.serviceTypeName,
+      staffName: s.staffFirst ? `${s.staffFirst} ${s.staffLast}` : null,
+      missedReasonLabel: s.missedReasonLabel,
+      createdAt: s.createdAt.toISOString(),
+      goalCount: goalCountMap[s.id] ?? 0,
+    })),
+    total,
+    page,
+    pageSize: limit,
+    hasMore: offset + sessions.length < total,
+  });
 });
 
 router.get("/sessions/:id", async (req, res): Promise<void> => {

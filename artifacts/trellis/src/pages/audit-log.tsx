@@ -56,10 +56,11 @@ interface AuditLogEntry {
 }
 
 interface AuditLogsResponse {
-  logs: AuditLogEntry[];
+  data: AuditLogEntry[];
   total: number;
-  limit: number;
-  offset: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
 interface AuditStats {
@@ -161,7 +162,7 @@ export default function AuditLogPage() {
   });
   const stats = _statsData as AuditStats | undefined;
 
-  const logs = data?.logs ?? [];
+  const logs = data?.data ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;

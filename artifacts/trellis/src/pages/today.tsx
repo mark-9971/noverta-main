@@ -144,10 +144,10 @@ export default function TodayPage() {
   const { data: studentsData } = useListStudents({} as any, { enabled });
 
   const blocks = (blocksData as any[]) ?? [];
-  const sessions = (sessionsData as any[]) ?? [];
-  const reqs = (reqsData as any[]) ?? [];
-  const alerts = (alertsData as any[]) ?? [];
-  const students = (studentsData as any[]) ?? [];
+  const sessions = ((sessionsData as any)?.data ?? (Array.isArray(sessionsData) ? sessionsData : [])) as any[];
+  const reqs = (Array.isArray(reqsData) ? reqsData : (reqsData as any)?.data ?? []) as any[];
+  const alerts = ((alertsData as any)?.data ?? (Array.isArray(alertsData) ? alertsData : [])) as any[];
+  const students = ((studentsData as any)?.data ?? (Array.isArray(studentsData) ? studentsData : [])) as any[];
   const studentMap = useMemo(() => new Map(students.map(s => [s.id, s])), [students]);
 
   // ----- Derived data -----

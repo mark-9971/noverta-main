@@ -38,6 +38,8 @@ export const studentsTable = pgTable("students", {
   index("stu_case_manager_idx").on(table.caseManagerId),
   index("stu_status_idx").on(table.status),
   index("stu_name_idx").on(table.lastName, table.firstName),
+  index("stu_deleted_at_idx").on(table.deletedAt),
+  index("stu_school_status_deleted_idx").on(table.schoolId, table.status, table.deletedAt),
 ]);
 
 export const insertStudentSchema = createInsertSchema(studentsTable).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });

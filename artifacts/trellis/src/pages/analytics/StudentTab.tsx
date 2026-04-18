@@ -28,7 +28,7 @@ export default function StudentTab() {
   );
   const studentData = _studentData as any;
 
-  const students: any[] = Array.isArray(studentsRaw) ? studentsRaw : (studentsRaw as any)?.students ?? [];
+  const students: any[] = Array.isArray(studentsRaw) ? studentsRaw : (studentsRaw as any)?.data ?? [];
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();

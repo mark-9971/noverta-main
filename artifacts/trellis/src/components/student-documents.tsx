@@ -131,9 +131,10 @@ export default function StudentDocuments({ studentId }: { studentId: number }) {
 
   const fetchDocs = useCallback(async () => {
     try {
-      const res = await authFetch(`/api/documents?studentId=${studentId}`);
+      const res = await authFetch(`/api/documents?studentId=${studentId}&limit=500`);
       if (res.ok) {
-        setDocuments(await res.json());
+        const body = await res.json();
+        setDocuments(body?.data ?? []);
       }
     } catch (e) {
       console.error("Error fetching documents:", e);

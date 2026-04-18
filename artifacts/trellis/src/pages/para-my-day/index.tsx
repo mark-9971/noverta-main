@@ -69,11 +69,12 @@ export default function ParaMyDayPage() {
           })
           .catch(() => {}),
         authFetch(`/api/alerts?staffId=${staffId}&resolved=false`)
-          .then(r => r.ok ? r.json() : [])
+          .then(r => r.ok ? r.json() : { data: [] })
           .then((data: unknown) => {
-            if (!Array.isArray(data)) return;
+            const arr = Array.isArray(data) ? data : (data as any)?.data ?? [];
+            if (!Array.isArray(arr)) return;
             setAlerts(
-              (data as Record<string, unknown>[])
+              (arr as Record<string, unknown>[])
                 .filter(a => typeof a === "object" && a !== null && typeof a["id"] === "number")
                 .map(a => ({
                   id: a["id"] as number,

@@ -73,8 +73,8 @@ export default function MyCaseloadPage() {
   const assignedBips: AssignedBip[] = assignedBipsData ?? [];
 
   const reqs: ServiceReq[] = useMemo(() => (allReqs as any[] ?? []).filter((r: any) => r.active), [allReqs]);
-  const students: Student[] = useMemo(() => allStudents as any[] ?? [], [allStudents]);
-  const sessions: SessionLog[] = useMemo(() => recentSessions as any[] ?? [], [recentSessions]);
+  const students: Student[] = useMemo(() => ((allStudents as any)?.data ?? []) as Student[], [allStudents]);
+  const sessions: SessionLog[] = useMemo(() => ((recentSessions as any)?.data ?? []) as SessionLog[], [recentSessions]);
 
   const myStaff = useMemo(() => {
     if (!teacherId) return null;

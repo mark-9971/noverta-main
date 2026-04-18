@@ -9,7 +9,7 @@ import {
   BulkResolveAlertsBody,
   SnoozeAlertParams,
 } from "@workspace/api-zod";
-import { eq, and, desc, sql, inArray, gt, isNull, isNotNull, or } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, gt, isNull, isNotNull, or, count } from "drizzle-orm";
 import { runComplianceChecks } from "../lib/complianceEngine";
 import type { AuthedRequest } from "../middlewares/auth";
 import { assertAlertInCallerDistrict, filterAlertIdsInCallerDistrict } from "../lib/districtScope";
@@ -46,37 +46,57 @@ router.get("/alerts", async (req, res): Promise<void> => {
     if (params.data.districtId) conditions.push(sql`${alertsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${Number(params.data.districtId)}))`);
   }
 
-  const alerts = await db
-    .select({
-      id: alertsTable.id,
-      type: alertsTable.type,
-      severity: alertsTable.severity,
-      studentId: alertsTable.studentId,
-      staffId: alertsTable.staffId,
-      serviceRequirementId: alertsTable.serviceRequirementId,
-      message: alertsTable.message,
-      suggestedAction: alertsTable.suggestedAction,
-      resolved: alertsTable.resolved,
-      resolvedAt: alertsTable.resolvedAt,
-      resolvedNote: alertsTable.resolvedNote,
-      snoozedUntil: alertsTable.snoozedUntil,
-      createdAt: alertsTable.createdAt,
-      studentFirst: studentsTable.firstName,
-      studentLast: studentsTable.lastName,
-      staffFirst: staffTable.firstName,
-      staffLast: staffTable.lastName,
-    })
-    .from(alertsTable)
-    .leftJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
-    .leftJoin(staffTable, eq(staffTable.id, alertsTable.staffId))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(alertsTable.createdAt));
+  const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : NaN;
+  const rawOffset = req.query.offset ? parseInt(String(req.query.offset), 10) : NaN;
+  const pageSize = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : 200;
+  const pageOffset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
-  res.json(alerts.map(a => ({
-    ...alertToJson(a),
-    studentName: a.studentFirst ? `${a.studentFirst} ${a.studentLast}` : null,
-    staffName: a.staffFirst ? `${a.staffFirst} ${a.staffLast}` : null,
-  })));
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [alerts, totalResult] = await Promise.all([
+    db
+      .select({
+        id: alertsTable.id,
+        type: alertsTable.type,
+        severity: alertsTable.severity,
+        studentId: alertsTable.studentId,
+        staffId: alertsTable.staffId,
+        serviceRequirementId: alertsTable.serviceRequirementId,
+        message: alertsTable.message,
+        suggestedAction: alertsTable.suggestedAction,
+        resolved: alertsTable.resolved,
+        resolvedAt: alertsTable.resolvedAt,
+        resolvedNote: alertsTable.resolvedNote,
+        snoozedUntil: alertsTable.snoozedUntil,
+        createdAt: alertsTable.createdAt,
+        studentFirst: studentsTable.firstName,
+        studentLast: studentsTable.lastName,
+        staffFirst: staffTable.firstName,
+        staffLast: staffTable.lastName,
+      })
+      .from(alertsTable)
+      .leftJoin(studentsTable, eq(studentsTable.id, alertsTable.studentId))
+      .leftJoin(staffTable, eq(staffTable.id, alertsTable.staffId))
+      .where(whereClause)
+      .orderBy(desc(alertsTable.createdAt))
+      .limit(pageSize)
+      .offset(pageOffset),
+    db.select({ total: count() }).from(alertsTable).where(whereClause),
+  ]);
+  const total = totalResult[0]?.total ?? 0;
+
+  const page = Math.floor(pageOffset / pageSize) + 1;
+  res.json({
+    data: alerts.map(a => ({
+      ...alertToJson(a),
+      studentName: a.studentFirst ? `${a.studentFirst} ${a.studentLast}` : null,
+      staffName: a.staffFirst ? `${a.staffFirst} ${a.staffLast}` : null,
+    })),
+    total,
+    page,
+    pageSize,
+    hasMore: pageOffset + alerts.length < total,
+  });
 });
 
 router.patch("/alerts/:id/resolve", async (req, res): Promise<void> => {

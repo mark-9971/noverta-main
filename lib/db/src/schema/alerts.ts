@@ -27,6 +27,8 @@ export const alertsTable = pgTable("alerts", {
   index("alert_staff_resolved_idx").on(table.staffId, table.resolved),
   index("alert_type_idx").on(table.type),
   index("alert_snoozed_idx").on(table.snoozedUntil),
+  index("alert_created_at_idx").on(table.createdAt),
+  index("alert_resolved_created_idx").on(table.resolved, table.createdAt),
 ]);
 
 export const insertAlertSchema = createInsertSchema(alertsTable).omit({ id: true, createdAt: true, updatedAt: true });

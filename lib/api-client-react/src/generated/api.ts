@@ -5,6 +5,14 @@
  * Trellis API specification
  * OpenAPI spec version: 0.1.0
  */
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   MutationFunction,
@@ -2387,8 +2395,8 @@ export const getListStudentsUrl = (params?: ListStudentsParams) => {
 export const listStudents = async (
   params?: ListStudentsParams,
   options?: RequestInit,
-): Promise<StudentSummary[]> => {
-  return customFetch<StudentSummary[]>(getListStudentsUrl(params), {
+): Promise<PaginatedResult<StudentSummary>> => {
+  return customFetch<PaginatedResult<StudentSummary>>(getListStudentsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4541,8 +4549,8 @@ export const getListSessionsUrl = (params?: ListSessionsParams) => {
 export const listSessions = async (
   params?: ListSessionsParams,
   options?: RequestInit,
-): Promise<SessionLog[]> => {
-  return customFetch<SessionLog[]>(getListSessionsUrl(params), {
+): Promise<PaginatedResult<SessionLog>> => {
+  return customFetch<PaginatedResult<SessionLog>>(getListSessionsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -6059,8 +6067,8 @@ export const getListAlertsUrl = (params?: ListAlertsParams) => {
 export const listAlerts = async (
   params?: ListAlertsParams,
   options?: RequestInit,
-): Promise<Alert[]> => {
-  return customFetch<Alert[]>(getListAlertsUrl(params), {
+): Promise<PaginatedResult<Alert>> => {
+  return customFetch<PaginatedResult<Alert>>(getListAlertsUrl(params), {
     ...options,
     method: "GET",
   });

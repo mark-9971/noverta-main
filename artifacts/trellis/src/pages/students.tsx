@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { Search, ChevronRight, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays, Users } from "lucide-react";
+import { Search, ChevronRight, ChevronLeft, GraduationCap, BookOpen, Plus, AlertCircle, Archive, Phone, CalendarDays, Users } from "lucide-react";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
 import { Link } from "wouter";
 import { StudentQuickView } from "@/components/student-quick-view";
@@ -31,6 +31,8 @@ const RISK_TIER_STATUSES: Record<RiskTier, string[]> = {
   on_track: ["on_track"],
 };
 
+const PAGE_SIZE = 100;
+
 export default function Students() {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<RiskTier>("all");
@@ -41,6 +43,7 @@ export default function Students() {
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [schoolFilter, setSchoolFilter] = useState<string>("all");
   const [missingFilter, setMissingFilter] = useState<"all" | "no_services">("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [addForm, setAddForm] = useState({ firstName: "", lastName: "", grade: "", schoolId: "", externalId: "", dateOfBirth: "", hasIep: "" as "" | "yes" | "no" });
@@ -57,7 +60,8 @@ export default function Students() {
 
   const { data: students, isLoading, isError, refetch } = useListStudents({
     ...filterParams,
-    limit: 500,
+    limit: PAGE_SIZE,
+    offset: (currentPage - 1) * PAGE_SIZE,
     status: statusFilter,
     ...(selectedYearId !== "all" ? { schoolYearId: Number(selectedYearId) } : {}),
     ...(caseManagerFilter !== "all" ? { caseManagerId: Number(caseManagerFilter) } : {}),
@@ -103,9 +107,17 @@ export default function Students() {
 
   const spedIds = new Set<number>((Array.isArray(spedStudentsRaw) ? spedStudentsRaw : []).map((s: any) => s.id));
 
-  const studentList = (students as any[]) ?? [];
+  const studentList = ((students as any)?.data ?? []) as any[];
+  const totalStudents: number = (students as any)?.total ?? 0;
+  const studentHasMore: boolean = (students as any)?.hasMore ?? false;
+  const totalPages = totalStudents > 0 ? Math.ceil(totalStudents / PAGE_SIZE) : 1;
   const progressList = (progress as any[]) ?? [];
   const loading = isLoading;
+
+  // Reset to page 1 whenever the filter criteria change.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, riskFilter, typeFilter, caseManagerFilter, gradeFilter, schoolFilter, missingFilter, serviceTypeFilter, selectedYearId, JSON.stringify(filterParams)]);
 
   const priorityOrder = RISK_PRIORITY_ORDER;
   const studentRisk: Record<number, string> = {};
@@ -464,6 +476,38 @@ export default function Students() {
           );
         })}
       </div>
+
+      {/* Pagination controls — shown when there is more than one page of students */}
+      {(totalStudents > PAGE_SIZE || currentPage > 1) && (
+        <div className="flex items-center justify-between pt-2 pb-1">
+          <p className="text-[12px] text-gray-500">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalStudents)} of {totalStudents.toLocaleString()} students
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[12px] px-2"
+              disabled={currentPage <= 1 || isLoading}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="w-3.5 h-3.5 mr-0.5" /> Prev
+            </Button>
+            <span className="text-[12px] text-gray-500 px-1">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[12px] px-2"
+              disabled={!studentHasMore || isLoading}
+              onClick={() => setCurrentPage(p => p + 1)}
+            >
+              Next <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={addDialogOpen} onOpenChange={v => { if (!v) setAddDialogOpen(false); }}>
         <DialogContent className="max-w-md">

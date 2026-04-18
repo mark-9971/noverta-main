@@ -15,6 +15,15 @@ import { eq, sql } from "drizzle-orm";
  * they receive their own ToS flow through their portal.
  */
 export const requireLegalAcceptance: RequestHandler = async (req, res, next) => {
+  // Test-mode bypass: consistent with requireAuth's x-test-* header support.
+  // Legal acceptance DB rows don't exist for synthetic test users, so skip the
+  // check entirely in test mode. This is safe because test mode already requires
+  // NODE_ENV=test (never "development" or "production").
+  if (process.env.NODE_ENV === "test" && req.headers["x-test-user-id"]) {
+    next();
+    return;
+  }
+
   const authed = req as AuthedRequest;
   const userId = authed.userId;
 

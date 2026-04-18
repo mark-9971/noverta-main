@@ -87,7 +87,7 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
     ...(studentFilter !== "all" ? { studentId: Number(studentFilter) } : {}),
   };
   const { data: sessions, isLoading, isError, refetch } = useListSessions(sessionParams);
-  const { data: students } = useListStudents(typedFilter);
+  const { data: students } = useListStudents({ ...typedFilter, limit: "500" } as any);
   const { data: serviceReqs } = useListServiceRequirements(
     form.studentId ? { studentId: Number(form.studentId) } : {}
   );
@@ -97,8 +97,8 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
   const updateSessionMutation = useUpdateSession();
   const deleteSessionMutation = useDeleteSession();
 
-  const sessionList = (sessions as any[]) ?? [];
-  const studentList = (students as any[]) ?? [];
+  const sessionList = ((sessions as any)?.data ?? []) as any[];
+  const studentList = ((students as any)?.data ?? []) as any[];
   const staffAllList = (staffData as any[]) ?? [];
   const missedReasonsList = (missedReasonsData as any[]) ?? [];
   const reqList = (serviceReqs as any[]) ?? [];

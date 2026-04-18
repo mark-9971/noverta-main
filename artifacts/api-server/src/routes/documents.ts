@@ -138,12 +138,27 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
     return;
   }
 
+  const parsedLimit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : NaN;
+  const pageSize = Math.min(Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100, 500);
+  const parsedOffset = typeof req.query.offset === "string" ? parseInt(req.query.offset, 10) : NaN;
+  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+
   try {
-    const docs = await db
-      .select()
-      .from(documentsTable)
-      .where(and(eq(documentsTable.studentId, studentId), isNull(documentsTable.deletedAt)))
-      .orderBy(desc(documentsTable.createdAt));
+    const where = and(eq(documentsTable.studentId, studentId), isNull(documentsTable.deletedAt));
+
+    const [docs, countResult] = await Promise.all([
+      db
+        .select()
+        .from(documentsTable)
+        .where(where)
+        .orderBy(desc(documentsTable.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(documentsTable)
+        .where(where),
+    ]);
 
     const docIds = docs.map((d) => d.id);
     let sigRequests: SignatureRequest[] = [];
@@ -187,6 +202,9 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
         })),
     }));
 
+    const total = countResult[0]?.count ?? 0;
+    const page = Math.floor(offset / pageSize) + 1;
+
     logAudit(req, {
       action: "read",
       targetTable: "documents",
@@ -195,7 +213,13 @@ router.get("/documents", requireRoles(...PRIVILEGED_ROLES), async (req: Request,
       summary: `Listed ${docs.length} documents for student ${studentId}`,
     });
 
-    res.json(docsWithSigs);
+    res.json({
+      data: docsWithSigs,
+      total,
+      page,
+      pageSize,
+      hasMore: offset + pageSize < total,
+    });
   } catch (error) {
     console.error("Error fetching documents:", error);
     res.status(500).json({ error: "Failed to fetch documents" });

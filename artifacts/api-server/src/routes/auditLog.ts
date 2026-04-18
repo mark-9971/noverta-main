@@ -69,14 +69,18 @@ router.get("/audit-logs", requireRoles(...ADMIN_ROLES), async (req, res): Promis
         .where(where),
     ]);
 
+    const total = countResult[0]?.count ?? 0;
+    const page = Math.floor(offset / limit) + 1;
+
     res.json({
-      logs: logs.map((l) => ({
+      data: logs.map((l) => ({
         ...l,
         createdAt: l.createdAt.toISOString(),
       })),
-      total: countResult[0]?.count ?? 0,
-      limit,
-      offset,
+      total,
+      page,
+      pageSize: limit,
+      hasMore: offset + limit < total,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";

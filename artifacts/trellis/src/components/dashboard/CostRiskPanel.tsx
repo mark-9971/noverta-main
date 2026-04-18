@@ -93,11 +93,15 @@ export default function CostRiskPanel() {
   });
 
   // Open cost-avoidance risk alerts (not resolved, not snoozed). Real count.
+  // GET /api/alerts now returns { data: AlertRow[], total, page, pageSize, hasMore }.
   const { data: openRiskAlerts } = useQuery<AlertRow[]>({
     queryKey: ["alerts-cost-avoidance-risk-open"],
     queryFn: ({ signal }) =>
-      authFetch("/api/alerts?type=cost_avoidance_risk&resolved=false&snoozed=false", { signal })
-        .then(r => (r.ok ? r.json() : [])),
+      authFetch("/api/alerts?type=cost_avoidance_risk&resolved=false&snoozed=false&limit=500", { signal })
+        .then(r => {
+          if (!r.ok) return [];
+          return r.json().then((body: any) => body?.data ?? []);
+        }),
   });
 
   // ---- Derived numbers (all explained in the formulas footer below) ----

@@ -9,7 +9,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, RefreshCw, Clock, ExternalLink, CheckSquare, Square } from "lucide-react";
+import { CheckCircle, RefreshCw, Clock, ExternalLink, CheckSquare, Square, ChevronLeft, ChevronRight } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
@@ -67,6 +67,8 @@ export default function Alerts() {
   const [resolveNote, setResolveNote] = useState("");
   const [resolving, setResolving] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [alertPage, setAlertPage] = useState(1);
+  const ALERT_PAGE_SIZE = 100;
 
   useEffect(() => {
     setTabState(resolveTab(search));
@@ -76,10 +78,14 @@ export default function Alerts() {
     setTabState(t);
     setSeverityFilter("all");
     setSelected(new Set());
+    setAlertPage(1);
     navigate(`/alerts?tab=${t}`, { replace: true });
   }
 
   const { typedFilter } = useSchoolContext();
+
+  // Reset to page 1 when server-side parameters change.
+  useEffect(() => { setAlertPage(1); }, [typeFilter, JSON.stringify(typedFilter)]);
 
   const queryParams = useMemo(() => {
     const base: Record<string, string> = { ...typedFilter };
@@ -93,15 +99,20 @@ export default function Alerts() {
       base.snoozed = "true";
     }
     if (typeFilter !== "all") base.type = typeFilter;
+    base.limit = String(ALERT_PAGE_SIZE);
+    base.offset = String((alertPage - 1) * ALERT_PAGE_SIZE);
     return base;
-  }, [tab, typedFilter, typeFilter]);
+  }, [tab, typedFilter, typeFilter, alertPage]);
 
   const { data: alerts, isLoading, isError, refetch } = useListAlerts(queryParams);
   const { mutateAsync: resolveAlert } = useResolveAlert();
   const { mutateAsync: bulkResolve } = useBulkResolveAlerts();
   const { mutateAsync: snoozeAlert } = useSnoozeAlert();
 
-  const alertList = (alerts as any[]) ?? [];
+  const alertTotal: number = (alerts as any)?.total ?? 0;
+  const alertHasMore: boolean = (alerts as any)?.hasMore ?? false;
+  const alertTotalPages = alertTotal > 0 ? Math.ceil(alertTotal / ALERT_PAGE_SIZE) : 1;
+  const alertList = ((alerts as any)?.data ?? []) as any[];
   const filtered = alertList.filter(a => {
     const matchSeverity = severityFilter === "all" || a.severity === severityFilter;
     const matchStudent = !studentSearch ||
@@ -196,9 +207,10 @@ export default function Alerts() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Alerts</h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1">
-            {tab === "open" && `${alertList.length} open alert${alertList.length !== 1 ? "s" : ""}`}
-            {tab === "resolved" && "Resolved alerts"}
-            {tab === "snoozed" && `${alertList.length} snoozed alert${alertList.length !== 1 ? "s" : ""}`}
+            {tab === "open" && `${alertTotal.toLocaleString()} open alert${alertTotal !== 1 ? "s" : ""}`}
+            {tab === "resolved" && `${alertTotal.toLocaleString()} resolved alert${alertTotal !== 1 ? "s" : ""}`}
+            {tab === "snoozed" && `${alertTotal.toLocaleString()} snoozed alert${alertTotal !== 1 ? "s" : ""}`}
+            {alertTotalPages > 1 && ` — page ${alertPage} of ${alertTotalPages}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -282,7 +294,7 @@ export default function Alerts() {
             className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
               severityFilter === "all" ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200"
             }`}
-          >All ({alertList.length})</button>
+          >All ({alertTotal})</button>
           {["critical", "high", "medium", "low"].map(sev => {
             const cfg = SEVERITY_CONFIG[sev];
             return (
@@ -390,6 +402,28 @@ export default function Alerts() {
           );
         })}
       </div>
+
+      {/* Alert pagination controls */}
+      {alertTotalPages > 1 && (
+        <div className="flex items-center justify-between pt-1 pb-2">
+          <p className="text-[12px] text-gray-500">
+            Showing {(alertPage - 1) * ALERT_PAGE_SIZE + 1}–{Math.min(alertPage * ALERT_PAGE_SIZE, alertTotal)} of {alertTotal.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 text-[12px] px-2"
+              disabled={alertPage <= 1 || isLoading}
+              onClick={() => { setAlertPage(p => Math.max(1, p - 1)); setSelected(new Set()); }}>
+              <ChevronLeft className="w-3.5 h-3.5 mr-0.5" /> Prev
+            </Button>
+            <span className="text-[12px] text-gray-500 px-1">Page {alertPage} of {alertTotalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 text-[12px] px-2"
+              disabled={!alertHasMore || isLoading}
+              onClick={() => { setAlertPage(p => p + 1); setSelected(new Set()); }}>
+              Next <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={resolveConfirm !== null} onOpenChange={(open) => { if (!open) setResolveConfirm(null); }}>
         <AlertDialogContent>

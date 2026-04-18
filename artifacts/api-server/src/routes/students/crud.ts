@@ -16,7 +16,7 @@ import {
   GetStudentSessionsQueryParams,
   GetStudentAlertsParams,
 } from "@workspace/api-zod";
-import { eq, and, ilike, or, desc, sql, isNull } from "drizzle-orm";
+import { eq, and, ilike, or, desc, sql, isNull, count } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { logAudit, diffObjects } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
@@ -32,7 +32,8 @@ router.get("/students", async (req, res): Promise<void> => {
   // Provider/para scope: limit list to assigned students. Privileged callers see all.
   const assignedIds = await getCallerAssignedStudentIds(req as AuthedRequest);
   if (assignedIds !== null && assignedIds.length === 0) {
-    res.json([]);
+    const pageSize = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
+    res.json({ data: [], total: 0, page: 1, pageSize, hasMore: false });
     return;
   }
 
@@ -119,10 +120,25 @@ router.get("/students", async (req, res): Promise<void> => {
 
   const pageLimit = (params.success && params.data.limit) ? Math.min(Number(params.data.limit), 500) : 100;
   const pageOffset = (params.success && params.data.offset) ? Number(params.data.offset) : 0;
+  const riskStatusFilter = (params.success && params.data.riskStatus) ? params.data.riskStatus : null;
 
-  const students = conditions.length > 0
-    ? await query.where(and(...conditions)).orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset)
-    : await query.orderBy(studentsTable.lastName).limit(pageLimit).offset(pageOffset);
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // When riskStatus is requested we must enrich ALL matching students first
+  // (riskStatus is a computed in-memory field, not a DB column), then filter
+  // and paginate the enriched slice.  We fetch up to 10 000 rows in one pass;
+  // for districts beyond that scale a materialised risk_status column should
+  // be added so the filter can be pushed down to the DB.
+  const fetchLimit  = riskStatusFilter ? 10_000 : pageLimit;
+  const fetchOffset = riskStatusFilter ? 0      : pageOffset;
+
+  const [students, totalResult] = await Promise.all([
+    conditions.length > 0
+      ? query.where(and(...conditions)).orderBy(studentsTable.lastName).limit(fetchLimit).offset(fetchOffset)
+      : query.orderBy(studentsTable.lastName).limit(fetchLimit).offset(fetchOffset),
+    db.select({ total: count() }).from(studentsTable).where(whereClause),
+  ]);
+  const dbTotal = totalResult[0]?.total ?? 0;
 
   const studentIds = students.map((s: any) => s.id);
 
@@ -171,11 +187,35 @@ router.get("/students", async (req, res): Promise<void> => {
     };
   });
 
-  const finalResult = params.success && params.data.riskStatus
-    ? enriched.filter((s: any) => s.riskStatus === params.data.riskStatus)
-    : enriched;
+  let finalResult: typeof enriched;
+  let total: number;
+  let page: number;
+  let resolvedPageSize: number;
+  let hasMore: boolean;
 
-  res.json(finalResult);
+  if (riskStatusFilter) {
+    // In-memory pagination over the filtered superset.
+    const filtered = enriched.filter((s: any) => s.riskStatus === riskStatusFilter);
+    total           = filtered.length;
+    resolvedPageSize = pageLimit;
+    page            = Math.floor(pageOffset / pageLimit) + 1;
+    finalResult     = filtered.slice(pageOffset, pageOffset + pageLimit);
+    hasMore         = pageOffset + pageLimit < total;
+  } else {
+    total           = dbTotal;
+    resolvedPageSize = pageLimit;
+    page            = Math.floor(pageOffset / pageLimit) + 1;
+    finalResult     = enriched;
+    hasMore         = pageOffset + students.length < total;
+  }
+
+  res.json({
+    data: finalResult,
+    total,
+    page,
+    pageSize: resolvedPageSize,
+    hasMore,
+  });
 });
 
 router.post("/students", async (req, res): Promise<void> => {
