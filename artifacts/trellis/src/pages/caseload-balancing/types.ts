@@ -47,6 +47,14 @@ export interface ProviderStudent {
 
 export interface TrendPoint { month: string; studentCount: number; providerCount: number; avgPerProvider: number; }
 
+export interface ProviderWeekPoint { week: string; studentCount: number; }
+export interface ProviderTrendSeries {
+  staffId: number;
+  name: string;
+  role: string;
+  history: ProviderWeekPoint[];
+}
+
 export const STATUS_COLORS = {
   balanced: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "#10b981" },
   approaching: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", bar: "#f59e0b" },

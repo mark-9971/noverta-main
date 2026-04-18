@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Printer, RefreshCw, Settings } from "lucide-react";
 import {
-  ProviderCaseload, RoleSummary, Suggestion, ProviderStudent, TrendPoint,
+  ProviderCaseload, RoleSummary, Suggestion, ProviderStudent, TrendPoint, ProviderTrendSeries,
 } from "./types";
 import { StatsCards } from "./StatsCards";
 import { FilterBar } from "./FilterBar";
@@ -42,6 +42,8 @@ export default function CaseloadBalancingPage() {
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const [trendLoading, setTrendLoading] = useState(false);
   const [showTrend, setShowTrend] = useState(false);
+  const [providerTrends, setProviderTrends] = useState<ProviderTrendSeries[]>([]);
+  const [providerTrendsLoading, setProviderTrendsLoading] = useState(false);
 
   const [reassignDialog, setReassignDialog] = useState<{ student: ProviderStudent; fromProvider: ProviderCaseload } | null>(null);
   const [reassignTarget, setReassignTarget] = useState("");
@@ -87,15 +89,29 @@ export default function CaseloadBalancingPage() {
 
   const fetchTrends = useCallback(async () => {
     setTrendLoading(true);
+    setProviderTrendsLoading(true);
     try {
-      const res = await authFetch("/api/caseload-balancing/trends?months=6");
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTrendData(data.trends || {});
+      const [roleRes, providerRes] = await Promise.all([
+        authFetch("/api/caseload-balancing/trends?months=6"),
+        authFetch("/api/caseload-balancing/provider-trends?weeks=12"),
+      ]);
+      if (roleRes.ok) {
+        const data = await roleRes.json();
+        setTrendData(data.trends || {});
+      } else {
+        toast.warning("Role trend data unavailable");
+      }
+      if (providerRes.ok) {
+        const data = await providerRes.json();
+        setProviderTrends(data.providers || []);
+      } else {
+        toast.warning("Provider trend history unavailable");
+      }
     } catch {
       toast.error("Failed to load trend data");
     } finally {
       setTrendLoading(false);
+      setProviderTrendsLoading(false);
     }
   }, []);
 
@@ -228,6 +244,8 @@ export default function CaseloadBalancingPage() {
         showTrend={showTrend}
         trendLoading={trendLoading}
         trendData={trendData}
+        providerTrends={providerTrends}
+        providerTrendsLoading={providerTrendsLoading}
         onToggle={() => { if (!showTrend) fetchTrends(); setShowTrend(!showTrend); }}
       />
 

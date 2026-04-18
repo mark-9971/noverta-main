@@ -3,7 +3,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startSisScheduler } from "./lib/sis/scheduler";
 import { startSisWorker } from "./lib/sis/worker";
-import { startReminderScheduler } from "./lib/reminders";
+import { startReminderScheduler, ensureCaseloadSnapshotsTable } from "./lib/reminders";
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
@@ -142,11 +142,13 @@ app.listen(port, (err) => {
 
   startSisScheduler();
   void startSisWorker();
-  startReminderScheduler();
   startErrorLogCleanup();
   startCostAvoidanceSnapshotScheduler();
   initStripe();
   backfillDistrictSubscriptions();
   ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));
   ensureMedicaidReportSnapshotsTable().catch((err: unknown) => logger.warn({ err }, "ensureMedicaidReportSnapshotsTable failed (non-fatal)"));
+  ensureCaseloadSnapshotsTable()
+    .catch((err: unknown) => logger.warn({ err }, "ensureCaseloadSnapshotsTable failed (non-fatal)"))
+    .finally(() => startReminderScheduler());
 });

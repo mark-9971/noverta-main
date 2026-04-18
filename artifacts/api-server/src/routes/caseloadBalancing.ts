@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable } from "@workspace/db";
-import { eq, and, sql, isNull, count, sum } from "drizzle-orm";
+import { db, staffTable, studentsTable, schoolsTable, serviceRequirementsTable, serviceTypesTable, staffAssignmentsTable, caseloadSnapshotsTable } from "@workspace/db";
+import { eq, and, sql, isNull, count, sum, gte } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest, requireRoles } from "../middlewares/auth";
 import { requireTierAccess } from "../middlewares/tierGate";
 import { logAudit } from "../lib/auditLog";
@@ -500,6 +500,72 @@ router.get("/caseload-balancing/trends", async (req, res) => {
   } catch (err) {
     console.error("GET /caseload-balancing/trends error:", err);
     res.status(500).json({ error: "Failed to load trend data" });
+  }
+});
+
+router.get("/caseload-balancing/provider-trends", async (req, res) => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) return res.status(403).json({ error: "No district scope" });
+
+  try {
+    const weeks = Math.min(parseInt(req.query.weeks as string, 10) || 12, 52);
+    const now = new Date();
+    const day = now.getDay();
+    const daysToLastMonday = day === 0 ? 6 : day - 1;
+    const lastMonday = new Date(now);
+    lastMonday.setDate(now.getDate() - daysToLastMonday);
+    lastMonday.setHours(0, 0, 0, 0);
+    const cutoff = new Date(lastMonday);
+    cutoff.setDate(lastMonday.getDate() - (weeks - 1) * 7);
+
+    const rows = await db
+      .select({
+        staffId: caseloadSnapshotsTable.staffId,
+        weekStart: sql<string>`to_char(${caseloadSnapshotsTable.weekStart}, 'YYYY-MM-DD')`,
+        studentCount: caseloadSnapshotsTable.studentCount,
+        firstName: staffTable.firstName,
+        lastName: staffTable.lastName,
+        role: staffTable.role,
+      })
+      .from(caseloadSnapshotsTable)
+      .innerJoin(staffTable, eq(caseloadSnapshotsTable.staffId, staffTable.id))
+      .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+      .where(
+        and(
+          eq(caseloadSnapshotsTable.districtId, districtId),
+          gte(caseloadSnapshotsTable.weekStart, cutoff),
+          eq(schoolsTable.districtId, districtId),
+          isNull(staffTable.deletedAt),
+        )
+      )
+      .orderBy(caseloadSnapshotsTable.weekStart);
+
+    const providerMap = new Map<number, {
+      staffId: number;
+      name: string;
+      role: string;
+      history: Array<{ week: string; studentCount: number }>;
+    }>();
+
+    for (const row of rows) {
+      if (!providerMap.has(row.staffId)) {
+        providerMap.set(row.staffId, {
+          staffId: row.staffId,
+          name: `${row.firstName} ${row.lastName}`,
+          role: row.role,
+          history: [],
+        });
+      }
+      providerMap.get(row.staffId)!.history.push({
+        week: row.weekStart,
+        studentCount: row.studentCount,
+      });
+    }
+
+    res.json({ providers: Array.from(providerMap.values()) });
+  } catch (err) {
+    console.error("GET /caseload-balancing/provider-trends error:", err);
+    res.status(500).json({ error: "Failed to load provider trend data" });
   }
 });
 

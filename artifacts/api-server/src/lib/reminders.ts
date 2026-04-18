@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   parentContactsTable,
   evaluationsTable,
@@ -15,6 +15,8 @@ import {
   alertsTable,
   serviceTypesTable,
   districtsTable,
+  caseloadSnapshotsTable,
+  staffAssignmentsTable,
   type InsertAlert,
 } from "@workspace/db";
 import { eq, and, lt, ne, sql, isNull, or, lte, inArray } from "drizzle-orm";
@@ -753,6 +755,116 @@ async function runScheduledReports(): Promise<void> {
   }
 }
 
+function getCaseloadWeekStart(d: Date): Date {
+  const copy = new Date(d);
+  const day = copy.getDay();
+  const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
+  copy.setDate(diff);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+export async function ensureCaseloadSnapshotsTable(): Promise<void> {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS caseload_snapshots (
+        id            SERIAL PRIMARY KEY,
+        district_id   INTEGER NOT NULL REFERENCES districts(id) ON DELETE CASCADE,
+        staff_id      INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+        week_start    TIMESTAMPTZ NOT NULL,
+        student_count INTEGER NOT NULL DEFAULT 0,
+        captured_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS cs_district_week_idx ON caseload_snapshots (district_id, week_start)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS cs_staff_week_idx ON caseload_snapshots (staff_id, week_start)`);
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'cs_staff_week_unique'
+        ) THEN
+          ALTER TABLE caseload_snapshots ADD CONSTRAINT cs_staff_week_unique UNIQUE (staff_id, week_start);
+        END IF;
+      END $$;
+    `);
+  } catch (err) {
+    console.warn("[Reminders] ensureCaseloadSnapshotsTable: DDL failed (non-fatal)", err);
+  }
+}
+
+async function runCaseloadSnapshots(): Promise<void> {
+  const today = new Date();
+  if (today.getDay() !== 1) {
+    return;
+  }
+
+  try {
+    const weekStart = getCaseloadWeekStart(today);
+
+    const districts = await db.select({ id: districtsTable.id }).from(districtsTable);
+
+    let totalUpserted = 0;
+
+    for (const district of districts) {
+      const providers = await db
+        .select({ id: staffTable.id })
+        .from(staffTable)
+        .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+        .where(
+          and(
+            eq(schoolsTable.districtId, district.id),
+            eq(staffTable.status, "active"),
+            isNull(staffTable.deletedAt),
+          )
+        );
+
+      if (providers.length === 0) continue;
+
+      const staffIds = providers.map(p => p.id);
+
+      const caseloadCounts = await db
+        .select({
+          staffId: staffAssignmentsTable.staffId,
+          studentCount: sql<number>`count(${staffAssignmentsTable.studentId})::int`,
+        })
+        .from(staffAssignmentsTable)
+        .innerJoin(studentsTable, eq(staffAssignmentsTable.studentId, studentsTable.id))
+        .where(
+          and(
+            eq(studentsTable.status, "active"),
+            inArray(staffAssignmentsTable.staffId, staffIds),
+          )
+        )
+        .groupBy(staffAssignmentsTable.staffId);
+
+      const countMap = new Map(caseloadCounts.map(c => [c.staffId, c.studentCount]));
+
+      const rows = providers.map(p => ({
+        districtId: district.id,
+        staffId: p.id,
+        weekStart,
+        studentCount: countMap.get(p.id) ?? 0,
+      }));
+
+      for (const row of rows) {
+        await db
+          .insert(caseloadSnapshotsTable)
+          .values(row)
+          .onConflictDoUpdate({
+            target: [caseloadSnapshotsTable.staffId, caseloadSnapshotsTable.weekStart],
+            set: { studentCount: row.studentCount },
+          });
+      }
+
+      totalUpserted += rows.length;
+    }
+
+    console.log(`[Reminders] Caseload snapshots: ${totalUpserted} provider rows captured for week starting ${weekStart.toISOString().substring(0, 10)}`);
+  } catch (err) {
+    console.error("[Reminders] Caseload snapshot error:", err);
+  }
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -765,6 +877,7 @@ async function runAllReminders(): Promise<void> {
       runScheduledReports(),
       runCostAvoidanceAlertGeneration(),
       runComplianceRiskAlerts(),
+      runCaseloadSnapshots(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {
