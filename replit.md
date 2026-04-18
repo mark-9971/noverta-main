@@ -2,7 +2,7 @@
 
 ## Overview
 
-Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). Its core purpose is to help SPED teams track mandated service delivery, identify compliance gaps early, and mitigate compensatory risk. It integrates with existing SIS systems, focusing on IEP-delivery aspects such as service minutes, missed sessions, and documentation. The platform avoids "AI-powered" branding unless explicitly using AI models for features like IEP PDF extraction.
+Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). Its core purpose is to help SPED teams track mandated service delivery, identify compliance gaps early, and mitigate compensatory risk. It integrates with existing SIS systems, focusing on IEP-delivery aspects such as service minutes, missed sessions, and documentation. The platform avoids "AI-powered" branding unless explicitly using AI models for features like IEP PDF extraction. The product tagline is: "Service-minute compliance for SPED."
 
 **Key Capabilities:**
 -   **Compliance Monitoring:** Tracks service minute delivery, identifies shortfalls, and calculates financial exposure.
@@ -115,19 +115,21 @@ Trellis ships with a deterministic, completion-based onboarding checklist that w
 **Honesty guarantee:** if `/api/onboarding/status` fails, the compact variant renders nothing (silent on the dashboard) and the full variant renders an amber error card — it never falsely shows "Pilot ready" when the underlying data could not be loaded.
 
 To add a new step: add a row to `pilotChecklist` in `onboarding.ts`, append a matching entry to `PILOT_CHECKLIST_ITEMS`, and update the table above.
-<<<<<<< HEAD
-**Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
-=======
-- **Compliance Monitoring:** Tracks service minutes, flags compliance gaps, and calculates compensatory exposure.
+- **Compliance Monitoring:** Tracks service minute delivery, identifies shortfalls, and calculates financial exposure.
 - **Reporting & Analytics:** Generates comprehensive compliance reports, weekly summaries, and executive dashboards.
-- **IEP Workflow Management:** Supports IEP building, goal tracking, meeting management, and progress reporting.
+- **IEP Management:** Supports IEP creation, goal tracking, progress reporting, and meeting management compliant with MA 603 CMR 28.00.
+- **Operational Efficiency:** Streamlines scheduling, staff assignments, parent communication, and data import processes.
 - **Data Import & Onboarding:** Streamlined CSV import for staff and students, and AI-powered IEP document extraction.
 - **Clinical Tools:** Includes FBA, BIP generation, and ABA clinical graphing.
 - **Communication:** Facilitates parent communication and notifications.
 - **Resource Management:** Tools for caseload balancing, staff scheduling, and substitute management.
 - **Financial Tracking:** Manages Medicaid billing, cost avoidance, and compensatory finance.
 - **Security & Audit:** Implements FERPA-compliant audit logging and robust tenant isolation.
->>>>>>> f1bb842 (feat(billing): let billing coordinators save and schedule report snapshots)
+- **Risk Mitigation:** Provides tools for protective measures (603 CMR 46.00/46.06), compliance risk forecasting, and compensatory service tracking.
+- **Data-Driven Insights:** Offers comprehensive reporting, analytics, and data health checks for district administrators.
+- **Goal:** Trellis's ambition is to streamline SPED operations, ensuring compliance and improving outcomes for students. It offers tools for managing student data, sessions, schedules, staff, reports, and communication, with a focus on ease of use and actionable insights. Key capabilities include comprehensive compliance reporting, automated workflows, and data-driven recommendations, designed to empower SPED administrators and clinicians.
+
+**Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
 
 ## User Preferences
 
@@ -160,6 +162,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 
 -   **Modular Monorepo:** Organizes code into `artifacts/trellis` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries.
 -   **RESTful API Design:** All backend functionalities are exposed through a RESTful API.
+<<<<<<< HEAD
 -   **Authentication:** Utilizes Clerk for authentication, supporting real sign-in/sign-up, and enforces role-based access control with 9 distinct roles.
 -   **Comprehensive Database Schema:** A PostgreSQL database manages all core entities, including districts, students, staff, IEPs, and compliance data.
 -   **UI/UX Design:** Adheres to an "Ink & Air" theme with a clean aesthetic, pure white/near-white backgrounds, near-black typography, neutral grays, and emerald green accents. Supports role-based color theming and responsive design.
@@ -168,6 +171,11 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Rate Limiting:** Features a two-tier API rate limiting system for general and mutation requests.
 -   **Theming System:** Provides 10 built-in themes, including accessibility-focused options, stored in local storage.
 -   **Tenant Isolation:** Enforces strict data isolation per district through Clerk token metadata and middleware.
+=======
+-   **Authentication:** Clerk handles user authentication and authorization, providing secure sign-in/up flows and enforcing role-based access control with 9 distinct roles. `ProtectedRoutes` and `@clerk/express` middleware secure API endpoints.
+-   **Comprehensive Database Schema:** A PostgreSQL database stores all critical data related to districts, students, staff, IEPs, compliance, ABA, and protective measures.
+-   **UI/UX Design:** Follows an "Ink & Air" theme with a clean aesthetic, using pure white/near-white backgrounds, dark typography, neutral grays, and emerald green accents. It features role-based color theming and responsive design.
+>>>>>>> 2918e70 (feat(dashboard): Visual overhaul of "What Should I Do Next?" action queue)
 
 **Feature Specifications:**
 
@@ -236,6 +244,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Student & Teacher Portals:** Blackboard-style student portal for assignments and grades; teacher portal for class management and gradebooks.
 -   **Analytics & Reporting:** Multi-tab analytics covering overview, behavior, academic, minutes, student deep dives, and a **Safety** tab dedicated to protective measures analysis (incident trends, antecedent breakdown, episode→PM probability ratio, student frequency drill-down, compliance indicators). 251 realistic seed incidents across 16 students spanning SY 2025-26 with phase-based trend variation. Backend endpoints: `/analytics/pm-overview`, `/analytics/pm-by-student`, `/analytics/pm-antecedents`, `/analytics/pm-episode-ratio`, `/analytics/pm-phase-trends`. Protective Measures page includes a collapsible "Incident Trends & Insights" panel with monthly sparkline, antecedent bars, and high-frequency student alerts.
 =======
+<<<<<<< HEAD
 -   **AI-Powered IEP PDF Import:** Automatically extracts structured data from IEP PDF documents using OpenAI GPT-5.2, including student details, goals, and service requirements.
 -   **Compliance Dashboard:** Displays key performance indicators, "Needs Attention" alerts, and detailed compliance metrics. Includes a deterministic `RecommendationsPanel` for operational guidance based on real-time data.
 -   **Weekly SPED Compliance Summary:** Generates meeting-ready reports with executive summaries, urgent flags, student shortfalls, and provider delivery summaries.
@@ -278,6 +287,43 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   **Generated Document Pipeline:** Stores rendered HTML snapshots of key documents (incident reports, progress reports) for consistent branding and re-printing.
 -   **Compliance Trends Page:** Provides a unified time-series view of four key compliance metrics (service minutes, at-risk students, compensatory exposure, logging completion).
 >>>>>>> f1bb842 (feat(billing): let billing coordinators save and schedule report snapshots)
+=======
+-   **AI-Powered IEP PDF Import:** Utilizes GPT-5.2 for automated extraction of structured data from IEP PDF documents, including student information, goals, and service requirements.
+-   **Compliance Risk Reporting & Dashboard:** Provides a meeting-ready compliance report and a redesigned dashboard focused on service minute compliance, gap detection, and compensatory exposure. Includes executive summaries, at-risk student lists, and provider delivery summaries.
+-   **Weekly SPED Compliance Summary:** Generates a weekly report with executive summaries, urgent flags, student shortfalls, and provider delivery data, available for export in various formats (print, CSV, PDF).
+-   **Deterministic Recommendations Panel:** Offers data-driven operational guidance on the compliance dashboard, with transparent rules and data source tracking (no AI involved).
+-   **Onboarding Checklist:** A completion-based checklist that guides new districts through setup, with steps derived from actual database state.
+-   **Data Health Check:** An admin-facing diagnostic tool that verifies data integrity before pilot initiation.
+-   **CSV Import Flow Upgrade:** Enhanced system for self-onboarding, supporting multiple data types with pre-import validation, column mapping, and duplicate handling.
+-   **Protective Measures (603 CMR 46.00):** Comprehensive tracking for restraint/seclusion/time-out incidents, including a detailed incident form, compliance checklist, and DESE-compliant exports.
+-   **IEP Goal Progress Visualization:** Displays per-goal trend charts on student detail pages, showing progress data over time with baselines, mastery criteria, and trend indicators.
+-   **Student Snapshot:** Provides an at-a-glance view of key student information, including active goals, upcoming deadlines, recent sessions, and compliance status.
+-   **IEP Meeting Prep Checklist:** A guided readiness tracking tool for IEP team meetings, with auto-detection of completed items and a draft agenda generator.
+-   **Team Collaboration Notes:** Shared student-level comment threads for staff coordination with @mention functionality.
+-   **Accommodation Tracking & Verification:** Manages IEP accommodations, including a workflow for general education teacher verification and a district-wide compliance dashboard.
+-   **Medicaid Billing Integration:** Features CPT code mapping, claim generation, a review queue, and export capabilities for Medicaid reimbursement.
+-   **Cost Avoidance Dashboard:** Predicts compliance risk with financial exposure estimates related to evaluation deadlines, service shortfalls, and IEP annual reviews.
+-   **Compensatory Services Financial Tracker:** Provides a dollar-value exposure view for compensatory service obligations, including rate configuration and burn-down charts.
+-   **Caseload Balancing:** An administrative tool to visualize and rebalance provider workload distribution.
+-   **Staff Scheduling & Availability:** Manages staff schedules, detects conflicts, and identifies coverage gaps.
+-   **Substitute & Coverage Management:** Tools for managing provider absences and assigning substitutes.
+-   **Parent Communication Hub:** An in-app messaging system for staff and guardians, including message templates and conference scheduling.
+-   **ABA Clinical Graphing & IOA Tracking:** Visualizes ABA goal progress with trend lines and tracks inter-observer agreement.
+-   **Para Mobile Data Entry ("My Day"):** A mobile-first daily agenda for paraprofessionals with quick session logging and guided data collection.
+-   **Live Session Data Collection:** Integrated data collection during timed sessions with goal-specific widgets.
+-   **Document Management & E-Signatures:** Object storage-backed document management with e-signature workflows for compliance.
+-   **FERPA Audit Logging:** An append-only audit trail for all access and modifications to student records.
+-   **SIS Integration:** Connectors for popular SIS (PowerSchool, Infinite Campus, Skyward, CSV) with sync capabilities and encrypted credentials.
+-   **Subscription & Tenant Billing:** Stripe integration for managing district-level subscriptions and plan tiers.
+-   **Module & Tier Gating:** Features and modules are gated based on subscription tier.
+-   **Unified Compliance Hub:** A single page with tabs for Service Minutes, Checklist, and Timeline.
+-   **Overdue Session Log Reminders:** Automated alerts for unlogged sessions with email notifications.
+-   **Alerts Workflow Hub:** A centralized page for managing open, snoozed, and resolved alerts.
+-   **Pilot Success Metrics Dashboard:** Tracks key performance indicators for pilot programs.
+-   **Generated Document Pipeline:** Stores rendered HTML snapshots of documents for re-printing and sharing.
+-   **Security Hardening:** Implements tenant isolation, path-scoped role guards, and a permission matrix test suite.
+>>>>>>> c65b6de (feat(dashboard): Visual overhaul of "What Should I Do Next?" action queue)
+>>>>>>> 2918e70 (feat(dashboard): Visual overhaul of "What Should I Do Next?" action queue)
 
 ## External Dependencies
 
@@ -292,6 +338,7 @@ Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and 
 -   Drizzle ORM
 -   Zod
 -   Orval
+<<<<<<< HEAD
 -   Clerk (for authentication)
 -   Stripe (payment processing via Replit integration, in @workspace/api-server + @workspace/scripts)
 -   stripe-replit-sync (webhook processing and data sync, in @workspace/api-server)
@@ -403,8 +450,18 @@ No code currently branches on `is_sandbox` — keep that in mind before relying 
 -   pdf-parse (for IEP PDF document parsing)
 -   @workspace/integrations-openai-ai-server (OpenAI SDK via Replit AI integrations)
 =======
+<<<<<<< HEAD
 -   pdf-parse (for IEP PDF extraction)
 -   @workspace/integrations-openai-ai-server (OpenAI SDK via Replit AI integrations)
 
 ## Session Edit History & Restore (Pilot Trust / FERPA)
 >>>>>>> f1bb842 (feat(billing): let billing coordinators save and schedule report snapshots)
+=======
+-   Clerk (Authentication)
+-   Stripe (Payment processing via Replit integration)
+-   stripe-replit-sync (Stripe webhook processing and data sync)
+-   Resend (Transactional email delivery)
+-   pdf-parse (PDF document parsing)
+-   OpenAI (GPT-5.2 for IEP PDF extraction)
+>>>>>>> c65b6de (feat(dashboard): Visual overhaul of "What Should I Do Next?" action queue)
+>>>>>>> 2918e70 (feat(dashboard): Visual overhaul of "What Should I Do Next?" action queue)
