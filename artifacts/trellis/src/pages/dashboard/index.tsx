@@ -12,8 +12,8 @@ import { useRole } from "@/lib/role-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
-import { useMemo } from "react";
-import { CASELOAD_ROLES, getGreeting } from "./types";
+import { useMemo, useState } from "react";
+import { CASELOAD_ROLES, getGreeting, formatLastUpdated } from "./types";
 import type { ProviderCaseloadSummary } from "./types";
 import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
 import { MetricCard } from "./MetricCard";
@@ -35,13 +35,19 @@ function DashboardFull() {
   const isAdmin = role === "admin" || role === "coordinator";
   const firstName = user.name?.split(" ")[0] || "";
   const { filterParams, typedFilter } = useSchoolContext();
-  const { data: summary, isError: summaryError, refetch: refetchSummary } = useGetDashboardSummary(typedFilter);
+
+  // ── Core queries — fire on mount ────────────────────────────────────────────
+  const {
+    data: summary,
+    isError: summaryError,
+    refetch: refetchSummary,
+    dataUpdatedAt: summaryUpdatedAt,
+  } = useGetDashboardSummary(typedFilter);
   const { data: riskOverview } = useGetDashboardRiskOverview(typedFilter);
   const { data: trend } = useGetMissedSessionsTrend(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
   const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
-  const { data: deadlinesRaw } = useGetComplianceDeadlines();
 
   const showPersonalCaseload = CASELOAD_ROLES.has(role) && !!teacherId;
   const { data: providerSummaryAll } = useQuery<ProviderCaseloadSummary[]>({
@@ -55,26 +61,34 @@ function DashboardFull() {
     return providerSummaryAll.find((p) => p.staffId === teacherId) ?? null;
   }, [showPersonalCaseload, providerSummaryAll, teacherId]);
 
+  // ── Deferred queries — fire only when "Operational details" is first opened ─
+  const [opsEnabled, setOpsEnabled] = useState(false);
+
   const { data: evalDash } = useQuery({
     queryKey: ["evaluations-dashboard"],
     queryFn: () => authFetch("/api/evaluations/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
   const { data: transitionDash } = useQuery({
     queryKey: ["transitions-dashboard"],
     queryFn: () => authFetch("/api/transitions/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
   const { data: meetingDash } = useQuery({
     queryKey: ["meetings-dashboard"],
     queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
   const { data: accommodationCompliance } = useQuery<{ totalStudents: number; overallComplianceRate: number; students: { overdueCount: number }[] }>({
     queryKey: ["accommodation-compliance-dash"],
     queryFn: () => authFetch("/api/accommodation-compliance?windowDays=30").then(r => r.ok ? r.json() : null),
     staleTime: 120_000,
+    enabled: opsEnabled,
   });
+  const { data: deadlinesRaw } = useGetComplianceDeadlines({ enabled: opsEnabled } as any);
 
   const deadlines = (() => {
     const items: any[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : (deadlinesRaw as any)?.events ?? [];
@@ -95,9 +109,6 @@ function DashboardFull() {
   const onTrack = s?.onTrackStudents ?? 0;
   const noDataStudents = s?.noDataStudents ?? 0;
   const studentsNeedingSetup = s?.studentsNeedingSetup ?? 0;
-  // Show a percentage only when we actually have something to measure. With zero
-  // tracked students, we render "—" and a "no data yet" subtitle below instead
-  // of an artificially perfect 100% / 0%.
   const hasTrackedData = trackedStudents > 0;
   const onTrackPct = hasTrackedData ? Math.round((onTrack / trackedStudents) * 100) : 0;
   const complianceSubtitle = hasTrackedData
@@ -120,19 +131,20 @@ function DashboardFull() {
 
   const serviceData = (complianceByService as any[]) ?? [];
 
+  const iepYear = new Date().getMonth() >= 6
+    ? `${new Date().getFullYear()}–${new Date().getFullYear() + 1}`
+    : `${new Date().getFullYear() - 1}–${new Date().getFullYear()}`;
+
   if (summaryError) return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto">
       <ErrorBanner message="Failed to load dashboard data. The server may be unavailable." onRetry={() => refetchSummary()} />
     </div>
   );
 
-  // Quick actions are wedge-aligned: every primary tile points at a piece of
-  // the compliance-risk story. "Log Session" stays as the daily caseload entry
-  // point but is intentionally last so it doesn't outshine the wedge.
   const quickActions = [
     { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
     { label: "Required vs Delivered", icon: Shield, href: "/compliance", color: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100" },
-    { label: "High-Risk Students", icon: Users, href: "/compliance-risk-report#needs-attention", color: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
+    { label: "High-Risk Students", icon: Users, href: "/compliance-risk-report", color: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
     { label: "Weekly Summary", icon: FileBarChart, href: "/weekly-compliance-summary", color: "text-blue-700 bg-blue-50 hover:bg-blue-100" },
     { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory-finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
     { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-gray-700 bg-gray-50 hover:bg-gray-100" },
@@ -146,23 +158,16 @@ function DashboardFull() {
             {getGreeting()}{firstName ? `, ${firstName}` : ""}
           </h1>
           <p className="text-xs md:text-sm text-gray-400 mt-1 hidden sm:block">
-            {isAdmin ? "District overview" : "Your caseload"} · IEP Year {new Date().getMonth() >= 6 ? `${new Date().getFullYear()}–${new Date().getFullYear() + 1}` : `${new Date().getFullYear() - 1}–${new Date().getFullYear()}`}
+            {isAdmin ? "District overview" : "Your caseload"} · IEP Year {iepYear}
+            {summaryUpdatedAt > 0 && (
+              <span className="ml-2 text-[10px] text-gray-300">· as of {formatLastUpdated(summaryUpdatedAt)}</span>
+            )}
           </p>
         </div>
       </div>
 
-      {/* Unified first-run checklist — single canonical 8-step tracker,
-          hidden once the district is pilot-ready.
-          Full first-run path lives at /onboarding. */}
       {isAdmin && <PilotOnboardingChecklist variant="compact" defaultExpanded={false} />}
 
-      {/*
-        Wedge banner: even on the "full operational" view, an admin's first
-        eye-line is the Compliance Risk Report. Required-vs-delivered, high-
-        risk students, and compensatory exposure all live there — pull the
-        admin straight to it instead of letting them wander into secondary
-        modules.
-      */}
       {isAdmin && (
         <Link href="/compliance-risk-report">
           <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-white p-4 md:p-5 hover:shadow-sm transition-shadow cursor-pointer flex items-center gap-4 group" data-testid="banner-risk-report">
@@ -186,11 +191,6 @@ function DashboardFull() {
       <CriticalMedicalAlertsBanner />
       <NeedsAttentionPanel />
 
-      {/*
-        Top-line metrics are wedge-aligned for admins (overall compliance,
-        high-risk students, compensatory exposure, urgent makeups). Caseload
-        users see their personal counterparts.
-      */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
           title={myCaseload ? "Your Caseload" : "Compliance Rate"}
@@ -232,7 +232,7 @@ function DashboardFull() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {quickActions.map(action => (
-          <Link key={action.href} href={action.href}>
+          <Link key={action.href + action.label} href={action.href}>
             <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${action.color}`}>
               <action.icon className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{action.label}</span>
@@ -257,11 +257,16 @@ function DashboardFull() {
 
       {/*
         Operational details — accommodations, evaluations, transitions, IEP
-        meetings, agency contract renewals, IEP deadlines — are real but not
-        the wedge. They live behind a single collapsed section so they don't
-        compete with the compliance story for the admin's attention.
+        meetings, agency contract renewals, IEP deadlines. Collapsed by default
+        so they don't compete with the compliance story. Queries for this section
+        are deferred until the section is first opened (onFirstOpen callback).
       */}
-      <CollapsibleSection title="Operational details" icon={ListChecks} defaultOpen={false}>
+      <CollapsibleSection
+        title="Operational details"
+        icon={ListChecks}
+        defaultOpen={false}
+        onFirstOpen={() => setOpsEnabled(true)}
+      >
         {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
         <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
         <MeetingsSection meetingDash={meetingDash} />

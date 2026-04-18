@@ -26,3 +26,11 @@ export function getGreeting(): string {
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
+
+export function formatLastUpdated(ts: number): string {
+  if (!ts) return "";
+  const ageMins = Math.floor((Date.now() - ts) / 60_000);
+  if (ageMins < 1) return "just now";
+  if (ageMins < 60) return `${ageMins} min ago`;
+  return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}

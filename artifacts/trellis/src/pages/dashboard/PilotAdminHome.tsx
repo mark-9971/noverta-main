@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, FileWarning, ShieldCheck,
   CalendarClock, Users, ClipboardList, Info, ListChecks,
@@ -21,7 +21,7 @@ import {
   AccommodationComplianceCard, EvalsTransitionsSection,
   MeetingsSection, ContractRenewalsCard, DeadlinesSection,
 } from "./SecondarySections";
-import { getGreeting } from "./types";
+import { getGreeting, formatLastUpdated } from "./types";
 
 interface ComplianceRiskReport {
   meta: { districtName: string; reportPeriod: string };
@@ -107,7 +107,7 @@ export default function PilotAdminHome() {
   const qs = new URLSearchParams(filterParams).toString();
   const params = qs ? `?${qs}` : "";
 
-  const { data: risk, isLoading: riskLoading, isError: riskError } = useQuery<ComplianceRiskReport>({
+  const { data: risk, isLoading: riskLoading, isError: riskError, dataUpdatedAt: riskUpdatedAt } = useQuery<ComplianceRiskReport>({
     queryKey: ["pilot-home/compliance-risk-report", filterParams],
     queryFn: async () => {
       const r = await authFetch(`/api/reports/compliance-risk-report${params}`);
@@ -127,16 +127,7 @@ export default function PilotAdminHome() {
     staleTime: 5 * 60_000,
   });
 
-  const { data: weekly, isLoading: weeklyLoading, isError: weeklyError } = useQuery<WeeklySummary>({
-    queryKey: ["pilot-home/weekly-compliance-summary", filterParams],
-    queryFn: async () => {
-      const r = await authFetch(`/api/reports/weekly-compliance-summary${params}`);
-      if (!r.ok) throw new Error("weekly-compliance-summary failed");
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
-
+  // ── Onboarding status — used to gate weekly section and setup-mode display ──
   const { data: onboarding } = useQuery<OnboardingStatus>({
     queryKey: ["pilot-home/onboarding-status"],
     queryFn: async () => {
@@ -145,6 +136,22 @@ export default function PilotAdminHome() {
       return r.json();
     },
     staleTime: 5 * 60_000,
+  });
+  // Use the 8-step pilot readiness signal — NOT the legacy 3-step `isComplete`
+  // which only checks SIS+schools+service types and collapses the onboarding UI
+  // before the district is truly ready.
+  const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
+
+  // ── Weekly summary — deferred until onboarding is complete ──────────────────
+  const { data: weekly, isLoading: weeklyLoading, isError: weeklyError } = useQuery<WeeklySummary>({
+    queryKey: ["pilot-home/weekly-compliance-summary", filterParams],
+    queryFn: async () => {
+      const r = await authFetch(`/api/reports/weekly-compliance-summary${params}`);
+      if (!r.ok) throw new Error("weekly-compliance-summary failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+    enabled: onboardingComplete,
   });
 
   const { data: dashSummary } = useQuery<{ errorsLast24h?: number; contractRenewals?: { id: number; agencyName: string; endDate: string }[] }>({
@@ -157,31 +164,38 @@ export default function PilotAdminHome() {
     staleTime: 60_000,
   });
 
+  // ── Deferred queries — fire only when "Operational details" is first opened ─
+  const [opsEnabled, setOpsEnabled] = useState(false);
+
   const { data: accommodationCompliance } = useQuery<{ totalStudents: number; overallComplianceRate: number; students: { overdueCount: number }[] }>({
     queryKey: ["accommodation-compliance-dash"],
     queryFn: () => authFetch("/api/accommodation-compliance?windowDays=30").then(r => r.ok ? r.json() : null),
     staleTime: 120_000,
+    enabled: opsEnabled,
   });
 
   const { data: evalDash } = useQuery({
     queryKey: ["evaluations-dashboard"],
     queryFn: () => authFetch("/api/evaluations/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
 
   const { data: transitionDash } = useQuery({
     queryKey: ["transitions-dashboard"],
     queryFn: () => authFetch("/api/transitions/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
 
   const { data: meetingDash } = useQuery({
     queryKey: ["meetings-dashboard"],
     queryFn: () => authFetch("/api/iep-meetings/dashboard").then(r => r.ok ? r.json() : null),
     staleTime: 60_000,
+    enabled: opsEnabled,
   });
 
-  const { data: deadlinesRaw } = useGetComplianceDeadlines();
+  const { data: deadlinesRaw } = useGetComplianceDeadlines({ enabled: opsEnabled } as any);
   const deadlines = (() => {
     const items: unknown[] = Array.isArray(deadlinesRaw) ? deadlinesRaw : ((deadlinesRaw as { events?: unknown[] })?.events ?? []);
     return (items as { student?: { firstName: string; lastName: string }; eventType: string; daysRemaining: number }[])
@@ -223,11 +237,6 @@ export default function PilotAdminHome() {
   // Action queue
   type ActionUrgency = "critical" | "warning" | "info" | "muted";
   const actions: { label: string; subline?: string; href?: string; onClick?: () => void; urgency: ActionUrgency }[] = [];
-  // Use the 8-step pilot readiness signal (students/requirements/sessions
-  // imported, providers assigned, comms primed) — NOT the legacy 3-step
-  // `isComplete` which only checks SIS+schools+service types and would
-  // collapse the dominant onboarding UI before the district is truly ready.
-  const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
   if (onboarding && !onboardingComplete) {
     const left = onboarding.totalSteps - onboarding.completedCount;
     actions.push({
@@ -359,6 +368,11 @@ export default function PilotAdminHome() {
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
               <ShieldCheck className="w-3.5 h-3.5" /> Are we compliant?
+              {riskUpdatedAt > 0 && (
+                <span className="ml-1 text-[10px] text-gray-300 normal-case font-normal tracking-normal">
+                  as of {formatLastUpdated(riskUpdatedAt)}
+                </span>
+              )}
             </div>
             <div className="mt-2 flex items-baseline gap-3">
               <span className="text-4xl md:text-5xl font-bold text-gray-900 tabular-nums">
@@ -460,75 +474,79 @@ export default function PilotAdminHome() {
         )}
       </section>
 
-      {/* 3. What needs attention this week? */}
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-this-week">
-        <div className="flex items-center justify-between px-5 md:px-6 pt-5 pb-3">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="w-4 h-4 text-blue-600" />
-            <h2 className="text-sm font-semibold text-gray-900">What needs attention this week?</h2>
-            {weekly?.meta?.weekStart && (
-              <span className="text-xs text-gray-400">Week of {new Date(weekly.meta.weekStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+      {/* 3. What needs attention this week?
+           Hidden during setup — weekly data is only meaningful once sessions
+           are flowing. The action queue above already surfaces "Finish setup". */}
+      {onboardingComplete && (
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-this-week">
+          <div className="flex items-center justify-between px-5 md:px-6 pt-5 pb-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-gray-900">What needs attention this week?</h2>
+              {weekly?.meta?.weekStart && (
+                <span className="text-xs text-gray-400">Week of {new Date(weekly.meta.weekStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+              )}
+            </div>
+            <Link href="/weekly-compliance-summary" className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1" data-testid="link-open-weekly">
+              Open weekly summary <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="px-5 md:px-6 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {weeklyError ? (
+              <div className="md:col-span-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 inline-flex items-start gap-2">
+                <FileWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>Couldn't load this week's summary. Open <Link href="/weekly-compliance-summary" className="underline">the full report</Link> or try again in a minute.</span>
+              </div>
+            ) : weeklyLoading && !weekly ? (
+              <div className="md:col-span-2 text-sm text-gray-400">Loading this week's data…</div>
+            ) : (
+              <>
+                <div>
+                  <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Urgent flags</div>
+                  {urgentFlags.length === 0 ? (
+                    <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> No urgent flags this week.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {urgentFlags.map((f, i) => (
+                        <li key={i} className="text-sm text-gray-800 flex items-start gap-2">
+                          <FileWarning className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Providers with missed sessions</div>
+                  {providersMissed.length === 0 ? (
+                    <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Every provider logged their sessions this week.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {providersMissed.slice(0, 5).map((p, i) => (
+                        <li key={i} className="text-sm text-gray-800 flex items-center justify-between gap-3">
+                          <span className="truncate">
+                            {p.providerName}
+                            {p.role && <span className="text-xs text-gray-400 ml-1.5">{p.role}</span>}
+                          </span>
+                          <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
+                            {p.missedSessions} missed · {p.completedSessions} logged
+                          </span>
+                        </li>
+                      ))}
+                      {providersMissed.length > 5 && (
+                        <li className="text-xs text-gray-400">+ {providersMissed.length - 5} more</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </>
             )}
           </div>
-          <Link href="/weekly-compliance-summary" className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1" data-testid="link-open-weekly">
-            Open weekly summary <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-        <div className="px-5 md:px-6 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {weeklyError ? (
-            <div className="md:col-span-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 inline-flex items-start gap-2">
-              <FileWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>Couldn't load this week's summary. Open <Link href="/weekly-compliance-summary" className="underline">the full report</Link> or try again in a minute.</span>
-            </div>
-          ) : weeklyLoading && !weekly ? (
-            <div className="md:col-span-2 text-sm text-gray-400">Loading this week's data…</div>
-          ) : (
-            <>
-              <div>
-                <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Urgent flags</div>
-                {urgentFlags.length === 0 ? (
-                  <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> No urgent flags this week.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {urgentFlags.map((f, i) => (
-                      <li key={i} className="text-sm text-gray-800 flex items-start gap-2">
-                        <FileWarning className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Providers with missed sessions</div>
-                {providersMissed.length === 0 ? (
-                  <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Every provider logged their sessions this week.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {providersMissed.slice(0, 5).map((p, i) => (
-                      <li key={i} className="text-sm text-gray-800 flex items-center justify-between gap-3">
-                        <span className="truncate">
-                          {p.providerName}
-                          {p.role && <span className="text-xs text-gray-400 ml-1.5">{p.role}</span>}
-                        </span>
-                        <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
-                          {p.missedSessions} missed · {p.completedSessions} logged
-                        </span>
-                      </li>
-                    ))}
-                    {providersMissed.length > 5 && (
-                      <li className="text-xs text-gray-400">+ {providersMissed.length - 5} more</li>
-                    )}
-                  </ul>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Cost / exposure context */}
-      <CostRiskPanel />
+      {/* Cost / exposure context — hidden during setup (no data yet) */}
+      {onboardingComplete && <CostRiskPanel />}
 
       {/* 4. What should I do next? */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-next-actions">
@@ -596,7 +614,12 @@ export default function PilotAdminHome() {
 
       {/* Operational details — collapsed by default so they don't compete with
           the compliance story, but fully accessible from the main dashboard. */}
-      <CollapsibleSection title="Operational details" icon={ListChecks} defaultOpen={false}>
+      <CollapsibleSection
+        title="Operational details"
+        icon={ListChecks}
+        defaultOpen={false}
+        onFirstOpen={() => setOpsEnabled(true)}
+      >
         {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
         <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
         <MeetingsSection meetingDash={meetingDash} />

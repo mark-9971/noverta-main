@@ -161,7 +161,7 @@ export function DeadlinesSection({ deadlines }: { deadlines: any[] }) {
         <Card className="border-gray-200/60">
           <CardHeader className="pb-0 flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-gray-600">Next {deadlines.length} deadlines</CardTitle>
-            <Link href="/compliance#timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
+            <Link href="/compliance?tab=timeline" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View timeline</Link>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
