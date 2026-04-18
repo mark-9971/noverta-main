@@ -251,9 +251,10 @@ export default function StudentContactsMedical(props: StudentContactsMedicalProp
                 };
                 const cfg = typeConfig[ev.eventType] ?? { label: ev.eventType.replace(/_/g, " "), color: "text-gray-700", bg: "bg-gray-50", dot: "bg-gray-400" };
                 const sourceConfig: Record<string, { label: string; cls: string }> = {
-                  manual:  { label: "Manual",  cls: "bg-violet-50 text-violet-700 border-violet-200" },
-                  system:  { label: "System",  cls: "bg-gray-100 text-gray-500 border-gray-200" },
-                  sis:     { label: "SIS",     cls: "bg-sky-50 text-sky-700 border-sky-200" },
+                  manual:   { label: "Manual",   cls: "bg-violet-50 text-violet-700 border-violet-200" },
+                  system:   { label: "System",   cls: "bg-gray-100 text-gray-500 border-gray-200" },
+                  sis:      { label: "SIS",      cls: "bg-sky-50 text-sky-700 border-sky-200" },
+                  sis_sync: { label: "SIS Sync", cls: "bg-sky-50 text-sky-700 border-sky-200" },
                 };
                 const src = ev.source ? (sourceConfig[ev.source] ?? { label: ev.source, cls: "bg-gray-100 text-gray-500 border-gray-200" }) : null;
                 const canEdit = ev.source === "manual" && (role === "admin" || role === "case_manager");
