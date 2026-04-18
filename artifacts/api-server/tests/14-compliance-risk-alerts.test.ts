@@ -455,6 +455,62 @@ describe("runComplianceRiskAlerts — district isolation", () => {
   });
 });
 
+describe("runComplianceRiskAlerts — Monday gate", () => {
+  it("does NOT create alerts when invoked on a non-Monday date", async () => {
+    const student = await createStudent(schoolId);
+    const reqId = await makeServiceReq(student.id, 100);
+    await deliverMinutes(student.id, reqId, 30); // 30% — would alert on Monday
+
+    // Tuesday = MONDAY + 1 day. Confirm it really is a non-Monday before calling.
+    const tuesday = new Date(MONDAY);
+    tuesday.setUTCDate(tuesday.getUTCDate() + 1);
+    expect(tuesday.getUTCDay()).not.toBe(1);
+
+    await runComplianceRiskAlertsForDate(tuesday);
+
+    const alerts = await fetchAlertsForStudent(student.id);
+    expect(alerts).toHaveLength(0);
+  });
+
+  it("does NOT create alerts on any of the six non-Monday weekdays", async () => {
+    const student = await createStudent(schoolId);
+    const reqId = await makeServiceReq(student.id, 100);
+    await deliverMinutes(student.id, reqId, 20); // 20% — would alert on Monday
+
+    // Walk forward Tuesday..Sunday, calling the wrapper on each non-Monday day.
+    for (let offset = 1; offset <= 6; offset++) {
+      const d = new Date(MONDAY);
+      d.setUTCDate(d.getUTCDate() + offset);
+      expect(d.getUTCDay()).not.toBe(1);
+      await runComplianceRiskAlertsForDate(d);
+    }
+
+    const alerts = await fetchAlertsForStudent(student.id);
+    expect(alerts).toHaveLength(0);
+  });
+
+  it("creates the alert once Monday is reached, even after prior non-Monday no-op runs", async () => {
+    const student = await createStudent(schoolId);
+    const reqId = await makeServiceReq(student.id, 100);
+    await deliverMinutes(student.id, reqId, 30);
+
+    // Non-Monday call: must be a no-op.
+    const wednesday = new Date(MONDAY);
+    wednesday.setUTCDate(wednesday.getUTCDate() + 2);
+    expect(wednesday.getUTCDay()).not.toBe(1);
+    await runComplianceRiskAlertsForDate(wednesday);
+
+    let alerts = await fetchAlertsForStudent(student.id);
+    expect(alerts).toHaveLength(0);
+
+    // Monday call: alert should now be created.
+    await runComplianceRiskAlertsForDate(MONDAY);
+
+    alerts = await fetchAlertsForStudent(student.id);
+    expect(alerts).toHaveLength(1);
+  });
+});
+
 describe("runComplianceRiskAlerts — alert message content", () => {
   it("embeds the correct week tag in the message", async () => {
     const student = await createStudent(schoolId);
