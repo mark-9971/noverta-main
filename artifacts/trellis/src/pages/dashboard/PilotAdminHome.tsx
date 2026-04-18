@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, FileWarning, ShieldCheck,
   CalendarClock, Users, ClipboardList, Info, ListChecks,
+  TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -71,6 +72,15 @@ interface OnboardingStatus {
   pilotChecklist?: { isComplete: boolean };
 }
 
+interface WeekTrend {
+  available: boolean;
+  priorWeekEndDate?: string;
+  overallComplianceRate?: number;
+  studentsOutOfCompliance?: number;
+  studentsAtRisk?: number;
+  studentsOnTrack?: number;
+}
+
 function statusBand(rate: number): { label: string; tone: "green" | "amber" | "red"; line: string } {
   if (rate >= 95) return { label: "On track", tone: "green", line: "Service delivery is meeting requirements district-wide." };
   if (rate >= 85) return { label: "Watch", tone: "amber", line: "Some students are slipping. Address shortfalls before they become compensatory." };
@@ -104,6 +114,16 @@ export default function PilotAdminHome() {
       return r.json();
     },
     staleTime: 60_000,
+  });
+
+  const { data: weekTrend } = useQuery<WeekTrend>({
+    queryKey: ["pilot-home/compliance-week-trend", filterParams],
+    queryFn: async () => {
+      const r = await authFetch(`/api/reports/compliance-week-trend${params}`);
+      if (!r.ok) return { available: false };
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
   });
 
   const { data: weekly, isLoading: weeklyLoading, isError: weeklyError } = useQuery<WeeklySummary>({
@@ -227,6 +247,20 @@ export default function PilotAdminHome() {
 
   const isLoading = riskLoading || weeklyLoading;
 
+  const trendAvailable = weekTrend?.available === true && summary !== undefined;
+  const rateDelta = trendAvailable && weekTrend!.overallComplianceRate !== undefined
+    ? Math.round((rate - weekTrend!.overallComplianceRate!) * 10) / 10
+    : null;
+  const outDelta = trendAvailable && weekTrend!.studentsOutOfCompliance !== undefined
+    ? (summary!.studentsOutOfCompliance - weekTrend!.studentsOutOfCompliance!)
+    : null;
+  const atRiskDelta = trendAvailable && weekTrend!.studentsAtRisk !== undefined
+    ? (summary!.studentsAtRisk - weekTrend!.studentsAtRisk!)
+    : null;
+  const onTrackDelta = trendAvailable && weekTrend!.studentsOnTrack !== undefined
+    ? (summary!.studentsOnTrack - weekTrend!.studentsOnTrack!)
+    : null;
+
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-6 md:space-y-8">
       {/* Header */}
@@ -297,6 +331,9 @@ export default function PilotAdminHome() {
               </span>
               <span className="text-sm text-gray-500">of mandated minutes delivered</span>
             </div>
+            {rateDelta !== null && (
+              <RateTrendBadge delta={rateDelta} />
+            )}
             <div className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tone.bg} ${tone.text}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
               {hasData ? band.label : "Awaiting data"}
@@ -308,15 +345,15 @@ export default function PilotAdminHome() {
             </p>
           </div>
           <div className="hidden sm:grid grid-cols-3 gap-3 text-right">
-            <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" />
-            <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" />
-            <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" />
+            <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} />
+            <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} />
+            <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} />
           </div>
         </div>
         <div className="sm:hidden grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100">
-          <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" />
-          <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" />
-          <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" />
+          <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} />
+          <Stat label="At risk" value={summary?.studentsAtRisk ?? 0} accent="amber" delta={atRiskDelta} positiveIsGood={false} />
+          <Stat label="On track" value={summary?.studentsOnTrack ?? 0} accent="green" delta={onTrackDelta} positiveIsGood={true} />
         </div>
         {riskError && (
           <p className="mt-3 text-xs text-red-600">Couldn't load the compliance report. Refresh in a minute.</p>
@@ -509,12 +546,50 @@ export default function PilotAdminHome() {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent: "red" | "amber" | "green" }) {
+function Stat({
+  label, value, accent, delta, positiveIsGood,
+}: {
+  label: string;
+  value: number;
+  accent: "red" | "amber" | "green";
+  delta?: number | null;
+  positiveIsGood?: boolean;
+}) {
   const color = accent === "red" ? "text-red-700" : accent === "amber" ? "text-amber-700" : "text-emerald-700";
+  const hasDelta = delta !== null && delta !== undefined;
+  const isGood = hasDelta ? (positiveIsGood ? delta! > 0 : delta! < 0) : false;
+  const isBad = hasDelta ? (positiveIsGood ? delta! < 0 : delta! > 0) : false;
+  const deltaColor = isGood ? "text-emerald-600" : isBad ? "text-red-600" : "text-gray-400";
+  const DeltaIcon = hasDelta && delta !== 0 ? (delta! > 0 ? TrendingUp : TrendingDown) : Minus;
+  const sign = hasDelta && delta! > 0 ? "+" : "";
   return (
     <div>
       <div className={`text-xl font-bold tabular-nums ${color}`}>{value}</div>
       <div className="text-[11px] text-gray-500 leading-tight">{label}</div>
+      {hasDelta && (
+        <div className={`mt-0.5 flex items-center justify-end gap-0.5 text-[10px] font-medium ${deltaColor}`}>
+          <DeltaIcon className="w-3 h-3" />
+          <span>{sign}{delta}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RateTrendBadge({ delta }: { delta: number }) {
+  const isPositive = delta > 0;
+  const isNeutral = delta === 0;
+  const Icon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
+  const colorCls = isNeutral
+    ? "text-gray-400"
+    : isPositive
+    ? "text-emerald-600"
+    : "text-red-600";
+  const sign = delta > 0 ? "+" : "";
+  return (
+    <div className={`mt-1 flex items-center gap-1 text-xs font-medium ${colorCls}`}>
+      <Icon className="w-3.5 h-3.5" />
+      <span>{sign}{delta.toFixed(1)}% vs. last week</span>
     </div>
   );
 }

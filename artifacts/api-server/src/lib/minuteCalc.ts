@@ -10,8 +10,13 @@ export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_co
 // has not yet logged a single session.
 const NO_DATA_ELAPSED_THRESHOLD = 0.10;
 
-function getIntervalDates(intervalType: string, startDate: string, endDate?: string | null): { intervalStart: Date; intervalEnd: Date } {
-  const now = new Date();
+function getIntervalDates(
+  intervalType: string,
+  startDate: string,
+  endDate?: string | null,
+  referenceDate?: Date
+): { intervalStart: Date; intervalEnd: Date } {
+  const now = referenceDate ?? new Date();
 
   if (intervalType === "monthly") {
     const intervalStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -45,7 +50,7 @@ function getIntervalDates(intervalType: string, startDate: string, endDate?: str
     return { intervalStart, intervalEnd };
   }
 
-  const today = new Date();
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
@@ -168,7 +173,8 @@ function buildProgressFromSessions(
   intervalStart: Date,
   intervalEnd: Date,
   intervalStartStr: string,
-  intervalEndStr: string
+  intervalEndStr: string,
+  asOfDate?: Date
 ): MinuteProgressResult {
   const completedSessions = sessions.filter(s => s.status === "completed" || s.status === "makeup");
   const missedSessions = sessions.filter(s => s.status === "missed");
@@ -176,7 +182,7 @@ function buildProgressFromSessions(
 
   const deliveredMinutes = completedSessions.reduce((sum, s) => sum + s.durationMinutes, 0);
 
-  const now = new Date();
+  const now = asOfDate ?? new Date();
   const totalDays = Math.max(1, (intervalEnd.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
   const elapsedDays = Math.max(0, (now.getTime() - intervalStart.getTime()) / (1000 * 60 * 60 * 24));
   const progressFraction = Math.min(1, elapsedDays / totalDays);
@@ -226,6 +232,7 @@ export async function computeAllActiveMinuteProgress(filters?: {
   districtId?: number;
   startDate?: string;
   endDate?: string;
+  asOfDate?: Date;
 }): Promise<MinuteProgressResult[]> {
   const conditions: ReturnType<typeof eq>[] = [eq(serviceRequirementsTable.active, true) as any];
   if (filters?.studentId) conditions.push(eq(serviceRequirementsTable.studentId, filters.studentId) as any);
@@ -265,7 +272,7 @@ export async function computeAllActiveMinuteProgress(filters?: {
   for (const r of reqs) {
     const key = `${r.intervalType}|${r.startDate}|${r.endDate ?? ""}`;
     if (!intervalsByType.has(key)) {
-      const { intervalStart, intervalEnd } = getIntervalDates(r.intervalType, r.startDate, r.endDate);
+      const { intervalStart, intervalEnd } = getIntervalDates(r.intervalType, r.startDate, r.endDate, filters?.asOfDate);
       intervalsByType.set(key, {
         intervalStart,
         intervalEnd,
@@ -324,7 +331,7 @@ export async function computeAllActiveMinuteProgress(filters?: {
       .filter(s => s.sessionDate >= filterStart && s.sessionDate <= filterEnd)
       .map(s => ({ durationMinutes: s.durationMinutes, status: s.status, isMakeup: s.isMakeup }));
 
-    results.push(buildProgressFromSessions(req, filteredSessions, iv.intervalStart, iv.intervalEnd, iv.startStr, iv.endStr));
+    results.push(buildProgressFromSessions(req, filteredSessions, iv.intervalStart, iv.intervalEnd, iv.startStr, iv.endStr, filters?.asOfDate));
   }
 
   if (filters?.riskStatus) {

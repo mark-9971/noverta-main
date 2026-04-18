@@ -2,9 +2,14 @@
 
 ## Overview
 
-Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts (603 CMR 28.00/46.00). The product positioning: **"Trellis helps SPED teams track whether mandated services are actually being delivered, flag compliance gaps early, and reduce compensatory risk."**
+Trellis is a SPED service-delivery and compliance-risk platform for Massachusetts school districts. Its core purpose is to help SPED teams track mandated service delivery, flag compliance gaps, and reduce compensatory risk. It integrates with existing SIS systems, focusing on IEP-delivery aspects such as service minutes, missed sessions, and documentation. The platform avoids "AI-powered" branding unless explicitly using AI models for features like IEP PDF extraction.
 
-The platform is NOT a full SIS replacement — it syncs with SIS systems but its job is the IEP-delivery side: service minutes, missed sessions, compensatory exposure, and the documentation needed to prove delivery. Marketing language must avoid "AI-powered" framing unless the underlying feature actually uses an AI model (the IEP-PDF extraction in `imports/iepDocuments.ts` does — it uses OpenAI gpt-5.2 — and is the only surface where "AI" is mentioned).
+**Key Capabilities:**
+-   **Compliance Monitoring:** Tracks service minute delivery, identifies shortfalls, and calculates financial exposure.
+-   **IEP Management:** Supports IEP creation, goal tracking, progress reporting, and meeting management compliant with MA 603 CMR 28.00.
+-   **Operational Efficiency:** Streamlines scheduling, staff assignments, parent communication, and data import processes.
+-   **Risk Mitigation:** Provides tools for protective measures (603 CMR 46.00/46.06), compliance risk forecasting, and compensatory service tracking.
+-   **Data-Driven Insights:** Offers comprehensive reporting, analytics, and data health checks for district administrators.
 
 **Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
 
@@ -32,7 +37,7 @@ Frontend pages refactored into sub-component directories (state/hooks in index.t
 - `supervision/`, `resource-management/`, `dashboard/`, `compensatory-finance/`, `compensatory-services/`
 - Components: `quick-log-sheet/`, `bip-management/`, `program-builder/` (TemplateManager split)
 
-**Pilot Admin Home (`PilotAdminHome.tsx`):** First-impression landing page for admin/coordinator at `/`. Replaces the dense legacy admin dashboard (8+ sections) with a focused page that answers four questions for a SPED director: (1) Are we compliant? — large compliance %, status band (on track / watch / at risk), and out/at-risk/on-track student counts from `/api/reports/compliance-risk-report`. (2) Where are we at risk? — top 6 students aggregated from `needsAttention` (deduped to worst service per student), each linking to the student detail page. (3) What needs attention this week? — `urgentFlags` and `providersWithMissedThisWeek` from `/api/reports/weekly-compliance-summary`, with explicit error and loading states (no false "all clear" if the fetch fails). (4) What should I do next? — derived numbered action list (incomplete onboarding → setup; flagged students → risk report; urgent flags → weekly summary; missed sessions → /sessions; combined exposure → /cost-avoidance; always: share weekly summary). Reuses `<CostRiskPanel />` for exposure context. Standing tagline "Service-minute compliance for SPED" appears in the header. The legacy rich admin dashboard is preserved at `/?view=full` (toggled via "View full district dashboard" link); `dashboard/index.tsx` was refactored so the role/view dispatch happens with stable hook order (`Dashboard` only calls `useRole` + `useLocation`, then renders either `<PilotAdminHome>` or the new `<DashboardFull>` component that owns all the data hooks).
+**Pilot Admin Home (`PilotAdminHome.tsx`):** First-impression landing page for admin/coordinator at `/`. Replaces the dense legacy admin dashboard (8+ sections) with a focused page that answers four questions for a SPED director: (1) Are we compliant? — large compliance %, status band (on track / watch / at risk), and out/at-risk/on-track student counts from `/api/reports/compliance-risk-report`. (2) Where are we at risk? — top 6 students aggregated from `needsAttention` (deduped to worst service per student), each linking to the student detail page. (3) What needs attention this week? — `urgentFlags` and `providersWithMissedThisWeek` from `/api/reports/weekly-compliance-summary`, with explicit error and loading states (no false "all clear" if the fetch fails). (4) What should I do next? — derived numbered action list (incomplete onboarding → setup; flagged students → risk report; urgent flags → weekly summary; missed sessions → /sessions; combined exposure → /cost-avoidance; always: share weekly summary). Reuses `<CostRiskPanel />` for exposure context. **Week-over-week trend arrows (Task #298):** Each of the four hero metrics (compliance rate, students out of compliance, at risk, on track) shows a directional trend badge — green arrow for improvement, red for worsening, gray for unchanged — computed by comparing the current snapshot to the prior-week snapshot from `GET /api/reports/compliance-week-trend`. Badges are hidden when prior-week data is unavailable. Backend: `artifacts/api-server/src/routes/reports/weekTrend.ts`; `minuteCalc.ts` extended with `asOfDate`/`referenceDate` parameters so pacing and interval math can be evaluated at an arbitrary past date. Standing tagline "Service-minute compliance for SPED" appears in the header. The legacy rich admin dashboard is preserved at `/?view=full` (toggled via "View full district dashboard" link); `dashboard/index.tsx` was refactored so the role/view dispatch happens with stable hook order (`Dashboard` only calls `useRole` + `useLocation`, then renders either `<PilotAdminHome>` or the new `<DashboardFull>` component that owns all the data hooks).
 
 **Compliance Risk Report (Killer Report):** Meeting-ready compliance report at `/compliance-risk-report` with executive summary cards (students, compliance %, shortfall, $ exposure), "Needs Attention" section for at-risk/out-of-compliance students, full student detail table, and provider delivery summary. Supports school filtering, print-to-PDF (landscape letter), and CSV export. Backend: `reportExports/complianceRiskReport.ts`, Frontend: `pages/compliance-risk-report.tsx`. Uses `computeAllActiveMinuteProgress` + rate resolution for $ exposure calculations. District-scoped, role-gated (admin/coordinator/case_manager).
 
@@ -110,6 +115,7 @@ Trellis ships with a deterministic, completion-based onboarding checklist that w
 **Honesty guarantee:** if `/api/onboarding/status` fails, the compact variant renders nothing (silent on the dashboard) and the full variant renders an amber error card — it never falsely shows "Pilot ready" when the underlying data could not be loaded.
 
 To add a new step: add a row to `pilotChecklist` in `onboarding.ts`, append a matching entry to `PILOT_CHECKLIST_ITEMS`, and update the table above.
+**Standing tagline (used in nav subtitles, sign-in/up, sign-document, pricing header/footer):** "Service-minute compliance for SPED."
 
 ## User Preferences
 
@@ -117,7 +123,7 @@ I want iterative development and detailed explanations of your thought process. 
 
 ## System Architecture
 
-Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating frontend and backend concerns.
+Trellis is built as a monorepo using `pnpm` workspaces, separating frontend and backend components.
 
 **Technology Stack:**
 -   **Frontend:** React 19, Vite, Tailwind CSS, shadcn/ui, Recharts, wouter.
@@ -127,6 +133,17 @@ Trellis is structured as a monorepo using `pnpm` workspaces, clearly separating 
 -   **API Generation:** Orval (generates React Query hooks and Zod schemas from OpenAPI 3.1).
 
 **Core Architectural Decisions:**
+-   **Modular Monorepo:** Organizes code into `artifacts/trellis` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries for maintainability and scalability.
+-   **RESTful API Design:** Backend functionality is exposed through a well-defined REST API.
+-   **Authentication & Authorization:** Clerk handles user authentication and authorization. Role-based access control is enforced at both frontend and backend levels for 9 distinct roles (e.g., `admin`, `case_manager`, `sped_parent`). Guardian portal routes are path-scoped with specific middleware.
+-   **Comprehensive Database Schema:** A PostgreSQL database underpins all operations, storing data related to districts, students, staff, IEPs, compliance, and clinical tools.
+-   **UI/UX Design:** Adheres to an "Ink & Air" theme with a pure white/near-white background, near-black typography, neutral grays, and emerald green accents (primary: HSL 160 84% 39%). Supports role-based color theming, responsive design, and accessible components.
+-   **Error Handling & Monitoring:** Implements React Error Boundaries for robust frontend behavior and integrates Sentry for error reporting. Health check endpoints (`/health`, `/api/health`) provide real-time system status.
+-   **API Rate Limiting:** Enforces two-tier rate limits (general and mutation-specific) per IP to ensure stability and prevent abuse.
+-   **Theme System:** Provides 10 built-in themes, including accessibility-focused options, stored in local storage for user preference persistence.
+-   **Tenant Isolation:** Strict tenant isolation is enforced at the API level to prevent cross-district data access, especially in production environments.
+-   **FERPA Audit Logging:** An append-only audit trail tracks all access and modifications to student records, capturing actor identity, action type, affected records, and value diffs.
+-   **Soft Delete & Recovery:** Key entities (students, staff, sessions) use soft-deletion, allowing administrators to restore accidentally deleted records.
 
 -   **Modular Monorepo:** Code is organized into `artifacts/trellis` (frontend), `artifacts/api-server` (backend), `lib/api-spec` (OpenAPI spec), and shared libraries.
 -   **RESTful API Design:** All backend interactions are exposed via a REST API.
