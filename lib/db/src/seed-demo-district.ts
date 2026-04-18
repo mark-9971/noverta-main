@@ -819,7 +819,13 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
   console.log(`  ${schoolDays.length} school days in range`);
 
   const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday"];
-  const ALL_START_MINS = [8*60, 8*60+30, 9*60, 9*60+30, 10*60, 10*60+30, 11*60, 13*60, 13*60+30, 14*60, 14*60+30, 15*60];
+  // Build a broad candidate set (8:00–15:30 in 30-min steps) shuffled per
+  // (student, date) so sessions don't cluster at the same early hour each day.
+  const BASE_START_MINS = Array.from({ length: 16 }, (_, i) => 8*60 + i*30); // 8:00–15:30
+  function shuffledStartMins(studentId: number, dateStr: string): number[] {
+    const seed = studentId * 31 + dateStr.split("-").reduce((a, c) => a + parseInt(c), 0);
+    return [...BASE_START_MINS].sort((a, b) => ((a * seed) % 97) - ((b * seed) % 97));
+  }
 
   const dailyStudentSlots: Record<string, Array<[number, number]>> = {};
   const dailyStaffSlots: Record<string, Array<[number, number]>> = {};
@@ -883,7 +889,7 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
 
         if (shouldDeliver) {
           let startMin: number | null = null;
-          for (const sm of ALL_START_MINS) {
+          for (const sm of shuffledStartMins(sp.id, date)) {
             if (sm + sessionDuration > 16 * 60) continue;
             if (isFree(dailyStudentSlots, sKey, sm, sessionDuration) &&
                 isFree(dailyStaffSlots, stKey, sm, sessionDuration)) {
@@ -1021,7 +1027,13 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
   const sbStaffSlots: Record<string, Array<[number, number]>> = {};
   const blockBatch: any[] = [];
   const BLOCK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-  const BLOCK_START_MINS = [8*60, 9*60, 10*60, 11*60, 13*60, 14*60, 15*60];
+  // Wider block candidate set (8:00–15:00 in 30-min steps), shuffled per
+  // (student, service) to avoid clustering the same slot every week.
+  const BASE_BLOCK_MINS = Array.from({ length: 15 }, (_, i) => 8*60 + i*30); // 8:00–15:00
+  function shuffledBlockMins(studentId: number, serviceIdx: number): number[] {
+    const seed = studentId * 13 + serviceIdx * 53;
+    return [...BASE_BLOCK_MINS].sort((a, b) => ((a * seed) % 89) - ((b * seed) % 89));
+  }
   const LOCATIONS_BY_SVC: Record<number, string> = {};
   serviceTypeIds.forEach((id, idx) => {
     const locs = ["ABA Therapy Room", "OT Room", "Speech Room", "Counseling Office", "Classroom", "PT Room", "Conference Room"];
@@ -1048,7 +1060,7 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
         if (scheduled >= sessPerWeek) break;
         const sKey = `${sp.id}-${day}`;
         const stKey = `${sr.providerId}-${day}`;
-        for (const slotMin of BLOCK_START_MINS) {
+        for (const slotMin of shuffledBlockMins(sp.id, svcIdx)) {
           const endMin = slotMin + sessionDuration;
           if (endMin > 16 * 60) continue;
           if (isFree(sbStudentSlots, sKey, slotMin, sessionDuration) &&
@@ -1178,8 +1190,15 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
         const monthsBack = rand(1, 3);
         const periodStart = addDays("2026-04-01", -30 * monthsBack);
         const periodEnd = addDays(periodStart, 29);
-        const minutesOwed = Math.round(sr.requiredMinutes * (sp.scenario === "urgent" ? 0.45 : 0.30));
-        const minutesDelivered = sp.scenario === "urgent" ? 0 : Math.round(minutesOwed * 0.2);
+        // Sample owed fraction from a per-scenario range instead of a fixed target
+        const owedFraction = sp.scenario === "urgent"
+          ? randf(0.35, 0.55)
+          : randf(0.20, 0.40);
+        const minutesOwed = Math.round(sr.requiredMinutes * owedFraction);
+        const deliveredFraction = sp.scenario === "urgent"
+          ? randf(0, 0.08)
+          : randf(0.10, 0.35);
+        const minutesDelivered = Math.round(minutesOwed * deliveredFraction);
 
         await db.insert(compensatoryObligationsTable).values({
           studentId: sp.id,

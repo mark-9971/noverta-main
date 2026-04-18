@@ -817,11 +817,13 @@ async function tuneComplianceForStudents(
       sched.req_id,
       (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
       TO_CHAR(sched.d, 'YYYY-MM-DD'),
-      -- Stagger 09:00, 10:00, 11:00, 13:00, 14:00 across the day so multiple
-      -- requirements on the same date don't overlap.
-      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':00',
-      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':' ||
-        LPAD(LEAST(59, sched.dur)::text, 2, '0'),
+      -- Spread start times across 8:00–15:30 using session-level hash so
+      -- multiple requirements on the same date don't cluster in the same hour.
+      LPAD((8 + ((sched.req_id * 7 + sched.idx * 3) % 8))::text, 2, '0') ||
+        (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN ':00' ELSE ':30' END),
+      LPAD((8 + ((sched.req_id * 7 + sched.idx * 3) % 8))::text, 2, '0') ||
+        (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN ':' ELSE ':' END) ||
+        LPAD(LEAST(59, (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN 0 ELSE 30 END) + sched.dur)::text, 2, '0'),
       sched.dur,
       'completed',
       'Sample minute log'
@@ -905,9 +907,11 @@ async function tuneComplianceForStudents(
       sched.req_id,
       (${intArrayLit(staffPool)})[1 + (floor(random() * ${staffPool.length})::int)],
       TO_CHAR(sched.d, 'YYYY-MM-DD'),
-      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':00',
-      LPAD((9 + ((sched.req_id + sched.idx) % 5))::text, 2, '0') || ':' ||
-        LPAD(LEAST(59, sched.dur)::text, 2, '0'),
+      LPAD((8 + ((sched.req_id * 7 + sched.idx * 3) % 8))::text, 2, '0') ||
+        (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN ':00' ELSE ':30' END),
+      LPAD((8 + ((sched.req_id * 7 + sched.idx * 3) % 8))::text, 2, '0') ||
+        (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN ':' ELSE ':' END) ||
+        LPAD(LEAST(59, (CASE WHEN (sched.req_id + sched.idx) % 2 = 0 THEN 0 ELSE 30 END) + sched.dur)::text, 2, '0'),
       sched.dur,
       'missed',
       (SELECT id FROM reasons WHERE rn = ((sched.req_id + sched.idx) % (SELECT total FROM reasons LIMIT 1))),
