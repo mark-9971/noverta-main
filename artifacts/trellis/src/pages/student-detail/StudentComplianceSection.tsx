@@ -37,7 +37,6 @@ interface MessagesProps extends BaseProps {
   section: "messagesAccommodations";
   studentName: string;
   messageGuardians: { id: number; name: string; relationship: string; email: string | null }[];
-  setSectionRef: (id: string) => (el: HTMLDivElement | null) => void;
 }
 
 type StudentComplianceSectionProps = ProtectiveProps | TransitionProps | AfterTransitionProps | MessagesProps;
@@ -167,20 +166,11 @@ export default function StudentComplianceSection(props: StudentComplianceSection
   }
 
   // section === "messagesAccommodations"
-  const { studentId, studentName, messageGuardians, setSectionRef } = props;
+  const { studentId, studentName, messageGuardians } = props;
   return (
     <>
-      <div id="messages" ref={setSectionRef("messages")} className="scroll-mt-16" />
-      <StudentMessages
-        studentId={studentId}
-        studentName={studentName}
-        guardians={messageGuardians}
-      />
-
-      <div id="notes" ref={setSectionRef("notes")} className="scroll-mt-16" />
+      <StudentMessages studentId={studentId} studentName={studentName} guardians={messageGuardians} />
       <StudentNotes studentId={studentId} />
-
-      <div id="accommodations" ref={setSectionRef("accommodations")} className="scroll-mt-16" />
       <AccommodationTracking studentId={studentId} />
     </>
   );

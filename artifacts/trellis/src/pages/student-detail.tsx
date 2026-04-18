@@ -1,4 +1,4 @@
-import { useParams } from "wouter";
+import { useParams, useSearch, useLocation } from "wouter";
 import { useGetStudent, useGetStudentMinuteProgress, useGetStudentSessions } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,7 +109,9 @@ export default function StudentDetail() {
   const [behaviorTrends, setBehaviorTrends] = useState<any[]>([]);
   const [programTrends, setProgramTrends] = useState<any[]>([]);
   const [dataSessions, setDataSessions] = useState<any[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [behaviorDataFetched, setBehaviorDataFetched] = useState(false);
+  const [contactsDataFetched, setContactsDataFetched] = useState(false);
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
   const [compSummary, setCompSummary] = useState<any>(null);
   const [compFinancial, setCompFinancial] = useState<{ exposure: number; totalOwed: number } | null>(null);
@@ -188,38 +190,43 @@ export default function StudentDetail() {
     listStaff().then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
 
+  // Summary + IEP metadata — fires immediately on mount
   useEffect(() => {
-    if (studentId) {
-      authFetch(`/api/evaluations/student/${studentId}/re-eval-status`)
-        .then((d: unknown) => setReEvalStatus(d as typeof reEvalStatus))
-        .catch(() => {});
-      authFetch(`/api/transitions/student/${studentId}`)
-        .then((d: unknown) => setTransitionData(d as typeof transitionData))
-        .catch(() => {});
-      setEnrollmentLoading(true);
-      authFetch(`/api/students/${studentId}/enrollment`)
-        .then((r: any) => r.json())
-        .then((d: any) => setEnrollmentHistory(Array.isArray(d) ? d : []))
-        .catch(() => {})
-        .finally(() => setEnrollmentLoading(false));
-      setEmergencyContactsLoading(true);
-      authFetch(`/api/students/${studentId}/emergency-contacts`)
-        .then((r: Response) => r.json())
-        .then((d: EmergencyContactRecord[]) => setEmergencyContacts(Array.isArray(d) ? d : []))
-        .catch(() => {})
-        .finally(() => setEmergencyContactsLoading(false));
-      setMedicalAlertsLoading(true);
-      authFetch(`/api/students/${studentId}/medical-alerts`)
-        .then((r: Response) => r.json())
-        .then((d: MedicalAlertRecord[]) => setMedicalAlerts(Array.isArray(d) ? d : []))
-        .catch(() => {})
-        .finally(() => setMedicalAlertsLoading(false));
-      authFetch(`/api/students/${studentId}/guardians`)
-        .then((r: Response) => r.ok ? r.json() : [])
-        .then((d: any) => setMessageGuardians(Array.isArray(d) ? d : []))
-        .catch(() => {});
-    }
+    if (!studentId) return;
+    authFetch(`/api/evaluations/student/${studentId}/re-eval-status`)
+      .then((d: unknown) => setReEvalStatus(d as typeof reEvalStatus))
+      .catch(() => {});
+    authFetch(`/api/transitions/student/${studentId}`)
+      .then((d: unknown) => setTransitionData(d as typeof transitionData))
+      .catch(() => {});
   }, [studentId]);
+
+  // Contacts & Medical — fires on first Contacts tab visit
+  useEffect(() => {
+    if (!contactsDataFetched || !studentId) return;
+    setEnrollmentLoading(true);
+    authFetch(`/api/students/${studentId}/enrollment`)
+      .then((r: any) => r.json())
+      .then((d: any) => setEnrollmentHistory(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setEnrollmentLoading(false));
+    setEmergencyContactsLoading(true);
+    authFetch(`/api/students/${studentId}/emergency-contacts`)
+      .then((r: Response) => r.json())
+      .then((d: EmergencyContactRecord[]) => setEmergencyContacts(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setEmergencyContactsLoading(false));
+    setMedicalAlertsLoading(true);
+    authFetch(`/api/students/${studentId}/medical-alerts`)
+      .then((r: Response) => r.json())
+      .then((d: MedicalAlertRecord[]) => setMedicalAlerts(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setMedicalAlertsLoading(false));
+    authFetch(`/api/students/${studentId}/guardians`)
+      .then((r: Response) => r.ok ? r.json() : [])
+      .then((d: any) => setMessageGuardians(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [contactsDataFetched, studentId]);
 
   async function handleArchive() {
     setArchiveSaving(true);
@@ -538,55 +545,35 @@ export default function StudentDetail() {
 
   const isEditable = role === "admin" || role === "case_manager";
 
-  const SECTION_NAV = [
-    { id: "snapshot", label: "Snapshot" },
-    { id: "overview", label: "Overview" },
-    { id: "goals", label: "Goals" },
-    { id: "services", label: "Services" },
-    { id: "clinical", label: "Clinical" },
-    { id: "sessions", label: "Sessions" },
-    { id: "safety", label: "Safety" },
-    { id: "messages", label: "Messages" },
-    { id: "notes", label: "Notes" },
-    { id: "accommodations", label: "Accommodations" },
-    { id: "enrollment", label: "Enrollment" },
+  const STUDENT_TABS = [
+    { id: "summary" as const, label: "Summary" },
+    { id: "iep" as const, label: "IEP & Goals" },
+    { id: "behavior" as const, label: "Behavior / ABA" },
+    { id: "sessions" as const, label: "Sessions" },
+    { id: "contacts" as const, label: "Contacts & Medical" },
   ] as const;
 
-  const [activeSection, setActiveSection] = useState("snapshot");
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const isClickScrolling = useRef(false);
+  type StudentTab = typeof STUDENT_TABS[number]["id"];
 
-  const setSectionRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
-    sectionRefs.current[id] = el;
-  }, []);
+  function resolveTab(s: string): StudentTab {
+    const p = new URLSearchParams(s).get("tab") as StudentTab | null;
+    return p && STUDENT_TABS.some(t => t.id === p) ? p : "summary";
+  }
+
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [activeTab, setActiveTab] = useState<StudentTab>(() => resolveTab(search));
+  const [mountedTabs, setMountedTabs] = useState<Set<StudentTab>>(() => new Set([resolveTab(search)]));
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isClickScrolling.current) return;
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveSection(visible[0].target.id);
-        }
-      },
-      { rootMargin: "-80px 0px -60% 0px", threshold: 0.1 }
-    );
-    for (const sec of SECTION_NAV) {
-      const el = sectionRefs.current[sec.id];
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, [student]);
+    setActiveTab(resolveTab(search));
+  }, [search]);
 
-  function scrollToSection(id: string) {
-    const el = sectionRefs.current[id];
-    if (!el) return;
-    isClickScrolling.current = true;
-    setActiveSection(id);
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    setTimeout(() => { isClickScrolling.current = false; }, 800);
+  function handleTabChange(tab: StudentTab) {
+    setMountedTabs(prev => { const n = new Set(prev); n.add(tab); return n; });
+    navigate(`/students/${studentId}?tab=${tab}`, { replace: true });
+    if (tab === "behavior") setBehaviorDataFetched(true);
+    if (tab === "contacts") setContactsDataFetched(true);
   }
 
   function loadPhaseChanges() {
@@ -616,30 +603,19 @@ export default function StudentDetail() {
     loadGoalAnnotations();
   }
 
+  // IEP + Summary data — fires on mount (6 lightweight fetches)
   useEffect(() => {
     if (isNaN(studentId)) return;
-    setDataLoading(true);
     Promise.all([
-      listBehaviorTargets(studentId).catch(() => []),
-      listProgramTargets(studentId).catch(() => []),
-      getBehaviorDataTrends(studentId).catch(() => []),
-      getProgramDataTrends(studentId).catch(() => []),
-      listDataSessions(studentId, { limit: 10 } as any).catch(() => []),
-      getStudentProtectiveMeasures(studentId).catch(() => null),
       getStudentMinutesTrend(studentId).catch(() => []),
       getCompensatorySummaryByStudent(studentId).catch(() => null),
-      getStudentPhaseChanges(studentId).catch(() => {}),
+      listDataSessions(studentId, { limit: 10 } as any).catch(() => []),
       authFetch(`/api/students/${studentId}/iep-goals/progress`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`/api/compensatory-finance/students`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`/api/students/${studentId}/goal-annotations`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs, gp, finStudents, ga]) => {
-      setBehaviorTargets(bt);
-      setProgramTargets(pt);
-      setBehaviorTrends(btTrends);
-      setProgramTrends(ptTrends);
-      setDataSessions(ds);
-      setProtectiveData(pm as any);
+    ]).then(([mt, cs, ds, gp, finStudents, ga]) => {
       setMinutesTrend(mt);
+      setDataSessions(ds);
       if (cs && Array.isArray(finStudents)) {
         const match = finStudents.find((s: { studentId: number; remainingDollars?: number; totalDollarsOwed?: number }) => s.studentId === studentId);
         if (match) {
@@ -647,12 +623,32 @@ export default function StudentDetail() {
         }
       }
       setCompSummary(cs);
-      setPhaseChangesByTarget(pcs as any);
       setGoalProgress(gp);
       setAnnotationsByGoal(ga as Record<number, any[]>);
+    }).catch(() => {});
+  }, [studentId]);
+
+  // Behavior / ABA data — fires on first Behavior tab visit (6 heavier fetches deferred)
+  useEffect(() => {
+    if (!behaviorDataFetched || isNaN(studentId)) return;
+    setDataLoading(true);
+    Promise.all([
+      listBehaviorTargets(studentId).catch(() => []),
+      listProgramTargets(studentId).catch(() => []),
+      getBehaviorDataTrends(studentId).catch(() => []),
+      getProgramDataTrends(studentId).catch(() => []),
+      getStudentProtectiveMeasures(studentId).catch(() => null),
+      getStudentPhaseChanges(studentId).catch(() => {}),
+    ]).then(([bt, pt, btTrends, ptTrends, pm, pcs]) => {
+      setBehaviorTargets(bt);
+      setProgramTargets(pt);
+      setBehaviorTrends(btTrends);
+      setProgramTrends(ptTrends);
+      setProtectiveData(pm as any);
+      setPhaseChangesByTarget(pcs as any);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
-  }, [studentId]);
+  }, [behaviorDataFetched, studentId]);
 
   const s = student as any;
   const progressList = (progress as any[]) ?? [];
@@ -942,22 +938,25 @@ export default function StudentDetail() {
       {s && (
         <nav className="sticky top-0 z-20 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 bg-white/95 backdrop-blur-sm border-b border-gray-100 overflow-x-auto scrollbar-hide">
           <div className="flex gap-1 min-w-max py-1">
-            {SECTION_NAV.map(sec => (
+            {STUDENT_TABS.map(tab => (
               <button
-                key={sec.id}
-                onClick={() => scrollToSection(sec.id)}
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-3 py-2 text-[12px] font-medium rounded-md transition-colors whitespace-nowrap ${
-                  activeSection === sec.id
+                  activeTab === tab.id
                     ? "bg-emerald-50 text-emerald-700"
                     : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                {sec.label}
+                {tab.label}
               </button>
             ))}
           </div>
         </nav>
       )}
+
+      {/* ── SUMMARY ───────────────────────────────────────────────────── */}
+      <div className={activeTab === "summary" ? "space-y-5" : "hidden"}>
 
       {reEvalStatus?.hasEligibility && reEvalStatus.reEvalStatus && (reEvalStatus.reEvalStatus.urgency === "overdue" || reEvalStatus.reEvalStatus.urgency === "upcoming") && (
         <Card className={reEvalStatus.reEvalStatus.urgency === "overdue" ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/30"}>
@@ -1017,308 +1016,319 @@ export default function StudentDetail() {
         </Card>
       )}
 
-      <div id="snapshot" ref={setSectionRef("snapshot")} className="scroll-mt-16">
         <StudentSnapshot studentId={studentId} />
-      </div>
 
-      <div id="overview" ref={setSectionRef("overview")} className="scroll-mt-16 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <Card>
-          <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
-            <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{overallPct}%</p>
-              <p className="text-[11px] text-gray-400">Overall Progress</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-              <TrendingUp className="w-5 h-5 text-emerald-700" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{totalDelivered}<span className="text-sm text-gray-400 font-normal"> / {totalRequired}</span></p>
-              <p className="text-[11px] text-gray-400">Minutes Delivered</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-              <CheckCircle className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{completedSessions}</p>
-              <p className="text-[11px] text-gray-400">Completed Sessions</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center" aria-hidden="true">
-              <XCircle className="w-5 h-5 text-red-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{missedSessions}</p>
-              <p className="text-[11px] text-gray-400">Missed Sessions</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <Card>
+            <CardContent className="p-3.5 md:p-5 flex items-center gap-3 md:gap-4">
+              <ProgressRing value={overallPct} size={56} strokeWidth={6} color={riskCfg.ringColor} />
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{overallPct}%</p>
+                <p className="text-[11px] text-gray-400">Overall Progress</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
+                <TrendingUp className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{totalDelivered}<span className="text-sm text-gray-400 font-normal"> / {totalRequired}</span></p>
+                <p className="text-[11px] text-gray-400">Minutes Delivered</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center" aria-hidden="true">
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{completedSessions}</p>
+                <p className="text-[11px] text-gray-400">Completed Sessions</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center" aria-hidden="true">
+                <XCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-800">{missedSessions}</p>
+                <p className="text-[11px] text-gray-400">Missed Sessions</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {(role === "admin" || role === "coordinator") && s && (
-        <StudentMedicaidField student={s} onSave={() => refetchStudent()} />
-      )}
+        {(role === "admin" || role === "coordinator") && s && (
+          <StudentMedicaidField student={s} onSave={() => refetchStudent()} />
+        )}
 
-      <div id="goals" ref={setSectionRef("goals")} className="scroll-mt-16">
-        <StudentGoalSection
-          goalProgress={goalProgress}
-          dataLoading={dataLoading}
-          behaviorTargets={behaviorTargets}
-          behaviorTrends={behaviorTrends}
-          programTrends={programTrends}
-          phaseChangesByTarget={phaseChangesByTarget}
-          goalAbaView={goalAbaView}
-          setGoalAbaView={setGoalAbaView}
-          loadPhaseChanges={loadPhaseChanges}
-          student={s}
-          annotationsByGoal={annotationsByGoal}
-          onAddAnnotation={handleAddAnnotation}
-          onRemoveAnnotation={handleRemoveAnnotation}
-        />
-      </div>
+      </div>{/* end Summary tab */}
 
-      <div id="services" ref={setSectionRef("services")} className="scroll-mt-16">
-        <StudentServiceSection
-          chartData={chartData}
-          minutesExpanded={minutesExpanded}
-          setMinutesExpanded={setMinutesExpanded}
-          minutesTrend={minutesTrend}
-          minutesPhaseLines={minutesPhaseLines}
-          setMinutesPhaseLines={setMinutesPhaseLines}
-          progressList={progressList}
-          isEditable={isEditable}
-          student={s}
-          openAddSvc={openAddSvc}
-          openEditSvc={openEditSvc}
-          setDeletingSvc={setDeletingSvc}
-          openAssignDialog={openAssignDialog}
-          handleRemoveAssignment={handleRemoveAssignment}
-        />
-      </div>
-
-      {compSummary && compSummary.counts?.total > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <Gift className="w-4 h-4 text-emerald-600" />
-                Compensatory Services
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Link href="/compensatory-finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                  Financial View
-                </Link>
-                <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                  View All
-                </Link>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {compSummary.totalRemaining > 0 && (
-              <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
-                  {compFinancial ? (
-                    <p className="text-sm font-bold text-amber-900">
-                      ${compFinancial.exposure.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </p>
-                  ) : (
-                    <p className="text-xs font-semibold text-amber-900">Rate not configured</p>
-                  )}
-                </div>
-                <p className="text-[10px] text-amber-600 mt-0.5">
-                  {compFinancial ? (
-                    "Based on configured district rates"
-                  ) : (
-                    <>
-                      {compSummary.totalRemaining} min owed.{" "}
-                      <Link href="/compensatory-finance?tab=rates" className="underline font-medium">
-                        Set hourly rates
-                      </Link>{" "}
-                      to compute dollar exposure.
-                    </>
-                  )}
-                </p>
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-gray-800">{compSummary.totalRemaining}</p>
-                <p className="text-[10px] text-gray-400">Min Remaining</p>
-              </div>
-              <div className="bg-emerald-50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-emerald-700">{compSummary.totalDelivered}</p>
-                <p className="text-[10px] text-gray-400">Min Delivered</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3 text-center">
-                <p className="text-lg font-bold text-gray-800">{compSummary.counts.pending + compSummary.counts.inProgress}</p>
-                <p className="text-[10px] text-gray-400">Active</p>
-              </div>
-            </div>
-            {compSummary.obligations?.length > 0 && (
-              <div className="space-y-1.5">
-                {compSummary.obligations.slice(0, 5).map((ob: any) => {
-                  const pct = ob.minutesOwed > 0 ? Math.round((ob.minutesDelivered / ob.minutesOwed) * 100) : 0;
-                  return (
-                    <div key={ob.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50/50">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-700">{ob.serviceTypeName || "Service"}</p>
-                        <p className="text-[10px] text-gray-400">
-                          {ob.minutesRemaining} min remaining · {ob.status.replace(/_/g, " ")}
-                        </p>
-                      </div>
-                      <div className="w-16">
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
-                        </div>
-                        <p className="text-[9px] text-gray-400 text-right mt-0.5">{pct}%</p>
-                      </div>
+      {/* ── IEP & GOALS ───────────────────────────────────────────────── */}
+      <div className={activeTab === "iep" ? "space-y-5" : "hidden"}>
+        {mountedTabs.has("iep") && (
+          <>
+            <StudentGoalSection
+              goalProgress={goalProgress}
+              dataLoading={dataLoading}
+              behaviorTargets={behaviorTargets}
+              behaviorTrends={behaviorTrends}
+              programTrends={programTrends}
+              phaseChangesByTarget={phaseChangesByTarget}
+              goalAbaView={goalAbaView}
+              setGoalAbaView={setGoalAbaView}
+              loadPhaseChanges={loadPhaseChanges}
+              student={s}
+              annotationsByGoal={annotationsByGoal}
+              onAddAnnotation={handleAddAnnotation}
+              onRemoveAnnotation={handleRemoveAnnotation}
+            />
+            <StudentServiceSection
+              chartData={chartData}
+              minutesExpanded={minutesExpanded}
+              setMinutesExpanded={setMinutesExpanded}
+              minutesTrend={minutesTrend}
+              minutesPhaseLines={minutesPhaseLines}
+              setMinutesPhaseLines={setMinutesPhaseLines}
+              progressList={progressList}
+              isEditable={isEditable}
+              student={s}
+              openAddSvc={openAddSvc}
+              openEditSvc={openEditSvc}
+              setDeletingSvc={setDeletingSvc}
+              openAssignDialog={openAssignDialog}
+              handleRemoveAssignment={handleRemoveAssignment}
+            />
+            {compSummary && compSummary.counts?.total > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-emerald-600" />
+                      Compensatory Services
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Link href="/compensatory-finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                        Financial View
+                      </Link>
+                      <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                        View All
+                      </Link>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  {compSummary.totalRemaining > 0 && (
+                    <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-amber-800">Financial Exposure</p>
+                        {compFinancial ? (
+                          <p className="text-sm font-bold text-amber-900">
+                            ${compFinancial.exposure.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </p>
+                        ) : (
+                          <p className="text-xs font-semibold text-amber-900">Rate not configured</p>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-amber-600 mt-0.5">
+                        {compFinancial ? (
+                          "Based on configured district rates"
+                        ) : (
+                          <>
+                            {compSummary.totalRemaining} min owed.{" "}
+                            <Link href="/compensatory-finance?tab=rates" className="underline font-medium">
+                              Set hourly rates
+                            </Link>{" "}
+                            to compute dollar exposure.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                      <p className="text-lg font-bold text-gray-800">{compSummary.totalRemaining}</p>
+                      <p className="text-[10px] text-gray-400">Min Remaining</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                      <p className="text-lg font-bold text-emerald-700">{compSummary.totalDelivered}</p>
+                      <p className="text-[10px] text-gray-400">Min Delivered</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                      <p className="text-lg font-bold text-gray-800">{compSummary.counts.pending + compSummary.counts.inProgress}</p>
+                      <p className="text-[10px] text-gray-400">Active</p>
+                    </div>
+                  </div>
+                  {compSummary.obligations?.length > 0 && (
+                    <div className="space-y-1.5">
+                      {compSummary.obligations.slice(0, 5).map((ob: any) => {
+                        const pct = ob.minutesOwed > 0 ? Math.round((ob.minutesDelivered / ob.minutesOwed) * 100) : 0;
+                        return (
+                          <div key={ob.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50/50">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-700">{ob.serviceTypeName || "Service"}</p>
+                              <p className="text-[10px] text-gray-400">
+                                {ob.minutesRemaining} min remaining · {ob.status.replace(/_/g, " ")}
+                              </p>
+                            </div>
+                            <div className="w-16">
+                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, pct)}%` }} />
+                              </div>
+                              <p className="text-[9px] text-gray-400 text-right mt-0.5">{pct}%</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-      )}
+            <StudentComplianceSection
+              section="transition"
+              studentId={studentId}
+              transitionData={transitionData}
+            />
+          </>
+        )}
+      </div>{/* end IEP & Goals tab */}
 
-      <div id="clinical" ref={setSectionRef("clinical")} className="scroll-mt-16" />
-      <StudentBehaviorSection
-        hasNonIepData={hasNonIepData}
-        dataLoading={dataLoading}
-        nonIepBehaviorTargets={nonIepBehaviorTargets}
-        nonIepProgramTargets={nonIepProgramTargets}
-        behaviorTrends={behaviorTrends}
-        programTrends={programTrends}
-        behaviorPhaseLines={behaviorPhaseLines}
-        setBehaviorPhaseLines={setBehaviorPhaseLines}
-        programPhaseLines={programPhaseLines}
-        setProgramPhaseLines={setProgramPhaseLines}
-        phaseChangesByTarget={phaseChangesByTarget}
-        goalAbaView={goalAbaView}
-        setGoalAbaView={setGoalAbaView}
-        loadPhaseChanges={loadPhaseChanges}
-        getBehaviorTrendData={getBehaviorTrendData}
-        getProgramTrendData={getProgramTrendData}
-        getTrendDirection={getTrendDirection}
-      />
+      {/* ── BEHAVIOR / ABA ────────────────────────────────────────────── */}
+      <div className={activeTab === "behavior" ? "space-y-5" : "hidden"}>
+        {mountedTabs.has("behavior") && (
+          <>
+            <StudentBehaviorSection
+              hasNonIepData={hasNonIepData}
+              dataLoading={dataLoading}
+              nonIepBehaviorTargets={nonIepBehaviorTargets}
+              nonIepProgramTargets={nonIepProgramTargets}
+              behaviorTrends={behaviorTrends}
+              programTrends={programTrends}
+              behaviorPhaseLines={behaviorPhaseLines}
+              setBehaviorPhaseLines={setBehaviorPhaseLines}
+              programPhaseLines={programPhaseLines}
+              setProgramPhaseLines={setProgramPhaseLines}
+              phaseChangesByTarget={phaseChangesByTarget}
+              goalAbaView={goalAbaView}
+              setGoalAbaView={setGoalAbaView}
+              loadPhaseChanges={loadPhaseChanges}
+              getBehaviorTrendData={getBehaviorTrendData}
+              getProgramTrendData={getProgramTrendData}
+              getTrendDirection={getTrendDirection}
+            />
+            {behaviorTargets.length > 0 && !dataLoading && (
+              <Card className="border-gray-100">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-gray-400" />
+                    Inter-Observer Agreement (IOA)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <IoaSummary studentId={studentId} />
+                </CardContent>
+              </Card>
+            )}
+            <StudentComplianceSection
+              section="protective"
+              studentId={studentId}
+              protectiveData={protectiveData}
+              formatDate={formatDate}
+            />
+          </>
+        )}
+      </div>{/* end Behavior / ABA tab */}
 
-      {behaviorTargets.length > 0 && !dataLoading && (
-        <Card className="border-gray-100">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-gray-400" />
-              Inter-Observer Agreement (IOA)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <IoaSummary studentId={studentId} />
-          </CardContent>
-        </Card>
-      )}
+      {/* ── SESSIONS ──────────────────────────────────────────────────── */}
+      <div className={activeTab === "sessions" ? "space-y-5" : "hidden"}>
+        {mountedTabs.has("sessions") && (
+          <>
+            <StudentSessionHistory
+              section="data"
+              dataSessions={dataSessions}
+              dataLoading={dataLoading}
+              expandedDataSessionId={expandedDataSessionId}
+              expandedDataDetail={expandedDataDetail}
+              expandedDataLoading={expandedDataLoading}
+              toggleDataSession={toggleDataSession}
+              recentSessions={recentSessions}
+              expandedServiceSessionId={expandedServiceSessionId}
+              expandedServiceDetail={expandedServiceDetail}
+              expandedServiceLoading={expandedServiceLoading}
+              toggleServiceSession={toggleServiceSession}
+              formatDate={formatDate}
+              formatTime={formatTime}
+            />
+            <StudentSessionHistory
+              section="service"
+              dataSessions={dataSessions}
+              dataLoading={dataLoading}
+              expandedDataSessionId={expandedDataSessionId}
+              expandedDataDetail={expandedDataDetail}
+              expandedDataLoading={expandedDataLoading}
+              toggleDataSession={toggleDataSession}
+              recentSessions={recentSessions}
+              expandedServiceSessionId={expandedServiceSessionId}
+              expandedServiceDetail={expandedServiceDetail}
+              expandedServiceLoading={expandedServiceLoading}
+              toggleServiceSession={toggleServiceSession}
+              formatDate={formatDate}
+              formatTime={formatTime}
+            />
+          </>
+        )}
+      </div>{/* end Sessions tab */}
 
-      <div id="sessions" ref={setSectionRef("sessions")} className="scroll-mt-16" />
-      <StudentSessionHistory
-        section="data"
-        dataSessions={dataSessions}
-        dataLoading={dataLoading}
-        expandedDataSessionId={expandedDataSessionId}
-        expandedDataDetail={expandedDataDetail}
-        expandedDataLoading={expandedDataLoading}
-        toggleDataSession={toggleDataSession}
-        recentSessions={recentSessions}
-        expandedServiceSessionId={expandedServiceSessionId}
-        expandedServiceDetail={expandedServiceDetail}
-        expandedServiceLoading={expandedServiceLoading}
-        toggleServiceSession={toggleServiceSession}
-        formatDate={formatDate}
-        formatTime={formatTime}
-      />
+      {/* ── CONTACTS & MEDICAL ────────────────────────────────────────── */}
+      <div className={activeTab === "contacts" ? "space-y-5" : "hidden"}>
+        {mountedTabs.has("contacts") && (
+          <>
+            <StudentContactsMedical
+              section="contactsAndMedical"
+              isEditable={isEditable}
+              emergencyContacts={emergencyContacts}
+              emergencyContactsLoading={emergencyContactsLoading}
+              openAddEc={openAddEc}
+              openEditEc={openEditEc}
+              setDeletingEc={setDeletingEc}
+              medicalAlerts={medicalAlerts}
+              medicalAlertsLoading={medicalAlertsLoading}
+              openAddMa={openAddMa}
+              openEditMa={openEditMa}
+              setDeletingMa={setDeletingMa}
+            />
+            <StudentComplianceSection
+              section="afterTransition"
+              studentId={studentId}
+              bipReadOnly={bipReadOnly}
+              isEditable={isEditable}
+            />
+            <StudentComplianceSection
+              section="messagesAccommodations"
+              studentId={studentId}
+              studentName={studentName}
+              messageGuardians={messageGuardians}
+            />
+            <StudentContactsMedical
+              section="enrollment"
+              enrollmentHistory={enrollmentHistory}
+              enrollmentLoading={enrollmentLoading}
+              role={role}
+              openAddEvent={openAddEvent}
+              openEditEvent={openEditEvent}
+              setDeletingEvent={setDeletingEvent}
+            />
+          </>
+        )}
+      </div>{/* end Contacts & Medical tab */}
 
-      <div id="safety" ref={setSectionRef("safety")} className="scroll-mt-16" />
-      <StudentComplianceSection
-        section="protective"
-        studentId={studentId}
-        protectiveData={protectiveData}
-        formatDate={formatDate}
-      />
-
-      <StudentSessionHistory
-        section="service"
-        dataSessions={dataSessions}
-        dataLoading={dataLoading}
-        expandedDataSessionId={expandedDataSessionId}
-        expandedDataDetail={expandedDataDetail}
-        expandedDataLoading={expandedDataLoading}
-        toggleDataSession={toggleDataSession}
-        recentSessions={recentSessions}
-        expandedServiceSessionId={expandedServiceSessionId}
-        expandedServiceDetail={expandedServiceDetail}
-        expandedServiceLoading={expandedServiceLoading}
-        toggleServiceSession={toggleServiceSession}
-        formatDate={formatDate}
-        formatTime={formatTime}
-      />
-
-      <StudentComplianceSection
-        section="transition"
-        studentId={studentId}
-        transitionData={transitionData}
-      />
-
-      <StudentComplianceSection
-        section="afterTransition"
-        studentId={studentId}
-        bipReadOnly={bipReadOnly}
-        isEditable={isEditable}
-      />
-
-      <StudentContactsMedical
-        section="contactsAndMedical"
-        isEditable={isEditable}
-        emergencyContacts={emergencyContacts}
-        emergencyContactsLoading={emergencyContactsLoading}
-        openAddEc={openAddEc}
-        openEditEc={openEditEc}
-        setDeletingEc={setDeletingEc}
-        medicalAlerts={medicalAlerts}
-        medicalAlertsLoading={medicalAlertsLoading}
-        openAddMa={openAddMa}
-        openEditMa={openEditMa}
-        setDeletingMa={setDeletingMa}
-      />
-
-      <StudentComplianceSection
-        section="messagesAccommodations"
-        studentId={studentId}
-        studentName={studentName}
-        messageGuardians={messageGuardians}
-        setSectionRef={setSectionRef}
-      />
-
-      <div id="enrollment" ref={setSectionRef("enrollment")} className="scroll-mt-16" />
-      <StudentContactsMedical
-        section="enrollment"
-        enrollmentHistory={enrollmentHistory}
-        enrollmentLoading={enrollmentLoading}
-        role={role}
-        openAddEvent={openAddEvent}
-        openEditEvent={openEditEvent}
-        setDeletingEvent={setDeletingEvent}
-      />
-
+      {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs
         addEventDialogOpen={addEventDialogOpen}
         setAddEventDialogOpen={setAddEventDialogOpen}
