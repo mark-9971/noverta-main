@@ -11,6 +11,7 @@ import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { getActiveSchoolYearIdForStudent } from "../../lib/activeSchoolYear";
 import { meetingAccess } from "./shared";
+import { assertTeamMeetingInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -119,6 +120,7 @@ router.post("/iep-meetings/:id/complete", meetingAccess, async (req, res): Promi
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const body = req.body;
     const [row] = await db.update(teamMeetingsTable)

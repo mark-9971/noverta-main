@@ -4,12 +4,14 @@ import { iepAccommodationsTable, studentsTable, schoolsTable } from "@workspace/
 import { eq, and, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
 router.get("/students/:studentId/accommodations", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const accs = await db.select().from(iepAccommodationsTable)
       .where(and(eq(iepAccommodationsTable.studentId, studentId), eq(iepAccommodationsTable.active, true)))
       .orderBy(asc(iepAccommodationsTable.category));
@@ -28,6 +30,7 @@ router.get("/students/:studentId/accommodations", async (req, res): Promise<void
 router.post("/students/:studentId/accommodations", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { category, description, setting, frequency, provider, iepDocumentId } = req.body;
     if (!description) { res.status(400).json({ error: "description is required" }); return; }
     const [acc] = await db.insert(iepAccommodationsTable).values({

@@ -10,12 +10,14 @@ import {
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
 router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const activeOnly = req.query.active !== "false";
     const conditions: any[] = [eq(iepGoalsTable.studentId, studentId)];
     if (activeOnly) conditions.push(eq(iepGoalsTable.active, true));
@@ -58,6 +60,7 @@ router.get("/students/:studentId/iep-goals", async (req, res): Promise<void> => 
 router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     let { from, to } = req.query as { from?: string; to?: string };
 
     if (!from) {
@@ -249,6 +252,7 @@ router.get("/students/:studentId/iep-goals/progress", async (req, res): Promise<
 router.post("/students/:studentId/iep-goals", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { goalArea, goalNumber, annualGoal, baseline, targetCriterion,
             measurementMethod, scheduleOfReporting, programTargetId,
             behaviorTargetId, serviceArea, startDate, endDate, notes,
@@ -410,6 +414,7 @@ router.delete("/iep-goals/:id", async (req, res): Promise<void> => {
 router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { startDate, endDate } = req.body;
 
     const [programTargets, behaviorTargets, serviceReqs] = await Promise.all([

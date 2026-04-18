@@ -6,6 +6,8 @@ import {
   serviceTypesTable, iepDocumentsTable, iepAccommodationsTable, iepBuilderDraftsTable,
 } from "@workspace/db";
 import { eq, desc, and, asc } from "drizzle-orm";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 import {
   getAge, nextSchoolYear, recommendationForGoal, getStaffIdFromReq,
 } from "./shared";
@@ -15,6 +17,7 @@ const router: IRouter = Router();
 router.post("/students/:studentId/iep-builder/generate", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const {
       parentQuestionnaire,
       teacherQuestionnaire,

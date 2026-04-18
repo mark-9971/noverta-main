@@ -8,6 +8,8 @@ import {
   schoolsTable,
 } from "@workspace/db";
 import { eq, desc, and, asc, count, gte } from "drizzle-orm";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 import {
   getAge, nextSchoolYear, getAgeBand, goalProgressCodeLabel,
   recommendationForGoal, AGE_APPROPRIATE_SKILLS, TRANSITION_DOMAINS,
@@ -18,6 +20,7 @@ const router: IRouter = Router();
 router.get("/students/:studentId/iep-builder/context", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
     if (!student) { res.status(404).json({ error: "Student not found" }); return; }
 

@@ -12,6 +12,12 @@ import { eq, and, desc, asc, gte, inArray } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { meetingAccess, pick } from "./shared";
+import {
+  assertTeamMeetingInCallerDistrict,
+  assertPriorWrittenNoticeInCallerDistrict,
+  assertMeetingConsentRecordInCallerDistrict,
+  assertMeetingPrepItemInCallerDistrict,
+} from "../../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -19,6 +25,7 @@ router.post("/iep-meetings/:meetingId/notices", meetingAccess, async (req, res):
   try {
     const meetingId = parseInt(req.params.meetingId);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
 
     const body = req.body;
     if (!body.noticeType || !body.actionProposed) {
@@ -68,6 +75,7 @@ router.patch("/iep-meetings/notices/:id", meetingAccess, async (req, res): Promi
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid notice ID" }); return; }
+    if (!(await assertPriorWrittenNoticeInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const allowed = [
       "noticeType", "actionProposed", "actionDescription", "reasonForAction",
@@ -100,6 +108,7 @@ router.post("/iep-meetings/:meetingId/consent", meetingAccess, async (req, res):
   try {
     const meetingId = parseInt(req.params.meetingId);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
 
     const body = req.body;
     if (!body.consentType || !body.decision) {
@@ -144,6 +153,7 @@ router.patch("/iep-meetings/consent/:id", meetingAccess, async (req, res): Promi
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid consent ID" }); return; }
+    if (!(await assertMeetingConsentRecordInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const allowed = [
       "decision", "decisionDate", "respondentName", "respondentRelationship",
@@ -174,6 +184,7 @@ router.get("/iep-meetings/:id/prep", meetingAccess, async (req, res): Promise<vo
   try {
     const meetingId = parseInt(req.params.id);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
 
     const [meeting] = await db.select({
       id: teamMeetingsTable.id,
@@ -256,6 +267,7 @@ router.patch("/iep-meetings/:id/prep/:itemId", meetingAccess, async (req, res): 
     const meetingId = parseInt(req.params.id);
     const itemId = parseInt(req.params.itemId);
     if (isNaN(meetingId) || isNaN(itemId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    if (!(await assertMeetingPrepItemInCallerDistrict(req as AuthedRequest, itemId, res))) return;
 
     const { completed, notes } = req.body as { completed?: boolean; notes?: string };
     const authedReq = req as AuthedRequest;
@@ -302,6 +314,7 @@ router.get("/iep-meetings/:id/agenda", meetingAccess, async (req, res): Promise<
   try {
     const meetingId = parseInt(req.params.id);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
 
     const [meeting] = await db.select({
       id: teamMeetingsTable.id,

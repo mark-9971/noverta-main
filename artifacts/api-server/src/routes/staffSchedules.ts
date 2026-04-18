@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId } from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import { logAudit } from "../lib/auditLog";
+import { assertStaffInCallerDistrict } from "../lib/districtScope";
 
 const router: IRouter = Router();
 
@@ -287,6 +288,7 @@ router.get("/staff-schedules/coverage-gaps", async (req, res) => {
 router.get("/staff-schedules/provider-summary/:staffId", async (req, res) => {
   try {
     const staffId = Number(req.params.staffId);
+    if (!(await assertStaffInCallerDistrict(req as AuthedRequest, staffId, res))) return;
     const districtId = getEnforcedDistrictId(req as AuthedRequest);
 
     const result = await db.execute(sql`

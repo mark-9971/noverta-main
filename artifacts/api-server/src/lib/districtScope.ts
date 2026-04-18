@@ -592,6 +592,137 @@ export async function assertSupervisionSessionInCallerDistrict(req: AuthedReques
   return false;
 }
 
+/** iep_goals.student_id -> student.school -> school.district_id */
+export async function iepGoalInCallerDistrict(req: AuthedRequest, goalId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM iep_goals g
+        JOIN students s ON s.id = g.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE g.id = ${goalId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertIepGoalInCallerDistrict(req: AuthedRequest, goalId: number, res: Response): Promise<boolean> {
+  if (await iepGoalInCallerDistrict(req, goalId)) return true;
+  res.status(404).json({ error: "IEP goal not found" });
+  return false;
+}
+
+/** data_sessions.student_id -> student.school -> school.district_id */
+export async function dataSessionInCallerDistrict(req: AuthedRequest, sessionId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM data_sessions ds
+        JOIN students s ON s.id = ds.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE ds.id = ${sessionId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertDataSessionInCallerDistrict(req: AuthedRequest, sessionId: number, res: Response): Promise<boolean> {
+  if (await dataSessionInCallerDistrict(req, sessionId)) return true;
+  res.status(404).json({ error: "Data session not found" });
+  return false;
+}
+
+/** phase_changes.behavior_target_id -> behavior_target.student -> student.school.district_id */
+export async function phaseChangeInCallerDistrict(req: AuthedRequest, phaseChangeId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM phase_changes pc
+        JOIN behavior_targets bt ON bt.id = pc.behavior_target_id
+        JOIN students s ON s.id = bt.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE pc.id = ${phaseChangeId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertPhaseChangeInCallerDistrict(req: AuthedRequest, phaseChangeId: number, res: Response): Promise<boolean> {
+  if (await phaseChangeInCallerDistrict(req, phaseChangeId)) return true;
+  res.status(404).json({ error: "Phase change not found" });
+  return false;
+}
+
+/** iep_meeting_attendees.meeting_id -> team_meetings.student -> school.district_id */
+export async function iepMeetingAttendeeInCallerDistrict(req: AuthedRequest, attendeeId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM iep_meeting_attendees a
+        JOIN team_meetings tm ON tm.id = a.meeting_id
+        JOIN students s ON s.id = tm.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE a.id = ${attendeeId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertIepMeetingAttendeeInCallerDistrict(req: AuthedRequest, attendeeId: number, res: Response): Promise<boolean> {
+  if (await iepMeetingAttendeeInCallerDistrict(req, attendeeId)) return true;
+  res.status(404).json({ error: "Attendee not found" });
+  return false;
+}
+
+/** prior_written_notices.meeting_id -> team_meetings.student.school.district_id */
+export async function priorWrittenNoticeInCallerDistrict(req: AuthedRequest, noticeId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM prior_written_notices pwn
+        JOIN team_meetings tm ON tm.id = pwn.meeting_id
+        JOIN students s ON s.id = tm.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE pwn.id = ${noticeId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertPriorWrittenNoticeInCallerDistrict(req: AuthedRequest, noticeId: number, res: Response): Promise<boolean> {
+  if (await priorWrittenNoticeInCallerDistrict(req, noticeId)) return true;
+  res.status(404).json({ error: "Notice not found" });
+  return false;
+}
+
+/** meeting_consent_records.meeting_id -> team_meetings.student.school.district_id */
+export async function meetingConsentRecordInCallerDistrict(req: AuthedRequest, consentId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM meeting_consent_records mcr
+        JOIN team_meetings tm ON tm.id = mcr.meeting_id
+        JOIN students s ON s.id = tm.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE mcr.id = ${consentId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertMeetingConsentRecordInCallerDistrict(req: AuthedRequest, consentId: number, res: Response): Promise<boolean> {
+  if (await meetingConsentRecordInCallerDistrict(req, consentId)) return true;
+  res.status(404).json({ error: "Consent record not found" });
+  return false;
+}
+
+/** meeting_prep_items.meeting_id -> team_meetings.student.school.district_id */
+export async function meetingPrepItemInCallerDistrict(req: AuthedRequest, itemId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM meeting_prep_items mpi
+        JOIN team_meetings tm ON tm.id = mpi.meeting_id
+        JOIN students s ON s.id = tm.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE mpi.id = ${itemId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertMeetingPrepItemInCallerDistrict(req: AuthedRequest, itemId: number, res: Response): Promise<boolean> {
+  if (await meetingPrepItemInCallerDistrict(req, itemId)) return true;
+  res.status(404).json({ error: "Prep item not found" });
+  return false;
+}
+
 /** staff_absences.staff_id -> staff -> schools.district_id */
 export async function staffAbsenceInCallerDistrict(req: AuthedRequest, absenceId: number): Promise<boolean> {
   const did = getEnforcedDistrictId(req);

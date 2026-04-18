@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { meetingAccess, pick } from "./shared";
+import { assertTeamMeetingInCallerDistrict, assertIepMeetingAttendeeInCallerDistrict } from "../../lib/districtScope";
 
 // tenant-scope: district-join
 const router: IRouter = Router();
@@ -13,6 +14,7 @@ router.post("/iep-meetings/:id/attendees", meetingAccess, async (req, res): Prom
   try {
     const meetingId = parseInt(req.params.id);
     if (isNaN(meetingId)) { res.status(400).json({ error: "Invalid meeting ID" }); return; }
+    if (!(await assertTeamMeetingInCallerDistrict(req as AuthedRequest, meetingId, res))) return;
 
     const body = req.body;
     if (!body.name || !body.role) {
@@ -46,6 +48,7 @@ router.patch("/iep-meetings/attendees/:id", meetingAccess, async (req, res): Pro
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid attendee ID" }); return; }
+    if (!(await assertIepMeetingAttendeeInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const allowed = [
       "attended", "submittedWrittenInput", "writtenInputNotes",
@@ -76,6 +79,7 @@ router.delete("/iep-meetings/attendees/:id", meetingAccess, async (req, res): Pr
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid attendee ID" }); return; }
+    if (!(await assertIepMeetingAttendeeInCallerDistrict(req as AuthedRequest, id, res))) return;
 
     const [row] = await db.delete(iepMeetingAttendeesTable).where(eq(iepMeetingAttendeesTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Attendee not found" }); return; }

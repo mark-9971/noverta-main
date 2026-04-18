@@ -7,12 +7,15 @@ import {
 } from "@workspace/db";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
+import { assertStudentInCallerDistrict, assertDataSessionInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.get("/students/:studentId/data-sessions", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { from, to, limit: limitStr } = req.query;
     const conditions = [eq(dataSessionsTable.studentId, studentId)];
     if (from) conditions.push(gte(dataSessionsTable.sessionDate, from as string));
@@ -107,6 +110,7 @@ async function checkAutoProgress(tx: any, programTargetId: number) {
 router.post("/students/:studentId/data-sessions", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { staffId, sessionDate, startTime, endTime, notes, behaviorData, programData: progData } = req.body;
     if (!sessionDate) { res.status(400).json({ error: "sessionDate is required" }); return; }
 
@@ -199,6 +203,7 @@ router.post("/students/:studentId/data-sessions", async (req, res): Promise<void
 router.get("/data-sessions/:id", async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id);
+    if (!(await assertDataSessionInCallerDistrict(req as AuthedRequest, id, res))) return;
     const [session] = await db.select({
       id: dataSessionsTable.id,
       studentId: dataSessionsTable.studentId,

@@ -5,12 +5,15 @@ import {
   sessionLogsTable, serviceTypesTable, staffTable,
 } from "@workspace/db";
 import { eq, and, gte, lte, sql, isNull, asc } from "drizzle-orm";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.get("/students/:studentId/minutes-trend", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { from, to } = req.query;
 
     const conditions: any[] = [

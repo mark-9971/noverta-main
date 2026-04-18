@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { db, iepBuilderDraftsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getStaffIdFromReq } from "./shared";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 
 // tenant-scope: district-join
 const router: IRouter = Router();
@@ -10,6 +12,7 @@ router.get("/students/:studentId/iep-builder/draft", async (req, res): Promise<v
   try {
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const staffId = getStaffIdFromReq(req);
     if (!staffId) { res.status(403).json({ error: "Staff identity required" }); return; }
     const rows = await db.select().from(iepBuilderDraftsTable)
@@ -38,6 +41,7 @@ router.put("/students/:studentId/iep-builder/draft", async (req, res): Promise<v
   try {
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const staffId = getStaffIdFromReq(req);
     if (!staffId) { res.status(403).json({ error: "Staff identity required" }); return; }
     const { wizardStep, formData } = req.body;
@@ -74,6 +78,7 @@ router.delete("/students/:studentId/iep-builder/draft", async (req, res): Promis
   try {
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const staffId = getStaffIdFromReq(req);
     if (!staffId) { res.status(403).json({ error: "Staff identity required" }); return; }
     await db.delete(iepBuilderDraftsTable)

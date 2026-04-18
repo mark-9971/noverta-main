@@ -7,6 +7,8 @@ import {
 } from "@workspace/db";
 import { eq, and, count, sql, asc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
+import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import type { AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -14,6 +16,7 @@ router.get("/analytics/student/:studentId", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
     if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
 
     const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
     if (!student) { res.status(404).json({ error: "Student not found" }); return; }

@@ -7,6 +7,8 @@ import {
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireTierAccess } from "../middlewares/tierGate";
+import { assertStudentInCallerDistrict } from "../lib/districtScope";
+import type { AuthedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 router.use(
@@ -299,6 +301,7 @@ function buildReason(goalAreas: string[], serviceTypes: string[], item: { goalAr
 router.post("/students/:studentId/apply-suggestions", async (req, res): Promise<void> => {
   try {
     const studentId = parseInt(req.params.studentId);
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
     const { behaviors, programs } = req.body;
     const results: any = { behaviorsCreated: 0, programsCreated: 0, skippedDuplicates: 0 };
 
