@@ -45,6 +45,7 @@ import StudentBehaviorSection from "./student-detail/StudentBehaviorSection";
 import StudentSessionHistory from "./student-detail/StudentSessionHistory";
 import StudentComplianceSection from "./student-detail/StudentComplianceSection";
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
+import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
 
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
@@ -112,6 +113,7 @@ export default function StudentDetail() {
   const [dataLoading, setDataLoading] = useState(false);
   const [behaviorDataFetched, setBehaviorDataFetched] = useState(false);
   const [contactsDataFetched, setContactsDataFetched] = useState(false);
+  const [progressReportsFetched, setProgressReportsFetched] = useState(false);
   const [protectiveData, setProtectiveData] = useState<{ incidents: any[]; summary: any } | null>(null);
   const [compSummary, setCompSummary] = useState<any>(null);
   const [compFinancial, setCompFinancial] = useState<{ exposure: number; totalOwed: number } | null>(null);
@@ -548,9 +550,10 @@ export default function StudentDetail() {
   const STUDENT_TABS = [
     { id: "summary" as const, label: "Summary" },
     { id: "iep" as const, label: "IEP & Goals" },
-    { id: "behavior" as const, label: "Behavior / ABA" },
+    { id: "reports" as const, label: "Progress Reports" },
     { id: "sessions" as const, label: "Sessions" },
-    { id: "contacts" as const, label: "Contacts & Medical" },
+    { id: "behavior" as const, label: "Behavior / ABA" },
+    { id: "contacts" as const, label: "Documents & Contacts" },
   ] as const;
 
   type StudentTab = typeof STUDENT_TABS[number]["id"];
@@ -574,6 +577,7 @@ export default function StudentDetail() {
     navigate(`/students/${studentId}?tab=${tab}`, { replace: true });
     if (tab === "behavior") setBehaviorDataFetched(true);
     if (tab === "contacts") setContactsDataFetched(true);
+    if (tab === "reports") setProgressReportsFetched(true);
   }
 
   function loadPhaseChanges() {
@@ -1301,7 +1305,16 @@ export default function StudentDetail() {
         )}
       </div>{/* end Sessions tab */}
 
-      {/* ── CONTACTS & MEDICAL ────────────────────────────────────────── */}
+      {/* ── PROGRESS REPORTS ──────────────────────────────────────────── */}
+      <div className={activeTab === "reports" ? "space-y-5" : "hidden"}>
+        <StudentProgressReports
+          studentId={studentId}
+          enabled={progressReportsFetched || activeTab === "reports"}
+          isEditable={isEditable}
+        />
+      </div>{/* end Progress Reports tab */}
+
+      {/* ── DOCUMENTS & CONTACTS ──────────────────────────────────────── */}
       <div className={activeTab === "contacts" ? "space-y-5" : "hidden"}>
         {mountedTabs.has("contacts") && (
           <>
@@ -1342,7 +1355,7 @@ export default function StudentDetail() {
             />
           </>
         )}
-      </div>{/* end Contacts & Medical tab */}
+      </div>{/* end Documents & Contacts tab */}
 
       {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs
