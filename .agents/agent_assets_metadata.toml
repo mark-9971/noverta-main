@@ -107,3 +107,9 @@ id = "c-_ZlonwCW9QODNV7DXKi"
 uri = "file://.local/tasks/wave1-implementation-packet.md"
 type = "text"
 title = "Wave 1 Implementation Packet + 4 Power Mode Prompts"
+
+[[outputs]]
+id = "3s8YStfp_jFCyjAOVacEZ"
+uri = "file://trellis-ux-audit.txt"
+type = "text"
+title = "Trellis UX Audit"

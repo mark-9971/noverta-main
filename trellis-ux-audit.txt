@@ -1,0 +1,757 @@
+TRELLIS — COMPLETE UX / NAVIGATION / WORKFLOW AUDIT
+=====================================================
+Generated: April 18, 2026
+Based on: full codebase inspection (nav-config.ts, App.tsx, all page components,
+route structure, role definitions, dashboard API call patterns)
+=====================================================
+
+
+A. EXECUTIVE SUMMARY
+====================
+
+Trellis has evolved correctly as a feature machine — the breadth of capability is
+genuinely impressive for a SPED compliance product at this stage. The problem is
+the interface has grown laterally with each feature without a corresponding
+architectural consolidation pass. What exists is a developer-organized product,
+not a user-organized one. The nav structure reflects the engineering taxonomy
+(module-by-module), not the mental models of administrators, SPED teachers,
+BCBAs, or paras who use it daily. The result: a highly capable platform that a
+first-time admin will find intimidating, a daily user will find noisy, and a demo
+prospect will find confusing before they even reach the core value.
+
+The five most consequential structural problems:
+  1. Compliance-related content is split across at least three separate sections
+     of the nav.
+  2. The admin nav has 40+ visible destinations before the first scroll.
+  3. Student detail is a ~1,400-line mega-page that tries to render an entire
+     record in one shot.
+  4. Six distinct roles share two navs when they likely need four.
+  5. The dashboard loads 9+ independent API calls to render its initial view.
+
+
+B. WHAT THE APP CURRENTLY FEELS LIKE TO A USER
+===============================================
+
+First-time admin:
+  Opens to a dashboard with a greeting, a compliance rate card, an action queue,
+  a student risk list, a cost-exposure panel, evaluations section, meetings
+  section, transitions section, and deadlines — all simultaneously. Before they
+  have oriented, they are being asked to respond to five different urgency signals
+  at once. The sidebar has seven collapsible sections, all open by default,
+  scrolling far below the viewport.
+
+Daily admin:
+  The app becomes a tab-clicking exercise. "I need to check compliance" →
+  /compliance → pick from 6 tabs. "I need a report" → /reports → pick from 9
+  tabs. "I need to see sessions" → it is both a standalone page and embedded in
+  Compliance. They learn their 3-4 routes and ignore everything else.
+
+SPED teacher:
+  Gets the full admin nav with label substitutions ("Directory" → "My
+  Directory"). Sees ABA, Financial/Executive, and everything else an admin sees.
+  Clutter with no clear entry point for their actual daily job. Their home route
+  is / (admin dashboard), not /today, even though their nav lists Today as a
+  primary item.
+
+BCBA:
+  Best-served of all staff roles — has a purpose-built nav. Still lands at two
+  Overview items (Today + Dashboard) that serve similar purposes.
+
+Para:
+  Clean, simple nav. "My Day" is exactly right. But "Schedule" and "My Schedule"
+  are two separate nav items. These should be one.
+
+Guardian:
+  Portal is clean and proportionate. 5 items, zero waste. The best-structured
+  role experience in the product.
+
+
+C. BIGGEST UX PROBLEMS
+=======================
+
+1. COMPLIANCE CONTENT IS SPLIT THREE WAYS
+   /compliance has 6 tabs including a full Risk Report. /reports has 9 tabs
+   including Compliance Trend, At-Risk, and Executive Summary. The dashboard
+   itself surfaces compliance rate and a student risk list inline. A user trying
+   to understand compliance status has to know which of these three surfaces to
+   use, and when.
+
+2. REPORTS TAB OVERLOAD
+   9 tabs on a single page (executive, trend, audit, minutes, missed, risk,
+   parent, exports, pilot-health) wrap on most screen sizes and have no clear
+   hierarchy. Some (Audit Package, Pilot Health) belong in admin/settings. Some
+   (Compliance Trend, At-Risk) belong merged into the Compliance section. The
+   tab bar is unscannable.
+
+3. SESSIONS DUPLICATION
+   /sessions exists as a standalone nav item under Staffing AND as a tab inside
+   /compliance. The exact same component is rendered in both places. A user
+   encountering both does not know which is authoritative.
+
+4. ADMIN NAV IS 40+ DESTINATIONS, ALL VISIBLE, MOST OPEN BY DEFAULT
+   Overview (2), Compliance Tools (6 with sub-items), IEP (4 with sub-items),
+   ABA (3), Staffing (3 with sub-items), Financial/Executive (10),
+   Admin/Tools (3 with 8 sub-items). This is closer to a sitemap than a
+   navigation system.
+
+5. STUDENT DETAIL PAGE IS A MONOLITH
+   At ~1,400 lines of render logic, it loads compliance, service requirements,
+   IEP goals with charts, ABA behavior targets, program data, session history,
+   medical contacts, emergency contacts, staff assignments, and compensatory
+   exposure simultaneously. On a student with rich data this page is extremely
+   slow to feel usable and visually overwhelming.
+
+6. SCHEDULING HUB DOES NOT CONTAIN WHAT THE NAV SUGGESTS
+   The hub renders 2 tabs (Weekly Schedule, Coverage). But the nav lists 4
+   children (including Staff Calendar and Caseload Balancing). Users clicking
+   "Staff Calendar" from the Scheduling Hub nav child land on /staff-calendar —
+   a standalone page, not a hub tab. The parent/child relationship in the nav
+   is a lie.
+
+7. ADMIN, CASE_MANAGER, AND COORDINATOR SHARE ONE IDENTICAL NAV
+   These roles have materially different daily workflows. A coordinator managing
+   schedules and coverage has no reason to see Medicaid Billing, ABA tools, or
+   Executive Dashboard. A case manager focused on IEPs does not need State
+   Reporting or Compensatory Finance. One-nav-fits-all produces clutter for
+   everyone.
+
+8. ACCOMMODATION LOOKUP APPEARS IN TWO UNRELATED NAV SECTIONS
+   Listed under Compliance Tools AND as a child of Transition Planning in the
+   IEP section. The canonical location is unclear.
+
+9. "TODAY" AND "MY DAY" ARE THE SAME CONCEPT WITH DIFFERENT NAMES
+   /today (for BCBA/sped_teacher) and /my-day (for para) are functionally
+   identical role-scoped daily views built as entirely separate page components
+   with different routes, different names, and no shared code or mental model.
+
+10. NO GLOBAL SEARCH / COMMAND PALETTE
+    The app has /iep-search but no Cmd+K global search. Finding a student,
+    provider, or session requires knowing which page surface to use first.
+
+11. COMPENSATORY SERVICES AND COMPENSATORY FINANCE ARE SEPARATE NAV ITEMS
+    FOR THE SAME DOMAIN
+    One (Compliance Tools) tracks obligations. The other (Financial/Executive)
+    tracks financial exposure. A user managing compensatory issues expects these
+    in one place.
+
+12. DASHBOARD FIRES 9 API CALLS ON INITIAL LOAD
+    Compliance risk report, week trend, weekly summary, onboarding status,
+    dashboard summary, accommodation compliance, evaluations dashboard,
+    transitions dashboard, meetings dashboard. Heavy first paint. If any one
+    fails, sections silently collapse or show skeletons with no explanation.
+
+
+D. CURRENT NAVIGATION MAP
+==========================
+
+Sidebar (Admin — all sections open by default)
+|
++-- Overview
+|   +-- Dashboard (/)
+|   +-- Alerts (/alerts)  [badge]
+|       +-- Open
+|       +-- Snoozed
+|       +-- Resolved
+|
++-- Compliance Tools
+|   +-- Compliance (/compliance)
+|   |   +-- Service Minutes
+|   |   +-- Sessions              <- duplicate of /sessions
+|   |   +-- Checklist
+|   |   +-- Timeline
+|   |   +-- Trends
+|   |   +-- Risk Report
+|   +-- Compensatory Services (/compensatory-services)
+|   |   +-- Obligations
+|   |   +-- Cost Avoidance
+|   +-- Document Workflow (/document-workflow)
+|   +-- Accommodation Lookup (/accommodation-lookup)  <- also in IEP > Transitions
+|   +-- State Reports (/state-reporting)
+|   +-- Restraint & Seclusion (/protective-measures)
+|
++-- IEP
+|   +-- IEP Hub (/iep)            <- hub wrapper page, extra click layer
+|   |   +-- Search (/iep-search)
+|   |   +-- Builder (/iep-builder)
+|   |   +-- Scheduling (/iep-meetings)
+|   |   +-- Calendar (/iep-calendar)
+|   +-- Evaluations & Progress (/evaluations)
+|   |   +-- Evaluations
+|   |   +-- Progress Reports (/progress-reports)
+|   +-- Transition Planning (/transitions)
+|   |   +-- Transition Planning
+|   |   +-- Accommodation Lookup  <- duplicate
+|   +-- Parent Comms (/parent-communication)
+|       +-- All Contacts
+|       +-- Overdue Follow-ups
+|       +-- Notifications Needed
+|       +-- Email Audit Log
+|
++-- ABA
+|   +-- Programs & Assessments (/aba)
+|   |   +-- Analytics
+|   |   +-- Programs & Behaviors
+|   |   +-- FBA / BIP
+|   +-- Supervision (/supervision)
+|   |   +-- Session Log
+|   |   +-- Compliance
+|   |   +-- Trend
+|   +-- Program Catalog (/iep-suggestions)
+|
++-- Staffing
+|   +-- Directory (/students + /staff)
+|   |   +-- Students
+|   |   +-- Staff
+|   +-- Sessions (/sessions)        <- also a tab in /compliance
+|   +-- Scheduling Hub (/scheduling)
+|       +-- Weekly Schedule         <- hub shows this tab
+|       +-- Coverage (/coverage)    <- hub shows this tab / also standalone page
+|       +-- Staff Calendar (/staff-calendar)   <- NOT in hub tabs, standalone only
+|       +-- Caseload Balancing (/caseload-balancing)  <- NOT in hub tabs, standalone only
+|
++-- Financial / Executive  [closed by default]
+|   +-- Executive Dashboard (/executive)
+|   +-- District Overview (/district)
+|   +-- Agencies (/agencies)
+|   +-- Reports (/reports)          <- 9 tabs
+|   |   +-- Executive Summary
+|   |   +-- Compliance Trend
+|   |   +-- Audit Package
+|   |   +-- Minutes
+|   |   +-- Missed Sessions
+|   |   +-- At-Risk
+|   |   +-- Parent Summary
+|   |   +-- Exports
+|   |   +-- Pilot Health
+|   +-- Leadership Packet (/leadership-packet)
+|   +-- Contract Utilization (/contract-utilization)
+|   +-- Resource Management (/resource-management)
+|   +-- Medicaid Billing (/medicaid-billing)
+|   +-- Compensatory Finance (/compensatory-finance)
+|   +-- Billing (/billing)
+|
++-- Admin / Tools  [closed by default]
+    +-- Data Health Check (/data-health)
+    +-- Data Import (/import)
+    +-- Settings (/settings)  [8 tabs]
+        +-- General
+        +-- School Year
+        +-- Billing Rates
+        +-- SIS Integration
+        +-- Audit Log
+        +-- Recently Deleted
+        +-- System Status
+        +-- Legal & Compliance
+
+
+E. PROPOSED NAVIGATION MAP
+===========================
+
+Core principle: organize by user job, not by feature module.
+Reduce top-level sections from 7 to 5. Collapse duplicates.
+Move analytical reports inside the relevant domain.
+Keep financial/admin out of the daily flow.
+
+Sidebar (Admin)
+|
++-- Home (/)                        [always visible, no section header]
+|
++-- DAILY OPS
+|   +-- Alerts (/alerts)            [with badge]
+|   +-- Students (/students)
+|   +-- Sessions (/sessions)
+|
++-- COMPLIANCE
+|   +-- Service Minutes (/compliance?tab=minutes)
+|   +-- Risk Report (/compliance?tab=risk-report)
+|   +-- Compensatory (/compensatory-services + /compensatory-finance combined)
+|   +-- Document Workflow (/document-workflow)
+|   +-- Reports & Exports (/reports)
+|       [merge: compliance trend, audit, minutes, missed, at-risk into here]
+|
++-- IEP & SERVICES
+|   +-- IEP Builder (/iep-builder)      [direct, no hub wrapper]
+|   +-- Evaluations (/evaluations)
+|   +-- Progress Reports (/progress-reports)
+|   +-- Transitions (/transitions)
+|   +-- Parent Comms (/parent-communication)
+|   +-- Accommodation Lookup (/accommodation-lookup)   [once, here only]
+|
++-- STAFFING & SCHEDULING
+|   +-- Staff (/staff)
+|   +-- Schedule (/schedule)
+|   +-- Coverage (/coverage)
+|   +-- Staff Calendar (/staff-calendar)
+|   +-- Caseload (/caseload-balancing)
+|
++-- ABA / CLINICAL                  [collapsed by default for non-BCBA]
+|   +-- Programs & Behaviors (/aba)
+|   +-- Supervision (/supervision)
+|   +-- Restraint & Seclusion (/protective-measures)
+|   +-- Program Catalog (/iep-suggestions)
+|
++-- FINANCIAL                       [collapsed by default]
+|   +-- Executive Dashboard (/executive)
+|   +-- Medicaid Billing (/medicaid-billing)
+|   +-- Contract Utilization (/contract-utilization)
+|   +-- Agencies (/agencies)
+|   +-- Billing (/billing)
+|
++-- ADMIN                           [collapsed by default]
+    +-- Settings (/settings)        [config only: General, School Year, Billing Rates, SIS]
+    +-- Data Import (/import)
+    +-- Data Health (/data-health)
+    +-- State Reports (/state-reporting)
+    +-- Admin Tools (Audit Log, System Status, Recently Deleted)
+
+What gets removed from nav (routes preserved, deep links still work):
+  - /district (District Overview → merge into Executive Dashboard)
+  - /resource-management (→ Financial or Settings)
+  - /leadership-packet (→ Reports subsection)
+  - /scheduling hub wrapper (replace with flat Staffing items)
+  - /iep hub wrapper (redundant landing)
+  - /weekly-compliance-summary (link from Reports, not standalone nav item)
+  - Duplicate Accommodation Lookup entry
+  - Sessions tab inside Compliance
+
+
+F. CORE WORKFLOW BREAKDOWNS
+============================
+
+1. ADMIN CHECKING COMPLIANCE STATUS (daily)
+
+   Current path:
+     Dashboard → compliance rate card → click "Review X students" →
+     redirects to /compliance-risk-report → redirects again to
+     /compliance#risk-report → loads tab → finds student list → clicks
+     student → student detail page (slow, 10+ sections load).
+
+   Friction:
+     Two redirects. One full page load with 10 section renders before the
+     user sees what they came for. The student detail page renders every
+     section regardless of what the user navigated there for.
+
+   Fix:
+     Dashboard risk list should deep-link directly to the student detail
+     compliance section. Eliminate the redirect chain. Student detail should
+     open scoped to the Compliance tab.
+
+2. ADMIN FOLLOWING UP ON A MISSED SESSION
+
+   Current path:
+     Dashboard action queue → "Follow up with X providers on Y missed
+     sessions" → /sessions → user manually applies date + provider filters.
+
+   Friction:
+     /sessions opens completely unfiltered. The dashboard was flagging a
+     specific provider/date, but the link drops the user into the full
+     unfiltered session log with no pre-applied context.
+
+   Fix:
+     Dashboard provider action links should deep-link to
+     /sessions?provider=X&status=missed so the filtered view is immediate.
+
+3. SPED TEACHER STARTING THEIR DAY
+
+   Current path:
+     Sign in → lands on Dashboard (/) → compliance-focused, admin-oriented.
+     Today's schedule, their students, and daily sessions are not visible.
+     They must navigate to "Today" manually.
+
+   Friction:
+     sped_teacher.homeHref is "/" (admin dashboard). Their nav lists Today
+     as a primary item. The home route contradicts the nav's intent.
+
+   Fix:
+     Set sped_teacher.homeHref to "/today". One-line change, major daily
+     experience improvement.
+
+4. WRITING AN IEP DRAFT
+
+   Current path:
+     IEP section → IEP Hub (/iep) → Builder sub-item → IEP Builder
+     landing → select student → multi-step wizard.
+
+   Friction:
+     Two hub layers before reaching the actual builder. /iep.tsx is a
+     landing page that shows 4 cards pointing to pages already accessible
+     from the sidebar. It adds a click tax with no informational benefit
+     for returning users.
+
+   Fix:
+     Make IEP Builder a direct first-class nav item. Remove the hub landing
+     for power users (it can remain as an onboarding aid for new users via
+     a tooltip/quickstart overlay).
+
+5. PARA RUNNING THEIR DAILY SCHEDULE
+
+   Current path:
+     Sign in → My Day (/my-day). This is good. The para workflow is the
+     cleanest in the app.
+
+   Problem:
+     Para nav has "Schedule" (/schedule) and "My Schedule" (/my-schedule)
+     as two separate items. These should be one destination.
+
+   Fix:
+     Merge into a single "My Schedule" item pointing to /my-schedule.
+
+6. ADMIN RUNNING A COMPLIANCE REPORT FOR A MEETING
+
+   Current path:
+     Reports → pick from 9 tabs → find the right report → generate/export.
+
+   Friction:
+     "Audit Package," "Pilot Health," "Exports" require knowing what they
+     are before the user can find them. No descriptions on the tab bar. 9
+     tabs are not scannable. First 3 tabs have icons, last 6 do not.
+
+   Fix:
+     Reports page needs a landing view that describes each report type
+     with a one-sentence description before the user commits to a tab.
+     Reduce to 4-5 tabs maximum.
+
+7. LOGGING A SESSION (any provider)
+
+   Current path:
+     Sessions page → "+ Log Session" → modal → fill in student, service
+     type, date, duration → save.
+
+   Friction:
+     Session logging is not accessible from the student detail page in a
+     single click. There is no "quick log" entry point from student-adjacent
+     surfaces. The floating timer handles active sessions but not
+     retrospective entries. Admins reviewing session logs cannot quickly
+     log a corrective entry from the same surface the timer occupies.
+
+8. GUARDIAN CHECKING ON THEIR CHILD
+
+   Path: Guardian portal → clean 5-item nav. This is the best-structured
+   role experience in the entire product. No changes needed.
+
+
+G. PAGE-BY-PAGE RECOMMENDATIONS
+=================================
+
+DASHBOARD (/)
+  Good:
+    Compliance rate hero, trend arrows (week-over-week deltas), urgency-tiered
+    action queue, student risk list with mini progress bars.
+  Confusing:
+    9 API calls on load. The secondary sections (Evaluations, Transitions,
+    Meetings, Deadlines) are always collapsed on first render — why load and
+    render them if collapsed? No "as of" timestamp on any data card, so the
+    admin cannot tell if they're looking at today's data or yesterday's.
+  Overloaded:
+    Simultaneously a monitoring screen (daily use), an alert surface (urgent
+    action), and an onboarding wizard (setup). Three different jobs.
+  Missing:
+    A "last updated" timestamp. A way to act directly from the student risk
+    list without navigating to another page. An "as of" date on the
+    compliance rate card.
+  Direction:
+    Two modes: "Setup mode" (full-screen checklist when onboarding incomplete)
+    and "Daily ops mode" (compliance rate + action queue + student risk list
+    only). Defer secondary sections behind lazy load or a separate Status
+    Digest page.
+
+COMPLIANCE (/compliance)
+  Good:
+    6-tab structure is internally coherent. Risk Report tab is genuinely
+    useful. Compliance rate bar chart per service type is informative.
+  Confusing:
+    Sessions tab renders the exact same Sessions page component as /sessions.
+    Users navigating from Staffing > Sessions vs. Compliance > Sessions tab
+    see identical UI with no indication they are in a different context.
+  Overloaded:
+    Tries to be: data entry surface (sessions), analytical surface (risk
+    report, trends), and checklist tracker simultaneously.
+  Missing:
+    A hero/summary card at the top of the page. New users have no orientation
+    context — the page starts immediately with a tab bar.
+  Direction:
+    Remove Sessions tab entirely (belongs in Staffing). Compliance becomes:
+    Service Minutes, Checklist, Timeline, Trends. Risk Report becomes its own
+    nav item or merges into Reports.
+
+STUDENT DETAIL (/students/:id)
+  Good:
+    All student data in one place is the right intent. Progress rings, session
+    history, goal charts with annotations, compensatory summary are genuinely
+    valuable.
+  Confusing:
+    Renders 7+ distinct sections simultaneously. On first load this is a
+    wall of content with no clear reading order and no section navigation.
+  Overloaded:
+    Severely. The most overloaded page in the product.
+  Missing:
+    Section anchor navigation. A "fold" indicator showing what's below the
+    visible area. A way to print or export a student summary that is
+    discoverable (Share Progress button is not obvious).
+  Direction:
+    Convert to tabbed student record:
+      Summary (compliance ring + key facts + service requirements)
+      IEP & Goals
+      Behavior / ABA
+      Sessions
+      Contacts & Medical
+    Reduces first-paint data requirement by approximately 80%.
+
+ALERTS (/alerts)
+  Good:
+    Tabbed (Open/Snoozed/Resolved). Alert badge in nav is useful.
+  Confusing:
+    Alerts and the dashboard action queue represent two different
+    prioritization systems a user must mentally reconcile. System-generated
+    alerts vs. dashboard-computed actions are different things presented as
+    parallel surfaces.
+  Direction:
+    Unify conceptually. Dashboard action queue surfaces top-priority alerts.
+    /alerts is the full alert management surface. Link from action queue items
+    to their corresponding alerts.
+
+REPORTS (/reports)
+  Good:
+    Breadth of report types. Audit Package with print/download is valuable.
+    Scheduled report exports are a strong differentiator.
+  Confusing:
+    9 tabs. First 3 have icons, last 6 do not — inconsistent. Terse labels
+    ("Minutes," "Missed," "Risk") are not self-explanatory to new users.
+    Mixes operational reports, strategic reports, workflow tools, and
+    admin-only tools in the same tab bar with no hierarchy.
+  Direction:
+    Landing view that categorizes reports: Compliance Reports, Operational
+    Reports, Export Tools, Admin-Only. Maximum 4-5 tabs.
+
+IEP HUB (/iep)
+  Good:
+    Exists as an orientation surface for new users.
+  Confusing:
+    It is a landing page showing 4 cards (Search, Builder, Meetings, Calendar)
+    already reachable from the sidebar. Net effect: adds one mandatory click
+    to every IEP workflow. For returning users it is pure overhead.
+  Direction:
+    Remove the hub wrapper for navigational purposes. Keep IEP-related pages
+    as direct nav items. The hub can live as an onboarding tour stop.
+
+SCHEDULING HUB (/scheduling)
+  Good:
+    Concept of a scheduling-focused hub is correct.
+  Confusing:
+    Hub renders 2 tabs (Weekly Schedule, Coverage). Nav lists 4 children
+    (adding Staff Calendar and Caseload Balancing). Clicking those nav
+    children opens standalone pages, not hub tabs. The hierarchy is
+    misleading.
+  Direction:
+    Either make the hub render all 4 tabs, or remove the hub wrapper and
+    use flat nav items in the Staffing section.
+
+SETTINGS (/settings)
+  Good:
+    Grouped in a single place.
+  Confusing:
+    8 tabs mix true configuration (General, School Year, Billing Rates,
+    SIS Integration) with investigative/diagnostic tools (Audit Log,
+    System Status, Recently Deleted) and legal documents (Legal &
+    Compliance).
+  Direction:
+    Split into Settings (configuration only) and Admin Tools (Audit Log,
+    System Status, Recently Deleted, Data Health). Admin Tools becomes its
+    own nav section separate from configuration.
+
+PARA MY DAY (/my-day)
+  Good:
+    Clean, purpose-built, actionable. The right model for role-specific screens.
+    Daily session agenda, coverage context, program data entry in one surface.
+  Problem:
+    Para nav has both "Schedule" (/schedule) and "My Schedule" (/my-schedule)
+    as separate items. One of these should be removed.
+  Direction:
+    Keep /my-schedule. Remove the generic /schedule link from the para nav.
+
+SESSIONS (/sessions)
+  Good:
+    Filterable table, session logging modal.
+  Confusing:
+    Three entry points: Staffing > Sessions, Compliance > Sessions tab, Para
+    nav > Session Log. All three render identical UI. No canonical home.
+  Direction:
+    Sessions lives once, in Staffing. Remove the Sessions tab from Compliance.
+    The Para nav link becomes the single path for paras.
+
+
+H. TOP 20 UX OVERHAUL TASKS IN PRIORITY ORDER
+===============================================
+
+--- CRITICAL: blocks clarity and adoption ---
+
+1. FIX sped_teacher.homeHref TO "/today"
+   In roleConfig, sped_teacher.homeHref is "/". Teachers land on the
+   admin dashboard on every login. Their role-specific Today page exists
+   and is linked in their nav. The home route contradicts the nav intent.
+   One-line change. Major daily UX improvement for every SPED teacher user.
+   File: artifacts/trellis/src/components/layout/nav-config.ts
+
+2. REMOVE SESSIONS TAB FROM /compliance
+   Sessions is listed under Compliance > Sessions tab and Staffing > Sessions.
+   Same component. Remove from Compliance. Compliance tabs become: Service
+   Minutes, Checklist, Timeline, Trends, Risk Report.
+   File: artifacts/trellis/src/pages/compliance.tsx
+
+3. REMOVE DUPLICATE ACCOMMODATION LOOKUP FROM TRANSITIONS NAV
+   Listed under Compliance Tools AND as a nav child of Transition Planning.
+   Remove the Transitions child entry. Keep it once in Compliance Tools
+   (or move to IEP & Services if the IA is restructured).
+   File: artifacts/trellis/src/components/layout/nav-config.ts
+
+4. SPLIT REPORTS PAGE INTO MAX 4-5 CATEGORIZED TABS
+   Current 9-tab structure is unscannable. Short-term: remove Pilot Health
+   (move to admin settings area), add one-line descriptions to tab labels.
+   Medium-term: build a Reports landing view that categorizes by audience.
+   File: artifacts/trellis/src/pages/reports.tsx
+
+5. FIX SCHEDULING HUB TO MATCH NAV
+   Nav lists 4 children (Schedule, Coverage, Staff Calendar, Caseload).
+   Hub only renders 2 tabs. Either add Staff Calendar and Caseload as tabs
+   to the hub, or remove the hub wrapper and use flat nav items.
+   Files: nav-config.ts, artifacts/trellis/src/pages/scheduling.tsx
+
+--- HIGH: major confusion or poor workflow ---
+
+6. ELIMINATE IEP HUB WRAPPER PAGE (/iep)
+   Make IEP Builder, Evaluations, Progress Reports, IEP Meetings direct nav
+   items under an "IEP & Services" section. Removes one mandatory click from
+   every IEP workflow for returning users.
+   File: nav-config.ts (add items), App.tsx (remove hub dependency)
+
+7. ADD PRE-FILTERED DEEP LINKS FROM DASHBOARD ACTION QUEUE
+   "Follow up with X providers on Y missed sessions" should link to
+   /sessions?provider=X&missedOnly=true. Currently opens unfiltered.
+   File: artifacts/trellis/src/pages/dashboard/PilotAdminHome.tsx
+
+8. CONVERT STUDENT DETAIL TO A TABBED RECORD
+   Current: wall of all sections rendered simultaneously (~1,400 lines).
+   Proposed: Summary tab, IEP & Goals tab, Behavior/ABA tab, Sessions tab,
+   Contacts & Medical tab. Reduces first-paint data load by ~80%.
+   File: artifacts/trellis/src/pages/student-detail.tsx (+ sub-components)
+
+9. CONSOLIDATE COMPENSATORY SERVICES AND COMPENSATORY FINANCE
+   Two separate nav items for the same domain. Merge into one surface with
+   two tabs: Obligations and Financial Exposure.
+   Files: nav-config.ts, pages/compensatory-services, pages/compensatory-finance
+
+10. BUILD TRIMMED NAVS FOR CASE_MANAGER AND COORDINATOR ROLES
+    Both inherit the full admin nav. Case managers need: IEP & Services,
+    Students, Compliance, Parent Comms. Coordinators need: Staffing,
+    Scheduling, Coverage, Compliance. Neither needs Medicaid Billing,
+    ABA tools, or Executive Dashboard.
+    File: nav-config.ts
+
+--- MEDIUM: polish, consistency, efficiency ---
+
+11. RATIONALIZE PARA NAV
+    Remove "Schedule" (/schedule) from para nav. Keep "My Schedule"
+    (/my-schedule). One destination for the same concept.
+    File: nav-config.ts (paraNav)
+
+12. ADD GLOBAL SEARCH / COMMAND PALETTE (Cmd+K)
+    Currently no global search from any persistent surface. /iep-search
+    exists but is buried. A Cmd+K palette searching students, staff,
+    and IEP documents is table stakes for a daily-use platform.
+
+13. ADD "AS OF" TIMESTAMP TO DASHBOARD COMPLIANCE HERO
+    Admins reviewing the compliance rate card cannot tell if the data
+    reflects today's sessions or is stale from yesterday.
+    File: PilotAdminHome.tsx
+
+14. DEFER SECONDARY DASHBOARD SECTIONS BEHIND LAZY LOAD
+    Evaluations, Transitions, Meetings, Deadlines are always collapsed on
+    first load. Do not fire their API calls until a user expands a section.
+    Reduces cold-load from 9+ queries to ~4.
+    File: PilotAdminHome.tsx
+
+15. STANDARDIZE TAB LABELS ACROSS COMPLIANCE AND REPORTS
+    Reports tabs: first 3 have icons, last 6 do not. Terse labels
+    ("Risk", "Missed") need either full labels or hover tooltips.
+    Apply icon+label pattern consistently across all tab bars.
+
+16. DEFAULT FINANCIAL/EXECUTIVE SECTION CLOSED FOR ALL NON-FINANCIAL ROLES
+    Currently defaultOpen is false but can be overridden by tier. Non-financial
+    staff (SPED teachers, paras, BCBAs) should never see 10 financial nav items
+    unless they explicitly expand the section.
+    File: nav-config.ts
+
+17. UNIFY "TODAY" AND "MY DAY" CONCEPTS
+    /today (BCBA/sped_teacher) and /my-day (para) serve the same mental model
+    (today's schedule + sessions). They should share a route (/today for all
+    roles, role-aware content) or at minimum share a component architecture
+    and consistent naming in documentation and onboarding.
+
+18. MOVE AUDIT LOG AND SYSTEM STATUS OUT OF SETTINGS
+    Settings should be configuration only. Audit Log and System Status are
+    investigative/diagnostic tools. Move to a dedicated Admin Tools section
+    in the sidebar.
+    File: nav-config.ts, pages/settings.tsx
+
+19. ADD SECTION-LEVEL EMPTY STATES TO STUDENT DETAIL
+    When a student has no goals, no ABA data, or no sessions, each section
+    should say exactly what to do: "No IEP goals recorded — add from the
+    IEP Builder." Generic collapses teach nothing.
+    Files: StudentGoalSection, StudentBehaviorSection, StudentSessionHistory
+
+20. FIX SCHEDULING HUB NAV CHILDREN ACCURACY (immediate)
+    Remove nav children that point to standalone pages outside the hub,
+    or absorb them into the hub as tabs. The nav hierarchy must accurately
+    reflect the page structure a user will land on.
+    File: nav-config.ts (adminNav Staffing section)
+
+
+OVERHAUL PHASING
+================
+
+PHASE 1 — Highest impact, lowest complexity (1-2 days)
+  Goals: Fix the worst daily-use and trust-breaking issues with minimal risk.
+  Tasks: #1, #2, #3, #5 (hub nav fix), #16 (financial default closed),
+         #18 (audit log out of settings), #11 (para nav rationalize)
+  Why first: All are nav-config or single-file changes. Zero data model risk.
+             Immediate perceived quality improvement for every user type.
+
+PHASE 2 — Navigation restructuring (3-5 days)
+  Goals: Reduce sidebar cognitive load. Correct role-based navigation.
+         Eliminate hub wrappers. Merge duplicates.
+  Tasks: #4 (reports tabs), #6 (IEP hub removal), #9 (compensatory merge),
+         #10 (case_manager/coordinator navs), #17 (today/my-day unify)
+  Why second: Requires coordinated nav + route changes. Low risk to data.
+              Dramatically improves role-appropriate first impressions.
+
+PHASE 3 — Page redesign (1-2 weeks)
+  Goals: Reduce page density. Improve workflow efficiency on high-traffic pages.
+  Tasks: #7 (dashboard deep links), #8 (student detail tabs),
+         #13 (dashboard timestamp), #14 (deferred dashboard queries),
+         #19 (student empty states)
+  Why third: Larger surface area. Requires component refactoring and
+             API call restructuring. Dependent on Phase 2 nav stability.
+
+PHASE 4 — Deeper polish and role optimization (ongoing)
+  Goals: Consistency, discoverability, power-user efficiency.
+  Tasks: #12 (global search), #15 (tab label standardization),
+         #20 (scheduling hub tabs)
+  Why last: #12 requires new infrastructure. #15 and #20 are polish.
+            Appropriate after structural changes stabilize.
+
+
+FIVE MOST IMPORTANT UX OVERHAUL PRIORITIES (summary)
+======================================================
+
+1. Fix sped_teacher home route to /today (one line, massive daily impact)
+2. Stop splitting compliance content across three surfaces — unify in /compliance
+   and rationalize /reports to max 5 tabs
+3. Convert student detail from a 1,400-line wall into a tabbed record
+4. Reduce admin nav from 40+ visible items to a role-appropriate 15-20
+5. Build purpose-built navs for case_manager and coordinator roles instead
+   of defaulting them to the full admin view
+
+
+=====================================================
+END OF AUDIT
+=====================================================
