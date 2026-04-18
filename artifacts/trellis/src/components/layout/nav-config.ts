@@ -89,13 +89,13 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/iep", label: "IEP Hub", icon: GraduationCap, primary: true },
-      { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
       {
-        href: "/iep-meetings", label: "IEP Scheduling", icon: CalendarDays,
+        href: "/iep", label: "IEP Hub", icon: GraduationCap, primary: true,
         children: [
-          { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-          { href: "/iep-calendar", label: "IEP Calendar", icon: Calendar },
+          { href: "/iep-search", label: "Search", icon: FileSearch },
+          { href: "/iep-builder", label: "Builder", icon: Sparkles },
+          { href: "/iep-meetings", label: "Scheduling", icon: CalendarDays },
+          { href: "/iep-calendar", label: "Calendar", icon: Calendar },
         ],
       },
       {
