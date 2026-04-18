@@ -1,3 +1,11 @@
+import type {
+  AntecedentStrategyItem,
+  TeachingStrategyItem,
+  ConsequenceProcedureItem,
+  ReinforcementItem,
+  CrisisSupportItem,
+} from "@/components/bip-management/types";
+
 export interface Student { id: number; firstName: string; lastName: string; }
 
 export interface FbaRecord {
@@ -50,6 +58,12 @@ export interface BipRecord {
   version: number; versionGroupId: number | null;
   createdByName?: string | null;
   createdAt: string; updatedAt: string;
+  /* structured JSONB columns — null for BIPs created before structuring was introduced */
+  antecedentStrategiesStructured?: AntecedentStrategyItem[] | null;
+  teachingStrategiesStructured?: TeachingStrategyItem[] | null;
+  consequenceProceduresStructured?: ConsequenceProcedureItem[] | null;
+  reinforcementComponentsStructured?: ReinforcementItem[] | null;
+  crisisSupportsStructured?: CrisisSupportItem[] | null;
 }
 
 export interface StaffEntry {

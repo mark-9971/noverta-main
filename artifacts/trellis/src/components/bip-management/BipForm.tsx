@@ -1,5 +1,12 @@
 import { X } from "lucide-react";
 import { BipFormState, FUNCTION_OPTIONS } from "./types";
+import {
+  AntecedentStrategiesEditor,
+  TeachingStrategiesEditor,
+  ConsequenceProceduresEditor,
+  ReinforcementEditor,
+  CrisisSupportsEditor,
+} from "./StrategyEditors";
 
 function FormField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
@@ -48,12 +55,12 @@ export function BipForm({
   fbas: any[];
   behaviorTargets: any[];
 }) {
-  const update = (key: keyof BipFormState, value: string) => setForm({ ...form, [key]: value });
+  const update = (key: keyof BipFormState, value: any) => setForm({ ...form, [key]: value });
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10">
           <h2 className="text-base font-semibold text-gray-800">{editing ? "Edit BIP" : "New Behavior Intervention Plan"}</h2>
           <button onClick={onCancel} className="p-1.5 hover:bg-gray-100 rounded-lg">
             <X className="w-4 h-4 text-gray-500" />
@@ -61,6 +68,7 @@ export function BipForm({
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Basic identification */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Target Behavior *" value={form.targetBehavior} onChange={v => update("targetBehavior", v)} />
             <div>
@@ -106,24 +114,57 @@ export function BipForm({
             )}
           </div>
 
+          {/* ── Intervention Strategies (structured editors) ─────── */}
           <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Intervention Strategies</h3>
-            <div className="space-y-3">
-              <FormTextarea label="Replacement Behaviors" value={form.replacementBehaviors} onChange={v => update("replacementBehaviors", v)} rows={2} />
-              <FormTextarea label="Prevention / Antecedent Strategies" value={form.preventionStrategies} onChange={v => update("preventionStrategies", v)} rows={2} />
-              <FormTextarea label="Teaching Strategies" value={form.teachingStrategies} onChange={v => update("teachingStrategies", v)} rows={2} />
-              <FormTextarea label="Consequence Strategies" value={form.consequenceStrategies} onChange={v => update("consequenceStrategies", v)} rows={2} />
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Intervention Strategies</h3>
+            <p className="text-[10px] text-gray-400 mb-3">
+              Use "Structured entry" to capture each strategy as a typed record with clinical vocabulary.
+              Switch back to plain text at any time — both layers are preserved.
+            </p>
+            <div className="space-y-4">
+              <AntecedentStrategiesEditor
+                items={form.antecedentStrategiesStructured}
+                legacyText={form.preventionStrategies}
+                onItemsChange={v => update("antecedentStrategiesStructured", v)}
+                onLegacyChange={v => update("preventionStrategies", v)}
+              />
+              <TeachingStrategiesEditor
+                items={form.teachingStrategiesStructured}
+                legacyText={form.teachingStrategies}
+                onItemsChange={v => update("teachingStrategiesStructured", v)}
+                onLegacyChange={v => update("teachingStrategies", v)}
+              />
+              {/* Replacement behaviors stays as plain text — it's a goal statement, not a strategy list */}
+              <FormTextarea label="Replacement Behaviors (goal statement)" value={form.replacementBehaviors} onChange={v => update("replacementBehaviors", v)} rows={2} />
+              <ConsequenceProceduresEditor
+                items={form.consequenceProceduresStructured}
+                legacyText={form.consequenceStrategies}
+                onItemsChange={v => update("consequenceProceduresStructured", v)}
+                onLegacyChange={v => update("consequenceStrategies", v)}
+              />
             </div>
           </div>
 
+          {/* ── Reinforcement & Crisis (structured editors) ────── */}
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Reinforcement & Crisis</h3>
-            <div className="space-y-3">
-              <FormTextarea label="Reinforcement Schedule" value={form.reinforcementSchedule} onChange={v => update("reinforcementSchedule", v)} rows={2} />
-              <FormTextarea label="Crisis Plan" value={form.crisisPlan} onChange={v => update("crisisPlan", v)} rows={2} />
+            <div className="space-y-4">
+              <ReinforcementEditor
+                items={form.reinforcementComponentsStructured}
+                legacyText={form.reinforcementSchedule}
+                onItemsChange={v => update("reinforcementComponentsStructured", v)}
+                onLegacyChange={v => update("reinforcementSchedule", v)}
+              />
+              <CrisisSupportsEditor
+                items={form.crisisSupportsStructured}
+                legacyText={form.crisisPlan}
+                onItemsChange={v => update("crisisSupportsStructured", v)}
+                onLegacyChange={v => update("crisisPlan", v)}
+              />
             </div>
           </div>
 
+          {/* ── Data & Progress ─────────────────────────────────── */}
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Data & Progress</h3>
             <div className="space-y-3">
@@ -133,6 +174,7 @@ export function BipForm({
             </div>
           </div>
 
+          {/* ── Lifecycle ────────────────────────────────────────── */}
           <div className="border-t border-gray-100 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>

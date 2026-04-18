@@ -8,7 +8,13 @@ export const BIP_PLAN_FIELDS = [
   "targetBehavior", "operationalDefinition", "hypothesizedFunction",
   "behaviorTargetId", "replacementBehaviors", "preventionStrategies", "teachingStrategies",
   "consequenceStrategies", "reinforcementSchedule", "crisisPlan", "implementationNotes",
-  "dataCollectionMethod", "progressCriteria", "reviewDate", "effectiveDate"
+  "dataCollectionMethod", "progressCriteria", "reviewDate", "effectiveDate",
+  /* structured JSONB strategy fields (additive — null for legacy BIPs) */
+  "antecedentStrategiesStructured",
+  "teachingStrategiesStructured",
+  "consequenceProceduresStructured",
+  "reinforcementComponentsStructured",
+  "crisisSupportsStructured",
 ];
 export const BIP_LOCKED_STATUSES = ["approved", "active", "discontinued", "archived"];
 

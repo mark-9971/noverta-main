@@ -83,6 +83,12 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       reviewDate: bip.reviewDate || "",
       effectiveDate: bip.effectiveDate || "",
       status: bip.status,
+      /* structured JSONB — null signals legacy mode; array signals structured mode */
+      antecedentStrategiesStructured: (bip as any).antecedentStrategiesStructured ?? null,
+      teachingStrategiesStructured: (bip as any).teachingStrategiesStructured ?? null,
+      consequenceProceduresStructured: (bip as any).consequenceProceduresStructured ?? null,
+      reinforcementComponentsStructured: (bip as any).reinforcementComponentsStructured ?? null,
+      crisisSupportsStructured: (bip as any).crisisSupportsStructured ?? null,
     });
     setShowForm(true);
   }

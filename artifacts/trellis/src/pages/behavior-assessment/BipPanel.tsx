@@ -12,6 +12,13 @@ import { useRole } from "@/lib/role-context";
 import { authFetch } from "@/lib/auth-fetch";
 import { STATUS_CONFIG, computeBipDiff } from "./constants";
 import { StatusBadge, FunctionBadge, EmptyState, BipSection } from "./shared";
+import {
+  StructuredAntecedentDisplay,
+  StructuredTeachingDisplay,
+  StructuredConsequenceDisplay,
+  StructuredReinforcementDisplay,
+  StructuredCrisisDisplay,
+} from "@/components/bip-management/StrategyEditors";
 import type {
   BipRecord, FbaRecord, Student,
   StaffEntry, BipStatusEntry, BipImplementerEntry, BipFidelityEntry
@@ -429,42 +436,57 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                     editing={editingBip} onEdit={onEdit} multiline />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-4">
+                <div className="space-y-4 border-t border-gray-100 pt-4">
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-amber-600" /> Prevention Strategies
+                      <Shield className="w-4 h-4 text-amber-600" /> Prevention / Antecedent Strategies
                     </h3>
-                    <BipSection field="preventionStrategies" value={currentBip.preventionStrategies || ""}
-                      editing={editingBip} onEdit={onEdit} multiline />
+                    {currentBip.antecedentStrategiesStructured?.length
+                      ? <StructuredAntecedentDisplay items={currentBip.antecedentStrategiesStructured} />
+                      : <BipSection field="preventionStrategies" value={currentBip.preventionStrategies || ""}
+                          editing={editingBip} onEdit={onEdit} multiline />
+                    }
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      <Brain className="w-4 h-4 text-emerald-600" /> Teaching Strategies
+                      <Brain className="w-4 h-4 text-emerald-600" /> Teaching / Replacement Strategies
                     </h3>
-                    <BipSection field="teachingStrategies" value={currentBip.teachingStrategies || ""}
-                      editing={editingBip} onEdit={onEdit} multiline />
+                    {currentBip.teachingStrategiesStructured?.length
+                      ? <StructuredTeachingDisplay items={currentBip.teachingStrategiesStructured} />
+                      : <BipSection field="teachingStrategies" value={currentBip.teachingStrategies || ""}
+                          editing={editingBip} onEdit={onEdit} multiline />
+                    }
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 text-gray-600" /> Consequence Strategies
+                      <ArrowRight className="w-4 h-4 text-gray-600" /> Consequence Procedures
                     </h3>
-                    <BipSection field="consequenceStrategies" value={currentBip.consequenceStrategies || ""}
-                      editing={editingBip} onEdit={onEdit} multiline />
+                    {currentBip.consequenceProceduresStructured?.length
+                      ? <StructuredConsequenceDisplay items={currentBip.consequenceProceduresStructured} />
+                      : <BipSection field="consequenceStrategies" value={currentBip.consequenceStrategies || ""}
+                          editing={editingBip} onEdit={onEdit} multiline />
+                    }
                   </div>
                 </div>
 
                 <div className="border-t border-gray-100 pt-4">
-                  <h3 className="text-sm font-bold text-gray-900 mb-2">Reinforcement Schedule</h3>
-                  <BipSection field="reinforcementSchedule" value={currentBip.reinforcementSchedule || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">Reinforcement Components</h3>
+                  {currentBip.reinforcementComponentsStructured?.length
+                    ? <StructuredReinforcementDisplay items={currentBip.reinforcementComponentsStructured} />
+                    : <BipSection field="reinforcementSchedule" value={currentBip.reinforcementSchedule || ""}
+                        editing={editingBip} onEdit={onEdit} multiline />
+                  }
                 </div>
 
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" /> Crisis Plan
+                    <AlertTriangle className="w-4 h-4" /> Crisis / Escalation Supports
                   </h3>
-                  <BipSection field="crisisPlan" value={currentBip.crisisPlan || ""}
-                    editing={editingBip} onEdit={onEdit} multiline />
+                  {currentBip.crisisSupportsStructured?.length
+                    ? <StructuredCrisisDisplay items={currentBip.crisisSupportsStructured} />
+                    : <BipSection field="crisisPlan" value={currentBip.crisisPlan || ""}
+                        editing={editingBip} onEdit={onEdit} multiline />
+                  }
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
