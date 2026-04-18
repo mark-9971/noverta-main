@@ -90,12 +90,13 @@ router.get("/dashboard/executive", requireTierAccess("district.executive"), asyn
       }
     }
 
-    const riskCounts = { onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0 };
+    const riskCounts = { onTrack: 0, slightlyBehind: 0, atRisk: 0, outOfCompliance: 0, noData: 0 };
     const atRiskStudents: { studentId: number; studentName: string; riskStatus: string; percentComplete: number }[] = [];
 
     for (const [_, v] of studentRisk) {
       if (v.status === "on_track" || v.status === "completed") riskCounts.onTrack++;
       else if (v.status === "slightly_behind") riskCounts.slightlyBehind++;
+      else if (v.status === "no_data") riskCounts.noData++;
       else if (v.status === "at_risk") {
         riskCounts.atRisk++;
         atRiskStudents.push({ studentId: v.id, studentName: v.name, riskStatus: v.status, percentComplete: v.percentComplete });
@@ -108,10 +109,18 @@ router.get("/dashboard/executive", requireTierAccess("district.executive"), asyn
     atRiskStudents.sort((a, b) => a.percentComplete - b.percentComplete);
 
     const totalStudents = activeStudentsResult?.count ?? 0;
+    // Tracked = students with at least one active service requirement that has produced
+    // a definitive risk signal (any status other than "no_data"). "no_data" students are
+    // excluded so they don't silently count toward "on track".
     const totalTracked = riskCounts.onTrack + riskCounts.slightlyBehind + riskCounts.atRisk + riskCounts.outOfCompliance;
+    // Students with active IEPs but no service requirements yet — surfaced as a setup gap.
+    const studentsNeedingSetup = Math.max(0, totalStudents - studentRisk.size);
+    // complianceScore is null (not 100%) when there is nothing to measure. The
+    // frontend renders "—" with a "no data yet" subtitle in that case rather than
+    // an artificially perfect score.
     const complianceScore = totalTracked > 0
       ? Math.round(((riskCounts.onTrack) / totalTracked) * 100)
-      : 100;
+      : null;
 
     const iepDeadlineConditions: any[] = [eq(studentsTable.status, "active"), eq(iepDocumentsTable.active, true)];
     if (sdFilters.schoolId) iepDeadlineConditions.push(eq(studentsTable.schoolId, sdFilters.schoolId));
@@ -157,6 +166,8 @@ router.get("/dashboard/executive", requireTierAccess("district.executive"), asyn
     res.json({
       complianceScore,
       totalStudents,
+      totalTracked,
+      studentsNeedingSetup,
       riskCounts,
       topAtRiskStudents: atRiskStudents.slice(0, 10),
       openAlerts: alertCounts[0]?.total ?? 0,

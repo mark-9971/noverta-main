@@ -93,7 +93,18 @@ function DashboardFull() {
   const totalStudents = s?.totalActiveStudents ?? 0;
   const trackedStudents = s?.trackedStudents ?? totalStudents;
   const onTrack = s?.onTrackStudents ?? 0;
-  const onTrackPct = trackedStudents > 0 ? Math.round((onTrack / trackedStudents) * 100) : 0;
+  const noDataStudents = s?.noDataStudents ?? 0;
+  const studentsNeedingSetup = s?.studentsNeedingSetup ?? 0;
+  // Show a percentage only when we actually have something to measure. With zero
+  // tracked students, we render "—" and a "no data yet" subtitle below instead
+  // of an artificially perfect 100% / 0%.
+  const hasTrackedData = trackedStudents > 0;
+  const onTrackPct = hasTrackedData ? Math.round((onTrack / trackedStudents) * 100) : 0;
+  const complianceSubtitle = hasTrackedData
+    ? `${onTrack} of ${trackedStudents} on track${noDataStudents > 0 ? ` · ${noDataStudents} not started` : ""}`
+    : (studentsNeedingSetup > 0
+        ? `${studentsNeedingSetup} students need service requirements`
+        : (totalStudents > 0 ? "No service requirements yet" : "No active students yet"));
 
   const riskPieData = ro ? [
     { name: "On Track", value: ro.onTrack },
@@ -183,10 +194,14 @@ function DashboardFull() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <MetricCard
           title={myCaseload ? "Your Caseload" : "Compliance Rate"}
-          value={myCaseload ? myCaseload.assignedStudents : (trackedStudents > 0 ? `${onTrackPct}%` : "—")}
+          value={myCaseload ? myCaseload.assignedStudents : (hasTrackedData ? `${onTrackPct}%` : "—")}
           icon={myCaseload ? Users : Shield}
-          accent={myCaseload ? "emerald" : (onTrackPct >= 95 ? "emerald" : onTrackPct >= 85 ? "amber" : "red")}
-          subtitle={myCaseload ? "students assigned" : `${onTrack} of ${trackedStudents} on track`}
+          accent={myCaseload
+            ? "emerald"
+            : (!hasTrackedData
+              ? "amber"
+              : (onTrackPct >= 95 ? "emerald" : onTrackPct >= 85 ? "amber" : "red"))}
+          subtitle={myCaseload ? "students assigned" : complianceSubtitle}
           href={myCaseload ? "/students" : "/compliance"}
         />
         <MetricCard

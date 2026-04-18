@@ -144,20 +144,37 @@ function ServiceMinutesContent() {
   const progressList = (progress as any[]) ?? [];
   const s = riskReport?.summary;
 
-  const { studentsOnTrack, totalStudents } = useMemo(() => {
-    const byStudent = new Map<number, boolean>();
+  // We deliberately exclude "no_data" requirements from both the numerator and
+  // the denominator so the headline percentage reflects students we actually
+  // have evidence about. A student whose every requirement is "no_data" is
+  // counted in `studentsAwaitingData` and surfaced in a banner instead of being
+  // silently classified as on-track or off-track.
+  const { studentsOnTrack, totalStudents, studentsAwaitingData } = useMemo(() => {
+    type Bucket = "ontrack" | "offtrack" | "nodata";
+    const byStudent = new Map<number, Bucket>();
     for (const p of progressList) {
       const sid = p.studentId as number;
-      const isOnTrack = p.riskStatus === "on_track" || p.riskStatus === "completed";
-      if (!byStudent.has(sid)) {
-        byStudent.set(sid, isOnTrack);
-      } else if (!isOnTrack) {
-        byStudent.set(sid, false);
+      const status = p.riskStatus;
+      const cur = byStudent.get(sid);
+      if (status === "on_track" || status === "completed") {
+        if (cur !== "offtrack") byStudent.set(sid, cur === undefined || cur === "nodata" ? "ontrack" : cur);
+      } else if (status === "no_data") {
+        if (cur === undefined) byStudent.set(sid, "nodata");
+      } else {
+        byStudent.set(sid, "offtrack");
       }
     }
     let onTrack = 0;
-    for (const v of byStudent.values()) if (v) onTrack++;
-    return { studentsOnTrack: onTrack, totalStudents: byStudent.size };
+    let trackedTotal = 0;
+    let awaiting = 0;
+    for (const v of byStudent.values()) {
+      if (v === "nodata") awaiting++;
+      else {
+        trackedTotal++;
+        if (v === "ontrack") onTrack++;
+      }
+    }
+    return { studentsOnTrack: onTrack, totalStudents: trackedTotal, studentsAwaitingData: awaiting };
   }, [progressList]);
 
   const counts = progressList.reduce((acc: any, p: any) => {
@@ -241,6 +258,31 @@ function ServiceMinutesContent() {
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
           Summary metrics, provider delivery, and needs-attention data are unavailable. Service requirement details are shown below.
+        </div>
+      )}
+      {progressList.length === 0 && !isLoading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">No service requirements yet</div>
+            <div className="text-blue-800/80 text-[13px] mt-0.5">
+              Compliance metrics will appear here once students have active service
+              requirements with logged or scheduled minutes.
+            </div>
+          </div>
+        </div>
+      )}
+      {studentsAwaitingData > 0 && totalStudents === 0 && progressList.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">No sessions logged yet this period</div>
+            <div className="text-blue-800/80 text-[13px] mt-0.5">
+              {studentsAwaitingData} student{studentsAwaitingData === 1 ? "" : "s"} have
+              service requirements but no logged sessions in the current interval.
+              Status will update once delivery data is recorded.
+            </div>
+          </div>
         </div>
       )}
       {hasReport && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -481,7 +523,7 @@ function ServiceMinutesContent() {
         <button aria-pressed={riskFilter === "all"} onClick={() => setRiskFilter("all")} className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
           riskFilter === "all" ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
         }`}>All ({progressList.length})</button>
-        {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
+        {["out_of_compliance", "at_risk", "slightly_behind", "no_data", "on_track"].map(r => {
           const cfg = RISK_CONFIG[r];
           return (
             <button key={r} aria-pressed={riskFilter === r} onClick={() => setRiskFilter(riskFilter === r ? "all" : r)} className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${

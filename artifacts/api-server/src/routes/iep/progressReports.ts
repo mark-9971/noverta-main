@@ -6,6 +6,7 @@ import {
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, sessionLogsTable,
   iepDocumentsTable, schoolsTable, districtsTable,
+  iepAccommodationsTable,
 } from "@workspace/db";
 import type { ServiceDeliveryBreakdown } from "@workspace/db";
 import { eq, desc, and, gte, lte, asc, count, sum, isNull } from "drizzle-orm";
@@ -392,6 +393,25 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       });
     }
 
+    // Pull active accommodations from the IEP so the report names them rather
+    // than leaving the section blank. We list real ones or say "none on file."
+    const accommodations = await db.select({
+      category: iepAccommodationsTable.category,
+      description: iepAccommodationsTable.description,
+      setting: iepAccommodationsTable.setting,
+    }).from(iepAccommodationsTable)
+      .where(and(
+        eq(iepAccommodationsTable.studentId, studentId),
+        eq(iepAccommodationsTable.active, true),
+      ));
+
+    const totalCompleted = Number(completedSessionLogs[0]?.cnt ?? 0);
+    const totalMissed = Number(missedSessionLogs[0]?.cnt ?? 0);
+    const totalScheduled = totalCompleted + totalMissed;
+    const attendancePct = totalScheduled > 0
+      ? Math.round((totalCompleted / totalScheduled) * 100)
+      : null;
+
     const masteredCount = goalProgressEntries.filter(g => g.progressRating === "mastered").length;
     const sufficientCount = goalProgressEntries.filter(g => g.progressRating === "sufficient_progress").length;
     const someCount = goalProgressEntries.filter(g => g.progressRating === "some_progress").length;
@@ -409,8 +429,19 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       `School: ${schoolName || "N/A"} | District: ${districtName || "N/A"}\n` +
       (iepDoc ? `IEP Period: ${iepDoc.iepStartDate} to ${iepDoc.iepEndDate}\n` : "") +
       `Reporting Period: ${periodStart} to ${periodEnd} (${reportingPeriod})\n\n` +
-      `During this reporting period, ${student.firstName} received ${(completedSessionLogs[0]?.cnt ?? 0)} completed service sessions ` +
-      `with ${(missedSessionLogs[0]?.cnt ?? 0)} missed sessions. ${sessionCount} data collection sessions were conducted.\n\n` +
+      `During this reporting period, ${student.firstName} received ${totalCompleted} completed service sessions ` +
+      `with ${totalMissed} missed sessions. ${sessionCount} data collection sessions were conducted.\n\n` +
+      `Attendance:\n` +
+      (totalScheduled > 0
+        ? `  ${totalCompleted} of ${totalScheduled} scheduled sessions attended (${attendancePct}%)\n\n`
+        : `  No scheduled sessions recorded for this reporting period.\n\n`) +
+      `Accommodations & Modifications:\n` +
+      (accommodations.length > 0
+        ? accommodations.map(a => {
+            const setting = a.setting ? ` (${a.setting})` : "";
+            return `  • [${a.category}] ${a.description}${setting}`;
+          }).join("\n") + "\n\n"
+        : `  No active accommodations on file for this student.\n\n`) +
       `Goal Progress Summary:\n` +
       `  M (Mastered): ${masteredCount} | SP (Sufficient Progress): ${sufficientCount}\n` +
       `  IP (Insufficient Progress): ${someCount + insufficientCount} | NA (Not Addressed): ${notAddressedCount}\n` +

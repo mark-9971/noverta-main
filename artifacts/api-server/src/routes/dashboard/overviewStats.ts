@@ -92,6 +92,10 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const slightlyBehind = [...studentRisk.values()].filter(v => v === "slightly_behind").length;
   const atRisk = [...studentRisk.values()].filter(v => v === "at_risk").length;
   const outOfCompliance = [...studentRisk.values()].filter(v => v === "out_of_compliance").length;
+  // Students whose only risk signal so far is "no_data" — i.e. requirement exists
+  // but the interval is brand new and zero sessions are logged. We do NOT count
+  // these as on-track; we surface them so the UI can show an honest empty state.
+  const noDataStudents = [...studentRisk.values()].filter(v => v === "no_data").length;
 
   let conflictsCount = 0;
   const grouped = new Map<string, typeof allBlocks>();
@@ -110,8 +114,13 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     }
   }
 
-  // trackedStudents = students with at least one active service requirement (correct compliance denominator)
-  const trackedStudents = studentRisk.size;
+  // trackedStudents = students with at least one definitive risk signal (excludes
+  // "no_data" students whose interval has barely started). Using this as the
+  // compliance denominator ensures the dashboard percentage reflects what we
+  // actually know, not optimistic guesses about students with zero data.
+  const trackedStudents = studentRisk.size - noDataStudents;
+  // Active students with no active service requirements at all (setup gap).
+  const studentsNeedingSetup = Math.max(0, (activeStudentsResult?.count ?? 0) - studentRisk.size);
 
   const callerDistrictId = await resolveCallerDistrictId(req);
   const renewalConditions = [
@@ -158,6 +167,8 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     slightlyBehindStudents: slightlyBehind,
     atRiskStudents: atRisk,
     outOfComplianceStudents: outOfCompliance,
+    noDataStudents,
+    studentsNeedingSetup,
     missedSessionsThisWeek: missedThisWeek?.count ?? 0,
     openMakeupObligations: openMakeups?.count ?? 0,
     uncoveredBlocksToday: uncoveredResult?.count ?? 0,

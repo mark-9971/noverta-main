@@ -2,7 +2,13 @@ import { db } from "@workspace/db";
 import { sessionLogsTable, serviceRequirementsTable, serviceTypesTable, studentsTable, staffTable, schoolYearsTable } from "@workspace/db";
 import { eq, and, gte, lte, sql, inArray, isNull } from "drizzle-orm";
 
-export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance" | "completed";
+export type RiskStatus = "on_track" | "slightly_behind" | "at_risk" | "out_of_compliance" | "completed" | "no_data";
+
+// If no minutes have been delivered AND we are at least this far into the
+// interval, surface a distinct "no_data" status instead of a cheery "on_track".
+// This prevents a freshly-started period from showing green when the provider
+// has not yet logged a single session.
+const NO_DATA_ELAPSED_THRESHOLD = 0.10;
 
 function getIntervalDates(intervalType: string, startDate: string, endDate?: string | null): { intervalStart: Date; intervalEnd: Date } {
   const now = new Date();
@@ -53,6 +59,15 @@ export function computeRiskStatus(
   projectedMinutes: number
 ): RiskStatus {
   if (deliveredMinutes >= requiredMinutes) return "completed";
+
+  // Distinguish "no data yet" from genuine on-track. If zero minutes delivered
+  // and the interval has barely started, return "no_data" so dashboards do not
+  // claim health that hasn't been demonstrated. Once the interval has elapsed
+  // past NO_DATA_ELAPSED_THRESHOLD, the regular at-risk thresholds take over.
+  if (deliveredMinutes === 0 && requiredMinutes > 0) {
+    const elapsedRatio = requiredMinutes > 0 ? expectedByNow / requiredMinutes : 0;
+    if (elapsedRatio < NO_DATA_ELAPSED_THRESHOLD) return "no_data";
+  }
 
   if (projectedMinutes >= requiredMinutes * 0.95) return "on_track";
   if (deliveredMinutes < expectedByNow * 0.7) return "out_of_compliance";

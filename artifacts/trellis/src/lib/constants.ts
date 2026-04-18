@@ -4,9 +4,10 @@ export const RISK_CONFIG: Record<string, { label: string; color: string; ringCol
   at_risk: { label: "At Risk", color: "text-orange-700", ringColor: "#f97316", bg: "bg-orange-50 border-orange-200" },
   out_of_compliance: { label: "Out of Compliance", color: "text-red-700", ringColor: "#ef4444", bg: "bg-red-50 border-red-200" },
   completed: { label: "Completed", color: "text-emerald-800", ringColor: "#065f46", bg: "bg-emerald-50 border-emerald-200" },
+  no_data: { label: "Not Started", color: "text-gray-600", ringColor: "#9ca3af", bg: "bg-gray-50 border-gray-200" },
 };
 
-export const RISK_PRIORITY_ORDER = ["out_of_compliance", "at_risk", "slightly_behind", "on_track", "completed"];
+export const RISK_PRIORITY_ORDER = ["out_of_compliance", "at_risk", "slightly_behind", "no_data", "on_track", "completed"];
 
 export const ROLE_COLORS: Record<string, string> = {
   bcba: "bg-emerald-100 text-emerald-800",
