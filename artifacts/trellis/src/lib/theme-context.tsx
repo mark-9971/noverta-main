@@ -7,6 +7,7 @@ export type ThemeId =
   | "large-text"
   | "extra-large-text"
   | "warm"
+  | "warm-edu"
   | "cool"
   | "deuteranopia"
   | "protanopia"
@@ -33,6 +34,7 @@ export interface ThemeOption {
 }
 
 export const THEMES: ThemeOption[] = [
+  { id: "warm-edu", label: "Warm Edu-Trust", description: "Ivory, sage green — warm and educator-centered", category: "appearance" },
   { id: "open-air", label: "Open Air", description: "Borderless, minimal, and spacious", category: "appearance" },
   { id: "classic", label: "Classic", description: "Traditional borders and cards", category: "appearance" },
   { id: "warm", label: "Warm", description: "Soft cream tones", category: "appearance" },
@@ -66,9 +68,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && THEMES.some(t => t.id === stored)) return stored as ThemeId;
+      // "open-air" was the old default — migrate anyone who has it to warm-edu.
+      // Explicit choices (anything other than open-air) are preserved.
+      if (stored && stored !== "open-air" && THEMES.some(t => t.id === stored)) return stored as ThemeId;
     } catch {}
-    return "open-air";
+    return "warm-edu";
   });
 
   useEffect(() => {

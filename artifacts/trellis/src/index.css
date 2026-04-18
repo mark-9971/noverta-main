@@ -334,6 +334,87 @@
   --sidebar-ring: 258 62% 64%;
 }
 
+/* ── THEME: Warm Edu-Trust ── ivory page, sage green, educator-centered */
+:root.theme-warm-edu {
+  /* Warm ivory page background (#faf7f2) */
+  --background: 38 35% 97%;
+  --foreground: 37 10% 16%;
+
+  /* Cards: pure white with warm sand borders (#e8e0d4) */
+  --card: 0 0% 100%;
+  --card-foreground: 37 10% 16%;
+  --card-border: 36 22% 87%;
+
+  /* Borders and inputs */
+  --border: 36 22% 87%;
+  --input: 36 22% 87%;
+
+  /* Popovers */
+  --popover: 0 0% 100%;
+  --popover-foreground: 37 10% 16%;
+  --popover-border: 36 22% 87%;
+
+  /* Sidebar: warm white + sage green active state */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 37 10% 16%;
+  --sidebar-border: 36 22% 87%;
+  --sidebar-primary: 138 25% 39%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent: 138 28% 93%;
+  --sidebar-accent-foreground: 138 25% 25%;
+  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-ring: 138 25% 39%;
+
+  /* Primary: sage green (#4a7c59) */
+  --primary: 138 25% 39%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Secondary: warm cream */
+  --secondary: 37 20% 92%;
+  --secondary-foreground: 37 10% 22%;
+  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Muted: warm-tinted gray */
+  --muted: 37 18% 93%;
+  --muted-foreground: 37 8% 44%;
+  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Accent: light sage tint */
+  --accent: 138 22% 93%;
+  --accent-foreground: 138 22% 24%;
+  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Ring and destructive */
+  --ring: 138 25% 39%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Charts */
+  --chart-1: 138 25% 39%;
+  --chart-2: 43 74% 66%;
+  --chart-3: 27 87% 67%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 142 40% 32%;
+
+  /* Warmer, slightly lifted shadows */
+  --shadow-2xs: 0 1px 2px 0 rgba(45,42,37,0.03);
+  --shadow-xs: 0 1px 2px 0 rgba(45,42,37,0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(45,42,37,0.06), 0 1px 2px -1px rgba(45,42,37,0.04);
+  --shadow: 0 1px 3px 0 rgba(45,42,37,0.06), 0 1px 2px -1px rgba(45,42,37,0.04);
+  --shadow-md: 0 4px 6px -1px rgba(45,42,37,0.07), 0 2px 4px -2px rgba(45,42,37,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(45,42,37,0.07), 0 4px 6px -4px rgba(45,42,37,0.04);
+}
+
+/* Serif headings for Warm Edu-Trust */
+:root.theme-warm-edu h1,
+:root.theme-warm-edu h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.01em;
+}
+
 /* ── THEME: Reduced Motion ── disable transitions */
 :root.theme-reduced-motion *,
 :root.theme-reduced-motion *::before,

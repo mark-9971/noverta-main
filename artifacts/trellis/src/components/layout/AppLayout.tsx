@@ -71,7 +71,7 @@ function NavItemRow({
   const content = (
     <>
       {theme === "open-air" && active && !item.comingSoon && !isLocked && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-emerald-500 rounded-full" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-3.5 bg-sidebar-primary rounded-full" />
       )}
       {isLocked ? (
         <Lock className="w-[17px] h-[17px] flex-shrink-0 text-sidebar-foreground/30" />
@@ -82,7 +82,7 @@ function NavItemRow({
             ? "text-sidebar-foreground/30"
             : theme === "open-air"
               ? active ? "text-gray-900" : "text-gray-300"
-              : active ? (isDarkSidebar ? "text-sidebar-primary" : config.iconActive) : "text-sidebar-foreground/50"
+              : active ? "text-sidebar-primary" : "text-sidebar-foreground/50"
         )} />
       )}
       <span className={cn("flex-1 truncate", isLocked && "text-sidebar-foreground/30")}>{item.label}</span>
@@ -140,7 +140,7 @@ function NavItemRow({
             ? "text-gray-900 font-semibold"
             : "text-gray-400 hover:text-gray-700"
           : active
-            ? (isDarkSidebar ? "bg-sidebar-accent text-sidebar-primary font-semibold" : config.bgActive)
+            ? "bg-sidebar-accent text-sidebar-primary font-semibold"
             : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
       )}
       onClick={onNavigate}
