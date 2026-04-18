@@ -190,15 +190,15 @@ export const adminNav: NavSection[] = [
         ],
       },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       {
         href: "/scheduling", label: "Scheduling Hub", icon: Clock,
         children: [
           { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
           { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+          { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+          { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale },
         ],
       },
-      { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
     ],
   },
