@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, FileWarning, ShieldCheck,
-  CalendarClock, Users, ClipboardList, Info, ListChecks,
+  AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
+  Users, Info, ListChecks,
   TrendingUp, TrendingDown, Minus, Compass,
 } from "lucide-react";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
@@ -50,19 +50,6 @@ interface ComplianceRiskReport {
     riskLabel: string;
     estimatedExposure: number | null;
     providerName: string;
-  }[];
-}
-
-interface WeeklySummary {
-  meta: { weekStart: string; weekEnd: string };
-  summary: { totalStudents: number; combinedExposure: number };
-  urgentFlags: string[];
-  providersWithMissedThisWeek: {
-    providerName: string;
-    role: string;
-    completedSessions: number;
-    missedSessions: number;
-    deliveredMinutes: number;
   }[];
 }
 
@@ -142,17 +129,6 @@ export default function PilotAdminHome() {
   // before the district is truly ready.
   const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
 
-  // ── Weekly summary — deferred until onboarding is complete ──────────────────
-  const { data: weekly, isLoading: weeklyLoading, isError: weeklyError } = useQuery<WeeklySummary>({
-    queryKey: ["pilot-home/weekly-compliance-summary", filterParams],
-    queryFn: async () => {
-      const r = await authFetch(`/api/reports/weekly-compliance-summary${params}`);
-      if (!r.ok) throw new Error("weekly-compliance-summary failed");
-      return r.json();
-    },
-    staleTime: 60_000,
-    enabled: onboardingComplete,
-  });
 
   const { data: dashSummary } = useQuery<{ errorsLast24h?: number; contractRenewals?: { id: number; agencyName: string; endDate: string }[] }>({
     queryKey: ["pilot-home/dashboard-summary", filterParams],
@@ -231,61 +207,7 @@ export default function PilotAdminHome() {
     return new Set(risk.needsAttention.map(r => r.studentId)).size;
   }, [risk?.needsAttention]);
 
-  const urgentFlags = weekly?.urgentFlags ?? [];
-  const providersMissed = weekly?.providersWithMissedThisWeek ?? [];
-
-  // Action queue
-  type ActionUrgency = "critical" | "warning" | "info" | "muted";
-  const actions: { label: string; subline?: string; href?: string; onClick?: () => void; urgency: ActionUrgency }[] = [];
-  if (onboarding && !onboardingComplete) {
-    const left = onboarding.totalSteps - onboarding.completedCount;
-    actions.push({
-      label: `Finish setup — ${left} step${left === 1 ? "" : "s"} remaining`,
-      subline: "Your district isn't fully configured yet — compliance tracking won't be accurate until setup is complete.",
-      href: "/setup",
-      urgency: "info",
-    });
-  }
-  if (studentsAttentionCount > 0) {
-    actions.push({
-      label: `Review ${studentsAttentionCount} student${studentsAttentionCount === 1 ? "" : "s"} flagged for compliance risk`,
-      subline: `${studentsAttentionCount} student${studentsAttentionCount === 1 ? "" : "s"} may breach mandated-minute requirements this week — compensatory exposure is accumulating.`,
-      href: "/compliance-risk-report",
-      urgency: "critical",
-    });
-  }
-  if (urgentFlags.length > 0) {
-    actions.push({
-      label: `Address ${urgentFlags.length} urgent flag${urgentFlags.length === 1 ? "" : "s"} from this week's summary`,
-      subline: "Unresolved flags may become compensatory service obligations if not acted on this week.",
-      href: "/weekly-compliance-summary",
-      urgency: "warning",
-    });
-  }
-  if (providersMissed.length > 0) {
-    const total = providersMissed.reduce((sum, p) => sum + p.missedSessions, 0);
-    actions.push({
-      label: `Follow up with ${providersMissed.length} provider${providersMissed.length === 1 ? "" : "s"} on ${total} missed session${total === 1 ? "" : "s"} this week`,
-      subline: `${total} unlogged session${total === 1 ? "" : "s"} — every gap widens the compliance shortfall and increases district exposure.`,
-      href: "/sessions",
-      urgency: "warning",
-    });
-  }
-  if ((summary?.combinedExposure ?? 0) > 0) {
-    actions.push({
-      label: `Review ${fmtMoney(summary!.combinedExposure)} in compensatory exposure`,
-      subline: "Outstanding shortfalls may require make-up services or trigger due-process liability.",
-      href: "/cost-avoidance",
-      urgency: "warning",
-    });
-  }
-  actions.push({
-    label: "Share this week's compliance summary with your team",
-    href: "/weekly-compliance-summary",
-    urgency: "muted",
-  });
-
-  const isLoading = riskLoading || weeklyLoading;
+  const isLoading = riskLoading;
 
   const trendAvailable = weekTrend?.available === true && summary !== undefined;
   const rateDelta = trendAvailable && weekTrend!.overallComplianceRate !== undefined
@@ -474,133 +396,25 @@ export default function PilotAdminHome() {
         )}
       </section>
 
-      {/* 3. What needs attention this week?
-           Hidden during setup — weekly data is only meaningful once sessions
-           are flowing. The action queue above already surfaces "Finish setup". */}
-      {onboardingComplete && (
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-this-week">
-          <div className="flex items-center justify-between px-5 md:px-6 pt-5 pb-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="w-4 h-4 text-blue-600" />
-              <h2 className="text-sm font-semibold text-gray-900">What needs attention this week?</h2>
-              {weekly?.meta?.weekStart && (
-                <span className="text-xs text-gray-400">Week of {new Date(weekly.meta.weekStart).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-              )}
+      {/* Action Center entry point — replaces the old action queue.
+           The Action Center owns "what do I do next"; Dashboard is health at-a-glance. */}
+      <Link href="/action-center">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-white p-4 md:p-5 hover:shadow-sm transition-shadow cursor-pointer flex items-center gap-4 group" data-testid="banner-action-center">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center flex-shrink-0">
+            <ListChecks className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm md:text-[15px] font-semibold text-gray-900">Go to Action Center</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-0.5">
+              Prioritized to-do list — urgent items, missed sessions, schedule gaps, and upcoming deadlines.
             </div>
-            <Link href="/weekly-compliance-summary" className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1" data-testid="link-open-weekly">
-              Open weekly summary <ArrowRight className="w-3 h-3" />
-            </Link>
           </div>
-          <div className="px-5 md:px-6 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {weeklyError ? (
-              <div className="md:col-span-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 inline-flex items-start gap-2">
-                <FileWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Couldn't load this week's summary. Open <Link href="/weekly-compliance-summary" className="underline">the full report</Link> or try again in a minute.</span>
-              </div>
-            ) : weeklyLoading && !weekly ? (
-              <div className="md:col-span-2 text-sm text-gray-400">Loading this week's data…</div>
-            ) : (
-              <>
-                <div>
-                  <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Urgent flags</div>
-                  {urgentFlags.length === 0 ? (
-                    <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> No urgent flags this week.</p>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {urgentFlags.map((f, i) => (
-                        <li key={i} className="text-sm text-gray-800 flex items-start gap-2">
-                          <FileWarning className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Providers with missed sessions</div>
-                  {providersMissed.length === 0 ? (
-                    <p className="text-sm text-gray-500 inline-flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Every provider logged their sessions this week.</p>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {providersMissed.slice(0, 5).map((p, i) => (
-                        <li key={i} className="text-sm text-gray-800 flex items-center justify-between gap-3">
-                          <span className="truncate">
-                            {p.providerName}
-                            {p.role && <span className="text-xs text-gray-400 ml-1.5">{p.role}</span>}
-                          </span>
-                          <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
-                            {p.missedSessions} missed · {p.completedSessions} logged
-                          </span>
-                        </li>
-                      ))}
-                      {providersMissed.length > 5 && (
-                        <li className="text-xs text-gray-400">+ {providersMissed.length - 5} more</li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      )}
+          <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+        </div>
+      </Link>
 
       {/* Cost / exposure context — hidden during setup (no data yet) */}
       {onboardingComplete && <CostRiskPanel />}
-
-      {/* 4. What should I do next? */}
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-next-actions">
-        <div className="px-5 md:px-6 pt-5 pb-4 flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-emerald-600" />
-          <h2 className="text-sm font-semibold text-gray-900">What should I do next?</h2>
-        </div>
-        <ol className="px-4 md:px-5 pb-5 space-y-2.5">
-          {actions.map((a, i) => {
-            const isMuted = a.urgency === "muted";
-            const borderAccent = isMuted ? "" :
-              a.urgency === "critical" ? "border-l-4 border-l-red-500" :
-              a.urgency === "warning"  ? "border-l-4 border-l-amber-400" :
-              "border-l-4 border-l-emerald-500";
-            const hoverBg =
-              a.urgency === "critical" ? "hover:bg-red-50/50" :
-              a.urgency === "warning"  ? "hover:bg-amber-50/50" :
-              a.urgency === "info"     ? "hover:bg-emerald-50/40" :
-              "hover:bg-gray-50";
-            const numBg =
-              a.urgency === "critical" ? "bg-red-100 text-red-700" :
-              a.urgency === "warning"  ? "bg-amber-100 text-amber-700" :
-              a.urgency === "info"     ? "bg-emerald-100 text-emerald-700" :
-              "bg-gray-100 text-gray-400";
-            const arrowColor =
-              a.urgency === "critical" ? "text-red-400" :
-              a.urgency === "warning"  ? "text-amber-400" :
-              a.urgency === "info"     ? "text-emerald-400" :
-              "text-gray-300";
-
-            const inner = (
-              <div
-                className={`flex items-start gap-3.5 px-4 py-3.5 rounded-xl bg-white border border-gray-100 cursor-pointer transition-colors ${borderAccent} ${hoverBg}`}
-                data-testid={`action-${i}`}
-              >
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 ${numBg}`}>
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-[15px] font-semibold leading-snug ${isMuted ? "text-gray-400" : "text-gray-900"}`}>
-                    {a.label}
-                  </p>
-                  {a.subline && (
-                    <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">{a.subline}</p>
-                  )}
-                </div>
-                <ArrowRight className={`w-4 h-4 flex-shrink-0 mt-1 ${arrowColor}`} />
-              </div>
-            );
-            if (a.href) return <li key={i}><Link href={a.href}>{inner}</Link></li>;
-            return <li key={i} onClick={a.onClick}>{inner}</li>;
-          })}
-        </ol>
-      </section>
 
       {/* Render the readiness panel at its lower position only after onboarding
           completes — pre-ready, it lives at the top alongside the setup

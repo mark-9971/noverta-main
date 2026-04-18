@@ -1,9 +1,9 @@
 import {
   useGetDashboardSummary, useGetDashboardRiskOverview, useGetMissedSessionsTrend,
-  useGetComplianceByService, useGetDashboardAlertsSummary, useListAlerts,
+  useGetComplianceByService, useGetDashboardAlertsSummary,
   useGetComplianceDeadlines,
 } from "@workspace/api-client-react";
-import { AlertTriangle, Users, Clock, Bell, CheckCircle, Shield, Clipboard, ArrowRight, FileBarChart, DollarSign, ListChecks } from "lucide-react";
+import { AlertTriangle, Users, Clock, Bell, CheckCircle, Shield } from "lucide-react";
 import { Link } from "wouter";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import PilotAdminHome from "./PilotAdminHome";
@@ -17,7 +17,7 @@ import { CASELOAD_ROLES, getGreeting, formatLastUpdated } from "./types";
 import type { ProviderCaseloadSummary } from "./types";
 import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
 import { MetricCard } from "./MetricCard";
-import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard, RecentAlertsCard } from "./ChartsSection";
+import { ComplianceRingCard, SessionTrendCard, ComplianceByServiceCard } from "./ChartsSection";
 import { AccommodationComplianceCard, EvalsTransitionsSection, MeetingsSection, ContractRenewalsCard, DeadlinesSection } from "./SecondarySections";
 import { CollapsibleSection } from "./CollapsibleSection";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
@@ -47,7 +47,6 @@ function DashboardFull() {
   const { data: trend } = useGetMissedSessionsTrend(typedFilter);
   const { data: complianceByService } = useGetComplianceByService(typedFilter);
   const { data: alertsSummary } = useGetDashboardAlertsSummary(typedFilter);
-  const { data: recentAlerts } = useListAlerts({ resolved: "false", ...filterParams } as any);
 
   const showPersonalCaseload = CASELOAD_ROLES.has(role) && !!teacherId;
   const { data: providerSummaryAll } = useQuery<ProviderCaseloadSummary[]>({
@@ -102,7 +101,6 @@ function DashboardFull() {
   const s = summary as any;
   const ro = riskOverview as any;
   const alerts = alertsSummary as any;
-  const recent = (recentAlerts as any[])?.slice(0, 5) ?? [];
 
   const totalStudents = s?.totalActiveStudents ?? 0;
   const trackedStudents = s?.trackedStudents ?? totalStudents;
@@ -141,14 +139,6 @@ function DashboardFull() {
     </div>
   );
 
-  const quickActions = [
-    { label: "Compliance Risk Report", icon: AlertTriangle, href: "/compliance-risk-report", color: "text-red-700 bg-red-50 hover:bg-red-100" },
-    { label: "Required vs Delivered", icon: Shield, href: "/compliance", color: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100" },
-    { label: "High-Risk Students", icon: Users, href: "/compliance-risk-report", color: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
-    { label: "Weekly Summary", icon: FileBarChart, href: "/weekly-compliance-summary", color: "text-blue-700 bg-blue-50 hover:bg-blue-100" },
-    { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory-finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
-    { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-gray-700 bg-gray-50 hover:bg-gray-100" },
-  ];
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6 md:space-y-8">
@@ -230,16 +220,6 @@ function DashboardFull() {
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-        {quickActions.map(action => (
-          <Link key={action.href + action.label} href={action.href}>
-            <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] font-medium cursor-pointer transition-colors ${action.color}`}>
-              <action.icon className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{action.label}</span>
-            </div>
-          </Link>
-        ))}
-      </div>
 
       {isAdmin && s && (
         <SystemStatusBanner errorsLast24h={s?.errorsLast24h ?? 0} />
@@ -250,10 +230,7 @@ function DashboardFull() {
         <SessionTrendCard trendData={trendData} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ComplianceByServiceCard serviceData={serviceData} />
-        <RecentAlertsCard recent={recent} />
-      </div>
+      <ComplianceByServiceCard serviceData={serviceData} />
 
       {/*
         Operational details — accommodations, evaluations, transitions, IEP
