@@ -27,6 +27,7 @@ import {
 } from "./SecondarySections";
 import type { CredentialExpirationItem } from "./SecondarySections";
 import ProviderCompletionCard from "./ProviderCompletionCard";
+import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
 
@@ -489,6 +490,9 @@ export default function PilotAdminHome() {
           </ul>
         )}
       </section>
+
+      {/* Compliance risk alerts — open alerts from the weekly compliance job */}
+      <ComplianceRiskAlertsWidget />
 
       {/* Action Center entry point — replaces the old action queue.
            The Action Center owns "what do I do next"; Dashboard is health at-a-glance. */}

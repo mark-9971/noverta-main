@@ -19,6 +19,7 @@ import type { DashboardTabsProps } from "./DashboardTabs";
 import { NeedsAttentionPanel, CriticalMedicalAlertsBanner, LifeThreateningAlertsBanner } from "./AlertBanners";
 import { DashboardTabs } from "./DashboardTabs";
 import RecentWins from "@/components/dashboard/RecentWins";
+import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
 
 export default function Dashboard() {
   const { role } = useRole();
@@ -169,6 +170,9 @@ function DashboardFull() {
 
       {/* Today's Schedule — shown for providers with a linked staff record */}
       {showPersonalCaseload && <TodayScheduleCard />}
+
+      {/* Compliance risk alerts — students flagged by the weekly compliance job */}
+      <ComplianceRiskAlertsWidget />
 
       {/* Three-tab layout */}
       <DashboardTabs
