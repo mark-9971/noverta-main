@@ -10,6 +10,7 @@ import makeupObligationsRouter from "./makeupObligations";
 import providerCompletionRatesRouter from "./providerCompletionRates";
 import parentEngagementRouter from "./parentEngagement";
 import credentialExpirationRouter from "./credentialExpiration";
+import districtBenchmarksRouter from "./districtBenchmarks";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(makeupObligationsRouter);
 router.use(providerCompletionRatesRouter);
 router.use(parentEngagementRouter);
 router.use(credentialExpirationRouter);
+router.use(districtBenchmarksRouter);
 
 export default router;

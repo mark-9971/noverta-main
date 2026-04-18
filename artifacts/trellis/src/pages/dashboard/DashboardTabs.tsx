@@ -18,6 +18,7 @@ import MakeupSessionsCard from "@/components/dashboard/MakeupSessionsCard";
 import ParentEngagementCard from "./ParentEngagementCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DistrictComparisonCard } from "./DistrictComparisonCard";
 
 /** Lightly-typed shape for data fetched from non-OpenAPI endpoints */
 interface TransitionDashboard {
@@ -225,6 +226,9 @@ export function DashboardTabs({
             href="/progress-reports"
           />
         </div>
+
+        {/* District comparison — platform-admin only, self-hides when <2 districts */}
+        <DistrictComparisonCard />
 
         {/* Quick actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
