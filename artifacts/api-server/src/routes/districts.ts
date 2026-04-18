@@ -147,6 +147,23 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
     updateData.alertDigestMode = req.body.alertDigestMode;
   }
 
+  if (req.body.spikeAlertEnabled !== undefined) {
+    if (typeof req.body.spikeAlertEnabled !== "boolean") {
+      res.status(400).json({ error: "spikeAlertEnabled must be a boolean" });
+      return;
+    }
+    updateData.spikeAlertEnabled = req.body.spikeAlertEnabled;
+  }
+
+  if (req.body.spikeAlertThreshold !== undefined) {
+    const t = Number(req.body.spikeAlertThreshold);
+    if (!Number.isInteger(t) || t < 1 || t > 100) {
+      res.status(400).json({ error: "spikeAlertThreshold must be an integer between 1 and 100" });
+      return;
+    }
+    updateData.spikeAlertThreshold = t;
+  }
+
 
   if (req.body.tier !== undefined || req.body.tierOverride !== undefined) {
     if (!meta.platformAdmin) {

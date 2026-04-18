@@ -78,11 +78,17 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   const today = new Date().toISOString().slice(0, 10);
   const horizon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  // Fetch district-level digest mode setting
-  const [districtRow] = await db.select({ alertDigestMode: districtsTable.alertDigestMode })
+  // Fetch district-level digest mode + spike detection settings
+  const [districtRow] = await db.select({
+    alertDigestMode: districtsTable.alertDigestMode,
+    spikeAlertEnabled: districtsTable.spikeAlertEnabled,
+    spikeAlertThreshold: districtsTable.spikeAlertThreshold,
+  })
     .from(districtsTable)
     .where(eq(districtsTable.id, districtId));
   const districtDigestMode = districtRow?.alertDigestMode ?? false;
+  const spikeAlertEnabled = districtRow?.spikeAlertEnabled ?? true;
+  const spikeAlertThreshold = districtRow?.spikeAlertThreshold ?? 3;
 
   const activeStudents = await db.select({
     id: studentsTable.id,
@@ -126,6 +132,30 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   for (const a of existingAlerts) {
     const match = a.message?.match(/\[dedupe:([^\]]+)\]/);
     if (match) existingKeys.add(match[1]);
+  }
+
+  // Spike detection: a risk is "newly critical" (a spike) when there is no
+  // currently-active (unresolved) critical alert for the same baseKey. We
+  // restrict to unresolved alerts so the spike state correctly resets after
+  // a coordinator marks a previous critical alert as resolved — a risk that
+  // was critical, was resolved, and re-spikes will trigger an immediate
+  // alert again instead of being silently digested.
+  const previouslyCriticalBaseKeys = new Set<string>();
+  if (spikeAlertEnabled) {
+    const priorCritical = await db.select({ message: alertsTable.message })
+      .from(alertsTable)
+      .innerJoin(studentsTable, eq(alertsTable.studentId, studentsTable.id))
+      .innerJoin(schoolsTable, eq(studentsTable.schoolId, schoolsTable.id))
+      .where(and(
+        eq(alertsTable.type, "cost_avoidance_risk"),
+        eq(alertsTable.severity, "critical"),
+        eq(alertsTable.resolved, false),
+        eq(schoolsTable.districtId, districtId),
+      ));
+    for (const a of priorCritical) {
+      const m = a.message?.match(/\[dedupe:([^\]]+)\]/);
+      if (m) previouslyCriticalBaseKeys.add(m[1].replace(/:[^:]+$/, ""));
+    }
   }
 
   // Rate-limit: fetch communication events for cost avoidance risk emails sent
@@ -172,6 +202,22 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
     process.env.APP_BASE_URL ??
     (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
   const appBaseUrl = rawBaseUrl ? rawBaseUrl.replace(/\/+$/, "") : null;
+
+  // Pre-flight pass: count newly-critical risks per staff so we can compare
+  // against the district's spike threshold. Only digest-mode risks need this
+  // (immediate-mode risks already get individual emails). We must do this
+  // before the main loop because the loop inserts alerts that would otherwise
+  // pollute the "previously critical" set we just queried.
+  const spikeCountByStaff = new Map<number, number>();
+  if (spikeAlertEnabled) {
+    for (const r of risks) {
+      if (r.urgency !== "critical" || !r.staffId) continue;
+      if (existingKeys.has(r.dedupeKey)) continue;
+      const baseKey = r.dedupeKey.replace(/:[^:]+$/, "");
+      if (previouslyCriticalBaseKeys.has(baseKey)) continue;
+      spikeCountByStaff.set(r.staffId, (spikeCountByStaff.get(r.staffId) ?? 0) + 1);
+    }
+  }
 
   // Pending digest risks keyed by staffId — collected during the main loop and
   // flushed into a single digest email per staff member after the loop.
@@ -241,7 +287,19 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
     // Effective digest mode: staff-level override takes precedence over district default
     const effectiveDigestMode = staffInfo.alertDigestMode ?? districtDigestMode;
 
-    if (effectiveDigestMode) {
+    // Spike bypass: if digest mode is on but this risk just became critical
+    // (no prior critical alert for the same baseKey) AND the staff member's
+    // spike count is within the district's threshold, send an immediate
+    // individual email so a sudden compliance risk isn't held until the next
+    // digest run. If the staff member has more spikes than the threshold,
+    // fall through to the normal digest path to avoid an inbox flood.
+    const isSpike =
+      spikeAlertEnabled &&
+      effectiveDigestMode &&
+      !previouslyCriticalBaseKeys.has(riskBaseKey) &&
+      (spikeCountByStaff.get(risk.staffId) ?? 0) <= spikeAlertThreshold;
+
+    if (effectiveDigestMode && !isSpike) {
       // Digest mode: collect this risk to send in a single batched email.
       // We do NOT mark the base key claimed here — that happens only after a
       // successful digest send (or individual fallback) in the flush phase,
@@ -290,7 +348,7 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
         toName: staffInfo.name,
         staffId: risk.staffId,
         linkedAlertId: inserted?.id,
-        metadata: { riskBaseKey, dedupeKey: risk.dedupeKey, category: risk.category },
+        metadata: { riskBaseKey, dedupeKey: risk.dedupeKey, category: risk.category, ...(isSpike ? { spike: true } : {}) },
       });
 
       // Only suppress future emails for this risk if the provider accepted the send.

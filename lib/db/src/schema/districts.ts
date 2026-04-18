@@ -17,6 +17,13 @@ export const districtsTable = pgTable("districts", {
   hasSampleData: boolean("has_sample_data").notNull().default(false),
   complianceMinuteThreshold: integer("compliance_minute_threshold").notNull().default(85),
   alertDigestMode: boolean("alert_digest_mode").notNull().default(false),
+  // When true, newly-critical risks (not previously critical) bypass the
+  // digest and trigger an immediate individual email even if digest mode is on.
+  spikeAlertEnabled: boolean("spike_alert_enabled").notNull().default(true),
+  // Per-staff cap: if more than N risks spike at once for a single staff
+  // member in a single run, treat them as a normal batch (digest) instead
+  // of flooding the inbox with individual spike emails.
+  spikeAlertThreshold: integer("spike_alert_threshold").notNull().default(3),
   defaultHourlyRate: numeric("default_hourly_rate", { precision: 10, scale: 2 }),
   caseloadThresholds: jsonb("caseload_thresholds").$type<Record<string, number>>(),
   demoExpiresAt: timestamp("demo_expires_at", { withTimezone: true }),
