@@ -271,7 +271,7 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
   });
 
   // -------------------------------------------------------------------------
-  // Lifecycle: open → under_review (admin-review endpoint)
+  // Lifecycle: open → under_review (transition endpoint with toStatus)
   // -------------------------------------------------------------------------
 
   test("admin review transitions open incident to under_review", async ({
@@ -293,13 +293,13 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
       `draft→open failed: ${JSON.stringify(openResult.body)}`,
     ).toBe(true);
 
-    // open → under_review via admin-review endpoint
+    // open → under_review via transition endpoint
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
+      `/api/protective-measures/incidents/${incident.id}/transition`,
       {
         data: {
-          notes: "Reviewed. Restraint was justified given the antecedents.",
-          signature: "E2E Test Admin",
+          toStatus: "under_review",
+          note: "Reviewed. Restraint was justified given the antecedents.",
         },
       },
     );
@@ -308,15 +308,15 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     if (reviewRes.status() === 401) {
       test.skip(
         true,
-        "E2E admin user lacks publicMetadata.staffId — skipping admin-review assertion. " +
-          "Set staffId on the Clerk test user to enable this check.",
+        "E2E admin user lacks publicMetadata.staffId — skipping under_review transition. " +
+          "Run the E2E global setup to provision staffId on the Clerk test user.",
       );
       return;
     }
 
     expect(
       reviewRes.ok(),
-      `admin-review failed: ${JSON.stringify(reviewBody)}`,
+      `open→under_review transition failed: ${JSON.stringify(reviewBody)}`,
     ).toBe(true);
     expect((reviewBody as Incident).status).toBe("under_review");
 
@@ -346,14 +346,14 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
       expect(ok, `draft→open: ${JSON.stringify(body)}`).toBe(true);
     }
 
-    // --- open → under_review (admin review) ---
+    // --- open → under_review ---
     {
       const res = await page.request.post(
-        `/api/protective-measures/incidents/${incident.id}/admin-review`,
+        `/api/protective-measures/incidents/${incident.id}/transition`,
         {
           data: {
-            notes: "Admin review complete. All documentation is adequate.",
-            signature: "E2E Admin Reviewer",
+            toStatus: "under_review",
+            note: "Admin review complete. All documentation is adequate.",
           },
         },
       );
@@ -449,8 +449,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(draftToOpen.ok).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Reviewed.", signature: "E2E" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Reviewed." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present — cannot reach dese_reported.");
@@ -548,8 +548,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(openOk).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Approved by admin.", signature: "E2E Admin" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Approved by admin." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present — cannot reach under_review.");
@@ -610,8 +610,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(openOk).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Reviewed.", signature: "E2E Admin" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Reviewed." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present — cannot reach under_review.");
@@ -688,8 +688,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(openOk).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Reviewed.", signature: "E2E Admin" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Reviewed." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present — cannot complete notification send test.");
@@ -766,8 +766,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(openOk).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Reviewed.", signature: "E2E Admin" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Reviewed." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present.");
@@ -809,8 +809,8 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     expect(openOk).toBe(true);
 
     const reviewRes = await page.request.post(
-      `/api/protective-measures/incidents/${incident.id}/admin-review`,
-      { data: { notes: "Reviewed.", signature: "E2E Admin" } },
+      `/api/protective-measures/incidents/${incident.id}/transition`,
+      { data: { toStatus: "under_review", note: "Reviewed." } },
     );
     if (reviewRes.status() === 401) {
       test.skip(true, "staffId not present.");

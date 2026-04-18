@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddleware, clerkClient } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
 import healthRouter from "./routes/health";
@@ -14,8 +14,8 @@ import * as Sentry from "@sentry/node";
 import { recordError5xx } from "./lib/sentry";
 import { getPublicMeta, getClerkUserId } from "./lib/clerkClaims";
 import { db } from "@workspace/db";
-import { communicationEventsTable, errorLogsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { communicationEventsTable, errorLogsTable, staffTable, schoolsTable, districtsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { Webhook as SvixWebhook } from "svix";
 
 const app: Express = express();
@@ -247,6 +247,138 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 app.use(clerkMiddleware());
+
+// ---------------------------------------------------------------------------
+// E2E test provisioning — development/test environments only.
+// Creates (or verifies) a dedicated admin staff record for the Clerk E2E test
+// user and writes publicMetadata.staffId back to that Clerk user so that
+// terminal-state incident transitions and parent-notification review
+// endpoints can resolve an actor identity.
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV !== "production") {
+  app.post("/api/e2e/setup", async (req: Request, res: Response) => {
+    // Require a shared secret to prevent arbitrary callers from mutating Clerk
+    // metadata and creating staff rows in non-production shared environments.
+    // Falls back to "e2e-dev-local" when E2E_PROVISION_KEY is unset (pure local dev).
+    const expectedKey = process.env.E2E_PROVISION_KEY ?? "e2e-dev-local";
+    const sentKey = req.headers["x-e2e-key"];
+    if (sentKey !== expectedKey) {
+      res.status(403).json({ error: "Invalid or missing X-E2E-Key header." });
+      return;
+    }
+
+    const { email } = req.body as { email?: string };
+    if (!email || typeof email !== "string") {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    try {
+      const { data: users } = await clerkClient.users.getUserList({
+        emailAddress: [email],
+      });
+      if (!users.length) {
+        res
+          .status(404)
+          .json({ error: `No Clerk user found with email: ${email}` });
+        return;
+      }
+      const user = users[0];
+      const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
+
+      // If staffId is already set and the DB record still exists, return early.
+      if (typeof meta.staffId === "number") {
+        const [existing] = await db
+          .select({ id: staffTable.id })
+          .from(staffTable)
+          .where(eq(staffTable.id, meta.staffId as number));
+        if (existing) {
+          res.json({
+            staffId: meta.staffId,
+            districtId: meta.districtId,
+            alreadyProvisioned: true,
+          });
+          return;
+        }
+      }
+
+      // Resolve or discover the district for this user.
+      let districtId =
+        typeof meta.districtId === "number" ? (meta.districtId as number) : null;
+      if (!districtId) {
+        const [d] = await db
+          .select({ id: districtsTable.id })
+          .from(districtsTable)
+          .limit(1);
+        if (!d) {
+          res.status(422).json({
+            error:
+              "No district found in the database. Complete onboarding first.",
+          });
+          return;
+        }
+        districtId = d.id;
+      }
+
+      // Resolve or create a school in that district.
+      let [school] = await db
+        .select({ id: schoolsTable.id })
+        .from(schoolsTable)
+        .where(eq(schoolsTable.districtId, districtId))
+        .limit(1);
+      if (!school) {
+        [school] = await db
+          .insert(schoolsTable)
+          .values({ districtId, name: "E2E Test School" })
+          .returning({ id: schoolsTable.id });
+      }
+
+      // Find or create the E2E admin staff record scoped to this school.
+      let [staff] = await db
+        .select({ id: staffTable.id })
+        .from(staffTable)
+        .where(
+          and(
+            eq(staffTable.email, email),
+            eq(staffTable.schoolId, school.id),
+          ),
+        );
+      if (!staff) {
+        [staff] = await db
+          .insert(staffTable)
+          .values({
+            firstName: "E2E",
+            lastName: "Admin",
+            email,
+            role: "admin",
+            title: "System Administrator (E2E Test)",
+            schoolId: school.id,
+            status: "active",
+          })
+          .returning({ id: staffTable.id });
+      }
+
+      // Persist staffId (and districtId / role if missing) back to Clerk.
+      await clerkClient.users.updateUser(user.id, {
+        publicMetadata: {
+          ...meta,
+          staffId: staff.id,
+          districtId,
+          role: meta.role ?? "admin",
+        },
+      });
+
+      logger.info(
+        { email, staffId: staff.id, districtId },
+        "E2E admin staff provisioned",
+      );
+      res.json({ staffId: staff.id, districtId });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "E2E setup failed");
+      res.status(500).json({ error: `E2E setup failed: ${message}` });
+    }
+  });
+}
 
 app.use(healthRouter);
 app.use("/api", requireActiveSubscription);
