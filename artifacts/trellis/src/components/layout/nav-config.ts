@@ -111,14 +111,50 @@ export const adminNav: NavSection[] = [
     ],
   },
   {
-    label: "IEP / Education",
+    label: "IEPs / Search",
     icon: GraduationCap,
     collapsible: true,
     defaultOpen: true,
     items: [
+      { href: "/iep", label: "IEP Hub", icon: GraduationCap },
       { href: "/iep-search", label: "IEP Search", icon: Search },
       { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
-      { href: "/iep", label: "Calendar & Meetings", icon: Calendar },
+    ],
+  },
+  {
+    label: "IEP Scheduling",
+    icon: CalendarDays,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: Calendar },
+      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
+      {
+        href: "/scheduling", label: "Scheduling Hub", icon: Clock,
+        children: [
+          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
+          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Accommodations & Transitions",
+    icon: BookOpen,
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
+      { href: "/transitions", label: "Transition Planning", icon: Sprout },
+    ],
+  },
+  {
+    label: "Evaluations & Progress",
+    icon: FileSearch,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
       { href: "/evaluations", label: "Evaluations", icon: FileSearch },
       { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
@@ -147,13 +183,6 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/students", label: "Student List", icon: Users, primary: true },
       { href: "/sessions", label: "Sessions", icon: Clipboard },
-      {
-        href: "/scheduling", label: "Scheduling", icon: Calendar,
-        children: [
-          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck },
-        ],
-      },
       { href: "/staff", label: "Staff", icon: UserCheck },
     ],
   },
@@ -214,7 +243,6 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: false,
     items: [
-      { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
       {
@@ -226,7 +254,6 @@ export const adminNav: NavSection[] = [
           { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
         ],
       },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/iep-suggestions", label: "Catalog Matches", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
       {
         href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
