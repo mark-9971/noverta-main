@@ -21,6 +21,151 @@ import {
 
 const router: IRouter = Router();
 
+router.get("/coverage/suggest-substitute", requireAdmin, async (req, res): Promise<void> => {
+  const scheduleBlockId = Number(req.query.scheduleBlockId);
+  const absenceDate = String(req.query.absenceDate ?? "");
+  if (!scheduleBlockId || isNaN(scheduleBlockId)) {
+    res.status(400).json({ error: "scheduleBlockId is required" });
+    return;
+  }
+  if (!absenceDate || !/^\d{4}-\d{2}-\d{2}$/.test(absenceDate)) {
+    res.status(400).json({ error: "absenceDate is required (YYYY-MM-DD)" });
+    return;
+  }
+
+  const { pool } = await import("@workspace/db");
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+
+  // 1. Fetch the schedule block details — district-scoped to prevent cross-tenant inference
+  //    (only return if the block's staff member belongs to the caller's district)
+  const blockParams: any[] = [scheduleBlockId];
+  let blockDistrictClause = "";
+  if (districtId) {
+    blockParams.push(districtId);
+    blockDistrictClause = `AND s.school_id IN (SELECT id FROM schools WHERE district_id = $${blockParams.length})`;
+  }
+
+  const blockResult = await pool.query<{
+    original_staff_id: number;
+    start_time: string;
+    end_time: string;
+    day_of_week: string;
+    school_id: number | null;
+    orig_role: string;
+    orig_qualifications: string | null;
+  }>(`
+    SELECT
+      sb.staff_id AS original_staff_id,
+      sb.start_time,
+      sb.end_time,
+      sb.day_of_week,
+      s.school_id,
+      s.role AS orig_role,
+      s.qualifications AS orig_qualifications
+    FROM schedule_blocks sb
+    JOIN staff s ON s.id = sb.staff_id
+    WHERE sb.id = $1 AND sb.deleted_at IS NULL ${blockDistrictClause}
+    LIMIT 1
+  `, blockParams);
+
+  if (!blockResult.rows.length) {
+    res.status(404).json({ error: "Schedule block not found" });
+    return;
+  }
+
+  const block = blockResult.rows[0];
+  const { original_staff_id, start_time, end_time, day_of_week, school_id, orig_role, orig_qualifications } = block;
+
+  // Tokenise qualifications text into a set of lowercase keywords for overlap scoring.
+  // school_id is used as the "same building" proxy — in this schema each school
+  // maps to a single physical building/site.
+  function qualTokens(q: string | null): Set<string> {
+    if (!q) return new Set();
+    return new Set(q.toLowerCase().split(/[\s,;/|]+/).filter(t => t.length > 1));
+  }
+  const origQualTokens = qualTokens(orig_qualifications);
+
+  // 2. Find candidates: active staff in the same district, excluding the original
+  const candidateParams: any[] = [original_staff_id];
+  let districtFilter = "";
+  if (districtId) {
+    candidateParams.push(districtId);
+    districtFilter = `AND s.school_id IN (SELECT id FROM schools WHERE district_id = $${candidateParams.length})`;
+  }
+
+  // 3. Exclude staff who are absent on this date OR have a conflicting schedule block
+  //    A conflict = another recurring/applicable block on the same day_of_week that overlaps the time window
+  const candidatesResult = await pool.query<{
+    id: number;
+    first_name: string;
+    last_name: string;
+    role: string;
+    school_id: number | null;
+    qualifications: string | null;
+  }>(`
+    SELECT s.id, s.first_name, s.last_name, s.role, s.school_id, s.qualifications
+    FROM staff s
+    WHERE s.id != $1
+      AND s.status = 'active'
+      AND s.deleted_at IS NULL
+      ${districtFilter}
+      AND s.id NOT IN (
+        SELECT staff_id FROM staff_absences
+        WHERE absence_date = $${candidateParams.push(absenceDate)}
+      )
+      AND s.id NOT IN (
+        SELECT staff_id FROM schedule_blocks
+        WHERE deleted_at IS NULL
+          AND day_of_week = $${candidateParams.push(day_of_week)}
+          AND start_time < $${candidateParams.push(end_time)}
+          AND end_time > $${candidateParams.push(start_time)}
+          AND (
+            is_recurring = true
+            OR (is_recurring = false AND week_of = (
+              SELECT to_char(date_trunc('week', $${candidateParams.push(absenceDate)}::date + interval '1 day') - interval '1 day', 'YYYY-MM-DD')
+            ))
+          )
+      )
+  `, candidateParams);
+
+  // 4. Score and rank candidates
+  //    +2 for matching role, +1 for same school (building), +1 per overlapping qualification keyword
+  const scored = candidatesResult.rows.map(c => {
+    const isRoleMatch = c.role === orig_role;
+    const isSameSchool = school_id != null && c.school_id === school_id;
+    const candidateQualTokens = qualTokens(c.qualifications);
+    const qualOverlap = origQualTokens.size > 0
+      ? [...origQualTokens].filter(t => candidateQualTokens.has(t)).length
+      : 0;
+    const score = (isRoleMatch ? 2 : 0) + (isSameSchool ? 1 : 0) + qualOverlap;
+    return { ...c, score, isRoleMatch, isSameSchool, qualOverlap };
+  });
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    // Deterministic tie-break: role match first, then same school, then last name alpha
+    if (b.isRoleMatch !== a.isRoleMatch) return b.isRoleMatch ? 1 : -1;
+    if (b.isSameSchool !== a.isSameSchool) return b.isSameSchool ? 1 : -1;
+    return a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name);
+  });
+
+  const suggestions = scored.map((c, idx) => ({
+    staffId: c.id,
+    firstName: c.first_name,
+    lastName: c.last_name,
+    name: `${c.first_name} ${c.last_name}`,
+    role: c.role,
+    schoolId: c.school_id,
+    isSameSchool: c.isSameSchool,
+    isRoleMatch: c.isRoleMatch,
+    qualOverlap: c.qualOverlap,
+    score: c.score,
+    isSuggested: idx < 3,
+  }));
+
+  res.json({ suggestions, originalRole: orig_role, schoolId: school_id });
+});
+
 router.get("/schedule-blocks/uncovered", requireAdmin, async (req, res): Promise<void> => {
   const params = ListUncoveredSessionsQueryParams.safeParse(req.query);
   const { pool } = await import("@workspace/db");

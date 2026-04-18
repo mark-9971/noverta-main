@@ -9,8 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/auth-fetch";
 import { useListStaff } from "@workspace/api-client-react";
-import { UserCheck, AlertTriangle, RefreshCw, Clock, User } from "lucide-react";
+import { UserCheck, AlertTriangle, RefreshCw, Clock, User, Star } from "lucide-react";
 import { DAY_LABELS, fmt12, today } from "./utils";
+
+interface Suggestion {
+  staffId: number;
+  firstName: string;
+  lastName: string;
+  name: string;
+  role: string;
+  schoolId: number | null;
+  isSameSchool: boolean;
+  isRoleMatch: boolean;
+  score: number;
+  isSuggested: boolean;
+}
 
 export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -20,6 +33,8 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
   const [assignDialog, setAssignDialog] = useState<any | null>(null);
   const [substituteId, setSubstituteId] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const { data: staffData } = useListStaff({ status: "active", ...(schoolId ? { schoolId: String(schoolId) } : {}) });
   const staffList = (staffData as any[]) ?? [];
@@ -42,6 +57,28 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
+  const openAssignDialog = useCallback(async (session: any) => {
+    setAssignDialog(session);
+    setSubstituteId("");
+    setSuggestions([]);
+    setLoadingSuggestions(true);
+    try {
+      const params = new URLSearchParams({
+        scheduleBlockId: String(session.id),
+        absenceDate: session.absenceDate ?? today(),
+      });
+      const r = await authFetch(`/api/coverage/suggest-substitute?${params}`);
+      if (r.ok) {
+        const data = await r.json();
+        setSuggestions(data.suggestions ?? []);
+      }
+    } catch {
+      // suggestions are optional — silently ignore failures
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, []);
+
   async function handleAssignSub() {
     if (!assignDialog || !substituteId) return;
     setAssigning(true);
@@ -59,6 +96,7 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
       toast.success(data.message ?? "Substitute assigned");
       setAssignDialog(null);
       setSubstituteId("");
+      setSuggestions([]);
       loadSessions();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -69,6 +107,13 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
 
   const coveredCount = sessions.filter(s => s.substituteStaffId).length;
   const needsCoverageCount = sessions.filter(s => !s.substituteStaffId).length;
+
+  const suggestedIds = new Set(suggestions.filter(s => s.isSuggested).map(s => s.staffId));
+  const topSuggestions = suggestions.filter(s => s.isSuggested);
+
+  const remainingStaff = staffList.filter(
+    (s: any) => !assignDialog || (s.id !== assignDialog.originalStaffId && !suggestedIds.has(s.id))
+  );
 
   return (
     <div className="space-y-4">
@@ -166,7 +211,7 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
                   <Button
                     size="sm"
                     className="h-7 text-[12px] bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => { setAssignDialog(s); setSubstituteId(""); }}
+                    onClick={() => openAssignDialog(s)}
                   >
                     Assign Sub
                   </Button>
@@ -177,7 +222,7 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
         </div>
       )}
 
-      <Dialog open={!!assignDialog} onOpenChange={v => { if (!v) { setAssignDialog(null); setSubstituteId(""); } }}>
+      <Dialog open={!!assignDialog} onOpenChange={v => { if (!v) { setAssignDialog(null); setSubstituteId(""); setSuggestions([]); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-gray-800">Assign Substitute</DialogTitle>
@@ -195,21 +240,54 @@ export function UncoveredTab({ schoolId }: { schoolId?: number | null }) {
               <Select value={substituteId} onValueChange={setSubstituteId}>
                 <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Select substitute..." /></SelectTrigger>
                 <SelectContent>
-                  {staffList
-                    .filter((s: any) => !assignDialog || s.id !== assignDialog.originalStaffId)
-                    .map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)} className="text-[13px]">
-                        {s.firstName} {s.lastName}
-                        {s.role && <span className="text-gray-400 ml-1">· {s.role}</span>}
-                      </SelectItem>
-                    ))
-                  }
+                  {loadingSuggestions && (
+                    <div className="px-3 py-2 text-[12px] text-gray-400 flex items-center gap-1.5">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Finding best matches…
+                    </div>
+                  )}
+                  {!loadingSuggestions && topSuggestions.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-[11px] font-semibold text-emerald-700 uppercase tracking-wide flex items-center gap-1">
+                        <Star className="h-3 w-3" />
+                        Suggested
+                      </div>
+                      {topSuggestions.map(s => (
+                        <SelectItem key={`sug-${s.staffId}`} value={String(s.staffId)} className="text-[13px]">
+                          <span className="flex items-center gap-1.5">
+                            {s.firstName} {s.lastName}
+                            {s.role && <span className="text-gray-400">· {s.role}</span>}
+                            {s.isRoleMatch && (
+                              <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 rounded px-1 py-0 leading-4">role match</span>
+                            )}
+                            {s.isSameSchool && (
+                              <span className="text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded px-1 py-0 leading-4">same school</span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                      {remainingStaff.length > 0 && (
+                        <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-t mt-1 pt-2">
+                          All Staff
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {remainingStaff.map((s: any) => (
+                    <SelectItem key={s.id} value={String(s.id)} className="text-[13px]">
+                      {s.firstName} {s.lastName}
+                      {s.role && <span className="text-gray-400 ml-1">· {s.role}</span>}
+                    </SelectItem>
+                  ))}
+                  {!loadingSuggestions && topSuggestions.length === 0 && staffList.filter((s: any) => !assignDialog || s.id !== assignDialog.originalStaffId).length === 0 && (
+                    <div className="px-3 py-2 text-[12px] text-gray-400">No available staff found</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setAssignDialog(null)} disabled={assigning}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => { setAssignDialog(null); setSuggestions([]); }} disabled={assigning}>Cancel</Button>
             <Button
               size="sm"
               onClick={handleAssignSub}
