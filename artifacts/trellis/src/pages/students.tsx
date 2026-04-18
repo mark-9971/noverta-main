@@ -22,10 +22,19 @@ import { toast } from "sonner";
 
 type TypeFilter = "all" | "sped" | "gen_ed";
 type StatusFilter = "active" | "inactive" | "all";
+type RiskTier = "all" | "critical" | "at_risk" | "on_track";
+
+const RISK_TIER_STATUSES: Record<RiskTier, string[]> = {
+  all: [],
+  critical: ["out_of_compliance"],
+  at_risk: ["at_risk", "slightly_behind"],
+  on_track: ["on_track"],
+};
 
 export default function Students() {
   const [search, setSearch] = useState("");
-  const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [riskFilter, setRiskFilter] = useState<RiskTier>("all");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [caseManagerFilter, setCaseManagerFilter] = useState<string>("all");
@@ -114,6 +123,24 @@ export default function Students() {
     studentMinutes[p.studentId].required += p.requiredMinutes;
   }
 
+  const studentServiceTypeIds: Record<number, Set<number>> = {};
+  for (const p of progressList) {
+    if (p.serviceTypeId != null) {
+      if (!studentServiceTypeIds[p.studentId]) studentServiceTypeIds[p.studentId] = new Set();
+      studentServiceTypeIds[p.studentId].add(p.serviceTypeId);
+    }
+  }
+
+  const serviceTypeOptions = (() => {
+    const seen = new Map<number, string>();
+    for (const p of progressList) {
+      if (p.serviceTypeId != null && p.serviceTypeName) seen.set(Number(p.serviceTypeId), String(p.serviceTypeName));
+    }
+    return Array.from(seen.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
   const spedCount = studentList.filter(s => spedIds.has(s.id)).length;
   const genEdCount = studentList.length - spedCount;
 
@@ -124,25 +151,28 @@ export default function Students() {
       const isSped = spedIds.has(s.id);
       const matchType = typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
       const riskStatus = studentRisk[s.id] ?? "on_track";
-      const matchRisk = riskFilter === "all" || riskStatus === riskFilter;
-      // SPED-flagged students with no active service requirements (no minute-progress rows).
+      const matchRisk = riskFilter === "all" || RISK_TIER_STATUSES[riskFilter].includes(riskStatus);
+      const matchServiceType = serviceTypeFilter === "all" ||
+        (studentServiceTypeIds[s.id]?.has(Number(serviceTypeFilter)) ?? false);
       const matchMissing = missingFilter === "all" ||
         (missingFilter === "no_services" && isSped && !studentMinutes[s.id]);
-      return matchSearch && matchType && matchRisk && matchMissing;
+      return matchSearch && matchType && matchRisk && matchServiceType && matchMissing;
     });
-  }, [studentList, search, typeFilter, riskFilter, spedIds, studentRisk, missingFilter, studentMinutes]);
+  }, [studentList, search, typeFilter, riskFilter, serviceTypeFilter, spedIds, studentRisk, studentServiceTypeIds, missingFilter, studentMinutes]);
 
-  const riskCounts = useMemo(() => {
+  const tierCounts = useMemo(() => {
     const typeFiltered = studentList.filter(s => {
       const isSped = spedIds.has(s.id);
       return typeFilter === "all" || (typeFilter === "sped" && isSped) || (typeFilter === "gen_ed" && !isSped);
     });
-    const counts: Record<string, number> = {};
+    let critical = 0, at_risk = 0, on_track = 0;
     for (const s of typeFiltered) {
       const r = studentRisk[s.id] ?? "on_track";
-      counts[r] = (counts[r] ?? 0) + 1;
+      if (r === "out_of_compliance") critical++;
+      else if (r === "at_risk" || r === "slightly_behind") at_risk++;
+      else on_track++;
     }
-    return counts;
+    return { critical, at_risk, on_track, all: typeFiltered.length };
   }, [studentList, typeFilter, spedIds, studentRisk]);
 
   return (
@@ -230,20 +260,47 @@ export default function Students() {
             {s.label}
           </button>
         ))}
-        <div className="w-px bg-gray-200 mx-1 self-stretch" />
-        {["out_of_compliance", "at_risk", "slightly_behind", "on_track"].map(r => {
-          const cfg = RISK_CONFIG[r];
+      </div>
+
+      {/* Risk-tier chips + service-type dropdown */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {(
+          [
+            { key: "all" as RiskTier, label: "All", count: tierCounts.all },
+            { key: "critical" as RiskTier, label: "Critical", count: tierCounts.critical },
+            { key: "at_risk" as RiskTier, label: "At Risk", count: tierCounts.at_risk },
+            { key: "on_track" as RiskTier, label: "On Track", count: tierCounts.on_track },
+          ] as { key: RiskTier; label: string; count: number }[]
+        ).map(t => {
+          const accentClass =
+            t.key === "critical" ? (riskFilter === t.key ? "bg-red-600 text-white border-transparent" : "border-red-200 text-red-700 hover:border-red-300")
+            : t.key === "at_risk" ? (riskFilter === t.key ? "bg-amber-600 text-white border-transparent" : "border-amber-200 text-amber-700 hover:border-amber-300")
+            : t.key === "on_track" ? (riskFilter === t.key ? "bg-emerald-600 text-white border-transparent" : "border-emerald-200 text-emerald-700 hover:border-emerald-300")
+            : (riskFilter === "all" ? "bg-gray-800 text-white border-transparent" : "border-gray-200 text-gray-500 hover:border-gray-300");
           return (
             <button
-              key={r}
-              aria-pressed={riskFilter === r}
-              onClick={() => setRiskFilter(riskFilter === r ? "all" : r)}
-              className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-                riskFilter === r ? "bg-gray-800 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
-              }`}
-            >{cfg.label} ({riskCounts[r] ?? 0})</button>
+              key={t.key}
+              aria-pressed={riskFilter === t.key}
+              onClick={() => setRiskFilter(riskFilter === t.key && t.key !== "all" ? "all" : t.key)}
+              className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition-all bg-white ${accentClass}`}
+            >
+              {t.label} ({t.count})
+            </button>
           );
         })}
+        {serviceTypeOptions.length > 0 && (
+          <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
+            <SelectTrigger className="h-9 text-[12px] bg-white w-[170px]">
+              <SelectValue placeholder="All service types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All service types</SelectItem>
+              {serviceTypeOptions.map(t => (
+                <SelectItem key={t.id} value={String(t.id)}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="flex gap-2 flex-wrap">
