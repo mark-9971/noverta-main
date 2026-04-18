@@ -50,6 +50,7 @@ const Reports = lazy(() => import("@/pages/reports"));
 const StudentDetail = lazy(() => import("@/pages/student-detail"));
 const ImportData = lazy(() => import("@/pages/import-data"));
 const DataHealthPage = lazy(() => import("@/pages/data-health"));
+const DataVisualizedPage = lazy(() => import("@/pages/data-visualized"));
 const ProgramDataPage = lazy(() => import("@/pages/program-data"));
 const AbaHub = lazy(() => import("@/pages/aba"));
 const IepHub = lazy(() => import("@/pages/iep"));
@@ -237,6 +238,7 @@ function StaffRouter() {
       <BoundedRoute path="/accommodation-lookup" component={AccommodationLookupPage} fallbackTitle="Accommodation lookup error" />
       <BoundedRoute path="/import" component={ImportData} fallbackTitle="Import error" />
       <BoundedRoute path="/data-health" component={DataHealthPage} fallbackTitle="Data health error" />
+      <BoundedRoute path="/data-visualized" component={DataVisualizedPage} fallbackTitle="Data visualized error" />
       <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
       <BoundedRoute path="/aba" component={AbaHub} fallbackTitle="ABA hub error" featureKey="clinical.program_data" />
       <BoundedRoute path="/iep" component={IepHub} fallbackTitle="IEP hub error" />

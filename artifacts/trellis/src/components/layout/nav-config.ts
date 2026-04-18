@@ -73,6 +73,7 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
+      { href: "/data-visualized", label: "Data Visualized", icon: Sparkles, primary: true },
       // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
       // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
       { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
