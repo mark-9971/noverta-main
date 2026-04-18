@@ -19,19 +19,22 @@ import {
   StructuredReinforcementDisplay,
   StructuredCrisisDisplay,
 } from "@/components/bip-management/StrategyEditors";
+import { FbaInsightsCard } from "./FbaInsightsCard";
 import type {
-  BipRecord, FbaRecord, Student,
+  BipRecord, FbaRecord, Student, ObsSummary,
   StaffEntry, BipStatusEntry, BipImplementerEntry, BipFidelityEntry
 } from "./types";
 
-export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, onSelectBip, onEdit, onRefresh }: {
+export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, obsSummary, onSelectBip, onEdit, onRefresh }: {
   student: Student; bips: BipRecord[]; selectedBip: BipRecord | null;
   editingBip: Partial<BipRecord> | null; selectedFba: FbaRecord | null;
+  obsSummary?: ObsSummary | null;
   onSelectBip: (b: BipRecord | null) => void; onEdit: (b: Partial<BipRecord> | null) => void;
   onRefresh: () => void;
 }) {
   const { role } = useRole();
   const [generating, setGenerating] = useState(false);
+  const [showGeneratePreview, setShowGeneratePreview] = useState(false);
   const [transitionNotes, setTransitionNotes] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const [bipTab, setBipTab] = useState<"plan" | "implementers" | "history" | "fidelity">("plan");
@@ -238,11 +241,11 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Behavior Intervention Plans</h2>
         <div className="flex gap-2">
-          {selectedFba && !selectedBip && (
-            <Button size="sm" onClick={generateFromFba} disabled={generating}
-              className="bg-emerald-600 hover:bg-emerald-700">
+          {selectedFba && !selectedBip && !showGeneratePreview && (
+            <Button size="sm" onClick={() => setShowGeneratePreview(true)} disabled={generating}
+              variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
               <Brain className="w-4 h-4 mr-1" />
-              {generating ? "Generating…" : "Generate from FBA"}
+              Generate from FBA
             </Button>
           )}
         </div>
@@ -250,6 +253,67 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
 
       {!selectedFba && bips.length === 0 && (
         <EmptyState icon={Shield} message="Select an FBA first, then generate a BIP from assessment data" />
+      )}
+
+      {/* ── Generate preview / confirm step ──────────────────────── */}
+      {selectedFba && !selectedBip && showGeneratePreview && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-emerald-800">
+              Preview: Generate BIP from FBA
+            </p>
+            <button type="button" onClick={() => setShowGeneratePreview(false)}
+              className="text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-[11px] text-emerald-700">
+            This will create a <strong>draft BIP</strong> pre-filled with the information below. You can edit every field after creation — nothing is locked in.
+          </p>
+          <div className="space-y-1.5 text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 w-36 flex-shrink-0">Target Behavior:</span>
+              <span className="text-gray-900 font-medium">{selectedFba.targetBehavior}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 w-36 flex-shrink-0">Operational Definition:</span>
+              <span className="text-gray-900 line-clamp-2">{selectedFba.operationalDefinition || "—"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 w-36 flex-shrink-0">Hypothesized Function:</span>
+              <FunctionBadge func={
+                selectedFba.hypothesizedFunction
+                  ?? obsSummary?.suggestedFunction
+                  ?? "attention"
+              } />
+              {!selectedFba.hypothesizedFunction && obsSummary?.suggestedFunction && (
+                <span className="text-[10px] text-amber-600">(inferred from {obsSummary.totalObservations} ABC observation{obsSummary.totalObservations !== 1 ? "s" : ""})</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 w-36 flex-shrink-0">Strategies:</span>
+              <span className="text-gray-700">Function-matched prevention, teaching, and consequence strategies (text blocks — can be converted to structured items after creation)</span>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" onClick={async () => { await generateFromFba(); setShowGeneratePreview(false); }} disabled={generating}
+              className="bg-emerald-600 hover:bg-emerald-700">
+              <Brain className="w-4 h-4 mr-1" />
+              {generating ? "Creating…" : "Confirm & Create Draft BIP"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowGeneratePreview(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── FBA Insights card (shown in list view when FBA selected) ─ */}
+      {selectedFba && !selectedBip && !showGeneratePreview && (
+        <FbaInsightsCard
+          fba={selectedFba}
+          summary={obsSummary ?? null}
+        />
       )}
 
       {bips.length > 0 && !selectedBip && (

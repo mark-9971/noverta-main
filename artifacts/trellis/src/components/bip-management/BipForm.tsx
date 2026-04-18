@@ -7,6 +7,8 @@ import {
   ReinforcementEditor,
   CrisisSupportsEditor,
 } from "./StrategyEditors";
+import { FbaInsightsCompact } from "@/pages/behavior-assessment/FbaInsightsCard";
+import type { FbaRecord, ObsSummary } from "@/pages/behavior-assessment/types";
 
 function FormField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
@@ -45,6 +47,7 @@ export function BipForm({
   onCancel,
   fbas,
   behaviorTargets,
+  fbaInsights,
 }: {
   form: BipFormState;
   setForm: (f: BipFormState) => void;
@@ -54,6 +57,8 @@ export function BipForm({
   onCancel: () => void;
   fbas: any[];
   behaviorTargets: any[];
+  /** Optional FBA context shown as a collapsible reference panel */
+  fbaInsights?: { fba: FbaRecord; summary: ObsSummary | null } | null;
 }) {
   const update = (key: keyof BipFormState, value: any) => setForm({ ...form, [key]: value });
 
@@ -68,6 +73,17 @@ export function BipForm({
         </div>
 
         <div className="p-4 space-y-4">
+          {/* FBA Reference Panel — collapsible, shown when FBA context is available */}
+          {fbaInsights && (
+            <FbaInsightsCompact
+              fba={fbaInsights.fba}
+              summary={fbaInsights.summary}
+              onApplyFunction={fn => update("hypothesizedFunction", fn)}
+              onApplyTargetBehavior={tb => update("targetBehavior", tb)}
+              onApplyOpDef={od => update("operationalDefinition", od)}
+            />
+          )}
+
           {/* Basic identification */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Target Behavior *" value={form.targetBehavior} onChange={v => update("targetBehavior", v)} />

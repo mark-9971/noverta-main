@@ -5,11 +5,13 @@ import { toast } from "sonner";
 import {
   getStudentBips, listFbas, listBehaviorTargets,
   updateBip, createBip, createBipVersion, deleteBip,
+  getFbaObservationsSummary,
 } from "@workspace/api-client-react";
 import { Bip, BipFormState, EMPTY_BIP_FORM, STATUS_LABELS } from "./types";
 import { BipRow } from "./BipRow";
 import { BipForm } from "./BipForm";
 import { printBip } from "./printBip";
+import type { FbaRecord, ObsSummary } from "@/pages/behavior-assessment/types";
 
 interface BipManagementProps {
   studentId: number;
@@ -27,6 +29,9 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
   const [fbas, setFbas] = useState<any[]>([]);
   const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
   const [form, setForm] = useState<BipFormState>(EMPTY_BIP_FORM);
+
+  /* FBA context for the BipForm reference panel */
+  const [fbaInsights, setFbaInsights] = useState<{ fba: FbaRecord; summary: ObsSummary | null } | null>(null);
 
   useEffect(() => {
     fetchBips();
@@ -57,9 +62,49 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     } catch { /* ignore */ }
   }
 
-  function openCreateForm() {
+  /**
+   * Pick the most clinically relevant FBA to use as context:
+   * - Prefer the one with a hypothesizedFunction set (most complete)
+   * - Among those, prefer the most recently updated
+   */
+  function pickBestFba(fbaList: any[]): any | null {
+    if (!fbaList.length) return null;
+    const withFunction = fbaList.filter(f => f.hypothesizedFunction);
+    const pool = withFunction.length > 0 ? withFunction : fbaList;
+    return pool.slice().sort((a, b) =>
+      new Date(b.updatedAt || b.createdAt || 0).getTime() -
+      new Date(a.updatedAt || a.createdAt || 0).getTime()
+    )[0];
+  }
+
+  async function loadFbaInsights(fba: FbaRecord) {
+    let summary: ObsSummary | null = null;
+    try {
+      summary = (await getFbaObservationsSummary(fba.id)) as ObsSummary;
+    } catch { /* obs summary is optional — silently ignore */ }
+    setFbaInsights({ fba, summary });
+  }
+
+  async function openCreateForm() {
     setEditingBip(null);
-    setForm(EMPTY_BIP_FORM);
+
+    /* Try to prefill from the best available FBA */
+    const bestFba = pickBestFba(fbas.length > 0 ? fbas : (await listFbas(studentId).catch(() => [])));
+    if (bestFba) {
+      /* Prefill the form with data from the FBA — clinician can change anything */
+      setForm({
+        ...EMPTY_BIP_FORM,
+        targetBehavior: bestFba.targetBehavior || "",
+        operationalDefinition: bestFba.operationalDefinition || "",
+        hypothesizedFunction: bestFba.hypothesizedFunction || "attention",
+        fbaId: bestFba.id?.toString() || "",
+      });
+      /* Load insights in background — doesn't block form from opening */
+      loadFbaInsights(bestFba as FbaRecord);
+    } else {
+      setForm(EMPTY_BIP_FORM);
+      setFbaInsights(null);
+    }
     setShowForm(true);
   }
 
@@ -90,6 +135,24 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       reinforcementComponentsStructured: (bip as any).reinforcementComponentsStructured ?? null,
       crisisSupportsStructured: (bip as any).crisisSupportsStructured ?? null,
     });
+
+    /* Load FBA insights for this BIP's linked FBA */
+    if (bip.fbaId) {
+      const linkedFba = fbas.find(f => f.id === bip.fbaId);
+      if (linkedFba) {
+        loadFbaInsights(linkedFba as FbaRecord);
+      } else {
+        setFbaInsights(null);
+      }
+    } else {
+      /* No linked FBA — try best available as reference */
+      const bestFba = pickBestFba(fbas);
+      if (bestFba) {
+        loadFbaInsights(bestFba as FbaRecord);
+      } else {
+        setFbaInsights(null);
+      }
+    }
     setShowForm(true);
   }
 
@@ -116,6 +179,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
       toast.success(editingBip ? "BIP updated" : "BIP created");
       setShowForm(false);
       setEditingBip(null);
+      setFbaInsights(null);
       fetchBips();
     } catch {
       toast.error("Network error");
@@ -249,9 +313,10 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
             editing={!!editingBip}
             saving={saving}
             onSave={handleSave}
-            onCancel={() => { setShowForm(false); setEditingBip(null); }}
+            onCancel={() => { setShowForm(false); setEditingBip(null); setFbaInsights(null); }}
             fbas={fbas}
             behaviorTargets={behaviorTargets}
+            fbaInsights={fbaInsights}
           />
         )}
       </CardContent>

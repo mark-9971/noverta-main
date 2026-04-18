@@ -198,6 +198,7 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
               selectedBip={selectedBip}
               editingBip={editingBip}
               selectedFba={selectedFba}
+              obsSummary={obsSummary}
               onSelectBip={(b) => { setSelectedBip(b); setEditingBip(null); }}
               onEdit={setEditingBip}
               onRefresh={() => loadBips(selectedStudent.id)}
