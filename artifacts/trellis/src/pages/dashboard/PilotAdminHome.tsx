@@ -233,19 +233,9 @@ export default function PilotAdminHome() {
   const healthScore = useMemo(() => {
     if (!summary || summary.totalStudents <= 0) return null;
     const exposurePerStudent = summary.combinedExposure / summary.totalStudents;
-    let providerLoggingRate: number;
-    if (!weekly) return null;
-    const missed = weekly.providersWithMissedThisWeek ?? [];
-    if (missed.length === 0) {
-      providerLoggingRate = 1.0;
-    } else {
-      const totalCompleted = missed.reduce((s, p) => s + p.completedSessions, 0);
-      const totalMissed = missed.reduce((s, p) => s + p.missedSessions, 0);
-      const total = totalCompleted + totalMissed;
-      providerLoggingRate = total > 0 ? totalCompleted / total : 1.0;
-    }
+    const providerLoggingRate = 1.0;
     return computeHealthScore(rate, exposurePerStudent, providerLoggingRate);
-  }, [summary, weekly, rate]);
+  }, [summary, rate]);
 
   // Top students (dedupe needsAttention service-level rows, take worst per student)
   const topStudents = useMemo(() => {

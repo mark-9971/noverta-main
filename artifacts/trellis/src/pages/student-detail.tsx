@@ -554,11 +554,11 @@ export default function StudentDetail() {
   const STUDENT_TABS = [
     { id: "summary" as const, label: "Summary" },
     { id: "iep" as const, label: "IEP & Goals" },
-    { id: "reports" as const, label: "Progress Reports" },
     { id: "sessions" as const, label: "Sessions" },
-    { id: "behavior" as const, label: "Behavior / ABA" },
-    { id: "contacts" as const, label: "Documents & Contacts" },
-    { id: "journey" as const, label: "Journey" },
+    { id: "reports" as const, label: "Progress Reports" },
+    { id: "behavior" as const, label: "Behavior & ABA" },
+    { id: "contacts" as const, label: "Contacts & Documents" },
+    { id: "journey" as const, label: "History" },
   ] as const;
 
   type StudentTab = typeof STUDENT_TABS[number]["id"];

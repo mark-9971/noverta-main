@@ -27,18 +27,18 @@ import ComplianceTrendsPage from "./compliance-trends";
 import ComplianceRiskReportPage from "./compliance-risk-report";
 import RecommendationsPanel from "@/components/compliance/RecommendationsPanel";
 const TABS = [
+  { key: "risk-report", label: "Risk Report", icon: FileBarChart },
   { key: "minutes", label: "Service Minutes", icon: Timer },
   { key: "checklist", label: "Checklist", icon: ListChecks },
   { key: "timeline", label: "Timeline", icon: Calendar },
   { key: "trends", label: "Trends", icon: TrendingDown },
-  { key: "risk-report", label: "Risk Report", icon: FileBarChart },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 function resolveTab(search: string): TabKey {
   const key = new URLSearchParams(search).get("tab") ?? "";
-  return TABS.some(t => t.key === key) ? (key as TabKey) : "minutes";
+  return TABS.some(t => t.key === key) ? (key as TabKey) : "risk-report";
 }
 
 function useQueryTab(): [TabKey, (tab: TabKey) => void] {
