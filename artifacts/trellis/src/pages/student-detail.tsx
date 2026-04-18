@@ -137,6 +137,7 @@ export default function StudentDetail() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareDays, setShareDays] = useState(30);
   const [phaseChangesByTarget, setPhaseChangesByTarget] = useState<Record<number, any[]>>({});
+  const [annotationsByGoal, setAnnotationsByGoal] = useState<Record<number, any[]>>({});
 
   const [svcDialogOpen, setSvcDialogOpen] = useState(false);
   const [editingSvc, setEditingSvc] = useState<any>(null);
@@ -592,6 +593,29 @@ export default function StudentDetail() {
     getStudentPhaseChanges(studentId).catch(() => {}).then(setPhaseChangesByTarget as any).catch(() => {});
   }
 
+  function loadGoalAnnotations() {
+    authFetch(`/api/students/${studentId}/goal-annotations`)
+      .then(r => r.ok ? r.json() : {})
+      .then((data: Record<number, any[]>) => setAnnotationsByGoal(data))
+      .catch(() => {});
+  }
+
+  async function handleAddAnnotation(goalId: number, annotationDate: string, label: string) {
+    const r = await authFetch(`/api/iep-goals/${goalId}/annotations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ annotationDate, label }),
+    });
+    if (!r.ok) throw new Error("Failed to add annotation");
+    loadGoalAnnotations();
+  }
+
+  async function handleRemoveAnnotation(annotationId: number) {
+    const r = await authFetch(`/api/goal-annotations/${annotationId}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Failed to remove annotation");
+    loadGoalAnnotations();
+  }
+
   useEffect(() => {
     if (isNaN(studentId)) return;
     setDataLoading(true);
@@ -607,7 +631,8 @@ export default function StudentDetail() {
       getStudentPhaseChanges(studentId).catch(() => {}),
       authFetch(`/api/students/${studentId}/iep-goals/progress`).then(r => r.ok ? r.json() : []).catch(() => []),
       authFetch(`/api/compensatory-finance/students`).then(r => r.ok ? r.json() : []).catch(() => []),
-    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs, gp, finStudents]) => {
+      authFetch(`/api/students/${studentId}/goal-annotations`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+    ]).then(([bt, pt, btTrends, ptTrends, ds, pm, mt, cs, pcs, gp, finStudents, ga]) => {
       setBehaviorTargets(bt);
       setProgramTargets(pt);
       setBehaviorTrends(btTrends);
@@ -624,6 +649,7 @@ export default function StudentDetail() {
       setCompSummary(cs);
       setPhaseChangesByTarget(pcs as any);
       setGoalProgress(gp);
+      setAnnotationsByGoal(ga as Record<number, any[]>);
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
   }, [studentId]);
@@ -1056,6 +1082,9 @@ export default function StudentDetail() {
           setGoalAbaView={setGoalAbaView}
           loadPhaseChanges={loadPhaseChanges}
           student={s}
+          annotationsByGoal={annotationsByGoal}
+          onAddAnnotation={handleAddAnnotation}
+          onRemoveAnnotation={handleRemoveAnnotation}
         />
       </div>
 

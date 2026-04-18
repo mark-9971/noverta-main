@@ -3,7 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, Dot,
 } from "recharts";
-import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users, Download, FileText } from "lucide-react";
+import { Maximize2, Minimize2, Filter, Plus, X, Calendar, Users, Download, FileText, MessageSquare } from "lucide-react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 
@@ -27,6 +27,12 @@ interface PhaseLine {
   color?: string;
 }
 
+interface Annotation {
+  id: string | number;
+  annotationDate: string;
+  label: string;
+}
+
 interface InteractiveChartProps {
   data: DataPoint[];
   color: string;
@@ -39,6 +45,9 @@ interface InteractiveChartProps {
   targetDirection?: "increase" | "decrease";
   phaseLines?: PhaseLine[];
   onPhaseLinesChange?: (lines: PhaseLine[]) => void;
+  annotations?: Annotation[];
+  onAddAnnotation?: (annotationDate: string, label: string) => Promise<void>;
+  onRemoveAnnotation?: (id: string | number) => Promise<void>;
   sparklineWidth?: number;
   sparklineHeight?: number;
   valueFormatter?: (v: number) => string;
@@ -60,6 +69,7 @@ function formatShortDate(d: string) {
 }
 
 const PHASE_COLORS = ["#8b5cf6", "#ec4899", "#f59e0b", "#06b6d4", "#84cc16"];
+const ANNOTATION_COLOR = "#f97316";
 
 const TOUCH_TARGET_R = 22;
 
@@ -75,6 +85,9 @@ export function InteractiveChart({
   targetDirection,
   phaseLines: externalPhaseLines,
   onPhaseLinesChange,
+  annotations = [],
+  onAddAnnotation,
+  onRemoveAnnotation,
   sparklineWidth = 140,
   sparklineHeight = 48,
   valueFormatter = (v) => String(v),
@@ -91,6 +104,10 @@ export function InteractiveChart({
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [newPhaseDate, setNewPhaseDate] = useState("");
   const [newPhaseLabel, setNewPhaseLabel] = useState("");
+  const [showAddAnnotation, setShowAddAnnotation] = useState(false);
+  const [newAnnotationDate, setNewAnnotationDate] = useState("");
+  const [newAnnotationLabel, setNewAnnotationLabel] = useState("");
+  const [annotationSaving, setAnnotationSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
@@ -146,6 +163,30 @@ export function InteractiveChart({
     },
     [phaseLines, onPhaseLinesChange]
   );
+
+  const addAnnotation = useCallback(async () => {
+    if (!newAnnotationDate || !newAnnotationLabel.trim() || !onAddAnnotation) return;
+    setAnnotationSaving(true);
+    try {
+      await onAddAnnotation(newAnnotationDate, newAnnotationLabel.trim());
+      setNewAnnotationDate("");
+      setNewAnnotationLabel("");
+      setShowAddAnnotation(false);
+    } catch {
+      toast.error("Failed to save annotation");
+    } finally {
+      setAnnotationSaving(false);
+    }
+  }, [newAnnotationDate, newAnnotationLabel, onAddAnnotation]);
+
+  const removeAnnotation = useCallback(async (id: string | number) => {
+    if (!onRemoveAnnotation) return;
+    try {
+      await onRemoveAnnotation(id);
+    } catch {
+      toast.error("Failed to remove annotation");
+    }
+  }, [onRemoveAnnotation]);
 
   const handleExportPng = useCallback(async () => {
     if (!chartContainerRef.current || exporting) return;
@@ -303,9 +344,18 @@ export function InteractiveChart({
           >
             <Filter className="w-3.5 h-3.5" />
           </button>
+          {onAddAnnotation && (
+            <button
+              onClick={() => { setShowAddAnnotation(!showAddAnnotation); setShowAddPhase(false); }}
+              className={`p-1.5 rounded-md transition-colors ${showAddAnnotation ? "bg-orange-50 text-orange-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+              title="Add annotation"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onPhaseLinesChange && (
             <button
-              onClick={() => setShowAddPhase(!showAddPhase)}
+              onClick={() => { setShowAddPhase(!showAddPhase); setShowAddAnnotation(false); }}
               className={`p-2 rounded-md transition-colors ${showAddPhase ? "bg-emerald-50 text-emerald-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
               title="Add phase line"
               aria-label="Add phase line"
@@ -365,6 +415,33 @@ export function InteractiveChart({
         </div>
       )}
 
+      {showAddAnnotation && (
+        <div className="px-4 py-2 bg-orange-50/50 border-y border-orange-100 flex flex-wrap items-center gap-3">
+          <span className="text-xs font-medium text-orange-700">Add Annotation:</span>
+          <input
+            type="date"
+            value={newAnnotationDate}
+            onChange={(e) => setNewAnnotationDate(e.target.value)}
+            className="text-xs border border-orange-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-orange-300"
+          />
+          <input
+            type="text"
+            value={newAnnotationLabel}
+            onChange={(e) => setNewAnnotationLabel(e.target.value)}
+            placeholder="Note (e.g., Started new intervention)"
+            className="text-xs border border-orange-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-orange-300 w-56"
+            onKeyDown={(e) => e.key === "Enter" && addAnnotation()}
+          />
+          <button
+            onClick={addAnnotation}
+            disabled={!newAnnotationDate || !newAnnotationLabel.trim() || annotationSaving}
+            className="text-xs px-2.5 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {annotationSaving ? "Saving…" : "Add"}
+          </button>
+        </div>
+      )}
+
       {/* Add-phase panel — label input grows to fill available space */}
       {showAddPhase && (
         <div className="px-4 py-2 bg-emerald-50/50 border-y border-emerald-100 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
@@ -392,6 +469,27 @@ export function InteractiveChart({
               Add
             </button>
           </div>
+        </div>
+      )}
+
+      {annotations.length > 0 && (
+        <div className="px-4 py-1.5 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] text-gray-400 font-medium">Annotations:</span>
+          {annotations.map((ann) => (
+            <span
+              key={ann.id}
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border"
+              style={{ borderColor: ANNOTATION_COLOR, color: ANNOTATION_COLOR, backgroundColor: `${ANNOTATION_COLOR}10` }}
+            >
+              <MessageSquare className="w-2.5 h-2.5" />
+              {ann.label} ({formatShortDate(ann.annotationDate)})
+              {onRemoveAnnotation && (
+                <button onClick={() => removeAnnotation(ann.id)} className="hover:opacity-70 ml-0.5">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </span>
+          ))}
         </div>
       )}
 
@@ -477,6 +575,16 @@ export function InteractiveChart({
                   label={{ value: `Mastery: ${valueFormatter(masteryLine)}%`, position: "insideTopRight", fontSize: 10, fill: "#059669" }}
                 />
               )}
+
+              {annotations.map((ann) => (
+                <ReferenceLine
+                  key={ann.id}
+                  x={ann.annotationDate}
+                  stroke={ANNOTATION_COLOR}
+                  strokeWidth={1.5}
+                  label={{ value: ann.label, position: "insideTopLeft", fontSize: 9, fill: ANNOTATION_COLOR, angle: -90, offset: 10 }}
+                />
+              ))}
 
               {phaseLines.map((pl) => (
                 <ReferenceLine

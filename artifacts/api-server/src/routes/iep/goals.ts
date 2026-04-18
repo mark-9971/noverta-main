@@ -6,11 +6,16 @@ import {
   behaviorDataTable, dataSessionsTable, serviceRequirementsTable,
   serviceTypesTable, programStepsTable,
   studentsTable, schoolsTable,
+  goalAnnotationsTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, asc } from "drizzle-orm";
+import { eq, and, gte, lte, asc, sql } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
-import { assertStudentInCallerDistrict } from "../../lib/districtScope";
+import {
+  assertStudentInCallerDistrict,
+  assertIepGoalInCallerDistrict,
+  assertGoalAnnotationInCallerDistrict,
+} from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
 
 const router: IRouter = Router();
@@ -504,6 +509,119 @@ router.post("/students/:studentId/iep-goals/auto-create", async (req, res): Prom
   } catch (e: any) {
     console.error("Auto-create IEP goals error:", e);
     res.status(500).json({ error: "Failed to auto-create IEP goals" });
+  }
+});
+
+// ── Goal annotations ─────────────────────────────────────────────────────────
+
+/** GET /api/iep-goals/:goalId/annotations — list all annotations for a goal */
+router.get("/iep-goals/:goalId/annotations", async (req, res): Promise<void> => {
+  try {
+    const goalId = parseInt(req.params.goalId);
+    if (isNaN(goalId)) { res.status(400).json({ error: "Invalid goal ID" }); return; }
+    if (!(await assertIepGoalInCallerDistrict(req as AuthedRequest, goalId, res))) return;
+
+    const rows = await db.select().from(goalAnnotationsTable)
+      .where(eq(goalAnnotationsTable.goalId, goalId))
+      .orderBy(asc(goalAnnotationsTable.annotationDate));
+
+    res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (e: any) {
+    console.error("GET goal annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch annotations" });
+  }
+});
+
+/** GET /api/students/:studentId/goal-annotations — all annotations for all goals of a student */
+router.get("/students/:studentId/goal-annotations", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    if (isNaN(studentId)) { res.status(400).json({ error: "Invalid student ID" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+
+    const goalIds = await db.select({ id: iepGoalsTable.id })
+      .from(iepGoalsTable)
+      .where(eq(iepGoalsTable.studentId, studentId));
+
+    if (goalIds.length === 0) { res.json({}); return; }
+
+    const ids = goalIds.map(g => g.id);
+    const rows = await db.select().from(goalAnnotationsTable)
+      .where(sql`${goalAnnotationsTable.goalId} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(asc(goalAnnotationsTable.annotationDate));
+
+    const byGoal: Record<number, typeof rows> = {};
+    for (const row of rows) {
+      if (!byGoal[row.goalId]) byGoal[row.goalId] = [];
+      byGoal[row.goalId].push(row);
+    }
+    res.json(byGoal);
+  } catch (e: any) {
+    console.error("GET student goal annotations error:", e);
+    res.status(500).json({ error: "Failed to fetch goal annotations" });
+  }
+});
+
+/** POST /api/iep-goals/:goalId/annotations — add a new annotation */
+router.post("/iep-goals/:goalId/annotations", async (req, res): Promise<void> => {
+  try {
+    const goalId = parseInt(req.params.goalId);
+    if (isNaN(goalId)) { res.status(400).json({ error: "Invalid goal ID" }); return; }
+    if (!(await assertIepGoalInCallerDistrict(req as AuthedRequest, goalId, res))) return;
+
+    const { annotationDate, label } = req.body as { annotationDate?: string; label?: string };
+    if (!annotationDate || !label?.trim()) {
+      res.status(400).json({ error: "annotationDate and label are required" });
+      return;
+    }
+
+    const staffId = (req as AuthedRequest).user?.staffId ?? null;
+    const [created] = await db.insert(goalAnnotationsTable).values({
+      goalId,
+      annotationDate,
+      label: label.trim(),
+      createdBy: staffId ?? undefined,
+    }).returning();
+
+    logAudit(req, {
+      action: "create",
+      targetTable: "goal_annotations",
+      targetId: created.id,
+      summary: `Added annotation "${label}" on ${annotationDate} to goal #${goalId}`,
+      newValues: { goalId, annotationDate, label } as Record<string, unknown>,
+    });
+
+    res.status(201).json({ ...created, createdAt: created.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST goal annotation error:", e);
+    res.status(500).json({ error: "Failed to add annotation" });
+  }
+});
+
+/** DELETE /api/goal-annotations/:id — remove an annotation */
+router.delete("/goal-annotations/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid annotation ID" }); return; }
+    if (!(await assertGoalAnnotationInCallerDistrict(req as AuthedRequest, id, res))) return;
+
+    const [existing] = await db.select().from(goalAnnotationsTable).where(eq(goalAnnotationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Annotation not found" }); return; }
+
+    await db.delete(goalAnnotationsTable).where(eq(goalAnnotationsTable.id, id));
+
+    logAudit(req, {
+      action: "delete",
+      targetTable: "goal_annotations",
+      targetId: id,
+      summary: `Removed annotation "${existing.label}" from goal #${existing.goalId}`,
+      oldValues: { goalId: existing.goalId, annotationDate: existing.annotationDate, label: existing.label } as Record<string, unknown>,
+    });
+
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error("DELETE goal annotation error:", e);
+    res.status(500).json({ error: "Failed to delete annotation" });
   }
 });
 

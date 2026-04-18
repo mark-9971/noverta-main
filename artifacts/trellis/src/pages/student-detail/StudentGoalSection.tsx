@@ -24,6 +24,9 @@ interface StudentGoalSectionProps {
   setGoalAbaView: (updater: (prev: Record<string | number, boolean>) => Record<string | number, boolean>) => void;
   loadPhaseChanges: () => void;
   student: any;
+  annotationsByGoal: Record<number, any[]>;
+  onAddAnnotation: (goalId: number, annotationDate: string, label: string) => Promise<void>;
+  onRemoveAnnotation: (annotationId: number) => Promise<void>;
 }
 
 const RATING_COLORS: Record<string, { bg: string; text: string; label: string }> = {
@@ -45,6 +48,9 @@ export default function StudentGoalSection({
   setGoalAbaView,
   loadPhaseChanges,
   student,
+  annotationsByGoal,
+  onAddAnnotation,
+  onRemoveAnnotation,
 }: StudentGoalSectionProps) {
   const [expandedCharts, setExpandedCharts] = useState<Record<string | number, boolean>>({});
 
@@ -97,7 +103,6 @@ export default function StudentGoalSection({
         </div>
       </CardHeader>
 
-      {/* Scrollable content — same pattern as other tiles */}
       <CardContent className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
         {dataLoading ? (
           <div className="space-y-3">
@@ -125,6 +130,11 @@ export default function StudentGoalSection({
             const chartExpanded = !!expandedCharts[g.id];
             const abaActive = !!goalAbaView[chartKey];
             const hasChart = g.dataPoints.length > 1;
+            const goalAnnotations = (annotationsByGoal[g.id] || []).map((a: any) => ({
+              id: a.id,
+              annotationDate: a.annotationDate,
+              label: a.label,
+            }));
 
             return (
               <div key={g.id} className="border rounded-lg p-3.5 space-y-2.5">
@@ -178,7 +188,6 @@ export default function StudentGoalSection({
                       {chartExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
 
-                    {/* ABA toggle — only visible when chart is expanded */}
                     {chartExpanded && (
                       <button
                         onClick={() => toggleAba(g.id)}
@@ -256,6 +265,9 @@ export default function StudentGoalSection({
                             : String(Math.round(v * 10) / 10)
                         }
                         exportFilename={`${student?.firstName || "student"}-${student?.lastName || ""}-${g.goalArea}-goal-progress`}
+                        annotations={goalAnnotations}
+                        onAddAnnotation={(date, label) => onAddAnnotation(g.id, date, label)}
+                        onRemoveAnnotation={(id) => onRemoveAnnotation(id as number)}
                       />
                     )}
                   </div>

@@ -740,3 +740,22 @@ export async function assertStaffAbsenceInCallerDistrict(req: AuthedRequest, abs
   res.status(404).json({ error: "Absence not found" });
   return false;
 }
+
+/** goal_annotations.goal_id -> iep_goals.student_id -> student.school.district_id */
+export async function goalAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number): Promise<boolean> {
+  const did = getEnforcedDistrictId(req);
+  if (did == null) return true;
+  const r = await db.execute(
+    sql`SELECT 1 FROM goal_annotations ga
+        JOIN iep_goals g ON g.id = ga.goal_id
+        JOIN students s ON s.id = g.student_id
+        JOIN schools sch ON sch.id = s.school_id
+        WHERE ga.id = ${annotationId} AND sch.district_id = ${did} LIMIT 1`,
+  );
+  return r.rows.length > 0;
+}
+export async function assertGoalAnnotationInCallerDistrict(req: AuthedRequest, annotationId: number, res: Response): Promise<boolean> {
+  if (await goalAnnotationInCallerDistrict(req, annotationId)) return true;
+  res.status(404).json({ error: "Goal annotation not found" });
+  return false;
+}
