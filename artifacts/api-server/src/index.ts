@@ -7,6 +7,7 @@ import { startReminderScheduler, ensureCaseloadSnapshotsTable } from "./lib/remi
 import { startErrorLogCleanup } from "./lib/errorLogCleanup";
 import { startCostAvoidanceSnapshotScheduler } from "./lib/costAvoidanceSnapshots";
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
+import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
 import { db, districtSubscriptionsTable, districtsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { ensureDbConstraints } from "./lib/activeSchoolYear";
@@ -147,7 +148,9 @@ app.listen(port, (err) => {
   initStripe();
   backfillDistrictSubscriptions();
   ensureDbConstraints().catch((err: unknown) => logger.warn({ err }, "ensureDbConstraints failed (non-fatal)"));
-  ensureMedicaidReportSnapshotsTable().catch((err: unknown) => logger.warn({ err }, "ensureMedicaidReportSnapshotsTable failed (non-fatal)"));
+  ensureMedicaidReportSnapshotsTable()
+    .catch((err: unknown) => logger.warn({ err }, "ensureMedicaidReportSnapshotsTable failed (non-fatal)"))
+    .finally(() => startMedicaidReportSnapshotScheduler());
   ensureCaseloadSnapshotsTable()
     .catch((err: unknown) => logger.warn({ err }, "ensureCaseloadSnapshotsTable failed (non-fatal)"))
     .finally(() => startReminderScheduler());
