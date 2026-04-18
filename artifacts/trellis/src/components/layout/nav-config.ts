@@ -105,16 +105,13 @@ export const adminNav: NavSection[] = [
           { href: "/progress-reports", label: "Progress Reports", icon: FileText },
         ],
       },
-    ],
-  },
-  {
-    label: "Accommodations & Transitions",
-    icon: BookOpen,
-    collapsible: true,
-    defaultOpen: false,
-    items: [
-      { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
-      { href: "/transitions", label: "Transition Planning", icon: Sprout },
+      {
+        href: "/transitions", label: "Transition Planning", icon: Sprout,
+        children: [
+          { href: "/transitions", label: "Transition Planning", icon: Sprout },
+          { href: "/accommodation-lookup", label: "Accommodation Lookup", icon: FileText },
+        ],
+      },
       {
         href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
         children: [
