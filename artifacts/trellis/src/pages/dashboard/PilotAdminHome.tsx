@@ -24,6 +24,7 @@ import {
   MeetingsSection, ContractRenewalsCard, DeadlinesSection,
   IepExpirationCard,
 } from "./SecondarySections";
+import ProviderCompletionCard from "./ProviderCompletionCard";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
 
@@ -501,6 +502,9 @@ export default function PilotAdminHome() {
         defaultOpen={false}
         onFirstOpen={() => setOpsEnabled(true)}
       >
+        {/* Provider session completion rate leaderboard */}
+        <ProviderCompletionCard />
+
         {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
         <IepExpirationCard enabled={opsEnabled} />
         <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />

@@ -7,6 +7,7 @@ import complianceTrendsRouter from "./complianceTrends";
 import schoolComplianceRouter from "./schoolCompliance";
 import iepExpirationsRouter from "./iepExpirations";
 import makeupObligationsRouter from "./makeupObligations";
+import providerCompletionRatesRouter from "./providerCompletionRates";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(complianceTrendsRouter);
 router.use(schoolComplianceRouter);
 router.use(iepExpirationsRouter);
 router.use(makeupObligationsRouter);
+router.use(providerCompletionRatesRouter);
 
 export default router;
