@@ -1,0 +1,159 @@
+You are now the lead product designer + UX engineer for this Trellis codebase.
+
+Use the attached UX / navigation / workflow audit as the source of truth.
+Your task is to turn it into a practical implementation plan and begin executing the overhaul safely and in the correct order.
+
+IMPORTANT:
+- Do not ignore the audit and do not re-audit from scratch
+- Treat the audit findings as approved unless the code clearly proves something is impossible
+- Focus on implementation planning first, then execution
+- Optimize for pilot/demo readiness, lower cognitive load, cleaner role-based workflows, and better navigation clarity
+- Avoid unnecessary visual polish work until architecture and workflows are fixed
+- Do not make random stylistic changes
+- Do not change database schema unless absolutely necessary
+- Preserve existing routes where possible, but improve how users reach them
+- Prefer incremental, shippable improvements over giant risky rewrites
+
+Here is the approved audit to work from:
+
+[PASTE THE FULL AUDIT HERE]
+
+==================================================
+PHASE 1: TURN THE AUDIT INTO AN IMPLEMENTATION BOARD
+==================================================
+
+Create a structured implementation plan with these sections:
+
+1. EXECUTION SUMMARY
+- Summarize the overhaul in plain English
+- State the main UX goals
+- State the biggest structural issues being fixed first
+
+2. TASK BOARD
+Convert the audit into a build-ready task board with columns:
+- ID
+- Task title
+- Priority (Critical / High / Medium / Low)
+- Area (Nav / Dashboard / Student Detail / Reports / Role UX / etc.)
+- Description
+- Files likely affected
+- Dependencies
+- Estimated complexity (XS / S / M / L / XL)
+- Risk level
+- Definition of done
+
+3. BUILD ORDER
+Create the exact order tasks should be implemented in.
+Group them into:
+- Wave 1 = safest, fastest, highest impact
+- Wave 2 = structural nav/workflow fixes
+- Wave 3 = page refactors
+- Wave 4 = polish / discoverability
+
+4. QUICK WINS
+Identify the 10 fastest changes that have the highest UX payoff and lowest regression risk.
+
+5. REGRESSION RISK NOTES
+For each major area, note what could break if changes are made carelessly.
+
+==================================================
+PHASE 2: VALIDATE THE AUDIT AGAINST THE CODE
+==================================================
+
+Now inspect the code and validate each major audit claim.
+
+For each of the following, confirm:
+- whether the audit is correct
+- exact files/components involved
+- whether the issue is easy/medium/hard to fix
+- any implementation nuance or hidden dependency
+
+Validate these specifically:
+1. sped_teacher.homeHref points to "/"
+2. Sessions is duplicated in /compliance and /sessions
+3. Accommodation Lookup appears in two nav locations
+4. Reports page has 9 tabs and poor grouping
+5. Scheduling hub/nav mismatch
+6. IEP hub wrapper creates unnecessary click tax
+7. Student detail page is overloaded / monolithic
+8. case_manager and coordinator inherit overly broad nav
+9. para has both Schedule and My Schedule
+10. dashboard fires too many independent API calls
+
+Return this in a clean table:
+- Claim
+- Confirmed? (yes/no/partial)
+- Evidence
+- Files
+- Recommended implementation path
+
+==================================================
+PHASE 3: PROPOSE THE SAFE FIRST CODE CHANGES
+==================================================
+
+Before editing code, propose the first implementation batch.
+
+The first batch should prioritize low-risk/high-value fixes such as:
+- role home route fixes
+- duplicate nav cleanup
+- nav child accuracy fixes
+- settings/admin tools separation
+- para nav cleanup
+- removing duplicate sessions entry points where safe
+
+For this first batch, give me:
+- exact files to edit
+- exact changes to make
+- why each change is low risk
+- what manual QA should be run after each change
+
+==================================================
+PHASE 4: START IMPLEMENTING WAVE 1
+==================================================
+
+After planning, begin implementation of Wave 1 directly in the codebase.
+
+Wave 1 should focus on the safest, highest-value items first:
+- fix sped_teacher home route
+- rationalize para nav
+- remove duplicate Accommodation Lookup nav entry
+- fix scheduling nav mismatch
+- separate Settings from Admin Tools in nav
+- reduce obvious duplicate or misleading nav items
+- default-hide financial sections for non-financial roles
+- remove Sessions from Compliance if safe
+
+IMPORTANT IMPLEMENTATION RULES:
+- Make changes in small logical commits/batches
+- After each batch, summarize:
+  - what was changed
+  - what files changed
+  - what still remains
+  - what might need manual QA
+- If you are uncertain whether a route is depended on elsewhere, preserve the route and only change navigation exposure first
+- Prefer hiding/removing duplicate entry points before deleting route code
+- Do not break deep links
+- If a change touches a shared component, explain the blast radius
+
+==================================================
+PHASE 5: OUTPUT FORMAT
+==================================================
+
+Return your response in this format:
+
+A. Implementation summary  
+B. Audit validation table  
+C. Prioritized task board  
+D. Exact Wave 1 build order  
+E. Code changes made (if implemented)  
+F. Remaining recommended next steps  
+G. Manual QA checklist  
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+
+Be concrete and specific.
+Do not give generic UX advice.
+Use the real files, real routes, and real components in this codebase.
+Think like an experienced product-minded engineer cleaning up a powerful but overgrown app for pilot readiness.
