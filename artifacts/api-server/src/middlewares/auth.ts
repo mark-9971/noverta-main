@@ -223,6 +223,24 @@ export function requireDistrictScope(req: Request, res: Response, next: NextFunc
   requireAuth(req, res, () => {
     void (async () => {
       const authed = req as AuthedRequest;
+
+      // Test-mode platform-admin bypass.
+      //
+      // In production, platform admins are identified by `meta.platformAdmin === true`
+      // in their Clerk session token. In test mode there is no Clerk session, so that
+      // claim is never present. Without this bypass, any test user with districtId == null
+      // would be blocked by requireDistrictScope even though `staffInCallerDistrict` (and
+      // sibling helpers in lib/districtScope.ts) correctly allow null-district callers.
+      //
+      // Usage: set the request header `x-test-platform-admin: true` in addition to the
+      // usual `x-test-user-id` / `x-test-role` headers. This is the ONLY legitimate use
+      // of this header — do NOT use it to work around role restrictions on other routes.
+      // The requireAuth block above already rejects all x-test-* headers in production.
+      if (process.env.NODE_ENV === "test" && req.headers["x-test-platform-admin"] === "true") {
+        next();
+        return;
+      }
+
       const meta = getPublicMeta(req);
       if (meta.platformAdmin) { next(); return; }
 
