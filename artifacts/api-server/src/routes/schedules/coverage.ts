@@ -13,6 +13,7 @@ import { eq, and } from "drizzle-orm";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { requireAdmin } from "./shared";
+import { sendAdminEmail } from "../../lib/email";
 import {
   assertScheduleBlockInCallerDistrict,
   assertStaffInCallerDistrict,
@@ -106,7 +107,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
   if (!(await assertScheduleBlockInCallerDistrict(authed, params.data.id, res))) return;
   if (!(await assertStaffInCallerDistrict(authed, parsed.data.substituteStaffId, res))) return;
 
-  const [sub] = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName })
+  const [sub] = await db.select({ id: staffTable.id, firstName: staffTable.firstName, lastName: staffTable.lastName, email: staffTable.email })
     .from(staffTable).where(eq(staffTable.id, parsed.data.substituteStaffId));
   if (!sub) { res.status(404).json({ error: "Substitute staff not found" }); return; }
 
@@ -129,6 +130,7 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     endTime: scheduleBlocksTable.endTime,
     dayOfWeek: scheduleBlocksTable.dayOfWeek,
     location: scheduleBlocksTable.location,
+    notes: scheduleBlocksTable.notes,
   }).from(scheduleBlocksTable).where(eq(scheduleBlocksTable.id, params.data.id));
 
   let studentName = "";
@@ -146,6 +148,35 @@ router.post("/schedule-blocks/:id/assign-substitute", requireAdmin, async (req, 
     message: `You have been assigned to cover a session${studentName ? ` for ${studentName}` : ""} on ${instance.absenceDate}${block ? ` (${block.startTime}–${block.endTime})` : ""}${block?.location ? ` at ${block.location}` : ""}.`,
     suggestedAction: "Review session details and prepare for coverage",
   }).onConflictDoNothing();
+
+  if (sub.email) {
+    const subName = `${sub.firstName} ${sub.lastName}`;
+    const dateLabel = instance.absenceDate;
+    const timeLabel = block ? `${block.startTime}–${block.endTime}` : "";
+    const locationLabel = block?.location ?? "";
+    const notesLabel = block?.notes ?? "";
+    const subject = `Coverage Assignment — ${dateLabel}${timeLabel ? ` ${timeLabel}` : ""}`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:600px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#065f46;color:#fff;padding:20px 24px}.body{padding:24px}.detail-row{margin:6px 0;font-size:14px}.label{font-weight:bold;color:#374151;display:inline-block;width:110px}.notes-box{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;margin-top:16px;font-size:13px}.footer{background:#f3f4f6;padding:12px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style>
+</head><body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Coverage Assignment</h1><p style="margin:4px 0 0;font-size:11px;opacity:.8">Trellis SPED Platform</p></div>
+<div class="body">
+<p>Hi ${subName},</p>
+<p>You have been assigned to cover a session. Please review the details below and prepare accordingly.</p>
+<div class="detail-row"><span class="label">Date:</span> ${dateLabel}</div>
+${timeLabel ? `<div class="detail-row"><span class="label">Time:</span> ${timeLabel}</div>` : ""}
+${locationLabel ? `<div class="detail-row"><span class="label">Location:</span> ${locationLabel}</div>` : ""}
+${studentName ? `<div class="detail-row"><span class="label">Student:</span> ${studentName}</div>` : ""}
+${notesLabel ? `<div class="notes-box"><strong>Special Notes:</strong><br>${notesLabel.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>` : ""}
+<p style="margin-top:20px;color:#6b7280;font-size:13px">Please log in to Trellis to view full session details.</p>
+</div>
+<div class="footer"><p>Trellis SPED Compliance Platform — Confidential. This message was sent because you were assigned as a substitute provider.</p></div>
+</div></body></html>`;
+    const text = `Hi ${subName},\n\nYou have been assigned to cover a session.\n\nDate: ${dateLabel}${timeLabel ? `\nTime: ${timeLabel}` : ""}${locationLabel ? `\nLocation: ${locationLabel}` : ""}${studentName ? `\nStudent: ${studentName}` : ""}${notesLabel ? `\nSpecial Notes: ${notesLabel}` : ""}\n\nPlease log in to Trellis to view full session details.\n\nTrellis SPED Compliance Platform`;
+    sendAdminEmail({ to: [sub.email], subject, html, text, notificationType: "coverage_assignment" }).catch((err: unknown) => {
+      console.error("[coverage_assignment] Email send error:", err instanceof Error ? err.message : String(err));
+    });
+  }
 
   res.json({
     instanceId: instance.id,
