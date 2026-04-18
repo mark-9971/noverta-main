@@ -4,6 +4,7 @@ import crudRouter from "./crud";
 import templatesRouter from "./templates";
 import dataCollectionRouter from "./dataCollection";
 import analyticsRouter from "./analytics";
+import caseloadAnalyticsRouter from "./caseloadAnalytics";
 
 const router: IRouter = Router();
 router.use(
@@ -21,6 +22,7 @@ router.use(
     "/program-steps",
     "/phase-changes",
     "/data-sessions",
+    "/aba/caseload-analytics",
   ],
   requireTierAccess("clinical.program_data"),
 );
@@ -29,5 +31,6 @@ router.use(crudRouter);
 router.use(templatesRouter);
 router.use(dataCollectionRouter);
 router.use(analyticsRouter);
+router.use(caseloadAnalyticsRouter);
 
 export default router;

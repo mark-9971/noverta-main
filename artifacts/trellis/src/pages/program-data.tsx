@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, GraduationCap, Calendar, Layers, Play } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 import ProgramBuilderWizard from "@/components/program-builder/ProgramBuilderWizard";
 import TemplateManager from "@/components/program-builder/TemplateManager";
 import SaveAsTemplateModal from "@/components/program-builder/SaveAsTemplateModal";
@@ -29,6 +30,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
   const [dataSessions, setDataSessions] = useState<DataSession[]>([]);
   const [behaviorTrends, setBehaviorTrends] = useState<TrendPoint[]>([]);
   const [programTrends, setProgramTrends] = useState<TrendPoint[]>([]);
+  const [phaseChanges, setPhaseChanges] = useState<any[]>([]);
   const [templates, setTemplates] = useState<ProgramTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"behaviors" | "programs" | "sessions" | "templates" | "collect">("behaviors");
@@ -55,18 +57,20 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
   }, []);
 
   const loadStudentData = useCallback(async (sid: number) => {
-    const [bt, pt, ds, btrend, ptrend] = await Promise.all([
+    const [bt, pt, ds, btrend, ptrend, pcRaw] = await Promise.all([
       listBehaviorTargets(sid),
       listProgramTargets(sid),
       listDataSessions(sid, { limit: 30 }),
       getBehaviorDataTrends(sid),
       getProgramDataTrends(sid),
+      authFetch(`/api/students/${sid}/phase-changes`).then(r => r.json()).catch(() => []),
     ]);
     setBehaviorTargets(bt as any);
     setProgramTargets(pt as any);
     setDataSessions(ds as any);
     setBehaviorTrends(btrend as any);
     setProgramTrends(ptrend as any);
+    setPhaseChanges(Array.isArray(pcRaw) ? pcRaw : []);
   }, []);
 
   useEffect(() => {
@@ -148,6 +152,7 @@ export default function ProgramDataPage({ embedded = false, externalStudentId }:
               student={student}
               behaviorTargets={behaviorTargets}
               behaviorTrends={behaviorTrends}
+              phaseChanges={phaseChanges}
               onAdd={() => setShowAddBehavior(true)}
             />
           )}
