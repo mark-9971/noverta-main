@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, pgEnum, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, pgEnum, boolean, integer, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -17,6 +17,7 @@ export const districtsTable = pgTable("districts", {
   hasSampleData: boolean("has_sample_data").notNull().default(false),
   complianceMinuteThreshold: integer("compliance_minute_threshold").notNull().default(85),
   alertDigestMode: boolean("alert_digest_mode").notNull().default(false),
+  defaultHourlyRate: numeric("default_hourly_rate", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

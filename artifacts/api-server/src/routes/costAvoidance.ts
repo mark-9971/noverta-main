@@ -13,6 +13,7 @@ import {
   staffTable,
   alertsTable,
   costAvoidanceSnapshotsTable,
+  districtsTable,
 } from "@workspace/db/schema";
 import { eq, and, sql, gte, lte, isNull, or, inArray, ne, desc } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/auth";
@@ -44,10 +45,11 @@ interface RiskItem {
   // a dollar number — exposureBasis carries the non-dollar signal instead.
   estimatedExposure: number | null;
   // Source of the hourly rate used in the exposure estimate:
-  //   'district' = district-specific config in service_rate_configs
-  //   'catalog'  = global defaultBillingRate on service_types
-  //   'system'   = hardcoded $75/hr fallback
-  rateSource?: 'district' | 'catalog' | 'system';
+  //   'district'         = district-specific config in service_rate_configs
+  //   'catalog'          = global defaultBillingRate on service_types
+  //   'district_default' = district-wide default rate set by admin
+  //   'system'           = hardcoded $75/hr fallback
+  rateSource?: 'district' | 'catalog' | 'district_default' | 'system';
   exposureBasis: string;
   actionNeeded: string;
   serviceTypeName?: string;
@@ -209,6 +211,7 @@ function emptySummary() {
     totalExposure: 0,
     unpricedRiskCount: 0,
     defaultRateCount: 0,
+    districtDefaultRateCount: 0,
     totalRisks: 0,
     byUrgency: {
       critical: { count: 0, exposure: 0, unpricedCount: 0 },
@@ -230,6 +233,7 @@ function buildSummary(risks: RiskItem[]) {
   let totalExposure = 0;
   let unpricedRiskCount = 0;
   let defaultRateCount = 0;
+  let districtDefaultRateCount = 0;
   const byUrgency: Record<UrgencyLevel, { count: number; exposure: number; unpricedCount: number }> = {
     critical: { count: 0, exposure: 0, unpricedCount: 0 },
     high: { count: 0, exposure: 0, unpricedCount: 0 },
@@ -251,6 +255,7 @@ function buildSummary(risks: RiskItem[]) {
       byUrgency[r.urgency].exposure += r.estimatedExposure;
       byCategory[r.category].exposure += r.estimatedExposure;
       if (r.rateSource === 'system') defaultRateCount++;
+      if (r.rateSource === 'district_default') districtDefaultRateCount++;
     } else {
       unpricedRiskCount++;
       byUrgency[r.urgency].unpricedCount++;
@@ -260,14 +265,19 @@ function buildSummary(risks: RiskItem[]) {
   }
 
   let rateConfigNote: string | null = null;
-  if (defaultRateCount > 0) {
-    rateConfigNote = `${defaultRateCount} service shortfall risk${defaultRateCount !== 1 ? "s are" : " is"} estimated using the system default rate of $${SYSTEM_DEFAULT_HOURLY_RATE}/hr. Configure district-specific rates in Settings → Billing Rates for more accurate estimates.`;
+  if (defaultRateCount > 0 && districtDefaultRateCount > 0) {
+    rateConfigNote = `${districtDefaultRateCount} risk${districtDefaultRateCount !== 1 ? "s are" : " is"} estimated using your district default rate. ${defaultRateCount} risk${defaultRateCount !== 1 ? "s are" : " is"} estimated using the system default rate of $${SYSTEM_DEFAULT_HOURLY_RATE}/hr — configure per-service rates in Settings → Billing Rates for more accuracy.`;
+  } else if (defaultRateCount > 0) {
+    rateConfigNote = `${defaultRateCount} service shortfall risk${defaultRateCount !== 1 ? "s are" : " is"} estimated using the system default rate of $${SYSTEM_DEFAULT_HOURLY_RATE}/hr. Set a district default rate or per-service rates in Settings → Billing Rates for more accurate estimates.`;
+  } else if (districtDefaultRateCount > 0) {
+    rateConfigNote = `${districtDefaultRateCount} service shortfall risk${districtDefaultRateCount !== 1 ? "s are" : " is"} estimated using your district default rate. Configure per-service rates in Settings → Billing Rates for greater accuracy.`;
   }
 
   return {
     totalExposure: Math.round(totalExposure),
     unpricedRiskCount,
     defaultRateCount,
+    districtDefaultRateCount,
     totalRisks: risks.length,
     byUrgency,
     byCategory,
@@ -303,12 +313,13 @@ const SYSTEM_DEFAULT_HOURLY_RATE = 75;
  *   1. District-specific in_house_rate from service_rate_configs (most recent effective date)
  *   2. District-specific contracted_rate from service_rate_configs
  *   3. Global defaultBillingRate on service_types (shared catalog baseline)
- *   4. System default $75/hr
+ *   4. District-wide default hourly rate (set by district admin in Settings → Billing Rates)
+ *   5. System default $75/hr
  */
 async function buildServiceTypeMap(
   districtId: number,
-): Promise<Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'system' }>> {
-  const [types, districtRateRows] = await Promise.all([
+): Promise<Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>> {
+  const [types, districtRateRows, districtRow] = await Promise.all([
     db.select({
       id: serviceTypesTable.id,
       name: serviceTypesTable.name,
@@ -324,7 +335,16 @@ async function buildServiceTypeMap(
     }).from(serviceRateConfigsTable)
       .where(eq(serviceRateConfigsTable.districtId, districtId))
       .orderBy(desc(serviceRateConfigsTable.effectiveDate)),
+
+    db.select({ defaultHourlyRate: districtsTable.defaultHourlyRate })
+      .from(districtsTable)
+      .where(eq(districtsTable.id, districtId))
+      .limit(1),
   ]);
+
+  const districtDefaultRate = districtRow[0]?.defaultHourlyRate
+    ? parseFloat(districtRow[0].defaultHourlyRate)
+    : NaN;
 
   // Build a map of district rates keyed by serviceTypeId (most recent row wins due to ORDER BY).
   const districtRateMap = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
@@ -334,7 +354,7 @@ async function buildServiceTypeMap(
     }
   }
 
-  const map = new Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'system' }>();
+  const map = new Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>();
   for (const t of types) {
     const districtRate = districtRateMap.get(t.id);
 
@@ -344,7 +364,7 @@ async function buildServiceTypeMap(
     const global = t.defaultBillingRate ? parseFloat(t.defaultBillingRate) : NaN;
 
     let hourlyRate: number;
-    let rateSource: 'district' | 'catalog' | 'system';
+    let rateSource: 'district' | 'catalog' | 'district_default' | 'system';
 
     if (Number.isFinite(inHouse) && inHouse > 0) {
       hourlyRate = inHouse;
@@ -355,6 +375,9 @@ async function buildServiceTypeMap(
     } else if (Number.isFinite(global) && global > 0) {
       hourlyRate = global;
       rateSource = 'catalog';
+    } else if (Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
+      hourlyRate = districtDefaultRate;
+      rateSource = 'district_default';
     } else {
       hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE;
       rateSource = 'system';
@@ -478,7 +501,7 @@ async function getEvaluationDeadlineRisks(
 async function getServiceShortfallRisks(
   studentIds: number[],
   studentMap: Map<number, { name: string; caseManagerId: number | null }>,
-  serviceTypeMap: Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'system' }>,
+  serviceTypeMap: Map<number, { name: string; hourlyRate: number; isDefaultRate: boolean; rateSource: 'district' | 'catalog' | 'district_default' | 'system' }>,
   today: string,
 ): Promise<RiskItem[]> {
   const risks: RiskItem[] = [];
@@ -579,9 +602,11 @@ async function getServiceShortfallRisks(
           estimatedExposure,
           rateSource,
           exposureBasis: rateSource === 'system'
-            ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default — configure your rate in Settings → Billing Rates)`
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default — set a district default or per-service rate in Settings → Billing Rates)`
             : rateSource === 'catalog'
             ? `${shortfall} min shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : rateSource === 'district_default'
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr (district default rate)`
             : `${shortfall} min shortfall × $${hourlyRate}/hr (district-configured rate)`,
           actionNeeded: `Schedule ${shortfall} minutes of ${svcName} immediately`,
           serviceTypeName: svcName,
@@ -615,9 +640,11 @@ async function getServiceShortfallRisks(
           estimatedExposure,
           rateSource,
           exposureBasis: rateSource === 'system'
-            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default — configure your rate in Settings → Billing Rates)`
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default — set a district default or per-service rate in Settings → Billing Rates)`
             : rateSource === 'catalog'
             ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : rateSource === 'district_default'
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district default rate)`
             : `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district-configured rate)`,
           actionNeeded: `Schedule additional ${svcName} sessions to close ${projectedShortfall} minute gap`,
           serviceTypeName: svcName,

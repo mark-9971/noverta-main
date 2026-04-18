@@ -138,12 +138,14 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
   }
 
   if (req.body.alertDigestMode !== undefined) {
-    if (typeof req.body.alertDigestMode !== "boolean") {
-      res.status(400).json({ error: "alertDigestMode must be a boolean" });
+    const VALID_MODES = ["immediate", "daily", "weekly", "disabled"] as const;
+    if (!VALID_MODES.includes(req.body.alertDigestMode)) {
+      res.status(400).json({ error: `alertDigestMode must be one of: ${VALID_MODES.join(", ")}` });
       return;
     }
     updateData.alertDigestMode = req.body.alertDigestMode;
   }
+
 
   if (req.body.tier !== undefined || req.body.tierOverride !== undefined) {
     if (!meta.platformAdmin) {
@@ -185,6 +187,45 @@ router.delete("/districts/:id", requirePlatformAdmin, async (req, res): Promise<
   const [deleted] = await db.delete(districtsTable).where(eq(districtsTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "District not found" }); return; }
   res.json({ success: true });
+});
+
+router.get("/district-default-rate", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+  const [district] = await db.select({ defaultHourlyRate: districtsTable.defaultHourlyRate })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId));
+  if (!district) { res.status(404).json({ error: "District not found" }); return; }
+  res.json({ defaultHourlyRate: district.defaultHourlyRate ?? null });
+});
+
+router.patch("/district-default-rate", requireRoles("admin", "coordinator"), async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as AuthedRequest);
+  if (!districtId) {
+    res.status(403).json({ error: "District context required" });
+    return;
+  }
+  const { defaultHourlyRate } = req.body;
+  if (defaultHourlyRate === null || defaultHourlyRate === undefined) {
+    await db.update(districtsTable)
+      .set({ defaultHourlyRate: null })
+      .where(eq(districtsTable.id, districtId));
+    res.json({ defaultHourlyRate: null });
+    return;
+  }
+  const r = Number(defaultHourlyRate);
+  if (!Number.isFinite(r) || r <= 0) {
+    res.status(400).json({ error: "defaultHourlyRate must be a positive number" });
+    return;
+  }
+  const [updated] = await db.update(districtsTable)
+    .set({ defaultHourlyRate: String(r) })
+    .where(eq(districtsTable.id, districtId))
+    .returning({ defaultHourlyRate: districtsTable.defaultHourlyRate });
+  res.json({ defaultHourlyRate: updated?.defaultHourlyRate ?? null });
 });
 
 router.get("/district-tier", async (req, res): Promise<void> => {

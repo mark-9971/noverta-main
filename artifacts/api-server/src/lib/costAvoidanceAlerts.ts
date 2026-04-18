@@ -531,8 +531,8 @@ async function collectServiceShortfallRisks(
 
   if (requirements.length === 0) return;
 
-  // Load global service type catalog and district-specific rate overrides in parallel.
-  const [serviceTypes, districtRateRows] = await Promise.all([
+  // Load global service type catalog, district-specific rate overrides, and district default rate.
+  const [serviceTypes, districtRateRows, districtRow] = await Promise.all([
     db.select({
       id: serviceTypesTable.id,
       name: serviceTypesTable.name,
@@ -546,7 +546,16 @@ async function collectServiceShortfallRisks(
     }).from(serviceRateConfigsTable)
       .where(eq(serviceRateConfigsTable.districtId, districtId))
       .orderBy(desc(serviceRateConfigsTable.effectiveDate)),
+
+    db.select({ defaultHourlyRate: districtsTable.defaultHourlyRate })
+      .from(districtsTable)
+      .where(eq(districtsTable.id, districtId))
+      .limit(1),
   ]);
+
+  const districtDefaultRate = districtRow[0]?.defaultHourlyRate
+    ? parseFloat(districtRow[0].defaultHourlyRate)
+    : NaN;
 
   // Most-recent district rate per service type.
   const districtRateMap = new Map<number, { inHouseRate: string | null; contractedRate: string | null }>();
@@ -565,13 +574,15 @@ async function collectServiceShortfallRisks(
     let hourlyRate: number;
     let isDefaultRate: boolean;
 
-    let rateSource: 'district' | 'catalog' | 'system';
+    let rateSource: 'district' | 'catalog' | 'district_default' | 'system';
     if (Number.isFinite(inHouse) && inHouse > 0) {
       hourlyRate = inHouse; rateSource = 'district';
     } else if (Number.isFinite(contracted) && contracted > 0) {
       hourlyRate = contracted; rateSource = 'district';
     } else if (Number.isFinite(global) && global > 0) {
       hourlyRate = global; rateSource = 'catalog';
+    } else if (Number.isFinite(districtDefaultRate) && districtDefaultRate > 0) {
+      hourlyRate = districtDefaultRate; rateSource = 'district_default';
     } else {
       hourlyRate = SYSTEM_DEFAULT_HOURLY_RATE; rateSource = 'system';
     }
@@ -649,6 +660,8 @@ async function collectServiceShortfallRisks(
             ? `${shortfall} min shortfall × $${hourlyRate}/hr (system default rate)`
             : rateSource === 'catalog'
             ? `${shortfall} min shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : rateSource === 'district_default'
+            ? `${shortfall} min shortfall × $${hourlyRate}/hr (district default rate)`
             : `${shortfall} min shortfall × $${hourlyRate}/hr (district-configured rate)`,
         });
       }
@@ -683,6 +696,8 @@ async function collectServiceShortfallRisks(
             ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (system default rate)`
             : rateSource === 'catalog'
             ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (catalog default rate)`
+            : rateSource === 'district_default'
+            ? `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district default rate)`
             : `${projectedShortfall} min projected shortfall × $${hourlyRate}/hr (district-configured rate)`,
         });
       }
