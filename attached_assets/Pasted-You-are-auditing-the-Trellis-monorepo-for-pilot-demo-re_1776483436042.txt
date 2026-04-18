@@ -1,0 +1,369 @@
+You are auditing the Trellis monorepo for **pilot/demo readiness**.
+
+I do **not** want a generic code review. I want a **comprehensive product + technical readiness audit** at both:
+
+* **high level**: founder / buyer / pilot-operations / demo-story level
+* **micro level**: routes, screens, data dependencies, empty states, auth, errors, regressions, broken links, edge cases, polish, and trust issues
+
+Your job is to act like a combined:
+
+* product strategist
+* QA lead
+* staff engineer
+* implementation reviewer
+* district-buyer skeptic
+
+The goal is to tell me whether Trellis is truly ready for:
+
+1. a live **demo to prospects**
+2. a controlled **pilot with a friendly district**
+3. what must be fixed before either of those
+
+Do not be polite. Be accurate, specific, and hard to impress.
+
+---
+
+# Core framing
+
+Trellis should be evaluated primarily as:
+
+**A SPED service-delivery, compliance-risk, and compensatory-exposure platform for school districts**
+—not as a full SIS replacement, and not as a giant everything-platform.
+
+The wedge is:
+
+* required vs delivered service minutes
+* missed sessions / uncovered services
+* compliance risk
+* compensatory exposure
+* provider / schedule / logging accountability
+* onboarding from import to usable compliance dashboard
+* meeting-ready reports for district leaders
+
+You should audit the app against that wedge first.
+
+---
+
+# What I want you to do
+
+## Phase 1 — Understand the current product
+
+Inspect the codebase, routes, nav, pages, API structure, shared components, auth/role model, seed/demo/sample data, and key workflows.
+
+Build a mental model of:
+
+* what the app actually is today
+* what it appears to be selling
+* which modules are core vs distracting
+* which features appear polished vs half-finished
+* which modules are demo-grade vs pilot-grade vs unfinished
+
+Do not assume documentation is correct if code disagrees.
+
+---
+
+## Phase 2 — Audit for demo readiness
+
+Assess whether the product is ready for a **prospect-facing demo**.
+
+Evaluate:
+
+* first impression after login
+* nav clarity
+* whether the product story is obvious within 2–3 minutes
+* whether the wedge is clear or buried
+* whether demo data creates a believable “aha”
+* whether empty states are helpful
+* whether there are visually confusing, unfinished, broken, or low-trust areas
+* whether the demo would accidentally expose too much product sprawl
+* whether screen order supports a clean walkthrough
+* whether some modules should be hidden from the primary demo
+
+For the demo audit, think like:
+
+* a district SPED director
+* a special education coordinator
+* a BCBA lead
+* a skeptical buyer comparing against status quo + spreadsheets + incumbent systems
+
+Call out:
+
+* best demo screens
+* worst demo screens
+* what order I should show screens in
+* what to avoid showing
+* what makes the product feel premium vs sloppy
+* what makes the story feel valuable vs vague
+
+---
+
+## Phase 3 — Audit for pilot readiness
+
+Assess whether the app is ready for a **real friendly pilot** with limited real-world use.
+
+Audit:
+
+* onboarding/setup
+* import workflow
+* data health/readiness checks
+* role gating / auth
+* district scoping / tenant isolation
+* logging sessions
+* compliance calculations
+* alerts
+* reporting
+* operational workflows
+* error states
+* auditability / trust / honesty patterns
+* stability risks
+* places where user confusion would derail pilot adoption
+* places where missing data would make the app look broken or misleading
+
+Specifically ask:
+
+* Can a new district get from blank data to “aha” without developer help?
+* Are the key workflows robust enough for real use?
+* Do compliance numbers seem likely to be trustworthy?
+* Are there major missing workflows that would block pilot success?
+* Are there hidden failure modes that would make a pilot collapse?
+* Is the core wedge strong enough to drive actual weekly use?
+
+---
+
+## Phase 4 — Micro-level UI / workflow / code audit
+
+Go screen by screen and workflow by workflow, and identify issues at fine detail.
+
+Look for:
+
+* broken links
+* dead CTAs
+* route mismatches
+* nav items going nowhere
+* pages with weak or generic empty states
+* cards that show misleading “all good” states on fetch failure
+* loading states that create false confidence
+* dashboard widgets that are not trustworthy
+* role-specific pages that feel unfinished
+* forms that are too long/confusing
+* weird naming / terminology drift
+* duplicated modules
+* weak breadcrumbs / back navigation
+* overcomplicated flows
+* data dependencies that are not obvious to users
+* visual clutter
+* sections that dilute the wedge
+* places where users would not know what to do next
+* places where buyer-facing language is wrong or too broad
+* places where “AI” is overstated
+* weak mobile usability in para/provider flows
+* low-confidence tables, exports, charts, alerts, summaries, and trend views
+
+Also inspect:
+
+* major route files
+* sidebar/nav config
+* role config / gating logic
+* dashboard entry logic
+* import / onboarding endpoints and pages
+* compliance calculation sources
+* alert generation + resolution flows
+* any areas where hidden dependencies might cause silent breakage
+
+---
+
+## Phase 5 — Deep trust / readiness audit
+
+I want you to explicitly inspect for product trust issues.
+
+Examples:
+
+* places where missing data could look like healthy data
+* places where errors degrade into empty states without warning
+* places where reports could overstate certainty
+* pages that use partial data without clearly saying so
+* calculations that seem inconsistent across surfaces
+* routes that appear protected in UI but are weak server-side
+* seed/demo/sample data flows that could confuse or contaminate real pilots
+* billing/tier/demo/pilot logic that could create strange access behavior
+* pilot/demo/sandbox/sample distinctions that may confuse operators
+* metrics that sound important but are placeholders
+* anywhere the product “looks smarter than it really is”
+* anywhere a district would lose confidence after clicking around for 15 minutes
+
+---
+
+# Required output
+
+Give me a brutally clear report with these sections:
+
+## 1. Executive verdict
+
+Use exactly these categories:
+
+* **Demo ready**
+* **Demo ready with caveats**
+* **Pilot ready**
+* **Pilotable with controlled scope**
+* **Not pilot ready**
+
+You may choose more than one if needed, but justify clearly.
+
+Also answer:
+
+* What Trellis actually is today
+* What it should be sold as today
+* What it should not pretend to be yet
+
+## 2. What is strongest
+
+List the best parts of the app:
+
+* strongest workflows
+* best screens
+* best product differentiation
+* most buyer-compelling features
+* most polished or trustworthy modules
+
+## 3. What is weakest
+
+List the worst problems:
+
+* strategic/product issues
+* UX issues
+* technical risks
+* pilot blockers
+* demo blockers
+* trust issues
+* confusing or distracting modules
+
+## 4. Wedge alignment audit
+
+Bucket all major modules into:
+
+* **core wedge**
+* **useful but secondary**
+* **hide from primary demo/pilot story**
+* **dangerously distracting**
+* **not trustworthy enough yet**
+
+Be specific by route/module.
+
+## 5. Demo walkthrough recommendation
+
+Give me:
+
+* ideal demo order
+* best screens to show
+* screens to skip
+* a 5-minute version
+* a 15-minute version
+* likely buyer questions / objections based on what you found
+
+## 6. Pilot readiness audit
+
+Give me a table or structured list for the key pilot areas:
+
+* onboarding
+* imports
+* data readiness
+* session logging
+* compliance dashboard
+* risk report
+* weekly summary
+* alerts
+* staff/schedule/coverage
+* reports/exports
+* parent communication
+* document workflow
+* auth/security/tenant scope
+* role experience
+* supportability
+  For each, mark:
+* green / yellow / red
+* why
+* what would break in a real pilot
+* what minimum fix is needed
+
+## 7. Micro-level findings
+
+List specific issues with:
+
+* route/page
+* problem
+* severity: P0 / P1 / P2 / P3
+* why it matters
+* suggested fix
+
+I want many of these, not just a few.
+
+## 8. Top blockers before demo
+
+What must be fixed before showing prospects?
+
+## 9. Top blockers before pilot
+
+What must be fixed before real district use?
+
+## 10. Recommended next 10 / 20 / 30 tasks
+
+Prioritized and dependency-aware.
+Group into:
+
+* must do now
+* should do soon
+* later, but important
+
+## 11. “If I were the founder” summary
+
+Tell me:
+
+* what to focus the company/product on
+* what to hide for now
+* what to stop talking about
+* what to lean into in sales
+* what single sentence best describes the product today
+
+---
+
+# Audit standards
+
+## Be evidence-based
+
+Cite code locations, route files, pages, components, or config wherever possible.
+
+## Do not accept surface polish as readiness
+
+Something looking nice does not mean it is pilot-ready.
+
+## Do not confuse “exists” with “works”
+
+A route or feature only counts as strong if it appears operationally coherent and trustworthy.
+
+## Be skeptical of breadth
+
+If the app is trying to be too many things, say so clearly.
+
+## Prefer truth over encouragement
+
+Do not soften critical findings.
+
+---
+
+# Important instructions
+
+* Do not make code changes yet.
+* Audit first.
+* If helpful, inspect both frontend and backend behavior paths for key flows.
+* Trace dependencies instead of guessing.
+* If you cannot verify something, say that explicitly.
+* Separate demo readiness from pilot readiness.
+* Call out anything that is impressive.
+* Call out anything that is fake-ready.
+* Optimize your judgment around the stated wedge, not around total feature count.
+
+At the end, give me:
+
+1. the verdict
+2. the top 10 things I should do next
+3. the exact demo story I should tell right now based on the app as it exists
