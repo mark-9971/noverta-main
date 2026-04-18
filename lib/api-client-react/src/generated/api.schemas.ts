@@ -2197,6 +2197,11 @@ export type GetComplianceByServiceParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * Scope to a specific school year. Defaults to the active year for the caller's district.
+   * @nullable
+   */
+  schoolYearId?: number | null;
 };
 
 export type GetMissedSessionsTrendParams = {
@@ -2219,6 +2224,11 @@ export type GetExecutiveDashboardParams = {
    * @nullable
    */
   districtId?: number | null;
+  /**
+   * Scope to a specific school year. Defaults to the active year for the caller's district.
+   * @nullable
+   */
+  schoolYearId?: number | null;
 };
 
 export type GetStaffCoverageParams = {
@@ -2388,6 +2398,23 @@ export type ListAbsencesParams = {
 export type ListAbsences200Item = { [key: string]: unknown };
 
 export type DeleteAbsence200 = { [key: string]: unknown };
+
+export type UpdateServiceTypeBody = {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  defaultIntervalType?: string | null;
+  /** @nullable */
+  cptCode?: string | null;
+  /** @nullable */
+  defaultBillingRate?: string | null;
+};
 
 export type ListServiceRequirementsParams = {
   /**
@@ -2600,6 +2627,11 @@ export type GetStudentMinuteSummaryReportParams = {
    * @nullable
    */
   riskStatus?: string | null;
+  /**
+   * Scope to a specific school year. Defaults to the active year for the caller's district.
+   * @nullable
+   */
+  schoolYearId?: number | null;
 };
 
 export type GetMissedSessionsReportParams = {
@@ -2973,6 +3005,14 @@ export type GetAnalyticsBehaviorSummary200 = { [key: string]: unknown };
 
 export type GetAnalyticsProgramSummary200 = { [key: string]: unknown };
 
+export type GetAnalyticsMinutesSummaryParams = {
+  /**
+   * Scope to a specific school year. Defaults to the active year for the caller's district.
+   * @nullable
+   */
+  schoolYearId?: number | null;
+};
+
 export type GetAnalyticsMinutesSummary200 = { [key: string]: unknown };
 
 export type GetAnalyticsDeliveryHeatmap200 = { [key: string]: unknown };
@@ -3322,10 +3362,6 @@ export type UpdateProtectiveIncidentBody = { [key: string]: unknown };
 export type UpdateProtectiveIncident200 = { [key: string]: unknown };
 
 export type DeleteProtectiveIncident200 = { [key: string]: unknown };
-
-export type AdminReviewIncidentBody = { [key: string]: unknown };
-
-export type AdminReviewIncident200 = { [key: string]: unknown };
 
 export type ParentNotifyIncidentBody = { [key: string]: unknown };
 

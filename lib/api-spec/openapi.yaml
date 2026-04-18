@@ -204,6 +204,11 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: schoolYearId
+          in: query
+          description: Scope to a specific school year. Defaults to the active year for the caller's district.
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Compliance by service type
@@ -250,6 +255,11 @@ paths:
             type: ["integer", "null"]
         - name: districtId
           in: query
+          schema:
+            type: ["integer", "null"]
+        - name: schoolYearId
+          in: query
+          description: Scope to a specific school year. Defaults to the active year for the caller's district.
           schema:
             type: ["integer", "null"]
       responses:
@@ -955,6 +965,46 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceType"
+
+  /service-types/{id}:
+    patch:
+      operationId: updateServiceType
+      tags: [services]
+      summary: Update service type (platform admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: ["string", "null"]
+                category:
+                  type: ["string", "null"]
+                color:
+                  type: ["string", "null"]
+                description:
+                  type: ["string", "null"]
+                defaultIntervalType:
+                  type: ["string", "null"]
+                cptCode:
+                  type: ["string", "null"]
+                defaultBillingRate:
+                  type: ["string", "null"]
+      responses:
+        "200":
+          description: Updated
           content:
             application/json:
               schema:
@@ -1706,6 +1756,11 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: schoolYearId
+          in: query
+          description: Scope to a specific school year. Defaults to the active year for the caller's district.
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Report data
@@ -3188,6 +3243,12 @@ paths:
       operationId: getAnalyticsMinutesSummary
       tags: [analytics]
       summary: Get minutes analytics summary
+      parameters:
+        - name: schoolYearId
+          in: query
+          description: Scope to a specific school year. Defaults to the active year for the caller's district.
+          schema:
+            type: ["integer", "null"]
       responses:
         "200":
           description: Minutes summary

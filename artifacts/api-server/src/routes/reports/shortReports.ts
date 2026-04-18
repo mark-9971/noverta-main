@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, gte, lte, desc, sql, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
+import { resolveSchoolYearWindow } from "../dashboard/shared";
 
 const router: IRouter = Router();
 
@@ -23,9 +24,12 @@ router.get("/reports/student-minute-summary", async (req: Request, res): Promise
   }
 
   const enforcedDistrictId = getEnforcedDistrictId(req as AuthedRequest);
+  const yearWindow = await resolveSchoolYearWindow(req, req.query as Record<string, unknown>, enforcedDistrictId);
   const allProgress = await computeAllActiveMinuteProgress({
     ...(filters.riskStatus ? { riskStatus: filters.riskStatus } : {}),
     ...(enforcedDistrictId !== null ? { districtId: enforcedDistrictId } : {}),
+    ...(yearWindow.startDate ? { startDate: yearWindow.startDate } : {}),
+    ...(yearWindow.endDate ? { endDate: yearWindow.endDate } : {}),
   });
 
   const studentIds = [...new Set(allProgress.map(p => p.studentId))];

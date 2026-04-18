@@ -13,6 +13,7 @@ import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { requireTierAccess } from "../../middlewares/tierGate";
 import {
   parseSchoolDistrictFilters,
+  parseSchoolDistrictYearFilters,
   buildStudentSubquery,
   buildAlertStudentFilter,
 } from "./shared";
@@ -20,7 +21,7 @@ import {
 const router: IRouter = Router();
 
 router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> => {
-  const sdFilters = parseSchoolDistrictFilters(req, req.query);
+  const sdFilters = await parseSchoolDistrictYearFilters(req, req.query);
   const allProgress = await computeAllActiveMinuteProgress(sdFilters);
   const serviceMap = new Map<string, { total: number; onTrack: number; atRisk: number; outOfCompliance: number; sumPct: number }>();
 
@@ -47,7 +48,7 @@ router.get("/dashboard/compliance-by-service", async (req, res): Promise<void> =
 
 router.get("/dashboard/executive", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
-    const sdFilters = parseSchoolDistrictFilters(req, req.query);
+    const sdFilters = await parseSchoolDistrictYearFilters(req, req.query);
     const studentFilter = buildStudentSubquery(sdFilters);
     const alertFilter = buildAlertStudentFilter(sdFilters);
 
@@ -258,11 +259,31 @@ router.get("/dashboard/staff-coverage", requireTierAccess("district.executive"),
 
 router.get("/dashboard/pilot-metrics", requireTierAccess("district.executive"), async (req, res): Promise<void> => {
   try {
-    const sdFilters = parseSchoolDistrictFilters(req, req.query);
+    const sdFilters = await parseSchoolDistrictYearFilters(req, req.query);
     const studentFilter = buildStudentSubquery(sdFilters);
 
     const studentConditions = [eq(studentsTable.status, "active")];
     if (studentFilter) studentConditions.push(studentFilter as any);
+
+    // Build year-window date predicates so timeliness metrics scope to the
+    // selected (or active) school year rather than all-time.
+    const sessionDateConditions: any[] = [isNull(sessionLogsTable.deletedAt)];
+    if (sdFilters.startDate) sessionDateConditions.push(sql`${sessionLogsTable.sessionDate} >= ${sdFilters.startDate}`);
+    if (sdFilters.endDate) sessionDateConditions.push(sql`${sessionLogsTable.sessionDate} <= ${sdFilters.endDate}`);
+    if (sdFilters.schoolId) {
+      sessionDateConditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
+    } else if (sdFilters.districtId) {
+      sessionDateConditions.push(sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+    }
+
+    const incidentDateConditions: any[] = [];
+    if (sdFilters.startDate) incidentDateConditions.push(sql`${restraintIncidentsTable.incidentDate} >= ${sdFilters.startDate}`);
+    if (sdFilters.endDate) incidentDateConditions.push(sql`${restraintIncidentsTable.incidentDate} <= ${sdFilters.endDate}`);
+    if (sdFilters.schoolId) {
+      incidentDateConditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`);
+    } else if (sdFilters.districtId) {
+      incidentDateConditions.push(sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`);
+    }
 
     const [
       [activeStudentsResult],
@@ -287,27 +308,14 @@ router.get("/dashboard/pilot-metrics", requireTierAccess("district.executive"), 
         loggedWithin48h: sql<number>`count(*) filter (where ${sessionLogsTable.createdAt} <= (${sessionLogsTable.sessionDate}::timestamp + interval '48 hours'))`,
       })
         .from(sessionLogsTable)
-        .where(and(
-          isNull(sessionLogsTable.deletedAt),
-          sdFilters.schoolId
-            ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
-            : sdFilters.districtId
-            ? sql`${sessionLogsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
-            : sql`1=1`
-        )),
+        .where(and(...sessionDateConditions)),
 
       db.select({
         total: count(),
         loggedWithin24h: sql<number>`count(*) filter (where ${restraintIncidentsTable.createdAt} <= (${restraintIncidentsTable.incidentDate}::timestamp + interval '24 hours'))`,
       })
         .from(restraintIncidentsTable)
-        .where(
-          sdFilters.schoolId
-            ? sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id = ${sdFilters.schoolId})`
-            : sdFilters.districtId
-            ? sql`${restraintIncidentsTable.studentId} IN (SELECT id FROM students WHERE school_id IN (SELECT id FROM schools WHERE district_id = ${sdFilters.districtId}))`
-            : sql`1=1`
-        ),
+        .where(incidentDateConditions.length > 0 ? and(...incidentDateConditions) : sql`1=1`),
     ]);
 
     const totalActive = (activeStudentsResult as any)?.count ?? 0;

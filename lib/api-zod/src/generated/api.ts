@@ -118,6 +118,12 @@ export const GetDashboardAlertsSummaryResponse = zod.object({
 export const GetComplianceByServiceQueryParams = zod.object({
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  schoolYearId: zod.coerce
+    .number()
+    .nullish()
+    .describe(
+      "Scope to a specific school year. Defaults to the active year for the caller's district.",
+    ),
 });
 
 export const GetComplianceByServiceResponseItem = zod.object({
@@ -155,6 +161,12 @@ export const GetMissedSessionsTrendResponse = zod.array(
 export const GetExecutiveDashboardQueryParams = zod.object({
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
+  schoolYearId: zod.coerce
+    .number()
+    .nullish()
+    .describe(
+      "Scope to a specific school year. Defaults to the active year for the caller's district.",
+    ),
 });
 
 export const GetExecutiveDashboardResponse = zod.object({
@@ -440,6 +452,8 @@ export const ListStudentsResponseItem = zod.object({
   programName: zod.string().nullish(),
   caseManagerId: zod.number().nullish(),
   caseManagerName: zod.string().nullish(),
+  enrolledAt: zod.string().nullish(),
+  withdrawnAt: zod.string().nullish(),
   riskStatus: zod.string().nullish(),
   activeRequirementsCount: zod.number(),
   onTrackCount: zod.number(),
@@ -487,6 +501,8 @@ export const GetStudentResponse = zod.object({
   notes: zod.string().nullish(),
   tags: zod.string().nullish(),
   medicaidId: zod.string().nullish(),
+  enrolledAt: zod.string().nullish(),
+  withdrawnAt: zod.string().nullish(),
   schoolName: zod.string().nullish(),
   programName: zod.string().nullish(),
   caseManagerName: zod.string().nullish(),
@@ -847,7 +863,6 @@ export const ListStaffResponseItem = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
 });
 export const ListStaffResponse = zod.array(ListStaffResponseItem);
@@ -885,7 +900,6 @@ export const GetStaffResponse = zod.object({
   qualifications: zod.string().nullish(),
   hourlyRate: zod.string().nullish(),
   annualSalary: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
   assignedStudents: zod.array(
     zod.object({
@@ -944,7 +958,6 @@ export const UpdateStaffBody = zod.object({
   qualifications: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean().nullish(),
 });
 
 export const UpdateStaffResponse = zod.object({
@@ -961,7 +974,6 @@ export const UpdateStaffResponse = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
-  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
 });
 
@@ -1076,7 +1088,7 @@ export const CreateServiceTypeBody = zod.object({
 });
 
 /**
- * @summary Update service type (billing rate and other fields)
+ * @summary Update service type (platform admin only)
  */
 export const UpdateServiceTypeParams = zod.object({
   id: zod.coerce.number(),
@@ -1090,6 +1102,16 @@ export const UpdateServiceTypeBody = zod.object({
   defaultIntervalType: zod.string().nullish(),
   cptCode: zod.string().nullish(),
   defaultBillingRate: zod.string().nullish(),
+});
+
+export const UpdateServiceTypeResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  category: zod.string(),
+  color: zod.string().nullish(),
+  description: zod.string().nullish(),
+  defaultIntervalType: zod.string().nullish(),
+  createdAt: zod.string(),
 });
 
 /**
@@ -1613,7 +1635,6 @@ export const ListMinuteProgressQueryParams = zod.object({
   programId: zod.coerce.number().nullish(),
   schoolId: zod.coerce.number().nullish(),
   districtId: zod.coerce.number().nullish(),
-  schoolYearId: zod.coerce.number().nullish(),
 });
 
 export const ListMinuteProgressResponseItem = zod.object({
@@ -2074,6 +2095,12 @@ export const ListMissedReasonsResponse = zod.array(
 export const GetStudentMinuteSummaryReportQueryParams = zod.object({
   programId: zod.coerce.number().nullish(),
   riskStatus: zod.coerce.string().nullish(),
+  schoolYearId: zod.coerce
+    .number()
+    .nullish()
+    .describe(
+      "Scope to a specific school year. Defaults to the active year for the caller's district.",
+    ),
 });
 
 export const GetStudentMinuteSummaryReportResponseItem = zod.object({
@@ -3864,6 +3891,15 @@ export const GetAnalyticsProgramSummaryResponse = zod.object({}).passthrough();
 /**
  * @summary Get minutes analytics summary
  */
+export const GetAnalyticsMinutesSummaryQueryParams = zod.object({
+  schoolYearId: zod.coerce
+    .number()
+    .nullish()
+    .describe(
+      "Scope to a specific school year. Defaults to the active year for the caller's district.",
+    ),
+});
+
 export const GetAnalyticsMinutesSummaryResponse = zod.object({}).passthrough();
 
 /**
@@ -4499,17 +4535,6 @@ export const DeleteProtectiveIncidentParams = zod.object({
 });
 
 export const DeleteProtectiveIncidentResponse = zod.object({}).passthrough();
-
-/**
- * @summary Admin review of incident
- */
-export const AdminReviewIncidentParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const AdminReviewIncidentBody = zod.object({}).passthrough();
-
-export const AdminReviewIncidentResponse = zod.object({}).passthrough();
 
 /**
  * @summary Record parent notification

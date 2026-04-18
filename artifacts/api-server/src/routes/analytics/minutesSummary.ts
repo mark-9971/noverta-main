@@ -6,11 +6,21 @@ import {
 } from "@workspace/db";
 import { eq, and, count, sql, desc, asc, isNull } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
+import { resolveSchoolYearWindow } from "../dashboard/shared";
+import { getEnforcedDistrictId } from "../../middlewares/auth";
+import type { AuthedRequest } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
-router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
+router.get("/analytics/minutes-summary", async (req, res): Promise<void> => {
   try {
+    const districtId = getEnforcedDistrictId(req as AuthedRequest);
+    const yearWindow = await resolveSchoolYearWindow(req, req.query as Record<string, unknown>, districtId);
+    const dateConds: any[] = [isNull(sessionLogsTable.deletedAt)];
+    if (yearWindow.startDate) dateConds.push(sql`${sessionLogsTable.sessionDate} >= ${yearWindow.startDate}`);
+    if (yearWindow.endDate) dateConds.push(sql`${sessionLogsTable.sessionDate} <= ${yearWindow.endDate}`);
+    const sessionWhere = and(...dateConds);
+
     const weeklyDelivery = await db
       .select({
         week: sql<string>`to_char(date_trunc('week', ${sessionLogsTable.sessionDate}::date), 'YYYY-MM-DD')`.as("week"),
@@ -19,7 +29,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
-      .where(isNull(sessionLogsTable.deletedAt))
+      .where(sessionWhere)
       .groupBy(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`date_trunc('week', ${sessionLogsTable.sessionDate}::date)`));
 
@@ -32,11 +42,15 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
-      .where(isNull(sessionLogsTable.deletedAt))
+      .where(sessionWhere)
       .innerJoin(serviceTypesTable, eq(sessionLogsTable.serviceTypeId, serviceTypesTable.id))
       .groupBy(serviceTypesTable.name, serviceTypesTable.category);
 
-    const allProgress = await computeAllActiveMinuteProgress();
+    const allProgress = await computeAllActiveMinuteProgress({
+      ...(districtId !== null ? { districtId } : {}),
+      ...(yearWindow.startDate ? { startDate: yearWindow.startDate } : {}),
+      ...(yearWindow.endDate ? { endDate: yearWindow.endDate } : {}),
+    });
     const serviceAgg = new Map<string, { delivered: number; required: number }>();
     for (const p of allProgress) {
       const existing = serviceAgg.get(p.serviceTypeName) || { delivered: 0, required: 0 };
@@ -61,7 +75,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         missedCount: sql<number>`count(*) filter (where ${sessionLogsTable.status} = 'missed')`,
       })
       .from(sessionLogsTable)
-      .where(isNull(sessionLogsTable.deletedAt))
+      .where(sessionWhere)
       .innerJoin(staffTable, eq(sessionLogsTable.staffId, staffTable.id))
       .groupBy(staffTable.id, staffTable.firstName, staffTable.lastName, staffTable.role)
       .orderBy(desc(sql`sum(case when ${sessionLogsTable.status} = 'completed' then ${sessionLogsTable.durationMinutes} else 0 end)`));
@@ -73,7 +87,7 @@ router.get("/analytics/minutes-summary", async (_req, res): Promise<void> => {
         sessionCount: count(),
       })
       .from(sessionLogsTable)
-      .where(isNull(sessionLogsTable.deletedAt))
+      .where(sessionWhere)
       .groupBy(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`)
       .orderBy(asc(sql`extract(isodow from ${sessionLogsTable.sessionDate}::date)`));
 

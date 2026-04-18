@@ -150,6 +150,7 @@ import type {
   GetAnalyticsBehaviorSummary200,
   GetAnalyticsDeliveryHeatmap200,
   GetAnalyticsMinutesSummary200,
+  GetAnalyticsMinutesSummaryParams,
   GetAnalyticsOverview200,
   GetAnalyticsPmAntecedents200Item,
   GetAnalyticsPmByStudent200Item,
@@ -402,6 +403,7 @@ import type {
   UpdateSchoolScheduleSettings200,
   UpdateSchoolScheduleSettingsBody,
   UpdateServiceRequirementBody,
+  UpdateServiceTypeBody,
   UpdateSessionBody,
   UpdateStaffBody,
   UpdateStudentBody,
@@ -3976,6 +3978,93 @@ export const useCreateServiceType = <
   TContext
 > => {
   return useMutation(getCreateServiceTypeMutationOptions(options));
+};
+
+/**
+ * @summary Update service type (platform admin only)
+ */
+export const getUpdateServiceTypeUrl = (id: number) => {
+  return `/api/service-types/${id}`;
+};
+
+export const updateServiceType = async (
+  id: number,
+  updateServiceTypeBody: UpdateServiceTypeBody,
+  options?: RequestInit,
+): Promise<ServiceType> => {
+  return customFetch<ServiceType>(getUpdateServiceTypeUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateServiceTypeBody),
+  });
+};
+
+export const getUpdateServiceTypeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceType>>,
+    TError,
+    { id: number; data: BodyType<UpdateServiceTypeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServiceType>>,
+  TError,
+  { id: number; data: BodyType<UpdateServiceTypeBody> },
+  TContext
+> => {
+  const mutationKey = ["updateServiceType"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServiceType>>,
+    { id: number; data: BodyType<UpdateServiceTypeBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateServiceType(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServiceTypeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServiceType>>
+>;
+export type UpdateServiceTypeMutationBody = BodyType<UpdateServiceTypeBody>;
+export type UpdateServiceTypeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update service type (platform admin only)
+ */
+export const useUpdateServiceType = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceType>>,
+    TError,
+    { id: number; data: BodyType<UpdateServiceTypeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServiceType>>,
+  TError,
+  { id: number; data: BodyType<UpdateServiceTypeBody> },
+  TContext
+> => {
+  return useMutation(getUpdateServiceTypeMutationOptions(options));
 };
 
 /**
@@ -12609,15 +12698,30 @@ export function useGetAnalyticsProgramSummary<
 /**
  * @summary Get minutes analytics summary
  */
-export const getGetAnalyticsMinutesSummaryUrl = () => {
-  return `/api/analytics/minutes-summary`;
+export const getGetAnalyticsMinutesSummaryUrl = (
+  params?: GetAnalyticsMinutesSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/analytics/minutes-summary?${stringifiedParams}`
+    : `/api/analytics/minutes-summary`;
 };
 
 export const getAnalyticsMinutesSummary = async (
+  params?: GetAnalyticsMinutesSummaryParams,
   options?: RequestInit,
 ): Promise<GetAnalyticsMinutesSummary200> => {
   return customFetch<GetAnalyticsMinutesSummary200>(
-    getGetAnalyticsMinutesSummaryUrl(),
+    getGetAnalyticsMinutesSummaryUrl(params),
     {
       ...options,
       method: "GET",
@@ -12625,29 +12729,38 @@ export const getAnalyticsMinutesSummary = async (
   );
 };
 
-export const getGetAnalyticsMinutesSummaryQueryKey = () => {
-  return [`/api/analytics/minutes-summary`] as const;
+export const getGetAnalyticsMinutesSummaryQueryKey = (
+  params?: GetAnalyticsMinutesSummaryParams,
+) => {
+  return [
+    `/api/analytics/minutes-summary`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getGetAnalyticsMinutesSummaryQueryOptions = <
   TData = Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetAnalyticsMinutesSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetAnalyticsMinutesSummaryQueryKey();
+    queryOptions?.queryKey ?? getGetAnalyticsMinutesSummaryQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>
-  > = ({ signal }) => getAnalyticsMinutesSummary({ signal, ...requestOptions });
+  > = ({ signal }) =>
+    getAnalyticsMinutesSummary(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
@@ -12668,15 +12781,21 @@ export type GetAnalyticsMinutesSummaryQueryError = ErrorType<unknown>;
 export function useGetAnalyticsMinutesSummary<
   TData = Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAnalyticsMinutesSummaryQueryOptions(options);
+>(
+  params?: GetAnalyticsMinutesSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalyticsMinutesSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalyticsMinutesSummaryQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

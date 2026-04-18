@@ -474,7 +474,7 @@ router.post("/students/:studentId/progress-reports/generate", async (req, res): 
       createdAt: report.createdAt.toISOString(),
       updatedAt: report.updatedAt.toISOString(),
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Generate progress report error:", e);
     res.status(500).json({ error: "Failed to generate progress report" });
   }
@@ -842,8 +842,9 @@ router.post("/progress-reports/admin/backfill-goal-progress", requireRoles("admi
           .set({ goalProgress: entries, updatedAt: new Date() })
           .where(eq(progressReportsTable.id, report.id));
         updated++;
-      } catch (err: any) {
-        errors.push({ reportId: report.id, error: String(err?.message ?? err) });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ reportId: report.id, error: msg });
       }
     }
 
@@ -860,7 +861,7 @@ router.post("/progress-reports/admin/backfill-goal-progress", requireRoles("admi
       skipped,
       errors,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Backfill goal progress error:", e);
     res.status(500).json({ error: "Failed to backfill goal progress" });
   }
