@@ -8,6 +8,7 @@ import {
   Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
   GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
   Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight, FileDown, Zap,
+  LineChart, Brain, Target, PlusCircle, ClipboardCheck,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -188,30 +189,97 @@ export const adminNav: NavSection[] = [
     ],
   },
   // ── 4. ABA ────────────────────────────────────────────────────────────────
+  //
+  // Structured as 6 clinical domains — each is a collapsible NavItem group:
+  //
+  //   Learners    → Who is on the caseload and what they are working on
+  //   Sessions    → Session workflow: start, collect, review, gap-track
+  //   Programs    → Program library, templates, mastery/maintenance, changes
+  //   Analysis    → Graphs, skill acquisition, behavior data, prompt patterns
+  //   Reporting   → Progress reports, team summaries, export/print
+  //   Supervision → IOA, fidelity, supervision sessions, staff performance
+  //
+  // All routes already exist — sub-items use ?tab= params to deep-link into
+  // multi-tab pages. No routes, pages, or business logic were changed.
   {
     label: "ABA",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
+      // ── Learners ─────────────────────────────────────────────────────────
       {
-        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        href: "/aba",
+        label: "Learners",
+        icon: Users,
+        featureKey: "clinical.program_data" as FeatureKey,
         children: [
-          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
-          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
-          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
-          { href: "/aba?tab=maintenance", label: "Mastery & Maintenance", icon: TrendingDown },
+          { href: "/aba", label: "ABA Caseload", icon: Users },
+          { href: "/aba?tab=programs", label: "Active Programs", icon: Activity },
+          { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
         ],
       },
+      // ── Sessions ─────────────────────────────────────────────────────────
       {
-        href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey,
+        href: "/sessions",
+        label: "Sessions",
+        icon: CalendarDays,
         children: [
-          { href: "/supervision?tab=log", label: "Session Log", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "Compliance", icon: ListChecks },
-          { href: "/supervision?tab=trend", label: "Trend", icon: TrendingDown },
+          { href: "/sessions", label: "New Session", icon: PlusCircle },
+          { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
+          { href: "/sessions", label: "Session Review", icon: Clipboard },
+          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
         ],
       },
-      { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
+      // ── Programs ─────────────────────────────────────────────────────────
+      {
+        href: "/iep-suggestions",
+        label: "Programs",
+        icon: Library,
+        featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/iep-suggestions", label: "Program Library", icon: Library },
+          { href: "/aba?tab=programs", label: "Templates", icon: Star },
+          { href: "/aba?tab=maintenance", label: "Mastery / Maintenance", icon: TrendingDown },
+          { href: "/aba?tab=maintenance", label: "Program Changes", icon: ArrowLeftRight },
+        ],
+      },
+      // ── Analysis ─────────────────────────────────────────────────────────
+      {
+        href: "/aba?tab=analytics",
+        label: "Analysis",
+        icon: LineChart,
+        featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba?tab=analytics", label: "Program Graphs", icon: LineChart },
+          { href: "/aba?tab=analytics", label: "Skill Acquisition", icon: Target },
+          { href: "/behavior-assessment", label: "Behavior Analytics", icon: Brain },
+          { href: "/aba?tab=analytics", label: "Prompt Patterns", icon: BarChart3 },
+        ],
+      },
+      // ── Reporting ─────────────────────────────────────────────────────────
+      {
+        href: "/progress-reports",
+        label: "Reporting",
+        icon: FileText,
+        children: [
+          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+          { href: "/supervision?tab=trend", label: "Team Summaries", icon: FileBarChart },
+          { href: "/reports?tab=exports", label: "Export / Print", icon: FileDown },
+        ],
+      },
+      // ── Supervision ───────────────────────────────────────────────────────
+      {
+        href: "/supervision",
+        label: "Supervision",
+        icon: UserCheck,
+        featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
+          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
+        ],
+      },
     ],
   },
   // ── 5. Scheduling ─────────────────────────────────────────────────────────
@@ -427,9 +495,10 @@ export const spedTeacherNav: NavSection[] = adminNav
     return { ...s, label, items };
   });
 
-// Purpose-built nav for BCBAs. Surfaces ABA clinical tools at the top
-// rather than burying them in a collapsed "More tools" drawer.
-// No "More tools" section — every item BCBAs need is promoted.
+// Purpose-built nav for BCBAs. The ABA section is the primary workspace —
+// structured as 6 clinical domains (Learners, Sessions, Programs, Analysis,
+// Reporting, Supervision). "My Caseload" is folded into ABA → Learners.
+// Overview stays light; Compliance is available but collapsed by default.
 export const bcbaNav: NavSection[] = [
   {
     label: "Overview",
@@ -441,47 +510,102 @@ export const bcbaNav: NavSection[] = [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
-    ],
-  },
-  {
-    label: "My Caseload",
-    icon: Users,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/students", label: "My Students", icon: Users, primary: true },
-      { href: "/sessions", label: "My Sessions", icon: Clipboard },
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
     ],
   },
+  // ── ABA (6-domain structure) ───────────────────────────────────────────────
   {
-    label: "ABA / BCBA",
+    label: "ABA",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
+      // ── Learners ──────────────────────────────────────────────────────────
       {
-        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        href: "/aba",
+        label: "Learners",
+        icon: Users,
+        featureKey: "clinical.program_data" as FeatureKey,
         children: [
-          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
-          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
-          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
-          { href: "/aba?tab=maintenance", label: "Mastery & Maintenance", icon: TrendingDown },
+          { href: "/aba", label: "ABA Caseload", icon: Users },
+          { href: "/students", label: "Student Directory", icon: Search },
+          { href: "/aba?tab=programs", label: "Active Programs", icon: Activity },
+          { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
         ],
       },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
-      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
-      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+      // ── Sessions ──────────────────────────────────────────────────────────
+      {
+        href: "/sessions",
+        label: "Sessions",
+        icon: CalendarDays,
+        children: [
+          { href: "/sessions", label: "New Session", icon: PlusCircle },
+          { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
+          { href: "/sessions", label: "Session Review", icon: Clipboard },
+          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
+        ],
+      },
+      // ── Programs ──────────────────────────────────────────────────────────
+      {
+        href: "/iep-suggestions",
+        label: "Programs",
+        icon: Library,
+        featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/iep-suggestions", label: "Program Library", icon: Library },
+          { href: "/aba?tab=programs", label: "Templates", icon: Star },
+          { href: "/aba?tab=maintenance", label: "Mastery / Maintenance", icon: TrendingDown },
+          { href: "/aba?tab=maintenance", label: "Program Changes", icon: ArrowLeftRight },
+        ],
+      },
+      // ── Analysis ──────────────────────────────────────────────────────────
+      {
+        href: "/aba?tab=analytics",
+        label: "Analysis",
+        icon: LineChart,
+        featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba?tab=analytics", label: "Program Graphs", icon: LineChart },
+          { href: "/aba?tab=analytics", label: "Skill Acquisition", icon: Target },
+          { href: "/behavior-assessment", label: "Behavior Analytics", icon: Brain },
+          { href: "/aba?tab=analytics", label: "Prompt Patterns", icon: BarChart3 },
+        ],
+      },
+      // ── Reporting ─────────────────────────────────────────────────────────
+      {
+        href: "/progress-reports",
+        label: "Reporting",
+        icon: FileText,
+        children: [
+          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+          { href: "/supervision?tab=trend", label: "Team Summaries", icon: FileBarChart },
+          { href: "/reports?tab=exports", label: "Export / Print", icon: FileDown },
+        ],
+      },
+      // ── Supervision ───────────────────────────────────────────────────────
+      {
+        href: "/supervision",
+        label: "Supervision",
+        icon: UserCheck,
+        featureKey: "clinical.supervision" as FeatureKey,
+        children: [
+          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
+          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
+          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
+        ],
+      },
     ],
   },
   {
-    label: "Compliance",
+    label: "Other",
     icon: ListChecks,
     collapsible: true,
     defaultOpen: false,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],
   },
 ];
