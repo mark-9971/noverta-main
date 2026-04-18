@@ -392,9 +392,15 @@ export default function PilotAdminHome() {
                     {[s.school, s.grade && `Grade ${s.grade}`, s.service, s.providerName !== "Unassigned" && s.providerName].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <div className="hidden md:block text-right">
+                <div className="hidden md:block text-right min-w-[72px]">
                   <div className="text-sm font-semibold text-gray-900 tabular-nums">{s.percentComplete.toFixed(0)}%</div>
-                  <div className="text-[11px] text-gray-500">complete</div>
+                  <div className="mt-1 w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${s.riskStatus === "out_of_compliance" ? "bg-red-500" : "bg-amber-400"}`}
+                      style={{ width: `${Math.min(100, Math.max(0, s.percentComplete))}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">complete</div>
                 </div>
                 <div className="hidden sm:block text-right">
                   <div className="text-sm font-semibold text-gray-900 tabular-nums">{s.shortfallMinutes}</div>
