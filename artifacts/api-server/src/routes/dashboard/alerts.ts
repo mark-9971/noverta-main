@@ -5,7 +5,6 @@ import {
   studentsTable, alertsTable,
   complianceEventsTable, teamMeetingsTable,
   restraintIncidentsTable,
-  medicalAlertsTable,
 } from "@workspace/db";
 import { eq, and, count, sql, desc, isNull, inArray } from "drizzle-orm";
 import {
