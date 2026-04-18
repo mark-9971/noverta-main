@@ -17,10 +17,6 @@ function randf(min: number, max: number) { return min + Math.random() * (max - m
 type RunParams = {
   /** Days of session history to fabricate. Was a fixed 180. */
   historyDays: number;
-  /** Per-run integer seed used to derive deterministic-per-target buckets
-   *  inside SQL: `(target.id * seed) % 100` stays stable across the queries
-   *  in a single run but varies between runs. */
-  seed: number;
   /** Cumulative thresholds (0..100) for trajectory bucket selection on
    *  program/behavior data. Three buckets: progressing / regressing /
    *  insufficient. Was a fixed [60, 80] split. */
@@ -37,9 +33,9 @@ type RunParams = {
    *  tuneComplianceForStudents. Four buckets: over / on-track / behind /
    *  at-risk. Was a fixed [15, 65, 90] split derived from `id % 20`. */
   complianceBreaks: readonly [number, number, number];
-  /** Per-bucket [lo, hi] target_pct ranges for compliance tuning. The
-   *  within-bucket offset was previously the deterministic `(id*37)%100`;
-   *  now we let SQL sample uniformly inside the band. */
+  /** Per-bucket [lo, hi] target_pct ranges for compliance tuning. A uniform
+   *  random draw inside each band is materialized into _comp_params_tmp once
+   *  and reused by both Pass A and Pass B. */
   complianceTargets: {
     over: readonly [number, number];
     onTrack: readonly [number, number];
@@ -60,7 +56,6 @@ function sampleRunParams(): RunParams {
   const behind = Math.round(randf(15, 35));
   return {
     historyDays: rand(120, 240),
-    seed: rand(1, 999_983), // prime-ish, keeps modulo distribution flat
     trajectoryBreaks: [progressing, Math.min(100, progressing + regressing)],
     trialJitter: randf(1.0, 3.5),
     percentJitter: randf(5, 20),
@@ -411,36 +406,42 @@ async function createSessionsAndData(
 
   // Program data — one row per (sample session × program_target).
   //
-  // Trajectory varies per target so the demo doesn't look uniformly
-  // "everything is on track". Bucket assignment uses a per-run seed so:
-  //   • within a single backfill, the same target always lands in the same
-  //     bucket (so its data points form a coherent trend line);
-  //   • across runs the seed changes, producing a different mix.
-  // Bucket split percentages are themselves sampled per run from broad
-  // bands — see RunParams.trajectoryBreaks.
-  //
-  // `progress` is normalized 0..1 across the sampled history window
-  // (1.0 = today, 0.0 = historyDays ago). Per-row jitter amplitude
-  // (params.trialJitter, params.percentJitter) is also sampled per run.
+  // `progress` is normalized 0..1 across the sampled history window.
+  // Per-target trajectory (progressing/regressing/insufficient) is
+  // materialized via a CTE using random() — each target gets one stable
+  // bucket for the lifetime of this INSERT, producing a coherent trend
+  // line without any modulo or fixed-split expressions.
   const traj0 = params.trajectoryBreaks[0];
   const traj1 = params.trajectoryBreaks[1];
-  const seed = params.seed;
   const tj = params.trialJitter;
   const pj = params.percentJitter;
-  const insufficientWindowDays = rand(10, 28); // was hard-coded 14
+  const insufficientWindowDays = rand(10, 28);
   const programDataResult = await db.execute(sql`
+    WITH target_buckets AS (
+      -- Materialize one random bucket per program_target so all of its
+      -- data sessions share a coherent trajectory (no modulo needed).
+      SELECT pt.id AS target_id,
+        CASE
+          WHEN random() < ${traj0 / 100.0} THEN 0   -- progressing
+          WHEN random() < ${traj1 / 100.0} THEN 1   -- regressing
+          ELSE 2                                     -- insufficient
+        END AS bucket
+      FROM program_targets pt
+      WHERE pt.student_id IN ${intList(studentIds)}
+        AND pt.active = true
+    )
     INSERT INTO program_data
       (data_session_id, program_target_id, trials_correct, trials_total,
        percent_correct, prompt_level_used, notes)
     SELECT
       ds.id, pt.id,
-      CASE bucket
+      CASE tb.bucket
         WHEN 0 THEN GREATEST(0, LEAST(10, ROUND(4 + progress * 5 + (random()*${2 * tj}::numeric - ${tj}::numeric))))::int
         WHEN 1 THEN GREATEST(0, LEAST(10, ROUND(8 - progress * 5 + (random()*${2 * tj}::numeric - ${tj}::numeric))))::int
         ELSE        GREATEST(0, LEAST(10, ROUND(5 + progress * 4 + (random()*${2 * tj}::numeric - ${tj}::numeric))))::int
       END,
       10,
-      CASE bucket
+      CASE tb.bucket
         WHEN 0 THEN GREATEST(20, LEAST(100, ROUND(40 + progress * 50 + (random()*${2 * pj}::numeric - ${pj}::numeric))))::numeric
         WHEN 1 THEN GREATEST(20, LEAST(100, ROUND(80 - progress * 45 + (random()*${2 * pj}::numeric - ${pj}::numeric))))::numeric
         ELSE        GREATEST(20, LEAST(100, ROUND(50 + progress * 40 + (random()*${2 * pj}::numeric - ${pj}::numeric))))::numeric
@@ -449,35 +450,43 @@ async function createSessionsAndData(
       'Sample data point'
     FROM data_sessions ds
     JOIN program_targets pt ON pt.student_id = ds.student_id AND pt.active = true
+    JOIN target_buckets tb ON tb.target_id = pt.id
     CROSS JOIN LATERAL (
       SELECT
-        CASE
-          WHEN ((pt.id * ${seed}) % 100) < ${traj0} THEN 0   -- progressing
-          WHEN ((pt.id * ${seed}) % 100) < ${traj1} THEN 1   -- regressing
-          ELSE 2                                             -- insufficient
-        END                                     AS bucket,
         ((${historyDays} - (CURRENT_DATE - ds.session_date::date))::numeric / ${historyDays}::numeric) AS progress,
-        (CURRENT_DATE - ds.session_date::date)  AS days_ago
+        (CURRENT_DATE - ds.session_date::date) AS days_ago
     ) calc
     WHERE ds.notes = 'Sample session'
       AND ds.student_id IN ${intList(studentIds)}
-      AND (bucket <> 2 OR days_ago <= ${insufficientWindowDays})  -- insufficient bucket: most recent window only
+      AND (tb.bucket <> 2 OR days_ago <= ${insufficientWindowDays})
       AND NOT EXISTS (
         SELECT 1 FROM program_data pd2
         WHERE pd2.data_session_id = ds.id AND pd2.program_target_id = pt.id
       )
   `);
 
-  // Behavior data — same per-run trajectory bucketing strategy as program data.
+  // Behavior data — same CTE-materialized trajectory bucketing as program data.
   // For target_direction='increase': progressing = baseline → goal,
   // regressing = drifts back from goal toward baseline.
   // For 'decrease': progressing = baseline → lower goal,
   // regressing = climbs back up from goal toward baseline.
-  // Jitter amplitudes (params.behaviorPctJitter, params.behaviorCountJitter)
-  // are sampled per backfill run.
+  // Jitter amplitudes are sampled per backfill run (RunParams).
   const bpj = params.behaviorPctJitter;
   const bcj = params.behaviorCountJitter;
   const behaviorDataResult = await db.execute(sql`
+    WITH target_buckets AS (
+      -- One random bucket per behavior_target — same target always gets
+      -- the same trajectory within this INSERT, no modulo needed.
+      SELECT bt.id AS target_id,
+        CASE
+          WHEN random() < ${traj0 / 100.0} THEN 0   -- progressing
+          WHEN random() < ${traj1 / 100.0} THEN 1   -- regressing
+          ELSE 2                                     -- insufficient
+        END AS bucket
+      FROM behavior_targets bt
+      WHERE bt.student_id IN ${intList(studentIds)}
+        AND bt.active = true
+    )
     INSERT INTO behavior_data
       (data_session_id, behavior_target_id, value, notes)
     SELECT
@@ -485,7 +494,7 @@ async function createSessionsAndData(
       CASE
         WHEN bt.target_direction = 'increase' THEN
           GREATEST(0, LEAST(100,
-            CASE bucket
+            CASE tb.bucket
               WHEN 1 THEN  -- regressing: started near goal, drifts back
                 COALESCE(bt.goal_value, 85)::numeric -
                   (COALESCE(bt.goal_value, 85)::numeric - COALESCE(bt.baseline_value, 30)::numeric)
@@ -498,7 +507,7 @@ async function createSessionsAndData(
           ))::numeric
         ELSE
           GREATEST(0,
-            CASE bucket
+            CASE tb.bucket
               WHEN 1 THEN  -- regressing decrease: drifts back up toward baseline
                 COALESCE(bt.goal_value, 2)::numeric +
                   (COALESCE(bt.baseline_value, 8)::numeric - COALESCE(bt.goal_value, 2)::numeric)
@@ -513,19 +522,15 @@ async function createSessionsAndData(
       'Sample data point'
     FROM data_sessions ds
     JOIN behavior_targets bt ON bt.student_id = ds.student_id AND bt.active = true
+    JOIN target_buckets tb ON tb.target_id = bt.id
     CROSS JOIN LATERAL (
       SELECT
-        CASE
-          WHEN ((bt.id * ${seed}) % 100) < ${traj0} THEN 0
-          WHEN ((bt.id * ${seed}) % 100) < ${traj1} THEN 1
-          ELSE 2
-        END                                     AS bucket,
         ((${historyDays} - (CURRENT_DATE - ds.session_date::date))::numeric / ${historyDays}::numeric) AS progress,
-        (CURRENT_DATE - ds.session_date::date)  AS days_ago
+        (CURRENT_DATE - ds.session_date::date) AS days_ago
     ) calc
     WHERE ds.notes = 'Sample session'
       AND ds.student_id IN ${intList(studentIds)}
-      AND (bucket <> 2 OR days_ago <= ${insufficientWindowDays})
+      AND (tb.bucket <> 2 OR days_ago <= ${insufficientWindowDays})
       AND NOT EXISTS (
         SELECT 1 FROM behavior_data bd2
         WHERE bd2.data_session_id = ds.id AND bd2.behavior_target_id = bt.id
@@ -719,40 +724,46 @@ async function tuneComplianceForStudents(
     };
   }
 
-  // ── Pass A: completed session_logs to hit target_pct of required minutes ──
-  // Bucket assignment uses (s.id * params.seed) % 100 with the
-  // params.complianceBreaks cumulative thresholds. The bucket boundaries
-  // and the per-bucket target bands are themselves sampled per backfill
-  // run (params.complianceBreaks, params.complianceTargets), so the
-  // 15/50/25/10 split and the 1.10/0.85/0.65/0.50 floors that used to
-  // pin every demo to the same compliance shape now drift between runs.
-  //
-  // Within each bucket we still derive the within-band offset from
-  // `((s.id * 37) % 100) / 100.0` rather than `random()`. That is
-  // intentional, NOT a leftover magic number: Pass A (completed) and
-  // Pass B (missed) MUST land on the same target_pct for the same
-  // student, because Pass B sizes the missed minutes against
-  // `required - ROUND(required * target_pct)`. Any per-row randomness
-  // here would let the two passes disagree and break the invariant
-  // that completed + missed equals required. The randomness is moved
-  // into the run-level seed/bands instead.
+  // ── Pre-pass: materialize per-requirement target_pct using random() ────────
+  // Both Pass A (completed sessions) and Pass B (missed sessions) must use
+  // identical target_pct per requirement so the two session counts remain
+  // coherent (completed + missed = required). We achieve this by sampling
+  // target_pct once via random() into a transient temp table, then joining
+  // against it in both passes — no modulo expressions or fixed splits.
   const cb0 = params.complianceBreaks[0];
   const cb1 = params.complianceBreaks[1];
   const cb2 = params.complianceBreaks[2];
-  const cseed = params.seed;
   const ct = params.complianceTargets;
+  await db.execute(sql`DROP TABLE IF EXISTS _comp_params_tmp`);
+  await db.execute(sql`
+    CREATE TEMP TABLE _comp_params_tmp AS
+    SELECT
+      sr.id AS req_id,
+      CASE
+        WHEN r.v < ${cb0 / 100.0} THEN
+          ${ct.over[0]}::numeric    + r.w * ${ct.over[1] - ct.over[0]}::numeric
+        WHEN r.v < ${cb1 / 100.0} THEN
+          ${ct.onTrack[0]}::numeric + r.w * ${ct.onTrack[1] - ct.onTrack[0]}::numeric
+        WHEN r.v < ${cb2 / 100.0} THEN
+          ${ct.behind[0]}::numeric  + r.w * ${ct.behind[1] - ct.behind[0]}::numeric
+        ELSE
+          ${ct.atRisk[0]}::numeric  + r.w * ${ct.atRisk[1] - ct.atRisk[0]}::numeric
+      END AS target_pct
+    FROM service_requirements sr
+    CROSS JOIN LATERAL (SELECT random() AS v, random() AS w) r
+    WHERE sr.student_id IN ${intList(studentIds)}
+      AND sr.active = true
+      AND sr.required_minutes > 0
+  `);
+
+  // ── Pass A: completed session_logs to hit target_pct of required minutes ──
   const completedRes = await db.execute(sql`
     WITH params AS (
       SELECT
         s.id  AS student_id,
         sr.id AS req_id,
         sr.required_minutes,
-        CASE
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb0} THEN ${ct.over[0]}    + (((s.id * 37) % 100) / 100.0) * ${ct.over[1] - ct.over[0]}
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb1} THEN ${ct.onTrack[0]} + (((s.id * 37) % 100) / 100.0) * ${ct.onTrack[1] - ct.onTrack[0]}
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb2} THEN ${ct.behind[0]}  + (((s.id * 37) % 100) / 100.0) * ${ct.behind[1] - ct.behind[0]}
-          ELSE                                         ${ct.atRisk[0]}  + (((s.id * 37) % 100) / 100.0) * ${ct.atRisk[1] - ct.atRisk[0]}
-        END AS target_pct,
+        cp.target_pct,
         COALESCE((
           SELECT SUM(sl.duration_minutes)
           FROM session_logs sl
@@ -764,6 +775,7 @@ async function tuneComplianceForStudents(
       FROM students s
       JOIN service_requirements sr
         ON sr.student_id = s.id AND sr.active = true
+      JOIN _comp_params_tmp cp ON cp.req_id = sr.id
       WHERE s.id IN ${intList(studentIds)}
         AND sr.required_minutes > 0
     ),
@@ -831,21 +843,18 @@ async function tuneComplianceForStudents(
   `);
 
   // ── Pass B: missed session_logs to fill the gap from target to required ──
+  // Joins against _comp_params_tmp so target_pct is identical to Pass A.
   const missedRes = await db.execute(sql`
     WITH params AS (
       SELECT
         s.id  AS student_id,
         sr.id AS req_id,
         sr.required_minutes,
-        CASE
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb0} THEN ${ct.over[0]}    + (((s.id * 37) % 100) / 100.0) * ${ct.over[1] - ct.over[0]}
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb1} THEN ${ct.onTrack[0]} + (((s.id * 37) % 100) / 100.0) * ${ct.onTrack[1] - ct.onTrack[0]}
-          WHEN ((s.id * ${cseed}) % 100) <  ${cb2} THEN ${ct.behind[0]}  + (((s.id * 37) % 100) / 100.0) * ${ct.behind[1] - ct.behind[0]}
-          ELSE                                         ${ct.atRisk[0]}  + (((s.id * 37) % 100) / 100.0) * ${ct.atRisk[1] - ct.atRisk[0]}
-        END AS target_pct
+        cp.target_pct
       FROM students s
       JOIN service_requirements sr
         ON sr.student_id = s.id AND sr.active = true
+      JOIN _comp_params_tmp cp ON cp.req_id = sr.id
       WHERE s.id IN ${intList(studentIds)}
         AND sr.required_minutes > 0
     ),
@@ -918,6 +927,9 @@ async function tuneComplianceForStudents(
       'Sample missed log'
     FROM schedule sched
   `);
+
+  // Clean up the transient compliance params table.
+  await db.execute(sql`DROP TABLE IF EXISTS _comp_params_tmp`);
 
   // ── Pass C: link a data_session to every completed sample minute log ──
   const linkRes = await db.execute(sql`
