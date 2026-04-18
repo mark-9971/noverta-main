@@ -1111,7 +1111,7 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
 
     if (sp.scenario === "urgent") {
       // Critical: severely under-delivered, this is the top of the inbox.
-      const pct = rand(38, 49);
+      const pct = rand(28, 55);
       alertBatch.push({
         type: "behind_on_minutes",
         severity: "critical",
@@ -1150,13 +1150,13 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
       });
     }
     if (sp.scenario === "shortfall") {
-      const pct = rand(70, 79);
+      const pct = rand(62, 82);
       alertBatch.push({
         type: "behind_on_minutes",
         severity: "medium",
         studentId: sp.id,
         serviceRequirementId: primarySr?.id,
-        message: `${firstName} is at ${pct}% of required service minutes — below the 80% pace threshold.`,
+        message: `${firstName} is at ${pct}% of required service minutes — below target pace for this period.`,
         suggestedAction: "Add one extra session this week to bring delivery back on pace.",
         // Sprinkle a few pre-resolved ones so the Resolved tab isn't empty.
         resolved: rand(0, 9) < 3,
@@ -1189,7 +1189,7 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
       if (Math.random() < 0.6) {
         const monthsBack = rand(1, 3);
         const periodStart = addDays("2026-04-01", -30 * monthsBack);
-        const periodEnd = addDays(periodStart, 29);
+        const periodEnd = addDays(periodStart, rand(21, 45));
         // Sample owed fraction from a per-scenario range instead of a fixed target
         const owedFraction = sp.scenario === "urgent"
           ? randf(0.35, 0.55)
@@ -1722,7 +1722,12 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
         const periodCompleted = Math.round(completedSessionsCount / 3);
         const periodMissed = Math.round(missedSessionsCount / 3);
         const requiredMin = Math.round(sr.requiredMinutes * 2.5); // ~2.5 months per period
-        const deliveredMin = Math.round(requiredMin * (sp.scenario === "urgent" ? 0.45 : sp.scenario === "shortfall" ? 0.7 : sp.scenario === "compensatory_risk" ? 0.55 : 0.92));
+        const deliveredMin = Math.round(requiredMin * (
+          sp.scenario === "urgent"            ? randf(0.35, 0.55) :
+          sp.scenario === "shortfall"         ? randf(0.60, 0.80) :
+          sp.scenario === "compensatory_risk" ? randf(0.45, 0.65) :
+                                                randf(0.85, 0.98)
+        ));
         serviceBreakdown.push({
           serviceType: svcDef?.name || "Service",
           requiredMinutes: requiredMin,

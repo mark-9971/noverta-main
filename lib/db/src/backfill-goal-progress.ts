@@ -973,10 +973,10 @@ async function tuneComplianceForStudents(
        prompted, percent_correct, notes)
     SELECT
       tp.data_session_id, tp.target_id,
-      8 + ((tp.data_session_id * 7) % 3),
+      7 + floor(random() * 4)::int,
       10,
-      ((tp.data_session_id * 11) % 3),
-      ROUND((80 + ((tp.data_session_id * 7) % 21))::numeric, 1),
+      floor(random() * 3)::int,
+      ROUND((65 + random() * 30)::numeric, 1),
       'Sample minute-log data point'
     FROM target_pick tp
   `);
@@ -1003,7 +1003,7 @@ async function tuneComplianceForStudents(
       (data_session_id, behavior_target_id, value, notes)
     SELECT
       tp.data_session_id, tp.target_id,
-      ROUND((1 + ((tp.data_session_id * 13) % 5))::numeric, 1),
+      ROUND((1 + random() * 9)::numeric, 1),
       'Sample minute-log data point'
     FROM target_pick tp
   `);
