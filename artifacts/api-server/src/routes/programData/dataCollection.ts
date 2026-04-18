@@ -11,6 +11,7 @@ import { logAudit } from "../../lib/auditLog";
 import { assertStudentInCallerDistrict, assertDataSessionInCallerDistrict } from "../../lib/districtScope";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { checkAndSetGoalMastery } from "../iep/goals";
+import { reopenOnSessionRegression } from "./phaseUtils";
 
 const router: IRouter = Router();
 
@@ -97,12 +98,47 @@ async function checkAutoProgress(tx: any, programTargetId: number) {
     const regressionCheck = recentData.slice(0, regressionSessions);
     const allBelowThreshold = regressionCheck.every((d: { percentCorrect: string | null }) => parseFloat(d.percentCorrect ?? "0") < regressionThreshold);
 
-    if (allBelowThreshold && currentIdx > 0) {
-      const newLevel = hierarchy[currentIdx - 1];
-      await tx.update(programTargetsTable)
-        .set({ currentPromptLevel: newLevel })
-        .where(eq(programTargetsTable.id, programTargetId));
-      return { action: "regressed", from: target.currentPromptLevel, to: newLevel };
+    if (allBelowThreshold) {
+      // Demote prompt level if not already at lowest
+      if (currentIdx > 0) {
+        const newLevel = hierarchy[currentIdx - 1];
+        await tx.update(programTargetsTable)
+          .set({ currentPromptLevel: newLevel })
+          .where(eq(programTargetsTable.id, programTargetId));
+
+        // For mastered/maintenance targets: also reopen the phase
+        const reopened = await reopenOnSessionRegression(
+          tx,
+          programTargetId,
+          target.phase ?? "training",
+          regressionSessions,
+          regressionThreshold,
+        );
+
+        return {
+          action: reopened ? "regressed_and_reopened" : "regressed",
+          from: target.currentPromptLevel,
+          to: newLevel,
+          ...(reopened ? { phase: "reopened" } : {}),
+        };
+      }
+
+      // Already at lowest prompt level — still check for phase reopen
+      const reopened = await reopenOnSessionRegression(
+        tx,
+        programTargetId,
+        target.phase ?? "training",
+        regressionSessions,
+        regressionThreshold,
+      );
+      if (reopened) {
+        return {
+          action: "reopened",
+          from: target.currentPromptLevel,
+          to: target.currentPromptLevel,
+          phase: "reopened",
+        };
+      }
     }
   }
 

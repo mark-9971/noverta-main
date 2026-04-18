@@ -16,6 +16,7 @@ import {
   assertStudentInCallerDistrict,
 } from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
+import { recordPhaseTransition, checkAndReopenOnProbeFailures } from "./phaseUtils";
 
 function addDays(date: Date, days: number): string {
   const d = new Date(date);
@@ -38,31 +39,6 @@ async function autoScheduleMaintenanceProbe(
   });
 }
 
-async function recordPhaseTransition(
-  programTargetId: number,
-  newPhase: string,
-  previousPhase: string | null | undefined,
-  opts?: {
-    reason?: string | null;
-    changedByClerkId?: string | null;
-    changedByStaffId?: number | null;
-  },
-): Promise<void> {
-  await db.update(programTargetPhaseHistoryTable)
-    .set({ endedAt: new Date() })
-    .where(and(
-      eq(programTargetPhaseHistoryTable.programTargetId, programTargetId),
-      isNull(programTargetPhaseHistoryTable.endedAt),
-    ));
-  await db.insert(programTargetPhaseHistoryTable).values({
-    programTargetId,
-    phase: newPhase,
-    previousPhase: previousPhase ?? null,
-    reason: opts?.reason ?? null,
-    changedByClerkId: opts?.changedByClerkId ?? null,
-    changedByStaffId: opts?.changedByStaffId ?? null,
-  });
-}
 
 const router: IRouter = Router();
 
@@ -225,7 +201,7 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
     });
 
     const authedReq = req as AuthedRequest;
-    await recordPhaseTransition(result.id, result.phase ?? "training", null, {
+    await recordPhaseTransition(db, result.id, result.phase ?? "training", null, {
       changedByClerkId: authedReq.userId ?? null,
       changedByStaffId: authedReq.tenantStaffId ?? null,
     });
@@ -269,7 +245,7 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     if (phaseChanging) {
       const authedReq = req as AuthedRequest;
-      await recordPhaseTransition(id, req.body.phase, oldTarget?.phase ?? null, {
+      await recordPhaseTransition(db, id, req.body.phase, oldTarget?.phase ?? null, {
         reason: req.body.phaseReason ?? null,
         changedByClerkId: authedReq.userId ?? null,
         changedByStaffId: authedReq.tenantStaffId ?? null,
@@ -477,7 +453,31 @@ router.patch("/maintenance-probes/:id", async (req, res): Promise<void> => {
     }
 
     const [updated] = await db.update(maintenanceProbesTable).set(updates).where(eq(maintenanceProbesTable.id, id)).returning();
-    res.json({ ...updated, completedAt: updated.completedAt ? updated.completedAt.toISOString() : null, createdAt: updated.createdAt.toISOString() });
+
+    // After a failed probe completion, check if we should auto-reopen the target phase
+    let reopenedPhase: string | null = null;
+    if (complete === true && updated.passed === false) {
+      reopenedPhase = await checkAndReopenOnProbeFailures(
+        existing.programTargetId,
+        { changedByClerkId: (req as AuthedRequest).userId ?? null },
+      ).catch((e) => { console.error("Probe-failure reopen check error:", e); return null; });
+      if (reopenedPhase) {
+        logAudit(req, {
+          action: "update",
+          targetTable: "program_targets",
+          targetId: existing.programTargetId,
+          studentId: existing.studentId,
+          summary: `Program target #${existing.programTargetId} auto-reopened after consecutive maintenance probe failures`,
+        });
+      }
+    }
+
+    res.json({
+      ...updated,
+      completedAt: updated.completedAt ? updated.completedAt.toISOString() : null,
+      createdAt: updated.createdAt.toISOString(),
+      ...(reopenedPhase ? { targetReopened: true, targetPhase: reopenedPhase } : {}),
+    });
   } catch (e: any) {
     console.error("PATCH maintenance-probe error:", e);
     res.status(500).json({ error: "Failed to update probe" });
