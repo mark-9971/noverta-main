@@ -7,21 +7,27 @@ export interface SendReportEmailParams {
   reportLabel: string;
   frequency: string;
   recordCount: number;
-  csvContent: string;
+  format: "csv" | "pdf";
+  csvContent?: string;
+  pdfBuffer?: Buffer;
   fileName: string;
 }
 
 export async function sendReportEmail(params: SendReportEmailParams): Promise<{ success: boolean; error?: string }> {
-  const { toEmails, reportLabel, frequency, recordCount, csvContent, fileName } = params;
+  const { toEmails, reportLabel, frequency, recordCount, format, csvContent, pdfBuffer, fileName } = params;
   const resend = getResendClient();
   if (!resend) {
-    console.log(`[ScheduledReports] Email not configured — would send ${reportLabel} to ${toEmails.join(", ")}`);
+    console.log(`[ScheduledReports] Email not configured — would send ${reportLabel} (${format.toUpperCase()}) to ${toEmails.join(", ")}`);
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
 
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const subject = `Trellis Scheduled Report: ${reportLabel} — ${dateStr}`;
-  const html = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
+  const formatLabel = format === "pdf" ? "PDF" : "CSV";
+  const formatNote = format === "pdf"
+    ? "The report is attached as a PDF file."
+    : "The report is attached as a CSV file. Log in to Trellis to generate PDF versions or view export history.";
+  const emailHtml = `<div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto">
 <div style="background:#059669;color:white;padding:16px 24px;border-radius:8px 8px 0 0">
 <h2 style="margin:0;font-size:18px">Trellis — ${reportLabel}</h2>
 </div>
@@ -30,21 +36,29 @@ export async function sendReportEmail(params: SendReportEmailParams): Promise<{ 
 <ul style="color:#374151">
 <li><strong>Records:</strong> ${recordCount}</li>
 <li><strong>Generated:</strong> ${dateStr}</li>
-<li><strong>Format:</strong> CSV</li>
+<li><strong>Format:</strong> ${formatLabel}</li>
 </ul>
-<p style="color:#6b7280;font-size:13px">The report is attached as a CSV file. Log in to Trellis to generate PDF versions or view export history.</p>
+<p style="color:#6b7280;font-size:13px">${formatNote}</p>
 </div>
 <div style="text-align:center;padding:12px;color:#9ca3af;font-size:11px">Trellis SPED Compliance Platform — Confidential</div>
 </div>`;
 
   try {
-    const csvBuffer = Buffer.from(csvContent, "utf-8");
+    let attachmentContent: Buffer;
+    if (format === "pdf" && pdfBuffer) {
+      attachmentContent = pdfBuffer;
+    } else if (csvContent) {
+      attachmentContent = Buffer.from(csvContent, "utf-8");
+    } else {
+      return { success: false, error: "No attachment content provided" };
+    }
+
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmails,
       subject,
-      html,
-      attachments: [{ filename: fileName, content: csvBuffer }],
+      html: emailHtml,
+      attachments: [{ filename: fileName, content: attachmentContent }],
     });
     if (result.error) {
       console.error(`[ScheduledReports] Email send failed:`, result.error);

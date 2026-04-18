@@ -30,7 +30,7 @@ import {
   buildOverdueSessionLogEmail,
 } from "./email";
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
-import { generateReportCSVDirect } from "../routes/reportExports/historyAndScheduled";
+import { generateReportCSVDirect, buildScheduledReportPdf } from "../routes/reportExports/historyAndScheduled";
 import { runCostAvoidanceAlertGeneration } from "./costAvoidanceAlerts";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -712,27 +712,49 @@ async function runScheduledReports(): Promise<void> {
         continue;
       }
 
+      const scheduleFormat: "csv" | "pdf" = schedule.format === "pdf" ? "pdf" : "csv";
       const rowCount = result.rowCount;
-      const fileName = `Scheduled_${label.replace(/\s+/g, "_")}_${today}.csv`;
+      const fileExt = scheduleFormat === "pdf" ? "pdf" : "csv";
+      const fileName = `Scheduled_${label.replace(/\s+/g, "_")}_${today}.${fileExt}`;
 
-      const emailResult = await sendReportEmail({
-        toEmails: schedule.recipientEmails ?? [],
-        reportLabel: label,
-        frequency: schedule.frequency,
-        recordCount: rowCount,
-        csvContent: result.csv,
-        fileName,
-      });
+      let emailResult: { success: boolean; error?: string };
+      if (scheduleFormat === "pdf") {
+        const pdfBuffer = await buildScheduledReportPdf({
+          label,
+          headers: result.headers,
+          rows: result.rows,
+          frequency: schedule.frequency,
+        });
+        emailResult = await sendReportEmail({
+          toEmails: schedule.recipientEmails ?? [],
+          reportLabel: label,
+          frequency: schedule.frequency,
+          recordCount: rowCount,
+          format: "pdf",
+          pdfBuffer,
+          fileName,
+        });
+      } else {
+        emailResult = await sendReportEmail({
+          toEmails: schedule.recipientEmails ?? [],
+          reportLabel: label,
+          frequency: schedule.frequency,
+          recordCount: rowCount,
+          format: "csv",
+          csvContent: result.csv,
+          fileName,
+        });
+      }
 
       await db.insert(exportHistoryTable).values({
         reportType,
         reportLabel: label,
         exportedBy: schedule.createdBy,
         districtId: schedule.districtId,
-        format: "csv",
+        format: scheduleFormat,
         fileName,
         recordCount: rowCount,
-        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency, emailSent: emailResult.success, emailError: emailResult.error ?? null, start: reportFilters.startDate, end: reportFilters.endDate, schoolId: reportFilters.schoolId, providerId: reportFilters.providerId, serviceTypeId: reportFilters.serviceTypeId, complianceStatus: reportFilters.complianceStatus },
+        parameters: { scheduled: true, scheduleId: schedule.id, frequency: schedule.frequency, format: scheduleFormat, emailSent: emailResult.success, emailError: emailResult.error ?? null, start: reportFilters.startDate, end: reportFilters.endDate, schoolId: reportFilters.schoolId, providerId: reportFilters.providerId, serviceTypeId: reportFilters.serviceTypeId, complianceStatus: reportFilters.complianceStatus },
       });
 
       let nextRunAt: Date;

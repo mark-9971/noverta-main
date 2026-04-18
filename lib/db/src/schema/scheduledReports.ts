@@ -5,6 +5,7 @@ export const scheduledReportsTable = pgTable("scheduled_reports", {
   districtId: integer("district_id").notNull(),
   reportType: text("report_type").notNull(),
   frequency: text("frequency").notNull(),
+  format: text("format").notNull().default("csv").$type<"csv" | "pdf">(),
   filters: jsonb("filters").$type<Record<string, unknown>>(),
   recipientEmails: jsonb("recipient_emails").$type<string[]>().notNull(),
   createdBy: text("created_by").notNull(),

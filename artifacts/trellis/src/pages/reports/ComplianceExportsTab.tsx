@@ -21,7 +21,7 @@ export function ComplianceExportsTab() {
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string } | null>(null);
+  const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; format: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string } | null>(null);
   const [providers, setProviders] = useState<{ id: number; name: string }[]>([]);
   const [serviceTypes, setServiceTypes] = useState<{ id: number; name: string }[]>([]);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
@@ -103,6 +103,7 @@ export function ComplianceExportsTab() {
         body: JSON.stringify({
           reportType: scheduleForm.reportType,
           frequency: scheduleForm.frequency,
+          format: scheduleForm.format || "csv",
           recipientEmails: emails,
           filters: {
             startDate: scheduleForm.startDate || undefined,
@@ -438,7 +439,7 @@ export function ComplianceExportsTab() {
             </div>
             {!scheduleForm && (
               <Button size="sm" className="gap-1.5 text-[12px] bg-emerald-700 hover:bg-emerald-800 text-white"
-                onClick={() => setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", emails: "", startDate: "", endDate: "", schoolId: "all", providerId: "all", serviceTypeId: "all", complianceStatus: "all" })}>
+                onClick={() => setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", format: "csv", emails: "", startDate: "", endDate: "", schoolId: "all", providerId: "all", serviceTypeId: "all", complianceStatus: "all" })}>
                 + New Schedule
               </Button>
             )}
@@ -447,7 +448,7 @@ export function ComplianceExportsTab() {
           {scheduleForm && (
             <Card className="border-emerald-200 bg-emerald-50/20 mb-4">
               <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
                     <label className="text-[11px] text-gray-500 font-medium block mb-1">Report Type</label>
                     <select value={scheduleForm.reportType} onChange={e => setScheduleForm({ ...scheduleForm, reportType: e.target.value })}
@@ -464,6 +465,14 @@ export function ComplianceExportsTab() {
                       className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
                       <option value="weekly">Weekly (Monday morning)</option>
                       <option value="monthly">Monthly (1st of month)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-medium block mb-1">Format</label>
+                    <select value={scheduleForm.format} onChange={e => setScheduleForm({ ...scheduleForm, format: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                      <option value="csv">CSV (spreadsheet)</option>
+                      <option value="pdf">PDF (print-ready)</option>
                     </select>
                   </div>
                   <div>
@@ -541,9 +550,12 @@ export function ComplianceExportsTab() {
                 <Card key={s.id}>
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-[13px] font-semibold text-gray-700">{REPORT_TYPE_LABELS[s.reportType] ?? s.reportType}</p>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">{s.frequency}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${(s.format ?? "csv") === "pdf" ? "bg-red-50 text-red-600 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                          {((s.format ?? "csv") as string).toUpperCase()}
+                        </span>
                         {s.enabled ? (
                           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600">Active</span>
                         ) : (
