@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
   Users, Info, ListChecks,
-  TrendingUp, TrendingDown, Minus, Compass,
+  TrendingUp, TrendingDown, Minus, Compass, FileBarChart,
 } from "lucide-react";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
@@ -412,6 +412,22 @@ export default function PilotAdminHome() {
             </div>
           </div>
           <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+        </div>
+      </Link>
+
+      {/* Leadership Packet — executive summary with live data */}
+      <Link href="/leadership-packet">
+        <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-white p-4 md:p-5 hover:shadow-sm transition-shadow cursor-pointer flex items-center gap-4 group" data-testid="banner-leadership-packet">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
+            <FileBarChart className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm md:text-[15px] font-semibold text-gray-900">Leadership Packet</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-0.5">
+              Executive summary with live compliance data, risk breakdown, incident log, and provider utilization.
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-indigo-700 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
         </div>
       </Link>
 

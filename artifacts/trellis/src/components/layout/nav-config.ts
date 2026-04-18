@@ -74,6 +74,7 @@ export const adminNav: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/data-visualized", label: "At a Glance", icon: Sparkles, primary: true },
+      { href: "/leadership-packet", label: "Leadership Packet", icon: FileBarChart, primary: true },
       // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
       // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
       { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
@@ -309,6 +310,7 @@ const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
   "/weekly-compliance-summary",
   "/compensatory-finance",
   "/executive",
+  "/leadership-packet",
   "/settings",
 ]);
 
