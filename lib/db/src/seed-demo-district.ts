@@ -368,7 +368,19 @@ const SESSION_NOTE_TEMPLATES: Record<number, string[]> = {
   ],
 };
 
-export async function seedDemoDistrict() {
+export interface SeedDemoDistrictOptions {
+  /**
+   * Bypass the safety guard that refuses to TRUNCATE when the database
+   * contains non-demo districts. Equivalent to `ALLOW_DEMO_SEED_RESET=1`
+   * but scoped to a single call (no global env mutation, race-safe under
+   * concurrent requests). Use only from a request handler that has
+   * already established appropriate authorization (e.g.
+   * `requirePlatformAdmin`).
+   */
+  allowReset?: boolean;
+}
+
+export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
   console.log("╔══════════════════════════════════════════════════════════════╗");
   console.log("║  TRELLIS DEMO DISTRICT SEEDER                              ║");
   console.log("║  Generating: MetroWest Collaborative (Framingham, MA)       ║");
@@ -380,7 +392,7 @@ export async function seedDemoDistrict() {
   // pilot/production data with this seeder.
   const existing = await db.select({ id: districtsTable.id, name: districtsTable.name, isDemo: districtsTable.isDemo }).from(districtsTable);
   const realDistricts = existing.filter(d => !d.isDemo);
-  if (realDistricts.length > 0 && process.env.ALLOW_DEMO_SEED_RESET !== "1") {
+  if (realDistricts.length > 0 && !options.allowReset && process.env.ALLOW_DEMO_SEED_RESET !== "1") {
     throw new Error(
       `Refusing to run demo seeder: database contains ${realDistricts.length} non-demo district(s) ` +
       `(${realDistricts.map(d => `"${d.name}"`).join(", ")}). ` +

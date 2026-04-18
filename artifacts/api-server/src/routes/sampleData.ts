@@ -9,12 +9,20 @@
  */
 import { Router, type IRouter } from "express";
 import { logger } from "../lib/logger";
-import { requireRoles, requireDistrictScope, getEnforcedDistrictId } from "../middlewares/auth";
+import {
+  requireRoles,
+  requireDistrictScope,
+  getEnforcedDistrictId,
+  requirePlatformAdmin,
+} from "../middlewares/auth";
 import type { AuthedRequest } from "../middlewares/auth";
 import {
   seedSampleDataForDistrict,
   teardownSampleData,
   getSampleDataStatus,
+  seedDemoComplianceVariety,
+  seedDemoModules,
+  seedDemoDistrict,
 } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -73,6 +81,89 @@ router.delete("/sample-data", requireDistrictScope, requireRoles("admin", "coord
   } catch (err) {
     logger.error({ err, districtId }, "sample-data teardown failed");
     res.status(500).json({ error: err instanceof Error ? err.message : "Teardown failed" });
+  }
+});
+
+/**
+ * Reset the MetroWest Collaborative demo district back to its canonical
+ * showcase state. Platform-admin only — used between back-to-back sales
+ * demos so each one starts from the same baseline.
+ *
+ * Sequence:
+ *   1. `seedDemoDistrict()` — full canonical reseed (TRUNCATEs and
+ *      re-creates the demo district, schools, staff, students, services,
+ *      sessions, IEPs, goals, etc.). This drops any drift accumulated
+ *      during the previous demo (edits, deletes, hand-created rows).
+ *   2. `seedDemoModules()` — additive module sweep (medicaid claims,
+ *      compensatory variety, parent messages, share links, signatures,
+ *      transitions, restraints, document acks, export history).
+ *   3. `seedDemoComplianceVariety()` — additive compliance-alert variety
+ *      that lands the demo at ~80% compliance with a representative mix
+ *      of alert types.
+ *
+ * SAFETY: `seedDemoDistrict()` runs a global TRUNCATE across districts,
+ * schools, staff, students, etc. Its built-in guard refuses to do so
+ * when the database contains any non-demo districts (unless the
+ * deployment operator has explicitly set `ALLOW_DEMO_SEED_RESET=1`).
+ * This route does NOT bypass that guard. In shared multi-tenant
+ * environments the canonical reseed will fail loudly (returned as a
+ * 500 with the seeder's explanatory message) rather than silently
+ * destroy real tenant data. Use this endpoint only on dedicated demo
+ * deployments.
+ */
+// Process-wide mutex so two concurrent reset clicks can't interleave the
+// truncate/reseed sequence (which would race on the same demo district
+// rows and leave the dataset in an inconsistent state).
+let demoResetInFlight: Promise<unknown> | null = null;
+
+router.post("/sample-data/reset-demo", requirePlatformAdmin, async (_req, res): Promise<void> => {
+  if (demoResetInFlight) {
+    res.status(409).json({ error: "A demo reset is already in progress; please wait for it to finish." });
+    return;
+  }
+  const startedAt = Date.now();
+  const work = (async () => {
+    logger.info("demo reset: starting full canonical reseed");
+    // We do NOT pass `allowReset: true`. `seedDemoDistrict()` runs a
+    // global TRUNCATE across districts/schools/staff/students/etc. In a
+    // dedicated demo environment (no non-demo districts, or operator
+    // has set `ALLOW_DEMO_SEED_RESET=1` on the deployment) the seeder's
+    // own guard permits the truncate. In any shared environment that
+    // contains real tenant districts the seeder will throw, and the
+    // catch block below surfaces it as a 500 with the seeder's
+    // explanatory message — the reset MUST NOT be allowed to wipe
+    // non-demo tenant data, so this guard is intentional.
+    await seedDemoDistrict();
+    logger.info("demo reset: canonical reseed complete, running module sweep");
+    const modules = await seedDemoModules();
+    logger.info("demo reset: module sweep complete, running compliance variety");
+    const variety = await seedDemoComplianceVariety();
+    return { modules, variety };
+  })();
+  demoResetInFlight = work;
+  try {
+    const { modules, variety } = await work;
+    const elapsedMs = Date.now() - startedAt;
+    logger.info({ elapsedMs, ...variety }, "demo reset: complete");
+    res.json({
+      ok: true,
+      elapsedMs,
+      districtId: variety.districtId,
+      reseed: { ran: true },
+      variety: {
+        alertsInserted: variety.alertsInserted,
+        alertsSkipped: variety.alertsSkipped,
+        totalStudents: variety.totalStudents,
+        nonCompliantStudents: variety.nonCompliantStudents,
+        compliancePct: variety.compliancePct,
+      },
+      modules: { districtId: modules.districtId },
+    });
+  } catch (err) {
+    logger.error({ err }, "demo reset failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Demo reset failed" });
+  } finally {
+    demoResetInFlight = null;
   }
 });
 

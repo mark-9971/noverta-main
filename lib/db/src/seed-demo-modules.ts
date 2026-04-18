@@ -21,7 +21,7 @@ const TAG = "[demo-modules]";
 async function getDistrictId(): Promise<number> {
   const r = await db.execute(sql`SELECT id FROM districts WHERE name='MetroWest Collaborative' AND is_demo=true LIMIT 1`);
   const id = (r.rows[0] as { id: number } | undefined)?.id;
-  if (!id) { console.error("MetroWest Collaborative demo district not found."); process.exit(1); }
+  if (!id) { throw new Error("MetroWest Collaborative demo district not found."); }
   return id;
 }
 
@@ -697,7 +697,7 @@ async function tally(districtId: number) {
   console.log(`Compliance still ${t.compliance_pct}%  (${t.non_compliant} of ${t.total})`);
 }
 
-async function main() {
+export async function seedDemoModules(): Promise<{ districtId: number }> {
   const districtId = await getDistrictId();
   console.log(`Sweeping demo modules for district ${districtId}...`);
   await seedAgenciesAndContracts(districtId);
@@ -712,6 +712,10 @@ async function main() {
   await seedDocumentAcknowledgments(districtId);
   await seedExportHistory(districtId);
   await tally(districtId);
+  return { districtId };
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+const isCli = typeof process !== "undefined" && process.argv[1]?.endsWith("seed-demo-modules.ts");
+if (isCli) {
+  seedDemoModules().catch((e) => { console.error(e); process.exit(1); });
+}

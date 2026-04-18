@@ -13,14 +13,22 @@
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
-async function main() {
+export interface DemoComplianceVarietyResult {
+  districtId: number;
+  alertsInserted: number;
+  alertsSkipped: number;
+  totalStudents: number;
+  nonCompliantStudents: number;
+  compliancePct: string;
+}
+
+export async function seedDemoComplianceVariety(): Promise<DemoComplianceVarietyResult> {
   const districtRows = await db.execute(sql`
     SELECT id FROM districts WHERE name = 'MetroWest Collaborative' AND is_demo = true LIMIT 1
   `);
   const districtId = (districtRows.rows[0] as { id: number } | undefined)?.id;
   if (!districtId) {
-    console.error("MetroWest Collaborative demo district not found. Run seed-demo-district first.");
-    process.exit(1);
+    throw new Error("MetroWest Collaborative demo district not found. Run seed-demo-district first.");
   }
   console.log(`Shaping compliance variety for district ${districtId}...`);
 
@@ -38,8 +46,7 @@ async function main() {
   type Row = { iep_id: number; student_id: number };
   const rows = ieps.rows as Row[];
   if (rows.length < 9) {
-    console.error("Not enough active IEPs in MetroWest demo district to shape variety.");
-    process.exit(1);
+    throw new Error("Not enough active IEPs in MetroWest demo district to shape variety.");
   }
   // Indexed picks (stable across reseeds because we order by s.id).
   const unsignedIep   = rows[2];  // → status='draft'
@@ -237,6 +244,19 @@ async function main() {
   `);
   const t = tally.rows[0] as { total: number; non_compliant: number; compliance_pct: string };
   console.log(`Done. Compliance ${t.compliance_pct}%  (${t.non_compliant} of ${t.total} students with active alerts)`);
+
+  return {
+    districtId,
+    alertsInserted: inserted,
+    alertsSkipped: skipped,
+    totalStudents: Number(t.total),
+    nonCompliantStudents: Number(t.non_compliant),
+    compliancePct: String(t.compliance_pct),
+  };
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// CLI entry: `pnpm --filter @workspace/db exec tsx src/seed-demo-compliance-variety.ts`
+const isCli = typeof process !== "undefined" && process.argv[1]?.endsWith("seed-demo-compliance-variety.ts");
+if (isCli) {
+  seedDemoComplianceVariety().catch((e) => { console.error(e); process.exit(1); });
+}
