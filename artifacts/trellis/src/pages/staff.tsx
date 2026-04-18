@@ -1,13 +1,65 @@
-import { useListStaff, useGetProviderDashboardSummary, useGetParaDashboardSummary } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useListStaff, useGetProviderDashboardSummary, useGetParaDashboardSummary, getListStaffQueryKey } from "@workspace/api-client-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, ChevronRight, Stethoscope, HandHelping, ClipboardList } from "lucide-react";
+import { AlertTriangle, ChevronRight, Stethoscope, HandHelping, ClipboardList, BellOff } from "lucide-react";
 import { MiniProgressRing } from "@/components/ui/progress-ring";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import { ROLE_LABELS, ROLE_COLORS } from "@/lib/constants";
 import { useSchoolContext } from "@/lib/school-context";
+import { authFetch } from "@/lib/auth-fetch";
+import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
+
+function AlertOptOutIndicator({ staffId, name }: { staffId: number; name: string }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+
+  async function handleReenable(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await authFetch(`/api/staff/${staffId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiveRiskAlerts: true }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(`Re-enabled risk alert emails for ${name}`);
+      queryClient.invalidateQueries({ queryKey: getListStaffQueryKey().slice(0, 1) });
+    } catch {
+      toast.error("Failed to re-enable email alerts");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleReenable}
+            disabled={saving}
+            aria-label={`${name} has opted out of risk alert emails. Click to re-enable.`}
+            className="flex items-center justify-center w-6 h-6 rounded-md text-amber-600 hover:bg-amber-50 disabled:opacity-50 flex-shrink-0"
+          >
+            <BellOff className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] text-center">
+          Opted out of risk alert emails. Click to re-enable.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export default function Staff() {
   const { typedFilter } = useSchoolContext();
@@ -43,6 +95,11 @@ export default function Staff() {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_COLORS[member.role]} flex-shrink-0`}>
             {ROLE_LABELS[member.role] ?? member.role}
           </span>
+          <div className="w-6 flex-shrink-0 flex justify-center">
+            {member.receiveRiskAlerts === false && (
+              <AlertOptOutIndicator staffId={member.id} name={`${member.firstName} ${member.lastName}`} />
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-shrink-0 w-24 justify-end">
             <span className="text-[12px] text-gray-500">{summary?.assignedStudents ?? 0} students</span>
           </div>
@@ -153,6 +210,11 @@ export default function Staff() {
                     <p className="text-[12px] text-gray-400">{cm.email}</p>
                   </div>
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Case Manager</span>
+                  <div className="w-6 flex-shrink-0 flex justify-center">
+                    {cm.receiveRiskAlerts === false && (
+                      <AlertOptOutIndicator staffId={cm.id} name={`${cm.firstName} ${cm.lastName}`} />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
