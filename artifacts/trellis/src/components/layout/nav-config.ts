@@ -84,24 +84,27 @@ export const adminNav: NavSection[] = [
   },
   // ── 2. IEP / Education ───────────────────────────────────────────────────
   {
-    label: "IEPs / Search",
+    label: "IEP",
     icon: GraduationCap,
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/iep", label: "IEP Hub", icon: GraduationCap },
-      { href: "/iep-search", label: "IEP Search", icon: Search },
+      { href: "/iep", label: "IEP Hub", icon: GraduationCap, primary: true },
       { href: "/iep-builder", label: "IEP Builder", icon: Sparkles },
-    ],
-  },
-  {
-    label: "IEP Scheduling",
-    icon: CalendarDays,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: Calendar },
+      {
+        href: "/iep-meetings", label: "IEP Scheduling", icon: CalendarDays,
+        children: [
+          { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+          { href: "/iep-calendar", label: "IEP Calendar", icon: Calendar },
+        ],
+      },
+      {
+        href: "/evaluations", label: "Evaluations & Progress", icon: FileSearch,
+        children: [
+          { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+        ],
+      },
     ],
   },
   {
@@ -121,16 +124,6 @@ export const adminNav: NavSection[] = [
           { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
         ],
       },
-    ],
-  },
-  {
-    label: "Evaluations & Progress",
-    icon: FileSearch,
-    collapsible: true,
-    defaultOpen: true,
-    items: [
-      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
     ],
   },
   // ── 3. Compliance ─────────────────────────────────────────────────────────
@@ -271,7 +264,7 @@ export const adminNav: NavSection[] = [
 ];
 
 // SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
-// All other sections are visible: Compliance, IEPs, IEP Scheduling, Accommodations & Transitions, Evaluations & Progress, ABA, Staffing.
+// All other sections are visible: IEP, Accommodations & Transitions, Compliance Tools, Staffing, ABA.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Staffing": "My Caseload",
