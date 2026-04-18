@@ -90,7 +90,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
     if (schoolId) compObligationConditions.push(eq(schoolsTable.id, schoolId) as any);
 
     const [districtRows, progress, rateMap, outstandingObligations] = await Promise.all([
-      db.select({ name: districtsTable.name }).from(districtsTable).where(eq(districtsTable.id, districtId)),
+      db.select({ name: districtsTable.name, complianceMinuteThreshold: districtsTable.complianceMinuteThreshold }).from(districtsTable).where(eq(districtsTable.id, districtId)),
       computeAllActiveMinuteProgress({ districtId, schoolId, ...(yearDates ?? {}) }),
       getRateMap(districtId),
       db.select({
@@ -104,6 +104,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
     ]);
 
     const districtName = districtRows[0]?.name ?? "District";
+    const complianceMinuteThreshold = districtRows[0]?.complianceMinuteThreshold ?? 85;
 
     const schoolIds = [...new Set(progress.map(p => p.studentId))];
     const studentSchools = schoolIds.length > 0
@@ -257,6 +258,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         generatedAt: today.toISOString(),
         reportPeriod: intervalLabel,
         schoolFilter: schoolId ?? null,
+        complianceMinuteThreshold,
       },
       summary: {
         totalStudents: uniqueStudents.size,

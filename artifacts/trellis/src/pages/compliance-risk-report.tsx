@@ -4,7 +4,9 @@ import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, DollarSign, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Printer, Download, AlertTriangle, CheckCircle, TrendingDown, Users, DollarSign, Clock, ChevronDown, ChevronUp, Settings as SettingsIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Link } from "wouter";
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
@@ -46,6 +48,7 @@ interface ReportData {
     generatedAt: string;
     reportPeriod: string;
     schoolFilter: number | null;
+    complianceMinuteThreshold: number;
   };
   summary: {
     totalStudents: number;
@@ -196,7 +199,7 @@ function buildPrintHtml(data: ReportData): string {
   <div class="header">
     <h1>Compliance Risk Report</h1>
     <div class="subtitle">${esc(data.meta.districtName)} — ${esc(data.meta.reportPeriod)}</div>
-    <div class="meta">Generated ${genDate} | CONFIDENTIAL — Contains Protected Student Information (FERPA)</div>
+    <div class="meta">Generated ${genDate} | Compliance threshold: ${data.meta.complianceMinuteThreshold}% of required minutes | CONFIDENTIAL — Contains Protected Student Information (FERPA)</div>
   </div>
 
   <div class="summary-grid">
@@ -313,7 +316,29 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
         {embedded && data && (
           <p className="text-xs text-gray-400">{data.meta.districtName} — {data.meta.reportPeriod}</p>
         )}
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          {data && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/settings"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-medium hover:bg-emerald-100 transition-colors"
+                    data-testid="compliance-threshold-pill"
+                  >
+                    <SettingsIcon className="h-3 w-3" />
+                    Threshold: {data.meta.complianceMinuteThreshold}%
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="text-xs leading-snug">
+                    Students must receive at least <strong>{data.meta.complianceMinuteThreshold}%</strong> of their required service minutes to be considered on track. This drives the risk status labels in this report.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Click to change in Settings.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Select value={schoolFilter} onValueChange={setSchoolFilter}>
             <SelectTrigger className="w-[200px] h-9">
               <SelectValue placeholder="All Schools" />
