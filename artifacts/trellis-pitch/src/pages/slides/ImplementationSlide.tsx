@@ -9,12 +9,12 @@ export default function ImplementationSlide() {
           Live in weeks, not months
         </h2>
         <p className="font-body text-[1.6vw] text-muted mt-[1.5vh] max-w-[55vw]">
-          Cloud-native SaaS means zero infrastructure. CSV import or SIS sync gets you running immediately.
+          Cloud-native SaaS means zero infrastructure. CSV roster import (production-ready) gets you running immediately; SFTP drop and live SIS connectors (PowerSchool / IC / Skyward) are in pilot.
         </p>
 
         <div className="flex gap-[2vw] mt-[5vh]">
           {[
-            { step: "1", title: "Onboard", time: "Week 1", items: ["CSV roster upload or SIS sync", "Role assignment for staff", "Service requirement configuration", "Training webinar (60 min)"] },
+            { step: "1", title: "Onboard", time: "Week 1", items: ["CSV roster upload (SFTP + live SIS sync in pilot)", "Role assignment for staff", "Service requirement configuration", "Training webinar (60 min)"] },
             { step: "2", title: "Configure", time: "Week 2", items: ["IEP goals & service schedules", "Compliance thresholds set", "Guardian portal invitations", "Custom report templates"] },
             { step: "3", title: "Go Live", time: "Week 3", items: ["Staff begin logging sessions", "Real-time compliance dashboard", "Automated risk alerts active", "Parent notifications flowing"] },
             { step: "4", title: "Optimize", time: "Ongoing", items: ["Monthly compliance reviews", "Analytics-driven insights", "Feature rollouts & updates", "Dedicated success manager"] },

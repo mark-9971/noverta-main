@@ -13,7 +13,7 @@ export default function S02_WhoAmI() {
           </div>
           <div className="flex-1">
             <div className="w-[3vw] h-[0.4vh] bg-warm rounded-full mb-[2vh]" />
-            <p className="font-body text-[1.8vw] text-text leading-relaxed">Built from scratch as a solo founder project, Trellis handles IEP compliance, session logging, clinical data, behavior tracking, staff scheduling, and Medicaid billing -- all in one system.</p>
+            <p className="font-body text-[1.8vw] text-text leading-relaxed">Built from scratch as a solo founder project, Trellis handles IEP compliance, session logging, clinical data, behavior tracking, staff scheduling, and Medicaid claim prep -- all in one system.</p>
           </div>
         </div>
       </div>

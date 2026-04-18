@@ -28,8 +28,8 @@ export default function S15_Differentiators() {
               <span className="font-display text-[1.5vw] font-bold text-primary">3</span>
             </div>
             <div>
-              <p className="font-body text-[1.6vw] font-semibold text-text mb-[0.5vh]">AI-Powered IEP Import</p>
-              <p className="font-body text-[1.3vw] text-muted">Upload a PDF, auto-extract goals and services. No re-typing. No data entry errors. Minutes instead of hours.</p>
+              <p className="font-body text-[1.6vw] font-semibold text-text mb-[0.5vh]">AI-Assisted IEP Import</p>
+              <p className="font-body text-[1.3vw] text-muted">Upload a PDF; an LLM extracts goals, services, and accommodations and imports them so a clinician can verify and edit in-app. Minutes instead of hours of re-typing.</p>
             </div>
           </div>
           <div className="flex gap-[1.5vw] items-start">

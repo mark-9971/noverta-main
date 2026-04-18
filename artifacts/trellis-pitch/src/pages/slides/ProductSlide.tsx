@@ -29,8 +29,8 @@ export default function ProductSlide() {
           <div className="flex gap-[1.5vw] items-start">
             <div className="w-[0.4vw] h-[5vh] bg-primary rounded-full mt-[0.5vh] shrink-0" />
             <div>
-              <p className="font-body text-[1.6vw] font-bold text-text">SIS Integrations</p>
-              <p className="font-body text-[1.3vw] text-muted leading-relaxed mt-[0.3vh]">Sync rosters from PowerSchool, Infinite Campus, and Skyward. Auto-archive unenrolled students. CSV fallback for any system.</p>
+              <p className="font-body text-[1.6vw] font-bold text-text">SIS Roster Import</p>
+              <p className="font-body text-[1.3vw] text-muted leading-relaxed mt-[0.3vh]">CSV roster import is production-ready and works with any SIS. SFTP drop, PowerSchool, Infinite Campus, and Skyward connectors are built and in pilot.</p>
             </div>
           </div>
 

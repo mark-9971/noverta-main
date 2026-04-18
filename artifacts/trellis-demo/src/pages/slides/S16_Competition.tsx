@@ -38,7 +38,7 @@ export default function S16_Competition() {
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-red-500">None</div>
           </div>
           <div className="grid grid-cols-6 border-b border-gray-100">
-            <div className="p-[1vw] font-body text-[1.2vw] text-text">AI IEP Import</div>
+            <div className="p-[1vw] font-body text-[1.2vw] text-text">AI-Assisted IEP Import</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center bg-primary/5 text-primary font-bold">Full</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-red-500">None</div>
             <div className="p-[1vw] font-body text-[1.2vw] text-center text-red-500">None</div>

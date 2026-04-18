@@ -38,7 +38,7 @@ export default function CompetitionSlide() {
               { cap: "Restraint / 603 CMR 46 workflows", t: true, sis: false, sp: "partial", fl: false, ss: false },
               { cap: "Guardian portal with messaging", t: true, sis: "partial", sp: false, fl: false, ss: false },
               { cap: "IEP goal progress tracking", t: true, sis: false, sp: true, fl: true, ss: "partial" },
-              { cap: "SIS roster sync", t: true, sis: true, sp: "partial", fl: "partial", ss: false },
+              { cap: "Roster import (CSV today; live SIS in pilot)", t: "partial", sis: true, sp: "partial", fl: "partial", ss: false },
               { cap: "Compensatory services calculator", t: true, sis: false, sp: false, fl: false, ss: false },
               { cap: "Multi-role access (9 roles)", t: true, sis: "partial", sp: "partial", fl: "partial", ss: false },
             ].map((row, i) => (

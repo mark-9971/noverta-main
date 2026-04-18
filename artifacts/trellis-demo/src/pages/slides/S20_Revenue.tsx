@@ -19,7 +19,7 @@ export default function S20_Revenue() {
             <p className="font-display text-[2.5vw] font-bold text-white mb-[0.5vh]">$14</p>
             <p className="font-body text-[1.3vw] text-emerald-300/70 mb-[2vh]">per student / month</p>
             <div className="w-full h-[0.2vh] bg-emerald-800/30 mb-[2vh]" />
-            <p className="font-body text-[1.3vw] text-emerald-100/80">Full clinical data, AI import, Medicaid claim prep, behavior analytics.</p>
+            <p className="font-body text-[1.3vw] text-emerald-100/80">Full clinical data, AI-assisted IEP import, Medicaid claim prep, behavior analytics.</p>
           </div>
           <div className="bg-white rounded-[1vw] p-[2.5vw] border border-gray-100 shadow-sm">
             <p className="font-body text-[1.3vw] text-muted font-medium uppercase tracking-wider mb-[1vh]">Enterprise</p>

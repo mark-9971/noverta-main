@@ -25,7 +25,7 @@ export default function S24_WhyMe() {
                 </div>
                 <div className="flex items-center gap-[1vw]">
                   <div className="w-[0.6vw] h-[0.6vw] rounded-full bg-primary flex-shrink-0" />
-                  <p className="font-body text-[1.3vw] text-muted">AI-powered IEP document parsing</p>
+                  <p className="font-body text-[1.3vw] text-muted">AI-assisted IEP PDF import (clinician-reviewed)</p>
                 </div>
                 <div className="flex items-center gap-[1vw]">
                   <div className="w-[0.6vw] h-[0.6vw] rounded-full bg-primary flex-shrink-0" />

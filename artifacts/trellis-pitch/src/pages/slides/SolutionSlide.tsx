@@ -19,7 +19,7 @@ export default function SolutionSlide() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[1.5vw] h-[1.5vw]"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
             <p className="font-body text-[1.6vw] font-bold text-white">Compliance Engine</p>
-            <p className="font-body text-[1.3vw] text-white/50 mt-[1vh] leading-relaxed">Real-time service minute tracking with automated risk scoring. Gaps caught before they become violations.</p>
+            <p className="font-body text-[1.3vw] text-white/50 mt-[1vh] leading-relaxed">Service minute tracking with rule-based risk scoring per student. Gaps surfaced before they become violations.</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-[1vw] p-[2vw]">

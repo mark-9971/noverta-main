@@ -24,8 +24,8 @@ export default function S12_KeyFeatures() {
             <div className="w-[3vw] h-[3vw] rounded-[0.5vw] bg-blue-50 flex items-center justify-center mb-[1.5vh]">
               <span className="font-display text-[1.2vw] font-bold text-blue-600">PDF</span>
             </div>
-            <p className="font-body text-[1.5vw] font-semibold text-text mb-[0.5vh]">AI IEP Import</p>
-            <p className="font-body text-[1.3vw] text-muted">Upload an IEP PDF and auto-extract goals, services, and accommodations.</p>
+            <p className="font-body text-[1.5vw] font-semibold text-text mb-[0.5vh]">AI-Assisted IEP Import</p>
+            <p className="font-body text-[1.3vw] text-muted">Upload an IEP PDF; an LLM extracts and imports goals, services, and accommodations for clinicians to verify and edit in-app.</p>
           </div>
         </div>
       </div>
