@@ -5,6 +5,7 @@ import {
   studentsTable, alertsTable,
   complianceEventsTable, teamMeetingsTable,
   restraintIncidentsTable,
+  medicalAlertsTable,
 } from "@workspace/db";
 import { eq, and, count, sql, desc, isNull, inArray } from "drizzle-orm";
 import {
@@ -154,6 +155,56 @@ router.get("/dashboard/critical-medical-alerts", async (req, res): Promise<void>
   } catch (e: any) {
     console.error("GET /dashboard/critical-medical-alerts error:", e);
     res.status(500).json({ error: "Failed to fetch medical event alerts" });
+  }
+});
+
+// Life-threatening profile-level medical alerts (not today's incidents).
+// Returns all active students in the district who have at least one alert
+// with severity = "life_threatening" AND notifyAllStaff = true.
+// Role-gated: staff roles that interact with students only.
+const LIFE_ALERT_READ_ROLES = ["admin", "case_manager", "coordinator", "sped_teacher", "provider", "bcba", "para"];
+
+router.get("/dashboard/life-threatening-alerts", async (req, res): Promise<void> => {
+  try {
+    const { trellisRole, districtId } = req as any;
+    if (!LIFE_ALERT_READ_ROLES.includes(trellisRole ?? "")) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    const conditions: any[] = [
+      eq(medicalAlertsTable.severity, "life_threatening"),
+      eq(medicalAlertsTable.notifyAllStaff, true),
+      isNull(studentsTable.deletedAt),
+      eq(studentsTable.status, "active"),
+    ];
+
+    if (districtId) {
+      conditions.push(
+        sql`${studentsTable.schoolId} IN (SELECT id FROM schools WHERE district_id = ${districtId})`
+      );
+    }
+
+    const rows = await db
+      .select({
+        alertId: medicalAlertsTable.id,
+        alertType: medicalAlertsTable.alertType,
+        description: medicalAlertsTable.description,
+        treatmentNotes: medicalAlertsTable.treatmentNotes,
+        epiPenOnFile: medicalAlertsTable.epiPenOnFile,
+        studentId: studentsTable.id,
+        firstName: studentsTable.firstName,
+        lastName: studentsTable.lastName,
+        grade: studentsTable.grade,
+      })
+      .from(medicalAlertsTable)
+      .innerJoin(studentsTable, eq(studentsTable.id, medicalAlertsTable.studentId))
+      .where(and(...conditions))
+      .orderBy(studentsTable.lastName, studentsTable.firstName);
+
+    res.json(rows);
+  } catch (e: any) {
+    console.error("GET /dashboard/life-threatening-alerts error:", e);
+    res.status(500).json({ error: "Failed to fetch life-threatening alerts" });
   }
 });
 

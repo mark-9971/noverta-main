@@ -12,6 +12,7 @@ import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChe
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
+import { LifeThreateningAlertsBanner } from "./AlertBanners";
 import { getGreeting } from "./types";
 
 interface ComplianceRiskReport {
@@ -211,6 +212,9 @@ export default function PilotAdminHome({ onShowFull }: { onShowFull?: () => void
           </button>
         )}
       </div>
+
+      {/* Life-threatening medical alert banner — dismissible per session */}
+      <LifeThreateningAlertsBanner />
 
       {/*
         Setup/readiness is the dominant concern until the district is pilot-ready.

@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/react";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ShieldAlert, X } from "lucide-react";
 import { Link } from "wouter";
 import { authFetch } from "@/lib/auth-fetch";
 import type { NeedsAttentionData } from "./types";
@@ -39,6 +41,114 @@ export function NeedsAttentionPanel() {
               </Link>
             ))}
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface LifeThreateningAlert {
+  alertId: number;
+  alertType: string;
+  description: string;
+  treatmentNotes: string | null;
+  epiPenOnFile: boolean;
+  studentId: number;
+  firstName: string;
+  lastName: string;
+  grade: string;
+}
+
+function dismissKey(sessionId: string | null | undefined) {
+  return `life-threat-dismissed-${sessionId ?? "anon"}`;
+}
+
+export function LifeThreateningAlertsBanner() {
+  const { sessionId } = useAuth();
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(dismissKey(sessionId)) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  // If sessionId resolves after mount (Clerk async), re-check localStorage.
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem(dismissKey(sessionId)) === "1");
+    } catch {}
+  }, [sessionId]);
+
+  const { data } = useQuery<LifeThreateningAlert[]>({
+    queryKey: ["dashboard-life-threatening-alerts"],
+    queryFn: () => authFetch("/api/dashboard/life-threatening-alerts").then(r => r.ok ? r.json() : []),
+    staleTime: 5 * 60_000,
+    enabled: !dismissed,
+  });
+
+  if (dismissed || !data || data.length === 0) return null;
+
+  // Group alerts by student so multi-alert students show as one row.
+  const byStudent = new Map<number, { firstName: string; lastName: string; grade: string; studentId: number; alerts: LifeThreateningAlert[] }>();
+  for (const row of data) {
+    const existing = byStudent.get(row.studentId);
+    if (existing) {
+      existing.alerts.push(row);
+    } else {
+      byStudent.set(row.studentId, { firstName: row.firstName, lastName: row.lastName, grade: row.grade, studentId: row.studentId, alerts: [row] });
+    }
+  }
+  const students = Array.from(byStudent.values());
+
+  function handleDismiss() {
+    try {
+      localStorage.setItem(dismissKey(sessionId), "1");
+    } catch {}
+    setDismissed(true);
+  }
+
+  return (
+    <Card className="border-red-300 bg-red-50/40">
+      <CardContent className="py-3 px-5">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-sm font-semibold text-red-800">
+                Life-Threatening Medical Alerts — Notify All Staff
+              </span>
+              <span className="text-xs font-bold rounded-full px-2 py-0.5 bg-red-100 text-red-700">
+                {students.length} student{students.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {students.map(stu => (
+                <Link key={stu.studentId} href={`/students/${stu.studentId}`}>
+                  <div className="flex items-start gap-2 text-[12px] cursor-pointer hover:bg-red-100/60 rounded px-1.5 py-1 -mx-1.5 transition-colors">
+                    <span className="font-semibold text-red-800 whitespace-nowrap">
+                      {stu.firstName} {stu.lastName}
+                    </span>
+                    <span className="text-red-400">·</span>
+                    <span className="text-red-700 truncate">
+                      {stu.alerts.map(a => a.description).join(" · ")}
+                    </span>
+                    {stu.alerts.some(a => a.epiPenOnFile) && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded whitespace-nowrap">EpiPen on file</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <p className="text-[10px] text-red-400 mt-2">Dismissed for this session · re-shows on next login</p>
+          </div>
+          <button
+            onClick={handleDismiss}
+            aria-label="Dismiss life-threatening alert banner"
+            className="flex-shrink-0 p-1 rounded-md hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </CardContent>
     </Card>
