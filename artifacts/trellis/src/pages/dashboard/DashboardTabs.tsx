@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Shield, Clipboard, ArrowRight, FileBarChart, DollarSign,
-  BarChart2, Briefcase, CalendarClock, AlertCircle, RefreshCw,
+  BarChart2, Briefcase, CalendarClock, AlertCircle,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Users, Clock, Bell, CheckCircle } from "lucide-react";
@@ -14,6 +14,7 @@ import {
 } from "./SecondarySections";
 import CostRiskPanel from "@/components/dashboard/CostRiskPanel";
 import SystemStatusBanner from "@/components/dashboard/SystemStatusBanner";
+import MakeupSessionsCard from "@/components/dashboard/MakeupSessionsCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -278,36 +279,7 @@ export function DashboardTabs({
         </div>
 
         {/* Overdue makeup sessions tracker */}
-        {makeupObligations > 0 && (
-          <Card className="border-amber-200 bg-amber-50/20">
-            <CardHeader className="pb-0 flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-amber-500" />
-                Overdue Makeup Sessions
-              </CardTitle>
-              <Link href="/sessions?filter=makeup" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
-                View all <ArrowRight className="w-3 h-3" />
-              </Link>
-            </CardHeader>
-            <CardContent className="pt-3 pb-4 px-5">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-200">
-                    <span className="text-xl font-bold text-amber-700">{makeupObligations}</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-800">
-                      {makeupObligations} open makeup obligation{makeupObligations !== 1 ? "s" : ""}
-                    </div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">
-                      Sessions owed to students from prior missed deliveries
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <MakeupSessionsCard />
 
         {/* Accommodation compliance */}
         {accommodationCompliance && (

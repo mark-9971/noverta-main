@@ -6,6 +6,7 @@ import chartsDataRouter from "./chartsData";
 import complianceTrendsRouter from "./complianceTrends";
 import schoolComplianceRouter from "./schoolCompliance";
 import iepExpirationsRouter from "./iepExpirations";
+import makeupObligationsRouter from "./makeupObligations";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(chartsDataRouter);
 router.use(complianceTrendsRouter);
 router.use(schoolComplianceRouter);
 router.use(iepExpirationsRouter);
+router.use(makeupObligationsRouter);
 
 export default router;
