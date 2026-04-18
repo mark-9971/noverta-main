@@ -77,12 +77,24 @@ export const adminNav: NavSection[] = [
       { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
       { href: "/state-reporting", label: "State Reports", icon: Building2 },
+      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
     ],
   },
   {
-    // Trimmed to 6 core items — the service-delivery wedge.
-    // Demoted to More tools: Staff Calendar, IEP Meetings, IEP Calendar,
-    // Caseload Balancing, IEP Search, Evaluations, Progress Reports.
+    label: "IEP / Education",
+    icon: GraduationCap,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
+      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
+      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      { href: "/search", label: "IEP Search", icon: Search },
+      { href: "/accommodation-lookup", label: "Accommodations", icon: ShieldCheck },
+    ],
+  },
+  {
     label: "Service Delivery",
     icon: Calendar,
     collapsible: true,
@@ -93,6 +105,16 @@ export const adminNav: NavSection[] = [
       { href: "/schedule", label: "Schedule", icon: Calendar },
       { href: "/coverage", label: "Coverage", icon: UserCheck },
       { href: "/staff", label: "Staff", icon: UserCheck },
+    ],
+  },
+  {
+    label: "ABA",
+    icon: Activity,
+    collapsible: true,
+    defaultOpen: true,
+    items: [
+      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
     ],
   },
   {
@@ -125,27 +147,13 @@ export const adminNav: NavSection[] = [
     defaultOpen: false,
     items: [
       { href: "/reports", label: "Reports", icon: BarChart3 },
-      // Routes still live — pages work, dashboard cards and command palette
-      // can still link here. Items are nav-demoted only; nothing is deleted.
-      //
-      // --- Demoted from Service Delivery (Pass 2) ---
       { href: "/staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-      { href: "/iep-meetings", label: "IEP Meetings", icon: Users },
-      { href: "/iep-calendar", label: "IEP Calendar", icon: CalendarDays },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
-      { href: "/search", label: "IEP Search", icon: Search },
-      { href: "/evaluations", label: "Evaluations", icon: FileSearch },
-      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-      // --- Demoted from primary nav (Pass 1) ---
       { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
-      { href: "/accommodation-lookup", label: "Accommodations", icon: Shield },
       { href: "/agencies", label: "Agencies", icon: Truck },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
-      { href: "/behavior-assessment", label: "FBA / BIP", icon: ClipboardList, featureKey: "clinical.fba_bip" as FeatureKey },
-      { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "clinical.protective_measures" as FeatureKey },
       { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
