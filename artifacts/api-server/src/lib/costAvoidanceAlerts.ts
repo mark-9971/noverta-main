@@ -146,7 +146,7 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
   }
 
   // Collect staff info for email lookup
-  const staffEmailCache = new Map<number, { name: string; email: string | null }>();
+  const staffEmailCache = new Map<number, { name: string; email: string | null; receiveRiskAlerts: boolean }>();
 
   const appBaseUrl = process.env.APP_BASE_URL ?? null;
 
@@ -191,17 +191,21 @@ export async function generateAlertsForDistrict(districtId: number): Promise<{ c
         firstName: staffTable.firstName,
         lastName: staffTable.lastName,
         email: staffTable.email,
+        receiveRiskAlerts: staffTable.receiveRiskAlerts,
       }).from(staffTable).where(eq(staffTable.id, risk.staffId));
       if (staffRow) {
         staffEmailCache.set(risk.staffId, {
           name: `${staffRow.firstName} ${staffRow.lastName}`,
           email: staffRow.email,
+          receiveRiskAlerts: staffRow.receiveRiskAlerts,
         });
       }
     }
 
     const staffInfo = staffEmailCache.get(risk.staffId);
     if (!staffInfo?.email) continue;
+    // Respect the staff member's opt-out preference
+    if (staffInfo.receiveRiskAlerts === false) continue;
 
     const { subject, html, text } = buildCostAvoidanceRiskEmail({
       staffName: staffInfo.name,

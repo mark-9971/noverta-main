@@ -21,6 +21,7 @@ export const staffTable = pgTable("staff", {
   sisConnectionId: integer("sis_connection_id"),
   sisManaged: text("sis_managed"),
   isSample: boolean("is_sample").notNull().default(false),
+  receiveRiskAlerts: boolean("receive_risk_alerts").notNull().default(true),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

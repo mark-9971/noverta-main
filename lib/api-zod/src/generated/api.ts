@@ -847,6 +847,7 @@ export const ListStaffResponseItem = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
+  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
 });
 export const ListStaffResponse = zod.array(ListStaffResponseItem);
@@ -884,6 +885,7 @@ export const GetStaffResponse = zod.object({
   qualifications: zod.string().nullish(),
   hourlyRate: zod.string().nullish(),
   annualSalary: zod.string().nullish(),
+  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
   assignedStudents: zod.array(
     zod.object({
@@ -942,6 +944,7 @@ export const UpdateStaffBody = zod.object({
   qualifications: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
+  receiveRiskAlerts: zod.boolean().nullish(),
 });
 
 export const UpdateStaffResponse = zod.object({
@@ -958,6 +961,7 @@ export const UpdateStaffResponse = zod.object({
   annualSalary: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
+  receiveRiskAlerts: zod.boolean(),
   createdAt: zod.string(),
 });
 
