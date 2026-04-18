@@ -65,18 +65,43 @@ function FrequencyCounter({ data, onChange, targetName }: { data: CollectedBehav
 function DurationTracker({ data, onChange }: { data: CollectedBehaviorData; onChange: (d: CollectedBehaviorData) => void }) {
   const [running, setRunning] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [liveElapsed, setLiveElapsed] = useState(0);
+  const tickRef = useRef<any>(null);
+
+  const bouts: number[] = data.eventTimestamps;
+
+  useEffect(() => {
+    if (running) {
+      tickRef.current = setInterval(() => {
+        setLiveElapsed(startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0);
+      }, 250);
+    } else {
+      clearInterval(tickRef.current);
+      setLiveElapsed(0);
+    }
+    return () => clearInterval(tickRef.current);
+  }, [running, startedAt]);
 
   const toggleTimer = useCallback(() => {
     if (running && startedAt) {
       const elapsed = Math.round((Date.now() - startedAt) / 1000);
-      onChange({ ...data, value: data.value + elapsed });
+      const newBouts = [...bouts, elapsed];
+      const newTotal = newBouts.reduce((a, b) => a + b, 0);
+      onChange({ ...data, value: newTotal, eventTimestamps: newBouts });
       setRunning(false);
       setStartedAt(null);
     } else {
       setRunning(true);
       setStartedAt(Date.now());
     }
-  }, [running, startedAt, data, onChange]);
+  }, [running, startedAt, data, onChange, bouts]);
+
+  const undoLastBout = useCallback(() => {
+    if (bouts.length === 0) return;
+    const newBouts = bouts.slice(0, -1);
+    const newTotal = newBouts.reduce((a, b) => a + b, 0);
+    onChange({ ...data, value: newTotal, eventTimestamps: newBouts });
+  }, [bouts, data, onChange]);
 
   const formatSec = (s: number) => {
     const m = Math.floor(s / 60);
@@ -84,26 +109,186 @@ function DurationTracker({ data, onChange }: { data: CollectedBehaviorData; onCh
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
+  const totalSec = data.value;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Clock className="w-4 h-4 text-amber-600" />
-        <span className="text-xs font-semibold text-amber-700 uppercase">Duration</span>
-      </div>
-      <div className="flex items-center justify-center gap-4">
-        <div className="text-center">
-          <p className="text-3xl font-bold text-amber-700 tabular-nums">{formatSec(data.value)}</p>
-          <p className="text-[10px] text-amber-500">total recorded</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-600" />
+          <span className="text-xs font-semibold text-amber-700 uppercase">Duration</span>
         </div>
+        {bouts.length > 0 && (
+          <span className="text-[10px] text-gray-400">{bouts.length} bout{bouts.length !== 1 ? "s" : ""}</span>
+        )}
       </div>
-      <button
-        onClick={toggleTimer}
-        className={`w-full h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-md ${
-          running ? "bg-red-500 text-white hover:bg-red-600" : "bg-amber-600 text-white hover:bg-amber-700"
-        }`}
-      >
-        {running ? <><Square className="w-4 h-4" /> Stop</> : <><Play className="w-4 h-4" /> Start Duration Timer</>}
-      </button>
+
+      <div className="flex items-center justify-center gap-6">
+        <div className="text-center">
+          <p className="text-3xl font-bold text-amber-700 tabular-nums">{formatSec(totalSec)}</p>
+          <p className="text-[10px] text-amber-500">total</p>
+        </div>
+        {running && (
+          <div className="text-center">
+            <p className="text-2xl font-bold text-red-500 tabular-nums animate-pulse">{formatSec(liveElapsed)}</p>
+            <p className="text-[10px] text-red-400">this bout</p>
+          </div>
+        )}
+      </div>
+
+      {bouts.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {bouts.map((b, i) => (
+            <span key={i} className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-mono">
+              {formatSec(b)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={toggleTimer}
+          className={`flex-1 h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-md ${
+            running ? "bg-red-500 text-white hover:bg-red-600" : "bg-amber-600 text-white hover:bg-amber-700"
+          }`}
+        >
+          {running ? <><Square className="w-4 h-4" /> Stop Bout</> : <><Play className="w-4 h-4" /> {bouts.length > 0 ? "Next Bout" : "Start Timer"}</>}
+        </button>
+        {!running && bouts.length > 0 && (
+          <button
+            onClick={undoLastBout}
+            className="h-12 px-3 rounded-xl bg-gray-100 text-gray-500 font-semibold text-xs active:scale-[0.97] hover:bg-gray-200"
+          >
+            Undo
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LatencyTracker({ data, onChange }: { data: CollectedBehaviorData; onChange: (d: CollectedBehaviorData) => void }) {
+  const [phase, setPhase] = useState<"idle" | "waiting">("idle");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [liveElapsed, setLiveElapsed] = useState(0);
+  const tickRef = useRef<any>(null);
+
+  const trials: number[] = data.eventTimestamps;
+  const mean = trials.length > 0 ? parseFloat((trials.reduce((a, b) => a + b, 0) / trials.length).toFixed(1)) : null;
+
+  useEffect(() => {
+    if (phase === "waiting") {
+      tickRef.current = setInterval(() => {
+        setLiveElapsed(startedAt ? parseFloat(((Date.now() - startedAt) / 1000).toFixed(1)) : 0);
+      }, 100);
+    } else {
+      clearInterval(tickRef.current);
+      setLiveElapsed(0);
+    }
+    return () => clearInterval(tickRef.current);
+  }, [phase, startedAt]);
+
+  function sdPresented() {
+    setPhase("waiting");
+    setStartedAt(Date.now());
+  }
+
+  function responseGiven() {
+    if (!startedAt) return;
+    const latency = parseFloat(((Date.now() - startedAt) / 1000).toFixed(1));
+    const newTrials = [...trials, latency];
+    const newMean = parseFloat((newTrials.reduce((a, b) => a + b, 0) / newTrials.length).toFixed(1));
+    onChange({ ...data, value: newMean, eventTimestamps: newTrials });
+    setPhase("idle");
+    setStartedAt(null);
+  }
+
+  function cancelTrial() {
+    setPhase("idle");
+    setStartedAt(null);
+  }
+
+  function undoLast() {
+    if (trials.length === 0) return;
+    const newTrials = trials.slice(0, -1);
+    const newMean = newTrials.length > 0
+      ? parseFloat((newTrials.reduce((a, b) => a + b, 0) / newTrials.length).toFixed(1))
+      : 0;
+    onChange({ ...data, value: newMean, eventTimestamps: newTrials });
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-600" />
+          <span className="text-xs font-semibold text-amber-700 uppercase">Latency</span>
+        </div>
+        {trials.length > 0 && (
+          <span className="text-[10px] text-gray-400">{trials.length} trial{trials.length !== 1 ? "s" : ""}</span>
+        )}
+      </div>
+
+      <div className="flex items-center justify-center gap-6">
+        <div className="text-center">
+          <p className="text-3xl font-bold text-amber-700 tabular-nums">
+            {mean !== null ? `${mean}s` : "—"}
+          </p>
+          <p className="text-[10px] text-amber-500">mean latency</p>
+        </div>
+        {phase === "waiting" && (
+          <div className="text-center">
+            <p className="text-2xl font-bold text-red-500 tabular-nums">{liveElapsed}s</p>
+            <p className="text-[10px] text-red-400">running…</p>
+          </div>
+        )}
+      </div>
+
+      {trials.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {trials.map((t, i) => (
+            <span key={i} className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-mono">
+              {t}s
+            </span>
+          ))}
+        </div>
+      )}
+
+      {phase === "idle" ? (
+        <button
+          onClick={sdPresented}
+          className="w-full h-12 rounded-xl bg-amber-600 text-white font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.97] hover:bg-amber-700 shadow-md"
+        >
+          <Play className="w-4 h-4" /> SD Presented — Start Timer
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <button
+            onClick={responseGiven}
+            className="w-full h-14 rounded-xl bg-emerald-600 text-white font-bold text-base flex items-center justify-center gap-2 active:scale-[0.97] shadow-md"
+          >
+            <CheckCircle className="w-5 h-5" /> Response Given — Record Latency
+          </button>
+          <button
+            onClick={cancelTrial}
+            className="w-full h-8 rounded-lg bg-gray-100 text-gray-500 text-xs font-medium active:scale-[0.97]"
+          >
+            Cancel trial (no response / SD withdrawn)
+          </button>
+        </div>
+      )}
+
+      {!phase && trials.length > 0 && (
+        <button onClick={undoLast} className="text-[11px] text-gray-400 hover:text-gray-600 underline">
+          Undo last trial
+        </button>
+      )}
+      {phase === "idle" && trials.length > 0 && (
+        <button onClick={undoLast} className="text-[11px] text-gray-400 hover:text-gray-600 underline">
+          Undo last trial
+        </button>
+      )}
     </div>
   );
 }
@@ -361,10 +546,24 @@ function LegacyIntervalRecorder({ data, onChange }: { data: CollectedBehaviorDat
 export function BehaviorWidget({ targetName, measurementType, intervalMode, intervalLengthSeconds, data, onChange, sessionRunning = true }: Props) {
   const notes = data.notes;
 
-  if (measurementType === "duration" || measurementType === "latency") {
+  if (measurementType === "duration") {
     return (
       <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 space-y-3">
         <DurationTracker data={data} onChange={onChange} />
+        <input
+          className="w-full h-8 px-3 text-xs border border-amber-200 rounded-lg bg-white placeholder-gray-400"
+          placeholder="Notes..."
+          value={notes}
+          onChange={e => onChange({ ...data, notes: e.target.value })}
+        />
+      </div>
+    );
+  }
+
+  if (measurementType === "latency") {
+    return (
+      <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 space-y-3">
+        <LatencyTracker data={data} onChange={onChange} />
         <input
           className="w-full h-8 px-3 text-xs border border-amber-200 rounded-lg bg-white placeholder-gray-400"
           placeholder="Notes..."

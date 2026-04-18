@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Activity, GraduationCap, X, Save, Play, Pause, Minus, Plus, Check, RotateCcw, Hand, BookOpen,
+  Activity, GraduationCap, X, Save, Play, Pause, Square, Minus, Plus, Check, CheckCircle, RotateCcw, Hand, BookOpen,
 } from "lucide-react";
 import { createDataSession } from "@workspace/api-client-react";
 import {
@@ -33,6 +33,11 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
   const [eventTimestamps, setEventTimestamps] = useState<Record<number, number[]>>({});
   const [ioaObservedTargets, setIoaObservedTargets] = useState<Record<number, boolean>>({});
   const [intervalScoresMap, setIntervalScoresMap] = useState<Record<number, boolean[]>>({});
+  const [durationBoutsMap, setDurationBoutsMap] = useState<Record<number, number[]>>({});
+  const [durationStartedAtMap, setDurationStartedAtMap] = useState<Record<number, number | null>>({});
+  const [latencyTrialsMap, setLatencyTrialsMap] = useState<Record<number, number[]>>({});
+  const [latencyPhaseMap, setLatencyPhaseMap] = useState<Record<number, "idle" | "running">>({});
+  const [latencyStartedAtMap, setLatencyStartedAtMap] = useState<Record<number, number | null>>({});
   const [sessionType, setSessionType] = useState<"acquisition" | "maintenance_probe" | "generalization_probe">("acquisition");
   const timerRef = useRef<any>(null);
   const startTimeRef = useRef<string>("");
@@ -62,6 +67,11 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
     setEventTimestamps({});
     setIoaObservedTargets({});
     setIntervalScoresMap({});
+    setDurationBoutsMap({});
+    setDurationStartedAtMap({});
+    setLatencyTrialsMap({});
+    setLatencyPhaseMap({});
+    setLatencyStartedAtMap({});
     startTimeRef.current = new Date().toTimeString().slice(0, 5);
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
   }
@@ -81,26 +91,50 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
     const behaviorData = behaviorTargets
       .filter(bt => {
         if (bt.measurementType === "interval") return (intervalScoresMap[bt.id] || []).length > 0;
+        if (bt.measurementType === "duration") return (durationBoutsMap[bt.id] || []).length > 0;
+        if (bt.measurementType === "latency") return (latencyTrialsMap[bt.id] || []).length > 0;
         return behaviorCounts[bt.id] > 0 || (isIoaSession && ioaObservedTargets[bt.id]);
       })
       .map(bt => {
         const scores = intervalScoresMap[bt.id] || [];
         const isInterval = bt.measurementType === "interval";
+        const isDuration = bt.measurementType === "duration";
+        const isLatency = bt.measurementType === "latency";
         const intervalWith = isInterval ? scores.filter(Boolean).length : null;
         const intervalTotal = isInterval ? scores.length : null;
         const intervalValue = isInterval && intervalTotal && intervalTotal > 0
           ? Math.round((intervalWith! / intervalTotal) * 100)
           : null;
+        const bouts = durationBoutsMap[bt.id] || [];
+        const durationTotal = isDuration ? bouts.reduce((a, b) => a + b, 0) : null;
+        const trials = latencyTrialsMap[bt.id] || [];
+        const latencyMean = isLatency && trials.length > 0
+          ? parseFloat((trials.reduce((a, b) => a + b, 0) / trials.length).toFixed(1))
+          : null;
+        let value: number;
+        let storedEventTimestamps: number[] | null = null;
+        if (isInterval) {
+          value = intervalValue ?? 0;
+        } else if (isDuration) {
+          value = durationTotal ?? 0;
+          storedEventTimestamps = bouts.length ? bouts : null;
+        } else if (isLatency) {
+          value = latencyMean ?? 0;
+          storedEventTimestamps = trials.length ? trials : null;
+        } else {
+          value = behaviorCounts[bt.id] ?? 0;
+          storedEventTimestamps = isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null;
+        }
         return {
           behaviorTargetId: bt.id,
-          value: isInterval ? (intervalValue ?? 0) : (behaviorCounts[bt.id] ?? 0),
+          value,
           intervalCount: intervalTotal,
           intervalsWith: intervalWith,
           hourBlock: `${now.getHours()}:00`,
           ioaSessionId: ioaSessId,
           observerNumber: isIoaSession ? ioaObserverNumber : null,
           observerName: isIoaSession ? (ioaObserverName || null) : null,
-          eventTimestamps: isIoaSession && eventTimestamps[bt.id]?.length ? eventTimestamps[bt.id] : null,
+          eventTimestamps: storedEventTimestamps,
           intervalScores: isInterval && scores.length ? scores : (isIoaSession && intervalScoresMap[bt.id]?.length ? intervalScoresMap[bt.id] : null),
         };
       });
@@ -213,6 +247,11 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
                 setSaved(false); setElapsed(0);
                 setIsIoaSession(false); setIoaSessionId("");
                 setIntervalScoresMap({});
+                setDurationBoutsMap({});
+                setDurationStartedAtMap({});
+                setLatencyTrialsMap({});
+                setLatencyPhaseMap({});
+                setLatencyStartedAtMap({});
                 setEventTimestamps({});
                 setIoaObservedTargets({});
                 const bc: Record<number, number> = {};
@@ -336,17 +375,156 @@ export default function LiveDataCollection({ studentId, student, behaviorTargets
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {behaviorTargets.map(bt => {
               const isInterval = bt.measurementType === "interval";
+              const isDuration = bt.measurementType === "duration";
+              const isLatency = bt.measurementType === "latency";
               const scores = intervalScoresMap[bt.id] || [];
               const intervalPct = scores.length > 0 ? Math.round((scores.filter(Boolean).length / scores.length) * 100) : null;
               const modeLabel = isInterval && bt.intervalMode
                 ? { partial_interval: "PI", whole_interval: "WI", momentary_time_sampling: "MTS" }[bt.intervalMode] ?? null
                 : null;
 
+              /* ── Duration helpers ── */
+              const dBouts = durationBoutsMap[bt.id] || [];
+              const dStartedAt = durationStartedAtMap[bt.id] ?? null;
+              const dRunning = dStartedAt !== null;
+              const dCurrentBout = dRunning ? Math.round((Date.now() - dStartedAt!) / 1000) : 0;
+              const dTotal = dBouts.reduce((a, b) => a + b, 0);
+              const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+              /* ── Latency helpers ── */
+              const lTrials = latencyTrialsMap[bt.id] || [];
+              const lPhase = latencyPhaseMap[bt.id] ?? "idle";
+              const lStartedAt = latencyStartedAtMap[bt.id] ?? null;
+              const lLiveSec = lPhase === "running" && lStartedAt
+                ? parseFloat(((Date.now() - lStartedAt) / 1000).toFixed(1))
+                : 0;
+              const lMean = lTrials.length > 0
+                ? parseFloat((lTrials.reduce((a, b) => a + b, 0) / lTrials.length).toFixed(1))
+                : null;
+
               return (
                 <Card key={bt.id} className="overflow-hidden">
                   <CardContent className="p-0">
-                    {!isInterval ? (
-                      /* ── Frequency / Duration / Latency / Percentage ── */
+                    {isDuration ? (
+                      /* ── Duration Stopwatch ── */
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-700">{bt.name}</p>
+                            <p className="text-[10px] text-gray-400">Duration · Goal: {bt.goalValue ?? "—"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-amber-700 tabular-nums">{fmtSec(dTotal)}</p>
+                            <p className="text-[10px] text-amber-500">total{dBouts.length > 0 ? ` · ${dBouts.length} bout${dBouts.length !== 1 ? "s" : ""}` : ""}</p>
+                          </div>
+                        </div>
+                        {dRunning && (
+                          <p className="text-center text-2xl font-bold text-red-500 tabular-nums animate-pulse">{fmtSec(dCurrentBout)}</p>
+                        )}
+                        {dBouts.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {dBouts.map((b, i) => (
+                              <span key={i} className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-mono">{fmtSec(b)}</span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            className={`flex-1 h-10 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] ${
+                              dRunning ? "bg-red-500 text-white" : "bg-amber-600 text-white"
+                            }`}
+                            disabled={!running}
+                            onClick={() => {
+                              if (dRunning && dStartedAt) {
+                                const dur = Math.round((Date.now() - dStartedAt) / 1000);
+                                setDurationBoutsMap(p => ({ ...p, [bt.id]: [...(p[bt.id] || []), dur] }));
+                                setDurationStartedAtMap(p => ({ ...p, [bt.id]: null }));
+                              } else {
+                                setDurationStartedAtMap(p => ({ ...p, [bt.id]: Date.now() }));
+                              }
+                            }}
+                          >
+                            {dRunning ? <><Square className="w-3.5 h-3.5" /> Stop Bout</> : <><Play className="w-3.5 h-3.5" /> {dBouts.length > 0 ? "Next Bout" : "Start"}</>}
+                          </button>
+                          {!dRunning && dBouts.length > 0 && (
+                            <button
+                              className="h-10 px-3 rounded-lg bg-gray-100 text-gray-500 text-xs font-medium active:scale-[0.97] hover:bg-gray-200"
+                              onClick={() => {
+                                const newBouts = dBouts.slice(0, -1);
+                                setDurationBoutsMap(p => ({ ...p, [bt.id]: newBouts }));
+                              }}
+                            >Undo</button>
+                          )}
+                        </div>
+                      </div>
+                    ) : isLatency ? (
+                      /* ── Latency Trial Capture ── */
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-700">{bt.name}</p>
+                            <p className="text-[10px] text-gray-400">Latency · Goal: {bt.goalValue ?? "—"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-amber-700 tabular-nums">{lMean !== null ? `${lMean}s` : "—"}</p>
+                            <p className="text-[10px] text-amber-500">mean{lTrials.length > 0 ? ` · ${lTrials.length} trial${lTrials.length !== 1 ? "s" : ""}` : ""}</p>
+                          </div>
+                        </div>
+                        {lPhase === "running" && (
+                          <p className="text-center text-2xl font-bold text-red-500 tabular-nums">{lLiveSec}s elapsed…</p>
+                        )}
+                        {lTrials.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {lTrials.map((t, i) => (
+                              <span key={i} className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-mono">{t}s</span>
+                            ))}
+                          </div>
+                        )}
+                        {lPhase === "idle" ? (
+                          <button
+                            className="w-full h-10 rounded-lg bg-amber-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-[0.97]"
+                            disabled={!running}
+                            onClick={() => {
+                              setLatencyPhaseMap(p => ({ ...p, [bt.id]: "running" }));
+                              setLatencyStartedAtMap(p => ({ ...p, [bt.id]: Date.now() }));
+                            }}
+                          >
+                            <Play className="w-3.5 h-3.5" /> SD Presented — Start Timer
+                          </button>
+                        ) : (
+                          <div className="space-y-1">
+                            <button
+                              className="w-full h-11 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.97]"
+                              onClick={() => {
+                                if (!lStartedAt) return;
+                                const lat = parseFloat(((Date.now() - lStartedAt) / 1000).toFixed(1));
+                                setLatencyTrialsMap(p => ({ ...p, [bt.id]: [...(p[bt.id] || []), lat] }));
+                                setLatencyPhaseMap(p => ({ ...p, [bt.id]: "idle" }));
+                                setLatencyStartedAtMap(p => ({ ...p, [bt.id]: null }));
+                              }}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" /> Response — Record Latency
+                            </button>
+                            <button
+                              className="w-full h-7 rounded-md bg-gray-100 text-gray-500 text-[10px] font-medium active:scale-[0.97]"
+                              onClick={() => {
+                                setLatencyPhaseMap(p => ({ ...p, [bt.id]: "idle" }));
+                                setLatencyStartedAtMap(p => ({ ...p, [bt.id]: null }));
+                              }}
+                            >Cancel trial</button>
+                          </div>
+                        )}
+                        {lPhase === "idle" && lTrials.length > 0 && (
+                          <button
+                            className="text-[10px] text-gray-400 hover:text-gray-600 underline"
+                            onClick={() => {
+                              setLatencyTrialsMap(p => ({ ...p, [bt.id]: (p[bt.id] || []).slice(0, -1) }));
+                            }}
+                          >Undo last trial</button>
+                        )}
+                      </div>
+                    ) : !isInterval ? (
+                      /* ── Frequency / Percentage ── */
                       <div className="flex items-center">
                         <div className="flex-1 p-3 md:p-4 min-w-0">
                           <p className="text-sm font-semibold text-gray-700 truncate">{bt.name}</p>
