@@ -22,6 +22,7 @@ import {
   ArrowRight, Sparkles, Rocket, Compass,
 } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { useRole } from "@/lib/role-context";
 import PilotOnboardingChecklist from "@/components/onboarding/PilotOnboardingChecklist";
 import PilotReadinessPanel from "@/components/dashboard/PilotReadinessPanel";
 
@@ -37,6 +38,35 @@ interface OnboardingStatusLite {
 }
 
 export default function OnboardingPage() {
+  const { role } = useRole();
+  const isAdmin = role === "admin" || role === "coordinator";
+
+  if (!isAdmin) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 max-w-2xl mx-auto">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5">
+            <ShieldCheck className="w-3 h-3" /> Admin only
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight mt-2">
+            District setup is run by an admin
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            The first-run setup hub configures your district profile, school year, roster import,
+            staff invites, and pilot readiness. Only district admins and coordinators can complete
+            these steps. If you need something configured here, please ask your district admin.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 mt-4"
+          >
+            Back to your dashboard <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const { data: sample } = useQuery<SampleStatus>({
     queryKey: ["sample-data/status"],
     queryFn: async () => {

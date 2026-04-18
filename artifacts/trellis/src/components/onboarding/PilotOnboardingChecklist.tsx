@@ -169,24 +169,37 @@ export default function PilotOnboardingChecklist({
   variant = "compact",
   defaultExpanded = true,
 }: Props) {
-  const { data, isLoading, isError } = useQuery<PilotChecklistResponse>({
+  const { data, isLoading, isError, error } = useQuery<PilotChecklistResponse, Error & { status?: number }>({
     queryKey: ["onboarding/pilot-checklist"],
     queryFn: async () => {
       const r = await authFetch("/api/onboarding/checklist");
-      if (!r.ok) throw new Error("onboarding/checklist failed");
+      if (!r.ok) {
+        const err = new Error("onboarding/checklist failed") as Error & { status?: number };
+        err.status = r.status;
+        throw err;
+      }
       return r.json();
     },
     staleTime: 30_000,
+    retry: (failureCount, err) => {
+      const status = (err as Error & { status?: number })?.status;
+      if (status === 401 || status === 403) return false;
+      return failureCount < 2;
+    },
   });
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   if (isError) {
+    const status = (error as Error & { status?: number })?.status;
+    const isPermission = status === 401 || status === 403;
     if (variant === "compact") return null;
     return (
       <Card data-testid="card-pilot-checklist-error">
         <CardContent className="p-4 text-sm text-amber-700 flex items-center gap-2">
           <FileWarning className="w-4 h-4" />
-          Could not load setup progress. Refresh the page to try again.
+          {isPermission
+            ? "Setup progress is visible to district admins and coordinators only. Ask an admin to walk through the onboarding checklist."
+            : "Could not load setup progress. Refresh the page to try again."}
         </CardContent>
       </Card>
     );
