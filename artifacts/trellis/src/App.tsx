@@ -103,6 +103,8 @@ const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance
 const CompensatoryFinancePage = lazy(() => import("@/pages/compensatory-finance"));
 const TenantsPage = lazy(() => import("@/pages/tenants"));
 const DemoReadinessPage = lazy(() => import("@/pages/demo-readiness"));
+const DemoRequestPage = lazy(() => import("@/pages/demo-request"));
+const AdminDemoDistrictsPage = lazy(() => import("@/pages/admin-demo-districts"));
 const SupportPage = lazy(() => import("@/pages/support"));
 const SettingsHubPage = lazy(() => import("@/pages/settings"));
 const OnboardingPage = lazy(() => import("@/pages/onboarding"));
@@ -295,6 +297,7 @@ function StaffRouter() {
       <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <BoundedRoute path="/admin/demo-readiness" component={DemoReadinessPage} fallbackTitle="Demo readiness error" />
+      <BoundedRoute path="/admin/demo-districts" component={AdminDemoDistrictsPage} fallbackTitle="Demo districts error" />
       <BoundedRoute path="/support" component={SupportPage} fallbackTitle="Support tools error" />
       <Route component={NotFound} />
     </Switch>
@@ -367,6 +370,11 @@ function App() {
           <WouterRouter base={base}>
             <Switch>
               <Route path="/pricing" component={PricingPage} />
+              <Route path="/demo/request">
+                <Suspense fallback={<PageLoader />}>
+                  <DemoRequestPage />
+                </Suspense>
+              </Route>
               <Route path="/sign-in" component={SignInPage} />
               <Route path="/sign-in/:rest*" component={SignInPage} />
               <Route path="/sign-up" component={SignUpPage} />

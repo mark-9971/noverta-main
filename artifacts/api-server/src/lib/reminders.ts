@@ -887,6 +887,41 @@ async function runCaseloadSnapshots(): Promise<void> {
   }
 }
 
+/**
+ * Archive demo districts that have passed their 7-day expiry date.
+ * Sets `delete_initiated_at` and `delete_scheduled_at` so the soft-delete
+ * pipeline can clean them up on its next run without immediate data loss.
+ */
+async function runDemoDistrictExpiry(): Promise<void> {
+  try {
+    const now = new Date();
+    const expired = await db
+      .select({ id: districtsTable.id, name: districtsTable.name })
+      .from(districtsTable)
+      .where(
+        and(
+          eq(districtsTable.isDemo, true),
+          lt(districtsTable.demoExpiresAt, now),
+          isNull(districtsTable.deleteInitiatedAt),
+        ),
+      );
+
+    if (expired.length === 0) return;
+
+    const scheduledAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    for (const d of expired) {
+      await db.update(districtsTable).set({
+        deleteInitiatedAt: now,
+        deleteScheduledAt: scheduledAt,
+        deleteInitiatedBy: "system:demo-expiry",
+      }).where(eq(districtsTable.id, d.id));
+      console.log(`[Reminders] Demo district ${d.id} (${d.name}) expired — scheduled for deletion`);
+    }
+  } catch (err) {
+    console.error("[Reminders] Demo district expiry check failed:", err);
+  }
+}
+
 async function runAllReminders(): Promise<void> {
   console.log("[Reminders] Running scheduled overdue reminder checks...");
   try {
@@ -900,6 +935,7 @@ async function runAllReminders(): Promise<void> {
       runCostAvoidanceAlertGeneration(),
       runComplianceRiskAlerts(),
       runCaseloadSnapshots(),
+      runDemoDistrictExpiry(),
     ]);
     console.log("[Reminders] Reminder check complete");
   } catch (err) {
