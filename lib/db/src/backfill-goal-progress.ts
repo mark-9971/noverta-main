@@ -8,8 +8,8 @@ function randf(min: number, max: number) { return min + Math.random() * (max - m
  * Per-backfill-run sampled parameters. Every value below is drawn from a
  * broad bound at run time so successive backfills produce visibly different
  * data shapes (history depth, trajectory mix, jitter amplitude, compliance
- * bucket distribution) rather than always landing on the same fixed
- * 60/20/20 + 15/50/25/10 splits with the same ±5pt noise.
+ * bucket distribution). No fixed splits or target percentages are encoded
+ * here — all shape-determining values are sampled from the ranges below.
  *
  * The values are *bounds* on randomness; nothing here encodes a target
  * outcome. They are documented broad min/max envelopes per Task #416.
@@ -420,13 +420,16 @@ async function createSessionsAndData(
     WITH target_buckets AS (
       -- Materialize one random bucket per program_target so all of its
       -- data sessions share a coherent trajectory (no modulo needed).
+      -- Single random draw (r.v) used for cumulative CASE so bucket
+      -- probabilities match the intended traj0/traj1 breakpoints exactly.
       SELECT pt.id AS target_id,
         CASE
-          WHEN random() < ${traj0 / 100.0} THEN 0   -- progressing
-          WHEN random() < ${traj1 / 100.0} THEN 1   -- regressing
-          ELSE 2                                     -- insufficient
+          WHEN r.v < ${traj0 / 100.0} THEN 0   -- progressing
+          WHEN r.v < ${traj1 / 100.0} THEN 1   -- regressing
+          ELSE 2                                -- insufficient
         END AS bucket
       FROM program_targets pt
+      CROSS JOIN LATERAL (SELECT random() AS v) r
       WHERE pt.student_id IN ${intList(studentIds)}
         AND pt.active = true
     )
@@ -477,13 +480,16 @@ async function createSessionsAndData(
     WITH target_buckets AS (
       -- One random bucket per behavior_target — same target always gets
       -- the same trajectory within this INSERT, no modulo needed.
+      -- Single random draw (r.v) used cumulatively so bucket probabilities
+      -- match the intended traj0/traj1 breakpoints exactly.
       SELECT bt.id AS target_id,
         CASE
-          WHEN random() < ${traj0 / 100.0} THEN 0   -- progressing
-          WHEN random() < ${traj1 / 100.0} THEN 1   -- regressing
-          ELSE 2                                     -- insufficient
+          WHEN r.v < ${traj0 / 100.0} THEN 0   -- progressing
+          WHEN r.v < ${traj1 / 100.0} THEN 1   -- regressing
+          ELSE 2                                -- insufficient
         END AS bucket
       FROM behavior_targets bt
+      CROSS JOIN LATERAL (SELECT random() AS v) r
       WHERE bt.student_id IN ${intList(studentIds)}
         AND bt.active = true
     )
@@ -693,16 +699,16 @@ async function createSupportingContent(
 /**
  * Generate `session_logs` rows so that each demo student lands inside one of
  * four compliance buckets for the current monthly interval, producing a
- * realistic spread instead of a single uniform "everyone behind" picture:
+ * realistic spread instead of a single uniform picture.
  *
- *   bucket = student.id % 20
- *     0..2  (15%)  OVER 100%  — caught up + makeups, 110..125% delivered
- *     3..12 (50%)  ON TRACK   —  85..100%
- *     13..17 (25%) BEHIND     —  65..85%
- *     18..19 (10%) AT RISK    —  50..65%
+ * Per-requirement target_pct values are drawn from `params.complianceTargets`
+ * band ranges using random() and materialized into a transient temp table
+ * (_comp_params_tmp) before Pass A runs. Both Pass A (completed minutes) and
+ * Pass B (missed minutes) JOIN that table so they always agree on the target,
+ * maintaining the invariant: completed + missed = required.
  *
  * Idempotent: only inserts the additional minutes needed to close the gap
- * between currently-delivered minutes and the bucket target. Tagged with
+ * between currently-delivered minutes and the sampled target. Tagged with
  * `notes='Sample minute log'` so the rows are easy to find/clear.
  */
 async function tuneComplianceForStudents(
