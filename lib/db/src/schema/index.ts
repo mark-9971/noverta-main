@@ -105,3 +105,5 @@ export * from "./medicaidReportSnapshots";
 export * from "./caseloadSnapshots";
 export * from "./scheduleChangeRequests";
 export * from "./goalAnnotations";
+export * from "./rateLimitBuckets";
+export * from "./uploadQuotas";

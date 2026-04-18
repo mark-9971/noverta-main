@@ -6,7 +6,7 @@ import { isRole } from "./permissions";
 import { getClientIp } from "./clientIp";
 
 interface AuditEntry {
-  action: "create" | "read" | "update" | "delete";
+  action: "create" | "read" | "update" | "delete" | "rate_limit_exceeded";
   targetTable: string;
   targetId?: string | number | null;
   studentId?: number | null;
@@ -53,6 +53,9 @@ export function logAudit(req: Request, entry: AuditEntry): void {
       console.error("Audit log insert failed:", err);
     });
 }
+
+/** Alias for logAudit — prefer this name for non-CRUD actions (e.g. rate_limit_exceeded). */
+export const logAuditEvent = logAudit;
 
 export function diffObjects(
   oldObj: Record<string, unknown>,

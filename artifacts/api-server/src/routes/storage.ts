@@ -4,10 +4,32 @@ import { z } from "zod";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { requireRoles } from "../middlewares/auth";
 import { assertStudentAccess, getStudentSchoolId, tenantUploadPrefix } from "../lib/tenantAccess";
+import { db, uploadQuotasTable } from "@workspace/db";
+import { sql, eq, and } from "drizzle-orm";
+import { logAudit } from "../lib/auditLog";
+import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
+import type { AuthedRequest } from "../middlewares/auth";
+
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+const DAILY_DISTRICT_QUOTA_BYTES = 1024 * 1024 * 1024; // 1 GB per district per day
+
+const ALLOWED_CONTENT_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/csv",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // Common aliases
+  "image/jpg",
+  "application/octet-stream", // generic fallback allowed for uploads validated by extension
+]);
 
 const RequestUploadUrlBody = z.object({
   name: z.string(),
-  size: z.number(),
+  size: z.number().int().positive().max(MAX_FILE_SIZE_BYTES, {
+    message: `File size must not exceed ${MAX_FILE_SIZE_BYTES} bytes (25 MB)`,
+  }),
   contentType: z.string(),
   studentId: z.number().int().positive(),
 });
@@ -27,18 +49,111 @@ const objectStorageService = new ObjectStorageService();
 
 const PRIVILEGED_ROLES = ["admin", "case_manager", "bcba", "sped_teacher", "coordinator", "provider"] as const;
 
+/**
+ * Returns today's ISO date string (YYYY-MM-DD) in UTC.
+ */
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Atomically adds `bytes` to the district's daily upload quota and returns
+ * the new total. Uses INSERT ... ON CONFLICT DO UPDATE so it is safe under
+ * concurrent requests.
+ */
+async function incrementUploadQuota(districtId: number, bytes: number): Promise<number> {
+  const quotaDate = todayUtc();
+  const [row] = await db
+    .insert(uploadQuotasTable)
+    .values({
+      districtId,
+      quotaDate,
+      uploadedBytes: bytes,
+      updatedAt: sql`now()`,
+    })
+    .onConflictDoUpdate({
+      target: [uploadQuotasTable.districtId, uploadQuotasTable.quotaDate],
+      set: {
+        uploadedBytes: sql`upload_quotas.uploaded_bytes + ${bytes}`,
+        updatedAt: sql`now()`,
+      },
+    })
+    .returning();
+  return row?.uploadedBytes ?? bytes;
+}
+
+/**
+ * Reads the current daily upload total for a district without incrementing it.
+ */
+async function getCurrentUploadQuota(districtId: number): Promise<number> {
+  const quotaDate = todayUtc();
+  const [row] = await db
+    .select({ uploadedBytes: uploadQuotasTable.uploadedBytes })
+    .from(uploadQuotasTable)
+    .where(
+      and(
+        eq(uploadQuotasTable.districtId, districtId),
+        eq(uploadQuotasTable.quotaDate, quotaDate),
+      ),
+    )
+    .limit(1);
+  return row?.uploadedBytes ?? 0;
+}
+
 router.post("/storage/uploads/request-url", requireRoles(...PRIVILEGED_ROLES), async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Missing or invalid required fields" });
+    res.status(400).json({ error: "Missing or invalid required fields", details: parsed.error.flatten() });
     return;
   }
 
   const { name, size, contentType, studentId } = parsed.data;
 
+  // Enforce content-type allowlist server-side — client cannot override this.
+  if (!ALLOWED_CONTENT_TYPES.has(contentType.toLowerCase())) {
+    res.status(400).json({
+      error: `Content type '${contentType}' is not permitted. Allowed types: PDF, PNG, JPG, DOCX, CSV, XLSX.`,
+    });
+    return;
+  }
+
+  // Double-check size limit (also validated by zod, belt-and-suspenders).
+  if (size > MAX_FILE_SIZE_BYTES) {
+    res.status(400).json({
+      error: `File size ${size} bytes exceeds the 25 MB limit.`,
+    });
+    return;
+  }
+
   if (!await assertStudentAccess(req, studentId)) {
     res.status(403).json({ error: "You don't have access to this student's records" });
     return;
+  }
+
+  // Check and enforce per-district daily upload quota.
+  const districtId = await resolveDistrictIdForCaller(req);
+  if (districtId !== null) {
+    const currentQuota = await getCurrentUploadQuota(districtId);
+    if (currentQuota + size > DAILY_DISTRICT_QUOTA_BYTES) {
+      const remainingMB = Math.max(0, (DAILY_DISTRICT_QUOTA_BYTES - currentQuota) / (1024 * 1024));
+      logAudit(req, {
+        action: "rate_limit_exceeded",
+        targetTable: "upload_quotas",
+        summary: `Daily upload quota exceeded for district ${districtId}`,
+        metadata: {
+          districtId,
+          currentQuotaBytes: currentQuota,
+          requestedBytes: size,
+          dailyLimitBytes: DAILY_DISTRICT_QUOTA_BYTES,
+        },
+      });
+      res.status(429).json({
+        error: `Daily upload quota exceeded. Approximately ${remainingMB.toFixed(1)} MB remaining today.`,
+        retryAfter: secondsUntilMidnightUtc(),
+        limit: DAILY_DISTRICT_QUOTA_BYTES,
+      });
+      return;
+    }
   }
 
   try {
@@ -46,6 +161,13 @@ router.post("/storage/uploads/request-url", requireRoles(...PRIVILEGED_ROLES), a
     const prefix = schoolId !== null ? tenantUploadPrefix(schoolId, studentId) : undefined;
     const uploadURL = await objectStorageService.getObjectEntityUploadURL(prefix);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+
+    // Record the upload bytes against the district quota now that we've issued the URL.
+    if (districtId !== null) {
+      await incrementUploadQuota(districtId, size).catch((err) => {
+        console.error("Failed to record upload quota:", err);
+      });
+    }
 
     res.json(
       RequestUploadUrlResponse.parse({
@@ -85,5 +207,12 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
     res.status(500).json({ error: "Failed to serve public object" });
   }
 });
+
+/** Returns seconds until the next UTC midnight. Used for Retry-After on daily quota exhaustion. */
+function secondsUntilMidnightUtc(): number {
+  const now = new Date();
+  const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return Math.ceil((midnight.getTime() - now.getTime()) / 1000);
+}
 
 export default router;

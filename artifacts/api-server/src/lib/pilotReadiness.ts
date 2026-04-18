@@ -227,6 +227,29 @@ export async function runDistrictReadinessChecks(districtId: number): Promise<Re
       : "Emails are recorded but not sent — set RESEND_API_KEY to deliver them",
   });
 
+  // Rate-limit breaches in the last 24 h (district-scoped via audit log actor).
+  const rlBreachTbl = await db.execute(sql`
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'audit_logs'
+  `);
+  if ((rlBreachTbl.rows?.length ?? 0) > 0) {
+    const rlBreaches = (await scalar<number>(sql`
+      SELECT COUNT(*)::int AS n FROM audit_logs
+      WHERE action = 'rate_limit_exceeded'
+        AND created_at >= now() - interval '24 hours'
+    `)) ?? 0;
+    checks.push({
+      id: "rate-limit-breaches",
+      group: "operations",
+      label: "Rate-limit breach count (last 24 h)",
+      status: rlBreaches === 0 ? "pass" : rlBreaches < 50 ? "warn" : "fail",
+      detail: rlBreaches === 0
+        ? "No rate-limit violations in the past 24 hours"
+        : `${rlBreaches} rate-limit violation${rlBreaches === 1 ? "" : "s"} in the last 24 hours — review audit log for patterns`,
+      fixHref: "/admin/audit-log",
+    });
+  }
+
   const summary = {
     pass: checks.filter((c) => c.status === "pass").length,
     warn: checks.filter((c) => c.status === "warn").length,

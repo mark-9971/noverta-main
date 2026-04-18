@@ -1,11 +1,11 @@
 /**
  * Sliding-window in-memory rate limiter keyed by an arbitrary string.
  *
- * Process-local — fine for a single api-server instance, deliberately
- * documented as a remaining risk for multi-instance deployments where you'd
- * want a Redis-backed store. Multiple consumers (share-link consumption,
- * signature-request consumption, demo-request submission) instantiate their
- * own limiters with their own window/max so the limits stay independent.
+ * Kept for backwards compatibility with routes that use it for per-IP
+ * unauthenticated limiting (demo-requests, share-link consumption) where
+ * the key is an IP address and storing individual IPs in the DB is out of
+ * scope per the task spec. Authenticated routes should use
+ * createDbRateLimitMiddleware from ./dbRateLimiter.ts instead.
  */
 export class SlidingWindowLimiter {
   private hits = new Map<string, number[]>();

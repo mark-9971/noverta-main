@@ -68,6 +68,7 @@ import serviceForecastRouter from "./serviceForecast";
 import compensatoryFinanceRouter from "./compensatoryFinance";
 import sampleDataRouter from "./sampleData";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
+import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
 const router: IRouter = Router();
 
@@ -82,6 +83,44 @@ router.use(demoRequestsRouter);
 router.use(sharedProgressPublicRouter);
 
 router.use(requireAuth);
+
+// ── Global authenticated rate limit ─────────────────────────────────────────
+// Applied immediately after requireAuth so every authenticated route is covered.
+// 300 requests per minute per user is generous for interactive use while still
+// providing a meaningful ceiling against bulk abuse or runaway clients.
+const globalAuthRateLimit = createDbRateLimitMiddleware({
+  endpointKey: "global",
+  windowMs: 60 * 1000,
+  max: 300,
+});
+router.use(globalAuthRateLimit);
+
+// ── Tighter per-route overrides for write-heavy / sensitive endpoints ────────
+// These are applied path-first so they are checked before the global limit
+// bucket, giving independent accounting per sensitive operation.
+const shareLinkCreateLimit = createDbRateLimitMiddleware({
+  endpointKey: "share_link_create",
+  windowMs: 60 * 1000,
+  max: 10,
+});
+router.post("/share-links", shareLinkCreateLimit);
+router.post("/share-links/", shareLinkCreateLimit);
+
+const signatureRequestLimit = createDbRateLimitMiddleware({
+  endpointKey: "signature_request",
+  windowMs: 60 * 1000,
+  max: 20,
+});
+router.post("/signature-requests", signatureRequestLimit);
+router.post("/signature-requests/", signatureRequestLimit);
+
+const csvUploadLimit = createDbRateLimitMiddleware({
+  endpointKey: "csv_upload",
+  windowMs: 60 * 1000,
+  max: 10,
+});
+router.post("/imports", csvUploadLimit);
+router.post("/imports/", csvUploadLimit);
 
 // Guardian portal: scoped separately from district-authenticated routes.
 // requireGuardianScope (inside guardianPortalRouter) handles its own auth & role enforcement.

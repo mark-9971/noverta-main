@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { errorLogsTable } from "@workspace/db";
-import { sql, gte, count } from "drizzle-orm";
+import { errorLogsTable, auditLogsTable } from "@workspace/db";
+import { sql, gte, count, eq, and } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { getErrorCount1h, sentryInitialized } from "../lib/sentry";
 
@@ -23,6 +23,25 @@ async function getErrorCount24h(): Promise<number> {
   }
 }
 
+async function getRateLimitBreachCount24h(): Promise<number> {
+  try {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [row] = await db
+      .select({ count: count() })
+      .from(auditLogsTable)
+      .where(
+        and(
+          eq(auditLogsTable.action, "rate_limit_exceeded"),
+          gte(auditLogsTable.createdAt, cutoff),
+        ),
+      );
+    return row?.count ?? 0;
+  } catch (err) {
+    logger.warn({ err }, "Failed to query rate_limit breach count");
+    return 0;
+  }
+}
+
 router.get("/health", async (_req, res) => {
   const uptime = Math.floor((Date.now() - startedAt) / 1000);
   const version = process.env.npm_package_version ?? "unknown";
@@ -35,7 +54,10 @@ router.get("/health", async (_req, res) => {
     dbStatus = "error";
   }
 
-  const errors24h = await getErrorCount24h();
+  const [errors24h, rateLimitBreaches24h] = await Promise.all([
+    getErrorCount24h(),
+    getRateLimitBreachCount24h(),
+  ]);
 
   const status = dbStatus === "connected" ? "ok" : "degraded";
   const httpStatus = dbStatus === "connected" ? 200 : 503;
@@ -49,6 +71,9 @@ router.get("/health", async (_req, res) => {
     errors: {
       last1h: getErrorCount1h(),
       last24h: errors24h,
+    },
+    rateLimits: {
+      breachesLast24h: rateLimitBreaches24h,
     },
     sentry: sentryInitialized() ? "enabled" : "disabled",
   });
