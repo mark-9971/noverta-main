@@ -1,0 +1,161 @@
+You are now acting as Trellis product lead + engineering execution lead.
+
+Use the attached Complete Product & Page Audit as the approved strategy document.
+Do not re-audit the product from scratch.
+Do not give me broad commentary.
+Turn this into a concrete implementation roadmap for MetroWest pilot readiness and monetization architecture.
+
+Here is the approved audit:
+
+[PASTE THE FULL AUDIT HERE]
+
+Your task is to produce and then begin executing a build plan.
+
+==================================================
+PART 1 — STRATEGIC INTERPRETATION
+==================================================
+
+First, summarize the audit into 4 things only:
+
+1. CORE WEDGE
+- What Trellis must do extremely well to win the pilot
+- Which pages/features are truly core vs optional
+
+2. BIGGEST PRODUCT RISKS
+- What would make a district like MetroWest feel the product is not ready
+- Be blunt and specific
+
+3. BEST MONETIZATION STORY
+- Which features belong in CORE, PRO, and ELITE
+- Which gating choices are strongest commercially
+- Which features should NOT be gated because they are survival features
+
+4. DANGEROUS DISTRACTIONS
+- Which pages/modules should not consume engineering time right now
+- Which should be hidden, moved, or left alone for the pilot
+
+==================================================
+PART 2 — BUILD THE PILOT EXECUTION BOARD
+==================================================
+
+Convert the audit into a practical ticket board with columns:
+
+- Priority Rank
+- Task Title
+- Why It Matters
+- Area
+- Tier Impact (CORE / PRO / ELITE / INTERNAL)
+- User Impact
+- Engineering Complexity (XS / S / M / L / XL)
+- Risk
+- Dependencies
+- Files Likely Affected
+- Definition of Done
+
+Group tasks into:
+- MUST DO BEFORE PILOT
+- SHOULD DO IF TIME ALLOWS
+- POST-PILOT
+- DO NOT TOUCH NOW
+
+==================================================
+PART 3 — DEFINE THE NEXT 3 IMPLEMENTATION WAVES
+==================================================
+
+Create 3 waves only.
+
+WAVE 1 = pilot-critical workflow fixes
+WAVE 2 = navigation + consolidation + clarity
+WAVE 3 = monetization architecture + premium gating cleanup
+
+For each wave give:
+- goals
+- exact tasks
+- expected UX impact
+- expected pilot/demo impact
+- regression risk
+- recommended QA
+
+==================================================
+PART 4 — PICK THE FIRST BUILD BATCH
+==================================================
+
+Based on the audit, pick the single best first implementation batch.
+
+The first batch should probably focus on:
+- Scheduling Hub improvements that directly support compliance planning
+- Action Center wiring for schedule-based minutes gaps
+- Sessions quick-log speed improvements
+- Dashboard simplification
+- low-risk nav consolidation where obviously safe
+
+But validate against the actual codebase before deciding.
+
+Return:
+- exact changes to make first
+- exact files likely affected
+- why this is the highest-value first move
+- what should wait until later
+
+==================================================
+PART 5 — VALIDATE THE BIG CLAIMS AGAINST CODE
+==================================================
+
+Check the code and validate these claims from the audit:
+
+1. Scheduling Hub lacks:
+   - compliance minutes overlay
+   - week navigation
+   - strong filters
+   - persistent auto-scheduler accept flow
+
+2. Action Center does not yet ingest schedule-based minutes gaps
+
+3. Sessions quick-log is not yet the default fastest provider workflow
+
+4. Dashboard still needs simplification toward “district health at a glance”
+
+5. Staff Calendar duplicates Scheduling Hub and has better filters
+
+6. IEP Meetings and IEP Calendar should likely be merged
+
+7. Billing should move out of main nav
+
+8. IEP Search should be absorbed instead of kept standalone
+
+For each claim, return:
+- confirmed / partial / not confirmed
+- evidence
+- files involved
+- difficulty to fix
+- recommended path
+
+==================================================
+PART 6 — BEGIN EXECUTING ONLY WAVE 1 IF SAFE
+==================================================
+
+If the code confirms the first Wave 1 batch is safe, begin implementation.
+
+Rules:
+- preserve route compatibility
+- do not delete legacy routes yet unless clearly unused
+- prefer consolidation via redirects, hidden nav, shared components
+- do not touch backend schema unless absolutely necessary
+- make changes in small batches
+- after each batch, report:
+  1. files changed
+  2. exact behavior changes
+  3. what still needs QA
+  4. what remains for Wave 1
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+A. Strategic interpretation
+B. Pilot execution board
+C. 3-wave plan
+D. Audit validation table
+E. First implementation batch recommendation
+F. Code changes made (if any)
+G. Remaining Wave 1 tasks
