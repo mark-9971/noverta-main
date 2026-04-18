@@ -50,6 +50,7 @@ import StudentComplianceSection from "./student-detail/StudentComplianceSection"
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
 import StudentProgressReports from "./student-detail/StudentProgressReports";
 import StudentDialogs from "./student-detail/StudentDialogs";
+import StudentJourneyTimeline from "./student-detail/StudentJourneyTimeline";
 
 const BIP_EDIT_ROLES = ["admin", "case_manager", "bcba"];
 
@@ -557,6 +558,7 @@ export default function StudentDetail() {
     { id: "sessions" as const, label: "Sessions" },
     { id: "behavior" as const, label: "Behavior / ABA" },
     { id: "contacts" as const, label: "Documents & Contacts" },
+    { id: "journey" as const, label: "Journey" },
   ] as const;
 
   type StudentTab = typeof STUDENT_TABS[number]["id"];
@@ -1362,6 +1364,13 @@ export default function StudentDetail() {
           </>
         )}
       </div>{/* end Documents & Contacts tab */}
+
+      {/* ── JOURNEY ───────────────────────────────────────────────────── */}
+      <div className={activeTab === "journey" ? "space-y-5" : "hidden"}>
+        {mountedTabs.has("journey") && (
+          <StudentJourneyTimeline studentId={studentId} />
+        )}
+      </div>{/* end Journey tab */}
 
       {/* Dialogs — always rendered so modals work from any tab */}
       <StudentDialogs
