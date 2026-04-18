@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Play, Square, X, Clock, ChevronUp, ChevronDown, Trash2, Plus, Target, ExternalLink } from "lucide-react";
-import { useSessionTimers, type TimerEntry } from "@/lib/session-timer-context";
+import { Play, Square, X, Clock, ChevronUp, ChevronDown, Trash2, Plus, Target, ExternalLink, AlertTriangle } from "lucide-react";
+import { useSessionTimers, type TimerEntry, DEFAULT_WARN_THRESHOLD_MS, DEFAULT_CRITICAL_THRESHOLD_MS } from "@/lib/session-timer-context";
 import { useRole } from "@/lib/role-context";
 import { authFetch } from "@/lib/auth-fetch";
 import { toast } from "sonner";
@@ -14,6 +14,66 @@ interface ServiceType { id: number; name: string; }
 interface ServiceRequirement { id: number; serviceTypeId: number; serviceTypeName: string | null; active: boolean; }
 
 const BROADCAST_CHANNEL_NAME = "trellis-data-panel";
+
+type WarningLevel = "none" | "warn" | "critical";
+
+function getWarningLevel(
+  startedAt: number,
+  now: number,
+  warnThresholdMs: number,
+  criticalThresholdMs: number,
+): WarningLevel {
+  const elapsed = now - startedAt;
+  if (elapsed >= criticalThresholdMs) return "critical";
+  if (elapsed >= warnThresholdMs) return "warn";
+  return "none";
+}
+
+function playAlertBeep() {
+  try {
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.6);
+  } catch {
+    // AudioContext not available
+  }
+}
+
+function useTimerWarning(
+  startedAt: number,
+  warnThresholdMs: number = DEFAULT_WARN_THRESHOLD_MS,
+  criticalThresholdMs: number = DEFAULT_CRITICAL_THRESHOLD_MS,
+): WarningLevel {
+  const [level, setLevel] = useState<WarningLevel>(() =>
+    getWarningLevel(startedAt, Date.now(), warnThresholdMs, criticalThresholdMs)
+  );
+  const playedCriticalRef = useRef(false);
+
+  useEffect(() => {
+    playedCriticalRef.current = false;
+    const tick = () => {
+      const newLevel = getWarningLevel(startedAt, Date.now(), warnThresholdMs, criticalThresholdMs);
+      setLevel(newLevel);
+      if (newLevel === "critical" && !playedCriticalRef.current) {
+        playedCriticalRef.current = true;
+        playAlertBeep();
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 60_000);
+    return () => clearInterval(iv);
+  }, [startedAt, warnThresholdMs, criticalThresholdMs]);
+
+  return level;
+}
 
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -48,6 +108,107 @@ function objToEntries(obj: Record<string, CollectedGoalEntry>): Map<number, Coll
   const map = new Map<number, CollectedGoalEntry>();
   Object.entries(obj).forEach(([k, v]) => map.set(Number(k), v));
   return map;
+}
+
+function ActiveTimerCard({
+  timer,
+  goalCount,
+  isOnlyTimer,
+  warnThresholdMs,
+  criticalThresholdMs,
+  onOpenData,
+  onStop,
+  onDiscard,
+}: {
+  timer: TimerEntry;
+  goalCount: number;
+  isOnlyTimer: boolean;
+  warnThresholdMs: number;
+  criticalThresholdMs: number;
+  onOpenData: () => void;
+  onStop: () => void;
+  onDiscard: () => void;
+}) {
+  const warning = useTimerWarning(timer.startedAt, warnThresholdMs, criticalThresholdMs);
+
+  const borderClass =
+    warning === "critical"
+      ? "border-red-300"
+      : warning === "warn"
+      ? "border-amber-300"
+      : "border-emerald-200";
+
+  const dotClass =
+    warning === "critical"
+      ? "bg-red-500"
+      : warning === "warn"
+      ? "bg-amber-500"
+      : "bg-emerald-500";
+
+  return (
+    <div className={`bg-white rounded-xl shadow-lg border overflow-hidden ${borderClass}`}>
+      <div className="px-3 py-2.5 flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full animate-pulse flex-shrink-0 ${dotClass}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800 truncate">{timer.studentName}</p>
+          <p className="text-[11px] text-gray-400">{timer.serviceTypeName}</p>
+        </div>
+        <TimerTick startedAt={timer.startedAt} />
+        {warning !== "none" && (
+          <span
+            title={warning === "critical" ? "Timer running over 4 hours" : "Timer running over 2 hours"}
+            className={`ml-1 flex-shrink-0 ${warning === "critical" ? "text-red-500" : "text-amber-500"}`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+          </span>
+        )}
+      </div>
+      {warning !== "none" && (
+        <div
+          className={`px-3 py-1.5 text-[11px] font-medium flex items-center gap-1.5 ${
+            warning === "critical"
+              ? "bg-red-50 text-red-700 border-t border-red-100"
+              : "bg-amber-50 text-amber-700 border-t border-amber-100"
+          }`}
+        >
+          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+          {warning === "critical"
+            ? "Timer has been running over 4 hours — did you forget to stop it?"
+            : "Timer has been running over 2 hours — please verify it's still active."}
+        </div>
+      )}
+      <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-2">
+        <button
+          onClick={onOpenData}
+          className={`flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-all active:scale-[0.97] ${
+            goalCount > 0
+              ? "bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
+          }`}
+        >
+          <Target className="w-3 h-3" />
+          {goalCount > 0 ? `${goalCount} Goal${goalCount !== 1 ? "s" : ""}` : "Collect"}
+        </button>
+        <button
+          onClick={onStop}
+          className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
+          title={isOnlyTimer ? "Stop & Log (Ctrl+Shift+T)" : undefined}
+        >
+          <Square className="w-3 h-3" /> Stop & Log
+          {isOnlyTimer && (
+            <span className="ml-1 text-[9px] opacity-60 font-normal hidden sm:inline">⌃⇧T</span>
+          )}
+        </button>
+        <button
+          onClick={onDiscard}
+          className="h-8 px-3 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs transition-colors"
+          title="Discard timer"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function DataCollectionOverlay({
@@ -90,7 +251,7 @@ function DataCollectionOverlay({
 }
 
 export function FloatingTimer() {
-  const { timers, completedTimers, startTimer, stopTimer, removeTimer, dismissCompleted, updateTimerData } = useSessionTimers();
+  const { timers, completedTimers, warnThresholdMs, criticalThresholdMs, startTimer, stopTimer, removeTimer, dismissCompleted, updateTimerData } = useSessionTimers();
   const { teacherId, role } = useRole();
 
   const [expanded, setExpanded] = useState(false);
@@ -545,46 +706,17 @@ export function FloatingTimer() {
         {expanded && timers.map(timer => {
           const goalCount = timer.collectedData ? Object.keys(timer.collectedData).length : 0;
           return (
-            <div key={timer.id} className="bg-white rounded-xl shadow-lg border border-emerald-200 overflow-hidden">
-              <div className="px-3 py-2.5 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{timer.studentName}</p>
-                  <p className="text-[11px] text-gray-400">{timer.serviceTypeName}</p>
-                </div>
-                <TimerTick startedAt={timer.startedAt} />
-              </div>
-              <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-2">
-                <button
-                  onClick={() => handleOpenData(timer)}
-                  className={`flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-all active:scale-[0.97] ${
-                    goalCount > 0
-                      ? "bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
-                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
-                  }`}
-                >
-                  <Target className="w-3 h-3" />
-                  {goalCount > 0 ? `${goalCount} Goal${goalCount !== 1 ? "s" : ""}` : "Collect"}
-                </button>
-                <button
-                  onClick={() => handleStop(timer)}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 active:scale-[0.97] transition-all"
-                  title={timers.length === 1 ? "Stop & Log (Ctrl+Shift+T)" : undefined}
-                >
-                  <Square className="w-3 h-3" /> Stop & Log
-                  {timers.length === 1 && (
-                    <span className="ml-1 text-[9px] opacity-60 font-normal hidden sm:inline">⌃⇧T</span>
-                  )}
-                </button>
-                <button
-                  onClick={() => handleDiscard(timer.id)}
-                  className="h-8 px-3 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 text-xs transition-colors"
-                  title="Discard timer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+            <ActiveTimerCard
+              key={timer.id}
+              timer={timer}
+              goalCount={goalCount}
+              isOnlyTimer={timers.length === 1}
+              warnThresholdMs={warnThresholdMs}
+              criticalThresholdMs={criticalThresholdMs}
+              onOpenData={() => handleOpenData(timer)}
+              onStop={() => handleStop(timer)}
+              onDiscard={() => handleDiscard(timer.id)}
+            />
           );
         })}
 
