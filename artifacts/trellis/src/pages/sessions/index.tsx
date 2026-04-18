@@ -21,6 +21,22 @@ import { LogSessionDialog } from "./LogSessionDialog";
 
 const PAGE_SIZE = 30;
 
+function todayStr(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+function weekStartStr(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split("T")[0];
+}
+
+function smartDateFrom(role: string): string {
+  return role === "admin" || role === "coordinator" ? weekStartStr() : todayStr();
+}
+
 export default function Sessions() {
   const { teacherId, role } = useRole();
   const canRestore = role === "admin";
@@ -28,7 +44,8 @@ export default function Sessions() {
   const { years: schoolYears, activeYear } = useSchoolYears();
 
   const [search, setSearch] = useState(""); const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState(""); const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => smartDateFrom(role));
+  const [dateTo, setDateTo] = useState(() => todayStr());
   const [selectedYearId, setSelectedYearId] = useState<string>("all");
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [studentFilter, setStudentFilter] = useState<string>("all");
@@ -117,12 +134,13 @@ export default function Sessions() {
 
   const hasActiveFilters =
     providerFilter !== "all" || studentFilter !== "all" ||
-    serviceTypeFilter !== "all" || missedReasonFilter !== "all" ||
-    !!dateFrom || !!dateTo || !!search;
+    serviceTypeFilter !== "all" || missedReasonFilter !== "all" || !!search;
   function resetFilters() {
     setProviderFilter("all"); setStudentFilter("all");
     setServiceTypeFilter("all"); setMissedReasonFilter("all");
-    setDateFrom(""); setDateTo(""); setSearch(""); setPage(0);
+    setSearch(""); setPage(0);
+    setDateFrom(smartDateFrom(role));
+    setDateTo(todayStr());
   }
 
   const missedCount = sessionList.filter(s => s.status === "missed").length;
