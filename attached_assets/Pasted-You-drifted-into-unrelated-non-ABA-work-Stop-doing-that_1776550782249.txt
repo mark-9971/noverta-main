@@ -1,0 +1,121 @@
+You drifted into unrelated non-ABA work. Stop doing that.
+
+We are continuing the ABA package buildout only.
+
+Do not touch:
+- dashboard reminder jobs
+- SIS workflows
+- enrollment history
+- evaluation timeline work
+- checklist dismissal
+- any non-ABA module
+
+## Your job now
+Execute these 5 ABA tasks only, in this exact order, one at a time:
+
+1. BIP effectiveness overlay
+2. BIP review cycle tracking
+3. Prompt fading timeline chart
+4. Create BIP from FBA workflow
+5. ABC data visualization
+
+For each task, use this sequence:
+1. Audit
+2. Plan
+3. Implement
+4. Verify
+5. Report
+
+Do not start the next task until the current one is fully reported.
+
+## Task 1 — BIP effectiveness overlay
+Goal:
+Show whether behavior is improving after BIP implementation.
+
+Requirements:
+- inspect current behavior trend graph(s), BIP schema, and BIP effective date fields
+- add a visible BIP implementation marker/overlay to the relevant behavior graphs
+- make it easy to compare before vs after implementation
+- do not fake causality; just show the timeline relationship clearly
+- preserve existing graph behavior
+
+Deliver:
+- files changed
+- exact graph changes
+- how implementation dates are chosen
+- what still remains missing
+
+## Task 2 — BIP review cycle tracking
+Goal:
+Track whether BIPs are due or overdue for review.
+
+Requirements:
+- add reviewDueDate and lastReviewedAt or the closest safe equivalent
+- expose this in API + UI
+- show visible review status in the assessment/BIP workflow
+- show overdue / due soon badges where appropriate
+- preserve backward compatibility
+
+Deliver:
+- schema changes
+- routes changed
+- UI changes
+- verification performed
+
+## Task 3 — Prompt fading timeline chart
+Goal:
+Show how prompt level changes over time for a program target.
+
+Requirements:
+- use existing prompt-level data if possible
+- create a simple but clinically useful chart/timeline
+- make it obvious whether a target is fading toward independence or getting stuck
+- preserve existing prompt dependence panel
+
+Deliver:
+- files changed
+- chart behavior
+- how prompt levels are encoded/displayed
+- what additional future analytics this enables
+
+## Task 4 — Create BIP from FBA workflow
+Goal:
+Make the FBA→BIP bridge operational, not just informational.
+
+Requirements:
+- from an FBA, allow creation of a new BIP prefilled with the most relevant available data
+- use existing FBA/ABC-derived information where appropriate
+- keep clinician control; do not auto-commit weak assumptions
+- preserve existing manual BIP creation/editing flow
+
+Deliver:
+- files changed
+- what fields are prefilled
+- what still requires manual entry
+- UX flow summary
+
+## Task 5 — ABC data visualization
+Goal:
+Make ABC data faster to interpret.
+
+Requirements:
+- replace or augment raw-table-only ABC views with simple visuals such as top antecedents / top consequences
+- keep the raw data accessible
+- focus on quick clinical readability
+
+Deliver:
+- files changed
+- new visualizations
+- how they are computed
+- what the clinician can now see faster
+
+## Final output after all 5
+Give me:
+- task-by-task status
+- file-by-file summary
+- verification summary
+- biggest ABA improvements from this batch
+- remaining top 5 ABA gaps
+
+Do not do any non-ABA work.
+Be specific and code-aware.
