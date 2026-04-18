@@ -213,9 +213,9 @@ export const adminNav: NavSection[] = [
       { href: "/iep-suggestions", label: "Program Catalog", icon: Library, featureKey: "clinical.iep_suggestions" as FeatureKey },
     ],
   },
-  // ── 5. Staffing (Service Delivery) ────────────────────────────────────────
+  // ── 5. Scheduling ─────────────────────────────────────────────────────────
   {
-    label: "Staffing",
+    label: "Scheduling",
     icon: Users,
     collapsible: true,
     defaultOpen: true,
@@ -317,7 +317,7 @@ const DEMO_NAV_ALLOWED_HREFS = new Set<string>([
 const DEMO_SECTION_DEFAULT_OPEN: Record<string, boolean> = {
   "Overview": true,
   "Compliance Tools": true,
-  "Staffing": true,
+  "Scheduling": true,
   "Financial / Executive": true,
   "Admin / Tools": false,
 };
@@ -397,7 +397,7 @@ export const coordinatorNav: NavSection[] = adminNav
 // All other sections are visible: IEP, Accommodations & Transitions, Compliance Tools, Staffing, ABA.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
-  "Staffing": "My Caseload",
+  "Scheduling": "My Caseload",
 };
 const SPED_TEACHER_ITEM_LABEL_MAP: Record<string, string> = {
   "Directory": "My Directory",
