@@ -44,6 +44,7 @@ import StudentServiceSection from "./student-detail/StudentServiceSection";
 import StudentBehaviorSection from "./student-detail/StudentBehaviorSection";
 import PreferenceAssessmentCard from "@/components/preference-assessment/PreferenceAssessmentCard";
 import ReinforcerInventoryPanel from "@/components/preference-assessment/ReinforcerInventoryPanel";
+import SupportIntensityCard from "@/components/support-intensity/SupportIntensityCard";
 import StudentSessionHistory from "./student-detail/StudentSessionHistory";
 import StudentComplianceSection from "./student-detail/StudentComplianceSection";
 import StudentContactsMedical, { EmergencyContactRecord, MedicalAlertRecord } from "./student-detail/StudentContactsMedical";
@@ -1225,6 +1226,7 @@ export default function StudentDetail() {
       <div className={activeTab === "behavior" ? "space-y-5" : "hidden"}>
         {mountedTabs.has("behavior") && (
           <>
+            <SupportIntensityCard studentId={studentId} />
             <StudentBehaviorSection
               hasNonIepData={hasNonIepData}
               dataLoading={dataLoading}
