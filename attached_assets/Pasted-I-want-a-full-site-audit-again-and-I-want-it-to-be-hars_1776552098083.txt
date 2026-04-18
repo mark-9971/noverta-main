@@ -1,0 +1,339 @@
+I want a full-site audit again, and I want it to be harsher, stricter, and more constrained than the last one.
+
+Do not rely on prior summaries.  
+Do not trust earlier claims of completion.  
+Do not repeat optimistic conclusions unless you verify them again directly from code.
+
+You must inspect the actual current codebase and reassess the entire website/product from scratch.
+
+## Non-negotiable rules
+- Audit only. Do not code.
+- Re-read the current schema, routes, components, pages, nav config, workflows, auth/role gating, onboarding, reporting, demo data, and support surfaces.
+- Be skeptical.
+- Do not give credit for a feature just because:
+  - a tab exists
+  - a card exists
+  - a route exists
+  - a label exists
+  - a schema field exists
+- A feature is only “strong” if it is:
+  - actually implemented
+  - usable in a real workflow
+  - connected to the rest of the product
+  - not obviously brittle, misleading, or shallow
+- If something is only UI surface without deep workflow value, call it surface-level only.
+- If something is only partially wired, call it partial.
+- If something was supposedly completed before, verify it again and downgrade it if necessary.
+- Separate demo readiness, friendly-pilot readiness, and broad production readiness.
+
+---
+
+# Core question
+How close is the entire Trellis product, right now, to being a truly credible, focused, pilot-ready SPED operations / service-delivery / compliance-risk platform with serious ABA capabilities?
+
+I want the answer based on real code and current behavior, not goodwill.
+
+---
+
+# Audit scope
+
+## 1. Product positioning and wedge clarity
+Reassess what the product actually is today.
+
+Answer directly:
+- What does Trellis actually do best right now?
+- What is the cleanest truthful wedge?
+- What is the product still pretending to be, but is not yet strong enough to claim?
+- Is the product still too broad / too scattered?
+- Does the current nav and IA support the wedge or dilute it?
+
+Be explicit about whether Trellis currently feels like:
+- a focused SPED service-delivery and compliance-risk platform
+- a broad but messy all-in-one SPED platform
+- a demo-heavy platform with uneven depth
+- something else
+
+## 2. Core SPED service-delivery and compliance wedge
+Reassess the product’s strongest claimed core:
+- students
+- sessions
+- schedule / coverage
+- service minute tracking
+- minute-progress calculations
+- compliance dashboard
+- compliance risk report
+- weekly compliance summary
+- compensatory exposure
+- alerts
+- follow-up workflows
+- provider accountability
+
+Be strict:
+- what is fully strong
+- what is partial
+- what is fragile or misleading
+- what still lacks trust
+
+Direct question:
+Can a district leader actually rely on Trellis to understand who is falling behind on mandated services, by how much, and what that creates in risk/exposure?
+
+## 3. Onboarding / data readiness / imports
+Reassess:
+- onboarding wizard
+- onboarding checklist
+- import flows
+- validation
+- demo/sample data
+- data health checks
+- SIS integration
+- whether a new district can realistically get to “aha” without heavy developer help
+
+Direct question:
+Could a friendly district get from blank workspace to usable compliance dashboard with reasonable effort?
+
+## 4. Sessions / logging / direct staff workflows
+Reassess:
+- session creation/editing
+- missed sessions
+- quick log
+- para/direct staff flows
+- live data collection
+- post-session notes
+- session history / audit trail
+- mobile usability
+- whether this is actually easy enough for real front-line usage
+
+Direct question:
+Would staff actually use this consistently, or is it still too clunky/brittle?
+
+## 5. Student-level operational usability
+Reassess whether the product lets staff quickly understand a student in practice:
+- student detail
+- snapshot
+- accommodations
+- alerts
+- behavior supports
+- reinforcers / preferences
+- communication supports
+- schedules / timing context
+- runbook-style understanding
+- what any covering staff member would need
+
+Direct question:
+Could a new staff member quickly understand how to support a complex learner from the current UI alone?
+
+## 6. ABA package
+Reassess the ABA package, but as one section of the full-site audit:
+- program/goal architecture
+- prompt hierarchy / mastery / maintenance
+- live data collection
+- graphs
+- FBA / ABC / BIP
+- support intensity / restrictiveness-type features
+- reinforcers
+- reporting
+- supervision / IOA / fidelity
+- ABA navigation / workflow
+
+Direct question:
+Is the ABA package now truly clinically serious, or still an uneven but promising module?
+
+## 7. Behavior support / FBA / BIP / protective measures
+Reassess:
+- BIP structure
+- FBA workflow
+- ABC workflow
+- behavior trend visibility
+- BIP effectiveness visibility
+- review-cycle tracking
+- restraint / incident capture
+- protective-measures workflow
+- whether behavior support feels integrated or fragmented
+
+Direct question:
+Can a BCBA or district behavior lead use this area confidently, or does it still feel disconnected?
+
+## 8. Reporting and exports
+Reassess:
+- compliance reports
+- weekly summary
+- progress reports
+- document workflow
+- generated docs
+- exports
+- printable artifacts
+- whether reports are meeting-ready and trustworthy
+- whether reporting is driven by real data or still partly thin/manual
+
+Direct question:
+Which reports are genuinely strong, and which are still more demo-ready than operationally strong?
+
+## 9. Parent / guardian / communication / engagement
+Reassess:
+- parent communication
+- messaging
+- conference requests
+- generated/shared documents
+- guardian portal
+- document acknowledgments
+- whether this is a meaningful module or still secondary/thin
+
+Direct question:
+Does this feel like a real engagement layer, or mostly supporting functionality?
+
+## 10. Scheduling / staffing / district operations
+Reassess:
+- staff calendar
+- coverage
+- caseload balancing
+- agencies/contracts
+- compensatory services / finance
+- district/executive dashboards
+- whether these operational modules are truly useful or mostly breadth
+
+Direct question:
+Which of these operational modules are actually worth keeping prominent, and which should still be demoted?
+
+## 11. Security / auth / tenant safety / role experience
+Reassess:
+- Clerk auth
+- role gating
+- district scoping
+- record-level ownership checks
+- provider/para scoping
+- guardian scoping
+- demo/pilot/sandbox/sample separation
+- audit logs
+- permission trustworthiness
+- role-specific UX
+
+Direct question:
+Would you trust this with real district data in a controlled pilot today? If not, exactly why not?
+
+## 12. Navigation / IA / product coherence
+Reassess the entire site navigation and architecture:
+- sidebar structure
+- role-specific nav
+- top-level module sprawl
+- overlap between compliance, ABA, operations, reporting, and admin
+- whether the product still feels fragmented
+- whether the current IA helps or hurts demos and pilots
+
+Direct question:
+Does the site now feel like one coherent product, or like multiple products stitched together?
+
+## 13. Demo readiness
+Reassess the entire site for demo use:
+- first impression
+- best walkthrough path
+- weakest screens
+- what should be hidden in demos
+- whether the seeded/demo experience is compelling
+- whether any trust-killing screens remain
+
+Direct question:
+If a prospect clicked around for 15 minutes, what would impress them and what would undermine confidence?
+
+## 14. Friendly-pilot readiness
+Reassess the entire site for a real but controlled pilot:
+- what workflows are trustworthy enough
+- what would break under real use
+- what would create support burden
+- what would cause trust loss
+- what absolutely still must be fixed first
+
+Direct question:
+Is the site actually pilotable now, and under what scope?
+
+---
+
+# Required output format
+
+## A. Executive verdict
+In 4–6 paragraphs, answer:
+- what the product actually is today
+- what the strongest real value proposition is
+- what is genuinely strongest
+- what is still weakest
+- how far it still is from being a focused, pilot-ready product
+- whether recent work improved fundamentals or mostly added visible surface features
+
+Be blunt.
+
+## B. Harsh feature inventory table
+For each major capability area, provide:
+- rating: strong / moderate / weak / absent
+- fully implemented
+- partial
+- surface-level only
+- missing
+- exact key files/routes/components involved
+
+## C. Fully implemented vs partial vs surface-only vs missing
+Make 4 separate lists for the whole product:
+1. Fully implemented
+2. Partial
+3. Surface-level only
+4. Missing / still major gaps
+
+Only call something “fully implemented” if it is real, usable, and integrated into workflow.
+
+## D. Workflow stress test
+Walk through these end-to-end flows and label each step:
+- strong
+- adequate
+- weak
+- breaks here
+
+Flows:
+1. District onboarding to usable dashboard
+2. SPED leader reviewing compliance risk
+3. Provider/para logging sessions consistently
+4. Student-level support understanding / handoff
+5. BCBA behavior/FBA/BIP workflow
+6. ABA programming + data + graph + decision workflow
+7. Progress-report generation
+8. Parent communication / guardian experience
+9. Staffing/coverage/district operations
+10. Admin/security/role-safety workflow
+
+## E. Biggest improvements since the last audit
+What actually got materially better?
+
+## F. Biggest remaining weaknesses
+What still feels shallow, fragmented, misleading, or not operationally strong enough?
+
+## G. Re-prioritized next 20 tasks
+Give me a fresh next-20 build list for the entire site, in dependency-aware order.
+
+For each:
+- title
+- why it matters
+- likely files/modules affected
+- effort: small / medium / large
+
+Prioritize:
+- trust
+- core wedge strength
+- pilot safety
+- workflow coherence
+before breadth.
+
+## H. Final honesty check
+Answer these directly:
+1. Could a SPED director use this as a serious service-delivery/compliance-risk tool today?
+2. Could school staff use this efficiently with complex learners today?
+3. Could a BCBA use the ABA side seriously today?
+4. What would make a sophisticated district buyer still say “not enough yet”?
+5. Which recent additions are genuinely high value?
+6. Which recent additions are more cosmetic than foundational?
+7. What should be hidden from demos right now?
+
+---
+
+# Extra constraint
+I do not want encouragement.
+I do not want optimistic spin.
+I do not want “great progress” language unless you can defend it from code.
+
+I want the most accurate, skeptical, full-site reassessment possible.

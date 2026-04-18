@@ -55,6 +55,7 @@ export interface BipRecord {
   dataCollectionMethod: string | null; progressCriteria: string | null;
   reviewDate: string | null; effectiveDate: string | null;
   implementationStartDate: string | null; discontinuedDate: string | null;
+  lastReviewedAt?: string | null;
   version: number; versionGroupId: number | null;
   createdByName?: string | null;
   createdAt: string; updatedAt: string;

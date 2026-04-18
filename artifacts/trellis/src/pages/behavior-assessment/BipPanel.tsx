@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Plus, X, Save, Trash2, Brain, Shield, ArrowRight,
   AlertTriangle, CheckCircle2, Users, History, ClipboardCheck,
-  Send, ThumbsUp, Play, Ban, RotateCcw, UserMinus
+  Send, ThumbsUp, Play, Ban, RotateCcw, UserMinus, Calendar, CalendarCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { listStaff, generateBipFromFba } from "@workspace/api-client-react";
@@ -20,6 +20,7 @@ import {
   StructuredCrisisDisplay,
 } from "@/components/bip-management/StrategyEditors";
 import { FbaInsightsCard } from "./FbaInsightsCard";
+import { BipEffectivenessChart } from "./BipEffectivenessChart";
 import type {
   BipRecord, FbaRecord, Student, ObsSummary,
   StaffEntry, BipStatusEntry, BipImplementerEntry, BipFidelityEntry
@@ -51,6 +52,7 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
   const [fidelityForm, setFidelityForm] = useState({ logDate: new Date().toISOString().split("T")[0], fidelityRating: "", studentResponse: "", implementationNotes: "" });
   const [addingFidelity, setAddingFidelity] = useState(false);
   const [showAddFidelity, setShowAddFidelity] = useState(false);
+  const [markingReviewed, setMarkingReviewed] = useState(false);
 
   const isApprover = role === "admin" || role === "bcba";
   const isReviewer = ["admin", "bcba", "case_manager", "coordinator"].includes(role);
@@ -223,6 +225,33 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
     } catch { toast.error("Failed to remove entry"); }
   };
 
+  const markReviewed = async () => {
+    if (!selectedBip) return;
+    setMarkingReviewed(true);
+    try {
+      const r = await authFetch(`/api/bips/${selectedBip.id}/mark-reviewed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intervalDays: 90 }),
+      });
+      if (!r.ok) throw new Error();
+      toast.success("BIP marked as reviewed — next review scheduled in 90 days");
+      onRefresh();
+    } catch { toast.error("Failed to mark BIP as reviewed"); }
+    setMarkingReviewed(false);
+  };
+
+  function reviewCycleStatus(reviewDate: string | null, lastReviewedAt?: string | null): "overdue" | "due_soon" | "current" | "unset" {
+    if (!reviewDate) return "unset";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const rd = new Date(reviewDate + "T00:00:00");
+    const diffDays = Math.round((rd.getTime() - today.getTime()) / 86400000);
+    void lastReviewedAt;
+    if (diffDays < 0) return "overdue";
+    if (diffDays <= 14) return "due_soon";
+    return "current";
+  }
+
   const currentBip = selectedBip
     ? { ...selectedBip, ...(editingBip || {}) } as BipRecord
     : null;
@@ -386,6 +415,25 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                   {currentBip.discontinuedDate && (
                     <span className="text-xs text-red-500">Discontinued {currentBip.discontinuedDate}</span>
                   )}
+                  {(() => {
+                    const rs = reviewCycleStatus(currentBip.reviewDate, currentBip.lastReviewedAt);
+                    if (rs === "overdue") return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                        <AlertTriangle className="w-3 h-3" /> Review Overdue
+                      </span>
+                    );
+                    if (rs === "due_soon") return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        <Calendar className="w-3 h-3" /> Review Due {currentBip.reviewDate}
+                      </span>
+                    );
+                    if (rs === "current") return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                        <CalendarCheck className="w-3 h-3" /> Review {currentBip.reviewDate}
+                      </span>
+                    );
+                    return null;
+                  })()}
                 </div>
               </div>
             </div>
@@ -451,6 +499,14 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                       <Ban className="w-3.5 h-3.5 mr-1" /> Discontinue
                     </Button>
                   )}
+                  {currentBip.status === "active" && isReviewer && (
+                    <Button size="sm" variant="outline" disabled={markingReviewed}
+                      onClick={markReviewed}
+                      className="text-violet-700 border-violet-200 hover:bg-violet-50">
+                      <CalendarCheck className="w-3.5 h-3.5 mr-1" />
+                      {markingReviewed ? "Saving…" : "Mark Reviewed"}
+                    </Button>
+                  )}
                   <input
                     type="text"
                     placeholder="Optional notes for this transition…"
@@ -481,6 +537,7 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
           </div>
 
           {bipTab === "plan" && (
+            <>
             <Card>
               <CardContent className="pt-5 space-y-5">
                 <BipSection title="Target Behavior" field="targetBehavior" value={currentBip.targetBehavior}
@@ -567,6 +624,11 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                 </div>
               </CardContent>
             </Card>
+
+            {(currentBip.status === "active" || currentBip.status === "discontinued") && (
+              <BipEffectivenessChart bipId={currentBip.id} />
+            )}
+            </>
           )}
 
           {bipTab === "implementers" && (

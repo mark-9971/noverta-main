@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { authFetch } from "@/lib/auth-fetch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle,
-  TrendingUp, HelpCircle, ChevronRight, Layers,
+  TrendingUp, HelpCircle, ChevronRight, Layers, ChevronDown,
 } from "lucide-react";
 import { Link } from "wouter";
+import { PromptFadingTimeline } from "./PromptFadingTimeline";
 
 const STANDARD_HIERARCHY = [
   "full_physical", "partial_physical", "model", "gestural", "verbal", "independent",
@@ -148,6 +149,7 @@ export default function PromptDependencePanel({ onViewStudent }: { onViewStudent
   const [filter, setFilter] = useState<"all" | FadingDirection>("all");
   const [sort, setSort] = useState<"dependence" | "student" | "stalled">("stalled");
   const [windowDays] = useState(90);
+  const [expandedTargetId, setExpandedTargetId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -309,7 +311,8 @@ export default function PromptDependencePanel({ onViewStudent }: { onViewStudent
                     t.isStalled ? "bg-amber-50/30" : "";
 
                   return (
-                    <tr key={t.targetId} className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${rowHighlight}`}>
+                    <React.Fragment key={t.targetId}>
+                    <tr className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${rowHighlight}`}>
                       <td className="px-4 py-3">
                         <span className="font-medium text-gray-800">{t.studentName}</span>
                       </td>
@@ -351,22 +354,44 @@ export default function PromptDependencePanel({ onViewStudent }: { onViewStudent
                         {t.sessionCount}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        {onViewStudent ? (
+                        <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => onViewStudent(t.studentId)}
-                            className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5 ml-auto px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                            onClick={() => setExpandedTargetId(expandedTargetId === t.targetId ? null : t.targetId)}
+                            className={`text-[10px] font-semibold flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors ${
+                              expandedTargetId === t.targetId
+                                ? "bg-violet-100 text-violet-700"
+                                : "text-gray-500 hover:bg-gray-100"
+                            }`}
+                            title="View prompt fading timeline"
                           >
-                            View <ChevronRight className="w-3 h-3" />
+                            <Layers className="w-3 h-3" />
+                            <ChevronDown className={`w-3 h-3 transition-transform ${expandedTargetId === t.targetId ? "rotate-180" : ""}`} />
                           </button>
-                        ) : (
-                          <Link href={`/students/${t.studentId}`}>
-                            <button className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-0.5 ml-auto">
+                          {onViewStudent ? (
+                            <button
+                              onClick={() => onViewStudent(t.studentId)}
+                              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                            >
                               View <ChevronRight className="w-3 h-3" />
                             </button>
-                          </Link>
-                        )}
+                          ) : (
+                            <Link href={`/students/${t.studentId}`}>
+                              <button className="text-[10px] text-emerald-700 hover:text-emerald-900 font-medium flex items-center gap-0.5">
+                                View <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
+                    {expandedTargetId === t.targetId && (
+                      <tr className="bg-violet-50/40">
+                        <td colSpan={8} className="px-4 py-4">
+                          <PromptFadingTimeline targetId={t.targetId} targetName={t.targetName} />
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
 

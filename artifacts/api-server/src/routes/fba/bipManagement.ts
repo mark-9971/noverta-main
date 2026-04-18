@@ -4,7 +4,8 @@ import { db } from "@workspace/db";
 import {
   fbasTable, fbaObservationsTable,
   behaviorInterventionPlansTable, studentsTable, staffTable,
-  behaviorTargetsTable, bipStatusHistoryTable, bipImplementersTable, bipFidelityLogsTable
+  behaviorTargetsTable, bipStatusHistoryTable, bipImplementersTable, bipFidelityLogsTable,
+  behaviorDataTable, dataSessionsTable,
 } from "@workspace/db";
 import { eq, desc, and, sql, asc } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
@@ -62,6 +63,7 @@ router.get("/students/:studentId/bips", async (req, res): Promise<void> => {
       implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
       discontinuedDate: behaviorInterventionPlansTable.discontinuedDate,
       versionGroupId: behaviorInterventionPlansTable.versionGroupId,
+      lastReviewedAt: behaviorInterventionPlansTable.lastReviewedAt,
       createdAt: behaviorInterventionPlansTable.createdAt,
       updatedAt: behaviorInterventionPlansTable.updatedAt,
       createdByFirst: staffTable.firstName,
@@ -741,6 +743,84 @@ router.get("/staff/:staffId/assigned-bips", async (req, res): Promise<void> => {
   } catch (e: any) {
     console.error("GET staff assigned-bips error:", e);
     res.status(500).json({ error: "Failed to fetch assigned BIPs" });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+ * Task 1 — BIP Effectiveness Overlay
+ * GET /api/bips/:id/behavior-trend
+ * Returns pre-BIP ABC observation counts by date (from linked FBA)
+ * and post-BIP behavior data counts by session date (from behaviorTargetId).
+ * ───────────────────────────────────────────────────────────── */
+router.get("/bips/:id/behavior-trend", async (req, res): Promise<void> => {
+  try {
+    const bipId = parseInt(req.params.id as string, 10);
+    const [bip] = await db.select({
+      fbaId: behaviorInterventionPlansTable.fbaId,
+      behaviorTargetId: behaviorInterventionPlansTable.behaviorTargetId,
+      implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
+      effectiveDate: behaviorInterventionPlansTable.effectiveDate,
+    }).from(behaviorInterventionPlansTable).where(eq(behaviorInterventionPlansTable.id, bipId)).limit(1);
+
+    if (!bip) { res.status(404).json({ error: "BIP not found" }); return; }
+
+    const implementationDate = bip.implementationStartDate ?? bip.effectiveDate ?? null;
+
+    let preBipData: { date: string; count: number }[] = [];
+    if (bip.fbaId) {
+      const rows = await db.select({
+        date: fbaObservationsTable.observationDate,
+        count: sql<number>`cast(count(*) as int)`,
+      }).from(fbaObservationsTable)
+        .where(eq(fbaObservationsTable.fbaId, bip.fbaId))
+        .groupBy(fbaObservationsTable.observationDate)
+        .orderBy(asc(fbaObservationsTable.observationDate));
+      preBipData = rows.map(r => ({ date: r.date, count: r.count }));
+    }
+
+    let postBipData: { date: string; count: number }[] = [];
+    if (bip.behaviorTargetId) {
+      const rows = await db.select({
+        date: dataSessionsTable.sessionDate,
+        count: sql<number>`cast(count(*) as int)`,
+      }).from(behaviorDataTable)
+        .innerJoin(dataSessionsTable, eq(dataSessionsTable.id, behaviorDataTable.dataSessionId))
+        .where(eq(behaviorDataTable.behaviorTargetId, bip.behaviorTargetId))
+        .groupBy(dataSessionsTable.sessionDate)
+        .orderBy(asc(dataSessionsTable.sessionDate));
+      postBipData = rows.map(r => ({ date: r.date, count: r.count }));
+    }
+
+    res.json({ implementationDate, preBipData, postBipData });
+  } catch (e: any) {
+    console.error("GET bip behavior-trend error:", e);
+    res.status(500).json({ error: "Failed to fetch behavior trend" });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+ * Task 2 — BIP Review Cycle: mark a BIP as reviewed
+ * POST /api/bips/:id/mark-reviewed
+ * Body (optional): { intervalDays?: number } — defaults to 90
+ * Updates lastReviewedAt and bumps reviewDate by intervalDays.
+ * ───────────────────────────────────────────────────────────── */
+router.post("/bips/:id/mark-reviewed", async (req, res): Promise<void> => {
+  try {
+    const bipId = parseInt(req.params.id as string, 10);
+    const intervalDays = Math.max(1, Math.min(365, parseInt((req.body as any)?.intervalDays ?? "90") || 90));
+    const today = new Date().toISOString().split("T")[0];
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + intervalDays);
+    const nextReviewDate = nextDate.toISOString().split("T")[0];
+
+    await db.update(behaviorInterventionPlansTable)
+      .set({ lastReviewedAt: today, reviewDate: nextReviewDate, updatedAt: new Date() })
+      .where(eq(behaviorInterventionPlansTable.id, bipId));
+
+    res.json({ lastReviewedAt: today, reviewDate: nextReviewDate });
+  } catch (e: any) {
+    console.error("POST bip mark-reviewed error:", e);
+    res.status(500).json({ error: "Failed to mark BIP as reviewed" });
   }
 });
 

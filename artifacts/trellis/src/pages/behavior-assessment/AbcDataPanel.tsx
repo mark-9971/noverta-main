@@ -68,6 +68,10 @@ export function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, o
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count) : [];
 
+  const consequenceChartData = summary ? Object.entries(summary.consequenceCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count) : [];
+
   const TIME_BLOCKS = [
     { key: "6", label: "6am" }, { key: "7", label: "7am" }, { key: "8", label: "8am" },
     { key: "9", label: "9am" }, { key: "10", label: "10am" }, { key: "11", label: "11am" },
@@ -317,6 +321,25 @@ export function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, o
 
           <Card>
             <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Consequence Patterns</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {consequenceChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={consequenceChartData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-gray-400 text-center py-8">No consequence data yet</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm">Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -330,15 +353,17 @@ export function AbcDataPanel({ fba, observations, summary, showNew, onShowNew, o
                   <FunctionBadge func={summary.suggestedFunction} />
                 </div>
               )}
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-gray-500">Consequence Patterns</span>
-                {Object.entries(summary.consequenceCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => (
-                  <div key={name} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 truncate">{name}</span>
-                    <span className="text-gray-900 font-medium">{count}</span>
-                  </div>
-                ))}
-              </div>
+              {consequenceChartData.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-gray-500">Top Consequences</span>
+                  {consequenceChartData.slice(0, 3).map(({ name, count }) => (
+                    <div key={name} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 truncate">{name}</span>
+                      <span className="text-gray-900 font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

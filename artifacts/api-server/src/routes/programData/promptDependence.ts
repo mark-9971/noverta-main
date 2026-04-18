@@ -239,4 +239,65 @@ router.get("/aba/prompt-dependence", async (req, res): Promise<void> => {
   }
 });
 
+/* ─────────────────────────────────────────────────────────────
+ * Task 3 — Prompt Fading Timeline (per-target session history)
+ * GET /api/program-targets/:id/prompt-history
+ * Returns each unique (sessionDate, promptLevelUsed) pair for
+ * the given program target, sorted chronologically.
+ * ───────────────────────────────────────────────────────────── */
+router.get("/program-targets/:id/prompt-history", async (req, res): Promise<void> => {
+  try {
+    const targetId = parseInt(req.params.id as string, 10);
+    if (isNaN(targetId)) { res.status(400).json({ error: "Invalid target id" }); return; }
+
+    const rows = await db.select({
+      sessionDate: dataSessionsTable.sessionDate,
+      promptLevelUsed: programDataTable.promptLevelUsed,
+      trials: sql<number>`cast(count(*) as int)`,
+      promptedCount: sql<number>`cast(sum(case when ${programDataTable.prompted} = true then 1 else 0 end) as int)`,
+    })
+      .from(programDataTable)
+      .innerJoin(dataSessionsTable, eq(dataSessionsTable.id, programDataTable.dataSessionId))
+      .where(
+        and(
+          eq(programDataTable.programTargetId, targetId),
+          sql`${programDataTable.promptLevelUsed} IS NOT NULL`,
+        )
+      )
+      .groupBy(dataSessionsTable.sessionDate, programDataTable.promptLevelUsed)
+      .orderBy(asc(dataSessionsTable.sessionDate), asc(programDataTable.promptLevelUsed));
+
+    const byDate: Record<string, { sessionDate: string; promptLevelUsed: string; trials: number; hierarchyIndex: number }[]> = {};
+    for (const r of rows) {
+      if (!r.promptLevelUsed) continue;
+      const key = r.sessionDate;
+      if (!byDate[key]) byDate[key] = [];
+      byDate[key].push({
+        sessionDate: r.sessionDate,
+        promptLevelUsed: r.promptLevelUsed,
+        trials: r.trials,
+        hierarchyIndex: STANDARD_HIERARCHY.indexOf(r.promptLevelUsed as any),
+      });
+    }
+
+    const timeline = Object.entries(byDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, levels]) => {
+        const dominant = levels.sort((a, b) => b.trials - a.trials)[0];
+        return {
+          sessionDate: date,
+          promptLevelUsed: dominant.promptLevelUsed,
+          hierarchyIndex: dominant.hierarchyIndex >= 0 ? dominant.hierarchyIndex : STANDARD_HIERARCHY.length - 1,
+          trials: levels.reduce((s, l) => s + l.trials, 0),
+          levels,
+        };
+      });
+
+    res.json({ timeline, hierarchy: STANDARD_HIERARCHY });
+  } catch (e: any) {
+    console.error("GET prompt-history error:", e);
+    res.status(500).json({ error: "Failed to fetch prompt history" });
+  }
+});
+
 export default router;
