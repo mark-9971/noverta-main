@@ -200,6 +200,7 @@ export const adminNav: NavSection[] = [
           { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
           { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
           { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
+          { href: "/aba?tab=maintenance", label: "Mastery & Maintenance", icon: TrendingDown },
         ],
       },
       {
@@ -459,7 +460,15 @@ export const bcbaNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey },
+      {
+        href: "/aba", label: "Programs & Assessments", icon: Activity, featureKey: "clinical.program_data" as FeatureKey,
+        children: [
+          { href: "/aba?tab=analytics", label: "Analytics", icon: BarChart3 },
+          { href: "/aba?tab=programs", label: "Programs & Behaviors", icon: Activity },
+          { href: "/aba?tab=fba", label: "FBA / BIP", icon: Clipboard },
+          { href: "/aba?tab=maintenance", label: "Mastery & Maintenance", icon: TrendingDown },
+        ],
+      },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
       { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },

@@ -16,6 +16,7 @@ export * from "./imports";
 export * from "./behaviorTargets";
 export * from "./programTargets";
 export * from "./programTargetPhaseHistory";
+export * from "./maintenanceProbes";
 export * from "./dataSessions";
 export * from "./behaviorData";
 export * from "./programData";

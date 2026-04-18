@@ -4,8 +4,9 @@ import { db } from "@workspace/db";
 import {
   behaviorTargetsTable, programTargetsTable,
   programStepsTable, programTargetPhaseHistoryTable,
+  maintenanceProbesTable,
 } from "@workspace/db";
-import { eq, and, sql, asc, isNull, desc } from "drizzle-orm";
+import { eq, and, sql, asc, isNull, desc, gte, lte, or } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
@@ -15,6 +16,27 @@ import {
   assertStudentInCallerDistrict,
 } from "../../lib/districtScope";
 import { assertStudentAccessibleToCaller } from "../../lib/staffScope";
+
+function addDays(date: Date, days: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function autoScheduleMaintenanceProbe(
+  programTargetId: number,
+  studentId: number,
+  daysFromNow: number,
+  clerkId: string | null,
+): Promise<void> {
+  const dueDate = addDays(new Date(), daysFromNow);
+  await db.insert(maintenanceProbesTable).values({
+    programTargetId,
+    studentId,
+    dueDate,
+    scheduledByClerkId: clerkId,
+  });
+}
 
 async function recordPhaseTransition(
   programTargetId: number,
@@ -252,6 +274,9 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
         changedByClerkId: authedReq.userId ?? null,
         changedByStaffId: authedReq.tenantStaffId ?? null,
       });
+      if (req.body.phase === "mastered" && updated.studentId) {
+        await autoScheduleMaintenanceProbe(id, updated.studentId, 30, (req as AuthedRequest).userId ?? null).catch(() => {});
+      }
     }
     logAudit(req, {
       action: "update",
@@ -346,6 +371,130 @@ router.delete("/program-steps/:id", async (req, res): Promise<void> => {
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: "Failed to delete step" });
+  }
+});
+
+// ─── Maintenance Probes ────────────────────────────────────────────────────────
+
+router.get("/students/:studentId/maintenance-probes", async (req, res): Promise<void> => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    if (!Number.isFinite(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    const probes = await db
+      .select({
+        probe: maintenanceProbesTable,
+        targetName: programTargetsTable.name,
+        targetDomain: programTargetsTable.domain,
+        masteryCriterionPercent: programTargetsTable.masteryCriterionPercent,
+      })
+      .from(maintenanceProbesTable)
+      .leftJoin(programTargetsTable, eq(programTargetsTable.id, maintenanceProbesTable.programTargetId))
+      .where(eq(maintenanceProbesTable.studentId, studentId))
+      .orderBy(asc(maintenanceProbesTable.dueDate));
+    res.json(probes.map(r => ({
+      ...r.probe,
+      completedAt: r.probe.completedAt ? r.probe.completedAt.toISOString() : null,
+      createdAt: r.probe.createdAt.toISOString(),
+      targetName: r.targetName,
+      targetDomain: r.targetDomain,
+      masteryCriterionPercent: r.masteryCriterionPercent,
+    })));
+  } catch (e: any) {
+    console.error("GET student maintenance-probes error:", e);
+    res.status(500).json({ error: "Failed to fetch probes" });
+  }
+});
+
+router.get("/program-targets/:id/maintenance-probes", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.id);
+    if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    const probes = await db.select().from(maintenanceProbesTable)
+      .where(eq(maintenanceProbesTable.programTargetId, programTargetId))
+      .orderBy(asc(maintenanceProbesTable.dueDate));
+    res.json(probes.map(p => ({
+      ...p,
+      completedAt: p.completedAt ? p.completedAt.toISOString() : null,
+      createdAt: p.createdAt.toISOString(),
+    })));
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to fetch probes" });
+  }
+});
+
+router.post("/program-targets/:id/maintenance-probes", async (req, res): Promise<void> => {
+  try {
+    const programTargetId = parseInt(req.params.id);
+    if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
+    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    const { dueDate, notes } = req.body;
+    if (!dueDate || typeof dueDate !== "string") { res.status(400).json({ error: "dueDate required" }); return; }
+    const [target] = await db.select({ studentId: programTargetsTable.studentId })
+      .from(programTargetsTable).where(eq(programTargetsTable.id, programTargetId));
+    if (!target) { res.status(404).json({ error: "Target not found" }); return; }
+    const [probe] = await db.insert(maintenanceProbesTable).values({
+      programTargetId,
+      studentId: target.studentId,
+      dueDate,
+      notes: notes ?? null,
+      scheduledByClerkId: (req as AuthedRequest).userId ?? null,
+    }).returning();
+    res.status(201).json({ ...probe, completedAt: null, createdAt: probe.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("POST maintenance-probe error:", e);
+    res.status(500).json({ error: "Failed to create probe" });
+  }
+});
+
+router.patch("/maintenance-probes/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    const [existing] = await db.select().from(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+
+    const updates: Record<string, unknown> = {};
+    const { trialsCorrect, trialsTotal, notes, dueDate, complete } = req.body;
+
+    if (dueDate !== undefined) updates.dueDate = dueDate;
+    if (notes !== undefined) updates.notes = notes;
+
+    if (complete === true && trialsTotal !== undefined) {
+      const correct = trialsCorrect ?? 0;
+      const total = trialsTotal;
+      const pct = total > 0 ? (correct / total) * 100 : 0;
+      const [target] = await db.select({ masteryCriterionPercent: programTargetsTable.masteryCriterionPercent })
+        .from(programTargetsTable).where(eq(programTargetsTable.id, existing.programTargetId));
+      const threshold = target?.masteryCriterionPercent ?? 80;
+      updates.trialsCorrect = correct;
+      updates.trialsTotal = total;
+      updates.percentCorrect = pct.toFixed(1);
+      updates.passed = pct >= threshold;
+      updates.completedAt = new Date();
+    }
+
+    const [updated] = await db.update(maintenanceProbesTable).set(updates).where(eq(maintenanceProbesTable.id, id)).returning();
+    res.json({ ...updated, completedAt: updated.completedAt ? updated.completedAt.toISOString() : null, createdAt: updated.createdAt.toISOString() });
+  } catch (e: any) {
+    console.error("PATCH maintenance-probe error:", e);
+    res.status(500).json({ error: "Failed to update probe" });
+  }
+});
+
+router.delete("/maintenance-probes/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+    const [existing] = await db.select().from(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+    await db.delete(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: "Failed to delete probe" });
   }
 });
 

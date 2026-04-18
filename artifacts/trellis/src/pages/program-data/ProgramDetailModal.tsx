@@ -1,9 +1,122 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { X, Save, Settings2, BookOpen, Plus, Clock } from "lucide-react";
+import { X, Save, Settings2, BookOpen, Plus, Clock, RefreshCw, CheckCircle2, AlertTriangle, CalendarDays, TrendingDown } from "lucide-react";
 import { listProgramSteps, updateProgramTarget, createProgramStep, listProgramTargetPhaseHistory, type ProgramTargetPhaseHistoryItem } from "@workspace/api-client-react";
 import { ProgramTarget, ProgramStep, ProgramPhase, PROGRAM_PHASES, PHASE_CONFIG, PROMPT_LABELS, REINFORCEMENT_SCHEDULES } from "./constants";
+
+const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+interface Probe {
+  id: number;
+  dueDate: string;
+  completedAt: string | null;
+  trialsCorrect: number | null;
+  trialsTotal: number | null;
+  percentCorrect: string | null;
+  passed: boolean | null;
+  notes: string | null;
+}
+
+function probeStatusLabel(probe: Probe): { label: string; cls: string } {
+  if (probe.completedAt) return probe.passed
+    ? { label: "Passed", cls: "text-emerald-700 bg-emerald-50" }
+    : { label: "Failed", cls: "text-amber-700 bg-amber-50" };
+  const today = new Date().toISOString().slice(0, 10);
+  return probe.dueDate < today
+    ? { label: "Overdue", cls: "text-red-700 bg-red-50" }
+    : { label: "Upcoming", cls: "text-blue-700 bg-blue-50" };
+}
+
+function TargetProbesPanel({ programTargetId, masteryCriterionPercent }: { programTargetId: number; masteryCriterionPercent: number }) {
+  const [probes, setProbes] = useState<Probe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleDue, setScheduleDue] = useState("");
+  const [scheduleNotes, setScheduleNotes] = useState("");
+  const [showScheduler, setShowScheduler] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/program-targets/${programTargetId}/maintenance-probes`)
+      .then(r => r.json()).then(setProbes).catch(() => {}).finally(() => setLoading(false));
+  }, [programTargetId]);
+
+  async function scheduleProbe() {
+    if (!scheduleDue) return;
+    setScheduling(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/program-targets/${programTargetId}/maintenance-probes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: scheduleDue, notes: scheduleNotes }),
+      });
+      const probe = await res.json();
+      setProbes(prev => [...prev, probe].sort((a, b) => a.dueDate.localeCompare(b.dueDate)));
+      setScheduleDue(""); setScheduleNotes(""); setShowScheduler(false);
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+          <h3 className="text-sm font-semibold text-gray-600">Maintenance Probes</h3>
+        </div>
+        <button
+          onClick={() => setShowScheduler(v => !v)}
+          className="text-[11px] text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" /> Schedule probe
+        </button>
+      </div>
+      {showScheduler && (
+        <div className="mb-3 border border-dashed border-indigo-200 rounded-lg p-3 bg-indigo-50/30 space-y-2">
+          <p className="text-[11px] font-medium text-indigo-700">Schedule a probe</p>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={scheduleDue} onChange={e => setScheduleDue(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+            <input value={scheduleNotes} onChange={e => setScheduleNotes(e.target.value)} placeholder="Notes (optional)"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] h-7" onClick={scheduleProbe} disabled={!scheduleDue || scheduling}>
+              {scheduling ? "Saving…" : "Schedule"}
+            </Button>
+            <Button size="sm" variant="outline" className="text-[11px] h-7" onClick={() => setShowScheduler(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+      {loading ? (
+        <Skeleton className="h-10 w-full" />
+      ) : probes.length === 0 ? (
+        <p className="text-[12px] text-gray-400 py-2 text-center">No probes scheduled. The system auto-schedules one 30 days after mastery.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {probes.map(probe => {
+            const { label, cls } = probeStatusLabel(probe);
+            const dueLabel = new Date(probe.dueDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+            return (
+              <div key={probe.id} className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 bg-white">
+                {probe.completedAt && probe.passed ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                  : probe.completedAt ? <TrendingDown className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                  : probe.dueDate < new Date().toISOString().slice(0, 10) ? <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                  : <CalendarDays className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+                <span className="text-[12px] text-gray-600 flex-1">{probe.completedAt ? "Completed" : "Due"}: {dueLabel}</span>
+                {probe.completedAt && probe.trialsTotal && (
+                  <span className="text-[11px] text-gray-500">{probe.percentCorrect}% ({probe.trialsCorrect}/{probe.trialsTotal})</span>
+                )}
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cls}`}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   program: ProgramTarget;
@@ -292,6 +405,13 @@ export default function ProgramDetailModal({ program, onClose, onSaved }: Props)
                   </div>
                 )}
               </div>
+
+              {(program.phase === "mastered" || program.phase === "maintenance") && (
+                <TargetProbesPanel
+                  programTargetId={program.id}
+                  masteryCriterionPercent={program.masteryCriterionPercent ?? 80}
+                />
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">

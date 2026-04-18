@@ -3,11 +3,12 @@ import { useSearch, useLocation } from "wouter";
 import { listStudents } from "@workspace/api-client-react";
 import {
   Activity, ChevronLeft, ChevronRight, Search, Users,
-  GraduationCap, Brain, BarChart2,
+  GraduationCap, Brain, BarChart2, RefreshCw,
 } from "lucide-react";
 import ProgramDataPage from "./program-data";
 import BehaviorAssessmentPage from "./behavior-assessment";
 import CaseloadAnalytics from "./program-data/CaseloadAnalytics";
+import MaintenanceTab from "./program-data/MaintenanceTab";
 
 interface Student { id: number; firstName: string; lastName: string; grade?: string | null; }
 
@@ -30,10 +31,16 @@ const SECTIONS = [
     icon: Brain,
     desc: "Functional behavior assessments, behavior intervention plans",
   },
+  {
+    key: "maintenance" as const,
+    label: "Mastery & Maintenance",
+    icon: RefreshCw,
+    desc: "Probe schedule for mastered targets — upcoming, overdue, and completed probes across your caseload",
+  },
 ];
 
-type Section = "analytics" | "programs" | "fba";
-const VALID_SECTIONS: Section[] = ["analytics", "programs", "fba"];
+type Section = "analytics" | "programs" | "fba" | "maintenance";
+const VALID_SECTIONS: Section[] = ["analytics", "programs", "fba", "maintenance"];
 
 function resolveSection(search: string): Section {
   const p = new URLSearchParams(search).get("tab");
@@ -60,7 +67,6 @@ export default function AbaHub() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Sync section when URL search param changes (e.g. sidebar child link clicked)
   useEffect(() => {
     setSectionState(resolveSection(search));
   }, [search]);
@@ -70,7 +76,6 @@ export default function AbaHub() {
     navigate(`/aba?tab=${s}`, { replace: true });
   }
 
-  // Close picker on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
@@ -98,7 +103,6 @@ export default function AbaHub() {
     if (selectedIndex < students.length - 1) setSelectedStudentId(students[selectedIndex + 1].id);
   }
 
-  // Called from Analytics cards — jump to student's programs view
   function viewStudentPrograms(id: number) {
     setSelectedStudentId(id);
     setSection("programs");
@@ -109,7 +113,7 @@ export default function AbaHub() {
     return !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q);
   });
 
-  const needsStudentPicker = section !== "analytics";
+  const needsStudentPicker = section !== "analytics" && section !== "maintenance";
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-0">
@@ -126,11 +130,9 @@ export default function AbaHub() {
           <p className="text-[12px] text-gray-400 mt-1 ml-10">Applied behavior analysis — programs, assessments & data</p>
         </div>
 
-        {/* Student picker (visible on Programs & FBA tabs) */}
         {needsStudentPicker && (
           <div className="flex items-center gap-2">
             <div className="relative" ref={pickerRef}>
-              {/* Trigger button */}
               <button
                 onClick={() => { setPickerOpen(v => !v); setSearchQuery(""); }}
                 className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] text-gray-700 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all shadow-sm min-w-[180px] max-w-[220px]"
@@ -142,7 +144,6 @@ export default function AbaHub() {
                 <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform flex-shrink-0 ${pickerOpen ? "rotate-90" : ""}`} />
               </button>
 
-              {/* Dropdown */}
               {pickerOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="p-2 border-b border-gray-100">
@@ -181,7 +182,6 @@ export default function AbaHub() {
               )}
             </div>
 
-            {/* Prev / next */}
             <div className="flex gap-0.5">
               <button
                 onClick={prevStudent}
@@ -205,7 +205,7 @@ export default function AbaHub() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-gray-200 gap-0">
+      <div className="flex border-b border-gray-200 gap-0 overflow-x-auto">
         {SECTIONS.map(s => {
           const Icon = s.icon;
           const active = section === s.key;
@@ -238,10 +238,14 @@ export default function AbaHub() {
         <CaseloadAnalytics onViewStudent={viewStudentPrograms} />
       )}
 
+      {/* Maintenance tab — cross-student, no student picker needed */}
+      {section === "maintenance" && (
+        <MaintenanceTab />
+      )}
+
       {/* Student-specific tabs */}
       {needsStudentPicker && (
         <>
-          {/* Student context bar */}
           {selectedStudent && (
             <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl">
               <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -263,7 +267,6 @@ export default function AbaHub() {
             </div>
           )}
 
-          {/* No student selected */}
           {!selectedStudent && !loading && (
             <div className="text-center py-16 space-y-3">
               <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
