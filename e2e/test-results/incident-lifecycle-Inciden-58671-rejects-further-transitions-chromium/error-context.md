@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: incident-lifecycle.spec.ts >> Incident lifecycle and parent notification (603 CMR 46.00) >> transitions incident from draft → open
-- Location: tests/incident-lifecycle.spec.ts:263:3
+- Name: incident-lifecycle.spec.ts >> Incident lifecycle and parent notification (603 CMR 46.00) >> dese_reported status is terminal and rejects further transitions
+- Location: tests/incident-lifecycle.spec.ts:460:3
 
 # Error details
 

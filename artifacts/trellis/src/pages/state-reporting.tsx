@@ -501,6 +501,22 @@ function IepTimelineTab({ schools }: { schools: SchoolOption[] }) {
     return aDays - bDays;
   });
 
+  async function handlePrintPdf() {
+    const params = new URLSearchParams({ phase: phaseFilter, format: "pdf" });
+    if (selectedSchool) params.set("schoolId", selectedSchool);
+    const res = await authFetch(`/api/state-reporting/iep-timeline?${params}`);
+    if (!res.ok) { alert("Could not generate PDF report."); return; }
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="?(.+?)"?$/);
+    const fileName = match?.[1] ?? "iep_timeline_compliance.pdf";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
   async function handleGenerateLetter(studentId: number) {
     setGeneratingLetter(studentId);
     try {
@@ -571,6 +587,11 @@ function IepTimelineTab({ schools }: { schools: SchoolOption[] }) {
                 <option value="days">Days Remaining (urgent first)</option>
                 <option value="name">Student Name</option>
               </select>
+            </div>
+            <div className="flex items-end">
+              <Button size="sm" variant="outline" onClick={handlePrintPdf} className="text-[12px] gap-1.5 h-9 w-full" title="Generate a printable PDF report for DESE Program Review">
+                <Printer className="w-3.5 h-3.5" /> Print / PDF
+              </Button>
             </div>
           </div>
         </CardContent>

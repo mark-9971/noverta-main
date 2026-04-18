@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: incident-lifecycle.spec.ts >> Incident lifecycle and parent notification (603 CMR 46.00) >> transitions incident from draft → open
-- Location: tests/incident-lifecycle.spec.ts:263:3
+- Name: incident-lifecycle.spec.ts >> Incident lifecycle and parent notification (603 CMR 46.00) >> saves parent notification draft text against an incident
+- Location: tests/incident-lifecycle.spec.ts:522:3
 
 # Error details
 

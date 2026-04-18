@@ -364,6 +364,183 @@ export async function computeIepTimelines(
   });
 }
 
+export interface IepTimelineSummary {
+  total: number;
+  pl1Active: number;
+  pl2Active: number;
+  breached: number;
+  atRisk: number;
+}
+
+export function buildIepTimelinePdf(
+  rows: IepTimelineRow[],
+  summary: IepTimelineSummary,
+  districtName: string,
+  filters: { schoolName?: string | null; phase: "PL1" | "PL2" | "all" }
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margins: { top: 40, bottom: 50, left: 36, right: 36 }, bufferPages: true });
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("error", reject);
+
+    const DARK = "#111827";
+    const GRAY = "#6b7280";
+    const RED = "#dc2626";
+    const AMBER = "#d97706";
+    const GREEN = "#16a34a";
+    const BLUE = "#2563eb";
+
+    const generatedAt = new Date();
+    const today = generatedAt.toISOString().slice(0, 10);
+    const phaseLabel = filters.phase === "all" ? "All Active Phases" : filters.phase;
+    const scopeLabel = filters.schoolName ?? "All Schools";
+
+    doc.fontSize(15).font("Helvetica-Bold").fillColor(DARK)
+      .text("IEP Timeline Compliance Report");
+    doc.fontSize(8.5).font("Helvetica").fillColor(GRAY)
+      .text(`District: ${districtName}   |   Scope: ${scopeLabel}   |   Phase Filter: ${phaseLabel}   |   Generated: ${generatedAt.toLocaleString()}`);
+    doc.fontSize(7.5).fillColor(GRAY)
+      .text("PL1: 45 school days from parental consent to evaluation completion. PL2: 30 calendar days from evaluation to finalized IEP. (603 CMR 28.05)");
+    doc.moveDown(0.6);
+
+    const summaryY = doc.y;
+    const overallStatus = summary.breached > 0
+      ? { label: `${summary.breached} BREACHED`, color: RED }
+      : summary.atRisk > 0
+        ? { label: `${summary.atRisk} AT RISK`, color: AMBER }
+        : { label: "ALL COMPLIANT", color: GREEN };
+    doc.roundedRect(36, summaryY, 150, 24, 4).fill(overallStatus.color);
+    doc.fontSize(11).font("Helvetica-Bold").fillColor("white")
+      .text(overallStatus.label, 36, summaryY + 7, { width: 150, align: "center" });
+
+    const stats = [
+      { label: "Active Timelines", value: summary.total, color: DARK },
+      { label: "In PL1 (Eval)", value: summary.pl1Active, color: BLUE },
+      { label: "In PL2 (IEP)", value: summary.pl2Active, color: "#4f46e5" },
+      { label: "Breached", value: summary.breached, color: summary.breached > 0 ? RED : GREEN },
+      { label: "At Risk", value: summary.atRisk, color: summary.atRisk > 0 ? AMBER : GREEN },
+    ];
+    stats.forEach((s, i) => {
+      const x = 200 + i * 110;
+      doc.fontSize(16).font("Helvetica-Bold").fillColor(s.color)
+        .text(String(s.value), x, summaryY, { width: 100, align: "center" });
+      doc.fontSize(7.5).font("Helvetica").fillColor(GRAY)
+        .text(s.label, x, summaryY + 22, { width: 100, align: "center" });
+    });
+    doc.y = summaryY + 38;
+    doc.moveDown(0.4);
+
+    const COL_X = [36, 170, 270, 320, 460, 600, 690];
+    const COL_W = [130, 96, 46, 138, 138, 86, 80];
+    const drawHeader = () => {
+      const y = doc.y;
+      doc.rect(36, y, 734, 18).fill("#f3f4f6");
+      doc.fontSize(8).font("Helvetica-Bold").fillColor("#374151");
+      const headers = ["Student", "School", "Phase", "PL1 — Evaluation (45 sch. days)", "PL2 — IEP Dev (30 cal. days)", "Days Remaining", "Status"];
+      headers.forEach((h, i) => doc.text(h, COL_X[i] + 4, y + 5, { width: COL_W[i] - 8 }));
+      doc.y = y + 20;
+    };
+    drawHeader();
+
+    const phaseLabelFor = (p: IepTimelineRow["phase"]) => {
+      if (p === "pre-consent") return "Pre-Consent";
+      if (p === "PL1") return "PL1";
+      if (p === "PL2") return "PL2";
+      return "Done";
+    };
+
+    const formatPhase = (ps: PhaseStatus): string => {
+      if (!ps.startDate) return "Not started";
+      const elapsed = ps.daysElapsed ?? 0;
+      const unit = ps.useSchoolDays ? "sch d" : "cal d";
+      const startEnd = ps.endDate ? `${ps.startDate} → ${ps.endDate}` : `Started ${ps.startDate}`;
+      const breachNote = ps.breached
+        ? ` | BREACHED ${ps.breachDate ?? ""}`
+        : ps.daysRemaining != null
+          ? ` | ${ps.daysRemaining} ${unit} left`
+          : "";
+      return `${startEnd}\n${elapsed}/${ps.daysAllowed} ${unit} (${ps.pctUsed ?? 0}%)${breachNote}`;
+    };
+
+    const statusFor = (r: IepTimelineRow): { label: string; color: string } => {
+      if (r.hasActivePl1Breach || r.hasActivePl2Breach) return { label: "BREACHED", color: RED };
+      const active = (r.phase === "PL1" || r.phase === "pre-consent") ? r.pl1 : r.pl2;
+      if (active.status === "yellow") return { label: "AT RISK", color: AMBER };
+      if (active.status === "green") return { label: "ON TRACK", color: GREEN };
+      return { label: active.status.toUpperCase(), color: GRAY };
+    };
+
+    doc.font("Helvetica").fontSize(7.5).fillColor(DARK);
+
+    if (rows.length === 0) {
+      doc.fontSize(10).fillColor(GRAY)
+        .text("No active IEP timelines for the selected filters.", 36, doc.y + 16, { align: "center", width: 734 });
+    }
+
+    for (const r of rows) {
+      const rowH = 38;
+      if (doc.y + rowH > 540) {
+        doc.addPage();
+        drawHeader();
+      }
+      const y = doc.y;
+      const breach = r.hasActivePl1Breach || r.hasActivePl2Breach;
+      if (breach) {
+        doc.rect(36, y, 734, rowH).fill("#fef2f2");
+      }
+
+      doc.fillColor(DARK).font("Helvetica-Bold").fontSize(8)
+        .text(r.studentName, COL_X[0] + 4, y + 4, { width: COL_W[0] - 8 });
+      if (r.externalId) {
+        doc.font("Helvetica").fontSize(6.5).fillColor(GRAY)
+          .text(`SASID ${r.externalId}`, COL_X[0] + 4, y + 16, { width: COL_W[0] - 8 });
+      }
+
+      doc.font("Helvetica").fontSize(7.5).fillColor(DARK)
+        .text(r.schoolName ?? "—", COL_X[1] + 4, y + 4, { width: COL_W[1] - 8 });
+
+      doc.font("Helvetica-Bold").fontSize(8).fillColor(BLUE)
+        .text(phaseLabelFor(r.phase), COL_X[2] + 4, y + 4, { width: COL_W[2] - 8 });
+
+      doc.font("Helvetica").fontSize(7).fillColor(DARK)
+        .text(formatPhase(r.pl1), COL_X[3] + 4, y + 4, { width: COL_W[3] - 8 });
+      doc.text(formatPhase(r.pl2), COL_X[4] + 4, y + 4, { width: COL_W[4] - 8 });
+
+      const activePhase = (r.phase === "PL1" || r.phase === "pre-consent") ? r.pl1 : r.pl2;
+      const remaining = activePhase.daysRemaining;
+      const remainingText = activePhase.breached
+        ? `OVERDUE`
+        : remaining != null
+          ? `${remaining} ${activePhase.useSchoolDays ? "school" : "cal"} days`
+          : "—";
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(activePhase.breached ? RED : (activePhase.status === "yellow" ? AMBER : DARK))
+        .text(remainingText, COL_X[5] + 4, y + 12, { width: COL_W[5] - 8 });
+
+      const st = statusFor(r);
+      doc.roundedRect(COL_X[6] + 4, y + 12, COL_W[6] - 12, 14, 3).fill(st.color);
+      doc.fontSize(7.5).font("Helvetica-Bold").fillColor("white")
+        .text(st.label, COL_X[6] + 4, y + 16, { width: COL_W[6] - 12, align: "center" });
+
+      doc.fillColor(DARK);
+      doc.moveTo(36, y + rowH).lineTo(770, y + rowH).strokeColor("#e5e7eb").lineWidth(0.5).stroke();
+      doc.y = y + rowH;
+    }
+
+    const range = (doc as unknown as { bufferedPageRange(): { start: number; count: number } }).bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.fontSize(7).font("Helvetica").fillColor(GRAY).text(
+        `IEP Timeline Compliance — ${districtName} — ${today}   |   Page ${i - range.start + 1} of ${range.count}   |   Confidential — DESE Program Review`,
+        36, 570, { align: "center", width: 734 }
+      );
+    }
+
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.end();
+  });
+}
+
 export function buildCorrectiveActionLetterPdf(
   row: IepTimelineRow,
   adminName: string,

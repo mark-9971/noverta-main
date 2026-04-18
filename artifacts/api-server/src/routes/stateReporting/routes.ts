@@ -1,12 +1,12 @@
 import { Router, type IRouter } from "express";
-import { db, exportHistoryTable, generatedDocumentsTable } from "@workspace/db";
+import { db, exportHistoryTable, generatedDocumentsTable, districtsTable, schoolsTable } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { requireRoles, getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
 import { getAuth } from "@clerk/express";
 import { ADMIN_ROLES, buildCsv } from "./shared";
 import { TEMPLATES } from "./templates";
 import { compute30DayWindows, buildRestraint30DayCsv, buildRestraint30DayPdf } from "./restraint30Day";
-import { computeIepTimelines, buildCorrectiveActionLetterPdf } from "./iepTimeline";
+import { computeIepTimelines, buildCorrectiveActionLetterPdf, buildIepTimelinePdf } from "./iepTimeline";
 
 const router: IRouter = Router();
 
@@ -223,6 +223,7 @@ router.get("/state-reporting/iep-timeline", requireRoles(...ADMIN_ROLES), async 
   try {
     const schoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
     const phase = (req.query.phase as "PL1" | "PL2" | "all" | undefined) ?? "all";
+    const format = (req.query.format as string | undefined) ?? "json";
 
     const rows = await computeIepTimelines(req as unknown as AuthedRequest, { schoolId, phase });
 
@@ -236,6 +237,48 @@ router.get("/state-reporting/iep-timeline", requireRoles(...ADMIN_ROLES), async 
         return activePhase.status === "yellow" && !activePhase.breached;
       }).length,
     };
+
+    if (format === "pdf") {
+      const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+      let districtName = "District";
+      if (districtId != null) {
+        const [d] = await db.select({ name: districtsTable.name }).from(districtsTable).where(eq(districtsTable.id, districtId)).limit(1);
+        if (d?.name) districtName = d.name;
+      }
+      let schoolName: string | null = null;
+      if (schoolId) {
+        const [s] = await db.select({ name: schoolsTable.name }).from(schoolsTable)
+          .where(districtId != null
+            ? sql`${schoolsTable.id} = ${schoolId} AND ${schoolsTable.districtId} = ${districtId}`
+            : eq(schoolsTable.id, schoolId))
+          .limit(1);
+        schoolName = s?.name ?? null;
+      }
+
+      const pdfBuf = await buildIepTimelinePdf(rows, summary, districtName, { schoolName, phase });
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const fileName = `iep_timeline_compliance_${timestamp}.pdf`;
+
+      const auth = getAuth(req);
+      const userId = auth?.userId ?? "unknown";
+
+      await db.insert(exportHistoryTable).values({
+        reportType: "iep_timeline_compliance",
+        reportLabel: "IEP Timeline Compliance Report (PDF)",
+        exportedBy: userId,
+        schoolId: schoolId ?? null,
+        districtId: districtId ?? null,
+        parameters: { schoolId, phase, format: "pdf" } as Record<string, unknown>,
+        recordCount: rows.length,
+        warningCount: summary.breached,
+        fileName,
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.send(pdfBuf);
+      return;
+    }
 
     res.json({ rows, summary });
   } catch (err: unknown) {
