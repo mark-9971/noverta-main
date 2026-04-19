@@ -50,7 +50,8 @@ interface SchoolHealthRow {
   totalStudents: number;
   complianceRate: number;
   exposurePerStudent: number;
-  providerLoggingRate: number;
+  /** 0..1 actual logging rate, or null when no expected sessions exist yet for the school. */
+  providerLoggingRate: number | null;
 }
 
 interface ComplianceRiskReport {
@@ -61,6 +62,8 @@ interface ComplianceRiskReport {
     totalDeliveredMinutes: number;
     overallComplianceRate: number;
     combinedExposure: number;
+    /** 0..1 actual provider logging rate over trailing 30 days, or null when no expected sessions exist yet. */
+    providerLoggingRate?: number | null;
     studentsOutOfCompliance: number;
     studentsAtRisk: number;
     studentsOnTrack: number;
@@ -304,7 +307,12 @@ export default function PilotAdminHome() {
   const healthScore = useMemo(() => {
     if (!summary || summary.totalStudents <= 0) return null;
     const exposurePerStudent = summary.combinedExposure / summary.totalStudents;
-    const providerLoggingRate = 1.0;
+    // Use the real timely-logging adoption rate from the API. When the
+    // district has no expected sessions yet (brand-new pilot, no mandates)
+    // the API returns null — fall back to 1.0 so the score isn't penalised
+    // before any signal exists. Matches the snapshot fallback in
+    // computeDistrictHealthScore (api-server/src/lib/districtHealthSnapshots.ts).
+    const providerLoggingRate = summary.providerLoggingRate ?? 1.0;
     return computeHealthScore(
       rate,
       exposurePerStudent,
@@ -332,7 +340,7 @@ export default function PilotAdminHome() {
       .map(row => ({
         schoolId: row.schoolId,
         schoolName: row.schoolName,
-        score: computeHealthScore(row.complianceRate, row.exposurePerStudent, row.providerLoggingRate),
+        score: computeHealthScore(row.complianceRate, row.exposurePerStudent, row.providerLoggingRate ?? 1.0),
       }))
       .filter((r): r is { schoolId: number | null; schoolName: string; score: HealthScore } => r.score !== null)
       .sort((a, b) => a.score.numeric - b.score.numeric);

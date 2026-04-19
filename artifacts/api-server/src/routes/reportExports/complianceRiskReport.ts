@@ -34,6 +34,7 @@ async function resolveSchoolYearDates(schoolYearId: number | undefined): Promise
 }
 import { computeAllActiveMinuteProgress, type MinuteProgressResult } from "../../lib/minuteCalc";
 import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
+import { computeProviderLoggingRate } from "../../lib/providerLoggingRate";
 import { logAudit } from "../../lib/auditLog";
 import { buildCSV, recordExport, fmtDate, csvAddDemoDisclaimer } from "./utils";
 import { isDistrictDemo } from "../../lib/districtMode";
@@ -123,7 +124,7 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
     ];
     if (schoolId) compObligationConditions.push(eq(schoolsTable.id, schoolId) as any);
 
-    const [districtRows, progress, rateMap, outstandingObligations] = await Promise.all([
+    const [districtRows, progress, rateMap, outstandingObligations, providerLogging] = await Promise.all([
       db.select({ name: districtsTable.name, complianceMinuteThreshold: districtsTable.complianceMinuteThreshold }).from(districtsTable).where(eq(districtsTable.id, districtId)),
       computeAllActiveMinuteProgress({ districtId, schoolId, ...(yearDates ?? {}) }),
       getRateMap(districtId),
@@ -135,6 +136,10 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         .innerJoin(studentsTable, eq(studentsTable.id, compensatoryObligationsTable.studentId))
         .innerJoin(schoolsTable, eq(schoolsTable.id, studentsTable.schoolId))
         .where(and(...compObligationConditions)),
+      computeProviderLoggingRate({ districtId, schoolId: schoolId ?? null, lookbackDays: 30 }).catch((err) => {
+        console.warn("[compliance-risk-report] provider logging rate failed; falling back to no-signal", err);
+        return null;
+      }),
     ]);
 
     const districtName = districtRows[0]?.name ?? "District";
@@ -311,6 +316,22 @@ router.get("/reports/compliance-risk-report", async (req: Request, res: Response
         existingCompensatoryExposure: existingCompExposure,
         existingCompensatoryUnpricedMinutes: existingCompUnpricedMinutes,
         combinedExposure: Math.round(totalExposure * 100) / 100,
+        // Real provider logging rate over the trailing 30 days (timely-logged
+        // sessions / expected sessions). Null when no expected sessions exist
+        // yet — callers should treat null as "no signal" and fall back to 1.0
+        // when feeding the health-score formula so brand-new districts aren't
+        // penalised before mandates exist.
+        providerLoggingRate: providerLogging?.rate ?? null,
+        providerLoggingDetail: providerLogging
+          ? {
+              expectedSessions: providerLogging.expectedSessions,
+              timelyLogs: providerLogging.timelyLogs,
+              totalLogged: providerLogging.totalLogged,
+              startDate: providerLogging.startDate,
+              endDate: providerLogging.endDate,
+              lookbackDays: providerLogging.lookbackDays,
+            }
+          : null,
         rateConfigNote:
           unpricedShortfallMinutes > 0 || existingCompUnpricedMinutes > 0
             ? "Some service types do not have a configured hourly rate. Their minutes are reported but excluded from dollar exposure totals. Configure rates in Settings → Compensatory Finance → Rates."

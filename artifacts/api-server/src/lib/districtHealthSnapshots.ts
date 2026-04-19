@@ -7,6 +7,7 @@ import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
 import { getRateMap, minutesToDollars, type RateInfo } from "../routes/compensatoryFinance/shared";
+import { computeProviderLoggingRate } from "./providerLoggingRate";
 
 /**
  * Composite "district health" score (0-100) computed and persisted DAILY so
@@ -80,9 +81,10 @@ export async function computeDistrictHealthScore(
   // - exposurePerStudent uses the unique-students-in-progress count (matches the
   //   `summary.totalStudents` field in compliance-risk-report, NOT all active
   //   students in the district)
-  const [progress, rateMap] = await Promise.all([
+  const [progress, rateMap, loggingRate] = await Promise.all([
     computeAllActiveMinuteProgress({ districtId, endDate: endDateStr, asOfDate }),
     getRateMap(districtId),
+    computeProviderLoggingRate({ districtId, endDate: endDateStr, lookbackDays: 30 }),
   ]);
 
   if (progress.length === 0) return null;
@@ -115,9 +117,13 @@ export async function computeDistrictHealthScore(
     0,
     Math.min(100, 100 - (exposurePerStudent / MAX_EXPOSURE_PER_STUDENT) * 100),
   );
-  // Provider logging rate is not yet persisted at the district level; we use
-  // 1.0 to match the dashboard UI's current assumption (see PilotAdminHome).
-  const loggingPoints = 100;
+  // Provider logging rate: real timely-logging adoption over the trailing 30
+  // days (see lib/providerLoggingRate.ts). When no sessions are expected yet
+  // (brand-new district with no mandates) we fall back to 100 so the score
+  // isn't penalised before any signal exists.
+  const loggingPoints = loggingRate.rate == null
+    ? 100
+    : Math.max(0, Math.min(100, loggingRate.rate * 100));
 
   const numeric = Math.round(
     compliancePoints * 0.6 + exposurePoints * 0.2 + loggingPoints * 0.2,

@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { parseSchoolDistrictFilters, resolveSchoolYearWindow } from "./shared";
 import { getRateMap, minutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
+import { computeProviderLoggingRate } from "../../lib/providerLoggingRate";
 
 const router: IRouter = Router();
 
@@ -101,8 +102,30 @@ router.get("/dashboard/school-compliance", async (req, res): Promise<void> => {
       }
     }
 
-    const rows = [...buckets.values()]
-      .map(b => {
+    // Per-school provider logging rate (timely-logged sessions vs expected
+    // sessions over the trailing 30 days). Computed concurrently. The query
+    // is scoped by the intersection of the caller's enforced district AND the
+    // bucket's school (see buildStudentScope in providerLoggingRate.ts) so a
+    // schoolId from another district cannot leak data. A school whose
+    // students have no expected sessions yet returns rate=null (no signal) —
+    // we forward that as null so the badge can fall back without silently
+    // inflating the score. Errors are not swallowed: they bubble to the
+    // route's catch and surface as a 500.
+    const bucketEntries = [...buckets.values()];
+    const loggingResults = await Promise.all(
+      bucketEntries.map(b =>
+        b.schoolId
+          ? computeProviderLoggingRate({
+              districtId: sdFilters.districtId ?? null,
+              schoolId: b.schoolId,
+              lookbackDays: 30,
+            })
+          : Promise.resolve(null),
+      ),
+    );
+
+    const rows = bucketEntries
+      .map((b, i) => {
         const total = b.studentIds.size;
         const atRisk = b.atRiskIds.size;
         const onTrack = total - atRisk;
@@ -113,10 +136,10 @@ router.get("/dashboard/school-compliance", async (req, res): Promise<void> => {
         const exposurePerStudent = total > 0
           ? Math.round((b.totalExposure / total) * 100) / 100
           : 0;
-        // Provider logging rate is not tracked per-school yet — mirror the
-        // district-level placeholder of 1.0 so the health score formula is
-        // consistent with the badge headline number.
-        const providerLoggingRate = 1.0;
+        const result = loggingResults[i];
+        const providerLoggingRate = result?.rate == null
+          ? null
+          : Math.round(result.rate * 1000) / 1000;
         return {
           schoolId: b.schoolId,
           schoolName: b.schoolName,
