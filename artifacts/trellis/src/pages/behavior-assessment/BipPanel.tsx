@@ -53,6 +53,7 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
   const [addingFidelity, setAddingFidelity] = useState(false);
   const [showAddFidelity, setShowAddFidelity] = useState(false);
   const [markingReviewed, setMarkingReviewed] = useState(false);
+  const [reviewIntervalDays, setReviewIntervalDays] = useState(90);
 
   const isApprover = role === "admin" || role === "bcba";
   const isReviewer = ["admin", "bcba", "case_manager", "coordinator"].includes(role);
@@ -232,10 +233,11 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
       const r = await authFetch(`/api/bips/${selectedBip.id}/mark-reviewed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intervalDays: 90 }),
+        body: JSON.stringify({ intervalDays: reviewIntervalDays }),
       });
       if (!r.ok) throw new Error();
-      toast.success("BIP marked as reviewed — next review scheduled in 90 days");
+      const { reviewDate } = await r.json();
+      toast.success(`BIP marked as reviewed — next review due ${reviewDate}`);
       onRefresh();
     } catch { toast.error("Failed to mark BIP as reviewed"); }
     setMarkingReviewed(false);
@@ -417,23 +419,34 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                   )}
                   {(() => {
                     const rs = reviewCycleStatus(currentBip.reviewDate, currentBip.lastReviewedAt);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const rd = currentBip.reviewDate ? new Date(currentBip.reviewDate + "T00:00:00") : null;
+                    const diffDays = rd ? Math.round((rd.getTime() - today.getTime()) / 86400000) : 0;
                     if (rs === "overdue") return (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                        <AlertTriangle className="w-3 h-3" /> Review Overdue
+                        <AlertTriangle className="w-3 h-3" /> Review overdue {Math.abs(diffDays) === 1 ? "1 day" : `${Math.abs(diffDays)} days`} · was {currentBip.reviewDate}
                       </span>
                     );
                     if (rs === "due_soon") return (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                        <Calendar className="w-3 h-3" /> Review Due {currentBip.reviewDate}
+                        <Calendar className="w-3 h-3" /> Review due {diffDays === 0 ? "today" : `in ${diffDays}d`} · {currentBip.reviewDate}
                       </span>
                     );
                     if (rs === "current") return (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                        <CalendarCheck className="w-3 h-3" /> Review {currentBip.reviewDate}
+                        <CalendarCheck className="w-3 h-3" /> Next review {currentBip.reviewDate}
+                      </span>
+                    );
+                    if (currentBip.status === "active") return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">
+                        <Calendar className="w-3 h-3" /> No review date — set in Edit
                       </span>
                     );
                     return null;
                   })()}
+                  {currentBip.lastReviewedAt && (
+                    <span className="text-[10px] text-gray-400">Last reviewed {currentBip.lastReviewedAt}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -500,12 +513,27 @@ export function BipPanel({ student, bips, selectedBip, editingBip, selectedFba, 
                     </Button>
                   )}
                   {currentBip.status === "active" && isReviewer && (
-                    <Button size="sm" variant="outline" disabled={markingReviewed}
-                      onClick={markReviewed}
-                      className="text-violet-700 border-violet-200 hover:bg-violet-50">
-                      <CalendarCheck className="w-3.5 h-3.5 mr-1" />
-                      {markingReviewed ? "Saving…" : "Mark Reviewed"}
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={reviewIntervalDays}
+                        onChange={e => setReviewIntervalDays(Number(e.target.value))}
+                        disabled={markingReviewed}
+                        className="text-[11px] border border-violet-200 rounded-md px-1.5 py-1 text-violet-700 bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
+                        title="Next review in…"
+                      >
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                        <option value={180}>180 days</option>
+                        <option value={365}>1 year</option>
+                      </select>
+                      <Button size="sm" variant="outline" disabled={markingReviewed}
+                        onClick={markReviewed}
+                        className="text-violet-700 border-violet-200 hover:bg-violet-50">
+                        <CalendarCheck className="w-3.5 h-3.5 mr-1" />
+                        {markingReviewed ? "Saving…" : "Mark Reviewed"}
+                      </Button>
+                    </div>
                   )}
                   <input
                     type="text"

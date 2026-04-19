@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Plus, Archive } from "lucide-react";
 import { toast } from "sonner";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   getStudentBips, listFbas, listBehaviorTargets,
   updateBip, createBip, createBipVersion, deleteBip,
@@ -219,6 +220,22 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
     }
   }
 
+  async function markBipReviewed(bipId: number) {
+    try {
+      const r = await authFetch(`/api/bips/${bipId}/mark-reviewed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intervalDays: 90 }),
+      });
+      if (!r.ok) throw new Error();
+      const { reviewDate } = await r.json();
+      toast.success(`BIP marked as reviewed — next review due ${reviewDate}`);
+      fetchBips();
+    } catch {
+      toast.error("Failed to mark BIP as reviewed");
+    }
+  }
+
   const activeBips = bips.filter(b => b.status !== "archived");
   const archivedBips = bips.filter(b => b.status === "archived");
 
@@ -273,6 +290,7 @@ export default function BipManagement({ studentId, readOnly = false }: BipManage
                 onNewVersion={readOnly ? undefined : () => handleNewVersion(bip)}
                 onDelete={readOnly ? undefined : () => handleDelete(bip.id)}
                 onStatusChange={readOnly ? undefined : (s) => handleStatusChange(bip.id, s)}
+                onMarkReviewed={readOnly ? undefined : () => markBipReviewed(bip.id)}
                 onPrint={() => printBip(bip)}
                 readOnly={readOnly}
               />

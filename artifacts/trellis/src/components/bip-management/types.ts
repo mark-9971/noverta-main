@@ -185,6 +185,7 @@ export interface Bip {
   reinforcementComponentsStructured: ReinforcementItem[] | null;
   crisisSupportsStructured: CrisisSupportItem[] | null;
   reviewDate: string | null;
+  lastReviewedAt?: string | null;
   effectiveDate: string | null;
   createdAt: string;
   updatedAt: string;
