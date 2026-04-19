@@ -250,12 +250,16 @@ function StaffRouter() {
       <BoundedRoute path="/staff" component={StaffPage} fallbackTitle="Staff page error" />
       <BoundedRoute path="/search" component={IepSearchPage} fallbackTitle="Search error" />
       <BoundedRoute path="/iep-search" component={IepSearchPage} fallbackTitle="Search error" />
-      <BoundedRoute path="/action-center" component={ActionCenterPage} fallbackTitle="Action center error" />
+      {/* Phase 1a silent redirect: deprecated work-queue surface → Today */}
+      <Route path="/action-center">{() => <Redirect to="/today" />}</Route>
+      <BoundedRoute path="/_action-center-legacy" component={ActionCenterPage} fallbackTitle="Action center error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>
       <Route path="/compliance/trends">{() => <Redirect to="/compliance?tab=trends" />}</Route>
-      <BoundedRoute path="/leadership-packet" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
+      {/* Phase 1a silent redirect: leadership packet now folded into Executive Dashboard */}
+      <Route path="/leadership-packet">{() => <Redirect to="/executive?tab=leadership" />}</Route>
+      <BoundedRoute path="/_leadership-packet-legacy" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />
@@ -266,9 +270,13 @@ function StaffRouter() {
       <BoundedRoute path="/pilot-kickoff" component={PilotKickoff} fallbackTitle="Pilot kickoff error" />
       <BoundedRoute path="/data-health" component={DataHealthPage} fallbackTitle="Data health error" />
       <BoundedRoute path="/data-visualized" component={DataVisualizedPage} fallbackTitle="Data visualized error" />
-      <BoundedRoute path="/program-data" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
+      {/* Phase 1a silent redirect: /program-data was a duplicate of /aba's programs tab */}
+      <Route path="/program-data">{() => <Redirect to="/aba?tab=programs" />}</Route>
+      <BoundedRoute path="/_program-data-legacy" component={ProgramDataPage} fallbackTitle="Program data error" featureKey="clinical.program_data" />
       <BoundedRoute path="/aba" component={AbaHub} fallbackTitle="ABA hub error" featureKey="clinical.program_data" />
-      <BoundedRoute path="/iep" component={IepHub} fallbackTitle="IEP hub error" />
+      {/* Phase 1a silent redirect: /iep hub was a thin wrapper around /students */}
+      <Route path="/iep">{() => <Redirect to="/students" />}</Route>
+      <BoundedRoute path="/_iep-legacy" component={IepHub} fallbackTitle="IEP hub error" />
       <BoundedRoute path="/scheduling" component={SchedulingHub} fallbackTitle="Scheduling hub error" />
       <BoundedRoute path="/iep-suggestions" component={IepSuggestions} fallbackTitle="IEP suggestions error" featureKey="clinical.iep_suggestions" />
       <BoundedRoute path="/protective-measures" component={ProtectiveMeasuresPage} fallbackTitle="Protective measures error" featureKey="compliance.protective_measures" />
@@ -276,7 +284,9 @@ function StaffRouter() {
       <Route path="/iep-calendar"><Redirect to="/iep-meetings?tab=calendar" /></Route>
       <BoundedRoute path="/analytics" component={AnalyticsPage} fallbackTitle="Analytics error" />
       <BoundedRoute path="/behavior-assessment" component={BehaviorAssessmentPage} fallbackTitle="Behavior assessment error" featureKey="clinical.fba_bip" />
-      <BoundedRoute path="/district" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
+      {/* Phase 1a silent redirect: district overview now folded into Executive Dashboard */}
+      <Route path="/district">{() => <Redirect to="/executive?tab=district" />}</Route>
+      <BoundedRoute path="/_district-legacy" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
       <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" featureKey="district.resource_management" />
       <BoundedRoute path="/caseload-balancing" component={CaseloadBalancing} fallbackTitle="Caseload balancing error" featureKey="district.caseload_balancing" />
       <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" featureKey="compliance.compensatory" />

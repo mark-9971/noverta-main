@@ -5,10 +5,9 @@ import {
   Star, Clock, Sparkles, Sun, Library,
   Clipboard, Sprout, Gauge, CalendarDays,
   BookOpen, Scale, MessageSquare, FileText, Briefcase, ListChecks, Database,
-  Heart, Trophy, CreditCard, Crown, FileSearch, TrendingDown, DollarSign,
-  GraduationCap, Stethoscope, Truck, Contact, Settings, Mail, FileBarChart,
-  Trash2, CheckCircle, Bell, Send, Gift, ArrowLeftRight, FileDown, Zap,
-  LineChart, Brain, Target, PlusCircle, ClipboardCheck,
+  Heart, Trophy, CreditCard, Crown, FileSearch, DollarSign,
+  GraduationCap, Truck, Settings, Mail, FileBarChart,
+  ArrowLeftRight, Brain,
 } from "lucide-react";
 import { type FeatureKey } from "@/lib/module-tiers";
 
@@ -53,22 +52,16 @@ export const platformAdminSection: NavSection = {
   ],
 };
 
-// Top-level admin IA — wedge-focused layout (Pass 2):
-//
-//   1) Overview        — daily landing (Dashboard + Alerts)
-//   2) Compliance      — core wedge: compliance, risk, compensatory, docs
-//   3) Service Delivery — trimmed to 6 core items only
-//   4) Reports         — cross-cutting reporting surface
-//   5) Billing         — collapsed by default (finance, not compliance)
-//   6) Settings        — collapsed by default (config, not daily ops)
-//   7) More tools      — everything else, collapsed, route-accessible
-//
-// Service Delivery trimmed from 11 → 6 items. Demoted to More tools:
-//   Staff Calendar, IEP Meetings, IEP Calendar, Caseload Balancing,
-//   IEP Search, Evaluations, Progress Reports.
-// Directory (Students + Staff) promoted from Staffing → Overview (above Alerts).
-// Billing and Settings now default-closed to reduce sidebar weight.
-// No routes, pages, APIs, or business logic removed — hidden only.
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 1a IA cleanup (additive, sidebar only — no routes/APIs changed):
+//   • Stripped every `?tab=*` sidebar shortcut. Tabs still work on the page;
+//     they just no longer pollute the sidebar tree.
+//   • Removed self-link children (where child.href === parent.href).
+//   • Preserved real standalone destinations as siblings.
+//   • Removed sidebar entries for routes that now redirect elsewhere
+//     (/action-center, /district, /leadership-packet, /iep, /program-data —
+//     redirects defined in App.tsx).
+// ─────────────────────────────────────────────────────────────────────────────
 export const adminNav: NavSection[] = [
   // ── 1. Overview ──────────────────────────────────────────────────────────
   {
@@ -77,9 +70,6 @@ export const adminNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
-      // Action Center: student search + triaged work queue (Urgent/This Week/Coming Up)
-      // aggregates alerts, compliance risk, IEP deadlines, evaluations, meetings.
-      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       {
         href: "/students", label: "Directory", icon: Users, primary: true,
@@ -88,70 +78,33 @@ export const adminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      {
-        href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
-        children: [
-          { href: "/alerts?tab=open", label: "Open", icon: AlertTriangle },
-          { href: "/alerts?tab=snoozed", label: "Snoozed", icon: Clock },
-          { href: "/alerts?tab=resolved", label: "Resolved", icon: CheckCircle },
-        ],
-      },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
-  // ── 2. Compliance & Risk ───────────────────────────────────────────────────
+  // ── 2. Compliance & Risk ────────────────────────────────────────────────
   {
     label: "Compliance & Risk",
     icon: ListChecks,
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey,
-        children: [
-          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
-          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
-          { href: "/compliance?tab=timeline", label: "Timeline", icon: Calendar },
-          { href: "/compliance?tab=trends", label: "Trends", icon: TrendingDown },
-        ],
-      },
-      // Reports lives here — not under Financial/Executive — because all tabs are
-      // compliance artifacts (executive summary, audit package, trend, exports).
-      // Moving it here keeps it visible by default alongside the operational
-      // compliance view rather than buried in a collapsed financial section.
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       {
         href: "/reports", label: "Reports", icon: BarChart3,
         children: [
-          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
-          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
-          { href: "/reports?tab=audit", label: "Audit Package", icon: FileText },
-          // "Minutes Export" — tabular export view (complement to Compliance → Service Minutes)
-          { href: "/reports?tab=minutes", label: "Minutes Export", icon: Clock },
-          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
-          // "At-Risk Export" — tabular/CSV export; full narrative at Compliance → Risk Report
-          { href: "/reports?tab=risk", label: "At-Risk Export", icon: Shield },
-          { href: "/reports?tab=parent", label: "Parent Summary", icon: Heart },
-          { href: "/reports?tab=exports", label: "Bulk Exports", icon: FileDown },
           { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-          { href: "/leadership-packet", label: "Leadership Packet", icon: FileBarChart },
         ],
       },
       {
         href: "/compensatory-services", label: "Compensatory", icon: Scale,
         children: [
-          { href: "/compensatory-services?tab=obligations", label: "Obligations", icon: Gift },
-          { href: "/compensatory-services?tab=cost-avoidance", label: "Cost Avoidance", icon: TrendingDown },
           { href: "/compensatory-finance", label: "Financial Exposure", icon: DollarSign },
         ],
       },
-      { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
     ],
   },
-  // ── 3. IEP & Services ─────────────────────────────────────────────────────
-  // IEP Hub (/iep) removed from nav — IEP Builder promoted as the direct entry
-  // point. Hub route is preserved and deep links still work; it's just no longer
-  // a required click in the daily workflow.
+  // ── 3. IEP & Services ────────────────────────────────────────────────────
   {
     label: "IEP & Services",
     icon: GraduationCap,
@@ -161,128 +114,39 @@ export const adminNav: NavSection[] = [
       {
         href: "/iep-builder", label: "IEP Builder", icon: Sparkles, primary: true,
         children: [
-          { href: "/iep-builder", label: "Builder", icon: Sparkles },
           { href: "/iep-search", label: "Search", icon: FileSearch },
         ],
       },
-      {
-        href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays,
-        children: [
-          { href: "/iep-meetings", label: "Meetings", icon: CalendarDays },
-          { href: "/iep-meetings?tab=calendar", label: "Calendar", icon: Calendar },
-        ],
-      },
+      { href: "/iep-meetings", label: "IEP Meetings", icon: CalendarDays },
       {
         href: "/evaluations", label: "Evaluations & Progress", icon: FileSearch,
         children: [
-          { href: "/evaluations", label: "Evaluations", icon: FileSearch },
           { href: "/progress-reports", label: "Progress Reports", icon: FileText },
         ],
       },
       { href: "/transitions", label: "Transition Planning", icon: Sprout },
       { href: "/accommodation-lookup", label: "Accommodation Verification", icon: FileText },
-      {
-        href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey,
-        children: [
-          { href: "/parent-communication?tab=all", label: "All Contacts", icon: MessageSquare },
-          { href: "/parent-communication?tab=overdue", label: "Overdue Follow-ups", icon: Clock },
-          { href: "/parent-communication?tab=notifications", label: "Notifications Needed", icon: Bell },
-          { href: "/parent-communication?tab=comms_log", label: "Email Audit Log", icon: Send },
-        ],
-      },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],
   },
-  // ── 4. ABA & Behavior ─────────────────────────────────────────────────────
-  //
-  // Structured as 6 clinical domains — each is a collapsible NavItem group:
-  //
-  //   Learners    → Who is on the caseload and what they are working on
-  //   Sessions    → Session workflow: start, collect, review, gap-track
-  //   Programs    → Program library, templates, mastery/maintenance
-  //   Analysis    → Graphs, behavior data (distinct destinations only)
-  //   Reporting   → Progress reports, team summaries, export/print
-  //   Supervision → IOA, fidelity, supervision sessions, staff performance
-  //
-  // All routes already exist — sub-items use ?tab= params to deep-link into
-  // multi-tab pages. No routes, pages, or business logic were changed.
+  // ── 4. ABA & Behavior — flattened from 6 groups to 3 destinations ───────
   {
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
-      // ── Learners ─────────────────────────────────────────────────────────
       {
-        href: "/aba",
-        label: "Learners",
-        icon: Users,
-        featureKey: "clinical.program_data" as FeatureKey,
+        href: "/aba", label: "Learners", icon: Users, featureKey: "clinical.program_data" as FeatureKey,
         children: [
-          { href: "/aba", label: "ABA Caseload", icon: Users },
-          { href: "/aba?tab=programs", label: "Active Programs", icon: Activity },
           { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
         ],
       },
-      // ── Sessions ─────────────────────────────────────────────────────────
-      {
-        href: "/program-data",
-        label: "Sessions",
-        icon: CalendarDays,
-        children: [
-          { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
-          { href: "/aba?tab=programs", label: "Programs & Targets", icon: Activity },
-          { href: "/aba?tab=analytics", label: "Session Analytics", icon: BarChart3 },
-        ],
-      },
-      // ── Programs ─────────────────────────────────────────────────────────
-      {
-        href: "/iep-suggestions",
-        label: "Programs",
-        icon: Library,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/iep-suggestions", label: "Program Library", icon: Library },
-          { href: "/aba?tab=programs", label: "Templates", icon: Star },
-          { href: "/aba?tab=maintenance", label: "Mastery / Maintenance", icon: TrendingDown },
-        ],
-      },
-      // ── Analysis ─────────────────────────────────────────────────────────
-      {
-        href: "/aba?tab=analytics",
-        label: "Analysis",
-        icon: LineChart,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/aba?tab=analytics", label: "Program & Behavior Graphs", icon: LineChart },
-          { href: "/behavior-assessment", label: "Behavior Analytics / BIP", icon: Brain },
-        ],
-      },
-      // ── Reporting ─────────────────────────────────────────────────────────
-      {
-        href: "/progress-reports",
-        label: "Reporting",
-        icon: FileText,
-        children: [
-          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-          { href: "/supervision?tab=trend", label: "Team Summaries", icon: FileBarChart },
-          { href: "/reports?tab=exports", label: "Export / Print", icon: FileDown },
-        ],
-      },
-      // ── Supervision ───────────────────────────────────────────────────────
-      {
-        href: "/supervision",
-        label: "Supervision",
-        icon: UserCheck,
-        featureKey: "clinical.supervision" as FeatureKey,
-        children: [
-          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
-          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
-        ],
-      },
+      { href: "/iep-suggestions", label: "Programs", icon: Library, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
-  // ── 5. Scheduling ─────────────────────────────────────────────────────────
+  // ── 5. Scheduling ────────────────────────────────────────────────────────
   {
     label: "Scheduling",
     icon: Users,
@@ -290,19 +154,13 @@ export const adminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/sessions", label: "Session Log", icon: Clipboard },
-      {
-        href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true,
-        children: [
-          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck, pendingChangeRequestBadge: true },
-          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
-          { href: "/scheduling?tab=staff-calendar", label: "Staff Calendar", icon: CalendarDays },
-        ],
-      },
+      { href: "/scheduling", label: "Scheduling Hub", icon: Clock, pendingChangeRequestBadge: true },
       { href: "/caseload-balancing", label: "Caseload Balancing", icon: Scale, featureKey: "district.caseload_balancing" as FeatureKey },
     ],
   },
-  // ── 6+ sorted below ───────────────────────────────────────────────────────
+  // ── 6. Financial / Executive ─────────────────────────────────────────────
+  // /district and /leadership-packet are now redirected onto /executive tabs;
+  // sidebar only exposes the canonical entry points.
   {
     label: "Financial / Executive",
     icon: Gauge,
@@ -310,14 +168,13 @@ export const adminNav: NavSection[] = [
     defaultOpen: false,
     items: [
       { href: "/executive", label: "Executive Dashboard", icon: Gauge, featureKey: "district.executive" as FeatureKey },
-      { href: "/district", label: "District Overview", icon: Building2, featureKey: "district.overview" as FeatureKey },
       { href: "/agencies", label: "Agencies", icon: Truck },
-      { href: "/leadership-packet", label: "Leadership Packet", icon: ClipboardList, featureKey: "district.executive" as FeatureKey },
       { href: "/contract-utilization", label: "Contract Utilization", icon: Briefcase, featureKey: "district.contract_utilization" as FeatureKey },
       { href: "/resource-management", label: "Resource Management", icon: Database, featureKey: "district.resource_management" as FeatureKey },
       { href: "/medicaid-billing", label: "Medicaid Billing", icon: CreditCard, featureKey: "district.medicaid_billing" as FeatureKey },
     ],
   },
+  // ── 7. Admin / Tools ─────────────────────────────────────────────────────
   {
     label: "Admin / Tools",
     icon: Settings,
@@ -328,58 +185,23 @@ export const adminNav: NavSection[] = [
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
       { href: "/data-health", label: "Data Health Check", icon: ShieldCheck },
       { href: "/import", label: "Data Import", icon: Upload },
-      {
-        href: "/settings", label: "Settings", icon: Settings,
-        children: [
-          { href: "/settings?tab=general", label: "General", icon: Settings },
-          { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
-          { href: "/settings?tab=school-year", label: "School Year", icon: CalendarDays },
-          { href: "/settings?tab=billing-rates", label: "Billing Rates", icon: DollarSign },
-          { href: "/settings?tab=sis", label: "SIS Integration", icon: Database },
-          { href: "/settings?tab=audit-log", label: "Audit Log", icon: FileText },
-          { href: "/settings?tab=recently-deleted", label: "Recently Deleted", icon: Trash2 },
-          { href: "/settings?tab=system-status", label: "System Status", icon: Activity },
-          { href: "/settings?tab=legal", label: "Legal & Compliance", icon: Scale },
-          // Billing (Stripe subscription management) lives in settings, not in
-          // the operational nav — it's account management, not a product feature.
-          { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
-        ],
-      },
+      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/billing", label: "Subscription & Billing", icon: CreditCard },
+      { href: "/pilot-status", label: "Pilot Status", icon: Gauge },
     ],
   },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Focused nav for pilot and demo districts.
-//
-// A hand-crafted structure (not derived by filtering adminNav) so we control
-// both which top-level items appear AND which children each item exposes.
-//
-// Five sections, each with curated subnav:
-//   1. Overview        — Dashboard, Alerts, Students & Staff
-//   2. Compliance      — Compliance (3 tabs), Reports (5 curated items)
-//   3. Service Delivery — Sessions, Schedule (3 sub-items)
-//   4. ABA & Behavior  — ABA Hub (4 tabs), Data Collection, Supervision
-//   5. Settings        — collapsed, 3 sub-items
-//
-// Hidden (NOT removed — routes still resolve, deep links still work):
-//   IEP & Services, Compensatory Services, Financial/Executive,
-//   Evaluations, Transitions, Parent Comms, Document Workflow, State Reports,
-//   Agencies, Medicaid Billing, Resource Management, Data Import, Data Health,
-//   Compliance Timeline/Trends tabs, Reports Audit Package/Parent Summary/
-//   Bulk Exports/Minutes Export/Leadership Packet.
-//
-// To restore the full admin nav, set district.isDemo = false and isPilot = false.
+// Focused nav for pilot and demo districts (hand-crafted, not derived).
 // ─────────────────────────────────────────────────────────────────────────────
 export const focusedAdminNav: NavSection[] = [
-  // ── 1. Overview ───────────────────────────────────────────────────────────
   {
     label: "Overview",
     icon: LayoutDashboard,
     collapsible: true,
     defaultOpen: true,
     items: [
-      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       {
         href: "/students", label: "Students & Staff", icon: Users, primary: true,
@@ -388,55 +210,24 @@ export const focusedAdminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      {
-        href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true,
-        children: [
-          { href: "/alerts?tab=open", label: "Open", icon: AlertTriangle },
-          { href: "/alerts?tab=snoozed", label: "Snoozed", icon: Clock },
-          { href: "/alerts?tab=resolved", label: "Resolved", icon: CheckCircle },
-        ],
-      },
+      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
-  // ── 2. Compliance ─────────────────────────────────────────────────────────
-  // Only the three most decision-useful Compliance tabs (Risk Report, Service
-  // Minutes, Checklist). Timeline and Trends are accessible via URL but not
-  // foregrounded — they add noise for first-time pilot users.
-  // Reports trimmed to the five outputs a pilot stakeholder actually needs:
-  //   Executive Summary, Compliance Trend, Weekly Summary, At-Risk Export,
-  //   Missed Sessions. Audit Package, Bulk Exports, Parent Summary, Minutes
-  //   Export, Leadership Packet are all excluded from this nav.
   {
     label: "Compliance",
     icon: ListChecks,
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/compliance", label: "Compliance", icon: ListChecks,
-        featureKey: "compliance.service_minutes" as FeatureKey,
-        children: [
-          { href: "/compliance?tab=risk-report", label: "Risk Report", icon: FileBarChart },
-          { href: "/compliance?tab=minutes", label: "Service Minutes", icon: Clock },
-          { href: "/compliance?tab=checklist", label: "Checklist", icon: ListChecks },
-        ],
-      },
+      { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       {
         href: "/reports", label: "Reports", icon: BarChart3,
         children: [
-          { href: "/reports?tab=executive", label: "Executive Summary", icon: BarChart3 },
-          { href: "/reports?tab=trend", label: "Compliance Trend", icon: TrendingDown },
           { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-          { href: "/reports?tab=risk", label: "At-Risk Export", icon: Shield },
-          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
         ],
       },
     ],
   },
-  // ── 3. Service Delivery ───────────────────────────────────────────────────
-  // "Service Delivery" over "Scheduling" — terminology that matches what SPED
-  // coordinators and providers actually say. Sessions first (most-visited
-  // daily surface), then Schedule with the three operational views.
   {
     label: "Service Delivery",
     icon: Clipboard,
@@ -444,70 +235,27 @@ export const focusedAdminNav: NavSection[] = [
     defaultOpen: true,
     items: [
       { href: "/sessions", label: "Sessions", icon: Clipboard, primary: true },
-      {
-        href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true,
-        children: [
-          { href: "/scheduling?tab=schedule", label: "Weekly Schedule", icon: CalendarDays },
-          { href: "/scheduling?tab=coverage", label: "Coverage", icon: UserCheck, pendingChangeRequestBadge: true },
-          { href: "/scheduling?tab=minutes", label: "Minutes at Risk", icon: AlertTriangle },
-        ],
-      },
+      { href: "/scheduling", label: "Schedule", icon: CalendarDays, pendingChangeRequestBadge: true },
     ],
   },
-  // ── 4. ABA & Behavior ─────────────────────────────────────────────────────
-  // Restored for BCBAs and clinical staff. Exposes the four core surfaces of
-  // the ABA hub: caseload overview, per-learner programs & data, behavior
-  // assessments / BIP, and the maintenance probe schedule. Also surfaces the
-  // standalone Data Collection entry and Supervision (feature-gated).
   {
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
-      {
-        href: "/aba",
-        label: "ABA Hub",
-        icon: Brain,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/aba", label: "Caseload Overview", icon: Users },
-          { href: "/aba?tab=programs", label: "Programs & Data", icon: Activity },
-          { href: "/aba?tab=fba", label: "Behavior / BIP", icon: Shield },
-          { href: "/aba?tab=maintenance", label: "Maintenance", icon: Target },
-        ],
-      },
-      { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
-      {
-        href: "/supervision",
-        label: "Supervision",
-        icon: UserCheck,
-        featureKey: "clinical.supervision" as FeatureKey,
-        children: [
-          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
-          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
-        ],
-      },
+      { href: "/aba", label: "ABA Hub", icon: Brain, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
-  // ── 5. Settings ───────────────────────────────────────────────────────────
-  // Collapsed by default. Only the three settings a pilot admin actually needs:
-  // General (district name, timezone), School Year (date bounds), Audit Log.
   {
     label: "Settings",
     icon: Settings,
     collapsible: true,
     defaultOpen: false,
     items: [
-      {
-        href: "/settings", label: "Settings", icon: Settings,
-        children: [
-          { href: "/settings?tab=general", label: "General", icon: Settings },
-          { href: "/settings?tab=school-year", label: "School Year", icon: CalendarDays },
-          { href: "/settings?tab=audit-log", label: "Audit Log", icon: FileText },
-        ],
-      },
+      { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
@@ -515,24 +263,18 @@ export const focusedAdminNav: NavSection[] = [
 /**
  * Returns the appropriate admin nav based on district mode.
  *
- * - demo or pilot: focusedAdminNav — 4-section, hand-crafted wedge layout.
- *   Sections and children are curated; thin/broken surfaces are not shown.
- *   Routes remain accessible via direct URL — nothing is removed.
+ * - demo or pilot: focusedAdminNav — tighter wedge layout for pilot stakeholders.
  * - full (paid):   adminNav — complete layout for configured districts.
+ *
+ * Routes remain accessible via direct URL — nothing is removed.
  */
 export function getAdminNavForMode(isDemo: boolean, isPilot?: boolean): NavSection[] {
   return isDemo || isPilot ? focusedAdminNav : adminNav;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Case Manager nav — IEP-workflow + Compliance focus.
-//
-// Included sections: Overview, Compliance Tools (minus admin-only items),
-//   IEP & Services (full), Staffing (Directory + Sessions only — no scheduling,
-//   no caseload balancing, those belong to coordinators).
-// Excluded sections: ABA, Financial / Executive, Admin / Tools.
-// Excluded Staffing items: Scheduling Hub, Staff Calendar, Caseload Balancing.
-// Excluded Compliance items: State Reports, Restraint & Seclusion.
+// Derived role navs: filter adminNav by section/href. They automatically
+// inherit the Phase 1a clutter strip from adminNav above.
 // ─────────────────────────────────────────────────────────────────────────────
 const CASE_MANAGER_EXCLUDED_SECTIONS = new Set(["ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
 const CASE_MANAGER_EXCLUDED_HREFS = new Set([
@@ -551,15 +293,6 @@ export const caseManagerNav: NavSection[] = adminNav
   }))
   .filter(s => s.items.length > 0);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Coordinator nav — Staffing + scheduling focus with light compliance oversight.
-//
-// Included sections: Overview, Compliance Tools (trimmed to Compliance +
-//   Compensatory only), Staffing (full — Directory, Sessions, Scheduling Hub,
-//   Staff Calendar, Caseload Balancing).
-// Excluded sections: IEP & Services, ABA, Financial / Executive, Admin / Tools.
-// Compliance trimmed: only /compliance and /compensatory-services exposed.
-// ─────────────────────────────────────────────────────────────────────────────
 const COORDINATOR_EXCLUDED_SECTIONS = new Set(["IEP & Services", "ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
 const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory-services"]);
 
@@ -573,8 +306,7 @@ export const coordinatorNav: NavSection[] = adminNav
   })
   .filter(s => s.items.length > 0);
 
-// SPED teachers do not see "Financial / Executive" or "Admin / Tools" (admin-only).
-// All other sections are visible: IEP, Accommodations & Transitions, Compliance & Risk, Staffing, ABA & Behavior.
+// SPED teachers do not see Financial/Executive or Admin/Tools.
 const SPED_TEACHER_EXCLUDED_GROUPS = new Set(["Financial / Executive", "Admin / Tools"]);
 const SPED_TEACHER_LABEL_MAP: Record<string, string> = {
   "Scheduling": "My Caseload",
@@ -606,10 +338,10 @@ export const spedTeacherNav: NavSection[] = adminNav
     return { ...s, label, items };
   });
 
-// Purpose-built nav for BCBAs. The ABA section is the primary workspace —
-// structured as 6 clinical domains (Learners, Sessions, Programs, Analysis,
-// Reporting, Supervision). "My Caseload" is folded into ABA → Learners.
-// Overview stays light; Compliance is available but collapsed by default.
+// ─────────────────────────────────────────────────────────────────────────────
+// BCBA nav — Phase 1a: ABA section flattened from 6 groups to 5 destinations.
+// All ?tab=* sidebar children removed; tabs are still reachable on each page.
+// ─────────────────────────────────────────────────────────────────────────────
 export const bcbaNav: NavSection[] = [
   {
     label: "Overview",
@@ -619,88 +351,30 @@ export const bcbaNav: NavSection[] = [
     items: [
       { href: "/today", label: "Today", icon: Sun, primary: true },
       { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
-      { href: "/action-center", label: "Action Center", icon: Zap, primary: true },
       { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
     ],
   },
-  // ── ABA & Behavior (6-domain structure) ───────────────────────────────────
   {
     label: "ABA & Behavior",
     icon: Activity,
     collapsible: true,
     defaultOpen: true,
     items: [
-      // ── Learners ──────────────────────────────────────────────────────────
       {
         href: "/aba",
         label: "Learners",
         icon: Users,
         featureKey: "clinical.program_data" as FeatureKey,
         children: [
-          { href: "/aba", label: "ABA Caseload", icon: Users },
           { href: "/students", label: "Student Directory", icon: Search },
-          { href: "/aba?tab=programs", label: "Active Programs", icon: Activity },
           { href: "/behavior-assessment", label: "Behavior Support / BIP", icon: Shield },
         ],
       },
-      // ── Sessions ──────────────────────────────────────────────────────────
-      {
-        href: "/sessions",
-        label: "Sessions",
-        icon: CalendarDays,
-        children: [
-          { href: "/sessions", label: "Session Log", icon: Clipboard },
-          { href: "/program-data", label: "Data Collection", icon: ClipboardCheck },
-          { href: "/reports?tab=missed", label: "Missed Sessions", icon: AlertTriangle },
-        ],
-      },
-      // ── Programs ──────────────────────────────────────────────────────────
-      {
-        href: "/iep-suggestions",
-        label: "Programs",
-        icon: Library,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/iep-suggestions", label: "Program Library", icon: Library },
-          { href: "/aba?tab=programs", label: "Templates", icon: Star },
-          { href: "/aba?tab=maintenance", label: "Mastery / Maintenance", icon: TrendingDown },
-        ],
-      },
-      // ── Analysis ──────────────────────────────────────────────────────────
-      {
-        href: "/aba?tab=analytics",
-        label: "Analysis",
-        icon: LineChart,
-        featureKey: "clinical.program_data" as FeatureKey,
-        children: [
-          { href: "/aba?tab=analytics", label: "Program & Behavior Graphs", icon: LineChart },
-          { href: "/behavior-assessment", label: "Behavior Analytics / BIP", icon: Brain },
-        ],
-      },
-      // ── Reporting ─────────────────────────────────────────────────────────
-      {
-        href: "/progress-reports",
-        label: "Reporting",
-        icon: FileText,
-        children: [
-          { href: "/progress-reports", label: "Progress Reports", icon: FileText },
-          { href: "/supervision?tab=trend", label: "Team Summaries", icon: FileBarChart },
-          { href: "/reports?tab=exports", label: "Export / Print", icon: FileDown },
-        ],
-      },
-      // ── Supervision ───────────────────────────────────────────────────────
-      {
-        href: "/supervision",
-        label: "Supervision",
-        icon: UserCheck,
-        featureKey: "clinical.supervision" as FeatureKey,
-        children: [
-          { href: "/supervision?tab=log", label: "Supervision Sessions", icon: Clipboard },
-          { href: "/supervision?tab=compliance", label: "IOA & Fidelity", icon: CheckCircle },
-          { href: "/supervision?tab=trend", label: "Staff Performance", icon: TrendingDown },
-        ],
-      },
+      { href: "/sessions", label: "Sessions", icon: CalendarDays },
+      { href: "/iep-suggestions", label: "Programs", icon: Library, featureKey: "clinical.program_data" as FeatureKey },
+      { href: "/progress-reports", label: "Reporting", icon: FileText },
+      { href: "/supervision", label: "Supervision", icon: UserCheck, featureKey: "clinical.supervision" as FeatureKey },
     ],
   },
   {
@@ -717,18 +391,18 @@ export const bcbaNav: NavSection[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Para shell — Phase 1a: minimal. No clinical back doors via sidebar.
+//   • Removed "Programs & Behaviors" (/program-data) — not a para surface.
+//   • Added Incidents (/protective-measures), gated by feature flag.
+// ─────────────────────────────────────────────────────────────────────────────
 export const paraNav: NavSection[] = [
   {
     items: [
       { href: "/my-day", label: "My Day", icon: Sun, primary: true },
-    ],
-  },
-  {
-    label: "Session Work",
-    items: [
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
       { href: "/sessions", label: "Session Log", icon: Clipboard },
-      { href: "/program-data", label: "Programs & Behaviors", icon: Activity },
+      { href: "/protective-measures", label: "Incidents", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
     ],
   },
 ];

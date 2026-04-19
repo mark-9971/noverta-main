@@ -5,7 +5,6 @@ import {
   listStudents, listFbas, getStudentBips, listFbaObservations,
   getFbaObservationsSummary, listFaSessions
 } from "@workspace/api-client-react";
-import { EmptyState } from "./behavior-assessment/shared";
 import { StudentPicker } from "./behavior-assessment/StudentPicker";
 import { FbaListPanel } from "./behavior-assessment/FbaListPanel";
 import { AbcDataPanel } from "./behavior-assessment/AbcDataPanel";
@@ -14,6 +13,40 @@ import { BipPanel } from "./behavior-assessment/BipPanel";
 import type {
   Student, FbaRecord, Observation, FaSession, ObsSummary, BipRecord
 } from "./behavior-assessment/types";
+
+// Inline FBA picker — replaces the "No FBA selected · Go to FBA Documents"
+// dead-end on the ABC and Functional Analysis tabs. Renders the same
+// FbaListPanel used by the FBA Documents tab so providers can pick or create
+// an FBA without bouncing back to a different tab first.
+function FbaInlinePicker({
+  contextLabel, fbas, student, onSelect, onCreated, showNew, onShowNew,
+}: {
+  contextLabel: string;
+  fbas: FbaRecord[];
+  student: Student;
+  onSelect: (f: FbaRecord) => void;
+  onCreated: () => void;
+  showNew: boolean;
+  onShowNew: (v: boolean) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[13px] text-amber-800">
+        <ClipboardList className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>Select an FBA to continue, or create a new one. {contextLabel}</span>
+      </div>
+      <FbaListPanel
+        fbas={fbas}
+        selectedFba={null}
+        student={student}
+        onSelect={onSelect}
+        showNew={showNew}
+        onShowNew={onShowNew}
+        onCreated={onCreated}
+      />
+    </div>
+  );
+}
 
 export default function BehaviorAssessmentPage({ embedded = false, externalStudentId }: { embedded?: boolean; externalStudentId?: number }) {
   const [students, setStudents] = useState<Student[]>([]);
@@ -207,20 +240,15 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
                 onDeleted={() => loadObservations(selectedFba.id)}
               />
             ) : (
-              <div className="text-center py-12 space-y-3 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                <Eye className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-[14px] font-medium text-gray-500">No FBA selected</p>
-                <p className="text-[12px] text-gray-400 max-w-xs mx-auto">
-                  Select or create an FBA first — ABC observations are linked to a specific assessment.
-                </p>
-                <button
-                  onClick={() => setActiveTab("fbas")}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  Go to FBA Documents
-                </button>
-              </div>
+              <FbaInlinePicker
+                contextLabel="ABC observations are linked to a specific assessment."
+                fbas={fbas}
+                student={selectedStudent}
+                onSelect={(fba) => selectFba(fba)}
+                onCreated={() => loadFbas(selectedStudent.id)}
+                showNew={showNewFba}
+                onShowNew={setShowNewFba}
+              />
             )
           )}
 
@@ -235,20 +263,15 @@ export default function BehaviorAssessmentPage({ embedded = false, externalStude
                 onDeleted={() => loadFaSessions(selectedFba.id)}
               />
             ) : (
-              <div className="text-center py-12 space-y-3 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                <BarChart3 className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-[14px] font-medium text-gray-500">No FBA selected</p>
-                <p className="text-[12px] text-gray-400 max-w-xs mx-auto">
-                  Functional analysis sessions are linked to an FBA. Select an assessment to begin.
-                </p>
-                <button
-                  onClick={() => setActiveTab("fbas")}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  Go to FBA Documents
-                </button>
-              </div>
+              <FbaInlinePicker
+                contextLabel="Functional analysis sessions are linked to an FBA. Select or create one to begin."
+                fbas={fbas}
+                student={selectedStudent}
+                onSelect={(fba) => selectFba(fba)}
+                onCreated={() => loadFbas(selectedStudent.id)}
+                showNew={showNewFba}
+                onShowNew={setShowNewFba}
+              />
             )
           )}
 
