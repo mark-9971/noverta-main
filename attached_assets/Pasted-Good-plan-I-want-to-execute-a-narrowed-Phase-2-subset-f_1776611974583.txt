@@ -1,0 +1,62 @@
+Good plan. I want to execute a narrowed Phase 2 subset first.
+
+Do not build the full Phase 2 at once.
+Do not touch Compliance / Reports / Weekly de-dup yet.
+Save that for after the lower-risk wins are shipped.
+
+Implement only these items, in this order:
+
+1. 2A.1 Compensatory consolidation
+2. 2B.1 Role-aware student workspace config + role-specific default/visible tabs
+3. 2B.2 Student capability gates using the same config/capability map
+4. 2A.3 Action Center absorbs Alerts
+
+Keep this scoped tightly:
+- no route explosion
+- no API changes
+- no major backend work
+- no broad permission framework beyond what is needed for the student workspace
+- no AppLayout/nav rewrites unless strictly necessary
+- no Compliance/Reports de-dup yet
+
+A few refinements:
+
+A. For Compensatory
+- one primary route/workspace
+- old routes should silently redirect
+- sidebar should collapse to one Compensatory entry
+- keep all current functionality reachable
+
+B. For student workspace
+- use one shared /students/:id route
+- use a lightweight role-config primitive
+- default tabs and visible tabs should differ by role
+- keep provider/para views visually simpler, not just more read-only
+- BCBA default should be Behavior
+- provider default should be Session History
+- para view should be minimal and task-oriented
+
+C. For capability gates
+- keep the implementation lightweight and local to the student workspace
+- centralize existing action checks, do not overengineer a global permissions system yet
+
+D. For Action Center / Alerts
+- Alerts should become a tab inside Action Center
+- keep old /alerts links working via redirect
+- do not merge Action Center with Workflow
+
+Before coding, give me a pre-flight with:
+1. exact files to be edited
+2. exact routes affected
+3. exact redirects to be added
+4. exact student tabs by role after implementation
+5. exact capabilities/actions by role after implementation
+6. biggest regression risks
+7. anything you recommend splitting into a separate PR
+
+Then implement this Phase 2 subset and summarize:
+A. files changed
+B. routes consolidated or redirected
+C. student workspace behavior by role
+D. capability changes by role
+E. anything intentionally deferred
