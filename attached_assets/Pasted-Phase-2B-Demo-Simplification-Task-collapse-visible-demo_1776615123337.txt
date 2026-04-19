@@ -1,0 +1,115 @@
+Phase 2B / Demo Simplification Task: collapse visible demo personas to Option B without rewriting the underlying permission system.
+
+Goal:
+Simplify the demo role model so the app feels cleaner and easier to understand. Keep the underlying internal roles if needed, but reduce the visible/demo-facing role set to:
+
+- Admin
+- Case Manager / Teacher
+- BCBA / Provider
+- Para
+
+Parent and Student should be removed from the main demo role switcher for now.
+
+Important intent:
+This is a demo-shell simplification task, not a deep auth/permissions rewrite.
+Do NOT redesign the entire role/permission architecture.
+Do NOT break existing underlying role logic unless necessary for the demo switcher and visible labels.
+Prefer aliasing, grouping, and visible-role consolidation over destructive refactors.
+
+What this change should accomplish:
+1. The demo role switcher should show only:
+   - Admin
+   - Case Manager / Teacher
+   - BCBA / Provider
+   - Para
+
+2. Internally, existing underlying roles may still exist if the app depends on them:
+   - admin
+   - coordinator
+   - case_manager
+   - sped_teacher
+   - bcba
+   - provider
+   - direct_provider
+   - para
+   - sped_student
+   - sped_parent
+
+3. Visible grouping rules:
+   - Admin demo persona should cover the current admin/coordinator shell
+   - Case Manager / Teacher demo persona should map to the cleaner of case_manager or sped_teacher, or whichever is better for demo use
+   - BCBA / Provider demo persona should map to the stronger of bcba or provider for demo value, but preserve behavior/ABA strengths if possible
+   - Para demo persona should remain para
+   - Student and Parent should not appear in the main role switcher
+
+4. The role switcher and any obvious visible role labels in the demo shell should reflect the simplified set
+5. Do not break routing, nav, or page rendering for the underlying roles
+6. Do not change backend APIs, schema, or server-side auth
+
+Preferred product behavior:
+- Keep the strongest workflow shell for each grouped persona
+- Prefer the more compelling demo shell when choosing between overlapping internal roles
+- If one grouped persona needs to map to a single underlying role for now, that is acceptable
+- Avoid broad UI churn outside the switcher / visible persona layer unless needed for consistency
+
+Recommended mapping approach:
+Use visible demo personas as aliases over existing roles, rather than trying to merge all internal role code immediately.
+
+Suggested initial mapping:
+- Admin → underlying admin
+- Case Manager / Teacher → whichever of case_manager or sped_teacher gives the cleaner, more complete demo shell
+- BCBA / Provider → whichever of bcba or provider gives the better combined demo story, ideally preserving ABA differentiation
+- Para → para
+
+Hide from the main demo switcher:
+- coordinator
+- direct_provider
+- sped_student
+- sped_parent
+
+Questions to answer before building:
+- Where is the role switcher data defined?
+- Are visible labels and underlying role keys already separable?
+- Can this be done as a demo-layer alias/grouping pass without changing core permission checks?
+- Which underlying role should power “Case Manager / Teacher”?
+- Which underlying role should power “BCBA / Provider”?
+
+Hard constraints:
+- No backend/schema/API changes
+- No role-permission rewrite
+- No route renames
+- No deleting underlying roles if they are still used elsewhere
+- No touching unrelated workflows unless required for consistency
+- Prefer the smallest maintainable change that makes the demo cleaner
+
+Before executing, give me a strict pre-flight summary with:
+1. Exact files to inspect/edit
+2. Where the current role switcher is defined
+3. Whether visible role labels and internal role keys are separable
+4. Proposed mapping from the 4 visible demo personas to underlying roles
+5. Any visible labels elsewhere that must also be updated for consistency
+6. Biggest regression risks
+7. Anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+1. Exact files edited
+2. Exact visible demo roles after change
+3. Exact mapping from visible personas to underlying roles
+4. Whether any underlying roles were kept but hidden
+5. Any visible labels updated elsewhere
+6. Validation performed
+   - typecheck
+   - app boot / HMR
+   - role switcher behavior
+   - confirm hidden roles no longer appear in the main switcher
+7. Known issues still remaining
+8. Blunt verdict: done, partial, or risky
+9. Copy-pasteable commit message
+
+Important rules:
+- Do not silently turn this into a deep role refactor
+- Keep the change tightly focused on demo clarity
+- If a true alias layer is too invasive, use the simplest visible-role consolidation that works today
+- Be explicit about what is still only a demo-layer simplification versus true product-role architecture
