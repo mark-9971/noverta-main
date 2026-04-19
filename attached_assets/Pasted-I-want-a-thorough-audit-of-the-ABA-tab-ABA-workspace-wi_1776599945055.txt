@@ -1,0 +1,205 @@
+I want a thorough audit of the ABA tab / ABA workspace, with a strong focus on information architecture, workflow clarity, and frequent BCBA usability.
+
+Right now, it feels like:
+- links are cyclical
+- pages loop into each other
+- the flow does not make intuitive clinical sense
+- too many surfaces overlap
+- a BCBA would not naturally want to live in this area daily
+
+I want you to evaluate the ABA section like a skeptical BCBA and product architect.
+
+## Core question
+If a BCBA used this product every day, would the ABA area feel:
+- obvious
+- efficient
+- clinically coherent
+- worth returning to frequently
+
+If not, exactly why not?
+
+---
+
+# What I want you to do
+
+## 1. Audit the current ABA structure end to end
+Inspect all ABA-relevant:
+- sidebar/nav items
+- routes
+- pages
+- major components
+- student detail links into ABA
+- ABA → session logging → graphing → BIP/FBA → reports flow
+- any duplicated or overlapping screens
+- any circular navigation patterns
+- any dead-end or confusing entry points
+
+Map the current workflow for at least:
+- BCBA
+- direct staff / para
+- school staff who need to understand a learner quickly
+
+I want a real workflow audit, not just a file inventory.
+
+---
+
+## 2. Evaluate whether the ABA IA actually makes sense
+Be brutally honest about:
+- whether the current ABA tab structure makes sense
+- whether labels are confusing
+- whether related tasks are split across too many places
+- whether screens are too role-mixed
+- whether the current sidebar creates looped or cyclical movement
+- whether the current landing points are the wrong ones
+- whether BCBAs would feel this is a serious clinical workspace or a scattered collection of features
+
+Call out:
+- what feels strong
+- what feels fragmented
+- what feels redundant
+- what feels buried
+- what feels misleading
+- what feels like “there is a feature here but not a real workflow”
+
+---
+
+## 3. Compare the workflow shape to strong ABA tools
+Use known workflow patterns from serious ABA software such as:
+- Motivity
+- CentralReach
+- Hi Rasmus
+- Passage Health
+- Rethink
+- Raven / similar ABA data products
+
+I do not want a marketing comparison.
+I want a workflow and product-structure comparison.
+
+Specifically compare against:
+- how those tools organize daily BCBA work
+- how they handle live data collection
+- how they surface learner context
+- how they connect programs, graphs, session data, and behavior plans
+- how they reduce cognitive load for frequent use
+- how they avoid cyclical navigation
+
+Focus on workflow design, not feature-count bragging.
+
+---
+
+## 4. Answer the real BCBA usability question
+I want you to assess whether a BCBA could comfortably do these things in our current ABA area:
+
+- open the app and immediately know where to go
+- review caseload status
+- understand one learner quickly
+- review active programs and behavior supports
+- run or review a session
+- look at graphs and recent data
+- decide whether prompting is fading
+- decide whether a BIP is working
+- go from FBA/ABC information into BIP work
+- generate/report out progress
+- supervise implementation quality
+
+For each of those, say:
+- strong
+- moderate
+- weak
+- broken/confusing
+
+And explain why.
+
+---
+
+## 5. Propose a better ABA architecture
+Give me the best proposed ABA sidebar/workspace structure for this app.
+
+I want you to be opinionated.
+
+Design the ABA area around daily use by a BCBA and supporting staff.
+
+Think in terms of:
+- learner workspace
+- sessions / live data
+- programs / targets
+- behavior support
+- analysis / graphs
+- reporting
+- supervision
+
+Propose:
+- top-level sidebar structure
+- nested items if needed
+- role-specific entry points if useful
+- what should live in student detail vs global ABA nav
+- what should be merged
+- what should be hidden
+- what should be renamed
+- what should become the default landing page
+
+Also identify:
+- what should be the BCBA “front door”
+- what should be the para/direct-staff “front door”
+- what should be the quickest path from data collection → graph → clinical decision
+
+---
+
+## 6. Give concrete redesign recommendations
+I want an implementation-oriented plan, not just design commentary.
+
+For each major recommendation, include:
+- what should change
+- why it matters
+- likely files/routes/components involved
+- whether it is small / medium / large effort
+- dependency notes if any
+
+Prioritize the changes in the best order.
+
+---
+
+# Output format
+
+## A. Executive verdict
+Is the current ABA area:
+- clinically coherent
+- easy to use
+- BCBA-friendly
+- likely to drive frequent use
+
+## B. Current-state ABA workflow map
+How the workflow works today, including where it loops or breaks.
+
+## C. Biggest current IA / workflow problems
+Be specific and harsh.
+
+## D. Comparison to strong ABA software workflow patterns
+Not feature marketing — workflow and UX structure only.
+
+## E. Proposed ABA sidebar / workspace redesign
+Top-level and nested structure, with rationale.
+
+## F. Priority redesign tasks
+Ordered by highest leverage first.
+
+## G. What a BCBA would still dislike even after the redesign
+Be honest.
+
+---
+
+# Important instructions
+- Audit first. Do not code yet.
+- Be skeptical.
+- Distinguish between:
+  - feature exists
+  - workflow is strong
+  - workflow is weak/confusing
+- Do not over-credit thin or duplicated surfaces.
+- Focus on whether the ABA area feels like a serious daily clinical workspace.
+
+The standard is not:
+“Do we have ABA features?”
+
+The standard is:
+“Would a BCBA actually like using this section frequently, and would the workflow make sense without unnecessary loops?”
