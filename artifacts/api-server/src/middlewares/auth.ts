@@ -3,7 +3,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { recordAccessDenial } from "../lib/accessDenials";
-import { db, staffTable, schoolsTable, districtsTable } from "@workspace/db";
+import { db, staffTable, schoolsTable, districtsTable, ensureDemoStaffForEmail } from "@workspace/db";
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 import { loadActiveViewAsSession, VIEW_AS_HEADER, endSessionByToken } from "../lib/viewAsSession";
 import { loadActiveSupportSession } from "../lib/supportSession";
@@ -371,7 +371,29 @@ async function resolveDistrictFromClerkUser(userId: string): Promise<number | nu
         inArray(sql`lower(${staffTable.email})`, emails),
       ))
       .limit(1);
-    const districtId = rows[0]?.districtId ?? null;
+    let districtId = rows[0]?.districtId ?? null;
+
+    // Fallback: known demo / e2e Clerk-test identities (showcase-walker,
+    // trellis-e2e-*, etc.) auto-provision into the existing demo district
+    // so a freshly-signed-in demo account doesn't need a manual staff row
+    // INSERT to clear requireDistrictScope. Returns null in any environment
+    // that has no is_demo=true district, so production tenants are never
+    // bootstrapped this way.
+    if (districtId == null) {
+      for (const email of emails) {
+        try {
+          const provisioned = await ensureDemoStaffForEmail(email);
+          if (provisioned != null) {
+            console.log(`[Auth] Auto-provisioned demo identity ${email} into district ${provisioned}`);
+            districtId = provisioned;
+            break;
+          }
+        } catch (err) {
+          console.error(`[Auth] ensureDemoStaffForEmail(${email}) failed:`, err);
+        }
+      }
+    }
+
     if (districtId != null) {
       _userDistrictCache.set(userId, {
         districtId,

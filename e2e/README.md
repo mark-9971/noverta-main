@@ -104,6 +104,33 @@ override with `E2E_PROVISION_KEY`) and is only mounted in non-production
 environments. Create the two Clerk test users in the Clerk dashboard
 before the first run; subsequent runs reuse them.
 
+### Demo / e2e identity bootstrap
+
+Outside of `/api/e2e/setup`, any Clerk user whose email is in the canonical
+demo list (`lib/db/src/seed-demo-identities.ts` — currently
+`trellis-e2e-admin+clerk_test@example.com`,
+`trellis-e2e-teacher+clerk_test@example.com`,
+`showcase-walker+clerk_test@example.com`) is auto-linked to a staff row in
+the `is_demo=true` district the first time `requireDistrictScope` runs for
+them. This means the showcase / sales-demo path works against any
+environment that has loaded the demo seed (`pnpm --filter @workspace/db
+exec tsx run-seed-demo.ts`, or `POST /api/sample-data/reset-demo` for
+platform admins) — no manual `INSERT INTO staff` required. To add a new
+demo identity, edit `seed-demo-identities.ts`; both the canonical seed
+script and the auth-time fallback will pick it up automatically.
+
+### `TRELLIS_DEV_FORCE_DISTRICT_ID`
+
+In non-production environments only, setting this env var pins every
+authenticated request to the given district id, bypassing both the Clerk
+metadata claim and the staff-row lookup. Use it sparingly — it overrides
+real tenant scope and is intended only for QA on dedicated single-tenant
+staging deployments. The auto-provision fallback above is the preferred
+route for the showcase / e2e accounts; reach for the env var only when you
+need to force a non-demo Clerk identity into a specific district for a
+one-off investigation. Production rejects this var by virtue of the
+`process.env.NODE_ENV !== "production"` guard in `auth.ts`.
+
 ## Required environment variables
 
 The suite — and in particular the `incident-e2e` validation registered in

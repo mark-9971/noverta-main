@@ -548,6 +548,16 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
     if (ids.length > 0) console.log(`    ${role}: ${ids.length}`);
   }
 
+  // Demo / e2e Clerk-test identities (showcase-walker, trellis-e2e-admin, etc.)
+  // Without staff rows in the demo district, requireDistrictScope 403s these
+  // accounts at sign-in. Source of truth lives in seed-demo-identities.ts so
+  // the auth-time auto-provision fallback stays in sync.
+  const { seedDemoIdentities } = await import("./seed-demo-identities");
+  const identityResult = await seedDemoIdentities(district.id);
+  console.log(
+    `  Demo identities: ${identityResult.inserted} inserted, ${identityResult.existing} already present, ${identityResult.revived} revived`,
+  );
+
   console.log("\nStep 4: Create students with profiles...");
   const usedNames = new Set<string>();
   const studentProfiles: StudentProfile[] = [];
