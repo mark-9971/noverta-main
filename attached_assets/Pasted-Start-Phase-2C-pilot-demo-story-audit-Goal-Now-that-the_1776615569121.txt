@@ -1,0 +1,51 @@
+Start Phase 2C: pilot/demo story audit.
+
+Goal:
+Now that the app is more coherent (Phase 2A) and the hands-on roles are more believable (Phase 2B), audit the product as a pilot/demo experience. Identify what should be emphasized, collapsed, hidden, or de-emphasized so the app tells a crisp story to a district buyer.
+
+Core question:
+If a district coordinator/admin saw this product in a 10-minute demo, what would feel essential, what would feel distracting, and what would feel confusing or too broad?
+
+What I want from this audit:
+1. Identify the true core pilot workflow/pages
+2. Identify which pages/sections are helping the sales story
+3. Identify which pages/sections are distracting, premature, duplicated, or noisy
+4. Recommend a cleaner demo path and nav emphasis
+5. Rank the next Phase 2C build tasks
+
+Audit from the perspective of:
+- district admin / coordinator buyer
+- case-manager / teacher user
+- BCBA / provider user
+
+Focus on questions like:
+- What should the demo open on?
+- What are the 5–7 pages that actually matter in a pilot?
+- Which nav sections/items make the app feel too sprawling?
+- Which pages belong in the core wedge vs later expansion?
+- What should be hidden, collapsed, or de-emphasized for demos?
+- What exact 10-minute walkthrough would best sell this product?
+
+Constraints:
+- This is an audit and prioritization pass first, not a giant build
+- No backend/schema/API changes
+- No auth rewrite
+- Be blunt and specific
+- Prefer product clarity over feature maximalism
+
+Before executing, give me a strict pre-flight summary with:
+1. files/areas you plan to inspect
+2. buyer/user perspectives you will evaluate
+3. what counts as “core pilot” vs “noise”
+4. biggest likely demo-story risks
+5. what is out of scope
+
+Then perform the audit and return:
+1. executive verdict
+2. best 10-minute demo flow
+3. core pilot pages to keep emphasized
+4. pages/features to collapse, hide, or de-emphasize
+5. nav/story issues still remaining
+6. ranked top 5 Phase 2C build tasks
+7. which single Phase 2C task should be built first
+8. a copy-pasteable prompt for that first build task

@@ -7,7 +7,7 @@ import {
   Target, CalendarDays, Clock, Activity, Shield, AlertTriangle,
   TrendingUp, TrendingDown, Minus, CheckCircle,
   ChevronDown, ChevronUp, FileText, Stethoscope,
-  Plus, StickyNote, Calendar
+  Plus, StickyNote, Calendar, ListChecks
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -179,9 +179,9 @@ export default function StudentSnapshot({ studentId }: { studentId: number }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Link href={`/sessions?studentId=${studentId}`}>
-          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-            <Plus className="w-3.5 h-3.5" />
-            Log Session
+          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50" data-testid="button-snapshot-view-sessions">
+            <ListChecks className="w-3.5 h-3.5" />
+            View Sessions
           </Button>
         </Link>
         <Link href={`/students/${studentId}#sessions`}>
