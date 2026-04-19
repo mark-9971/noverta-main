@@ -9,6 +9,7 @@ import {
   Users, DollarSign, Clock, ArrowLeft, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Link } from "wouter";
+import LastSyncedLabel from "@/components/common/LastSyncedLabel";
 import { openPrintWindow } from "@/lib/print-document";
 import { toast } from "sonner";
 import { EmptyState, EmptyStateStep, EmptyStateHeading, EmptyStateDetail } from "@/components/ui/empty-state";
@@ -384,6 +385,11 @@ export default function WeeklyComplianceSummaryPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {data ? `${data.meta.districtName} — Week of ${data.meta.currentWeek}` : "Loading..."}
           </p>
+          {data?.meta?.generatedAt && (
+            <div>
+              <LastSyncedLabel isoStr={data.meta.generatedAt} />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Select value={schoolFilter} onValueChange={setSchoolFilter}>

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
   Users, ListChecks,
-  TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Clock, RefreshCw, Loader2,
+  TrendingUp, TrendingDown, Minus, Compass, FileBarChart,
 } from "lucide-react";
+import LastSyncedLabel from "@/components/common/LastSyncedLabel";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/auth-fetch";
@@ -86,6 +87,11 @@ interface OnboardingStatus {
   pilotChecklist?: { isComplete: boolean; completedCount: number; totalSteps: number };
 }
 
+interface WeeklySummary {
+  meta?: { generatedAt?: string };
+  providersWithMissedThisWeek?: { providerName: string; role: string; completedSessions: number; missedSessions: number }[];
+}
+
 interface WeekTrend {
   available: boolean;
   priorWeekEndDate?: string;
@@ -124,59 +130,6 @@ function fmtMoney(n: number): string {
   if (!n) return "$0";
   if (n >= 1000) return `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
   return `$${Math.round(n).toLocaleString()}`;
-}
-
-function formatSyncAge(isoStr: string): string {
-  const diffMs = Date.now() - new Date(isoStr).getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 6) return `${diffHr} hr ago`;
-  return new Date(isoStr).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function LastSyncedLabel({
-  isoStr,
-  onRefresh,
-  isRefreshing,
-}: {
-  isoStr: string;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
-}) {
-  const [label, setLabel] = useState(() => formatSyncAge(isoStr));
-
-  useEffect(() => {
-    setLabel(formatSyncAge(isoStr));
-    const timer = setInterval(() => setLabel(formatSyncAge(isoStr)), 30_000);
-    return () => clearInterval(timer);
-  }, [isoStr]);
-
-  return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 mt-1.5">
-      <Clock className="w-3 h-3 flex-shrink-0" />
-      Updated {label}
-      {onRefresh && (
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          className="ml-1 inline-flex items-center justify-center rounded p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          aria-label="Refresh compliance data"
-          title="Refresh compliance data"
-          data-testid="button-refresh-compliance"
-        >
-          {isRefreshing ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <RefreshCw className="w-3 h-3" />
-          )}
-        </button>
-      )}
-    </span>
-  );
 }
 
 export default function PilotAdminHome() {
@@ -237,6 +190,16 @@ export default function PilotAdminHome() {
   // before the district is truly ready.
   const onboardingComplete = onboarding?.pilotChecklist?.isComplete ?? onboarding?.isComplete ?? false;
 
+
+  const { data: weeklySummary } = useQuery<WeeklySummary>({
+    queryKey: ["pilot-home/weekly-compliance-summary", filterParams],
+    queryFn: async () => {
+      const r = await authFetch(`/api/reports/weekly-compliance-summary${params}`);
+      if (!r.ok) throw new Error("weekly-compliance-summary failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
 
   const { data: dashSummary } = useQuery<{ errorsLast24h?: number; contractRenewals?: { id: number; agencyName: string; endDate: string }[] }>({
     queryKey: ["pilot-home/dashboard-summary", filterParams],
@@ -679,6 +642,42 @@ export default function PilotAdminHome() {
       {/* System Status — error count health indicator */}
       {dashSummary !== undefined && (
         <SystemStatusBanner errorsLast24h={dashSummary.errorsLast24h ?? 0} />
+      )}
+
+      {/* What needs attention this week? — surfaces providers with missed
+          sessions from the weekly compliance summary so admins can see the
+          most time-sensitive provider issues without leaving the dashboard. */}
+      {onboardingComplete && (
+        <section
+          className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 md:p-6"
+          data-testid="section-this-week"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <h2 className="text-sm font-semibold text-gray-900">What needs attention this week?</h2>
+              </div>
+              <p className="mt-1 text-sm text-gray-600">
+                {weeklySummary?.providersWithMissedThisWeek && weeklySummary.providersWithMissedThisWeek.length > 0
+                  ? `${weeklySummary.providersWithMissedThisWeek.length} provider${weeklySummary.providersWithMissedThisWeek.length === 1 ? "" : "s"} with missed sessions this week.`
+                  : "No providers have missed sessions this week."}
+              </p>
+              {weeklySummary?.meta?.generatedAt && (
+                <div>
+                  <LastSyncedLabel isoStr={weeklySummary.meta.generatedAt} />
+                </div>
+              )}
+            </div>
+            <Link
+              href="/weekly-compliance-summary"
+              className="text-xs text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 flex-shrink-0"
+              data-testid="link-weekly-summary"
+            >
+              View weekly summary <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </section>
       )}
 
       {/* Provider activation nudge stat — small read-out of how many providers
