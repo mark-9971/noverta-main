@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ArrowRight, CheckCircle } from "lucide-react";
+import { RefreshCw, ArrowRight, CheckCircle, Check } from "lucide-react";
 import { Link } from "wouter";
 
 interface MakeupObligation {
@@ -44,33 +44,27 @@ function AgingSummary({ obligations, activeBucket, onToggle }: AgingSummaryProps
   const count30 = obligations.filter((o) => o.daysOpen >= 30 && o.daysOpen < 60).length;
   const countUnder30 = obligations.filter((o) => o.daysOpen < 30).length;
 
-  const buckets: { bucket: AgeBucket; count: number; icon: string; label: string; activeClass: string; inactiveClass: string; dotClass: string }[] = [
+  const buckets: { bucket: AgeBucket; count: number; label: string; activeClass: string; inactiveClass: string }[] = [
     {
       bucket: "60+",
       count: count60,
-      icon: "🔴",
       label: "60+ days",
       activeClass: "bg-red-100 border-red-300 text-red-700",
       inactiveClass: "bg-white border-gray-200 text-red-600 hover:bg-red-50",
-      dotClass: "bg-red-500",
     },
     {
       bucket: "30-60",
       count: count30,
-      icon: "🟡",
       label: "30–60 days",
       activeClass: "bg-amber-100 border-amber-300 text-amber-700",
       inactiveClass: "bg-white border-gray-200 text-amber-600 hover:bg-amber-50",
-      dotClass: "bg-amber-400",
     },
     {
       bucket: "<30",
       count: countUnder30,
-      icon: "⚪",
       label: "under 30 days",
       activeClass: "bg-gray-100 border-gray-300 text-gray-700",
       inactiveClass: "bg-white border-gray-200 text-gray-500 hover:bg-gray-50",
-      dotClass: "bg-gray-400",
     },
   ];
 
@@ -112,6 +106,7 @@ function AgingSummary({ obligations, activeBucket, onToggle }: AgingSummaryProps
 export default function MakeupSessionsCard() {
   const { filterParams } = useSchoolContext();
   const [activeBucket, setActiveBucket] = useState<AgeBucket>(null);
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery<MakeupObligation[]>({
     queryKey: ["dashboard-makeup-obligations", filterParams],
@@ -120,6 +115,21 @@ export default function MakeupSessionsCard() {
         `/api/dashboard/makeup-obligations?${new URLSearchParams(filterParams).toString()}`
       ).then((r) => (r.ok ? r.json() : [])),
     staleTime: 60_000,
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: (obligationId: number) =>
+      authFetch(`/api/compensatory-obligations/${obligationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to resolve obligation");
+        return r.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard-makeup-obligations"] });
+    },
   });
 
   const obligations = data ?? [];
@@ -182,11 +192,13 @@ export default function MakeupSessionsCard() {
                     <th className="pb-2 px-2 text-left font-medium">Service</th>
                     <th className="pb-2 px-2 text-right font-medium">Minutes owed</th>
                     <th className="pb-2 px-2 text-right font-medium">Open for</th>
+                    <th className="pb-2 px-2 text-right font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {visibleObligations.map((ob) => {
                     const badge = agingBadge(ob.daysOpen);
+                    const isResolving = resolveMutation.isPending && resolveMutation.variables === ob.obligationId;
                     return (
                       <tr key={ob.obligationId} className="hover:bg-gray-50/60 transition-colors">
                         <td className="py-2 px-2">
@@ -209,12 +221,22 @@ export default function MakeupSessionsCard() {
                             {badge.label}
                           </span>
                         </td>
+                        <td className="py-2 px-2 text-right">
+                          <button
+                            onClick={() => resolveMutation.mutate(ob.obligationId)}
+                            disabled={isResolving}
+                            title="Mark resolved"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
                   {visibleObligations.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-4 text-center text-[12px] text-gray-400 italic">
+                      <td colSpan={5} className="py-4 text-center text-[12px] text-gray-400 italic">
                         No obligations in this age range.
                       </td>
                     </tr>
