@@ -242,6 +242,7 @@ function StaffRouter() {
       <BoundedRoute path="/students/:id/iep" component={StudentIepPage} fallbackTitle="Student IEP error" />
       <BoundedRoute path="/students/:id" component={StudentDetail} fallbackTitle="Student details error" />
       <BoundedRoute path="/students" component={Students} fallbackTitle="Students page error" />
+      {/* SURVIVAL FEATURE: session quick-log — no featureKey, never gate this */}
       <BoundedRoute path="/sessions" component={Sessions} fallbackTitle="Sessions error" />
       <BoundedRoute path="/schedule" component={Schedule} fallbackTitle="Schedule error" />
       <Route path="/staff-calendar" component={StaffCalendarRedirect} />
@@ -252,6 +253,14 @@ function StaffRouter() {
       <Route path="/iep-search">{() => <Redirect to="/iep-builder" />}</Route>
       {/* Phase 1a silent redirect: deprecated work-queue surface → Today */}
       <Route path="/action-center">{() => <Redirect to="/today" />}</Route>
+      {/*
+       * SURVIVAL FEATURES — intentionally have NO featureKey guard.
+       * These routes must remain accessible regardless of plan tier:
+       *   /_action-center-legacy  → session work-queue (quick-log entry point)
+       *   /alerts                 → real-time IEP/compliance alerts
+       *   /sessions               → session quick-log (see above)
+       * Do NOT add a featureKey prop to any of these three routes.
+       */}
       <BoundedRoute path="/_action-center-legacy" component={ActionCenterPage} fallbackTitle="Action center error" />
       <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
@@ -260,6 +269,7 @@ function StaffRouter() {
       {/* Phase 1a silent redirect: leadership packet now folded into Executive Dashboard */}
       <Route path="/leadership-packet">{() => <Redirect to="/executive?tab=leadership" />}</Route>
       <BoundedRoute path="/_leadership-packet-legacy" component={LeadershipPacketPage} fallbackTitle="Leadership packet error" featureKey="district.executive" />
+      {/* SURVIVAL FEATURE: compliance.service_minutes is in the Essentials tier — accessible to all districts */}
       <BoundedRoute path="/compliance" component={Compliance} fallbackTitle="Compliance error" featureKey="compliance.service_minutes" />
       <BoundedRoute path="/progress-reports" component={ProgressReportsPage} fallbackTitle="Progress reports error" />
       <BoundedRoute path="/reports" component={Reports} fallbackTitle="Reports error" />

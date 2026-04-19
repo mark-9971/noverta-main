@@ -3,6 +3,7 @@ import { useFeatureAccess, useTier } from "@/lib/tier-context";
 import { type FeatureKey } from "@/lib/module-tiers";
 import { Lock, ArrowUpCircle, Sparkles } from "lucide-react";
 import { Link } from "wouter";
+import { ProUpgradePrompt } from "@/components/ProUpgradePrompt";
 
 interface FeatureGateProps {
   featureKey: FeatureKey;
@@ -11,15 +12,36 @@ interface FeatureGateProps {
   description?: string;
 }
 
+const FEATURE_DISPLAY_NAMES: Partial<Record<FeatureKey, string>> = {
+  "clinical.program_data": "ABA Program Data",
+  "clinical.fba_bip": "Behavior Assessment & BIP",
+  "clinical.iep_suggestions": "IEP Goal Suggestions",
+  "clinical.supervision": "Supervision Tracking",
+  "clinical.aba_graphing": "ABA Graphing",
+  "clinical.premium_templates": "Premium Templates",
+  "engagement.parent_communication": "Parent Communication",
+  "engagement.parent_portal": "Parent Portal",
+  "engagement.documents": "Document Sharing",
+  "engagement.translation": "Translation Services",
+};
+
 export function FeatureGate({ featureKey, children, title, description }: FeatureGateProps) {
   const { loading } = useTier();
-  const { accessible, requiredTierLabel, moduleName, moduleDescription } = useFeatureAccess(featureKey);
+  const { accessible, requiredTier, requiredTierLabel, moduleName, moduleDescription } = useFeatureAccess(featureKey);
 
   // Don't block while the tier is still resolving — avoids a flash of the
   // lock screen for demo/pilot users whose mode hasn't returned from the API yet.
   if (loading) return <>{children}</>;
   if (accessible) return <>{children}</>;
 
+  // PRO tier (professional) features get the tasteful inline upsell prompt with
+  // a modal CTA instead of the generic lock wall.
+  if (requiredTier === "professional") {
+    const featureName = title ?? FEATURE_DISPLAY_NAMES[featureKey] ?? moduleName;
+    return <ProUpgradePrompt featureKey={featureKey} featureName={featureName} />;
+  }
+
+  // Enterprise-tier and other tier gates keep the generic lock screen.
   return (
     <div className="flex items-center justify-center min-h-[60vh] px-4">
       <div className="max-w-md w-full text-center">
