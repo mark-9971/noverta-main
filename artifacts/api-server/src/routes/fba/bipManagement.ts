@@ -7,7 +7,7 @@ import {
   behaviorTargetsTable, bipStatusHistoryTable, bipImplementersTable, bipFidelityLogsTable,
   behaviorDataTable, dataSessionsTable,
 } from "@workspace/db";
-import { eq, desc, and, sql, asc } from "drizzle-orm";
+import { eq, desc, and, sql, asc, or, isNull, lt, gte } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import {
   assertBipInCallerDistrict,
@@ -749,14 +749,15 @@ router.get("/staff/:staffId/assigned-bips", async (req, res): Promise<void> => {
 /* ─────────────────────────────────────────────────────────────
  * Task 1 — BIP Effectiveness Overlay
  * GET /api/bips/:id/behavior-trend
- * Returns pre-BIP ABC observation counts by date (from linked FBA)
- * and post-BIP behavior data counts by session date (from behaviorTargetId).
+ * Returns behavior frequency (SUM of value) per session date split by
+ * BIP implementation date, all sourced from behavior_data (primary observer
+ * only). Also returns the clinician-set baselineValue and measurementType
+ * from the linked behavior_target for honest chart labeling.
  * ───────────────────────────────────────────────────────────── */
 router.get("/bips/:id/behavior-trend", async (req, res): Promise<void> => {
   try {
     const bipId = parseInt(req.params.id as string, 10);
     const [bip] = await db.select({
-      fbaId: behaviorInterventionPlansTable.fbaId,
       behaviorTargetId: behaviorInterventionPlansTable.behaviorTargetId,
       implementationStartDate: behaviorInterventionPlansTable.implementationStartDate,
       effectiveDate: behaviorInterventionPlansTable.effectiveDate,
@@ -766,32 +767,78 @@ router.get("/bips/:id/behavior-trend", async (req, res): Promise<void> => {
 
     const implementationDate = bip.implementationStartDate ?? bip.effectiveDate ?? null;
 
+    // Fetch the behavior target's clinician-set baseline and measurement type.
+    let baselineValue: number | null = null;
+    let measurementType = "frequency";
+    let targetName: string | null = null;
+    if (bip.behaviorTargetId) {
+      const [bt] = await db.select({
+        baselineValue: behaviorTargetsTable.baselineValue,
+        measurementType: behaviorTargetsTable.measurementType,
+        name: behaviorTargetsTable.name,
+      }).from(behaviorTargetsTable)
+        .where(eq(behaviorTargetsTable.id, bip.behaviorTargetId))
+        .limit(1);
+      if (bt) {
+        baselineValue = bt.baselineValue != null ? Number(bt.baselineValue) : null;
+        measurementType = bt.measurementType ?? "frequency";
+        targetName = bt.name ?? null;
+      }
+    }
+
+    // Primary-observer filter: exclude IoA re-entry rows (observer 2).
+    const primaryObserver = or(isNull(behaviorDataTable.observerNumber), eq(behaviorDataTable.observerNumber, 1));
+
+    // Pre-BIP: behavior_data sessions BEFORE the implementation date (or all sessions
+    // if no implementation date), using SUM(value) per session date so frequency
+    // data reflects actual occurrence counts rather than row counts.
     let preBipData: { date: string; count: number }[] = [];
-    if (bip.fbaId) {
+    if (bip.behaviorTargetId) {
+      const preConditions: any[] = [
+        eq(behaviorDataTable.behaviorTargetId, bip.behaviorTargetId),
+        primaryObserver,
+      ];
+      if (implementationDate) {
+        preConditions.push(lt(dataSessionsTable.sessionDate, implementationDate));
+      }
       const rows = await db.select({
-        date: fbaObservationsTable.observationDate,
-        count: sql<number>`cast(count(*) as int)`,
-      }).from(fbaObservationsTable)
-        .where(eq(fbaObservationsTable.fbaId, bip.fbaId))
-        .groupBy(fbaObservationsTable.observationDate)
-        .orderBy(asc(fbaObservationsTable.observationDate));
+        date: dataSessionsTable.sessionDate,
+        count: sql<number>`cast(sum(cast(${behaviorDataTable.value} as numeric)) as float)`,
+      }).from(behaviorDataTable)
+        .innerJoin(dataSessionsTable, eq(dataSessionsTable.id, behaviorDataTable.dataSessionId))
+        .where(and(...preConditions))
+        .groupBy(dataSessionsTable.sessionDate)
+        .orderBy(asc(dataSessionsTable.sessionDate));
       preBipData = rows.map(r => ({ date: r.date, count: r.count }));
     }
 
+    // Post-BIP: behavior_data sessions ON OR AFTER the implementation date.
+    // Only split pre/post if we actually have an implementation date.
     let postBipData: { date: string; count: number }[] = [];
-    if (bip.behaviorTargetId) {
+    if (bip.behaviorTargetId && implementationDate) {
       const rows = await db.select({
         date: dataSessionsTable.sessionDate,
-        count: sql<number>`cast(count(*) as int)`,
+        count: sql<number>`cast(sum(cast(${behaviorDataTable.value} as numeric)) as float)`,
       }).from(behaviorDataTable)
         .innerJoin(dataSessionsTable, eq(dataSessionsTable.id, behaviorDataTable.dataSessionId))
-        .where(eq(behaviorDataTable.behaviorTargetId, bip.behaviorTargetId))
+        .where(and(
+          eq(behaviorDataTable.behaviorTargetId, bip.behaviorTargetId),
+          gte(dataSessionsTable.sessionDate, implementationDate),
+          primaryObserver,
+        ))
         .groupBy(dataSessionsTable.sessionDate)
         .orderBy(asc(dataSessionsTable.sessionDate));
       postBipData = rows.map(r => ({ date: r.date, count: r.count }));
     }
 
-    res.json({ implementationDate, preBipData, postBipData });
+    res.json({
+      implementationDate,
+      preBipData,
+      postBipData,
+      baselineValue,
+      measurementType,
+      targetName,
+    });
   } catch (e: any) {
     console.error("GET bip behavior-trend error:", e);
     res.status(500).json({ error: "Failed to fetch behavior trend" });
