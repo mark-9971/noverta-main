@@ -1,5 +1,5 @@
 export { db, pool } from "./db";
-export { runMigrations, assertCoreSchemaPresent } from "./migrate";
+export { runMigrations, assertCoreSchemaPresent, assertSchemaColumnsPresent } from "./migrate";
 export type { MigrationRunResult } from "./migrate";
 export * from "./schema";
 export * from "./seed-sample-data";

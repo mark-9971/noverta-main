@@ -15,7 +15,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import { is } from "drizzle-orm";
+import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { pool } from "./db";
+import * as schema from "./schema";
 
 export interface MigrationRunResult {
   applied: string[];
@@ -210,6 +213,84 @@ export async function assertCoreSchemaPresent(): Promise<void> {
       throw new Error(
         `[migrate] post-migration schema check failed: missing tables ${missing.join(", ")}. ` +
           `Run \`pnpm --filter @workspace/db push-force\` to create the schema, then re-run migrations.`,
+      );
+    }
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Compares every column declared by a Drizzle table in
+ * `lib/db/src/schema/*.ts` against `information_schema.columns` for the
+ * live database. Throws a descriptive error listing the offending
+ * `<table>.<column>` pairs when a declared column is absent.
+ *
+ * Motivation: a column added to the Drizzle schema without a paired
+ * migration (e.g. `districts.view_as_excluded_roles`) silently produces
+ * 500s the first time an endpoint references it. Running this at boot
+ * turns that class of drift into a fail-fast startup error.
+ *
+ * Only checks declared-but-missing direction. Extra columns present in
+ * the DB but not declared by Drizzle are tolerated (legacy / out-of-band
+ * additions are common and not the failure mode we are guarding against).
+ */
+export async function assertSchemaColumnsPresent(): Promise<void> {
+  const declared = new Map<string, Set<string>>();
+  for (const value of Object.values(schema)) {
+    if (!is(value as object, PgTable)) continue;
+    const cfg = getTableConfig(value as PgTable);
+    if (cfg.schema && cfg.schema !== "public") continue;
+    const cols = new Set(cfg.columns.map((c) => c.name));
+    declared.set(cfg.name, cols);
+  }
+
+  if (declared.size === 0) return;
+
+  const tableNames = [...declared.keys()];
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query<{ table_name: string; column_name: string }>(
+      `SELECT table_name, column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = ANY($1::text[])`,
+      [tableNames],
+    );
+    const live = new Map<string, Set<string>>();
+    for (const r of rows) {
+      let set = live.get(r.table_name);
+      if (!set) {
+        set = new Set();
+        live.set(r.table_name, set);
+      }
+      set.add(r.column_name);
+    }
+
+    const missing: string[] = [];
+    const missingTables: string[] = [];
+    for (const [table, cols] of declared) {
+      const liveCols = live.get(table);
+      if (!liveCols) {
+        missingTables.push(table);
+        continue;
+      }
+      for (const col of cols) {
+        if (!liveCols.has(col)) missing.push(`${table}.${col}`);
+      }
+    }
+
+    if (missingTables.length > 0 || missing.length > 0) {
+      const parts: string[] = [];
+      if (missingTables.length > 0) {
+        parts.push(`missing tables: ${missingTables.sort().join(", ")}`);
+      }
+      if (missing.length > 0) {
+        parts.push(`missing columns: ${missing.sort().join(", ")}`);
+      }
+      throw new Error(
+        `[migrate] schema drift detected — Drizzle schema declares objects that do not exist in the database (${parts.join("; ")}). ` +
+          `Add a migration under \`lib/db/src/migrations/\` (or run \`pnpm --filter @workspace/db push-force\`) to bring the database in sync.`,
       );
     }
   } finally {

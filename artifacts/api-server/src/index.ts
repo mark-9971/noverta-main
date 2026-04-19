@@ -15,7 +15,7 @@ import {
 import { ensureMedicaidReportSnapshotsTable } from "./lib/medicaidReportSnapshotsDb";
 import { ensureDemoReadinessRunsTable } from "./lib/demoReadinessHistory";
 import { startMedicaidReportSnapshotScheduler } from "./lib/medicaidReportSnapshotsScheduler";
-import { db, districtSubscriptionsTable, districtsTable, runMigrations as runDbMigrations, assertCoreSchemaPresent } from "@workspace/db";
+import { db, districtSubscriptionsTable, districtsTable, runMigrations as runDbMigrations, assertCoreSchemaPresent, assertSchemaColumnsPresent } from "@workspace/db";
 import path from "node:path";
 import fs from "node:fs";
 import { spawn } from "node:child_process";
@@ -220,6 +220,11 @@ async function applyPendingMigrations() {
   // Fail fast if migrations did not produce a usable schema. Better to
   // refuse to start than to serve 500s against a half-configured DB.
   await assertCoreSchemaPresent();
+  // Column-level drift check: every column declared in `lib/db/src/schema/*.ts`
+  // must exist in the live DB. This catches the failure mode where a
+  // Drizzle column is added without a paired migration (the symptom that
+  // produced the silent onboarding-checklist 500s).
+  await assertSchemaColumnsPresent();
 }
 
 try {
