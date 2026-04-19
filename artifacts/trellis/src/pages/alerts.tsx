@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useListAlerts, useResolveAlert, useBulkResolveAlerts, useSnoozeAlert } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useListAlerts, useResolveAlert, useBulkResolveAlerts, useSnoozeAlert, getGetDashboardAlertsSummaryQueryKey } from "@workspace/api-client-react";
 import type { ListAlerts200 } from "@workspace/api-client-react";
 
 type AlertRow = ListAlerts200["data"][number] & {
@@ -94,6 +95,7 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
     if (!embedded) navigate(`/alerts?tab=${t}`, { replace: true });
   }
 
+  const queryClient = useQueryClient();
   const { typedFilter } = useSchoolContext();
 
   // Reset to page 1 when server-side parameters change.
@@ -169,6 +171,10 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
     }
   }
 
+  function invalidateAlertSummary() {
+    queryClient.invalidateQueries({ queryKey: [getGetDashboardAlertsSummaryQueryKey()[0]] });
+  }
+
   async function handleResolveConfirmed() {
     if (!resolveConfirm) return;
     setResolving(true);
@@ -178,6 +184,7 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
       setResolveConfirm(null);
       setResolveNote("");
       refetch();
+      invalidateAlertSummary();
     } catch {
       toast.error("Failed to resolve alert");
     } finally {
@@ -196,6 +203,7 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
       setResolveNote("");
       setSelected(new Set());
       refetch();
+      invalidateAlertSummary();
     } catch {
       toast.error("Failed to bulk resolve alerts");
     } finally {
@@ -208,6 +216,7 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
       await snoozeAlert({ id });
       toast.success("Alert snoozed for 7 days");
       refetch();
+      invalidateAlertSummary();
     } catch {
       toast.error("Failed to snooze alert");
     }

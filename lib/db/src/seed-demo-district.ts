@@ -1174,6 +1174,77 @@ export async function seedDemoDistrict(options: SeedDemoDistrictOptions = {}) {
         resolved: rand(0, 9) < 3,
       });
     }
+    // IEP expiring soon: flag a subset of healthy/improving students whose IEP
+    // is within 30 days — gives the Open tab varied alert types beyond
+    // service-minutes and shows the /students/{id} link works.
+    if ((sp.scenario === "healthy" || sp.scenario === "improving") && rand(0, 4) === 0) {
+      const daysLeft = rand(8, 28);
+      alertBatch.push({
+        type: "iep_expiring",
+        severity: daysLeft < 14 ? "high" : "medium",
+        studentId: sp.id,
+        message: `${firstName}'s annual IEP expires in ${daysLeft} days. Annual review meeting must be scheduled.`,
+        suggestedAction: "Schedule the IEP meeting with the team and send parent notice at least 10 days in advance.",
+        resolved: false,
+      });
+    }
+    // Evaluation overdue: flag a small fraction of any non-urgent scenario
+    // to add more type variety in the inbox.
+    if (sp.scenario === "improving" && rand(0, 5) === 0) {
+      alertBatch.push({
+        type: "evaluation_overdue",
+        severity: "high",
+        studentId: sp.id,
+        message: `Triennial re-evaluation for ${firstName} is overdue. Consent must be obtained within 14 days.`,
+        suggestedAction: "Send evaluation consent form to parent and confirm assessment timeline with the psychologist.",
+        resolved: false,
+      });
+    }
+  }
+
+  // ── Snoozed alerts (pre-seeded so the Snoozed tab is non-empty) ───────────
+  // Pick up to 4 students from the "improving" and "healthy" cohorts and create
+  // alerts that have already been snoozed for 7 days. These represent real items
+  // a coordinator reviewed but postponed to follow up later.
+  const snoozePool = studentProfiles.filter(
+    p => p.scenario === "improving" || p.scenario === "healthy",
+  );
+  const snoozeTargets = snoozePool.slice(0, Math.min(4, snoozePool.length));
+  const snoozedUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  for (const sp of snoozeTargets) {
+    const firstName = sp.firstName ?? "Student";
+    const primarySr = srMap[sp.id]?.[0];
+    const daysLeft = rand(12, 29);
+    alertBatch.push({
+      type: "iep_expiring",
+      severity: "medium",
+      studentId: sp.id,
+      serviceRequirementId: primarySr?.id ?? undefined,
+      message: `${firstName}'s IEP expires in ${daysLeft} days. Coordinator snoozed pending team availability.`,
+      suggestedAction: "Confirm meeting date and send parent prior-written notice.",
+      resolved: false,
+      snoozedUntil,
+    });
+  }
+
+  // ── Extra pre-resolved alerts so the Resolved tab is always non-empty ─────
+  // A few "iep_expiring" alerts already resolved confirms the workflow works.
+  const resolvedPool = studentProfiles.filter(p => p.scenario === "compensatory_risk");
+  const resolvedTargets = resolvedPool.slice(0, Math.min(3, resolvedPool.length));
+  for (const sp of resolvedTargets) {
+    const firstName = sp.firstName ?? "Student";
+    const primarySr = srMap[sp.id]?.[0];
+    alertBatch.push({
+      type: "projected_shortfall",
+      severity: "high",
+      studentId: sp.id,
+      serviceRequirementId: primarySr?.id ?? undefined,
+      message: `${firstName}'s compensatory services plan was reviewed and confirmed. Shortfall addressed.`,
+      suggestedAction: "No further action required — compensatory sessions scheduled.",
+      resolved: true,
+      resolvedAt: new Date(Date.now() - rand(1, 5) * 24 * 60 * 60 * 1000),
+      resolvedNote: "Compensatory session plan confirmed with provider.",
+    });
   }
 
   // Replaced the two hardcoded "Quarterly compliance report due in 14 days"
