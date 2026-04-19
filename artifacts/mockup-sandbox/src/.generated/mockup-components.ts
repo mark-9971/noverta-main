@@ -12,12 +12,12 @@ export const modules: ModuleMap = {
   "./components/mockups/themes/OpenAir.tsx": () => import("../components/mockups/themes/OpenAir.tsx"),
   "./components/mockups/themes/SlateAndSprout.tsx": () => import("../components/mockups/themes/SlateAndSprout.tsx"),
   "./components/mockups/themes/WarmStone.tsx": () => import("../components/mockups/themes/WarmStone.tsx"),
-  "./components/mockups/trellis-redesign/GlassTerminal.tsx": () => import("../components/mockups/trellis-redesign/GlassTerminal.tsx"),
-  "./components/mockups/trellis-redesign/InkAndAir.tsx": () => import("../components/mockups/trellis-redesign/InkAndAir.tsx"),
-  "./components/mockups/trellis-redesign/MonochromeGrid.tsx": () => import("../components/mockups/trellis-redesign/MonochromeGrid.tsx"),
-  "./components/mockups/trellis-redesign/SwissPrecision.tsx": () => import("../components/mockups/trellis-redesign/SwissPrecision.tsx"),
   "./components/mockups/dashboard-additions/MissedHeatmap.tsx": () => import("../components/mockups/dashboard-additions/MissedHeatmap.tsx"),
   "./components/mockups/dashboard-additions/ProviderPulse.tsx": () => import("../components/mockups/dashboard-additions/ProviderPulse.tsx"),
   "./components/mockups/dashboard-additions/SchoolBreakdown.tsx": () => import("../components/mockups/dashboard-additions/SchoolBreakdown.tsx"),
-  "./components/mockups/dashboard-additions/TodaysSessions.tsx": () => import("../components/mockups/dashboard-additions/TodaysSessions.tsx")
+  "./components/mockups/dashboard-additions/TodaysSessions.tsx": () => import("../components/mockups/dashboard-additions/TodaysSessions.tsx"),
+  "./components/mockups/trellis-redesign/GlassTerminal.tsx": () => import("../components/mockups/trellis-redesign/GlassTerminal.tsx"),
+  "./components/mockups/trellis-redesign/InkAndAir.tsx": () => import("../components/mockups/trellis-redesign/InkAndAir.tsx"),
+  "./components/mockups/trellis-redesign/MonochromeGrid.tsx": () => import("../components/mockups/trellis-redesign/MonochromeGrid.tsx"),
+  "./components/mockups/trellis-redesign/SwissPrecision.tsx": () => import("../components/mockups/trellis-redesign/SwissPrecision.tsx")
 };
