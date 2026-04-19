@@ -1,0 +1,71 @@
+Phase 2B Task PR2: add a quick-log CTA on student-detail summary for hands-on roles.
+
+Goal:
+Make it fast for hands-on roles to log a session directly from the student-detail page. These users often arrive through a student record and should not need to back out to My Day or Sessions just to log work that just happened.
+
+Roles in scope:
+
+* para
+* provider
+* direct_provider
+
+Why this matters:
+We already tightened provider nav/home and shaped /my-day. The next biggest friction is that session logging is still too indirect from student detail, which is a natural daily entry point.
+
+Hard constraints:
+
+* Low-risk UI/workflow change only
+* No API changes
+* No schema changes
+* No new logging system
+* Reuse the existing QuickLogSheet / quick-log flow if possible
+* Do not change admin/coordinator/teacher workflows unless necessary for shared component safety
+* Do not create duplicate buttons in multiple tabs; this should be a summary-tab action
+
+What to do:
+
+1. Audit student-detail.tsx and any related quick-log components
+2. Identify the best place on the Summary tab for a clear “Log Session” action
+3. Show the action only for:
+    * para
+    * provider
+    * direct_provider
+4. When clicked:
+    * open the existing quick-log flow
+    * prefill the current student
+    * preserve existing save behavior
+5. Keep the change visually modest but obvious enough to support daily workflow
+
+Implementation preference:
+
+* Reuse existing session log / quick-log components and state patterns
+* Avoid adding a second modal or parallel logging path if an existing one can be invoked cleanly
+* Prefer a single, prominent CTA near the top of the Summary tab or in the primary action area
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. current student-detail summary actions for these roles
+3. exact placement planned for the new CTA
+4. exact roles that will see it
+5. how the quick-log flow will be opened and prefilled
+6. biggest regression risks
+7. anything intentionally out of scope
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact CTA behavior after change
+3. exact roles that now see it
+4. how prefilling works
+5. validation performed
+6. known issues still remaining
+7. blunt verdict
+8. copy-pasteable commit message
+
+Important rules:
+
+* Do not build a new logging workflow if the current quick-log system can be reused
+* Do not claim success unless the role-specific behavior was actually validated
+* Preserve existing student-detail behavior for roles not in scope
+    :::
