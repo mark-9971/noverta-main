@@ -105,7 +105,7 @@ function DashboardFull() {
   const s = summary as DashboardSummaryExtended | null;
   const ro = riskOverview as RiskOverview | null;
   const alerts = alertsSummary as AlertsSummary | null;
-  const recent: Alert[] = ((recentAlerts as Alert[] | undefined)?.slice(0, 5)) ?? [];
+  const recent: Alert[] = Array.isArray(recentAlerts) ? (recentAlerts as Alert[]).slice(0, 5) : [];
 
   const totalStudents = s?.totalActiveStudents ?? 0;
   const trackedStudents = s?.trackedStudents ?? totalStudents;

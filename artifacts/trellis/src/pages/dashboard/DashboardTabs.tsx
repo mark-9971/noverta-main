@@ -185,27 +185,29 @@ export function DashboardTabs({
               ? "emerald"
               : (!hasTrackedData ? "amber" : (onTrackPct >= 95 ? "emerald" : onTrackPct >= 85 ? "amber" : "red"))}
             subtitle={myCaseload ? "students assigned" : complianceSubtitle}
-            href={myCaseload ? "/students" : "/compliance"}
+            href={myCaseload ? "/students" : "/compliance?tab=minutes"}
           />
           <MetricCard
             title={myCaseload ? "Sessions Delivered" : "High-Risk Students"}
             value={myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : (outOfComplianceStudents + (ro?.atRisk ?? 0))}
             icon={myCaseload ? Clock : AlertTriangle}
-            accent={myCaseload ? "emerald" : "red"}
+            accent={myCaseload ? "emerald" : ((outOfComplianceStudents + (ro?.atRisk ?? 0)) > 0 ? "red" : "emerald")}
             subtitle={myCaseload
               ? `of ${myCaseload.totalRequiredMinutes} required`
-              : `${outOfComplianceStudents} out · ${ro?.atRisk ?? 0} at risk`}
-            href={myCaseload ? "/sessions" : "/compliance-risk-report"}
+              : `${outOfComplianceStudents} out of compliance · ${ro?.atRisk ?? 0} at risk`}
+            href={myCaseload ? "/sessions" : "/compliance?tab=risk-report"}
           />
           <MetricCard
             title={myCaseload ? "Compliance" : "Urgent Actions"}
             value={myCaseload ? `${myCaseload.utilizationPercent}%` : ((alerts?.critical ?? 0) + makeupObligations)}
             icon={myCaseload ? CheckCircle : Bell}
-            accent={myCaseload ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber") : "amber"}
+            accent={myCaseload
+              ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber")
+              : ((alerts?.critical ?? 0) + makeupObligations > 0 ? "red" : "emerald")}
             subtitle={myCaseload
-              ? "of your students"
-              : `${alerts?.critical ?? 0} critical · ${makeupObligations} makeups`}
-            href={myCaseload ? "/compliance" : "/alerts"}
+              ? "of your students on track"
+              : `${alerts?.critical ?? 0} critical alert${(alerts?.critical ?? 0) !== 1 ? "s" : ""} · ${makeupObligations} makeup${makeupObligations !== 1 ? "s" : ""} due`}
+            href={myCaseload ? "/compliance?tab=minutes" : "/action-center"}
           />
           <MetricCard
             title={myCaseload ? "At Risk" : "Compensatory Exposure"}
@@ -213,16 +215,18 @@ export function DashboardTabs({
               ? myCaseload.studentsAtRisk
               : (shortfallMinutes > 0 ? `${shortfallMinutes.toLocaleString()} min` : "0 min")}
             icon={myCaseload ? AlertTriangle : DollarSign}
-            accent="red"
-            subtitle={myCaseload ? "your students" : "shortfall behind required"}
-            href={myCaseload ? "/compliance" : "/compliance-risk-report"}
+            accent={myCaseload
+              ? (myCaseload.studentsAtRisk > 0 ? "red" : "emerald")
+              : (shortfallMinutes > 0 ? "red" : "emerald")}
+            subtitle={myCaseload ? "students in your caseload" : "total service-minute shortfall this period"}
+            href={myCaseload ? "/compliance?tab=minutes" : "/compliance?tab=risk-report"}
           />
           <MetricCard
             title="Goal Mastery Rate"
             value={goalMasteryRate !== null ? `${goalMasteryRate}%` : "—"}
             icon={Target}
             accent={goalMasteryRate === null ? "emerald" : (goalMasteryRate >= 75 ? "emerald" : goalMasteryRate >= 55 ? "amber" : "red")}
-            subtitle={goalMasterySubtitle ?? "on track or mastered"}
+            subtitle={goalMasterySubtitle ?? "of rated goals on track or mastered"}
             href="/progress-reports"
           />
         </div>
