@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX, Gauge, Clock, Image as ImageIcon } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX, Gauge, Clock, Image as ImageIcon, Mail } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import TimerThresholdsCard from "@/components/settings/TimerThresholdsCard";
 import DistrictLogoCard from "@/components/settings/DistrictLogoCard";
@@ -22,6 +22,7 @@ const NotificationPreferencesPage = lazy(() => import("@/pages/notification-pref
 const SupportSessionsAdminPage = lazy(() => import("@/pages/support-sessions-admin"));
 const PilotConfigPage = lazy(() => import("@/pages/pilot-config"));
 const UploadQuotaPage = lazy(() => import("@/pages/upload-quota"));
+const EmailDeliveryReportPage = lazy(() => import("@/pages/email-delivery-report"));
 
 const TABS = [
   { key: "general", label: "General", icon: Settings },
@@ -30,6 +31,7 @@ const TABS = [
   { key: "billing-rates", label: "Billing Rates", icon: DollarSign },
   { key: "sis", label: "SIS Integration", icon: Database },
   { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "email-delivery", label: "Email Delivery", icon: Mail },
   { key: "audit-log", label: "Audit Log", icon: Shield },
   { key: "support-sessions", label: "Trellis Support Access", icon: LifeBuoy },
   { key: "recently-deleted", label: "Recently Deleted", icon: Trash2 },
@@ -214,6 +216,7 @@ export default function SettingsHubPage() {
         {activeTab === "billing-rates" && <BillingRatesPage />}
         {activeTab === "sis" && <SisSettingsPage />}
         {activeTab === "notifications" && <NotificationPreferencesPage />}
+        {activeTab === "email-delivery" && <EmailDeliveryReportPage />}
         {activeTab === "audit-log" && <AuditLogPage />}
         {activeTab === "support-sessions" && <SupportSessionsAdminPage />}
         {activeTab === "recently-deleted" && <RecentlyDeletedPage />}
