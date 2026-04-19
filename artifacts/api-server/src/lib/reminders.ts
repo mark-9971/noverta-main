@@ -23,6 +23,7 @@ import {
 } from "@workspace/db";
 import { eq, and, lt, ne, sql, isNull, or, lte, gt, inArray } from "drizzle-orm";
 import { computeAllActiveMinuteProgress } from "./minuteCalc";
+import { isDistrictDemo } from "./districtMode";
 import {
   sendEmail,
   sendReportEmail,
@@ -32,6 +33,7 @@ import {
   buildOverdueSessionLogEmail,
   getAppBaseUrl,
 } from "./email";
+
 import { generateComplianceAlerts } from "../routes/complianceChecklist";
 import { generateReportCSVDirect, buildScheduledReportPdf } from "../routes/reportExports/historyAndScheduled";
 import { computeExecutiveSummary, type ExecutiveSummaryResult } from "../routes/reports/executiveSummary";
@@ -42,6 +44,18 @@ import { runProviderActivationNudges } from "./providerActivationNudges";
 import { runApprovalReminders } from "./approvalReminders";
 import { runCoverageReminders } from "./coverageReminders";
 import { runScheduledHardPurges } from "./scheduledHardPurge";
+
+const DEMO_EMAIL_SUBJECT_PREFIX = "[SAMPLE DATA] ";
+const DEMO_EMAIL_DISCLAIMER_HTML = `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;padding:10px 16px;margin-bottom:16px;font-family:Arial,sans-serif"><strong style="color:#92400e;font-size:13px">⚠ SAMPLE DATA — NOT REAL STUDENT RECORDS</strong><p style="margin:4px 0 0;font-size:12px;color:#78350f">This notification was generated from a demo district. All data is fictional and for demonstration purposes only.</p></div>`;
+const DEMO_EMAIL_DISCLAIMER_TEXT = "⚠ SAMPLE DATA — NOT REAL STUDENT RECORDS\nThis notification was generated from a demo district. All data is fictional.\n\n";
+
+function applyDemoDisclaimer(email: { subject: string; html: string; text: string }): { subject: string; html: string; text: string } {
+  return {
+    subject: `${DEMO_EMAIL_SUBJECT_PREFIX}${email.subject}`,
+    html: email.html.replace(/(<body[^>]*>)/i, `$1${DEMO_EMAIL_DISCLAIMER_HTML}`),
+    text: `${DEMO_EMAIL_DISCLAIMER_TEXT}${email.text}`,
+  };
+}
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
@@ -112,7 +126,9 @@ export async function runOverdueContactFollowups(): Promise<void> {
         ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId))
         : [null as null];
 
-      const emailContent = buildOverdueFollowupEmail({
+      const demoFollowup = (school as { districtId?: number | null } | null)?.districtId != null
+        && await isDistrictDemo((school as { districtId: number }).districtId);
+      let emailContent = buildOverdueFollowupEmail({
         guardianName: toName ?? "Parent/Guardian",
         studentName: `${student.firstName} ${student.lastName}`,
         originalSubject: contact.subject,
@@ -121,6 +137,7 @@ export async function runOverdueContactFollowups(): Promise<void> {
         staffName: contact.contactedBy ?? "School Staff",
         schoolName: school?.name ?? "the school",
       });
+      if (demoFollowup) emailContent = applyDemoDisclaimer(emailContent);
 
       await sendEmail({
         studentId: student.id,
@@ -185,7 +202,9 @@ export async function runOverdueEvaluations(): Promise<void> {
       const dueMs = new Date(ev.dueDate).getTime();
       const daysOverdue = Math.floor((Date.now() - dueMs) / 86400000);
 
-      const emailContent = buildOverdueEvaluationEmail({
+      const demoEval = (school as { districtId?: number | null } | null)?.districtId != null
+        && await isDistrictDemo((school as { districtId: number }).districtId);
+      let emailContent = buildOverdueEvaluationEmail({
         staffName: `${leadStaff.firstName} ${leadStaff.lastName}`,
         studentName: student ? `${student.firstName} ${student.lastName}` : "Student",
         evaluationType: ev.evaluationType ?? "initial",
@@ -195,6 +214,7 @@ export async function runOverdueEvaluations(): Promise<void> {
         studentId: ev.studentId,
         appBaseUrl: getAppBaseUrl() ?? undefined,
       });
+      if (demoEval) emailContent = applyDemoDisclaimer(emailContent);
 
       await sendEmail({
         studentId: ev.studentId,
@@ -255,7 +275,9 @@ async function runDraftTransitionPlans(): Promise<void> {
         ? await db.select().from(schoolsTable).where(eq(schoolsTable.id, student.schoolId))
         : [null as null];
 
-      const emailContent = buildIncompleteTransitionEmail({
+      const demoTransition = (school as { districtId?: number | null } | null)?.districtId != null
+        && await isDistrictDemo((school as { districtId: number }).districtId);
+      let emailContent = buildIncompleteTransitionEmail({
         coordinatorName: `${coordinator.firstName} ${coordinator.lastName}`,
         studentName: student ? `${student.firstName} ${student.lastName}` : "Student",
         planDate: plan.planDate ?? new Date().toISOString().substring(0, 10),
@@ -263,6 +285,7 @@ async function runDraftTransitionPlans(): Promise<void> {
         studentId: plan.studentId,
         appBaseUrl: getAppBaseUrl() ?? undefined,
       });
+      if (demoTransition) emailContent = applyDemoDisclaimer(emailContent);
 
       await sendEmail({
         studentId: plan.studentId,
@@ -424,6 +447,22 @@ export async function runOverdueSessionLogCheck(): Promise<void> {
   const students = await db.select().from(studentsTable).where(inArray(studentsTable.id, missingStudentIds));
   const studentMap = new Map(students.map(s => [s.id, s]));
 
+  const uniqueSchoolIds = [...new Set(students.map(s => s.schoolId).filter((id): id is number => id != null))];
+  const schoolDistrictRows = uniqueSchoolIds.length > 0
+    ? await db.select({ id: schoolsTable.id, districtId: schoolsTable.districtId }).from(schoolsTable).where(inArray(schoolsTable.id, uniqueSchoolIds))
+    : [];
+  const schoolDistrictMap = new Map(schoolDistrictRows.map(s => [s.id, s.districtId]));
+  const demoDistrictIdCache = new Map<number, boolean>();
+  async function isSessionLogDistrictDemo(studentId: number): Promise<boolean> {
+    const student = studentMap.get(studentId);
+    const districtId = student?.schoolId != null ? schoolDistrictMap.get(student.schoolId) : null;
+    if (districtId == null) return false;
+    if (demoDistrictIdCache.has(districtId)) return demoDistrictIdCache.get(districtId)!;
+    const result = await isDistrictDemo(districtId);
+    demoDistrictIdCache.set(districtId, result);
+    return result;
+  }
+
   const serviceTypeIds = [...new Set(missing.map(m => m.serviceTypeId).filter((x): x is number => x != null))];
   const serviceTypes = serviceTypeIds.length > 0
     ? await db.select().from(serviceTypesTable).where(inArray(serviceTypesTable.id, serviceTypeIds))
@@ -512,11 +551,13 @@ export async function runOverdueSessionLogCheck(): Promise<void> {
         };
       });
 
-    const emailContent = buildOverdueSessionLogEmail({
+    const demoSessionLog = await isSessionLogDistrictDemo(items[0].studentId);
+    let emailContent = buildOverdueSessionLogEmail({
       staffName: `${staff.firstName} ${staff.lastName}`,
       missingLogs: itemsForEmail,
       appBaseUrl: getAppBaseUrl() ?? undefined,
     });
+    if (demoSessionLog) emailContent = applyDemoDisclaimer(emailContent);
 
     await sendEmail({
       studentId: items[0].studentId,
@@ -842,6 +883,8 @@ export async function runScheduledReports(): Promise<void> {
           }
         : undefined;
 
+      const scheduledDemoDistrict = await isDistrictDemo(schedule.districtId);
+
       let emailResult: { success: boolean; error?: string };
       let rowCount = 0;
       let fileName: string;
@@ -861,7 +904,7 @@ export async function runScheduledReports(): Promise<void> {
         const pdfBuffer = await buildExecutiveSummaryPdf({ summary, frequency: schedule.frequency });
         emailResult = await sendReportEmail({
           toEmails: recipients,
-          reportLabel: label,
+          reportLabel: scheduledDemoDistrict ? `[SAMPLE DATA] ${label}` : label,
           frequency: schedule.frequency,
           recordCount: rowCount,
           format: "pdf",
@@ -882,15 +925,23 @@ export async function runScheduledReports(): Promise<void> {
         if (scheduleFormat === "pdf") {
           const pdfBuffer = await buildScheduledReportPdf({
             label, headers: result.headers, rows: result.rows, frequency: schedule.frequency,
+            isDemo: scheduledDemoDistrict,
           });
           emailResult = await sendReportEmail({
-            toEmails: recipients, reportLabel: label, frequency: schedule.frequency,
+            toEmails: recipients,
+            reportLabel: scheduledDemoDistrict ? `[SAMPLE DATA] ${label}` : label,
+            frequency: schedule.frequency,
             recordCount: rowCount, format: "pdf", pdfBuffer, fileName, unsubscribeUrlFor,
           });
         } else {
+          const csvContent = scheduledDemoDistrict
+            ? `SAMPLE DATA — NOT REAL STUDENT RECORDS\n${result.csv}`
+            : result.csv;
           emailResult = await sendReportEmail({
-            toEmails: recipients, reportLabel: label, frequency: schedule.frequency,
-            recordCount: rowCount, format: "csv", csvContent: result.csv, fileName, unsubscribeUrlFor,
+            toEmails: recipients,
+            reportLabel: scheduledDemoDistrict ? `[SAMPLE DATA] ${label}` : label,
+            frequency: schedule.frequency,
+            recordCount: rowCount, format: "csv", csvContent, fileName, unsubscribeUrlFor,
           });
         }
       }

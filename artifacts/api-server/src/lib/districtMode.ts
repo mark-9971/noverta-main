@@ -1,9 +1,26 @@
+import { db } from "@workspace/db";
+import { districtsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+
 export type DistrictMode = "demo" | "pilot" | "paid" | "trial" | "unpaid" | "unconfigured";
 
 export interface DistrictModeInputs {
   isDemo: boolean | null | undefined;
   isPilot: boolean | null | undefined;
   subscriptionStatus: string | null | undefined;
+}
+
+/**
+ * Returns true if the given district has the is_demo flag set.
+ * Used to gate sample-data disclaimers on exports and emails.
+ */
+export async function isDistrictDemo(districtId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ isDemo: districtsTable.isDemo })
+    .from(districtsTable)
+    .where(eq(districtsTable.id, districtId))
+    .limit(1);
+  return row?.isDemo === true;
 }
 
 /**

@@ -23,8 +23,9 @@ function resolveDistrictId(req: Request): number | null {
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
 import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
 import { logAudit } from "../../lib/auditLog";
-import { buildCSV, recordExport, PDF_COLORS, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters } from "./utils";
+import { buildCSV, recordExport, PDF_COLORS, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters, csvAddDemoDisclaimer, pdfDemoBanner } from "./utils";
 import type { BufferedPDFDoc } from "./utils";
+import { isDistrictDemo } from "../../lib/districtMode";
 
 const router = Router();
 
@@ -462,6 +463,8 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
     const districtId = resolveDistrictId(req);
     if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
+    const isDemo = await isDistrictDemo(districtId);
+
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
     if (rawSchoolId !== undefined && (!Number.isInteger(rawSchoolId) || rawSchoolId <= 0)) {
       res.status(400).json({ error: "Invalid schoolId parameter" }); return;
@@ -517,6 +520,7 @@ router.get("/reports/weekly-compliance-summary.pdf", async (req: Request, res: R
     doc.moveDown(0.3);
     doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor(PDF_COLORS.EMERALD).lineWidth(1.5).stroke();
     doc.moveDown(0.4);
+    if (isDemo) pdfDemoBanner(doc);
 
     const statBoxW = 115;
     const statGap = 8;
@@ -750,6 +754,8 @@ router.get("/reports/weekly-compliance-summary.csv", async (req: Request, res: R
     const districtId = resolveDistrictId(req);
     if (!districtId) { res.status(403).json({ error: "District context required" }); return; }
 
+    const isDemo = await isDistrictDemo(districtId);
+
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
     if (rawSchoolId !== undefined && (!Number.isInteger(rawSchoolId) || rawSchoolId <= 0)) {
       res.status(400).json({ error: "Invalid schoolId parameter" }); return;
@@ -799,7 +805,8 @@ router.get("/reports/weekly-compliance-summary.csv", async (req: Request, res: R
         ];
       });
 
-    const csv = buildCSV(headers, rows);
+    let csv = buildCSV(headers, rows);
+    if (isDemo) csv = csvAddDemoDisclaimer(csv);
     const fileName = `weekly-compliance-summary-${new Date().toISOString().split("T")[0]}.csv`;
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);

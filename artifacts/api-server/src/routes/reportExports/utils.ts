@@ -84,6 +84,21 @@ export function daysUntil(dateStr: string | null | undefined): number | "" {
 
 export const PDF_COLORS = { EMERALD: "#059669", GRAY_DARK: "#111827", GRAY_MID: "#6b7280", GRAY_LIGHT: "#e5e7eb" };
 
+export const CSV_DEMO_DISCLAIMER = "SAMPLE DATA — NOT REAL STUDENT RECORDS";
+
+export function csvAddDemoDisclaimer(csv: string): string {
+  return `${CSV_DEMO_DISCLAIMER}\n${csv}`;
+}
+
+export function pdfDemoBanner(doc: InstanceType<typeof PDFDocument>): void {
+  const bannerY = doc.y;
+  doc.rect(60, bannerY, 492, 20).fill("#fef3c7");
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#92400e")
+    .text("SAMPLE DATA — NOT REAL STUDENT RECORDS", 60, bannerY + 5, { width: 492, align: "center" });
+  doc.y = bannerY + 26;
+  doc.font("Helvetica").fillColor(PDF_COLORS.GRAY_DARK);
+}
+
 export function initPdfDoc(): InstanceType<typeof PDFDocument> {
   return new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 60, left: 60, right: 60 }, bufferPages: true });
 }

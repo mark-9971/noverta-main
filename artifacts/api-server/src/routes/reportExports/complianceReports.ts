@@ -4,8 +4,10 @@ import { logAudit } from "../../lib/auditLog";
 import {
   resolveExportScope, buildCSV, fmtDate, recordExport,
   initPdfDoc, pdfHeader, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters,
+  csvAddDemoDisclaimer, pdfDemoBanner,
 } from "./utils";
 import { fetchComplianceSummaryData } from "./fetchers";
+import { isDistrictDemo } from "../../lib/districtMode";
 
 const router = Router();
 
@@ -27,6 +29,8 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
+
     const { schoolId, startDate, endDate, serviceTypeId, complianceStatus } = req.query;
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
@@ -45,7 +49,9 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
     if (students.length === 0) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="Compliance_Summary.csv"`);
-      res.send(buildCSV(["Student", "School", "Grade", "Service", "Required Min/Wk", "Delivered Min", "Compliance %", "Status"], []));
+      let csv = buildCSV(["Student", "School", "Grade", "Service", "Required Min/Wk", "Delivered Min", "Compliance %", "Status"], []);
+      if (isDemo) csv = csvAddDemoDisclaimer(csv);
+      res.send(csv);
       return;
     }
 
@@ -72,7 +78,9 @@ router.get("/reports/exports/compliance-summary.csv", async (req: Request, res: 
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildCSV(headers, csvRows));
+    let csvOutput = buildCSV(headers, csvRows);
+    if (isDemo) csvOutput = csvAddDemoDisclaimer(csvOutput);
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET /reports/exports/compliance-summary.csv error:", e);
     res.status(500).json({ error: "Failed to generate compliance summary" });
@@ -83,6 +91,8 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
   try {
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
 
     const { schoolId, startDate, endDate, serviceTypeId, complianceStatus } = req.query;
     const now = new Date();
@@ -124,6 +134,7 @@ router.get("/reports/exports/compliance-summary.pdf", async (req: Request, res: 
     doc.pipe(res);
 
     pdfHeader(doc, "Compliance Summary Report", `${fmtDate(start)} through ${fmtDate(end)} — Prepared for School Committee`);
+    if (isDemo) pdfDemoBanner(doc);
 
     pdfSectionTitle(doc, "Overview");
     const totalReqs = onTrack + atRisk + outOfCompliance;

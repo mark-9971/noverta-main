@@ -5,8 +5,10 @@ import {
   resolveExportScope, buildCSV, fmtDate, recordExport,
   initPdfDoc, pdfHeader, pdfSectionTitle, pdfTableHeader, pdfTableRow, pdfFooters,
   PDF_COLORS, ROLE_LABELS,
+  csvAddDemoDisclaimer, pdfDemoBanner,
 } from "./utils";
 import { fetchProviderSessionData, fetchStudentRosterData, fetchCaseloadData } from "./fetchers";
+import { isDistrictDemo } from "../../lib/districtMode";
 
 const router = Router();
 
@@ -14,6 +16,8 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
   try {
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
 
     const { startDate, endDate, schoolId, providerId, serviceTypeId } = req.query;
     const now = new Date();
@@ -35,7 +39,9 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
       const h = ["Provider", "Role", "School", "Service Type", "Sessions Completed", "Missed Sessions", "Total Minutes", "Unique Students"];
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="Services_By_Provider.csv"`);
-      res.send(buildCSV(h, []));
+      let csv = buildCSV(h, []);
+      if (isDemo) csv = csvAddDemoDisclaimer(csv);
+      res.send(csv);
       return;
     }
 
@@ -69,7 +75,9 @@ router.get("/reports/exports/services-by-provider.csv", async (req: Request, res
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildCSV(headers, csvRows));
+    let csvOutput = buildCSV(headers, csvRows);
+    if (isDemo) csvOutput = csvAddDemoDisclaimer(csvOutput);
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET services-by-provider.csv error:", e);
     res.status(500).json({ error: "Failed to generate services by provider report" });
@@ -80,6 +88,8 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
   try {
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
 
     const { startDate, endDate, schoolId, providerId, serviceTypeId } = req.query;
     const now = new Date();
@@ -117,6 +127,7 @@ router.get("/reports/exports/services-by-provider.pdf", async (req: Request, res
     doc.pipe(res);
 
     pdfHeader(doc, "Services by Provider Report", `${fmtDate(start)} through ${fmtDate(end)} — For Superintendent Review`);
+    if (isDemo) pdfDemoBanner(doc);
 
     let totalProviders = 0, totalSessions = 0, totalMinutes = 0;
 
@@ -159,6 +170,8 @@ router.get("/reports/exports/student-roster.csv", async (req: Request, res: Resp
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
+
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
 
@@ -182,7 +195,9 @@ router.get("/reports/exports/student-roster.csv", async (req: Request, res: Resp
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildCSV(headers, csvRows));
+    let csvOutput = buildCSV(headers, csvRows);
+    if (isDemo) csvOutput = csvAddDemoDisclaimer(csvOutput);
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET student-roster.csv error:", e);
     res.status(500).json({ error: "Failed to generate student roster" });
@@ -193,6 +208,8 @@ router.get("/reports/exports/student-roster.pdf", async (req: Request, res: Resp
   try {
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
 
     const { schoolId, status: statusParam } = req.query;
     const statusFilter = typeof statusParam === "string" ? statusParam : "active";
@@ -209,6 +226,7 @@ router.get("/reports/exports/student-roster.pdf", async (req: Request, res: Resp
     doc.pipe(res);
 
     pdfHeader(doc, "SPED Student Roster", `${students.length} students — ${statusFilter === "all" ? "All statuses" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`);
+    if (isDemo) pdfDemoBanner(doc);
 
     const bySchool = new Map<string, typeof students>();
     for (const s of students) {
@@ -252,6 +270,8 @@ router.get("/reports/exports/caseload-distribution.csv", async (req: Request, re
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
 
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
+
     const { schoolId } = req.query;
 
     const { staffMembers, assignments } = await fetchCaseloadData(
@@ -282,7 +302,9 @@ router.get("/reports/exports/caseload-distribution.csv", async (req: Request, re
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildCSV(headers, csvRows));
+    let csvOutput = buildCSV(headers, csvRows);
+    if (isDemo) csvOutput = csvAddDemoDisclaimer(csvOutput);
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET caseload-distribution.csv error:", e);
     res.status(500).json({ error: "Failed to generate caseload distribution" });
@@ -293,6 +315,8 @@ router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, re
   try {
     const scope = resolveExportScope(req);
     if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const isDemo = scope.enforcedDistrictId != null && await isDistrictDemo(scope.enforcedDistrictId);
 
     const { schoolId } = req.query;
 
@@ -314,6 +338,7 @@ router.get("/reports/exports/caseload-distribution.pdf", async (req: Request, re
     doc.pipe(res);
 
     pdfHeader(doc, "Caseload Distribution Report", `${staffMembers.length} staff members — Current assignments`);
+    if (isDemo) pdfDemoBanner(doc);
 
     const sizes = staffMembers.map(s => caseloadMap.get(s.id)?.size ?? 0);
     const avg = sizes.length > 0 ? Math.round(sizes.reduce((a, b) => a + b, 0) / sizes.length) : 0;

@@ -12,6 +12,7 @@ import { getEnforcedDistrictId } from "../../middlewares/auth";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
 import { getPublicMeta } from "../../lib/clerkClaims";
+import { isDistrictDemo } from "../../lib/districtMode";
 import type { BufferedPDFDoc } from "./utils";
 
 const router = Router();
@@ -21,6 +22,8 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
   if (isNaN(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
 
   const { platformAdmin } = getPublicMeta(req);
+
+  let resolvedDistrictId: number | null = null;
 
   if (!platformAdmin) {
     const callerDistrictId = getEnforcedDistrictId(req as unknown as AuthedRequest);
@@ -37,7 +40,16 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       res.status(403).json({ error: "Access denied: student is outside your district" });
       return;
     }
+    resolvedDistrictId = callerDistrictId;
+  } else {
+    const scopeResult = await db.execute(
+      sql`SELECT sc.district_id FROM students st LEFT JOIN schools sc ON sc.id = st.school_id WHERE st.id = ${studentId} LIMIT 1`
+    );
+    const scopeRow = (scopeResult.rows as Array<{ district_id: number | null }>)[0];
+    resolvedDistrictId = scopeRow?.district_id != null ? Number(scopeRow.district_id) : null;
   }
+
+  const demoDistrict = resolvedDistrictId != null && await isDistrictDemo(resolvedDistrictId);
 
   const doc = new PDFDocument({ size: "LETTER", margins: { top: 50, bottom: 60, left: 60, right: 60 }, bufferPages: true });
   res.setHeader("Content-Type", "application/pdf");
@@ -175,6 +187,16 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
       .text(`Generated: ${fmtDateLong(new Date().toISOString().split("T")[0])}`, { align: "center" });
     doc.moveDown(0.5);
     doc.moveTo(60, doc.y).lineTo(552, doc.y).strokeColor("#e5e7eb").lineWidth(1).stroke();
+
+    if (demoDistrict) {
+      doc.moveDown(0.5);
+      const bannerY = doc.y;
+      doc.rect(60, bannerY, PAGE_W, 22).fill("#fef3c7");
+      doc.fontSize(10).font("Helvetica-Bold").fillColor("#92400e")
+        .text("SAMPLE DATA — NOT REAL STUDENT RECORDS", 60, bannerY + 6, { width: PAGE_W, align: "center" });
+      doc.y = bannerY + 26;
+      doc.moveDown(0.3);
+    }
 
     sectionTitle("Student Information");
     row("Name", `${safeStr(student.firstName)} ${safeStr(student.lastName)}`);
@@ -332,11 +354,11 @@ router.get("/reports/exports/student/:studentId/full-record.pdf", async (req: Re
     const pageCount = (doc as unknown as BufferedPDFDoc).bufferedPageRange().count;
     for (let i = 0; i < pageCount; i++) {
       doc.switchToPage(i);
+      const footerLabel = demoDistrict
+        ? `SAMPLE DATA — NOT REAL STUDENT RECORDS | Trellis — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`
+        : `Trellis — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`;
       doc.fontSize(8).fillColor(GRAY_MID)
-        .text(
-          `Trellis — Confidential Student Record | Page ${i + 1} of ${pageCount} | Generated ${new Date().toLocaleDateString()}`,
-          60, 762, { align: "center", width: PAGE_W }
-        );
+        .text(footerLabel, 60, 762, { align: "center", width: PAGE_W });
     }
 
     logAudit(req, {

@@ -7,8 +7,9 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, asc, lte, gte, isNull, sql } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
+import { isDistrictDemo } from "../../lib/districtMode";
 import {
-  resolveExportScope, buildCSV, assertCSVHeaders, fmtDate, daysUntil,
+  resolveExportScope, buildCSV, assertCSVHeaders, fmtDate, daysUntil, csvAddDemoDisclaimer,
 } from "./utils";
 
 const ACTIVE_IEPS_HEADERS = [
@@ -105,9 +106,13 @@ router.get("/reports/exports/active-ieps.csv", async (req: Request, res: Respons
       metadata: { reportType: "active-ieps-csv", rowCount: csvRows.length },
     });
 
+    const demoDistrict = effectiveDistrictId != null && await isDistrictDemo(effectiveDistrictId);
+    let csvOutput = buildCSV(headers, csvRows);
+    if (demoDistrict) csvOutput = csvAddDemoDisclaimer(csvOutput);
+
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="Active_IEPs_${new Date().toISOString().split("T")[0]}.csv"`);
-    res.send(buildCSV(headers, csvRows));
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET /reports/exports/active-ieps.csv error:", e);
     res.status(500).json({ error: "Failed to generate active IEPs export" });
@@ -122,6 +127,7 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     const { schoolId, startDate, endDate, status: statusParam2, schoolYearId } = req.query;
     const statusFilter2 = typeof statusParam2 === "string" ? statusParam2 : "active";
     const effectiveDistrictId = scope.enforcedDistrictId;
+    const isDemoSvc = effectiveDistrictId != null && await isDistrictDemo(effectiveDistrictId);
     const now = new Date();
     const start = (startDate as string) || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().split("T")[0];
     const end = (endDate as string) || now.toISOString().split("T")[0];
@@ -147,7 +153,9 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
     if (students.length === 0) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="Service_Minutes_${start}_${end}.csv"`);
-      res.send(buildCSV([...SERVICE_MINUTES_HEADERS], []));
+      let emptyCSV = buildCSV([...SERVICE_MINUTES_HEADERS], []);
+      if (isDemoSvc) emptyCSV = csvAddDemoDisclaimer(emptyCSV);
+      res.send(emptyCSV);
       return;
     }
 
@@ -234,9 +242,12 @@ router.get("/reports/exports/service-minutes.csv", async (req: Request, res: Res
       metadata: { reportType: "service-minutes-csv", rowCount: csvRows.length, start, end },
     });
 
+    let csvOutputSvc = buildCSV(headers, csvRows);
+    if (isDemoSvc) csvOutputSvc = csvAddDemoDisclaimer(csvOutputSvc);
+
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="Service_Minutes_${start}_${end}.csv"`);
-    res.send(buildCSV(headers, csvRows));
+    res.send(csvOutputSvc);
   } catch (e: any) {
     console.error("GET /reports/exports/service-minutes.csv error:", e);
     res.status(500).json({ error: "Failed to generate service minutes export" });
@@ -330,9 +341,13 @@ router.get("/reports/exports/incidents.csv", async (req: Request, res: Response)
       metadata: { reportType: "incidents-csv", rowCount: csvRows.length, start, end },
     });
 
+    const demoDistrictInc = effectiveDistrictId != null && await isDistrictDemo(effectiveDistrictId);
+    let csvOutputInc = buildCSV(headers, csvRows);
+    if (demoDistrictInc) csvOutputInc = csvAddDemoDisclaimer(csvOutputInc);
+
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="Incidents_${start}_${end}.csv"`);
-    res.send(buildCSV(headers, csvRows));
+    res.send(csvOutputInc);
   } catch (e: any) {
     console.error("GET /reports/exports/incidents.csv error:", e);
     res.status(500).json({ error: "Failed to generate incidents export" });

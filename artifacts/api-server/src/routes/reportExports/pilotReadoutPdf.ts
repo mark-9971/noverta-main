@@ -65,7 +65,7 @@ function requireAdminOrPlatformAdmin(
 }
 
 interface ReadoutData {
-  district: { id: number; name: string; isPilot: boolean };
+  district: { id: number; name: string; isPilot: boolean; isDemo: boolean };
   pilotStart: string | null; // ISO date — baseline capturedAt
   pilotEndOrToday: string;   // ISO date — today
   baseline: {
@@ -94,7 +94,7 @@ interface ReadoutData {
 
 async function loadReadoutData(districtId: number): Promise<ReadoutData> {
   const [district] = await db
-    .select({ id: districtsTable.id, name: districtsTable.name, isPilot: districtsTable.isPilot })
+    .select({ id: districtsTable.id, name: districtsTable.name, isPilot: districtsTable.isPilot, isDemo: districtsTable.isDemo })
     .from(districtsTable)
     .where(eq(districtsTable.id, districtId))
     .limit(1);
@@ -174,7 +174,7 @@ async function loadReadoutData(districtId: number): Promise<ReadoutData> {
     ));
 
   return {
-    district,
+    district: { ...district, isDemo: district.isDemo ?? false },
     pilotStart: baselineDate,
     pilotEndOrToday: today,
     baseline: baselineRow
@@ -265,6 +265,13 @@ function renderPdf(doc: InstanceType<typeof PDFDocument>, data: ReadoutData): vo
     : `As of ${fmtDateLong(data.pilotEndOrToday)}`;
   doc.fontSize(10).fillColor("#a7f3d0")
     .text(`Pilot window: ${pilotRange}`, LEFT, 184, { width: PAGE_W });
+
+  // Sample data banner (demo districts only)
+  if (data.district.isDemo) {
+    doc.rect(0, 220, 612, 24).fill("#fef3c7");
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#92400e")
+      .text("SAMPLE DATA — NOT REAL STUDENT RECORDS", LEFT, 229, { width: 492, align: "center" });
+  }
 
   // Headline metric below the cover band
   doc.fillColor(GRAY_DARK).font("Helvetica").fontSize(10);

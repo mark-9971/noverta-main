@@ -460,8 +460,9 @@ export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promi
     id: number;
     name: string;
     weekly_risk_email_enabled: boolean;
+    is_demo: boolean;
   }>(
-    "SELECT id, name, weekly_risk_email_enabled FROM districts WHERE id = $1 LIMIT 1",
+    "SELECT id, name, weekly_risk_email_enabled, is_demo FROM districts WHERE id = $1 LIMIT 1",
     [districtId],
   );
 
@@ -470,6 +471,8 @@ export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promi
 
   const enabled = district.weekly_risk_email_enabled ?? true;
   if (!enabled) return { sent: false, skipped: true, reason: "weekly digest disabled for district" };
+
+  const isDemo = district.is_demo === true;
 
   const { current, prior } = await fetchCurrentAndPriorSnapshot(districtId);
   if (!current) return { sent: false, skipped: true, reason: "no snapshot available" };
@@ -494,7 +497,7 @@ export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promi
   const weekStart = new Date(current.weekStart);
   const weekLabel = weekStart.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const { subject, html, text } = buildWeeklyRiskDigestEmail({
+  const emailBuilt = buildWeeklyRiskDigestEmail({
     districtName: district.name,
     weekLabel: `Week of ${weekLabel}`,
     currentExposure: current.totalExposure,
@@ -504,6 +507,21 @@ export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promi
     highCount: current.highCount,
     topRisks,
   });
+
+  const DEMO_DISCLAIMER_HTML = `
+    <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-family:Arial,sans-serif">
+      <strong style="color:#92400e;font-size:13px">⚠ SAMPLE DATA — NOT REAL STUDENT RECORDS</strong>
+      <p style="margin:4px 0 0;font-size:12px;color:#78350f">This email was generated from a demo district. All data is fictional and for demonstration purposes only.</p>
+    </div>`;
+  const DEMO_DISCLAIMER_TEXT = "⚠ SAMPLE DATA — NOT REAL STUDENT RECORDS\nThis email was generated from a demo district. All data is fictional and for demonstration purposes only.\n\n";
+
+  const subject = isDemo ? `[SAMPLE DATA] ${emailBuilt.subject}` : emailBuilt.subject;
+  const html = isDemo
+    ? emailBuilt.html.includes('<div style="padding:24px 28px">')
+      ? emailBuilt.html.replace('<div style="padding:24px 28px">', `<div style="padding:24px 28px">${DEMO_DISCLAIMER_HTML}`)
+      : emailBuilt.html.replace(/<body([^>]*)>/, `<body$1>${DEMO_DISCLAIMER_HTML}`)
+    : emailBuilt.html;
+  const text = isDemo ? `${DEMO_DISCLAIMER_TEXT}${emailBuilt.text}` : emailBuilt.text;
 
   const result = await sendAdminEmail({
     to: recipients,

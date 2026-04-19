@@ -9,7 +9,8 @@ import { eq, and, desc } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { logAudit } from "../../lib/auditLog";
-import { resolveExportScope, buildCSV, fmtDate, type ReportFilters, ROLE_LABELS, initPdfDoc, pdfHeader, pdfTableHeader, pdfTableRow, pdfFooters } from "./utils";
+import { resolveExportScope, buildCSV, fmtDate, type ReportFilters, ROLE_LABELS, initPdfDoc, pdfHeader, pdfTableHeader, pdfTableRow, pdfFooters, csvAddDemoDisclaimer } from "./utils";
+import { isDistrictDemo } from "../../lib/districtMode";
 import {
   fetchComplianceSummaryData,
   fetchStudentRosterData,
@@ -92,17 +93,26 @@ router.get("/reports/exports/history/:id/download", async (req: Request, res: Re
       res.status(400).json({ error: "Cannot regenerate report without a valid district scope" });
       return;
     }
-    const result = await generateReportCSVDirect(entry.reportType, effectiveDistrictId, reportFilters);
+    const [isHistoryDemo, result] = await Promise.all([
+      isDistrictDemo(effectiveDistrictId),
+      generateReportCSVDirect(entry.reportType, effectiveDistrictId, reportFilters),
+    ]);
     if (!result) { res.status(500).json({ error: "Failed to regenerate report" }); return; }
 
     if (entry.format === "pdf") {
       const frequency = (params.frequency as string | undefined) ?? "scheduled";
-      const html = buildScheduledReportHtml({
+      let html = buildScheduledReportHtml({
         label: entry.reportLabel,
         headers: result.headers,
         rows: result.rows,
         frequency,
       });
+      if (isHistoryDemo) {
+        html = html.replace(
+          "<body>",
+          `<body><div style="background:#fef3c7;color:#92400e;font-weight:bold;text-align:center;padding:8px;font-family:sans-serif;font-size:13px;margin-bottom:12px;">SAMPLE DATA — NOT REAL STUDENT RECORDS</div>`,
+        );
+      }
       const baseName = (entry.fileName || `${entry.reportType}.pdf`).replace(/\.pdf$/i, ".html");
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${baseName}"`);
@@ -113,7 +123,7 @@ router.get("/reports/exports/history/:id/download", async (req: Request, res: Re
     const filename = entry.fileName || `${entry.reportType}.csv`;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(result.csv);
+    res.send(isHistoryDemo ? csvAddDemoDisclaimer(result.csv) : result.csv);
   } catch (e: unknown) {
     console.error("GET /reports/exports/history/:id/download error:", e);
     res.status(500).json({ error: "Failed to regenerate report" });
@@ -364,8 +374,9 @@ export async function buildScheduledReportPdf(opts: {
   headers: string[];
   rows: (string | number | null | undefined)[][];
   frequency: string;
+  isDemo?: boolean;
 }): Promise<Buffer> {
-  const { label, headers, rows, frequency } = opts;
+  const { label, headers, rows, frequency, isDemo } = opts;
   const doc = initPdfDoc();
 
   const chunks: Buffer[] = [];
@@ -373,6 +384,15 @@ export async function buildScheduledReportPdf(opts: {
 
   const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   pdfHeader(doc, label, `Scheduled ${frequency} report — ${dateStr} — ${rows.length} record${rows.length !== 1 ? "s" : ""}`);
+
+  if (isDemo) {
+    const bannerY = doc.y;
+    doc.rect(60, bannerY, 492, 20).fill("#fef3c7");
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#92400e")
+      .text("SAMPLE DATA — NOT REAL STUDENT RECORDS", 60, bannerY + 6, { width: 492, align: "center" });
+    doc.y = bannerY + 24;
+    doc.moveDown(0.3);
+  }
 
   const totalWidth = 492;
   const colCount = Math.max(1, headers.length);

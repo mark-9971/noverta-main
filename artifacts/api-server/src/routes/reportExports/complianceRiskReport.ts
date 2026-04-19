@@ -35,7 +35,8 @@ async function resolveSchoolYearDates(schoolYearId: number | undefined): Promise
 import { computeAllActiveMinuteProgress, type MinuteProgressResult } from "../../lib/minuteCalc";
 import { getRateMap, minutesToDollars as sharedMinutesToDollars, type RateInfo } from "../compensatoryFinance/shared";
 import { logAudit } from "../../lib/auditLog";
-import { buildCSV, recordExport, fmtDate } from "./utils";
+import { buildCSV, recordExport, fmtDate, csvAddDemoDisclaimer } from "./utils";
+import { isDistrictDemo } from "../../lib/districtMode";
 
 const router = Router();
 
@@ -312,6 +313,8 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
       return;
     }
 
+    const isDemo = await isDistrictDemo(districtId);
+
     const rawSchoolId = req.query.schoolId ? Number(req.query.schoolId) : undefined;
     if (rawSchoolId !== undefined && (!Number.isInteger(rawSchoolId) || rawSchoolId <= 0)) {
       res.status(400).json({ error: "Invalid schoolId parameter" });
@@ -366,7 +369,9 @@ router.get("/reports/compliance-risk-report.csv", async (req: Request, res: Resp
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildCSV(headers, rows));
+    let csvOutput = buildCSV(headers, rows);
+    if (isDemo) csvOutput = csvAddDemoDisclaimer(csvOutput);
+    res.send(csvOutput);
   } catch (e: any) {
     console.error("GET /reports/compliance-risk-report.csv error:", e);
     res.status(500).json({ error: "Failed to generate compliance risk report CSV" });
