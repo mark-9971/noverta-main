@@ -41,7 +41,6 @@ export const districtsTable = pgTable("districts", {
   // without a migration. Validated by the API layer.
   pilotStage: text("pilot_stage"),
   pilotAccountManagerName: text("pilot_account_manager_name"),
-  pilotAccountManagerEmail: text("pilot_account_manager_email"),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
   deleteInitiatedBy: text("delete_initiated_by"),
