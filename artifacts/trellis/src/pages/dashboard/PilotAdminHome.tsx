@@ -594,6 +594,11 @@ export default function PilotAdminHome() {
         <SystemStatusBanner errorsLast24h={dashSummary.errorsLast24h ?? 0} />
       )}
 
+      {/* Provider activation nudge stat — small read-out of how many providers
+          got an automated activation nudge in the last 7 days. Surfaces during
+          a pilot so admins can see the system catching stalls in real time. */}
+      <ProvidersNudgedThisWeek />
+
       {/* Operational details — collapsed by default so they don't compete with
           the compliance story, but fully accessible from the main dashboard. */}
       <CollapsibleSection
@@ -759,6 +764,36 @@ function HealthScoreBadge({ score }: { score: HealthScore }) {
           <li>💰 Exposure risk: {score.breakdown.exposurePoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
           <li>📝 Provider logging: {score.breakdown.loggingPoints.toFixed(0)} pts <span className="text-gray-500">(20% weight)</span></li>
         </ul>
+      </div>
+    </div>
+  );
+}
+
+function ProvidersNudgedThisWeek() {
+  const { data } = useQuery<{ providersNudgedThisWeek: number }>({
+    queryKey: ["pilot-status/nudge-stats"],
+    queryFn: async () => {
+      const r = await authFetch("/api/pilot-status/nudge-stats");
+      if (!r.ok) return { providersNudgedThisWeek: 0 };
+      return r.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+  const count = data?.providersNudgedThisWeek ?? 0;
+  return (
+    <div
+      className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex items-center gap-3 text-sm"
+      data-testid="stat-providers-nudged-this-week"
+    >
+      <Users className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+      <div className="flex-1">
+        <span className="font-semibold text-gray-900 tabular-nums">{count}</span>{" "}
+        <span className="text-gray-700">
+          provider{count === 1 ? "" : "s"} nudged this week
+        </span>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Automated activation reminders sent in the last 7 days.
+        </p>
       </div>
     </div>
   );

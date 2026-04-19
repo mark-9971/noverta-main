@@ -25,6 +25,14 @@ export const staffTable = pgTable("staff", {
   isSample: boolean("is_sample").notNull().default(false),
   receiveRiskAlerts: boolean("receive_risk_alerts").notNull().default(true),
   alertDigestMode: boolean("alert_digest_mode"),
+  // Optional supervisor relationship — used by provider activation nudges to
+  // route the 5+ day escalation email. Self-referencing FK; nullable.
+  supervisorStaffId: integer("supervisor_staff_id"),
+  // Pause activation nudges (provider-controlled snooze) until this timestamp.
+  nudgeSnoozedUntil: timestamp("nudge_snoozed_until", { withTimezone: true }),
+  // Random capability token used in the email footer "snooze for one week" link.
+  // Generated lazily on first nudge send.
+  nudgeSnoozeToken: text("nudge_snooze_token"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

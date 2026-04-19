@@ -87,6 +87,8 @@ export type EmailType =
   | "cost_avoidance_digest"
   | "restraint_compliance_alert"
   | "iep_timeline_compliance_alert"
+  | "provider_activation_nudge"
+  | "provider_activation_escalation"
   | "general";
 
 export interface SendEmailParams {
@@ -1052,6 +1054,94 @@ export function buildIepMeetingInvitationEmail(opts: {
   const agendaText = agendaItems && agendaItems.length > 0 ? `\nAgenda:\n${agendaItems.map(a => `  • ${a}`).join("\n")}` : "";
 
   const text = `${greeting}\n\nYou are invited to a ${meetingTypeLabel} for ${studentName}.\n\nDate: ${scheduledDate}\n${timeText}${locationText}${agendaText}\n\nPlease contact ${senderName ?? "the school"} if you have questions.${schoolName ? `\n\n${schoolName}` : ""}`;
+
+  return { subject, html, text };
+}
+
+// ---------------------------------------------------------------------------
+// Provider activation nudges (Task #420)
+// Sent to a provider on day 3+ of consecutive missed session-log days during
+// a pilot. Escalation variant goes to supervisor + district admins on day 5+.
+// ---------------------------------------------------------------------------
+
+export function buildProviderActivationNudgeEmail(opts: {
+  providerName: string;
+  consecutiveDays: number;
+  scheduledMinutesToday: number;
+  scheduledSessionsToday: number;
+  todaysScheduleUrl: string;
+  snoozeUrl?: string;
+  districtName?: string;
+}): { subject: string; html: string; text: string } {
+  const {
+    providerName, consecutiveDays, scheduledMinutesToday, scheduledSessionsToday,
+    todaysScheduleUrl, snoozeUrl, districtName,
+  } = opts;
+
+  const subject = `Quick nudge — log today's sessions in Trellis`;
+  const sessionsLine = scheduledSessionsToday > 0
+    ? `You have <strong>${scheduledMinutesToday} minutes</strong> across ${scheduledSessionsToday} scheduled session${scheduledSessionsToday === 1 ? "" : "s"} today.`
+    : `Your schedule today is light — but a quick check-in keeps your caseload current.`;
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:560px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#0f766e;color:#fff;padding:18px 24px}.body{padding:22px 24px}.cta{display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;margin-top:8px}.muted{color:#6b7280;font-size:12px}.footer{background:#f3f4f6;padding:14px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Hi ${providerName} 👋</h1></div>
+<div class="body">
+<p>It looks like ${consecutiveDays} school days have gone by without a logged session. Logging is what powers compliance reports for your students — let's get caught up.</p>
+<p>${sessionsLine}</p>
+<p><a class="cta" href="${todaysScheduleUrl}">Open Today's Schedule →</a></p>
+<p class="muted">Logging takes about 30 seconds per session. If you've already provided services, just enter them so they count toward your students' minutes.</p>
+</div>
+<div class="footer">
+<p>Sent by Trellis SPED${districtName ? ` — ${districtName}` : ""}.</p>
+${snoozeUrl ? `<p><a href="${snoozeUrl}" style="color:#6b7280">Snooze these reminders for one week</a></p>` : ""}
+</div>
+</div></body></html>`;
+
+  const text = `Hi ${providerName},
+
+${consecutiveDays} school days have gone by without a logged session in Trellis.
+${scheduledSessionsToday > 0 ? `You have ${scheduledMinutesToday} minutes across ${scheduledSessionsToday} scheduled session${scheduledSessionsToday === 1 ? "" : "s"} today.` : "Your schedule today is light — but a quick check-in keeps your caseload current."}
+
+Open Today's Schedule: ${todaysScheduleUrl}
+${snoozeUrl ? `\nSnooze these reminders for one week: ${snoozeUrl}\n` : ""}
+${districtName ? `\n— ${districtName}` : ""}`;
+
+  return { subject, html, text };
+}
+
+export function buildProviderActivationEscalationEmail(opts: {
+  recipientName: string;
+  providerName: string;
+  consecutiveDays: number;
+  todaysScheduleUrl: string;
+  districtName?: string;
+}): { subject: string; html: string; text: string } {
+  const { recipientName, providerName, consecutiveDays, todaysScheduleUrl, districtName } = opts;
+  const subject = `Heads up — ${providerName} hasn't logged sessions in ${consecutiveDays} school days`;
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${subject}</title>
+<style>body{font-family:Arial,sans-serif;font-size:14px;color:#111;background:#f9fafb;margin:0;padding:0}.wrapper{max-width:560px;margin:24px auto;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.header{background:#b45309;color:#fff;padding:18px 24px}.body{padding:22px 24px}.cta{display:inline-block;background:#0f766e;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:600;margin-top:8px}.alert{background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:14px}.footer{background:#f3f4f6;padding:14px 24px;font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb}</style></head>
+<body><div class="wrapper">
+<div class="header"><h1 style="margin:0;font-size:17px">Provider activation — escalation</h1></div>
+<div class="body">
+<p>Hi ${recipientName},</p>
+<div class="alert"><strong>${providerName}</strong> hasn't logged a session in <strong>${consecutiveDays} consecutive school days</strong>. Their direct nudges have not produced activity.</p></div>
+<p>This is the kind of stall that quietly tanks a pilot — students keep accruing service-minute shortfalls that won't show up in reports until much later. Please reach out to ${providerName} today to unblock whatever's in the way.</p>
+<p><a class="cta" href="${todaysScheduleUrl}">View Today's Schedule →</a></p>
+</div>
+<div class="footer"><p>Sent by Trellis SPED${districtName ? ` — ${districtName}` : ""}.</p></div>
+</div></body></html>`;
+
+  const text = `Hi ${recipientName},
+
+${providerName} hasn't logged a session in ${consecutiveDays} consecutive school days. Their direct nudges have not produced activity.
+
+This is the kind of stall that quietly tanks a pilot — please reach out today.
+
+View Today's Schedule: ${todaysScheduleUrl}
+${districtName ? `\n— ${districtName}` : ""}`;
 
   return { subject, html, text };
 }

@@ -33,6 +33,7 @@ import caseloadBalancingRouter from "./caseloadBalancing";
 import compensatoryRouter from "./compensatory";
 import parentCommunicationRouter from "./parentCommunication";
 import sharedProgressPublicRouter from "./parentCommunication/sharedProgressPublic";
+import { nudgesPublicRouter, nudgesAuthedRouter } from "./nudges";
 import complianceSnapshotRouter, { complianceSnapshotPublicRouter } from "./complianceSnapshot";
 import supervisionRouter from "./supervision";
 import paraRouter from "./para";
@@ -90,6 +91,11 @@ router.use(demoRequestsRouter);
 // Clerk session. All hardening (rate limits, atomic claim, audit log) lives
 // inside the router.
 router.use(sharedProgressPublicRouter);
+
+// Public, unauthenticated provider-nudge snooze. The random token in the URL
+// IS the capability — providers click it from an email footer with no Clerk
+// session. Mounted before requireAuth, like the other public capability links.
+router.use(nudgesPublicRouter);
 
 // Public, unauthenticated compliance snapshot consumption.
 // GET /share/compliance/:token is the capability — no Clerk session required.
@@ -297,6 +303,7 @@ router.use(paraRouter);
 router.use(auditLogRouter);
 router.use(recentlyDeletedRouter);
 router.use(onboardingRouter);
+router.use(nudgesAuthedRouter);
 router.use(sampleDataRouter);
 router.use(districtDataRouter);
 router.use(pilotBaselineRouter);

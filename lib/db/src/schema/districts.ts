@@ -29,6 +29,9 @@ export const districtsTable = pgTable("districts", {
   // Email of the Trellis account manager assigned to this district's pilot.
   // New pilot feedback submissions are emailed here so the AM can triage immediately.
   pilotAccountManagerEmail: text("pilot_account_manager_email"),
+  // IANA timezone used to interpret "school day" boundaries and the 7am local
+  // delivery window for provider activation nudges. Defaults to America/New_York.
+  timeZone: text("time_zone").notNull().default("America/New_York"),
   demoExpiresAt: timestamp("demo_expires_at", { withTimezone: true }),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
