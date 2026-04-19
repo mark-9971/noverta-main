@@ -1321,7 +1321,7 @@ router.post("/support/demo-reseed", async (_req: Request, res: Response) => {
  * Returns the current status of a reseed job.
  */
 router.get("/support/demo-reseed/:jobId", (req: Request, res: Response) => {
-  const job = reseedJobs.get(req.params.jobId);
+  const job = reseedJobs.get(String(req.params.jobId));
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;

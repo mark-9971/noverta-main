@@ -634,7 +634,7 @@ router.get("/students/:studentId/goal-annotations", async (req, res): Promise<vo
       .where(sql`${goalAnnotationsTable.goalId} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`)
       .orderBy(asc(goalAnnotationsTable.annotationDate));
 
-    const byGoal: Record<number, Array<typeof rows[number] & { createdAt: string }>> = {};
+    const byGoal: Record<number, Array<Omit<typeof rows[number], 'createdAt'> & { createdAt: string }>> = {};
     for (const row of rows) {
       if (!byGoal[row.goalId]) byGoal[row.goalId] = [];
       byGoal[row.goalId].push({ ...row, createdAt: row.createdAt.toISOString() });
@@ -967,8 +967,8 @@ router.get("/goals/recent-masteries", async (req, res): Promise<void> => {
     let studentIds = districtStudents.map(s => s.id);
 
     // For provider role, scope to their assigned students
-    const staffId = authedReq.user?.staffId;
-    const role = authedReq.user?.role;
+    const staffId = authedReq.tenantStaffId;
+    const role = authedReq.trellisRole;
     if (staffId && role !== "admin" && role !== "coordinator") {
       const assignments = await db.select({ studentId: staffAssignmentsTable.studentId })
         .from(staffAssignmentsTable)

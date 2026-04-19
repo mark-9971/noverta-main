@@ -104,7 +104,7 @@ router.get(
           END ASC NULLS LAST
       `));
 
-      const rows = result.rows as ProviderRateRow[];
+      const rows = result.rows as unknown as ProviderRateRow[];
 
       const providers = rows.map(row => {
         const scheduled = Number(row.scheduledCount) || 0;

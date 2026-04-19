@@ -402,7 +402,7 @@ router.get("/students/:studentId/ioa-summary", async (req, res): Promise<void> =
 router.get("/program-targets/:targetId/step-trends", async (req, res): Promise<void> => {
   try {
     const targetId = parseInt(req.params.targetId);
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
 
     const [steps, dataRows] = await Promise.all([
       db.select({
@@ -449,7 +449,7 @@ const VALID_MARKER_TYPES = [
 router.get("/behavior-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
   try {
     const targetId = parseInt(req.params.targetId);
-    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
     const rows = await db.select().from(protocolModificationMarkersTable)
       .where(eq(protocolModificationMarkersTable.behaviorTargetId, targetId))
       .orderBy(asc(protocolModificationMarkersTable.markerDate));
@@ -462,7 +462,7 @@ router.get("/behavior-targets/:targetId/modification-markers", async (req, res):
 router.post("/behavior-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
   try {
     const behaviorTargetId = parseInt(req.params.targetId);
-    if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, behaviorTargetId, res))) return;
+    if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, behaviorTargetId, res))) return;
     const { markerDate, markerType, label, notes } = req.body;
     if (!markerDate || !label) { res.status(400).json({ error: "markerDate and label are required" }); return; }
     const resolvedType = VALID_MARKER_TYPES.includes(markerType) ? markerType : "custom";
@@ -483,7 +483,7 @@ router.post("/behavior-targets/:targetId/modification-markers", async (req, res)
 router.get("/program-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
   try {
     const targetId = parseInt(req.params.targetId);
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, targetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, targetId, res))) return;
     const rows = await db.select().from(protocolModificationMarkersTable)
       .where(eq(protocolModificationMarkersTable.programTargetId, targetId))
       .orderBy(asc(protocolModificationMarkersTable.markerDate));
@@ -496,7 +496,7 @@ router.get("/program-targets/:targetId/modification-markers", async (req, res): 
 router.post("/program-targets/:targetId/modification-markers", async (req, res): Promise<void> => {
   try {
     const programTargetId = parseInt(req.params.targetId);
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, programTargetId, res))) return;
     const { markerDate, markerType, label, notes } = req.body;
     if (!markerDate || !label) { res.status(400).json({ error: "markerDate and label are required" }); return; }
     const resolvedType = VALID_MARKER_TYPES.includes(markerType) ? markerType : "custom";
@@ -522,9 +522,9 @@ router.delete("/modification-markers/:id", async (req, res): Promise<void> => {
       .where(eq(protocolModificationMarkersTable.id, id));
     if (!existing) { res.status(404).json({ error: "Not found" }); return; }
     if (existing.behaviorTargetId) {
-      if (!(await assertBehaviorTargetInCallerDistrict(req as AuthedRequest, existing.behaviorTargetId, res))) return;
+      if (!(await assertBehaviorTargetInCallerDistrict(req as unknown as AuthedRequest, existing.behaviorTargetId, res))) return;
     } else if (existing.programTargetId) {
-      if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, existing.programTargetId, res))) return;
+      if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, existing.programTargetId, res))) return;
     }
     await db.delete(protocolModificationMarkersTable).where(eq(protocolModificationMarkersTable.id, id));
     logAudit(req, {

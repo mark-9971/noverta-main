@@ -210,7 +210,7 @@ router.post("/students/:studentId/program-targets", async (req, res): Promise<vo
       return target;
     });
 
-    const authedReq = req as AuthedRequest;
+    const authedReq = req as unknown as AuthedRequest;
     await recordPhaseTransition(db, result.id, result.phase ?? "training", null, {
       changedByClerkId: authedReq.userId ?? null,
       changedByStaffId: authedReq.tenantStaffId ?? null,
@@ -254,14 +254,14 @@ router.patch("/program-targets/:id", async (req, res): Promise<void> => {
     const [updated] = await db.update(programTargetsTable).set(updates).where(eq(programTargetsTable.id, id)).returning();
     if (!updated) { res.status(404).json({ error: "Not found" }); return; }
     if (phaseChanging) {
-      const authedReq = req as AuthedRequest;
+      const authedReq = req as unknown as AuthedRequest;
       await recordPhaseTransition(db, id, req.body.phase, oldTarget?.phase ?? null, {
         reason: req.body.phaseReason ?? null,
         changedByClerkId: authedReq.userId ?? null,
         changedByStaffId: authedReq.tenantStaffId ?? null,
       });
       if (req.body.phase === "mastered" && updated.studentId) {
-        await autoScheduleMaintenanceProbe(id, updated.studentId, 30, (req as AuthedRequest).userId ?? null).catch(() => {});
+        await autoScheduleMaintenanceProbe(id, updated.studentId, 30, (req as unknown as AuthedRequest).userId ?? null).catch(() => {});
       }
     }
     logAudit(req, {
@@ -284,7 +284,7 @@ router.get("/program-targets/:id/phase-history", async (req, res): Promise<void>
   try {
     const programTargetId = parseInt(req.params.id);
     if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, programTargetId, res))) return;
     const rows = await db.select().from(programTargetPhaseHistoryTable)
       .where(eq(programTargetPhaseHistoryTable.programTargetId, programTargetId))
       .orderBy(desc(programTargetPhaseHistoryTable.startedAt));
@@ -366,7 +366,7 @@ router.get("/students/:studentId/maintenance-probes", async (req, res): Promise<
   try {
     const studentId = parseInt(req.params.studentId);
     if (!Number.isFinite(studentId)) { res.status(400).json({ error: "Invalid studentId" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, studentId, res))) return;
     const probes = await db
       .select({
         probe: maintenanceProbesTable,
@@ -396,7 +396,7 @@ router.get("/program-targets/:id/maintenance-probes", async (req, res): Promise<
   try {
     const programTargetId = parseInt(req.params.id);
     if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, programTargetId, res))) return;
     const probes = await db.select().from(maintenanceProbesTable)
       .where(eq(maintenanceProbesTable.programTargetId, programTargetId))
       .orderBy(asc(maintenanceProbesTable.dueDate));
@@ -414,7 +414,7 @@ router.post("/program-targets/:id/maintenance-probes", async (req, res): Promise
   try {
     const programTargetId = parseInt(req.params.id);
     if (!Number.isFinite(programTargetId)) { res.status(400).json({ error: "Invalid id" }); return; }
-    if (!(await assertProgramTargetInCallerDistrict(req as AuthedRequest, programTargetId, res))) return;
+    if (!(await assertProgramTargetInCallerDistrict(req as unknown as AuthedRequest, programTargetId, res))) return;
     const { dueDate, notes } = req.body;
     if (!dueDate || typeof dueDate !== "string") { res.status(400).json({ error: "dueDate required" }); return; }
     const [target] = await db.select({ studentId: programTargetsTable.studentId })
@@ -425,7 +425,7 @@ router.post("/program-targets/:id/maintenance-probes", async (req, res): Promise
       studentId: target.studentId,
       dueDate,
       notes: notes ?? null,
-      scheduledByClerkId: (req as AuthedRequest).userId ?? null,
+      scheduledByClerkId: (req as unknown as AuthedRequest).userId ?? null,
     }).returning();
     res.status(201).json({ ...probe, completedAt: null, createdAt: probe.createdAt.toISOString() });
   } catch (e: any) {
@@ -440,7 +440,7 @@ router.patch("/maintenance-probes/:id", async (req, res): Promise<void> => {
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const [existing] = await db.select().from(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
     if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, existing.studentId, res))) return;
 
     const updates: Record<string, unknown> = {};
     const { trialsCorrect, trialsTotal, notes, dueDate, complete } = req.body;
@@ -469,7 +469,7 @@ router.patch("/maintenance-probes/:id", async (req, res): Promise<void> => {
     if (complete === true && updated.passed === false) {
       reopenedPhase = await checkAndReopenOnProbeFailures(
         existing.programTargetId,
-        { changedByClerkId: (req as AuthedRequest).userId ?? null },
+        { changedByClerkId: (req as unknown as AuthedRequest).userId ?? null },
       ).catch((e) => { console.error("Probe-failure reopen check error:", e); return null; });
       if (reopenedPhase) {
         logAudit(req, {
@@ -500,7 +500,7 @@ router.delete("/maintenance-probes/:id", async (req, res): Promise<void> => {
     if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
     const [existing] = await db.select().from(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
     if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-    if (!(await assertStudentInCallerDistrict(req as AuthedRequest, existing.studentId, res))) return;
+    if (!(await assertStudentInCallerDistrict(req as unknown as AuthedRequest, existing.studentId, res))) return;
     await db.delete(maintenanceProbesTable).where(eq(maintenanceProbesTable.id, id));
     res.json({ ok: true });
   } catch (e: any) {

@@ -76,7 +76,7 @@ async function runScheduledReset(
           success: true,
           elapsedMs,
           districtId: variety.districtId,
-          compliancePct: Math.round(variety.compliancePct),
+          compliancePct: Math.round(Number(variety.compliancePct)),
         })
         .where(eq(demoResetAuditTable.id, auditId));
     }

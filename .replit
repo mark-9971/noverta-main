@@ -24,6 +24,18 @@ args = "incident-e2e"
 task = "workflow.run"
 args = "html-nesting-smoke"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-api"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-api-zod"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-openai-server"
+
 [[workflows.workflow]]
 name = "incident-e2e"
 author = "agent"
@@ -39,6 +51,39 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/no-dom-nesting-warnings.spec.ts --reporter=line"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-api"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/api-server && npx tsc --noEmit"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-api-zod"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd lib/api-zod && npx tsc --noEmit"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-openai-server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd lib/integrations-openai-ai-server && npx tsc --noEmit"
 
 [workflows.workflow.metadata]
 isValidation = true

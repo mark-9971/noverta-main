@@ -60,7 +60,7 @@ router.put(
 
     const { cadence } = parsed.data;
     const authedReq = req as unknown as AuthedRequest;
-    const updatedBy = authedReq.auth?.userId ?? "unknown";
+    const updatedBy = authedReq.userId ?? "unknown";
 
     try {
       const [updated] = await db

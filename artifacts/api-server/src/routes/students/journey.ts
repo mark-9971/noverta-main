@@ -111,7 +111,7 @@ function decodeCursor(s: string): JourneyCursor | null {
 }
 
 router.get("/students/:id/journey", async (req, res): Promise<void> => {
-  const authRole = (req as AuthedRequest).trellisRole;
+  const authRole = (req as unknown as AuthedRequest).trellisRole;
   if (!(JOURNEY_READ_ROLES as readonly string[]).includes(authRole ?? "")) {
     res.status(403).json({ error: "Forbidden" });
     return;

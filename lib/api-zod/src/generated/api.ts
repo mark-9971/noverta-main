@@ -976,6 +976,8 @@ export const UpdateStaffBody = zod.object({
   qualifications: zod.string().nullish(),
   npiNumber: zod.string().nullish(),
   medicaidProviderId: zod.string().nullish(),
+  receiveRiskAlerts: zod.boolean().nullish(),
+  alertDigestMode: zod.boolean().nullish(),
 });
 
 export const UpdateStaffResponse = zod.object({
