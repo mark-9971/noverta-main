@@ -21,7 +21,9 @@ export function ComplianceExportsTab() {
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [scheduleForm, setScheduleForm] = useState<{ reportType: string; frequency: string; format: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string } | null>(null);
+  type ScheduleFormState = { id?: number; reportType: string; frequency: string; format: string; emails: string; startDate: string; endDate: string; schoolId: string; providerId: string; serviceTypeId: string; complianceStatus: string };
+  const [scheduleForm, setScheduleForm] = useState<ScheduleFormState | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [providers, setProviders] = useState<{ id: number; name: string }[]>([]);
   const [serviceTypes, setServiceTypes] = useState<{ id: number; name: string }[]>([]);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
@@ -96,34 +98,67 @@ export function ComplianceExportsTab() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalid = emails.filter(e => !emailRegex.test(e));
     if (invalid.length > 0) { toast.error(`Invalid email format: ${invalid.join(", ")}`); return; }
+    const filtersPayload = {
+      startDate: scheduleForm.startDate || undefined,
+      endDate: scheduleForm.endDate || undefined,
+      schoolId: scheduleForm.schoolId !== "all" ? Number(scheduleForm.schoolId) : undefined,
+      providerId: scheduleForm.providerId !== "all" ? Number(scheduleForm.providerId) : undefined,
+      serviceTypeId: scheduleForm.serviceTypeId !== "all" ? Number(scheduleForm.serviceTypeId) : undefined,
+      complianceStatus: scheduleForm.complianceStatus !== "all" ? scheduleForm.complianceStatus : undefined,
+    };
     try {
-      const res = await authFetch("/api/reports/exports/scheduled", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportType: scheduleForm.reportType,
-          frequency: scheduleForm.frequency,
-          format: scheduleForm.format || "csv",
-          recipientEmails: emails,
-          filters: {
-            startDate: scheduleForm.startDate || undefined,
-            endDate: scheduleForm.endDate || undefined,
-            schoolId: scheduleForm.schoolId !== "all" ? Number(scheduleForm.schoolId) : undefined,
-            providerId: scheduleForm.providerId !== "all" ? Number(scheduleForm.providerId) : undefined,
-            serviceTypeId: scheduleForm.serviceTypeId !== "all" ? Number(scheduleForm.serviceTypeId) : undefined,
-            complianceStatus: scheduleForm.complianceStatus !== "all" ? scheduleForm.complianceStatus : undefined,
-          },
-        }),
-      });
+      const isEdit = scheduleForm.id !== undefined;
+      const res = await authFetch(
+        isEdit ? `/api/reports/exports/scheduled/${scheduleForm.id}` : "/api/reports/exports/scheduled",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isEdit
+              ? {
+                  frequency: scheduleForm.frequency,
+                  format: scheduleForm.format || "csv",
+                  recipientEmails: emails,
+                  filters: filtersPayload,
+                }
+              : {
+                  reportType: scheduleForm.reportType,
+                  frequency: scheduleForm.frequency,
+                  format: scheduleForm.format || "csv",
+                  recipientEmails: emails,
+                  filters: filtersPayload,
+                }
+          ),
+        }
+      );
       if (res.ok) {
-        toast.success("Scheduled report created");
+        toast.success(isEdit ? "Scheduled report updated" : "Scheduled report created");
         setScheduleForm(null);
+        setEditingId(null);
         loadSchedules();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Failed to create schedule");
+        toast.error(err.error || (isEdit ? "Failed to update schedule" : "Failed to create schedule"));
       }
-    } catch { toast.error("Failed to create schedule"); }
+    } catch { toast.error(scheduleForm.id !== undefined ? "Failed to update schedule" : "Failed to create schedule"); }
+  }
+
+  function handleEditSchedule(s: any) {
+    const f = s.filters ?? {};
+    setEditingId(s.id);
+    setScheduleForm({
+      id: s.id,
+      reportType: s.reportType,
+      frequency: s.frequency,
+      format: s.format ?? "csv",
+      emails: (s.recipientEmails ?? []).join(", "),
+      startDate: f.startDate ?? "",
+      endDate: f.endDate ?? "",
+      schoolId: f.schoolId != null ? String(f.schoolId) : "all",
+      providerId: f.providerId != null ? String(f.providerId) : "all",
+      serviceTypeId: f.serviceTypeId != null ? String(f.serviceTypeId) : "all",
+      complianceStatus: f.complianceStatus ?? "all",
+    });
   }
 
   async function handleDeleteSchedule(id: number) {
@@ -446,7 +481,7 @@ export function ComplianceExportsTab() {
             </div>
             {!scheduleForm && (
               <Button size="sm" className="gap-1.5 text-[12px] bg-emerald-700 hover:bg-emerald-800 text-white"
-                onClick={() => setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", format: "csv", emails: "", startDate: "", endDate: "", schoolId: "all", providerId: "all", serviceTypeId: "all", complianceStatus: "all" })}>
+                onClick={() => { setEditingId(null); setScheduleForm({ reportType: "compliance-summary", frequency: "weekly", format: "csv", emails: "", startDate: "", endDate: "", schoolId: "all", providerId: "all", serviceTypeId: "all", complianceStatus: "all" }); }}>
                 + New Schedule
               </Button>
             )}
@@ -459,7 +494,8 @@ export function ComplianceExportsTab() {
                   <div>
                     <label className="text-[11px] text-gray-500 font-medium block mb-1">Report Type</label>
                     <select value={scheduleForm.reportType} onChange={e => setScheduleForm({ ...scheduleForm, reportType: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white">
+                      disabled={scheduleForm.id !== undefined}
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 bg-white disabled:bg-gray-50 disabled:text-gray-500">
                       <option value="compliance-summary">Compliance Summary</option>
                       <option value="services-by-provider">Services by Provider</option>
                       <option value="student-roster">Student Roster</option>
@@ -542,8 +578,8 @@ export function ComplianceExportsTab() {
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button size="sm" variant="outline" className="text-[12px]" onClick={() => setScheduleForm(null)}>Cancel</Button>
-                  <Button size="sm" className="text-[12px] bg-emerald-700 hover:bg-emerald-800 text-white" onClick={handleCreateSchedule}>Create Schedule</Button>
+                  <Button size="sm" variant="outline" className="text-[12px]" onClick={() => { setScheduleForm(null); setEditingId(null); }}>Cancel</Button>
+                  <Button size="sm" className="text-[12px] bg-emerald-700 hover:bg-emerald-800 text-white" onClick={handleCreateSchedule}>{scheduleForm.id !== undefined ? "Save Changes" : "Create Schedule"}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -553,7 +589,7 @@ export function ComplianceExportsTab() {
             <Card><CardContent className="py-10 text-center"><p className="text-sm text-gray-400">No scheduled reports configured.</p></CardContent></Card>
           ) : (
             <div className="space-y-2">
-              {schedules.map((s: any) => (
+              {schedules.filter((s: any) => s.id !== editingId).map((s: any) => (
                 <Card key={s.id}>
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -574,8 +610,13 @@ export function ComplianceExportsTab() {
                         {s.nextRunAt && ` · Next run: ${new Date(s.nextRunAt).toLocaleDateString()}`}
                       </p>
                     </div>
-                    <Button size="sm" variant="outline" className="text-[12px] text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleDeleteSchedule(s.id)}>Remove</Button>
+                    <div className="flex gap-2 shrink-0">
+                      <Button size="sm" variant="outline" className="text-[12px]"
+                        disabled={!!scheduleForm}
+                        onClick={() => handleEditSchedule(s)}>Edit</Button>
+                      <Button size="sm" variant="outline" className="text-[12px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteSchedule(s.id)}>Remove</Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}

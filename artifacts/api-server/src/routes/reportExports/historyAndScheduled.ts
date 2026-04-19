@@ -208,6 +208,73 @@ router.post("/reports/exports/scheduled", async (req: Request, res: Response): P
   }
 });
 
+router.patch("/reports/exports/scheduled/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+    const scope = resolveExportScope(req);
+    if ("error" in scope) { res.status(scope.status).json({ error: scope.error }); return; }
+
+    const { frequency, format, recipientEmails, filters } = req.body ?? {};
+
+    const updates: Partial<typeof scheduledReportsTable.$inferInsert> = {};
+
+    if (frequency !== undefined) {
+      const validFreqs = ["weekly", "monthly"];
+      if (!validFreqs.includes(frequency)) {
+        res.status(400).json({ error: `Invalid frequency. Must be one of: ${validFreqs.join(", ")}` });
+        return;
+      }
+      updates.frequency = frequency;
+    }
+
+    if (format !== undefined) {
+      const validFormats = ["csv", "pdf"];
+      if (!validFormats.includes(format)) {
+        res.status(400).json({ error: `Invalid format. Must be one of: ${validFormats.join(", ")}` });
+        return;
+      }
+      updates.format = format;
+    }
+
+    if (recipientEmails !== undefined) {
+      if (!Array.isArray(recipientEmails) || recipientEmails.length === 0) {
+        res.status(400).json({ error: "recipientEmails must be a non-empty array" });
+        return;
+      }
+      updates.recipientEmails = recipientEmails;
+    }
+
+    if (filters !== undefined) {
+      updates.filters = filters ?? {};
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No editable fields provided" });
+      return;
+    }
+
+    const conditions: SQL[] = [eq(scheduledReportsTable.id, id)];
+    if (scope.enforcedDistrictId !== null) {
+      conditions.push(eq(scheduledReportsTable.districtId, scope.enforcedDistrictId));
+    }
+
+    const [updated] = await db.update(scheduledReportsTable)
+      .set(updates)
+      .where(and(...conditions))
+      .returning();
+
+    if (!updated) { res.status(404).json({ error: "Scheduled report not found" }); return; }
+
+    logAudit(req, { action: "update", targetTable: "scheduled_reports", targetId: id, summary: `Updated scheduled report ${id}` });
+    res.json(updated);
+  } catch (e: any) {
+    console.error("PATCH /reports/exports/scheduled error:", e);
+    res.status(500).json({ error: "Failed to update scheduled report" });
+  }
+});
+
 router.delete("/reports/exports/scheduled/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parseInt(req.params.id as string, 10);
