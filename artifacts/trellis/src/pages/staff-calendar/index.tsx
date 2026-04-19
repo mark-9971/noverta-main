@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRole } from "@/lib/role-context";
@@ -50,6 +52,8 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
   const [filterStaff, setFilterStaff] = useState<string>(initialStaffId);
   const [filterSchool, setFilterSchool] = useState<string>("all");
   const [filterServiceType, setFilterServiceType] = useState<string>("all");
+  const [exportStartDate, setExportStartDate] = useState<string>("");
+  const [exportEndDate, setExportEndDate] = useState<string>("");
 
   const [showForm, setShowForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<StaffSchedule | null>(null);
@@ -134,10 +138,23 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredSchedules]);
 
+  function scheduleOverlapsExportRange(s: StaffSchedule): boolean {
+    if (!exportStartDate && !exportEndDate) return true;
+    const effFrom = s.effective_from || null;
+    const effTo = s.effective_to || null;
+    if (exportStartDate && effTo && effTo < exportStartDate) return false;
+    if (exportEndDate && effFrom && effFrom > exportEndDate) return false;
+    return true;
+  }
+
   function buildSchedulePrintHtml(): string {
     const dateStr = new Date().toLocaleDateString("en-US", { weekday: undefined, year: "numeric", month: "long", day: "numeric" });
+    const rangeStr = exportStartDate || exportEndDate
+      ? `${exportStartDate || "earliest"} to ${exportEndDate || "latest"}`
+      : "All dates";
+    const rangeFilteredSchedules = filteredSchedules.filter(scheduleOverlapsExportRange);
     const staffMap = new Map<number, { name: string; blocks: StaffSchedule[] }>();
-    for (const s of filteredSchedules) {
+    for (const s of rangeFilteredSchedules) {
       if (!staffMap.has(s.staff_id)) {
         staffMap.set(s.staff_id, { name: `${s.staffFirstName} ${s.staffLastName}`, blocks: [] });
       }
@@ -183,7 +200,7 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
 </head>
 <body>
   <h1>Staff Scheduling &amp; Availability</h1>
-  <div class="meta">Generated ${dateStr} &bull; ${filteredSchedules.length} schedule entries</div>
+  <div class="meta">Generated ${dateStr} &bull; Date Range: ${esc(rangeStr)} &bull; ${rangeFilteredSchedules.length} schedule entries</div>
   <table>
     <thead>
       <tr>
@@ -198,40 +215,44 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
   }
 
   function handleExportPdf() {
-    if (!filteredSchedules.length) {
-      toast.error("No schedule entries to export");
+    if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+      toast.error("Start date must be on or before end date");
+      return;
+    }
+    const rangeFiltered = filteredSchedules.filter(scheduleOverlapsExportRange);
+    if (!rangeFiltered.length) {
+      toast.error("No schedule entries to export for the selected date range");
       return;
     }
     openPrintWindow(buildSchedulePrintHtml());
   }
 
   async function handleExportCsv() {
+    if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+      toast.error("Start date must be on or before end date");
+      return;
+    }
     if (!filteredSchedules.length) {
       toast.error("No schedule entries to export");
       return;
     }
     try {
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      const friday = new Date(monday);
-      friday.setDate(monday.getDate() + 4);
-      const isoDate = (d: Date) => d.toISOString().slice(0, 10);
-
       const params = new URLSearchParams();
       if (filterStaff !== "all") params.set("staffId", filterStaff);
       if (filterSchool !== "all") params.set("schoolId", filterSchool);
       if (filterServiceType !== "all") params.set("serviceTypeId", filterServiceType);
-      params.set("startDate", isoDate(monday));
-      params.set("endDate", isoDate(friday));
+      if (exportStartDate) params.set("startDate", exportStartDate);
+      if (exportEndDate) params.set("endDate", exportEndDate);
       const url = `/api/schedules/export?${params}`;
       const r = await authFetch(url);
       if (!r.ok) throw new Error();
       const blob = await r.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "staff-schedules.csv";
+      const suffix = exportStartDate || exportEndDate
+        ? `_${exportStartDate || "earliest"}_to_${exportEndDate || "latest"}`
+        : "";
+      a.download = `staff-schedules${suffix}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch {
@@ -338,11 +359,48 @@ export default function StaffCalendar({ embedded = false }: StaffCalendarProps) 
             <Download className="w-3.5 h-3.5 mr-1" /> Export
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleExportPdf}>
+        <DropdownMenuContent align="end" className="w-72 p-3">
+          <div className="space-y-2 mb-2">
+            <p className="text-xs font-semibold text-gray-700">Date range (optional)</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="export-start-date" className="text-[11px] text-gray-500">From</Label>
+                <Input
+                  id="export-start-date"
+                  type="date"
+                  value={exportStartDate}
+                  onChange={(e) => setExportStartDate(e.target.value)}
+                  className="h-8 text-xs"
+                  data-testid="input-export-start-date"
+                />
+              </div>
+              <div>
+                <Label htmlFor="export-end-date" className="text-[11px] text-gray-500">To</Label>
+                <Input
+                  id="export-end-date"
+                  type="date"
+                  value={exportEndDate}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                  className="h-8 text-xs"
+                  data-testid="input-export-end-date"
+                />
+              </div>
+            </div>
+            {(exportStartDate || exportEndDate) && (
+              <button
+                type="button"
+                onClick={() => { setExportStartDate(""); setExportEndDate(""); }}
+                className="text-[11px] text-emerald-700 hover:underline"
+                data-testid="button-clear-export-range"
+              >
+                Clear date range
+              </button>
+            )}
+          </div>
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleExportPdf(); }} data-testid="button-export-pdf">
             <FileText className="w-4 h-4 mr-2" /> PDF / Print
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExportCsv}>
+          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleExportCsv(); }} data-testid="button-export-csv">
             <Sheet className="w-4 h-4 mr-2" /> CSV Download
           </DropdownMenuItem>
         </DropdownMenuContent>

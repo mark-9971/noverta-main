@@ -332,7 +332,12 @@ async function handleSchedulesExport(req: Request, res: Response) {
     const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
     const csvEsc = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
+    const rangeLabel = startDate || endDate
+      ? `${startDate ? String(startDate) : "earliest"} to ${endDate ? String(endDate) : "latest"}`
+      : "All dates";
+
     const csvRows: string[] = [
+      csvEsc(`Date Range: ${rangeLabel}`),
       ["Staff Name", "School", "Day", "Start Time", "End Time", "Service Type", "Label", "Notes"].join(","),
     ];
 
@@ -353,8 +358,11 @@ async function handleSchedulesExport(req: Request, res: Response) {
     }
 
     const csv = csvRows.join("\r\n");
+    const filenameSuffix = startDate || endDate
+      ? `_${startDate ? String(startDate) : "earliest"}_to_${endDate ? String(endDate) : "latest"}`
+      : "";
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", 'attachment; filename="staff-schedules.csv"');
+    res.setHeader("Content-Disposition", `attachment; filename="staff-schedules${filenameSuffix}.csv"`);
     res.send(csv);
   } catch (err) {
     console.error("GET schedules/export error:", err);
