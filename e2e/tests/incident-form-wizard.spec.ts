@@ -1,5 +1,11 @@
-import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  signIn,
+  ensureSampleData,
+  getFirstStudent,
+  selectStudent,
+  deleteIncidentsByBehaviorSnippet,
+} from "./_helpers/incident";
 
 /**
  * UI-level Playwright tests for the 5-step NewIncidentForm wizard.
@@ -24,138 +30,9 @@ import { expect, test, type Page } from "@playwright/test";
  * present (seeded automatically in beforeEach if missing).
  */
 
-const ADMIN_EMAIL =
-  process.env.E2E_ADMIN_EMAIL ?? "trellis-e2e-admin+clerk_test@example.com";
-const ADMIN_PASSWORD =
-  process.env.E2E_ADMIN_PASSWORD ?? "TrellisE2E!Test#2026";
-
 // ---------------------------------------------------------------------------
-// Shared helpers (mirrored from incident-lifecycle.spec.ts for independence)
+// Form-wizard-specific helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Dev-bypass auth headers — same shape the Trellis frontend sends in
- * dev mode (VITE_DEV_AUTH_BYPASS=1). The api-server's requireAuth
- * middleware accepts these in lieu of a Clerk session whenever
- * NODE_ENV=test or DEV_AUTH_BYPASS=1, both of which are true for the
- * dev workflows that back this E2E run. This keeps `page.request.*`
- * authenticated without requiring a Clerk session round-trip.
- */
-const DEV_BYPASS_HEADERS = {
-  "x-test-user-id": "dev_bypass_admin",
-  "x-test-role": "admin",
-  "x-test-district-id": "6",
-} as const;
-
-async function signIn(page: Page): Promise<void> {
-  // Suppress the SampleDataTour overlay (fires automatically when sample
-  // data is loaded) so it doesn't redirect us to /compliance-risk-report
-  // mid-test. We pretend every per-user/per-district tour key has already
-  // been seen.
-  await page.addInitScript(() => {
-    const origGet = Storage.prototype.getItem;
-    Storage.prototype.getItem = function (key: string) {
-      if (key.startsWith("trellis.sampleTour.v1")) return "seen";
-      return origGet.call(this, key);
-    };
-  });
-
-  // Send the dev-bypass headers on every page.request.* call so server
-  // endpoints accept us as the dev admin (the same identity the running
-  // Trellis app uses in this workflow). Clerk sign-in is still performed
-  // below so that frontend pages which gate on `useUser` render normally.
-  await page.context().setExtraHTTPHeaders({ ...DEV_BYPASS_HEADERS });
-
-  await setupClerkTestingToken({ page });
-  await page.goto("/setup");
-  await clerk.signIn({
-    page,
-    signInParams: {
-      strategy: "password",
-      identifier: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-    },
-  });
-  // Navigate to the page our tests actually exercise and confirm the
-  // AppLayout has rendered. This is independent of /setup, which the
-  // SampleDataTour can redirect away from, and proves the app is ready
-  // to receive UI interactions.
-  await page.goto("/protective-measures");
-  await expect(
-    page.getByRole("button", { name: /Report Incident/i }),
-  ).toBeVisible({ timeout: 60_000 });
-}
-
-async function getSampleDataStatus(page: Page) {
-  const res = await page.request.get("/api/sample-data");
-  expect(res.ok(), "GET /api/sample-data should succeed").toBeTruthy();
-  return res.json() as Promise<{
-    hasSampleData: boolean;
-    sampleStudents: number;
-    sampleStaff: number;
-  }>;
-}
-
-async function ensureSampleData(page: Page): Promise<void> {
-  const status = await getSampleDataStatus(page);
-  if (status.hasSampleData && status.sampleStudents > 0) return;
-
-  const res = await page.request.post("/api/sample-data");
-  expect(res.ok(), "POST /api/sample-data (seed) should succeed").toBeTruthy();
-
-  await expect
-    .poll(async () => (await getSampleDataStatus(page)).sampleStudents, {
-      timeout: 120_000,
-      message: "Sample data did not appear within 120 s",
-    })
-    .toBeGreaterThan(0);
-}
-
-interface StudentRow {
-  id: number;
-  firstName: string;
-  lastName: string;
-  grade: string;
-}
-
-async function getFirstStudent(page: Page): Promise<StudentRow> {
-  const res = await page.request.get("/api/students?limit=1");
-  expect(res.ok(), "GET /api/students should succeed").toBeTruthy();
-  const data = await res.json();
-  const rows: StudentRow[] = Array.isArray(data)
-    ? data
-    : (data.students ?? data.data ?? []);
-  expect(
-    rows.length,
-    "At least one student must exist (seed sample data first)",
-  ).toBeGreaterThan(0);
-  return rows[0];
-}
-
-async function deleteIncidentsByBehaviorSnippet(
-  page: Page,
-  studentId: number,
-  behaviorSnippet: string,
-): Promise<void> {
-  try {
-    const res = await page.request.get(
-      `/api/protective-measures/incidents?studentId=${studentId}&limit=50`,
-    );
-    if (!res.ok()) return;
-    const data = await res.json();
-    const rows: Array<{ id: number; behaviorDescription?: string }> =
-      Array.isArray(data) ? data : (data.incidents ?? []);
-    for (const row of rows) {
-      if (row.behaviorDescription?.includes(behaviorSnippet)) {
-        await page.request.delete(
-          `/api/protective-measures/incidents/${row.id}`,
-        );
-      }
-    }
-  } catch {
-    // best-effort cleanup
-  }
-}
 
 /** Clear any localStorage draft so tests start from a clean state. */
 async function clearIncidentDraft(page: Page): Promise<void> {
@@ -164,22 +41,6 @@ async function clearIncidentDraft(page: Page): Promise<void> {
       localStorage.removeItem("pm-incident-draft");
     } catch {}
   });
-}
-
-/**
- * Select a value in the student <select> element.
- *
- * The form renders the student field as a plain <label>/<select> pair without an
- * htmlFor/id binding, so getByLabel() is unreliable. We locate the select by the
- * unique placeholder option "Select student..." which is only present in that
- * particular dropdown.
- */
-async function selectStudent(page: Page, studentId: number): Promise<void> {
-  const studentSelect = page
-    .locator("select")
-    .filter({ has: page.locator('option[value=""]', { hasText: "Select student" }) });
-  await expect(studentSelect).toBeVisible({ timeout: 10_000 });
-  await studentSelect.selectOption({ value: String(studentId) });
 }
 
 // ---------------------------------------------------------------------------
