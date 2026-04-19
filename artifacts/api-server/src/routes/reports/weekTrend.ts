@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { schoolYearsTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { schoolYearsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import type { AuthedRequest } from "../../middlewares/auth";
 import { getEnforcedDistrictId } from "../../middlewares/auth";
 import { computeAllActiveMinuteProgress } from "../../lib/minuteCalc";
@@ -135,6 +135,174 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       else if (status === "on_track" || status === "completed") studentsOnTrack++;
     }
 
+    // ── Secondary metrics: re-run the dashboard's date-anchored counts with
+    // "today" rewound by 7 days. These mirror what /evaluations/dashboard,
+    // /transitions/dashboard, /iep-meetings/dashboard, and
+    // /accommodation-compliance compute today, so the dashboard cards can
+    // render WoW deltas next to their headline numbers.
+    //
+    // Every secondary query is scoped to the caller's district through the
+    // student → school join. We deliberately do NOT apply the optional
+    // `?schoolId=` filter to secondary metrics, even though the primary
+    // compliance trend above does, because the dashboard cards consuming
+    // these deltas (accommodation, evaluations, transitions, meetings) fetch
+    // their current values from district-wide endpoints with no school
+    // filter. Matching the prior-week scope to that current scope keeps the
+    // WoW comparison apples-to-apples; otherwise a school filter would make
+    // prior-week numbers school-scoped while current numbers stayed broader.
+    // Per-caseload (case_manager_id) scoping is similarly skipped — the
+    // cards always show district totals.
+    // If a query fails, we omit that field so the UI silently hides its
+    // delta arrow rather than blocking the rest of the trend payload.
+    const sevenDaysAgoDateStr = priorWeekDateStr;
+    const sevenDaysAgoTimestamp = sevenDaysAgo;
+
+    // District-scope filter applied to every secondary query: only students
+    // whose school belongs to the caller's district. Without this, the
+    // prior-week aggregates would leak across tenants.
+    const districtStudentScope = sql`s.school_id IN (SELECT id FROM schools WHERE district_id = ${districtId})`;
+
+    const secondary: {
+      accommodation?: { overallComplianceRate: number };
+      evaluations?: { overdueEvaluations: number; overdueReEvaluations: number };
+      transitions?: { missingPlan: number; overdueFollowups: number };
+      meetings?: { overdueCount: number };
+    } = {};
+
+    try {
+      // Overdue evaluations & re-evals as of sevenDaysAgo, scoped to the
+      // caller's district through the student → school join.
+      const evalRows = await db.execute(sql`
+        SELECT
+          (
+            SELECT COUNT(*)::int FROM evaluations e
+            JOIN students s ON s.id = e.student_id
+            WHERE e.deleted_at IS NULL
+              AND e.status IN ('pending', 'in_progress')
+              AND e.due_date <= ${sevenDaysAgoDateStr}::date
+              AND ${districtStudentScope}
+          ) AS overdue_evals,
+          (
+            SELECT COUNT(*)::int FROM eligibility_determinations ed
+            JOIN students s ON s.id = ed.student_id
+            WHERE ed.deleted_at IS NULL
+              AND ed.next_re_eval_date <= ${sevenDaysAgoDateStr}::date
+              AND ${districtStudentScope}
+          ) AS overdue_re_evals
+      `);
+      const row = evalRows.rows[0] as { overdue_evals: number; overdue_re_evals: number } | undefined;
+      secondary.evaluations = {
+        overdueEvaluations: Number(row?.overdue_evals ?? 0),
+        overdueReEvaluations: Number(row?.overdue_re_evals ?? 0),
+      };
+    } catch (e) {
+      console.warn("week-trend: prior evaluations counts failed", e);
+    }
+
+    try {
+      // Transition-age (14+) active students in this district as of
+      // sevenDaysAgo, minus those who already had a non-deleted transition
+      // plan that existed at that point.
+      const transitionRows = await db.execute(sql`
+        WITH age_students AS (
+          SELECT s.id
+          FROM students s
+          WHERE s.status = 'active'
+            AND s.deleted_at IS NULL
+            AND s.date_of_birth IS NOT NULL
+            AND s.date_of_birth <= (${sevenDaysAgoDateStr}::date - INTERVAL '14 years')
+            AND ${districtStudentScope}
+        ),
+        students_with_plan AS (
+          SELECT DISTINCT tp.student_id
+          FROM transition_plans tp
+          WHERE tp.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+            AND (tp.deleted_at IS NULL OR tp.deleted_at > ${sevenDaysAgoTimestamp}::timestamptz)
+        )
+        SELECT
+          (SELECT COUNT(*)::int FROM age_students a WHERE a.id NOT IN (SELECT student_id FROM students_with_plan)) AS missing_plan,
+          (
+            SELECT COUNT(*)::int
+            FROM transition_agency_referrals tar
+            JOIN transition_plans tp ON tp.id = tar.transition_plan_id
+            JOIN students s ON s.id = tp.student_id
+            WHERE tar.deleted_at IS NULL
+              AND tar.status = 'pending'
+              AND tar.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+              AND tar.follow_up_date IS NOT NULL
+              AND tar.follow_up_date < ${sevenDaysAgoDateStr}::date
+              AND ${districtStudentScope}
+          ) AS overdue_followups
+      `);
+      const trow = transitionRows.rows[0] as { missing_plan: number; overdue_followups: number } | undefined;
+      secondary.transitions = {
+        missingPlan: Number(trow?.missing_plan ?? 0),
+        overdueFollowups: Number(trow?.overdue_followups ?? 0),
+      };
+    } catch (e) {
+      console.warn("week-trend: prior transitions counts failed", e);
+    }
+
+    try {
+      // Meetings overdue 7d ago: scheduled meetings whose scheduledDate was
+      // already past sevenDaysAgo and that existed at that point — scoped to
+      // the caller's district through the student → school join.
+      const meetingRows = await db.execute(sql`
+        SELECT COUNT(*)::int AS overdue_count
+        FROM team_meetings tm
+        JOIN students s ON s.id = tm.student_id
+        WHERE tm.status = 'scheduled'
+          AND tm.scheduled_date < ${sevenDaysAgoDateStr}::date
+          AND tm.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+          AND ${districtStudentScope}
+      `);
+      const mrow = meetingRows.rows[0] as { overdue_count: number } | undefined;
+      secondary.meetings = { overdueCount: Number(mrow?.overdue_count ?? 0) };
+    } catch (e) {
+      console.warn("week-trend: prior meetings count failed", e);
+    }
+
+    try {
+      // Accommodation compliance % of students in this district whose
+      // accommodations were all verified within the per-accommodation
+      // window (default 30 days) ending sevenDaysAgo. Mirrors what
+      // /accommodation-compliance computes today, district-scoped via the
+      // student → school join.
+      const accomRows = await db.execute(sql`
+        WITH student_acc AS (
+          SELECT
+            ia.student_id,
+            COUNT(*) FILTER (
+              WHERE NOT EXISTS (
+                SELECT 1 FROM accommodation_verifications av
+                WHERE av.accommodation_id = ia.id
+                  AND av.created_at >= (${sevenDaysAgoTimestamp}::timestamptz - MAKE_INTERVAL(days => COALESCE(ia.verification_schedule_days, 30)))
+                  AND av.created_at <= ${sevenDaysAgoTimestamp}::timestamptz
+                  AND av.status IN ('verified', 'partial', 'not_applicable')
+              )
+            ) AS overdue_count
+          FROM iep_accommodations ia
+          JOIN students s ON s.id = ia.student_id
+          WHERE ia.active = true
+            AND s.status = 'active'
+            AND s.deleted_at IS NULL
+            AND ${districtStudentScope}
+          GROUP BY ia.student_id
+        )
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE overdue_count = 0)::int AS fully_verified
+        FROM student_acc
+      `);
+      const accRow = accomRows.rows[0] as { total: number; fully_verified: number } | undefined;
+      const total = Number(accRow?.total ?? 0);
+      const fully = Number(accRow?.fully_verified ?? 0);
+      const accRate = total > 0 ? Math.round((fully * 100) / total) : 100;
+      secondary.accommodation = { overallComplianceRate: accRate };
+    } catch (e) {
+      console.warn("week-trend: prior accommodation rate failed", e);
+    }
+
     res.json({
       available: true,
       priorWeekEndDate: effectiveEndDate,
@@ -142,6 +310,7 @@ router.get("/reports/compliance-week-trend", async (req: Request, res: Response)
       studentsOutOfCompliance,
       studentsAtRisk,
       studentsOnTrack,
+      secondary,
     });
   } catch (e: any) {
     console.error("GET /reports/compliance-week-trend error:", e);

@@ -1,12 +1,54 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, BadgeCheck, CheckCircle2, Clock, FileText } from "lucide-react";
+import { AlertTriangle, Shield, ArrowRight, CalendarDays, FileSearch, Sprout, CalendarDays as MeetingIcon, BadgeCheck, CheckCircle2, Clock, FileText, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Link } from "wouter";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { useSchoolContext } from "@/lib/school-context";
 
-export function AccommodationComplianceCard({ accommodationCompliance }: { accommodationCompliance: any }) {
+/**
+ * Inline week-over-week delta indicator for secondary dashboard metric cards.
+ * Mirrors the look of the trend arrows on the hero compliance card so the
+ * "is this getting better or worse?" signal is consistent across the page.
+ *
+ * `positiveIsGood` flips the color polarity so e.g. "overdue evaluations going
+ * down" renders green even though the numeric delta is negative.
+ */
+function TrendDelta({
+  delta,
+  positiveIsGood,
+  suffix = "",
+  decimals = 0,
+}: {
+  delta: number | null | undefined;
+  positiveIsGood: boolean;
+  suffix?: string;
+  decimals?: number;
+}) {
+  if (delta === null || delta === undefined) return null;
+  const isZero = decimals > 0 ? Math.abs(delta) < Math.pow(10, -decimals) / 2 : delta === 0;
+  const isUp = !isZero && delta > 0;
+  const isGood = isZero ? false : positiveIsGood ? isUp : !isUp;
+  const isBad = isZero ? false : positiveIsGood ? !isUp : isUp;
+  const colorCls = isGood ? "text-emerald-600" : isBad ? "text-red-600" : "text-gray-400";
+  const Icon = isZero ? Minus : isUp ? TrendingUp : TrendingDown;
+  const sign = isZero ? "" : delta > 0 ? "+" : "";
+  const display = decimals > 0 ? delta.toFixed(decimals) : Math.round(delta).toString();
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${colorCls}`} title="vs. last week">
+      <Icon className="w-3 h-3" />
+      <span className="tabular-nums">{sign}{display}{suffix}</span>
+    </span>
+  );
+}
+
+export function AccommodationComplianceCard({
+  accommodationCompliance,
+  rateDelta,
+}: {
+  accommodationCompliance: any;
+  rateDelta?: number | null;
+}) {
   if (!accommodationCompliance) return null;
   return (
     <Card className="border-gray-200/60">
@@ -23,7 +65,10 @@ export function AccommodationComplianceCard({ accommodationCompliance }: { accom
               <Shield className="w-6 h-6 text-emerald-600" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">{accommodationCompliance.overallComplianceRate}%</div>
+              <div className="flex items-baseline gap-1.5">
+                <div className="text-2xl font-bold text-gray-900">{accommodationCompliance.overallComplianceRate}%</div>
+                <TrendDelta delta={rateDelta} positiveIsGood suffix="%" />
+              </div>
               <div className="text-[11px] text-gray-400">verified in 30 days</div>
             </div>
           </div>
@@ -167,7 +212,17 @@ export function TransitionsSection({ transitionDash }: { transitionDash: any }) 
   );
 }
 
-export function EvalsTransitionsSection({ evalDash, transitionDash }: { evalDash: any; transitionDash: any }) {
+export function EvalsTransitionsSection({
+  evalDash,
+  transitionDash,
+  evalsDeltas,
+  transitionsDeltas,
+}: {
+  evalDash: any;
+  transitionDash: any;
+  evalsDeltas?: { overdueEvaluations?: number | null; overdueReEvaluations?: number | null };
+  transitionsDeltas?: { missingPlan?: number | null; overdueFollowups?: number | null };
+}) {
   return (
     <CollapsibleSection title="Evaluations & Transitions" icon={FileSearch}>
       {evalDash && (evalDash.overdueEvaluations > 0 || evalDash.overdueReEvaluations > 0 || evalDash.openReferrals > 0) && (
@@ -176,9 +231,19 @@ export function EvalsTransitionsSection({ evalDash, transitionDash }: { evalDash
             <FileSearch className={`w-5 h-5 flex-shrink-0 ${evalDash.overdueEvaluations > 0 ? "text-red-500" : "text-amber-500"}`} />
             <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
               {evalDash.openReferrals > 0 && <span className="text-gray-600"><b className="text-gray-800">{evalDash.openReferrals}</b> open referral{evalDash.openReferrals !== 1 ? "s" : ""}</span>}
-              {evalDash.overdueEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}</span>}
+              {evalDash.overdueEvaluations > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-red-700 font-semibold">
+                  {evalDash.overdueEvaluations} overdue evaluation{evalDash.overdueEvaluations !== 1 ? "s" : ""}
+                  <TrendDelta delta={evalsDeltas?.overdueEvaluations} positiveIsGood={false} />
+                </span>
+              )}
               {evalDash.upcomingReEvaluations > 0 && <span className="text-amber-700">{evalDash.upcomingReEvaluations} re-eval{evalDash.upcomingReEvaluations !== 1 ? "s" : ""} due within 90 days</span>}
-              {evalDash.overdueReEvaluations > 0 && <span className="text-red-700 font-semibold">{evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}</span>}
+              {evalDash.overdueReEvaluations > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-red-700 font-semibold">
+                  {evalDash.overdueReEvaluations} overdue re-eval{evalDash.overdueReEvaluations !== 1 ? "s" : ""}
+                  <TrendDelta delta={evalsDeltas?.overdueReEvaluations} positiveIsGood={false} />
+                </span>
+              )}
             </div>
             <Link href="/evaluations" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
               View Evaluations →
@@ -192,10 +257,20 @@ export function EvalsTransitionsSection({ evalDash, transitionDash }: { evalDash
           <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
             <Sprout className={`w-5 h-5 flex-shrink-0 ${transitionDash.missingPlan > 0 ? "text-amber-500" : "text-emerald-500"}`} />
             <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-              {transitionDash.missingPlan > 0 && <span className="text-amber-700 font-semibold">{transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan</span>}
+              {transitionDash.missingPlan > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-amber-700 font-semibold">
+                  {transitionDash.missingPlan} student{transitionDash.missingPlan !== 1 ? "s" : ""} 14+ missing transition plan
+                  <TrendDelta delta={transitionsDeltas?.missingPlan} positiveIsGood={false} />
+                </span>
+              )}
               {transitionDash.incompletePlans > 0 && <span className="text-amber-600">{transitionDash.incompletePlans} incomplete plan{transitionDash.incompletePlans !== 1 ? "s" : ""}</span>}
               {transitionDash.approachingTransitionAge > 0 && <span className="text-gray-600">{transitionDash.approachingTransitionAge} approaching transition age</span>}
-              {transitionDash.overdueFollowups > 0 && <span className="text-red-700 font-semibold">{transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}</span>}
+              {transitionDash.overdueFollowups > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-red-700 font-semibold">
+                  {transitionDash.overdueFollowups} overdue agency follow-up{transitionDash.overdueFollowups !== 1 ? "s" : ""}
+                  <TrendDelta delta={transitionsDeltas?.overdueFollowups} positiveIsGood={false} />
+                </span>
+              )}
             </div>
             <Link href="/transitions" className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 whitespace-nowrap">
               Transition Planning →
@@ -213,7 +288,13 @@ export function EvalsTransitionsSection({ evalDash, transitionDash }: { evalDash
   );
 }
 
-export function MeetingsSection({ meetingDash }: { meetingDash: any }) {
+export function MeetingsSection({
+  meetingDash,
+  overdueDelta,
+}: {
+  meetingDash: any;
+  overdueDelta?: number | null;
+}) {
   return (
     <CollapsibleSection title="IEP Meetings" icon={MeetingIcon}>
       {meetingDash && (meetingDash.overdueCount > 0 || meetingDash.thisWeekCount > 0 || meetingDash.pendingConsentCount > 0) ? (
@@ -221,7 +302,12 @@ export function MeetingsSection({ meetingDash }: { meetingDash: any }) {
           <CardContent className="py-3 px-5 flex items-center gap-4 flex-wrap">
             <MeetingIcon className={`w-5 h-5 flex-shrink-0 ${meetingDash.overdueCount > 0 ? "text-red-500" : "text-emerald-500"}`} />
             <div className="flex-1 min-w-0 flex items-center gap-4 flex-wrap text-[12px]">
-              {meetingDash.overdueCount > 0 && <span className="text-red-700 font-semibold">{meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}</span>}
+              {meetingDash.overdueCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-red-700 font-semibold">
+                  {meetingDash.overdueCount} overdue meeting{meetingDash.overdueCount !== 1 ? "s" : ""}
+                  <TrendDelta delta={overdueDelta} positiveIsGood={false} />
+                </span>
+              )}
               {meetingDash.thisWeekCount > 0 && <span className="text-gray-700">{meetingDash.thisWeekCount} meeting{meetingDash.thisWeekCount !== 1 ? "s" : ""} this week</span>}
               {meetingDash.pendingConsentCount > 0 && <span className="text-amber-700">{meetingDash.pendingConsentCount} pending consent</span>}
             </div>

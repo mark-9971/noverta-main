@@ -73,6 +73,18 @@ interface WeekTrend {
   studentsOutOfCompliance?: number;
   studentsAtRisk?: number;
   studentsOnTrack?: number;
+  /**
+   * Prior-week values for the secondary dashboard cards. Each block is
+   * optional — if the API failed to compute a particular metric (e.g. the
+   * accommodation rate query errored), the block is omitted and the UI
+   * silently hides that delta arrow.
+   */
+  secondary?: {
+    accommodation?: { overallComplianceRate: number };
+    evaluations?: { overdueEvaluations: number; overdueReEvaluations: number };
+    transitions?: { missingPlan: number; overdueFollowups: number };
+    meetings?: { overdueCount: number };
+  };
 }
 
 function statusBand(rate: number): { label: string; tone: "green" | "amber" | "red"; line: string } {
@@ -269,6 +281,31 @@ export default function PilotAdminHome() {
     : null;
   const onTrackDelta = trendAvailable && weekTrend!.studentsOnTrack !== undefined
     ? (summary!.studentsOnTrack - weekTrend!.studentsOnTrack!)
+    : null;
+
+  // ── Secondary card deltas (week-over-week).
+  // Each is null unless we have both the current dashboard value AND the
+  // matching prior-week value from /reports/compliance-week-trend.secondary.
+  // The TrendDelta component hides itself when delta === null, so cards still
+  // render cleanly even if the prior-week query failed for one metric.
+  const accomRateDelta =
+    accommodationCompliance && weekTrend?.secondary?.accommodation
+      ? (accommodationCompliance.overallComplianceRate - weekTrend.secondary.accommodation.overallComplianceRate)
+      : null;
+  const evalsDeltas = evalDash && weekTrend?.secondary?.evaluations
+    ? {
+        overdueEvaluations: (evalDash.overdueEvaluations as number) - weekTrend.secondary.evaluations.overdueEvaluations,
+        overdueReEvaluations: (evalDash.overdueReEvaluations as number) - weekTrend.secondary.evaluations.overdueReEvaluations,
+      }
+    : undefined;
+  const transitionsDeltas = transitionDash && weekTrend?.secondary?.transitions
+    ? {
+        missingPlan: (transitionDash.missingPlan as number) - weekTrend.secondary.transitions.missingPlan,
+        overdueFollowups: (transitionDash.overdueFollowups as number) - weekTrend.secondary.transitions.overdueFollowups,
+      }
+    : undefined;
+  const meetingsOverdueDelta = meetingDash && weekTrend?.secondary?.meetings
+    ? ((meetingDash as { overdueCount: number }).overdueCount - weekTrend.secondary.meetings.overdueCount)
     : null;
 
   return (
@@ -542,10 +579,10 @@ export default function PilotAdminHome() {
         {/* Provider session completion rate leaderboard */}
         <ProviderCompletionCard />
 
-        {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} />}
+        {accommodationCompliance && <AccommodationComplianceCard accommodationCompliance={accommodationCompliance} rateDelta={accomRateDelta} />}
         <IepExpirationCard enabled={opsEnabled} />
-        <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} />
-        <MeetingsSection meetingDash={meetingDash} />
+        <EvalsTransitionsSection evalDash={evalDash} transitionDash={transitionDash} evalsDeltas={evalsDeltas} transitionsDeltas={transitionsDeltas} />
+        <MeetingsSection meetingDash={meetingDash} overdueDelta={meetingsOverdueDelta} />
         {dashSummary?.contractRenewals && dashSummary.contractRenewals.length > 0 && (
           <ContractRenewalsCard contractRenewals={dashSummary.contractRenewals} />
         )}
