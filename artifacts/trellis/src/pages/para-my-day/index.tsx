@@ -23,7 +23,12 @@ import { BipSummaryView } from "./BipSummaryView";
 import { AssignedBipListView } from "./AssignedBipListView";
 
 export default function ParaMyDayPage() {
-  const { teacherId } = useRole();
+  // Phase 2B DP1: /my-day is shared by para, direct_provider, and provider
+  // (after PR1). Para keeps the full behavior/BIP-flavored experience;
+  // clinician roles see a session-oriented landing without para-only panels.
+  const { teacherId, role } = useRole();
+  const isParaShell = role === "para";
+  const firstRunRole: "para" | "provider" = isParaShell ? "para" : "provider";
   const [loading, setLoading] = useState(true);
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -351,6 +356,8 @@ export default function ParaMyDayPage() {
         onStartSession={startSession}
         onQuickLog={openQuickLog}
         caseloadProgress={caseloadProgress}
+        isParaShell={isParaShell}
+        firstRunRole={firstRunRole}
       />
 
       <button

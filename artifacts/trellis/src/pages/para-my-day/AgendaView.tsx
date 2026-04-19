@@ -134,6 +134,8 @@ export function AgendaView({
   onStartSession,
   onQuickLog,
   caseloadProgress,
+  isParaShell = true,
+  firstRunRole = "para",
 }: {
   date: string;
   onDateChange: (d: string) => void;
@@ -146,6 +148,10 @@ export function AgendaView({
   onStartSession: (block: ScheduleBlock) => void;
   onQuickLog: (prefill: QuickLogPrefill, skipToMissed?: boolean) => void;
   caseloadProgress?: StudentProgress[];
+  // Phase 2B DP1: when false (provider/direct_provider), suppress
+  // para-only behavior surfaces and use clinician-shaped empty-state copy.
+  isParaShell?: boolean;
+  firstRunRole?: "para" | "provider";
 }) {
   const pastUnloggedBlocks = blocks.filter(
     b => !isCurrentBlock(b) && !isUpcoming(b) && b.studentId && !b.sessionLogged
@@ -190,7 +196,7 @@ export function AgendaView({
         <CaseloadPanel progress={caseloadProgress} />
       )}
 
-      {assignedBips.length > 0 && (
+      {isParaShell && assignedBips.length > 0 && (
         <button onClick={onShowMyBips} className="w-full text-left">
           <Card className="border-emerald-200 hover:border-emerald-400 transition-colors">
             <CardContent className="p-4 flex items-center justify-between">
@@ -215,7 +221,7 @@ export function AgendaView({
         /* Honest first-run empty state. Until the supervising teacher
            builds schedule blocks and assigns this para, "My Day" has
            nothing to show — explain why instead of looking broken. */
-        <RoleFirstRunCard role="para" />
+        <RoleFirstRunCard role={firstRunRole} />
       ) : (
         <>
           <div className="flex items-center justify-between px-1">
