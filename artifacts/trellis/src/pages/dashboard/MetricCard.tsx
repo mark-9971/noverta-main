@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
-export function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href, footer }: any) {
+export function MetricCard({ title, value, icon: Icon, accent = "emerald", subtitle, href, footer, emptyState }: any) {
   const accents: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600",
     red: "bg-red-50 text-red-500",
@@ -16,6 +16,7 @@ export function MetricCard({ title, value, icon: Icon, accent = "emerald", subti
   };
 
   const isLoaded = value !== null && value !== undefined;
+  const isEmpty = isLoaded && value === "—" && !!emptyState;
 
   const content = (
     <Card className={`hover:shadow-md transition-shadow cursor-pointer group border-gray-200/60 ${ringAccents[accent] ?? ""}`}>
@@ -30,9 +31,16 @@ export function MetricCard({ title, value, icon: Icon, accent = "emerald", subti
               <span className="text-2xl font-bold text-gray-900">
                 {isLoaded ? value : <Skeleton className="w-8 h-7" />}
               </span>
-              {isLoaded && subtitle && <span className="text-[11px] text-gray-400 leading-tight">{subtitle}</span>}
+              {isLoaded && !isEmpty && subtitle && (
+                <span className="text-[11px] text-gray-400 leading-tight">{subtitle}</span>
+              )}
             </div>
-            {isLoaded && footer}
+            {isEmpty && (
+              <p className="text-[11px] text-gray-500 leading-tight mt-1 line-clamp-1" data-testid="metric-empty-state">
+                {emptyState}
+              </p>
+            )}
+            {isLoaded && !isEmpty && footer}
           </div>
         </div>
       </CardContent>

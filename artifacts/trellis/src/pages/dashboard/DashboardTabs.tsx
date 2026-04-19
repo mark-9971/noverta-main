@@ -179,49 +179,65 @@ export function DashboardTabs({
         )}
 
         {/* 5 top-line metric cards */}
+        {(() => {
+          const providerHasNoStudents = !!myCaseload && (myCaseload.assignedStudents ?? 0) === 0;
+          const providerEmptyMsg = "No students assigned yet — contact your administrator";
+          return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title={myCaseload ? "Your Caseload" : "Compliance Rate"}
-            value={myCaseload ? myCaseload.assignedStudents : (hasTrackedData ? `${onTrackPct}%` : "—")}
+            value={myCaseload
+              ? (providerHasNoStudents ? "—" : myCaseload.assignedStudents)
+              : (hasTrackedData ? `${onTrackPct}%` : "—")}
             icon={myCaseload ? Users : Shield}
             accent={myCaseload
-              ? "emerald"
+              ? (providerHasNoStudents ? "amber" : "emerald")
               : (!hasTrackedData ? "amber" : (onTrackPct >= 95 ? "emerald" : onTrackPct >= 85 ? "amber" : "red"))}
             subtitle={myCaseload ? "students assigned" : complianceSubtitle}
+            emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/students" : "/compliance?tab=minutes"}
           />
           <MetricCard
             title={myCaseload ? "Sessions Delivered" : "High-Risk Students"}
-            value={myCaseload ? `${myCaseload.totalDeliveredMinutes} min` : (outOfComplianceStudents + (ro?.atRisk ?? 0))}
+            value={myCaseload
+              ? (providerHasNoStudents ? "—" : `${myCaseload.totalDeliveredMinutes} min`)
+              : (outOfComplianceStudents + (ro?.atRisk ?? 0))}
             icon={myCaseload ? Clock : AlertTriangle}
-            accent={myCaseload ? "emerald" : ((outOfComplianceStudents + (ro?.atRisk ?? 0)) > 0 ? "red" : "emerald")}
+            accent={myCaseload
+              ? (providerHasNoStudents ? "amber" : "emerald")
+              : ((outOfComplianceStudents + (ro?.atRisk ?? 0)) > 0 ? "red" : "emerald")}
             subtitle={myCaseload
               ? `of ${myCaseload.totalRequiredMinutes} required`
               : `${outOfComplianceStudents} out of compliance · ${ro?.atRisk ?? 0} at risk`}
+            emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/sessions" : "/compliance?tab=risk-report"}
           />
           <MetricCard
             title={myCaseload ? "Compliance" : "Urgent Actions"}
-            value={myCaseload ? `${myCaseload.utilizationPercent}%` : ((alerts?.critical ?? 0) + makeupObligations)}
+            value={myCaseload
+              ? (providerHasNoStudents ? "—" : `${myCaseload.utilizationPercent}%`)
+              : ((alerts?.critical ?? 0) + makeupObligations)}
             icon={myCaseload ? CheckCircle : Bell}
             accent={myCaseload
-              ? (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber")
+              ? (providerHasNoStudents ? "amber" : (myCaseload.utilizationPercent >= 80 ? "emerald" : "amber"))
               : ((alerts?.critical ?? 0) + makeupObligations > 0 ? "red" : "emerald")}
             subtitle={myCaseload
               ? "of your students on track"
               : `${alerts?.critical ?? 0} critical alert${(alerts?.critical ?? 0) !== 1 ? "s" : ""} · ${makeupObligations} makeup${makeupObligations !== 1 ? "s" : ""} due`}
+            emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/compliance?tab=minutes" : "/action-center"}
           />
           <MetricCard
             title={myCaseload ? "At Risk" : "Compensatory Exposure"}
             value={myCaseload
-              ? myCaseload.studentsAtRisk
+              ? (providerHasNoStudents ? "—" : myCaseload.studentsAtRisk)
               : (shortfallMinutes > 0 ? `${shortfallMinutes.toLocaleString()} min` : "0 min")}
             icon={myCaseload ? AlertTriangle : DollarSign}
             accent={myCaseload
-              ? (myCaseload.studentsAtRisk > 0 ? "red" : "emerald")
+              ? (providerHasNoStudents ? "amber" : (myCaseload.studentsAtRisk > 0 ? "red" : "emerald"))
               : (shortfallMinutes > 0 ? "red" : "emerald")}
             subtitle={myCaseload ? "students in your caseload" : "total service-minute shortfall this period"}
+            emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href={myCaseload ? "/compliance?tab=minutes" : "/compliance?tab=risk-report"}
           />
           <MetricCard
@@ -230,9 +246,12 @@ export function DashboardTabs({
             icon={Target}
             accent={goalMasteryRate === null ? "emerald" : (goalMasteryRate >= 75 ? "emerald" : goalMasteryRate >= 55 ? "amber" : "red")}
             subtitle={goalMasterySubtitle ?? "of rated goals on track or mastered"}
+            emptyState={providerHasNoStudents ? providerEmptyMsg : undefined}
             href="/progress-reports"
           />
         </div>
+          );
+        })()}
 
         {/* Goal mastery by service area — compact breakdown beneath the top-line card.
             On small screens, the summary toggle is visible so it can be collapsed.
