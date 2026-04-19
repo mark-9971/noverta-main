@@ -48,7 +48,7 @@ interface SnapshotRow {
   weeklyDigestSentAt: Date | string | null;
 }
 
-async function fetchTopRisksForDistrict(districtId: number, limit = 3): Promise<TopRisk[]> {
+async function fetchTopRisksForDistrict(districtId: number, limit = 6): Promise<TopRisk[]> {
   const activeStudents = await db
     .select({ id: studentsTable.id })
     .from(studentsTable)
@@ -79,7 +79,7 @@ async function fetchTopRisksForDistrict(districtId: number, limit = 3): Promise<
         eq(alertsTable.type, "cost_avoidance_risk"),
         eq(alertsTable.resolved, false),
         inArray(alertsTable.studentId, studentIds),
-        inArray(alertsTable.severity, ["critical", "high"]),
+        inArray(alertsTable.severity, ["critical", "high", "medium"]),
       ),
     )
     .orderBy(
@@ -162,10 +162,106 @@ function formatChangePercent(current: number, prior: number): string {
   return pct > 0 ? `+${pct}%` : `${pct}%`;
 }
 
-function severityColor(severity: string): string {
-  if (severity === "critical") return "#dc2626";
-  if (severity === "high") return "#ea580c";
-  return "#ca8a04";
+type UrgencyLevel = "critical" | "warning" | "informational";
+
+interface UrgencyStyle {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  cardBg: string;
+  cardBorder: string;
+  dot: string;
+  headerColor: string;
+}
+
+const URGENCY_STYLES: Record<UrgencyLevel, UrgencyStyle> = {
+  critical: {
+    label: "Critical",
+    badgeBg: "#dc2626",
+    badgeText: "#ffffff",
+    cardBg: "#fef2f2",
+    cardBorder: "#fecaca",
+    dot: "#dc2626",
+    headerColor: "#991b1b",
+  },
+  warning: {
+    label: "Warning",
+    badgeBg: "#f59e0b",
+    badgeText: "#ffffff",
+    cardBg: "#fffbeb",
+    cardBorder: "#fde68a",
+    dot: "#f59e0b",
+    headerColor: "#92400e",
+  },
+  informational: {
+    label: "Informational",
+    badgeBg: "#10b981",
+    badgeText: "#ffffff",
+    cardBg: "#ecfdf5",
+    cardBorder: "#a7f3d0",
+    dot: "#10b981",
+    headerColor: "#065f46",
+  },
+};
+
+export function severityToUrgency(severity: string): UrgencyLevel {
+  if (severity === "critical") return "critical";
+  if (severity === "high") return "warning";
+  return "informational";
+}
+
+function consequenceFor(risk: TopRisk): string {
+  if (risk.action && risk.action.trim().length > 0) return risk.action;
+  const u = severityToUrgency(risk.severity);
+  if (u === "critical") return "Immediate action required to prevent compliance liability.";
+  if (u === "warning") return "Address this week to keep services on track.";
+  return "Monitor and address before it escalates.";
+}
+
+function groupByUrgency(risks: TopRisk[]): Record<UrgencyLevel, TopRisk[]> {
+  const grouped: Record<UrgencyLevel, TopRisk[]> = {
+    critical: [],
+    warning: [],
+    informational: [],
+  };
+  for (const r of risks) {
+    grouped[severityToUrgency(r.severity)].push(r);
+  }
+  return grouped;
+}
+
+function renderUrgencyGroupHtml(level: UrgencyLevel, items: TopRisk[]): string {
+  if (items.length === 0) return "";
+  const style = URGENCY_STYLES[level];
+  const itemsHtml = items.map((r) => `
+    <div style="background:${style.cardBg};border:1px solid ${style.cardBorder};border-left:4px solid ${style.dot};border-radius:6px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:2px">
+            ${escapeHtml(r.studentName)} &mdash; ${escapeHtml(r.title)}
+          </div>
+          <div style="font-size:12px;color:#4b5563;line-height:1.4">
+            ${escapeHtml(consequenceFor(r))}
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  return `
+    <div style="margin-top:14px">
+      <div style="display:flex;align-items:center;margin-bottom:8px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${style.dot};margin-right:8px"></span>
+        <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${style.headerColor}">
+          ${style.label}
+        </span>
+        <span style="display:inline-block;margin-left:8px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:${style.badgeBg};color:${style.badgeText}">
+          ${items.length}
+        </span>
+      </div>
+      ${itemsHtml}
+    </div>
+  `;
 }
 
 export function buildWeeklyRiskDigestEmail(opts: {
@@ -202,28 +298,10 @@ export function buildWeeklyRiskDigestEmail(opts: {
     ? `<span style="display:inline-block;margin-left:8px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:12px;background:${changeColor};color:#fff">${changeLabel} vs prior week</span>`
     : "";
 
+  const grouped = groupByUrgency(topRisks);
   const topRisksHtml = topRisks.length === 0
-    ? `<p style="color:#6b7280;font-size:13px">No open critical or high-severity risks at this time.</p>`
-    : `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px">
-        <thead>
-          <tr style="background:#f3f4f6;text-align:left">
-            <th style="padding:8px 10px;border:1px solid #e5e7eb;color:#374151">Student</th>
-            <th style="padding:8px 10px;border:1px solid #e5e7eb;color:#374151">Risk</th>
-            <th style="padding:8px 10px;border:1px solid #e5e7eb;color:#374151">Action Needed</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${topRisks.map((r) => `
-          <tr>
-            <td style="padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top">
-              ${escapeHtml(r.studentName)}<br>
-              <span style="display:inline-block;margin-top:4px;background:${severityColor(r.severity)};color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;text-transform:uppercase">${escapeHtml(r.severity)}</span>
-            </td>
-            <td style="padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top;color:#374151">${escapeHtml(r.title)}</td>
-            <td style="padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top;color:#6b7280">${r.action != null ? escapeHtml(r.action) : "—"}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>`;
+    ? `<p style="color:#6b7280;font-size:13px">No open risks requiring action at this time.</p>`
+    : `${renderUrgencyGroupHtml("critical", grouped.critical)}${renderUrgencyGroupHtml("warning", grouped.warning)}${renderUrgencyGroupHtml("informational", grouped.informational)}`;
 
   const subject = `Weekly Risk Exposure Summary — ${districtName} — ${weekLabel}`;
 
@@ -281,11 +359,22 @@ export function buildWeeklyRiskDigestEmail(opts: {
 </body>
 </html>`;
 
+  const renderTextGroup = (level: UrgencyLevel, items: TopRisk[]): string => {
+    if (items.length === 0) return "";
+    const heading = `${URGENCY_STYLES[level].label.toUpperCase()} (${items.length})`;
+    const body = items.map((r, i) =>
+      `  ${i + 1}. ${r.studentName} — ${r.title}\n     Consequence: ${consequenceFor(r)}`
+    ).join("\n");
+    return `${heading}\n${body}`;
+  };
+
   const topRisksText = topRisks.length === 0
-    ? "No open critical or high-severity risks at this time."
-    : topRisks.map((r, i) =>
-        `${i + 1}. [${r.severity.toUpperCase()}] ${r.studentName} — ${r.title}\n   Action: ${r.action ?? "—"}`
-      ).join("\n");
+    ? "No open risks requiring action at this time."
+    : [
+        renderTextGroup("critical", grouped.critical),
+        renderTextGroup("warning", grouped.warning),
+        renderTextGroup("informational", grouped.informational),
+      ].filter(Boolean).join("\n\n");
 
   const text = [
     `WEEKLY RISK EXPOSURE SUMMARY`,
@@ -319,7 +408,7 @@ export async function buildWeeklyRiskDigestPreviewForDistrict(districtId: number
   if (!district) return { ok: false, error: "district not found" };
 
   const { current, prior } = await fetchCurrentAndPriorSnapshot(districtId);
-  const topRisks = await fetchTopRisksForDistrict(districtId, 3);
+  const topRisks = await fetchTopRisksForDistrict(districtId, 6);
 
   let weekLabel: string;
   let currentExposure: number;
@@ -400,7 +489,7 @@ export async function sendWeeklyRiskDigestForDistrict(districtId: number): Promi
     return { sent: false, skipped: true, reason: "no admin recipients" };
   }
 
-  const topRisks = await fetchTopRisksForDistrict(districtId, 3);
+  const topRisks = await fetchTopRisksForDistrict(districtId, 6);
 
   const weekStart = new Date(current.weekStart);
   const weekLabel = weekStart.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
