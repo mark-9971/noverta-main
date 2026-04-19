@@ -26,6 +26,9 @@ export const districtsTable = pgTable("districts", {
   spikeAlertThreshold: integer("spike_alert_threshold").notNull().default(3),
   defaultHourlyRate: numeric("default_hourly_rate", { precision: 10, scale: 2 }),
   caseloadThresholds: jsonb("caseload_thresholds").$type<Record<string, number>>(),
+  // Email of the Trellis account manager assigned to this district's pilot.
+  // New pilot feedback submissions are emailed here so the AM can triage immediately.
+  pilotAccountManagerEmail: text("pilot_account_manager_email"),
   demoExpiresAt: timestamp("demo_expires_at", { withTimezone: true }),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),

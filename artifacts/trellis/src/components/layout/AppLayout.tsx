@@ -18,6 +18,7 @@ import { SampleDataTour } from "@/components/SampleDataTour";
 import { ShowcaseTour } from "@/components/ShowcaseTour";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { FloatingTimer } from "@/components/floating-timer";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 import { SchoolDistrictSelector } from "./SchoolDistrictSelector";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { SidebarSetupProgress } from "@/components/onboarding/SidebarSetupProgress";
@@ -552,6 +553,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       <FloatingTimer />
+      <FeedbackWidget />
     </div>
   );
 }

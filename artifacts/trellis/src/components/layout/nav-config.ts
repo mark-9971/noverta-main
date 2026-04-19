@@ -46,6 +46,7 @@ export const platformAdminSection: NavSection = {
   items: [
     { href: "/tenants", label: "Tenant Management", icon: Crown },
     { href: "/admin/demo-readiness", label: "Demo Pre-Flight", icon: Activity },
+    { href: "/pilot-feedback", label: "Pilot Feedback", icon: MessageSquare },
   ],
 };
 
