@@ -494,8 +494,10 @@ export const bcbaNav: NavSection[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
+      // Phase 2C-3: bcba has a single front door — /today. The legacy
+      // /Dashboard entry was removed from the sidebar to eliminate the
+      // competing home surface. /  remains routable via direct URL.
       { href: "/today", label: "Today", icon: Sun, primary: true },
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, primary: true },
       { href: "/my-caseload", label: "Caseload Dashboard", icon: Briefcase },
       { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight },
     ],

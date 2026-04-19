@@ -35,11 +35,14 @@ export const ROLE_SUBTITLES: Record<UserRole, string> = {
   trellis_support: "Trellis Support (read-only)",
 };
 
+// Phase 2C-3: bcba and sped_teacher land on /today (matches their
+// nav-config.ts homeHref and their sidebar's primary "Today" entry),
+// not the admin /Dashboard surface.
 const ROLE_HOME: Record<UserRole, string> = {
   admin: "/",
   case_manager: "/",
-  bcba: "/",
-  sped_teacher: "/",
+  bcba: "/today",
+  sped_teacher: "/today",
   coordinator: "/",
   provider: "/my-day",
   para: "/my-day",

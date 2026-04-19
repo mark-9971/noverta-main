@@ -1,0 +1,69 @@
+Phase 2C-3: resolve front-door / home-surface confusion role by role.
+
+Goal:
+Now that admin/coordinator IA and case_manager/sped_teacher navs are tighter, clean up the remaining “what is home?” confusion. The app currently has overlapping home-like surfaces (`/`, `/today`, `/my-day`), and some roles may still have more than one front-door concept visible.
+
+This pass should make each role’s default landing page and visible nav feel unambiguous, without doing a large page merge.
+
+Why this matters:
+Even with improved nav IA, the product still feels slightly split if a user can land in one “main” page while also seeing another competing home surface in the nav. For a demo, each role should have one obvious home.
+
+Hard constraints:
+
+* IA/routing-shell cleanup only
+* No backend changes
+* No API changes
+* No schema changes
+* No auth/capability changes
+* No page merges or route deletions
+* Do not rewrite `/`, `/today`, or `/my-day`
+* Prefer role-by-role nav/home cleanup over structural page consolidation
+
+What to audit and fix:
+
+1. Identify the current home route for each role from role context / nav config
+2. Identify whether each role still sees a second competing home-like nav item
+3. Ensure each role has one clear front door:
+
+   * admin / coordinator / possibly case_manager: likely `/`
+   * sped_teacher: likely `/today`
+   * bcba: choose the better of `/` vs `/today`, but not both
+   * para / provider / direct_provider: `/my-day`
+4. Remove or de-emphasize overlapping home surfaces from role navs where they create confusion
+5. Keep routes reachable if needed; this is about visible IA clarity
+
+Files likely relevant:
+
+* `artifacts/trellis/src/components/layout/nav-config.ts`
+* `artifacts/trellis/src/lib/role-context.tsx`
+* any tiny helper related to role home selection if needed
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to inspect/edit
+2. current home route for each major role
+3. which roles currently have overlapping home-like surfaces
+4. exact cleanup planned role by role
+5. biggest regression risks
+6. anything intentionally out of scope
+
+Then execute.
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact home route for each major role after change
+3. exact nav/home cleanup made for each affected role
+4. which routes remain reachable but are no longer surfaced as homes
+5. validation performed
+6. known issues still remaining
+7. blunt verdict
+8. copy-pasteable commit message
+
+Acceptance:
+
+* each major role has one obvious home
+* no role sees two competing “front door” destinations in the default nav
+* `/`, `/today`, and `/my-day` are not merged or deleted
+* admin/coordinator and hands-on roles stay coherent after the change
+* typecheck remains clean aside from known unrelated warnings
