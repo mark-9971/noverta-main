@@ -40,6 +40,15 @@ interface HealthScoreTrend {
   sparkline?: { snapshotDate: string; numeric: number; grade: string }[];
 }
 
+interface SchoolHealthRow {
+  schoolId: number | null;
+  schoolName: string;
+  totalStudents: number;
+  complianceRate: number;
+  exposurePerStudent: number;
+  providerLoggingRate: number;
+}
+
 interface ComplianceRiskReport {
   meta: { districtName: string; reportPeriod: string; generatedAt?: string };
   summary: {
@@ -313,6 +322,31 @@ export default function PilotAdminHome() {
     return computeHealthScore(rate, exposurePerStudent, providerLoggingRate);
   }, [summary, rate]);
 
+  // Per-school health rows for the badge drill-down. Shares its query key
+  // with SchoolComplianceBreakdown so react-query dedupes the network call.
+  const { data: schoolHealthRows } = useQuery<SchoolHealthRow[]>({
+    queryKey: ["dashboard/school-compliance", filterParams],
+    queryFn: async () => {
+      const r = await authFetch(`/api/dashboard/school-compliance${params}`);
+      if (!r.ok) throw new Error("school-compliance failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+    enabled: !!healthScore,
+  });
+
+  const schoolHealthBreakdown = useMemo(() => {
+    if (!schoolHealthRows?.length) return [];
+    return schoolHealthRows
+      .map(row => ({
+        schoolId: row.schoolId,
+        schoolName: row.schoolName,
+        score: computeHealthScore(row.complianceRate, row.exposurePerStudent, row.providerLoggingRate),
+      }))
+      .filter((r): r is { schoolId: number | null; schoolName: string; score: HealthScore } => r.score !== null)
+      .sort((a, b) => a.score.numeric - b.score.numeric);
+  }, [schoolHealthRows]);
+
   // Top students (dedupe needsAttention service-level rows, take worst per student)
   const topStudents = useMemo(() => {
     if (!risk?.needsAttention?.length) return [];
@@ -387,7 +421,7 @@ export default function PilotAdminHome() {
         </div>
         <div className="flex items-center gap-2">
           {healthScore && (
-            <HealthScoreBadge score={healthScore} trend={healthTrend} />
+            <HealthScoreBadge score={healthScore} trend={healthTrend} schools={schoolHealthBreakdown} />
           )}
           {/* Showcase tour entry — visible to admins on demo districts.
               The ShowcaseTour component itself is gated to admins where
@@ -819,7 +853,21 @@ function formatDelta(n: number): string {
   return `${n}`;
 }
 
-function HealthScoreBadge({ score, trend }: { score: HealthScore; trend?: HealthScoreTrend }) {
+const gradeTextColor: Record<HealthScore["color"], string> = {
+  green: "text-emerald-300",
+  amber: "text-amber-300",
+  red: "text-red-300",
+};
+
+function HealthScoreBadge({
+  score,
+  trend,
+  schools,
+}: {
+  score: HealthScore;
+  trend?: HealthScoreTrend;
+  schools: { schoolId: number | null; schoolName: string; score: HealthScore }[];
+}) {
   const cls = healthScoreColors[score.color];
   const delta = trend?.available && typeof trend.deltaPts === "number" ? trend.deltaPts : null;
   const sparkline = trend?.available ? trend.sparkline ?? [] : [];
@@ -831,6 +879,10 @@ function HealthScoreBadge({ score, trend }: { score: HealthScore; trend?: Health
     : "text-gray-500";
   const DeltaIcon = delta == null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown;
 
+  // Cap rendered rows so a 50-school district doesn't blow out the tooltip.
+  const MAX_ROWS = 8;
+  const visible = schools.slice(0, MAX_ROWS);
+  const overflow = Math.max(0, schools.length - MAX_ROWS);
   return (
     <div
       className={`relative group flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl ring-1 ${cls.ring} ${cls.bg} cursor-default select-none`}
@@ -866,10 +918,11 @@ function HealthScoreBadge({ score, trend }: { score: HealthScore; trend?: Health
         )}
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip — district summary plus per-school drill-down */}
       <div
-        className="pointer-events-none absolute right-0 top-full mt-2 z-50 w-72 rounded-lg bg-gray-900 text-white text-[11px] leading-relaxed px-3 py-2.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        className="pointer-events-none absolute right-0 top-full mt-2 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-lg bg-gray-900 text-white text-[11px] leading-relaxed px-3 py-2.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150"
         role="tooltip"
+        data-testid="health-score-tooltip"
       >
         <p className="font-semibold mb-1.5 text-xs">District Health Score — {score.grade} ({score.numeric}/100)</p>
         <ul className="space-y-1 text-gray-300">
@@ -887,6 +940,45 @@ function HealthScoreBadge({ score, trend }: { score: HealthScore; trend?: Health
               <span>{sparkline[0].numeric}</span>
               <span>{sparkline[sparkline.length - 1].numeric}</span>
             </div>
+          </div>
+        )}
+
+        {visible.length > 0 && (
+          <div className="mt-2.5 pt-2 border-t border-gray-700">
+            <p className="font-semibold text-[11px] text-gray-200 mb-1.5">By school (worst first)</p>
+            <div className="overflow-hidden rounded">
+              <table className="w-full text-left tabular-nums" data-testid="health-score-school-table">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wide text-gray-500">
+                    <th className="font-medium pr-2 pb-1">School</th>
+                    <th className="font-medium px-1 pb-1 text-center">Grade</th>
+                    <th className="font-medium px-1 pb-1 text-right" title="Compliance points">Cmp</th>
+                    <th className="font-medium px-1 pb-1 text-right" title="Exposure points">Exp</th>
+                    <th className="font-medium pl-1 pb-1 text-right" title="Provider logging points">Log</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map(s => (
+                    <tr
+                      key={s.schoolId ?? s.schoolName}
+                      className="text-gray-300"
+                      data-testid={`health-school-row-${s.schoolId ?? "unknown"}`}
+                    >
+                      <td className="pr-2 py-0.5 truncate max-w-[8.5rem]" title={s.schoolName}>{s.schoolName}</td>
+                      <td className={`px-1 py-0.5 text-center font-bold ${gradeTextColor[s.score.color]}`}>
+                        {s.score.grade}
+                      </td>
+                      <td className="px-1 py-0.5 text-right">{s.score.breakdown.compliancePoints.toFixed(0)}</td>
+                      <td className="px-1 py-0.5 text-right">{s.score.breakdown.exposurePoints.toFixed(0)}</td>
+                      <td className="pl-1 py-0.5 text-right">{s.score.breakdown.loggingPoints.toFixed(0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {overflow > 0 && (
+              <p className="mt-1 text-[10px] text-gray-500">+{overflow} more school{overflow === 1 ? "" : "s"} not shown</p>
+            )}
           </div>
         )}
       </div>
