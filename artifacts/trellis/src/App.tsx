@@ -345,8 +345,8 @@ function StaffRouter() {
       <BoundedRoute path="/evaluations" component={EvaluationsPage} fallbackTitle="Evaluations error" featureKey="compliance.evaluations" />
       <BoundedRoute path="/transitions" component={TransitionsPage} fallbackTitle="Transitions error" featureKey="compliance.transitions" />
       <BoundedRoute path="/iep-meetings" component={IepMeetingsPage} fallbackTitle="IEP Meetings error" />
-      <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" />
-      <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
+      <BoundedRoute path="/agencies/:id" component={AgencyDetailPage} fallbackTitle="Agency detail error" featureKey="district.resource_management" />
+      <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" featureKey="district.resource_management" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
       <BoundedRoute path="/pilot-decision" component={PilotDecisionPage} fallbackTitle="Pilot decision error" />

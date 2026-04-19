@@ -4,6 +4,7 @@ import { type FeatureKey } from "@/lib/module-tiers";
 import { Lock, ArrowUpCircle, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { ProUpgradePrompt } from "@/components/ProUpgradePrompt";
+import { EliteUpgradePrompt } from "@/components/EliteUpgradePrompt";
 
 interface FeatureGateProps {
   featureKey: FeatureKey;
@@ -23,10 +24,17 @@ const FEATURE_DISPLAY_NAMES: Partial<Record<FeatureKey, string>> = {
   "engagement.parent_portal": "Parent Portal",
   "engagement.documents": "Document Sharing",
   "engagement.translation": "Translation Services",
+  "district.executive": "Executive Dashboard",
+  "district.overview": "District Overview",
+  "district.resource_management": "Agency & Resource Management",
+  "district.contract_utilization": "Contract Utilization",
+  "district.caseload_balancing": "Caseload Balancing",
+  "district.medicaid_billing": "Medicaid Billing",
+  "district.budget": "District Budget",
 };
 
 export function FeatureGate({ featureKey, children, title, description }: FeatureGateProps) {
-  const { loading } = useTier();
+  const { loading, tier } = useTier();
   const { accessible, requiredTier, requiredTierLabel, moduleName, moduleDescription } = useFeatureAccess(featureKey);
 
   // Don't block while the tier is still resolving — avoids a flash of the
@@ -34,14 +42,27 @@ export function FeatureGate({ featureKey, children, title, description }: Featur
   if (loading) return <>{children}</>;
   if (accessible) return <>{children}</>;
 
-  // PRO tier (professional) features get the tasteful inline upsell prompt with
-  // a modal CTA instead of the generic lock wall.
-  if (requiredTier === "professional") {
-    const featureName = title ?? FEATURE_DISPLAY_NAMES[featureKey] ?? moduleName;
+  const featureName = title ?? FEATURE_DISPLAY_NAMES[featureKey] ?? moduleName;
+
+  // ELITE (enterprise) tier gating: show the right upsell based on current tier.
+  // CORE (essentials) districts hitting an ELITE page see the PRO upsell first —
+  // they need to step up to PRO before ELITE is in reach.
+  // PRO (professional) districts hitting an ELITE page see the ELITE upsell.
+  if (requiredTier === "enterprise") {
+    if (tier === "professional") {
+      return <EliteUpgradePrompt featureKey={featureKey} featureName={featureName} />;
+    }
+    // essentials or any other sub-professional tier: show PRO upsell first
     return <ProUpgradePrompt featureKey={featureKey} featureName={featureName} />;
   }
 
-  // Enterprise-tier and other tier gates keep the generic lock screen.
+  // PRO tier (professional) features get the tasteful inline upsell prompt with
+  // a modal CTA instead of the generic lock wall.
+  if (requiredTier === "professional") {
+    return <ProUpgradePrompt featureKey={featureKey} featureName={featureName} />;
+  }
+
+  // Fallback generic lock screen for any unhandled tier case.
   return (
     <div className="flex items-center justify-center min-h-[60vh] px-4">
       <div className="max-w-md w-full text-center">
@@ -50,7 +71,7 @@ export function FeatureGate({ featureKey, children, title, description }: Featur
         </div>
 
         <h2 className="text-xl font-bold text-gray-900 mb-2">
-          {title || `${moduleName} Feature`}
+          {featureName || `${moduleName} Feature`}
         </h2>
 
         <p className="text-sm text-gray-500 mb-6">
