@@ -250,8 +250,26 @@ function buildPrintHtml(data: ReportData): string {
 </body></html>`;
 }
 
+const RISK_ORDER: Record<string, number> = {
+  out_of_compliance: 0,
+  at_risk: 1,
+  slightly_behind: 2,
+  no_data: 3,
+  on_track: 4,
+  completed: 5,
+};
+
+const RISK_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "out_of_compliance", label: "Out of Compliance" },
+  { value: "at_risk", label: "At Risk" },
+  { value: "slightly_behind", label: "Slightly Behind" },
+  { value: "on_track", label: "On Track" },
+] as const;
+
 export default function ComplianceRiskReportPage({ embedded }: { embedded?: boolean } = {}) {
   const [schoolFilter, setSchoolFilter] = useState<string>("all");
+  const [riskFilter, setRiskFilter] = useState<string>("all");
   const [showAllStudents, setShowAllStudents] = useState(false);
   const [drilldownStudent, setDrilldownStudent] = useState<{ studentId: number; studentName: string; serviceRequirementId: number } | null>(null);
 
@@ -301,6 +319,12 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
   };
 
   const data = reportQuery.data;
+
+  const filteredDetail = data
+    ? [...data.studentDetail]
+        .sort((a, b) => (RISK_ORDER[a.riskStatus] ?? 9) - (RISK_ORDER[b.riskStatus] ?? 9))
+        .filter(r => riskFilter === "all" || r.riskStatus === riskFilter)
+    : [];
 
   return (
     <div className="space-y-6 pb-10">
@@ -511,12 +535,21 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                           className="border-t hover:bg-gray-50/50"
                           {...(i === 0 ? { "data-tour-id": "shortfall-student" } : {})}
                         >
-                          <td className="px-3 py-2 font-medium">{r.studentName}</td>
+                          <td className="px-3 py-2 font-medium">
+                            <Link href={`/students/${r.studentId}`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">
+                              {r.studentName}
+                            </Link>
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{r.school}</td>
                           <td className="px-3 py-2">{r.service}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{r.requiredMinutes}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{r.deliveredMinutes}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-semibold text-red-700">{r.shortfallMinutes}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            <span className="font-semibold text-red-700">{r.shortfallMinutes}</span>
+                            {r.missedSessions > 0 && (
+                              <div className="text-[10px] text-red-400 font-normal leading-none mt-0.5">{r.missedSessions} session{r.missedSessions === 1 ? "" : "s"} missed</div>
+                            )}
+                          </td>
                           <td className="px-3 py-2">{riskBadge(r.riskStatus, r.riskLabel)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">
                             {r.estimatedExposure != null && r.estimatedExposure > 0 ? (
@@ -541,12 +574,35 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
 
           <Card>
             <CardContent className="p-0">
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <h2 className="text-sm font-bold">Full Student Compliance Detail ({data.studentDetail.length})</h2>
-                {data.studentDetail.length > 20 && (
-                  <Button variant="ghost" size="sm" onClick={() => setShowAllStudents(!showAllStudents)} className="gap-1 text-xs">
+              <div className="px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+                  <h2 className="text-sm font-bold whitespace-nowrap">
+                    All Students ({filteredDetail.length}{riskFilter !== "all" ? ` of ${data.studentDetail.length}` : ""})
+                  </h2>
+                  <div className="flex gap-1 flex-wrap">
+                    {RISK_FILTERS.map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => { setRiskFilter(f.value); setShowAllStudents(false); }}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                          riskFilter === f.value
+                            ? f.value === "out_of_compliance" ? "bg-red-600 text-white border-red-600"
+                              : f.value === "at_risk" ? "bg-amber-500 text-white border-amber-500"
+                              : f.value === "slightly_behind" ? "bg-yellow-400 text-yellow-900 border-yellow-400"
+                              : f.value === "on_track" ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-gray-800 text-white border-gray-800"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {filteredDetail.length > 20 && (
+                  <Button variant="ghost" size="sm" onClick={() => setShowAllStudents(!showAllStudents)} className="gap-1 text-xs shrink-0">
                     {showAllStudents ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    {showAllStudents ? "Show Less" : `Show All ${data.studentDetail.length}`}
+                    {showAllStudents ? "Show Less" : `Show All ${filteredDetail.length}`}
                   </Button>
                 )}
               </div>
@@ -568,9 +624,20 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                     </tr>
                   </thead>
                   <tbody>
-                    {(showAllStudents ? data.studentDetail : data.studentDetail.slice(0, 20)).map((r, i) => (
+                    {filteredDetail.length === 0 && (
+                      <tr>
+                        <td colSpan={11} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                          No students match the selected filter.
+                        </td>
+                      </tr>
+                    )}
+                    {(showAllStudents ? filteredDetail : filteredDetail.slice(0, 20)).map((r, i) => (
                       <tr key={`${r.studentId}-${r.service}-${i}`} className="border-t hover:bg-gray-50/50">
-                        <td className="px-3 py-2 font-medium">{r.studentName}</td>
+                        <td className="px-3 py-2 font-medium">
+                          <Link href={`/students/${r.studentId}`} className="text-blue-700 hover:underline hover:text-blue-900 transition-colors">
+                            {r.studentName}
+                          </Link>
+                        </td>
                         <td className="px-3 py-2 text-muted-foreground text-xs">{r.school}</td>
                         <td className="px-3 py-2 text-muted-foreground text-xs">{r.grade}</td>
                         <td className="px-3 py-2">{r.service}</td>
@@ -596,9 +663,9 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                   </tbody>
                 </table>
               </div>
-              {!showAllStudents && data.studentDetail.length > 20 && (
+              {!showAllStudents && filteredDetail.length > 20 && (
                 <div className="px-4 py-2 text-xs text-muted-foreground border-t bg-gray-50/50 text-center">
-                  Showing 20 of {data.studentDetail.length} — click "Show All" to expand or use Print/CSV for complete data
+                  Showing 20 of {filteredDetail.length} — click "Show All" to expand or use Print/CSV for complete data
                 </div>
               )}
             </CardContent>

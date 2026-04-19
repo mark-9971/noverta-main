@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle } from "lucide-react";
+import { Download, AlertTriangle, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { toast } from "sonner";
 
 interface ExposureItem {
@@ -148,12 +149,24 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
     <Sheet open={studentId != null} onOpenChange={open => { if (!open) onClose(); }}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
         <SheetHeader className="px-5 py-4 border-b bg-gray-50/70 sticky top-0 z-10">
-          <SheetTitle className="text-base font-bold text-gray-800 flex items-center gap-2">
-            Financial Exposure — {studentName ?? data?.studentName ?? "Student"}
-          </SheetTitle>
-          <p className="text-[12px] text-gray-400 mt-0.5 font-normal">
-            Itemised missed &amp; partial sessions for the current service interval
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <SheetTitle className="text-base font-bold text-gray-800">
+                Financial Exposure — {studentName ?? data?.studentName ?? "Student"}
+              </SheetTitle>
+              <p className="text-[12px] text-gray-400 mt-0.5 font-normal">
+                Itemised missed &amp; partial sessions for the current service interval
+              </p>
+            </div>
+            {studentId != null && (
+              <Link
+                href={`/students/${studentId}`}
+                className="flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap mt-0.5 shrink-0 font-medium transition-colors"
+              >
+                View record <ExternalLink className="w-3 h-3" />
+              </Link>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-4">
