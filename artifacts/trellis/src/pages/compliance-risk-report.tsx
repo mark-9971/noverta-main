@@ -391,6 +391,21 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
         </EmptyState>
       )}
 
+      {data && data.summary.totalStudents > 0 && data.summary.totalServiceRequirements === 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-900">
+              <span className="font-semibold">No service requirements configured.</span>{" "}
+              The {data.summary.totalStudents} student{data.summary.totalStudents === 1 ? "" : "s"} on your roster
+              {" "}don't have IEP service requirements yet, so compliance cannot be calculated.{" "}
+              <Link href="/students" className="underline hover:text-amber-700">Open a student record</Link> to add requirements, or{" "}
+              <Link href="/import" className="underline hover:text-amber-700">import your data</Link> from a CSV.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {data && data.summary.totalStudents > 0 && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour-id="compliance-summary">
@@ -424,26 +439,47 @@ export default function ComplianceRiskReportPage({ embedded }: { embedded?: bool
                 <div className="text-xs text-muted-foreground">{data.summary.studentsOutOfCompliance} out of compliance, {data.summary.studentsAtRisk} at risk</div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-red-500" data-tour-id="cost-risk">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  Estimated Exposure
-                </div>
-                <div className="text-3xl font-bold mt-1 text-red-700">{fmtDollars(data.summary.combinedExposure)}</div>
-                <div className="text-xs text-muted-foreground">
-                  Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp{" "}
-                  {data.summary.existingCompensatoryExposure != null
-                    ? fmtDollars(data.summary.existingCompensatoryExposure)
-                    : `${fmtNum(data.summary.existingCompensatoryUnpricedMinutes ?? 0)} min (rate not configured)`}
-                </div>
-                {data.summary.rateConfigNote && (
-                  <div className="text-[11px] text-amber-700 mt-1 leading-snug">
-                    {data.summary.rateConfigNote}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {(() => {
+              const allUnpriced = data.summary.combinedExposure === 0
+                && (data.summary.unpricedShortfallMinutes ?? 0) > 0;
+              return (
+                <Card className={`border-l-4 ${allUnpriced ? "border-l-amber-400" : "border-l-red-500"}`} data-tour-id="cost-risk">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Estimated Exposure
+                    </div>
+                    {allUnpriced ? (
+                      <>
+                        <div className="text-3xl font-bold mt-1 text-amber-700">Unpriced</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {fmtNum(data.summary.unpricedShortfallMinutes ?? 0)} min shortfall — no rates configured
+                        </div>
+                        <div className="text-[11px] text-amber-700 mt-1 leading-snug">
+                          Dollar exposure cannot be calculated until service type rates are set.{" "}
+                          <Link href="/settings?tab=finance" className="underline">Configure rates →</Link>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold mt-1 text-red-700">{fmtDollars(data.summary.combinedExposure)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Current {fmtDollars(data.summary.totalCurrentExposure)} + Prior comp{" "}
+                          {data.summary.existingCompensatoryExposure != null
+                            ? fmtDollars(data.summary.existingCompensatoryExposure)
+                            : `${fmtNum(data.summary.existingCompensatoryUnpricedMinutes ?? 0)} min (rate not configured)`}
+                        </div>
+                        {data.summary.rateConfigNote && (
+                          <div className="text-[11px] text-amber-700 mt-1 leading-snug">
+                            {data.summary.rateConfigNote}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
 
           {data.needsAttention.length > 0 && (

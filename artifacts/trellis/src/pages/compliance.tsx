@@ -500,7 +500,7 @@ function ServiceMinutesContent() {
           </div>
         </div>
       )}
-      {studentsAwaitingData > 0 && totalStudents === 0 && progressList.length > 0 && (
+      {studentsAwaitingData > 0 && progressList.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-900 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>

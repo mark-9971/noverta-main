@@ -36,6 +36,8 @@ interface ComplianceRiskReport {
   meta: { districtName: string; reportPeriod: string; generatedAt?: string };
   summary: {
     totalStudents: number;
+    totalServiceRequirements: number;
+    totalDeliveredMinutes: number;
     overallComplianceRate: number;
     combinedExposure: number;
     studentsOutOfCompliance: number;
@@ -98,6 +100,7 @@ const toneStyles = {
   green: { ring: "ring-emerald-200", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
   amber: { ring: "ring-amber-200", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
   red:   { ring: "ring-red-200",   bg: "bg-red-50",   text: "text-red-700",   dot: "bg-red-500" },
+  blue:  { ring: "ring-blue-200",  bg: "bg-blue-50",  text: "text-blue-700",  dot: "bg-blue-400" },
 };
 
 function fmtMoney(n: number): string {
@@ -241,7 +244,18 @@ export default function PilotAdminHome() {
   const hasData = !!summary && summary.totalStudents > 0;
   const rate = summary?.overallComplianceRate ?? 0;
   const band = useMemo(() => statusBand(rate), [rate]);
-  const tone = toneStyles[band.tone];
+
+  // When students and service requirements exist but NO sessions have been
+  // logged yet, suppress the red "At risk" tone — the district hasn't done
+  // anything wrong, they've just finished setup and haven't started logging.
+  const noSessionsLogged = hasData
+    && (summary?.totalDeliveredMinutes ?? 0) === 0
+    && (summary?.totalServiceRequirements ?? 0) > 0;
+
+  const effectiveBand = noSessionsLogged
+    ? { label: "Awaiting sessions", tone: "blue" as const, line: "No sessions have been logged yet this period. Compliance status will update once providers start recording." }
+    : band;
+  const tone = toneStyles[effectiveBand.tone];
 
   const healthScore = useMemo(() => {
     if (!summary || summary.totalStudents <= 0) return null;
@@ -425,7 +439,7 @@ export default function PilotAdminHome() {
             )}
             <div className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tone.bg} ${tone.text}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
-              {hasData ? band.label : "Awaiting data"}
+              {hasData ? effectiveBand.label : "Awaiting data"}
             </div>
             {risk?.meta?.generatedAt && (
               <div>
@@ -434,9 +448,17 @@ export default function PilotAdminHome() {
             )}
             <p className="mt-3 text-sm text-gray-600 max-w-xl">
               {hasData
-                ? band.line
+                ? effectiveBand.line
                 : "No service-minute data yet. Once your team starts logging sessions, your compliance status will appear here."}
             </p>
+            {noSessionsLogged && (
+              <p className="mt-2 text-xs text-blue-700 max-w-xl">
+                Student counts above reflect 0 sessions delivered — this is expected right after setup.{" "}
+                <a href="/sessions/new" className="underline hover:text-blue-900">Log your first session</a>{" "}
+                or{" "}
+                <a href="/import" className="underline hover:text-blue-900">import session logs</a> to see real compliance data.
+              </p>
+            )}
           </div>
           <div className="hidden sm:grid grid-cols-3 gap-3 text-right">
             <Stat label="Out of compliance" value={summary?.studentsOutOfCompliance ?? 0} accent="red" delta={outDelta} positiveIsGood={false} />
