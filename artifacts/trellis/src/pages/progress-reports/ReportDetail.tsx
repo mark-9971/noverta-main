@@ -84,6 +84,17 @@ export function ReportDetail({ report, onBack, onEdit, onStatusChange, onPrint, 
         </CardContent>
       </Card>
 
+      {report.overallSummary && (
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Overall Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{report.overallSummary}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {goals.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -183,6 +194,11 @@ export function ReportDetail({ report, onBack, onEdit, onStatusChange, onPrint, 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Service Delivery</CardTitle></CardHeader>
           <CardContent>
+            {report.serviceDeliverySummary && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 border-l-4 border-l-blue-500 rounded-lg text-sm text-blue-900 whitespace-pre-line leading-relaxed">
+                {report.serviceDeliverySummary}
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
