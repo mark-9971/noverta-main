@@ -90,6 +90,7 @@ export type EmailType =
   | "provider_activation_nudge"
   | "provider_activation_escalation"
   | "pwn_read_receipt"
+  | "approval_pending_reminder"
   | "general";
 
 export interface SendEmailParams {
