@@ -1,0 +1,1 @@
+{"error":"Failed query: select \"id\", \"name\", \"district\", \"district_id\", \"schedule_type\", \"rotation_days\", \"rotation_start_date\", \"schedule_notes\", \"deleted_at\", \"created_at\", \"updated_at\" from \"schools\" where \"schools\".\"district_id\" = $1 order by \"schools\".\"name\"\nparams: 6"}

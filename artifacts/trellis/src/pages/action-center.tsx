@@ -14,7 +14,7 @@ import {
   CalendarDays, Clock, Shield, ArrowRight, Zap,
   CheckCircle2, Target, RefreshCw, ChevronRight,
   ShieldAlert, FileWarning, UserCheck, Inbox, ClipboardEdit,
-  CalendarX2,
+  CalendarX2, X, BellOff, EyeOff, Undo2, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 
@@ -298,6 +298,117 @@ function StudentSearch() {
   );
 }
 
+// ─── Dismiss / snooze persistence ─────────────────────────────────────────────
+
+// Default TTL for a "Dismiss" (×) — auto-restores after this many days so a
+// permanently-handled item doesn't permanently disappear if the underlying
+// alert recurs. Snooze choices override this with their own duration.
+const DISMISS_DEFAULT_TTL_DAYS = 7;
+
+interface HiddenEntry {
+  expiresAt: number;       // unix ms; Number.POSITIVE_INFINITY ⇒ never
+  reason: "dismissed" | "snoozed";
+  durationLabel: string;   // e.g. "1 day", "3 days", "dismissed"
+  hiddenAt: number;        // unix ms
+  snapshot: { title: string; detail: string };
+}
+
+type HiddenMap = Record<string, HiddenEntry>;
+
+function lsKeyForUser(userKey: string): string {
+  return `trellis:action-center:hidden:${userKey}`;
+}
+
+function readHidden(userKey: string): HiddenMap {
+  try {
+    const raw = localStorage.getItem(lsKeyForUser(userKey));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    // Re-hydrate Infinity (JSON.stringify turns it into null)
+    for (const k of Object.keys(parsed)) {
+      const e = parsed[k];
+      if (e && (e.expiresAt === null || e.expiresAt === undefined)) {
+        e.expiresAt = Number.POSITIVE_INFINITY;
+      }
+    }
+    return parsed as HiddenMap;
+  } catch {
+    return {};
+  }
+}
+
+function writeHidden(userKey: string, map: HiddenMap) {
+  try {
+    // Replace Infinity with null for JSON; readHidden re-hydrates.
+    const replacer = (_k: string, v: unknown) =>
+      typeof v === "number" && !isFinite(v) ? null : v;
+    localStorage.setItem(lsKeyForUser(userKey), JSON.stringify(map, replacer));
+  } catch {}
+}
+
+function useHiddenItems(userKey: string) {
+  const [hidden, setHidden] = useState<HiddenMap>(() => readHidden(userKey));
+
+  // Re-load when the user changes
+  useEffect(() => { setHidden(readHidden(userKey)); }, [userKey]);
+
+  // Drop expired entries on mount and on a periodic tick so items reappear
+  // automatically when their snooze/TTL elapses.
+  useEffect(() => {
+    function prune() {
+      const now = Date.now();
+      setHidden(prev => {
+        let changed = false;
+        const next: HiddenMap = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (v.expiresAt > now) next[k] = v;
+          else changed = true;
+        }
+        if (changed) writeHidden(userKey, next);
+        return changed ? next : prev;
+      });
+    }
+    prune();
+    const t = setInterval(prune, 60_000);
+    return () => clearInterval(t);
+  }, [userKey]);
+
+  const hide = useCallback((id: string, durationMs: number, reason: "dismissed" | "snoozed", durationLabel: string, snapshot: { title: string; detail: string }) => {
+    setHidden(prev => {
+      const next: HiddenMap = {
+        ...prev,
+        [id]: {
+          expiresAt: isFinite(durationMs) ? Date.now() + durationMs : Number.POSITIVE_INFINITY,
+          reason,
+          durationLabel,
+          hiddenAt: Date.now(),
+          snapshot,
+        },
+      };
+      writeHidden(userKey, next);
+      return next;
+    });
+  }, [userKey]);
+
+  const restore = useCallback((id: string) => {
+    setHidden(prev => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      writeHidden(userKey, next);
+      return next;
+    });
+  }, [userKey]);
+
+  const restoreAll = useCallback(() => {
+    setHidden({});
+    writeHidden(userKey, {});
+  }, [userKey]);
+
+  return { hidden, hide, restore, restoreAll };
+}
+
 // ─── Work Item Row ─────────────────────────────────────────────────────────────
 
 const PRIORITY_STYLES: Record<Priority, { border: string; iconBg: string; iconColor: string }> = {
@@ -306,13 +417,40 @@ const PRIORITY_STYLES: Record<Priority, { border: string; iconBg: string; iconCo
   comingup:  { border: "border-l-gray-200",   iconBg: "bg-gray-50",   iconColor: "text-gray-400" },
 };
 
-function WorkItemRow({ item, onLogSession }: { item: WorkItem; onLogSession?: (studentId: number, studentName: string) => void }) {
+const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
+  { label: "1 day",  ms: 1 * 24 * 60 * 60 * 1000 },
+  { label: "3 days", ms: 3 * 24 * 60 * 60 * 1000 },
+  { label: "7 days", ms: 7 * 24 * 60 * 60 * 1000 },
+];
+
+function WorkItemRow({
+  item, onLogSession, onDismiss, onSnooze,
+}: {
+  item: WorkItem;
+  onLogSession?: (studentId: number, studentName: string) => void;
+  onDismiss?: (item: WorkItem) => void;
+  onSnooze?: (item: WorkItem, durationMs: number, label: string) => void;
+}) {
   const style = PRIORITY_STYLES[item.priority];
   const Icon = item.icon;
   const showLogBtn = !!onLogSession && !!item.studentId && (item.category === "compliance" || item.category === "session");
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const snoozeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!snoozeOpen) return;
+    function onClick(e: MouseEvent) {
+      if (snoozeRef.current && !snoozeRef.current.contains(e.target as Node)) setSnoozeOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [snoozeOpen]);
 
   return (
-    <div className={`flex items-start gap-3 p-3.5 rounded-lg border border-l-4 border-gray-100 bg-white ${style.border} hover:bg-gray-50/50 transition-colors`}>
+    <div
+      className={`flex items-start gap-3 p-3.5 rounded-lg border border-l-4 border-gray-100 bg-white ${style.border} hover:bg-gray-50/50 transition-colors`}
+      data-testid={`work-item-${item.id}`}
+    >
       <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${style.iconBg}`}>
         <Icon className={`w-3.5 h-3.5 ${style.iconColor}`} />
       </div>
@@ -349,7 +487,126 @@ function WorkItemRow({ item, onLogSession }: { item: WorkItem; onLogSession?: (s
         >
           {item.actionLabel}
         </Link>
+        {onSnooze && (
+          <div ref={snoozeRef} className="relative">
+            <button
+              onClick={() => setSnoozeOpen(o => !o)}
+              className="flex items-center text-gray-300 hover:text-amber-600 transition-colors p-0.5"
+              title="Snooze this item"
+              aria-label="Snooze this item"
+              data-testid={`button-snooze-${item.id}`}
+            >
+              <BellOff className="w-3.5 h-3.5" />
+            </button>
+            {snoozeOpen && (
+              <div className="absolute right-0 top-full mt-1 z-30 w-32 rounded-md border border-gray-200 bg-white shadow-lg py-1">
+                <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Snooze for
+                </div>
+                {SNOOZE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.label}
+                    onClick={() => { onSnooze(item, opt.ms, opt.label); setSnoozeOpen(false); }}
+                    className="w-full text-left px-2.5 py-1.5 text-[12px] text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                    data-testid={`button-snooze-${item.id}-${opt.label.replace(/\s+/g, "")}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {onDismiss && (
+          <button
+            onClick={() => onDismiss(item)}
+            className="flex items-center text-gray-300 hover:text-gray-700 transition-colors p-0.5"
+            title={`Dismiss (auto-restores in ${DISMISS_DEFAULT_TTL_DAYS} days)`}
+            aria-label="Dismiss this item"
+            data-testid={`button-dismiss-${item.id}`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Hidden items footer ──────────────────────────────────────────────────────
+
+function HiddenItemsFooter({
+  hidden, onRestore, onRestoreAll,
+}: {
+  hidden: HiddenMap;
+  onRestore: (id: string) => void;
+  onRestoreAll: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const entries = useMemo(() =>
+    Object.entries(hidden).sort(([, a], [, b]) => b.hiddenAt - a.hiddenAt),
+    [hidden],
+  );
+  if (entries.length === 0) return null;
+
+  function describeRemaining(ms: number): string {
+    if (!isFinite(ms)) return "no auto-restore";
+    if (ms <= 0) return "restoring…";
+    const mins = Math.round(ms / 60_000);
+    if (mins < 60) return `${mins}m left`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 48) return `${hrs}h left`;
+    const days = Math.round(hrs / 24);
+    return `${days}d left`;
+  }
+
+  const now = Date.now();
+
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50/60" data-testid="hidden-items-footer">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 text-[12px] font-medium text-gray-600 hover:text-gray-800"
+        data-testid="button-toggle-hidden-items"
+      >
+        <span className="flex items-center gap-1.5">
+          <EyeOff className="w-3.5 h-3.5" />
+          {entries.length} hidden item{entries.length === 1 ? "" : "s"}
+        </span>
+        {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 divide-y divide-gray-100">
+          {entries.map(([id, e]) => (
+            <div key={id} className="flex items-center gap-3 px-3.5 py-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] text-gray-700 truncate">{e.snapshot.title}</div>
+                <div className="text-[10px] text-gray-400 truncate">
+                  {e.reason === "snoozed" ? `Snoozed ${e.durationLabel}` : `Dismissed (${e.durationLabel})`}
+                  {" · "}
+                  {describeRemaining(e.expiresAt - now)}
+                </div>
+              </div>
+              <button
+                onClick={() => onRestore(id)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+                data-testid={`button-restore-${id}`}
+              >
+                <Undo2 className="w-3 h-3" /> Restore
+              </button>
+            </div>
+          ))}
+          <div className="px-3.5 py-2 flex justify-end">
+            <button
+              onClick={onRestoreAll}
+              className="text-[11px] font-medium text-gray-500 hover:text-gray-700"
+              data-testid="button-restore-all"
+            >
+              Restore all
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -415,7 +672,7 @@ export default function ActionCenter() {
   const [activeTab, setActiveTab] = useState<Priority>("urgent");
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [quickLogStudent, setQuickLogStudent] = useState<{ id: number; name: string } | null>(null);
-  const { user } = useRole();
+  const { user, role } = useRole();
 
   function openQuickLog(studentId: number, studentName: string) {
     setQuickLogStudent({ id: studentId, name: studentName });
@@ -627,18 +884,58 @@ export default function ActionCenter() {
     return agg;
   }, [meetingDash, evalDash, transitionDash]);
 
+  // ── Per-user dismiss / snooze state ───────────────────────────────────────
+  // Scoped per user (not per district) via RoleContext — survives reload via
+  // localStorage. Aggregate (count-level) items are intentionally not
+  // dismissible per the product spec. RoleContext does not currently expose a
+  // stable user id, so we combine role + display name to reduce the chance of
+  // collisions when two demo personas share a browser. When the auth layer
+  // exposes a stable user id, swap that in here.
+  const userKey = `${role ?? "unknown"}::${user?.name?.trim() || "anonymous"}`;
+  const { hidden, hide, restore, restoreAll } = useHiddenItems(userKey);
+
+  const handleDismiss = useCallback((item: WorkItem) => {
+    hide(
+      item.id,
+      DISMISS_DEFAULT_TTL_DAYS * 24 * 60 * 60 * 1000,
+      "dismissed",
+      `auto-restore in ${DISMISS_DEFAULT_TTL_DAYS}d`,
+      { title: item.title, detail: item.detail },
+    );
+  }, [hide]);
+
+  const handleSnooze = useCallback((item: WorkItem, durationMs: number, label: string) => {
+    hide(item.id, durationMs, "snoozed", label, { title: item.title, detail: item.detail });
+  }, [hide]);
+
+  // Items that are still hidden right now (filter out anything already expired
+  // on this render even before the next prune tick).
+  const liveHidden = useMemo(() => {
+    const now = Date.now();
+    const out: HiddenMap = {};
+    for (const [k, v] of Object.entries(hidden)) {
+      if (v.expiresAt > now) out[k] = v;
+    }
+    return out;
+  }, [hidden]);
+
+  const filteredAllItems = useMemo(
+    () => allItems.filter(i => !(i.id in liveHidden)),
+    [allItems, liveHidden],
+  );
+
   // ── Tab counts ────────────────────────────────────────────────────────────
 
   const counts = useMemo(() => {
     const c = { urgent: 0, thisweek: 0, comingup: 0 };
-    for (const item of allItems) c[item.priority]++;
+    for (const item of filteredAllItems) c[item.priority]++;
     for (const agg of aggregateItems) c[agg.priority]++;
     return c;
-  }, [allItems, aggregateItems]);
+  }, [filteredAllItems, aggregateItems]);
 
   // ── Visible items for active tab ──────────────────────────────────────────
 
-  const visibleItems = useMemo(() => allItems.filter(i => i.priority === activeTab), [allItems, activeTab]);
+  const visibleItems = useMemo(() => filteredAllItems.filter(i => i.priority === activeTab), [filteredAllItems, activeTab]);
   const visibleAgg = useMemo(() => aggregateItems.filter(i => i.priority === activeTab), [aggregateItems, activeTab]);
 
   // ── Greeting ──────────────────────────────────────────────────────────────
@@ -758,10 +1055,19 @@ export default function ActionCenter() {
             ))}
             {/* Per-student/per-alert items */}
             {visibleItems.map(item => (
-              <WorkItemRow key={item.id} item={item} onLogSession={openQuickLog} />
+              <WorkItemRow
+                key={item.id}
+                item={item}
+                onLogSession={openQuickLog}
+                onDismiss={handleDismiss}
+                onSnooze={handleSnooze}
+              />
             ))}
           </div>
         )}
+
+        {/* Hidden items footer — restore dismissed/snoozed items */}
+        <HiddenItemsFooter hidden={liveHidden} onRestore={restore} onRestoreAll={restoreAll} />
       </div>
 
       <QuickLogSheet
