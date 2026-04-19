@@ -11,6 +11,7 @@ import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
 import { RoleSwitcher } from "./RoleSwitcher";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
+import { PilotDecisionBanner } from "@/components/PilotDecisionBanner";
 import { DemoBanner, useActiveDemoDistrict, useActivePilotDistrict } from "@/components/DemoBanner";
 import { ViewAsBanner } from "@/components/layout/ViewAsBanner";
 import { SupportSessionBanner } from "@/components/layout/SupportSessionBanner";
@@ -476,6 +477,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <SampleDataTour />
         <ShowcaseTour />
         <SubscriptionBanner />
+        <PilotDecisionBanner />
         <main className="flex-1 overflow-auto pb-20 md:pb-0">
           <SubscriptionGate>{children}</SubscriptionGate>
         </main>

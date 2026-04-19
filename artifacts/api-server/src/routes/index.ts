@@ -78,6 +78,7 @@ import districtDataRouter from "./districtData";
 import pilotBaselineRouter from "./pilotBaseline";
 import pilotFeedbackRouter from "./pilotFeedback";
 import studentHandoffRouter from "./studentHandoff";
+import pilotDecisionRouter from "./pilotDecision";
 import { requireLegalAcceptance } from "../middlewares/requireLegalAcceptance";
 import { createDbRateLimitMiddleware } from "../lib/dbRateLimiter";
 
@@ -310,6 +311,7 @@ router.use(sampleDataRouter);
 router.use(districtDataRouter);
 router.use(pilotBaselineRouter);
 router.use(pilotFeedbackRouter);
+router.use(pilotDecisionRouter);
 router.use(evaluationsRouter);
 router.use(transitionsRouter);
 router.use(iepMeetingsRouter);

@@ -121,3 +121,4 @@ export * from "./districtArchiveJobs";
 export * from "./protocolModificationMarkers";
 export * from "./pilotBaselineSnapshots";
 export * from "./pilotFeedback";
+export * from "./pilotDecisions";

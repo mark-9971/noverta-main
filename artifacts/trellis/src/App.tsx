@@ -99,6 +99,7 @@ const AgenciesPage = lazy(() => import("@/pages/agencies"));
 const AgencyDetailPage = lazy(() => import("@/pages/agency-detail"));
 const ContractUtilizationPage = lazy(() => import("@/pages/contract-utilization"));
 const BillingPage = lazy(() => import("@/pages/billing"));
+const PilotDecisionPage = lazy(() => import("@/pages/pilot-decision"));
 const MedicaidBillingPage = lazy(() => import("@/pages/medicaid-billing"));
 const CostAvoidancePage = lazy(() => import("@/pages/cost-avoidance"));
 const WeeklyComplianceSummaryPage = lazy(() => import("@/pages/weekly-compliance-summary"));
@@ -303,6 +304,7 @@ function StaffRouter() {
       <BoundedRoute path="/agencies" component={AgenciesPage} fallbackTitle="Agencies error" />
       <BoundedRoute path="/contract-utilization" component={ContractUtilizationPage} fallbackTitle="Contract utilization error" featureKey="district.contract_utilization" />
       <BoundedRoute path="/billing" component={BillingPage} fallbackTitle="Billing error" />
+      <BoundedRoute path="/pilot-decision" component={PilotDecisionPage} fallbackTitle="Pilot decision error" />
       <BoundedRoute path="/medicaid-billing" component={MedicaidBillingPage} fallbackTitle="Medicaid billing error" featureKey="district.medicaid_billing" />
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
       <Route path="/compliance-risk-report">{() => <Redirect to="/compliance?tab=risk-report" />}</Route>
