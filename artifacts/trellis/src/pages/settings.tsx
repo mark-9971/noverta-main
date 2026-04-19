@@ -1,9 +1,10 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX, Gauge, Clock } from "lucide-react";
+import { Settings, CalendarDays, Database, Shield, Trash2, Activity, Scale, DollarSign, LayoutDashboard, Compass, HardDrive, Bell, LifeBuoy, MailX, Gauge, Clock, Image as ImageIcon } from "lucide-react";
 import ChecklistVisibilityToggle from "@/components/onboarding/ChecklistVisibilityToggle";
 import TimerThresholdsCard from "@/components/settings/TimerThresholdsCard";
+import DistrictLogoCard from "@/components/settings/DistrictLogoCard";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
@@ -166,6 +167,13 @@ export default function SettingsHubPage() {
                 <h2 className="text-sm font-semibold text-gray-700">Session timers</h2>
               </div>
               <TimerThresholdsCard />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-gray-500" />
+                <h2 className="text-sm font-semibold text-gray-700">District branding</h2>
+              </div>
+              <DistrictLogoCard />
             </div>
             {/* Replay control for the cross-module showcase tour. Only
                 rendered when the district has sample data loaded — the

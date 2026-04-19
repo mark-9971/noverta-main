@@ -45,6 +45,10 @@ export const districtsTable = pgTable("districts", {
   // without a migration. Validated by the API layer.
   pilotStage: text("pilot_stage"),
   pilotAccountManagerName: text("pilot_account_manager_name"),
+  // Optional URL to the district's logo image, rendered in the executive
+  // summary PDF header so the document feels district-branded for school board
+  // presentations. Falls back to text-only header when null/blank.
+  logoUrl: text("logo_url"),
   deleteInitiatedAt: timestamp("delete_initiated_at", { withTimezone: true }),
   deleteScheduledAt: timestamp("delete_scheduled_at", { withTimezone: true }),
   deleteInitiatedBy: text("delete_initiated_by"),

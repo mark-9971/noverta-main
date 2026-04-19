@@ -268,6 +268,7 @@ export function openPrintWindow(html: string): void {
 
 export interface BoardSummaryData {
   districtName: string;
+  districtLogoUrl?: string | null;
   schoolYear: string;
   generatedAt: string;
   complianceRate: number;
@@ -331,7 +332,10 @@ function buildSparklineSvg(weeks: { label: string; rate: number }[]): string {
 }
 
 export function buildBoardSummaryHtml(data: BoardSummaryData): string {
-  const { districtName, schoolYear, generatedAt, complianceRate, trendWeeks, kpis, topRiskStudents, providerRates } = data;
+  const { districtName, districtLogoUrl, schoolYear, generatedAt, complianceRate, trendWeeks, kpis, topRiskStudents, providerRates } = data;
+  const logoHtml = districtLogoUrl
+    ? `<img src="${esc(districtLogoUrl)}" alt="${esc(districtName)} logo" class="district-logo" />`
+    : "";
 
   const dateStr = new Date(generatedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
@@ -376,7 +380,7 @@ export function buildBoardSummaryHtml(data: BoardSummaryData): string {
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; script-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: https: http:; script-src 'none'">
   <title>District Compliance Health Summary — ${esc(districtName)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -404,6 +408,19 @@ export function buildBoardSummaryHtml(data: BoardSummaryData): string {
       border-bottom: 3px solid #059669;
       padding-bottom: 10px;
       margin-bottom: 14px;
+    }
+    .header-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      min-width: 0;
+    }
+    .district-logo {
+      max-height: 56px;
+      max-width: 140px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
     }
     .header-left h1 {
       font-size: 20px;
@@ -518,8 +535,11 @@ export function buildBoardSummaryHtml(data: BoardSummaryData): string {
   <div class="page">
     <div class="header">
       <div class="header-left">
-        <h1>District Compliance Health Summary</h1>
-        <div class="subtitle">${esc(districtName)} &nbsp;·&nbsp; ${esc(schoolYear)}</div>
+        ${logoHtml}
+        <div>
+          <h1>District Compliance Health Summary</h1>
+          <div class="subtitle">${esc(districtName)} &nbsp;·&nbsp; ${esc(schoolYear)}</div>
+        </div>
       </div>
       <div class="header-right">
         <div><strong>Generated:</strong> ${esc(dateStr)}</div>

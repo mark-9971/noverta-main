@@ -328,8 +328,31 @@ function ServiceMinutesContent() {
 
       const schoolYear = riskReport.meta?.reportPeriod ?? new Date().getFullYear() + "–" + (new Date().getFullYear() + 1);
 
+      // Best-effort fetch of the district's branding logo. If it isn't
+      // configured (or the request fails), buildBoardSummaryHtml falls back
+      // to a text-only header.
+      let districtLogoUrl: string | null = null;
+      try {
+        const statusRes = await authFetch("/api/district-data/status");
+        if (statusRes.ok) {
+          const status = await statusRes.json() as { districtId?: number };
+          if (status.districtId != null) {
+            const dRes = await authFetch(`/api/districts/${status.districtId}`);
+            if (dRes.ok) {
+              const d = await dRes.json() as { logoUrl?: string | null };
+              if (typeof d.logoUrl === "string" && d.logoUrl.trim().length > 0) {
+                districtLogoUrl = d.logoUrl;
+              }
+            }
+          }
+        }
+      } catch {
+        // Logo is optional — header falls back to text-only.
+      }
+
       const html = buildBoardSummaryHtml({
         districtName: riskReport.meta?.districtName ?? "District",
+        districtLogoUrl,
         schoolYear,
         generatedAt: new Date().toISOString(),
         complianceRate: rs.overallComplianceRate,

@@ -156,6 +156,31 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
     updateData.spikeAlertEnabled = req.body.spikeAlertEnabled;
   }
 
+  if (req.body.logoUrl !== undefined) {
+    const raw = req.body.logoUrl;
+    if (raw === null || raw === "") {
+      updateData.logoUrl = null;
+    } else if (typeof raw !== "string") {
+      res.status(400).json({ error: "logoUrl must be a string URL or null" });
+      return;
+    } else {
+      const trimmed = raw.trim();
+      if (trimmed.length > 2048) {
+        res.status(400).json({ error: "logoUrl is too long (max 2048 characters)" });
+        return;
+      }
+      // Only http(s) URLs and inline data: image URIs are accepted; this keeps
+      // the value safe to embed directly in <img src=...> in the PDF header.
+      const isHttp = /^https?:\/\//i.test(trimmed);
+      const isDataImage = /^data:image\/(png|jpeg|jpg|gif|svg\+xml|webp);base64,/i.test(trimmed);
+      if (!isHttp && !isDataImage) {
+        res.status(400).json({ error: "logoUrl must be an http(s) URL or a data:image/* URI" });
+        return;
+      }
+      updateData.logoUrl = trimmed;
+    }
+  }
+
   if (req.body.spikeAlertThreshold !== undefined) {
     const t = Number(req.body.spikeAlertThreshold);
     if (!Number.isInteger(t) || t < 1 || t > 100) {
