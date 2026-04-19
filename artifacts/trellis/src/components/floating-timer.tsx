@@ -138,6 +138,20 @@ function formatMinutes(ms: number): number {
   return Math.max(1, Math.round(ms / 60000));
 }
 
+function formatThresholdLabel(ms: number): string {
+  const totalMin = Math.max(1, Math.round(ms / 60000));
+  if (totalMin >= 60 && totalMin % 60 === 0) {
+    const h = totalMin / 60;
+    return `${h} hour${h !== 1 ? "s" : ""}`;
+  }
+  if (totalMin >= 60) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${h}h ${m}m`;
+  }
+  return `${totalMin} min`;
+}
+
 function TimerTick({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -181,6 +195,9 @@ function ActiveTimerCard({
 }) {
   const warning = useTimerWarning(timer.startedAt, warnThresholdMs, criticalThresholdMs);
 
+  const warnLabel = formatThresholdLabel(warnThresholdMs);
+  const critLabel = formatThresholdLabel(criticalThresholdMs);
+
   const borderClass =
     warning === "critical"
       ? "border-red-300"
@@ -206,7 +223,7 @@ function ActiveTimerCard({
         <TimerTick startedAt={timer.startedAt} />
         {warning !== "none" && (
           <span
-            title={warning === "critical" ? "Timer running over 4 hours" : "Timer running over 2 hours"}
+            title={warning === "critical" ? `Timer running over ${critLabel}` : `Timer running over ${warnLabel}`}
             className={`ml-1 flex-shrink-0 ${warning === "critical" ? "text-red-500" : "text-amber-500"}`}
           >
             <AlertTriangle className="w-4 h-4" />
@@ -223,8 +240,8 @@ function ActiveTimerCard({
         >
           <AlertTriangle className="w-3 h-3 flex-shrink-0" />
           {warning === "critical"
-            ? "Timer has been running over 4 hours — did you forget to stop it?"
-            : "Timer has been running over 2 hours — please verify it's still active."}
+            ? `Timer has been running over ${critLabel} — did you forget to stop it?`
+            : `Timer has been running over ${warnLabel} — please verify it's still active.`}
         </div>
       )}
       <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-2">
