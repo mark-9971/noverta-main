@@ -1,0 +1,368 @@
+I want a ROLE-BASED NAVIGATION + INFORMATION ARCHITECTURE + WORKFLOW REDESIGN PLAN for the app.
+
+This is a PLANNING / AUDIT / IMPLEMENTATION-DESIGN task first.
+Do NOT start coding yet.
+First inspect the existing app carefully and produce the cleanest possible implementation plan.
+
+Your output must be implementation-oriented, not generic product commentary.
+
+==================================================
+1. PRODUCT TRUTH YOU MUST OPTIMIZE AROUND
+==================================================
+
+This app does NOT have one universal center of gravity.
+
+It has different primary workflows by role:
+
+A. ADMIN / COORDINATOR / CASE MANAGER
+These users are COMPLIANCE-FIRST.
+Their core wedge is:
+- service minute tracking
+- compliance risk detection
+- missed services / missed minutes
+- compensatory exposure
+- audit-ready reports / exports
+- district / school oversight
+
+Their main question is:
+“Who is behind, where is the risk, what needs action, and what can I report upward?”
+
+B. BCBA
+These users are STUDENT-CENTERED with deeper clinical / behavior access.
+Their core workflow is:
+- my students / caseload
+- sessions
+- documentation / notes
+- progress
+- behavior / ABA tools
+- supervision / deeper analysis where appropriate
+
+Their main question is:
+“Which students am I responsible for, what do they need, and what clinical work should I do next?”
+
+C. SLP / OT / PT / GENERAL SERVICE PROVIDER
+These users are also STUDENT-CENTERED, but they generally need less behavior-analysis depth than BCBAs.
+Their core workflow is:
+- my students
+- my schedule
+- session logging
+- service delivery
+- goals / notes / progress
+
+Their main question is:
+“Which students am I seeing, what services am I delivering, and what do I need to document?”
+
+D. PARA / DIRECT STAFF
+These users need the MOST SIMPLIFIED, TASK-ORIENTED experience in the app.
+Their workflow should be:
+- see today’s assignments
+- see assigned students
+- know what to do
+- quickly confirm/log work
+- access only the student context and supports relevant to their assignment
+
+Their main question is:
+“Where do I go, who am I assigned to, what should I do, and how do I quickly record it?”
+
+Paras / direct staff should NOT be exposed to:
+- district-wide compliance dashboards
+- executive summaries
+- advanced reports
+- staff-wide comparisons
+- advanced ABA analysis
+- higher-level supervision tools
+- broad student analytics outside their assignment
+- admin/import/data-health/system tooling
+
+==================================================
+2. CORE DESIGN RULES
+==================================================
+
+Use these rules as hard constraints:
+
+1. Do NOT design one giant universal nav for all roles.
+2. The app must have ROLE-BASED SHELLS, not just one shared sidebar with a few hidden links.
+3. Admin experience should be COMPLIANCE-FIRST.
+4. BCBA / provider / para experience should be STUDENT-FIRST.
+5. The same student route/workspace can be shared, but DEFAULT TAB, WIDGETS, ACTIONS, and visible TABS should differ by role.
+6. Tabs belong INSIDE workspaces/pages, not in the global sidebar.
+7. Paras / direct staff should have the SMALLEST and SIMPLEST shell in the product.
+8. BCBAs can have deeper analysis and clinical tools than paras or general service providers.
+9. Reports, minute tracking, and compliance must remain highly prominent for admin roles because that is the core differentiator of the product.
+10. Prefer lower-risk cleanup and consolidation over unnecessary rewrites.
+
+==================================================
+3. WHAT YOU MUST ANALYZE FIRST
+==================================================
+
+Before proposing changes, inspect the current app thoroughly.
+
+Create a COMPLETE inventory of:
+- every top-level nav item
+- every sub-nav item
+- every route / page / destination
+- hidden or admin-only routes if they exist
+- alias / redirect routes
+- query-param tab routes masquerading as nav items
+
+For every destination, classify it as one of:
+- real standalone page
+- internal tab view
+- redirect / alias
+- admin/internal page
+- hidden/orphan route
+- role-sensitive route
+- duplicate entry point to the same underlying workspace
+
+Also identify:
+- circular flows
+- duplicate destinations
+- routes that should not be in primary nav
+- routes that should become internal tabs
+- routes that should be admin-only
+- routes that should be hidden from paras/direct staff
+- routes that should be visible only to BCBAs / higher-level clinicians
+- routes that are core to admin wedge vs provider wedge
+
+==================================================
+4. DEFINE TARGET ROLE SHELLS
+==================================================
+
+Propose ideal target shells for these 4 role groups:
+
+1. Admin / coordinator / case manager
+2. BCBA
+3. SLP / OT / PT / general provider
+4. Para / direct staff
+
+For EACH role group, specify:
+- primary top-level nav
+- any secondary nav or contextual nav
+- default landing page after login
+- key daily entry points
+- what should be primary
+- what should be contextual only
+- what should be hidden
+- what should be blocked entirely
+
+Target direction:
+
+ADMIN shell should likely emphasize:
+- Today
+- Compliance Center
+- Reports
+- Compensatory
+- Students
+- Staff
+- Schedule
+- Executive / Oversight
+- Settings / Admin Tools
+
+BCBA shell should likely emphasize:
+- Today
+- My Students / Caseload
+- My Schedule
+- Session Log
+- Behavior & ABA
+- Progress / Notes
+- Supervision (if appropriate)
+
+SLP / OT / PT / provider shell should likely emphasize:
+- Today
+- My Students
+- My Schedule
+- Session Log
+- Progress / Notes
+- Service History / Documentation
+
+PARA / direct staff shell should likely be very small:
+- Today
+- My Students
+- My Schedule
+- Simple Log / Task Completion
+- Incident Logging only if role-appropriate
+
+==================================================
+5. DEFINE A ROLE-AWARE STUDENT WORKSPACE
+==================================================
+
+I want one SHARED student-centered workspace/route, but role-aware.
+
+Design the student workspace by role:
+
+A. When ADMIN opens a student
+Default emphasis should be:
+- services owed vs delivered
+- compliance / minute status
+- missed sessions / missed minutes
+- compensatory need
+- assigned providers/staff
+- reportable history / audit context
+
+B. When BCBA opens a student
+Default emphasis should be:
+- student overview
+- current supports / plans
+- sessions
+- behavior / ABA
+- progress
+- trends
+- supervision-related context where relevant
+
+C. When SLP / OT / PT / provider opens a student
+Default emphasis should be:
+- services
+- goals
+- delivered minutes
+- notes/history
+- upcoming work
+
+D. When PARA / direct staff opens a student
+Default emphasis should be:
+- today’s assignment/support context
+- basic accommodations/reminders
+- assigned work
+- quick simple logging
+- no advanced analytics
+
+For each role group, specify:
+- default student tab
+- visible tabs
+- hidden tabs
+- allowed actions
+- blocked actions
+- widgets/components that should appear
+- widgets/components that should not appear
+
+==================================================
+6. ROUTE-BY-ROUTE REFACTOR MATRIX
+==================================================
+
+Create a route-by-route matrix for all major routes/pages.
+
+For each route, recommend one of:
+- KEEP
+- RENAME
+- MERGE
+- MOVE
+- CONVERT TO INTERNAL TAB
+- HIDE BY ROLE
+- ADMIN-ONLY
+- BCBA-ONLY / HIGHER-CLINICAL-ONLY
+- DEPRECATE + REDIRECT
+- ORPHAN / DELETE CANDIDATE
+
+Be especially strict about:
+- query-param tabs masquerading as sidebar pages
+- duplicate compliance/reporting destinations
+- duplicate schedule/session destinations
+- admin/internal tools leaking into everyday nav
+- ABA routes shown to non-BCBA roles
+- higher-level analysis shown to paras/direct staff
+
+==================================================
+7. PHASED IMPLEMENTATION PLAN
+==================================================
+
+Create a phased implementation plan.
+
+PHASE 1 — LOWEST-RISK SHELL CLEANUP
+Goal:
+Make the app immediately cleaner without major business logic rewrites.
+
+Priorities:
+- remove sidebar items that are really internal tabs
+- role-gate nav items
+- hide admin/internal/pilot routes from non-admins
+- define role-based landing pages
+- define role-based default student tabs
+- simplify para/direct staff shell heavily
+- preserve backward compatibility where possible
+
+PHASE 2 — WORKSPACE CONSOLIDATION
+Goal:
+Better align app structure to real workflows.
+
+Priorities:
+- strengthen admin compliance/reporting/minute-tracking workflow
+- simplify provider student workflow
+- simplify para task-oriented experience
+- give BCBAs deeper clinical tools without exposing them broadly
+- reduce duplicate route paths
+- consolidate overlapping pages into stronger workspaces
+
+PHASE 3 — DEEPER STRUCTURAL IMPROVEMENTS
+Goal:
+Create a durable role-aware architecture.
+
+Priorities:
+- stronger unified student spine
+- more role-aware widgets/components inside shared pages
+- cleaner role-specific dashboards
+- redirect cleanup / route deprecation
+- stronger permission-aware UX
+- removal of leftover orphaned routes and duplicate surfaces
+
+For each phase, include:
+- exact goals
+- exact route/nav changes
+- likely files/modules involved
+- dependency order
+- regression risks
+- rollout order
+- what can be shipped independently
+
+==================================================
+8. IMPLEMENTATION TICKETS
+==================================================
+
+Create a ticket list detailed enough to execute in sequence.
+
+For each ticket include:
+- ticket title
+- role(s) affected
+- exact scope
+- routes/pages involved
+- likely files/modules involved
+- difficulty (XS / S / M / L)
+- dependencies
+- definition of done
+- pilot-critical / high-value / nice-to-have
+
+==================================================
+9. IMPORTANT NON-GOALS / PITFALLS
+==================================================
+
+Do NOT:
+- propose one nav for everyone
+- keep fake page links in the sidebar if they are really tabs
+- give paras/direct staff a lite version of the full BCBA/provider experience
+- bury compliance / reports / minute tracking for admin users
+- expose higher-level analysis to lower-level roles without justification
+- assume hiding nav alone solves the UX problem
+- recommend a full rewrite if shell cleanup and route consolidation can solve most of the problem first
+- leave backward-compatibility risks unaddressed
+
+==================================================
+10. OUTPUT FORMAT
+==================================================
+
+Use EXACTLY this structure:
+
+A. Current app structure audit
+B. Current problems by role
+C. Target shell for admin / coordinator / case manager
+D. Target shell for BCBA
+E. Target shell for SLP / OT / PT / provider
+F. Target shell for para / direct staff
+G. Role-aware student workspace design
+H. Route-by-route refactor matrix
+I. Phase 1 implementation plan
+J. Phase 2 implementation plan
+K. Phase 3 implementation plan
+L. Ticket list
+M. Biggest implementation risks / watchouts
+N. Final recommended rollout order
+
+Be brutally honest, specific, and implementation-oriented.
+I want the cleanest possible role-based redesign plan BEFORE any code is changed.
