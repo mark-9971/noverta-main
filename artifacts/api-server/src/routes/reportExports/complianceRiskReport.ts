@@ -382,7 +382,7 @@ router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Resp
       return;
     }
 
-    const studentId = parseInt(req.params.studentId, 10);
+    const studentId = parseInt(req.params.studentId as string, 10);
     if (!Number.isFinite(studentId) || studentId <= 0) {
       res.status(400).json({ error: "Invalid studentId" });
       return;
