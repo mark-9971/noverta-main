@@ -1,8 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { TrendingUp, ChevronDown, ChevronUp, Users } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -41,18 +44,51 @@ export function TrendsCard({
 }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("provider");
   const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
 
   const availableRoles = useMemo(() => {
     const roles = Array.from(new Set(providerTrends.map(p => p.role))).sort();
     return roles;
   }, [providerTrends]);
 
-  const filteredProviders = useMemo(() => {
+  const roleFilteredProviders = useMemo(() => {
     const filtered = selectedRole === "all"
       ? providerTrends
       : providerTrends.filter(p => p.role === selectedRole);
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
   }, [providerTrends, selectedRole]);
+
+  // Drop selections that are no longer in the role-filtered list
+  useEffect(() => {
+    setSelectedStaffIds(prev => {
+      if (prev.size === 0) return prev;
+      const allowed = new Set(roleFilteredProviders.map(p => p.staffId));
+      let changed = false;
+      const next = new Set<number>();
+      for (const id of prev) {
+        if (allowed.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [roleFilteredProviders]);
+
+  const filteredProviders = useMemo(() => {
+    if (selectedStaffIds.size === 0) return roleFilteredProviders;
+    return roleFilteredProviders.filter(p => selectedStaffIds.has(p.staffId));
+  }, [roleFilteredProviders, selectedStaffIds]);
+
+  const toggleStaff = (staffId: number) => {
+    setSelectedStaffIds(prev => {
+      const next = new Set(prev);
+      if (next.has(staffId)) next.delete(staffId);
+      else next.add(staffId);
+      return next;
+    });
+  };
+
+  const clearProviderSelection = () => setSelectedStaffIds(new Set());
+  const selectAllVisible = () => setSelectedStaffIds(new Set(roleFilteredProviders.map(p => p.staffId)));
 
   const providerChartData = useMemo((): { weeks: ProviderChartRow[]; series: ProviderTrendSeries[] } => {
     if (filteredProviders.length === 0) return { weeks: [], series: [] };
@@ -135,6 +171,62 @@ export function TrendsCard({
                 ))}
               </select>
             )}
+            {viewMode === "provider" && roleFilteredProviders.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                    <Users className="w-3.5 h-3.5 mr-1" />
+                    {selectedStaffIds.size === 0
+                      ? "All Providers"
+                      : `${selectedStaffIds.size} selected`}
+                    <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="flex items-center justify-between px-1 pb-2 border-b mb-2">
+                    <span className="text-xs font-medium text-gray-700">Providers</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-xs text-indigo-600 hover:underline"
+                        onClick={selectAllVisible}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-gray-500 hover:underline"
+                        onClick={clearProviderSelection}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-56 pr-2">
+                    <div className="space-y-1">
+                      {roleFilteredProviders.map(p => {
+                        const checked = selectedStaffIds.has(p.staffId);
+                        return (
+                          <label
+                            key={p.staffId}
+                            className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-xs"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleStaff(p.staffId)}
+                            />
+                            <span className="flex-1 truncate">{p.name}</span>
+                            <span className="text-gray-400 text-[10px]">
+                              {ROLE_LABELS[p.role] || p.role}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
 
           {viewMode === "provider" && (
@@ -151,6 +243,7 @@ export function TrendsCard({
                   <p className="text-xs text-gray-500 mb-2">
                     {providerChartData.series.length} provider{providerChartData.series.length !== 1 ? "s" : ""}
                     {selectedRole !== "all" ? ` — ${ROLE_LABELS[selectedRole] || selectedRole}` : ""}
+                    {selectedStaffIds.size > 0 ? ` (filtered)` : ""}
                   </p>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={providerChartData.weeks} margin={{ left: 0, right: 20 }}>
