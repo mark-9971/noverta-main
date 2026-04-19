@@ -1141,8 +1141,8 @@ export default function StudentDetail() {
                       <Link href="/compensatory-finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
                         Financial View
                       </Link>
-                      <Link href="/compensatory-services" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                        View All
+                      <Link href={`/compensatory-services?studentId=${studentId}`} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                        View All →
                       </Link>
                     </div>
                   </div>

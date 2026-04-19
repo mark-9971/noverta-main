@@ -14,6 +14,7 @@ export function ObligationList({
   expandedDetail,
   expandedLoading,
   showLogSession,
+  staffList = [],
   onToggleExpanded,
   onUpdateStatus,
   onShowLog,
@@ -26,6 +27,7 @@ export function ObligationList({
   expandedDetail: any;
   expandedLoading: boolean;
   showLogSession: number | null;
+  staffList?: { id: number; firstName: string; lastName: string; role?: string }[];
   onToggleExpanded: (id: number) => void;
   onUpdateStatus: (id: number, status: string) => void;
   onShowLog: (id: number) => void;
@@ -133,6 +135,7 @@ export function ObligationList({
                     {showLogSession === ob.id && (
                       <LogCompSessionForm
                         obligationId={ob.id}
+                        staffList={staffList}
                         onClose={onCloseLog}
                         onLogged={() => onLogged(ob.id)}
                       />

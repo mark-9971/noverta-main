@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { useSearch, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, Plus, Calculator, TrendingDown } from "lucide-react";
+import { Gift, Plus, Calculator, TrendingDown, X } from "lucide-react";
 import CostAvoidanceDashboard from "@/pages/cost-avoidance";
 import { toast } from "sonner";
 import { useSchoolContext } from "@/lib/school-context";
 import {
   listCompensatoryObligations, getCompensatoryObligation, updateCompensatoryObligation,
-  calculateShortfalls, generateFromShortfalls, listStudents, listServiceRequirements
+  calculateShortfalls, generateFromShortfalls, listStudents, listServiceRequirements, listStaff
 } from "@workspace/api-client-react";
 import { STATUS_CONFIG } from "./types";
 import type { Obligation, Shortfall } from "./types";
@@ -20,10 +20,15 @@ export default function CompensatoryServices() {
   const { selectedSchoolId } = useSchoolContext();
   const search = useSearch();
   const [, navigate] = useLocation();
-  const rawTab = new URLSearchParams(search).get("tab");
+  const searchParams = new URLSearchParams(search);
+  const rawTab = searchParams.get("tab");
+  const urlStudentId = searchParams.get("studentId") ? Number(searchParams.get("studentId")) : null;
   const activeTab: "obligations" | "cost-avoidance" = rawTab === "cost-avoidance" ? "cost-avoidance" : "obligations";
   function setActiveTab(t: "obligations" | "cost-avoidance") {
-    navigate(`/compensatory-services?tab=${t}`, { replace: true });
+    const next = new URLSearchParams();
+    next.set("tab", t);
+    if (urlStudentId) next.set("studentId", String(urlStudentId));
+    navigate(`/compensatory-services?${next.toString()}`, { replace: true });
   }
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,22 +43,25 @@ export default function CompensatoryServices() {
   const [showLogSession, setShowLogSession] = useState<number | null>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [serviceRequirements, setServiceRequirements] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
 
   function fetchObligations() {
     setLoading(true);
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (selectedSchoolId) params.set("schoolId", String(selectedSchoolId));
+    if (urlStudentId) params.set("studentId", String(urlStudentId));
     listCompensatoryObligations(Object.fromEntries(new URLSearchParams(params)) as any).catch(() => []).then(setObligations as any)
       .catch(() => setObligations([]))
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchObligations(); }, [statusFilter, selectedSchoolId]);
+  useEffect(() => { fetchObligations(); }, [statusFilter, selectedSchoolId, urlStudentId]);
 
   useEffect(() => {
     listStudents({ limit: 200 } as any).catch(() => []).then(setStudents as any).catch(() => {});
     listServiceRequirements({ active: true } as any).catch(() => []).then(setServiceRequirements as any).catch(() => {});
+    listStaff().catch(() => []).then((r: any) => setStaffList(Array.isArray(r) ? r : [])).catch(() => {});
   }, []);
 
   const totalOwed = obligations.reduce((s, o) => s + o.minutesOwed, 0);
@@ -165,6 +173,22 @@ export default function CompensatoryServices() {
 
       {activeTab === "obligations" && (
         <>
+          {urlStudentId && (() => {
+            const found = students.find((s: any) => s.id === urlStudentId);
+            const name = found ? `${found.firstName} ${found.lastName}` : `Student #${urlStudentId}`;
+            return (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <span className="text-xs font-medium text-emerald-800">Filtered by student: <span className="font-semibold">{name}</span></span>
+                <button
+                  onClick={() => navigate("/compensatory-services", { replace: true })}
+                  className="ml-auto p-0.5 rounded hover:bg-emerald-100 text-emerald-600"
+                  title="Clear filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card><CardContent className="p-4"><p className="text-2xl font-bold text-gray-800">{totalOwed}</p><p className="text-[11px] text-gray-400">Total Minutes Owed</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-2xl font-bold text-emerald-700">{totalDelivered}</p><p className="text-[11px] text-gray-400">Minutes Delivered</p></CardContent></Card>
@@ -212,6 +236,7 @@ export default function CompensatoryServices() {
             expandedDetail={expandedDetail}
             expandedLoading={expandedLoading}
             showLogSession={showLogSession}
+            staffList={staffList}
             onToggleExpanded={toggleExpanded}
             onUpdateStatus={updateStatus}
             onShowLog={(id) => setShowLogSession(id)}
