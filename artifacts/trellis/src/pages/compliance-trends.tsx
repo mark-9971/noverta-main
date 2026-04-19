@@ -121,6 +121,7 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           subtitle={data ? `${data.studentsTracked} students with active service requirements` : ""}
           loading={loading}
           empty={!loading && (!serviceChart.length || serviceChart.every(p => p.Delivered === 0 && p.Required === 0))}
+          emptyMessage="No minutes logged in this window — providers need to log sessions before trend data appears"
         >
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={serviceChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -143,6 +144,7 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           subtitle="Active students delivered <70% of monthly required minutes"
           loading={loading}
           empty={!loading && (!riskChart.length || riskChart.every(p => p.AtRisk === null))}
+          emptyMessage="No at-risk student data in this window — all students met their service thresholds, or no sessions were logged"
         >
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={riskChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -161,6 +163,7 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           subtitle="Monthly accrued vs delivered comp minutes; cumulative open balance"
           loading={loading}
           empty={!loading && (!compChart.length || compChart.every(p => p.Accrued === 0 && p.Delivered === 0 && p.Owed === 0))}
+          emptyMessage="No compensatory obligations recorded in this window"
         >
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={compChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -182,6 +185,7 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
           subtitle="% of completed/missed sessions logged within 48h of the session date"
           loading={loading}
           empty={!loading && (!loggingChart.length || loggingChart.every(p => p.Total === 0))}
+          emptyMessage="No session logs found in this window to measure timeliness"
         >
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={loggingChart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -243,8 +247,8 @@ export default function ComplianceTrendsPage({ embedded }: { embedded?: boolean 
 }
 
 function ChartCard({
-  title, subtitle, loading, empty, children,
-}: { title: string; subtitle?: string; loading: boolean; empty: boolean; children: React.ReactNode }) {
+  title, subtitle, loading, empty, emptyMessage, children,
+}: { title: string; subtitle?: string; loading: boolean; empty: boolean; emptyMessage?: string; children: React.ReactNode }) {
   return (
     <Card className="border-gray-200/60">
       <CardHeader className="pb-2">
@@ -255,8 +259,11 @@ function ChartCard({
         {loading ? (
           <Skeleton className="h-[260px] w-full" />
         ) : empty ? (
-          <div className="h-[260px] flex items-center justify-center text-xs text-gray-400">
-            Insufficient data for this window
+          <div className="h-[260px] flex flex-col items-center justify-center gap-1.5 text-gray-400">
+            <svg className="w-8 h-8 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p className="text-xs">{emptyMessage ?? "No session activity recorded in this window"}</p>
           </div>
         ) : (
           children

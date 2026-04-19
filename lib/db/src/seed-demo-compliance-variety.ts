@@ -311,6 +311,130 @@ export async function seedDemoComplianceVariety(): Promise<DemoComplianceVariety
   }
   console.log(`Variety alerts: ${inserted} inserted, ${skipped} already present.`);
 
+  // ---- 4) Seed August 2025 sessions for Compliance Trends chart ----
+  // The 2025-26 school year for MetroWest starts 2025-09-02, but service
+  // requirements begin as early as 2025-08-16. Without any August sessions
+  // the Compliance Trends chart shows a jarring 0% compliance dip for August.
+  // We insert a realistic two-week set of sessions (Aug 18-29, 2025) so the
+  // chart opens with a partial-month reading rather than a blank.
+  // Idempotent: guarded by the [trends-aug-seed] notes tag.
+  const augSchoolYear = await db.execute(sql`
+    SELECT id FROM school_years WHERE district_id = ${districtId} AND label = '2025-2026' LIMIT 1
+  `);
+  const augSyId = (augSchoolYear.rows[0] as { id: number } | undefined)?.id;
+
+  // Helper: convert total minutes since midnight into "HH:MM" string.
+  function minsToHHMM(totalMins: number): string {
+    const h = Math.floor(totalMins / 60) % 24;
+    const m = totalMins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  if (augSyId) {
+    // Idempotent: check by the seed tag, not by arbitrary August sessions.
+    const existingAug = await db.execute(sql`
+      SELECT COUNT(*)::int AS c FROM session_logs sl
+      JOIN students s ON s.id = sl.student_id
+      JOIN schools sc ON sc.id = s.school_id
+      WHERE sc.district_id = ${districtId}
+        AND sl.notes LIKE '%[trends-aug-seed]%'
+        AND sl.deleted_at IS NULL
+    `);
+    const augCount = (existingAug.rows[0] as { c: number }).c;
+
+    if (augCount === 0) {
+      // Fetch one requirement row per student active in August 2025.
+      const augStudents = await db.execute(sql`
+        SELECT DISTINCT ON (sr.student_id)
+          sr.student_id,
+          sr.id AS req_id,
+          sr.service_type_id,
+          CASE
+            WHEN sr.interval_type = 'weekly'    THEN sr.required_minutes * 4
+            WHEN sr.interval_type = 'quarterly' THEN ROUND(sr.required_minutes / 3.0)
+            ELSE sr.required_minutes
+          END AS monthly_required,
+          st.id AS staff_id
+        FROM service_requirements sr
+        JOIN students s ON s.id = sr.student_id
+        JOIN schools sc ON sc.id = s.school_id
+        LEFT JOIN staff st ON st.school_id = s.school_id AND st.deleted_at IS NULL
+        WHERE sc.district_id = ${districtId}
+          AND s.status = 'active'
+          AND sr.start_date::date <= '2025-08-31'
+          AND (sr.end_date IS NULL OR sr.end_date::date >= '2025-08-16')
+        ORDER BY sr.student_id, sr.id, st.id
+      `);
+
+      type AugRow = { student_id: number; req_id: number; service_type_id: number; monthly_required: number; staff_id: number };
+      const augRows = augStudents.rows as AugRow[];
+
+      // Distribute one session per student across two school weeks (Aug 18–29).
+      // Target: 30% of monthly requirement over 2 weeks (~60% of the prorated half-month).
+      // Cap each session at 90 min to stay realistic; overflow goes to a second session.
+      const week1 = ["2025-08-18", "2025-08-19", "2025-08-20", "2025-08-21", "2025-08-22"];
+      const week2 = ["2025-08-25", "2025-08-26", "2025-08-27", "2025-08-28", "2025-08-29"];
+      const SESSION_CAP = 90; // minutes
+      let augSessionsInserted = 0;
+
+      for (let i = 0; i < augRows.length; i++) {
+        const row = augRows[i]!;
+        const targetMins = Math.round(row.monthly_required * 0.30);
+        if (targetMins <= 0) continue;
+
+        const dur1 = Math.min(targetMins, SESSION_CAP);
+        const dur2 = targetMins - dur1;
+        const date1 = week1[i % week1.length]!;
+        const date2 = week2[i % week2.length]!;
+
+        // Start time in total minutes since midnight (stagger per student to avoid clashes).
+        const startMins = (8 * 60) + (i % 4) * 15; // 08:00, 08:15, 08:30, 08:45
+        const startTime = minsToHHMM(startMins);
+        const endTime1 = minsToHHMM(startMins + dur1);
+        const createdAt1 = `${date1}T${endTime1}:00Z`; // logged at session end — always timely
+
+        await db.execute(sql`
+          INSERT INTO session_logs
+            (student_id, service_requirement_id, service_type_id, staff_id,
+             session_date, start_time, end_time, duration_minutes,
+             location, delivery_mode, status, is_makeup, is_compensatory,
+             school_year_id, notes, created_at, updated_at)
+          VALUES
+            (${row.student_id}, ${row.req_id}, ${row.service_type_id}, ${row.staff_id},
+             ${date1}, ${startTime}, ${endTime1}, ${dur1},
+             'school', 'in_person', 'completed', false, false,
+             ${augSyId}, '[trends-aug-seed]',
+             ${createdAt1}, ${createdAt1})
+        `);
+        augSessionsInserted++;
+
+        if (dur2 > 0) {
+          const endTime2 = minsToHHMM(startMins + dur2);
+          const createdAt2 = `${date2}T${endTime2}:00Z`;
+          await db.execute(sql`
+            INSERT INTO session_logs
+              (student_id, service_requirement_id, service_type_id, staff_id,
+               session_date, start_time, end_time, duration_minutes,
+               location, delivery_mode, status, is_makeup, is_compensatory,
+               school_year_id, notes, created_at, updated_at)
+            VALUES
+              (${row.student_id}, ${row.req_id}, ${row.service_type_id}, ${row.staff_id},
+               ${date2}, ${startTime}, ${endTime2}, ${dur2},
+               'school', 'in_person', 'completed', false, false,
+               ${augSyId}, '[trends-aug-seed]',
+               ${createdAt2}, ${createdAt2})
+          `);
+          augSessionsInserted++;
+        }
+      }
+      console.log(`Compliance Trends: inserted ${augSessionsInserted} August 2025 seed sessions for ${augRows.length} students.`);
+    } else {
+      console.log(`Compliance Trends: ${augCount} tagged August seed sessions already present, skipping.`);
+    }
+  } else {
+    console.log("Compliance Trends: 2025-2026 school year not found, skipping August seed.");
+  }
+
   const tally = await db.execute(sql`
     WITH d_students AS (SELECT s.id FROM students s JOIN schools sc ON sc.id = s.school_id WHERE sc.district_id = ${districtId} AND s.deleted_at IS NULL),
          affected AS (SELECT DISTINCT a.student_id FROM alerts a JOIN d_students ds ON ds.id = a.student_id WHERE a.resolved = false)
