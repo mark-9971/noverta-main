@@ -1,0 +1,89 @@
+Phase 2B Task PR1: carve out a real providerNav and unify provider home.
+
+Goal:
+The provider role currently inherits the full SPED Teacher sidebar and has two conflicting home values. Replace this with a tight, hands-on clinician nav and one consistent home route.
+
+Why this matters:
+Provider is currently the biggest role-shaping problem in the app. A related-service provider should not see broad admin/case-management navigation. This task should make the Provider role feel fast, narrow, and believable.
+
+Hard constraints:
+
+* Additive / low-risk only
+* No route renames
+* No API changes
+* No schema changes
+* Do not touch other roles’ navs or behavior
+* No new pages; reuse existing routes only
+* Clerk stays on; server-side auth is out of scope
+
+Files to change:
+
+1. artifacts/trellis/src/components/layout/nav-config.ts
+2. artifacts/trellis/src/lib/role-context.tsx
+
+Implementation:
+
+1. In nav-config.ts, define a new providerNav: NavSection[]
+2. Replace roleConfig.provider so it no longer spreads STAFF_NAV_CONFIG.sped_teacher
+3. Set:
+    * homeHref: "/my-day"
+    * subtitle: "Sessions, schedule, and progress."
+
+Preferred nav shape:
+Use a compact provider nav with 2 sections max.
+
+Recommended:
+Section: “My Work”
+
+* /my-day — “My Day”
+* /my-schedule — “My Schedule”
+* /sessions — “Session Log”
+* /my-caseload — “Caseload”
+
+Section: “Reporting”
+
+* /progress-reports — “Progress Reports”
+* /parent-communication — “Parent Comms” with featureKey: "engagement.parent_communication"
+
+Styling:
+Use the current provider color treatment already proposed:
+
+* color: "bg-emerald-600"
+* textColor: "text-emerald-600"
+* bgActive: "bg-emerald-50 text-emerald-700 font-semibold"
+* iconActive: "text-emerald-600"
+* label: "Trellis"
+
+In role-context.tsx:
+
+* change ROLE_HOME.provider from / to /my-day
+* change nothing else
+
+Validation requirements:
+
+* Switch to Provider in the demo role switcher → lands on /my-day
+* Provider sidebar is reduced to the new compact set of items
+* Provider no longer sees IEP Builder, IEP Meetings, Evaluations, Transition Planning, Accommodation Verification, Compliance, Reports, Weekly Summary, Compensatory, Document Workflow, Scheduling Hub, Caseload Balancing, or other admin-heavy items
+* /my-day, /my-schedule, /sessions, /my-caseload, /progress-reports, and /parent-communication are reachable
+* active-state highlight still works
+* direct_provider, para, sped_teacher, bcba, admin, coordinator, and case_manager navs are unchanged
+* tsc clean (existing unrelated warning OK)
+
+Before executing, give me a strict pre-flight summary with:
+
+1. exact files to edit
+2. exact provider nav before vs after
+3. exact provider home before vs after
+4. biggest regression risks
+5. anything intentionally out of scope
+
+After executing, give me a strict post-flight summary with:
+
+1. exact files edited
+2. exact provider nav after change
+3. exact home unification made
+4. validation performed
+5. any known issues still remaining
+6. blunt verdict
+7. copy-pasteable commit message
+    :::
