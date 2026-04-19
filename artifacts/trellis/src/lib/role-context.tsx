@@ -41,7 +41,7 @@ const ROLE_HOME: Record<UserRole, string> = {
   bcba: "/",
   sped_teacher: "/",
   coordinator: "/",
-  provider: "/",
+  provider: "/my-day",
   para: "/my-day",
   direct_provider: "/my-day",
   sped_student: "/sped-portal",

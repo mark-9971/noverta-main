@@ -416,6 +416,32 @@ export const paraNav: NavSection[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider shell — Phase 2B PR1.
+// Before: provider inherited the full SPED Teacher sidebar (~24 destinations
+// across 4 sections incl. IEP Builder, Compliance, Scheduling Hub, etc).
+// After: tight clinician nav — daily work + reporting only. Routes that
+// were removed from the sidebar remain reachable via direct URL.
+// ─────────────────────────────────────────────────────────────────────────────
+export const providerNav: NavSection[] = [
+  {
+    label: "My Work",
+    items: [
+      { href: "/my-day", label: "My Day", icon: Sun, primary: true },
+      { href: "/my-schedule", label: "My Schedule", icon: ArrowLeftRight, primary: true },
+      { href: "/sessions", label: "Session Log", icon: Clipboard },
+      { href: "/my-caseload", label: "Caseload", icon: Users, primary: true },
+    ],
+  },
+  {
+    label: "Reporting",
+    items: [
+      { href: "/progress-reports", label: "Progress Reports", icon: FileText },
+      { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
+    ],
+  },
+];
+
 export const directProviderNav: NavSection[] = [
   {
     items: [
@@ -530,7 +556,16 @@ export const roleConfig: Record<string, RoleThemeConfig> = {
   },
   bcba: STAFF_NAV_CONFIG.bcba,
   sped_teacher: STAFF_NAV_CONFIG.sped_teacher,
-  provider: STAFF_NAV_CONFIG.sped_teacher,
+  provider: {
+    nav: providerNav,
+    color: "bg-emerald-600",
+    textColor: "text-emerald-600",
+    bgActive: "bg-emerald-50 text-emerald-700 font-semibold",
+    iconActive: "text-emerald-600",
+    label: "Trellis",
+    subtitle: "Sessions, schedule, and progress.",
+    homeHref: "/my-day",
+  },
   para: {
     nav: paraNav,
     color: "bg-emerald-600",
