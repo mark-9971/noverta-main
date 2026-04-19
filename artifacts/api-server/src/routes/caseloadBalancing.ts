@@ -795,4 +795,123 @@ router.get("/caseload-balancing/provider-trends", async (req, res): Promise<void
   }
 });
 
+function getMondayOf(d: Date): Date {
+  const copy = new Date(d);
+  const day = copy.getDay();
+  const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
+  copy.setDate(diff);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+export async function backfillCaseloadHistory(
+  districtId: number,
+  weeks: number = 12,
+): Promise<{ weeksProcessed: number; rowsInserted: number; rowsSkipped: number }> {
+  const totalWeeks = Math.max(1, Math.min(weeks, 52));
+  const thisMonday = getMondayOf(new Date());
+
+  const mondays: Date[] = [];
+  for (let i = totalWeeks - 1; i >= 0; i--) {
+    const m = new Date(thisMonday);
+    m.setDate(thisMonday.getDate() - i * 7);
+    mondays.push(m);
+  }
+
+  const providers = await db
+    .select({ id: staffTable.id })
+    .from(staffTable)
+    .innerJoin(schoolsTable, eq(staffTable.schoolId, schoolsTable.id))
+    .where(and(
+      eq(schoolsTable.districtId, districtId),
+      eq(staffTable.status, "active"),
+      isNull(staffTable.deletedAt),
+    ));
+
+  if (providers.length === 0) {
+    return { weeksProcessed: mondays.length, rowsInserted: 0, rowsSkipped: 0 };
+  }
+
+  const staffIds = providers.map(p => p.id);
+
+  let rowsInserted = 0;
+  let rowsSkipped = 0;
+
+  for (const weekStart of mondays) {
+    // Reconstruct an "as-of Monday 00:00" snapshot to match the live
+    // scheduler in runCaseloadSnapshots: count assignments that already
+    // existed at the start of the week, joined to currently active
+    // students (mirrors `students.status = 'active'` filter the scheduler
+    // applies).
+    const counts = await db
+      .select({
+        staffId: staffAssignmentsTable.staffId,
+        // Match `runCaseloadSnapshots` (non-distinct count) so backfilled
+        // weeks and future scheduler weeks stay numerically consistent.
+        studentCount: sql<number>`count(${staffAssignmentsTable.studentId})::int`,
+      })
+      .from(staffAssignmentsTable)
+      .innerJoin(studentsTable, eq(staffAssignmentsTable.studentId, studentsTable.id))
+      .where(and(
+        sql`${staffAssignmentsTable.staffId} = ANY(${staffIds})`,
+        sql`${staffAssignmentsTable.createdAt} <= ${weekStart}`,
+        eq(studentsTable.status, "active"),
+      ))
+      .groupBy(staffAssignmentsTable.staffId);
+
+    const countMap = new Map(counts.map(c => [c.staffId, Number(c.studentCount)]));
+
+    const rows = providers.map(p => ({
+      districtId,
+      staffId: p.id,
+      weekStart,
+      studentCount: countMap.get(p.id) ?? 0,
+    }));
+
+    for (const row of rows) {
+      const inserted = await db
+        .insert(caseloadSnapshotsTable)
+        .values(row)
+        .onConflictDoNothing({
+          target: [caseloadSnapshotsTable.staffId, caseloadSnapshotsTable.weekStart],
+        })
+        .returning({ id: caseloadSnapshotsTable.id });
+      if (inserted.length > 0) rowsInserted++;
+      else rowsSkipped++;
+    }
+  }
+
+  return { weeksProcessed: mondays.length, rowsInserted, rowsSkipped };
+}
+
+router.post("/caseload-balancing/backfill-snapshots", async (req, res): Promise<void> => {
+  const districtId = getEnforcedDistrictId(req as unknown as AuthedRequest);
+  if (!districtId) return void res.status(403).json({ error: "No district scope" });
+
+  const callerRole = (req as unknown as AuthedRequest).trellisRole;
+  if (callerRole !== "admin") {
+    return void res.status(403).json({ error: "Only admins can backfill caseload history" });
+  }
+
+  const weeksParam = Number(req.body?.weeks);
+  const weeks = Number.isFinite(weeksParam) && weeksParam > 0 ? Math.min(weeksParam, 52) : 12;
+
+  try {
+    const result = await backfillCaseloadHistory(districtId, weeks);
+
+    logAudit(req, {
+      action: "update",
+      targetTable: "caseload_snapshots",
+      targetId: districtId,
+      summary: `Backfilled caseload history for district #${districtId}: ${result.rowsInserted} rows inserted, ${result.rowsSkipped} skipped (${result.weeksProcessed} weeks)`,
+      newValues: { weeks: result.weeksProcessed, inserted: result.rowsInserted, skipped: result.rowsSkipped },
+    });
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("POST /caseload-balancing/backfill-snapshots error:", err);
+    res.status(500).json({ error: "Failed to backfill caseload history" });
+  }
+});
+
 export default router;
