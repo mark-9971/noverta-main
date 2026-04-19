@@ -1453,6 +1453,7 @@ export default function StudentDetail() {
         handleShareProgress={handleShareProgress}
         handlePrintSummary={handlePrintSummary}
         generateShareLink={generateShareLink}
+        studentId={studentId}
       />
     </div>
   );

@@ -4,9 +4,149 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { History, Phone, Stethoscope, Archive, ArchiveRestore, Share2, XCircle, Copy } from "lucide-react";
+import { History, Phone, Stethoscope, Archive, ArchiveRestore, Share2, XCircle, Copy, Mail, MailCheck, MailX } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/auth-fetch";
 import type { EmergencyContactRecord, MedicalAlertRecord } from "./StudentContactsMedical";
+
+type ShareLinkEmailDelivery = {
+  status: string;
+  recipientEmail: string | null;
+  deliveredAt: string | null;
+} | null;
+
+type ShareLinkRow = {
+  id: number;
+  createdAt: string;
+  expiresAt: string;
+  viewCount: number;
+  maxViews: number | null;
+  lastViewedAt: string | null;
+  revokedAt: string | null;
+  emailDelivery: ShareLinkEmailDelivery;
+};
+
+function ShareLinkEmailBadge({ delivery }: { delivery: ShareLinkEmailDelivery }) {
+  if (!delivery || delivery.status === "not_configured") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium" title="No email was sent for this link">
+        <Mail className="w-3 h-3" /> not sent
+      </span>
+    );
+  }
+  const { status } = delivery;
+  if (status === "delivered") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium" title="Email delivered">
+        <MailCheck className="w-3 h-3" /> delivered
+      </span>
+    );
+  }
+  if (status === "bounced" || status === "complained" || status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-red-500 font-medium" title={`Email ${status}`}>
+        <MailX className="w-3 h-3" /> {status}
+      </span>
+    );
+  }
+  if (status === "sent" || status === "queued") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-blue-500 font-medium" title="Email sent">
+        <Mail className="w-3 h-3" /> sent
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-medium">
+      <Mail className="w-3 h-3" /> {status}
+    </span>
+  );
+}
+
+function formatShareTimestamp(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function RecentShareLinksSection({ studentId, refreshKey }: { studentId: number; refreshKey: number }) {
+  const [rows, setRows] = useState<ShareLinkRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    authFetch(`/api/students/${studentId}/progress-summary/share-links`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
+      })
+      .catch(() => { if (!cancelled) setRows([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [studentId, refreshKey]);
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        Recent Share Links
+        {rows && rows.length > 0 && (
+          <span className="text-[11px] font-normal text-gray-400">({rows.length})</span>
+        )}
+      </h3>
+      {loading ? (
+        <div className="space-y-1.5">
+          <Skeleton className="w-full h-9" />
+          <Skeleton className="w-full h-9" />
+        </div>
+      ) : !rows || rows.length === 0 ? (
+        <p className="text-xs text-gray-400">No share links generated yet.</p>
+      ) : (
+        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+          {rows.map((r) => {
+            const revoked = !!r.revokedAt;
+            const expired = !revoked && new Date(r.expiresAt).getTime() < Date.now();
+            const recipient = r.emailDelivery?.recipientEmail;
+            return (
+              <div key={r.id} className="flex items-center gap-2 text-xs bg-white p-2 rounded-lg">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-700">{formatShareTimestamp(r.createdAt)}</span>
+                    {recipient && (
+                      <span className="text-gray-500 truncate" title={recipient}>→ {recipient}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                    <span>{r.viewCount} view{r.viewCount === 1 ? "" : "s"}</span>
+                    <span>·</span>
+                    <span>expires {formatShareTimestamp(r.expiresAt)}</span>
+                    {r.lastViewedAt && (
+                      <>
+                        <span>·</span>
+                        <span>last viewed {formatShareTimestamp(r.lastViewedAt)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {revoked ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">revoked</span>
+                ) : expired ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">expired</span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">active</span>
+                )}
+                <ShareLinkEmailBadge delivery={r.emailDelivery} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AddEventForm {
   eventType: string;
@@ -134,6 +274,7 @@ interface StudentDialogsProps {
   handleShareProgress: () => void;
   handlePrintSummary: () => void;
   generateShareLink: () => void;
+  studentId: number;
 }
 
 export default function StudentDialogs(props: StudentDialogsProps) {
@@ -150,8 +291,16 @@ export default function StudentDialogs(props: StudentDialogsProps) {
     serviceTypesList, staffList, deletingSvc, handleDeleteSvc,
     assignDialogOpen, setAssignDialogOpen, assignForm, setAssignForm, assignSaving, handleAddAssignment,
     showShareModal, setShowShareModal, shareDays, setShareDays, shareLoading, shareSummary, shareLink,
-    handleShareProgress, handlePrintSummary, generateShareLink,
+    handleShareProgress, handlePrintSummary, generateShareLink, studentId,
   } = props;
+
+  const [shareLinksRefreshKey, setShareLinksRefreshKey] = useState(0);
+  useEffect(() => {
+    if (showShareModal) setShareLinksRefreshKey((k) => k + 1);
+  }, [showShareModal]);
+  useEffect(() => {
+    if (shareLink) setShareLinksRefreshKey((k) => k + 1);
+  }, [shareLink]);
 
   return (
     <>
@@ -705,6 +854,8 @@ export default function StudentDialogs(props: StudentDialogsProps) {
               ) : (
                 <p className="text-sm text-gray-400 text-center py-6">Failed to load summary</p>
               )}
+
+              <RecentShareLinksSection studentId={studentId} refreshKey={shareLinksRefreshKey} />
 
               {shareSummary && (
                 <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
