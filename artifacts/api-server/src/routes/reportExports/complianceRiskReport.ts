@@ -44,6 +44,39 @@ function minutesToDollars(minutes: number, rate: RateInfo): number | null {
   return sharedMinutesToDollars(minutes, rate);
 }
 
+/**
+ * Counts how many interval cycles started within an inclusive [startStr, endStr]
+ * window for a given intervalType. Used to scale per-interval requiredMinutes
+ * to a school-year window so the shortfall = required − delivered formula
+ * remains identical to the compliance risk report (just over a wider span).
+ *
+ * - "weekly":    number of week-starts within the window (≥1 if window non-empty)
+ * - "monthly":   number of distinct calendar months touched by the window
+ * - "quarterly": number of distinct calendar quarters touched by the window
+ * - default ("daily" or unknown): number of days in the window
+ */
+function countIntervalsInWindow(intervalType: string, startStr: string, endStr: string): number {
+  if (!startStr || !endStr || endStr < startStr) return 0;
+  const start = new Date(`${startStr}T00:00:00Z`);
+  const end = new Date(`${endStr}T00:00:00Z`);
+  const dayMs = 86400000;
+
+  if (intervalType === "weekly") {
+    const days = Math.floor((end.getTime() - start.getTime()) / dayMs) + 1;
+    return Math.max(1, Math.ceil(days / 7));
+  }
+  if (intervalType === "monthly") {
+    return (end.getUTCFullYear() - start.getUTCFullYear()) * 12
+      + (end.getUTCMonth() - start.getUTCMonth()) + 1;
+  }
+  if (intervalType === "quarterly") {
+    const startQ = Math.floor(start.getUTCMonth() / 3) + start.getUTCFullYear() * 4;
+    const endQ = Math.floor(end.getUTCMonth() / 3) + end.getUTCFullYear() * 4;
+    return endQ - startQ + 1;
+  }
+  return Math.floor((end.getTime() - start.getTime()) / dayMs) + 1;
+}
+
 function riskLabel(status: string): string {
   switch (status) {
     case "out_of_compliance": return "Out of Compliance";
@@ -397,6 +430,16 @@ router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Resp
     const rawReqId = req.query.serviceRequirementId ? Number(req.query.serviceRequirementId) : undefined;
     const filterReqId = rawReqId != null && Number.isFinite(rawReqId) && rawReqId > 0 ? rawReqId : undefined;
 
+    // Optional: expand the window to the entire school year. When provided, every
+    // requirement's interval is replaced with [year.start, min(year.end, today)],
+    // clamped to the requirement's own startDate/endDate so we never report on
+    // sessions outside the active period of the IEP service line.
+    const rawYearId = req.query.schoolYearId ? Number(req.query.schoolYearId) : undefined;
+    const yearDates = await resolveSchoolYearDates(
+      rawYearId != null && Number.isFinite(rawYearId) && rawYearId > 0 ? rawYearId : undefined,
+    );
+    const scope: "interval" | "schoolYear" = yearDates ? "schoolYear" : "interval";
+
     const [student] = await db
       .select({ id: studentsTable.id, firstName: studentsTable.firstName, lastName: studentsTable.lastName })
       .from(studentsTable)
@@ -467,7 +510,17 @@ router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Resp
         isNull(sessionLogsTable.deletedAt),
       ));
 
+    const todayStr = new Date().toISOString().substring(0, 10);
     const reqIntervals = new Map(requirements.map(r => {
+      if (yearDates) {
+        // Full school year: clamp to the requirement's own active dates and to today.
+        const reqStart = r.startDate;
+        const reqEnd = r.endDate ?? todayStr;
+        const start = yearDates.startDate > reqStart ? yearDates.startDate : reqStart;
+        let end = yearDates.endDate < reqEnd ? yearDates.endDate : reqEnd;
+        if (end > todayStr) end = todayStr;
+        return [r.id, { intervalStart: start, intervalEnd: end }];
+      }
       const { intervalStart, intervalEnd } = getIntervalDates(r.intervalType, r.startDate, r.endDate);
       return [r.id, {
         intervalStart: intervalStart.toISOString().substring(0, 10),
@@ -534,17 +587,27 @@ router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Resp
     items.sort((a, b) => a.date.localeCompare(b.date));
 
     // Aggregate exposure uses the same formula as the compliance risk report:
-    // shortfall = max(0, required - delivered)  →  exposure = shortfall × rate / 60
+    //   shortfall = max(0, required - delivered)  →  exposure = shortfall × rate / 60.
+    // In school-year mode we keep that formula but scale `required` by the
+    // number of interval cycles (weekly / monthly / quarterly / daily) that
+    // started within the year window for each requirement. Items remain the
+    // explicit missed/partial session log; the UI already shows a
+    // reconciliation row for any gap between aggregate shortfall exposure
+    // and the sum of logged item exposures (i.e. unlogged shortfall minutes).
     let aggregateExposure = 0;
     let aggregateShortfallMinutes = 0;
     let rateConfigured = true;
 
-    for (const req of requirements) {
-      const delivered = deliveredByReq.get(req.id) ?? 0;
-      const shortfall = Math.max(0, req.requiredMinutes - delivered);
+    for (const r of requirements) {
+      const delivered = deliveredByReq.get(r.id) ?? 0;
+      const intervals = scope === "schoolYear"
+        ? countIntervalsInWindow(r.intervalType, reqIntervals.get(r.id)!.intervalStart, reqIntervals.get(r.id)!.intervalEnd)
+        : 1;
+      const requiredForWindow = r.requiredMinutes * intervals;
+      const shortfall = Math.max(0, requiredForWindow - delivered);
       if (shortfall === 0) continue;
       aggregateShortfallMinutes += shortfall;
-      const rateInfo: RateInfo = rateMap.get(req.serviceTypeId)?.inHouse ?? { rate: null, source: "unconfigured" };
+      const rateInfo: RateInfo = rateMap.get(r.serviceTypeId)?.inHouse ?? { rate: null, source: "unconfigured" };
       const exposure = minutesToDollars(shortfall, rateInfo);
       if (exposure != null) {
         aggregateExposure += exposure;
@@ -564,6 +627,15 @@ router.get("/reports/exposure-detail/:studentId", async (req: Request, res: Resp
       aggregateExposure,
       aggregateShortfallMinutes,
       rateConfigured,
+      scope,
+      window: requirements.length > 0 && yearDates
+        ? {
+            startDate: yearDates.startDate,
+            // Clamp the displayed end-date to today so the audit window matches
+            // the calculation window (we never count sessions in the future).
+            endDate: yearDates.endDate < todayStr ? yearDates.endDate : todayStr,
+          }
+        : null,
     });
   } catch (e: any) {
     console.error("GET /reports/exposure-detail/:studentId error:", e);

@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/auth-fetch";
+import { useSchoolYears } from "@/lib/use-school-years";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Download, AlertTriangle, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+
+type Scope = "interval" | "schoolYear";
 
 interface ExposureItem {
   date: string;
@@ -25,6 +29,8 @@ interface ExposureDetail {
   aggregateExposure: number;
   aggregateShortfallMinutes: number;
   rateConfigured: boolean;
+  scope?: Scope;
+  window?: { startDate: string; endDate: string } | null;
 }
 
 function fmtDollars(n: number) {
@@ -120,11 +126,18 @@ interface Props {
 }
 
 export default function ExposureDetailPanel({ studentId, studentName, serviceRequirementId, onClose }: Props) {
+  const [scope, setScope] = useState<Scope>("interval");
+  const { activeYear } = useSchoolYears();
+  const yearId = scope === "schoolYear" ? activeYear?.id ?? null : null;
+
   const query = useQuery<ExposureDetail>({
-    queryKey: ["/api/reports/exposure-detail", studentId, serviceRequirementId],
+    queryKey: ["/api/reports/exposure-detail", studentId, serviceRequirementId, yearId],
     queryFn: async () => {
-      const params = serviceRequirementId != null ? `?serviceRequirementId=${serviceRequirementId}` : "";
-      const res = await authFetch(`/api/reports/exposure-detail/${studentId}${params}`);
+      const params = new URLSearchParams();
+      if (serviceRequirementId != null) params.set("serviceRequirementId", String(serviceRequirementId));
+      if (yearId != null) params.set("schoolYearId", String(yearId));
+      const qs = params.toString();
+      const res = await authFetch(`/api/reports/exposure-detail/${studentId}${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load exposure detail");
       return res.json();
     },
@@ -155,7 +168,9 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
                 Financial Exposure — {studentName ?? data?.studentName ?? "Student"}
               </SheetTitle>
               <p className="text-[12px] text-gray-400 mt-0.5 font-normal">
-                Itemised missed &amp; partial sessions for the current service interval
+                {scope === "schoolYear"
+                  ? `Itemised missed & partial sessions across the ${activeYear?.label ?? "school year"}`
+                  : "Itemised missed & partial sessions for the current service interval"}
               </p>
             </div>
             {studentId != null && (
@@ -170,6 +185,48 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Exposure window"
+              className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-[12px] font-medium"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === "interval"}
+                onClick={() => setScope("interval")}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  scope === "interval"
+                    ? "bg-white text-gray-800 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Current Interval
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={scope === "schoolYear"}
+                onClick={() => setScope("schoolYear")}
+                disabled={!activeYear}
+                title={!activeYear ? "No active school year configured" : undefined}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  scope === "schoolYear"
+                    ? "bg-white text-gray-800 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                Full School Year
+              </button>
+            </div>
+            {scope === "schoolYear" && data?.window && (
+              <span className="text-[11px] text-gray-400 tabular-nums">
+                {fmtDate(data.window.startDate)} – {fmtDate(data.window.endDate)}
+              </span>
+            )}
+          </div>
+
           {query.isLoading && (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin h-7 w-7 border-2 border-emerald-600 border-t-transparent rounded-full" />
@@ -187,8 +244,9 @@ export default function ExposureDetailPanel({ studentId, studentName, serviceReq
             <div className="py-12 text-center text-sm text-gray-500">
               <p className="font-medium text-gray-700 mb-1">No missed or partial sessions logged</p>
               <p className="text-[13px] text-gray-400">
-                This student has no explicitly logged missed or partial sessions in the current interval.
-                The shortfall of {data.aggregateShortfallMinutes} min reflects required minutes not yet delivered.
+                {scope === "schoolYear"
+                  ? `No missed or partial sessions have been logged for this student during the ${activeYear?.label ?? "school year"}.`
+                  : `This student has no explicitly logged missed or partial sessions in the current interval. The shortfall of ${data.aggregateShortfallMinutes} min reflects required minutes not yet delivered.`}
               </p>
             </div>
           )}
