@@ -10,6 +10,7 @@ import {
   progressReportsTable,
   priorWrittenNoticesTable,
   communicationEventsTable,
+  restraintIncidentsTable,
 } from "@workspace/db";
 import { eq, and, desc, SQL, sql } from "drizzle-orm";
 import { getEnforcedDistrictId, type AuthedRequest } from "../../middlewares/auth";
@@ -541,6 +542,16 @@ router.get("/document-workflow/workflows/:id/document-preview", async (req, res)
             serviceBreakdown: doc.serviceBreakdown,
             parentNotificationDate: doc.parentNotificationDate,
           };
+        }
+        break;
+      }
+      case "incident_report": {
+        const [doc] = await db
+          .select()
+          .from(restraintIncidentsTable)
+          .where(and(eq(restraintIncidentsTable.id, documentId), eq(restraintIncidentsTable.studentId, studentId)));
+        if (doc) {
+          preview = { ...doc, documentType, documentId };
         }
         break;
       }

@@ -3,7 +3,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, FileText, Printer } from "lucide-react";
-import { openPrintWindow, buildDocumentHtml, fmtDate, esc } from "@/lib/print-document";
+import { openPrintWindow, buildDocumentHtml, buildIncidentReportHtml, fmtDate, fmtTime, esc } from "@/lib/print-document";
 
 interface GoalProgressEntry {
   iepGoalId: number;
@@ -346,6 +346,54 @@ function PwnPreview({ preview, studentName }: { preview: DocumentPreview; studen
   );
 }
 
+function IncidentReportPreview({ preview, studentName }: { preview: DocumentPreview; studentName: string }) {
+  const incidentTypeLabel = String(preview.incidentType ?? "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  function handlePrint() {
+    const html = buildIncidentReportHtml({ incident: preview, studentName });
+    openPrintWindow(html);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-700">Incident Report — {incidentTypeLabel || "Restraint/Seclusion"}</p>
+        <Button size="sm" variant="outline" className="h-6 text-xs gap-1" onClick={handlePrint}>
+          <Printer className="w-3 h-3" /> Print Preview
+        </Button>
+      </div>
+      <MetaRow items={[
+        { label: "Date", value: preview.incidentDate ? fmtDate(String(preview.incidentDate)) : null },
+        { label: "Start", value: preview.incidentTime ? fmtTime(String(preview.incidentTime)) : null },
+        { label: "End", value: preview.endTime ? fmtTime(String(preview.endTime)) : null },
+        { label: "Duration", value: preview.durationMinutes ? `${preview.durationMinutes} min` : null },
+        { label: "Location", value: preview.location },
+        { label: "Status", value: preview.status },
+        { label: "Over 20 Min", value: preview.continuedOver20Min ? "Yes" : "No" },
+        { label: "DESE Required", value: preview.deseReportRequired ? "Yes" : "No" },
+      ]} />
+      <PreviewField label="Preceding Activity" value={preview.precedingActivity} />
+      <PreviewField label="Trigger Description" value={preview.triggerDescription} />
+      <PreviewField label="Behavior Description" value={preview.behaviorDescription} />
+      <PreviewField label="De-escalation Attempts" value={preview.deescalationAttempts} />
+      <PreviewField label="Alternatives Attempted" value={preview.alternativesAttempted} />
+      <PreviewField label="Justification" value={preview.justification} />
+      <PreviewField label="Restraint Description" value={preview.restraintDescription} />
+      <PreviewField label="Calming Strategies Used" value={preview.calmingStrategiesUsed} />
+      <PreviewField label="Student State After" value={preview.studentStateAfter} />
+      <PreviewField label="Student Injury" value={preview.studentInjury ? (preview.studentInjuryDescription || "Yes") : "No"} />
+      <PreviewField label="Staff Injury" value={preview.staffInjury ? (preview.staffInjuryDescription || "Yes") : "No"} />
+      <PreviewField label="Medical Attention Required" value={preview.medicalAttentionRequired ? (preview.medicalDetails || "Yes") : "No"} />
+      <PreviewField label="Debrief Notes" value={preview.debriefNotes} />
+      <PreviewField label="Follow-Up Plan" value={preview.followUpPlan} />
+      <PreviewField label="Admin Review Notes" value={preview.adminReviewNotes} />
+      <PreviewField label="Notes" value={preview.notes} />
+    </div>
+  );
+}
+
 function GenericPreview({ preview }: { preview: DocumentPreview }) {
   return (
     <div className="text-xs text-gray-500 p-3 bg-gray-50 rounded border border-gray-200">
@@ -412,7 +460,8 @@ export function InlineDocumentViewer({ workflowId, documentType, studentName }: 
               {preview.documentType === "evaluation" && <EvaluationPreview preview={preview} studentName={studentName} />}
               {preview.documentType === "progress_report" && <ProgressReportPreview preview={preview} studentName={studentName} />}
               {preview.documentType === "prior_written_notice" && <PwnPreview preview={preview} studentName={studentName} />}
-              {!["iep", "evaluation", "progress_report", "prior_written_notice"].includes(preview.documentType) && (
+              {preview.documentType === "incident_report" && <IncidentReportPreview preview={preview} studentName={studentName} />}
+              {!["iep", "evaluation", "progress_report", "prior_written_notice", "incident_report"].includes(preview.documentType) && (
                 <GenericPreview preview={preview} />
               )}
             </>
