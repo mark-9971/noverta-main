@@ -62,7 +62,12 @@ function computeSourceUrl(alert: any): string | null {
 export default function Alerts({ embedded = false }: { embedded?: boolean } = {}) {
   const search = useSearch();
   const [, navigate] = useLocation();
-  const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
+  // When embedded inside the Action Center, the surrounding ?tab=alerts query
+  // is owned by the parent. Track the inner tab in local state only and do
+  // NOT navigate — calling navigate("/alerts?tab=…") would trigger
+  // AlertsRedirect, unmount this component, and lose every other piece of
+  // local state (filters, selection, page).
+  const [tab, setTabState] = useState<Tab>(() => (embedded ? "open" : resolveTab(search)));
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [studentSearch, setStudentSearch] = useState("");
@@ -77,15 +82,16 @@ export default function Alerts({ embedded = false }: { embedded?: boolean } = {}
   const ALERT_PAGE_SIZE = 100;
 
   useEffect(() => {
+    if (embedded) return;
     setTabState(resolveTab(search));
-  }, [search]);
+  }, [search, embedded]);
 
   function setTab(t: Tab) {
     setTabState(t);
     setSeverityFilter("all");
     setSelected(new Set());
     setAlertPage(1);
-    navigate(`/alerts?tab=${t}`, { replace: true });
+    if (!embedded) navigate(`/alerts?tab=${t}`, { replace: true });
   }
 
   const { typedFilter } = useSchoolContext();

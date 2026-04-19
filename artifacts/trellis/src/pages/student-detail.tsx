@@ -1149,10 +1149,10 @@ export default function StudentDetail() {
                       Compensatory Services
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <Link href="/compensatory-finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                      <Link href="/compensatory?view=finance" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
                         Financial View
                       </Link>
-                      <Link href={`/compensatory-services?studentId=${studentId}`} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                      <Link href={`/compensatory?studentId=${studentId}`} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
                         View All →
                       </Link>
                     </div>
@@ -1177,7 +1177,7 @@ export default function StudentDetail() {
                         ) : (
                           <>
                             {compSummary.totalRemaining} min owed.{" "}
-                            <Link href="/compensatory-finance?tab=rates" className="underline font-medium">
+                            <Link href="/compensatory?view=finance&tab=rates" className="underline font-medium">
                               Set hourly rates
                             </Link>{" "}
                             to compute dollar exposure.

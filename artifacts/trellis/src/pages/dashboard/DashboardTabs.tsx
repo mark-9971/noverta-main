@@ -107,7 +107,7 @@ export function DashboardTabs({
     { label: "Required vs Delivered", icon: Shield, href: "/compliance", color: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100" },
     { label: "High-Risk Students", icon: Users, href: "/compliance-risk-report#needs-attention", color: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
     { label: "Weekly Summary", icon: FileBarChart, href: "/weekly-compliance-summary", color: "text-blue-700 bg-blue-50 hover:bg-blue-100" },
-    { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory-finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
+    { label: "Compensatory Exposure", icon: DollarSign, href: "/compensatory?view=finance", color: "text-rose-700 bg-rose-50 hover:bg-rose-100" },
     { label: "Log Session", icon: Clipboard, href: "/sessions", color: "text-gray-700 bg-gray-50 hover:bg-gray-100" },
   ];
 

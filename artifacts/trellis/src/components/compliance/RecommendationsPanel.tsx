@@ -371,7 +371,7 @@ export function buildRecommendations(inputs: RuleInputs): Recommendation[] {
       title,
       detail: "Prior compensatory minutes have not been delivered. Build a make-up plan.",
       actionLabel: "Open compensatory services",
-      actionHref: "/compensatory-services",
+      actionHref: "/compensatory",
     });
   }
 
@@ -482,7 +482,7 @@ export const RECOMMENDATION_RULES = [
     severity: "high",
     trigger: "complianceRiskReport.summary.existingCompensatoryExposure > 0",
     message: "Outstanding compensatory obligations: $X — schedule make-up services",
-    link: "/compensatory-services",
+    link: "/compensatory",
     source: "/api/reports/compliance-risk-report",
   },
   {

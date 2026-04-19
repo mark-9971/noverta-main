@@ -12,10 +12,11 @@ export default function CompensatoryWorkspace() {
   const view: View = params.get("view") === "finance" ? "finance" : "services";
 
   function setView(v: View) {
-    const next = new URLSearchParams();
-    if (v === "finance") {
-      next.set("view", "finance");
-    }
+    // Preserve every other query param (studentId, tab, etc.) so switching
+    // between Services and Finance never silently drops the user's context.
+    const next = new URLSearchParams(search);
+    if (v === "finance") next.set("view", "finance");
+    else next.delete("view");
     const qs = next.toString();
     navigate(`/compensatory${qs ? `?${qs}` : ""}`, { replace: true });
   }

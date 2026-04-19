@@ -96,7 +96,7 @@ const STEPS: TourStep[] = [
   },
   {
     selector: '[data-tour-id="showcase-compensatory"]',
-    path: "/compensatory-services",
+    path: "/compensatory",
     title: "Compensatory obligations",
     body:
       "Track owed minutes per student, calculate shortfalls, and log make-up sessions — the workflow that closes the loop on compliance exposure.",

@@ -170,7 +170,7 @@ export default function CostRiskPanel() {
               rather than estimated with a fabricated default.
             </p>
           </div>
-          <Link href="/compensatory-finance">
+          <Link href="/compensatory?view=finance">
             <Button size="sm" variant="outline" className="text-[11px] h-7 gap-1">
               Full breakdown <ArrowRight className="w-3 h-3" />
             </Button>

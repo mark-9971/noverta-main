@@ -47,7 +47,7 @@ export default function MakeupSessionsCard() {
         </CardTitle>
         {obligations.length > 0 && (
           <Link
-            href="/compensatory-services"
+            href="/compensatory"
             className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
           >
             View all <ArrowRight className="w-3 h-3" />

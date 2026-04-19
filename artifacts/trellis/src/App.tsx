@@ -52,8 +52,13 @@ function CompensatoryServicesRedirect() {
   return <Redirect to={`/compensatory${search ? `?${search}` : ""}`} />;
 }
 // Phase 2A: /alerts has been folded into the Action Center as a tab.
+// Preserve the rest of the query string so deep-links like
+// /alerts?type=cost_avoidance_risk keep their filter intent intact.
 function AlertsRedirect() {
-  return <Redirect to="/_action-center-legacy?tab=alerts" />;
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  params.set("tab", "alerts");
+  return <Redirect to={`/_action-center-legacy?${params.toString()}`} />;
 }
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));

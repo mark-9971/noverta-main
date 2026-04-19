@@ -243,9 +243,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   function isActive(item: NavItem) {
     if (item.comingSoon) return false;
-    return item.href === homeHref
-      ? location === item.href
-      : location.startsWith(item.href);
+    if (item.href === homeHref) return location === item.href;
+    // Phase 2A: nav items can carry a query string (e.g. Alerts →
+    // "/_action-center-legacy?tab=alerts"). A bare startsWith check on the
+    // raw href would fail because wouter's `location` excludes the search
+    // string. Split path/query and require the path to match AND every
+    // declared query param to be present on the current URL.
+    const [itemPath, itemQuery] = item.href.split("?");
+    if (!location.startsWith(itemPath)) return false;
+    if (!itemQuery) return true;
+    const declared = new URLSearchParams(itemQuery);
+    const current = new URLSearchParams(search);
+    for (const [k, v] of declared.entries()) {
+      if (current.get(k) !== v) return false;
+    }
+    return true;
   }
 
   function isChildActive(childHref: string, isFirstChild = false) {
