@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
   Users, ListChecks,
-  TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Clock,
+  TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Clock, RefreshCw, Loader2,
 } from "lucide-react";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
 import { useGetComplianceDeadlines } from "@workspace/api-client-react";
@@ -120,7 +120,15 @@ function formatSyncAge(isoStr: string): string {
   return new Date(isoStr).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-function LastSyncedLabel({ isoStr }: { isoStr: string }) {
+function LastSyncedLabel({
+  isoStr,
+  onRefresh,
+  isRefreshing,
+}: {
+  isoStr: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}) {
   const [label, setLabel] = useState(() => formatSyncAge(isoStr));
 
   useEffect(() => {
@@ -133,6 +141,23 @@ function LastSyncedLabel({ isoStr }: { isoStr: string }) {
     <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 mt-1.5">
       <Clock className="w-3 h-3 flex-shrink-0" />
       Updated {label}
+      {onRefresh && (
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="ml-1 inline-flex items-center justify-center rounded p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          aria-label="Refresh compliance data"
+          title="Refresh compliance data"
+          data-testid="button-refresh-compliance"
+        >
+          {isRefreshing ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3 h-3" />
+          )}
+        </button>
+      )}
     </span>
   );
 }
@@ -144,7 +169,7 @@ export default function PilotAdminHome() {
   const qs = new URLSearchParams(filterParams).toString();
   const params = qs ? `?${qs}` : "";
 
-  const { data: risk, isLoading: riskLoading, isError: riskError, dataUpdatedAt: riskUpdatedAt } = useQuery<ComplianceRiskReport>({
+  const { data: risk, isLoading: riskLoading, isError: riskError, dataUpdatedAt: riskUpdatedAt, refetch: refetchRisk, isRefetching: riskRefetching } = useQuery<ComplianceRiskReport>({
     queryKey: ["pilot-home/compliance-risk-report", filterParams],
     queryFn: async () => {
       const r = await authFetch(`/api/reports/compliance-risk-report${params}`);
@@ -443,7 +468,11 @@ export default function PilotAdminHome() {
             </div>
             {risk?.meta?.generatedAt && (
               <div>
-                <LastSyncedLabel isoStr={risk.meta.generatedAt} />
+                <LastSyncedLabel
+                  isoStr={risk.meta.generatedAt}
+                  onRefresh={() => { void refetchRisk(); }}
+                  isRefreshing={riskRefetching}
+                />
               </div>
             )}
             <p className="mt-3 text-sm text-gray-600 max-w-xl">
