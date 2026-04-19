@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck,
   Users, ListChecks,
-  TrendingUp, TrendingDown, Minus, Compass, FileBarChart,
+  TrendingUp, TrendingDown, Minus, Compass, FileBarChart, Target,
 } from "lucide-react";
 import LastSyncedLabel from "@/components/common/LastSyncedLabel";
 import { startShowcaseTour } from "@/components/ShowcaseTour";
@@ -29,6 +29,7 @@ import {
 } from "./SecondarySections";
 import type { CredentialExpirationItem } from "./SecondarySections";
 import ProviderCompletionCard from "./ProviderCompletionCard";
+import { MetricCard } from "./MetricCard";
 import ComplianceRiskAlertsWidget from "@/components/dashboard/ComplianceRiskAlertsWidget";
 import { getGreeting, formatLastUpdated } from "./types";
 import { computeHealthScore, type HealthScore } from "@/lib/health-score";
@@ -211,6 +212,15 @@ export default function PilotAdminHome() {
       const r = await authFetch(`/api/dashboard/summary${params}`);
       if (!r.ok) throw new Error("dashboard/summary failed");
       return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: goalMasteryData } = useQuery<{ totalActiveGoals: number; ratedGoals: number; onTrackOrMasteredGoals: number; masteryRate: number | null }>({
+    queryKey: ["goal-mastery-rate", filterParams],
+    queryFn: () => {
+      const p = new URLSearchParams(filterParams);
+      return authFetch(`/api/dashboard/goal-mastery-rate?${p.toString()}`).then(r => r.ok ? r.json() : null);
     },
     staleTime: 60_000,
   });
@@ -532,6 +542,32 @@ export default function PilotAdminHome() {
 
       {/* Pilot baseline + comparison — self-hides for non-pilot districts */}
       <PilotBaselinePanels />
+
+      {/* Goal mastery rate — district-wide outcome quality signal */}
+      <MetricCard
+        title="Goal Mastery Rate"
+        value={goalMasteryData?.masteryRate !== undefined && goalMasteryData.masteryRate !== null
+          ? `${goalMasteryData.masteryRate}%`
+          : "—"}
+        icon={Target}
+        accent={
+          goalMasteryData?.masteryRate === null || goalMasteryData?.masteryRate === undefined
+            ? "emerald"
+            : goalMasteryData.masteryRate >= 75
+              ? "emerald"
+              : goalMasteryData.masteryRate >= 55
+                ? "amber"
+                : "red"
+        }
+        subtitle={
+          goalMasteryData?.ratedGoals
+            ? `${goalMasteryData.onTrackOrMasteredGoals} of ${goalMasteryData.ratedGoals} goals rated on-track or mastered`
+            : goalMasteryData?.totalActiveGoals
+              ? "No ratings recorded yet"
+              : "of rated goals on track or mastered"
+        }
+        href="/progress-reports"
+      />
 
       {/* 2. Where are we at risk? */}
       <section className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="section-students-at-risk">
