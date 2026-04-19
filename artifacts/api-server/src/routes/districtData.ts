@@ -6,7 +6,7 @@ import {
   auditLogsTable,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import { requirePlatformAdmin, requireRoles, type AuthedRequest } from "../middlewares/auth";
+import { requirePlatformAdmin, requireRoles, invalidateDistrictDeleteCache, type AuthedRequest } from "../middlewares/auth";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { resolveDistrictIdForCaller } from "../lib/resolveDistrictForCaller";
 import { sendAdminEmail } from "../lib/email";
@@ -557,6 +557,8 @@ router.post("/district-data/soft-delete", requirePlatformAdmin, async (req, res)
     })
     .where(eq(districtsTable.id, reqDistrictId));
 
+  invalidateDistrictDeleteCache(reqDistrictId);
+
   await writeAuditLog({
     actorUserId: actor.userId,
     actorRole: actor.role,
@@ -609,6 +611,8 @@ router.delete("/district-data/soft-delete", requirePlatformAdmin, async (req, re
       deleteInitiatedBy: null,
     })
     .where(eq(districtsTable.id, reqDistrictId));
+
+  invalidateDistrictDeleteCache(reqDistrictId);
 
   await writeAuditLog({
     actorUserId: actor.userId,

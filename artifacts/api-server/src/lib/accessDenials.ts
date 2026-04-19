@@ -28,6 +28,7 @@ export type DenialKind =
   | "tier_check_failed"         // 503 — DB lookup failed during tier resolution
   | "guardian_scope_required"   // 403 — guardian portal route hit by non-guardian
   | "support_session_readonly"  // 403 — trellis_support attempted a write during read-only session
+  | "district_soft_deleted"     // 403 — district has delete_initiated_at set; staff/admin logins blocked
   | "dev_headers_in_prod";      // 400 — x-test-* headers reached prod
 
 export interface AccessDenial {

@@ -3,7 +3,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import { type TrellisRole, isRole, ROLE_HIERARCHY } from "../lib/permissions";
 import { getPublicMeta } from "../lib/clerkClaims";
 import { recordAccessDenial } from "../lib/accessDenials";
-import { db, staffTable, schoolsTable } from "@workspace/db";
+import { db, staffTable, schoolsTable, districtsTable } from "@workspace/db";
 import { sql, eq, isNull, and, inArray } from "drizzle-orm";
 import { loadActiveViewAsSession, VIEW_AS_HEADER, endSessionByToken } from "../lib/viewAsSession";
 import { loadActiveSupportSession } from "../lib/supportSession";
@@ -524,4 +524,95 @@ export function requireGuardianScope(req: Request, res: Response, next: NextFunc
     }
     next();
   });
+}
+
+/**
+ * Cache of districtId -> { deleteInitiatedAt, expiresAt }. Process-local with a
+ * short TTL so the soft-delete check doesn't add a DB roundtrip to every
+ * request. The TTL also bounds how long a stale "still active" answer can let
+ * a logged-in user keep working after the deletion is initiated.
+ */
+const _districtDeleteCache = new Map<number, { deleteInitiatedAt: Date | null; expiresAt: number }>();
+const DISTRICT_DELETE_CACHE_TTL_MS = 30_000;
+
+/** Manually drop a district from the deletion-status cache (e.g. after soft-delete or cancel). */
+export function invalidateDistrictDeleteCache(districtId?: number): void {
+  if (districtId != null) _districtDeleteCache.delete(districtId);
+  else _districtDeleteCache.clear();
+}
+
+/**
+ * Middleware: blocks all authenticated requests from staff/admins of a
+ * district that has been soft-deleted (delete_initiated_at is set). Returns
+ * a 403 with a clear message so the client can surface it.
+ *
+ * Platform admins (identified by `meta.platformAdmin === true` in their
+ * original Clerk token, even when impersonating via view-as) bypass the
+ * block so they can manage or cancel the scheduled deletion.
+ *
+ * Mount globally on the authenticated /api router AFTER requireDistrictScope
+ * so tenantDistrictId is populated.
+ */
+export function blockDeletedDistrict(req: Request, res: Response, next: NextFunction): void {
+  const authed = req as unknown as AuthedRequest;
+
+  // Platform admins always pass (read from the original Clerk token, so this
+  // is correct even when the admin is impersonating a district user).
+  const meta = getPublicMeta(req);
+  if (meta.platformAdmin) { next(); return; }
+
+  // Test-mode platform-admin header mirrors requireDistrictScope's bypass.
+  if (process.env.NODE_ENV === "test" && req.headers["x-test-platform-admin"] === "true") {
+    next();
+    return;
+  }
+
+  // No district scope = nothing to gate. requireDistrictScope already rejects
+  // non-platform-admin callers with no tenantDistrictId, so this is a safe no-op.
+  const districtId = authed.tenantDistrictId;
+  if (districtId == null) { next(); return; }
+
+  const cached = _districtDeleteCache.get(districtId);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    if (cached.deleteInitiatedAt) {
+      recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${cached.deleteInitiatedAt.toISOString()})`);
+      res.status(403).json({
+        error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+        code: "DISTRICT_SOFT_DELETED",
+      });
+      return;
+    }
+    next();
+    return;
+  }
+
+  void (async () => {
+    try {
+      const [row] = await db
+        .select({ deleteInitiatedAt: districtsTable.deleteInitiatedAt })
+        .from(districtsTable)
+        .where(eq(districtsTable.id, districtId))
+        .limit(1);
+      const deleteInitiatedAt = row?.deleteInitiatedAt ?? null;
+      _districtDeleteCache.set(districtId, {
+        deleteInitiatedAt,
+        expiresAt: Date.now() + DISTRICT_DELETE_CACHE_TTL_MS,
+      });
+      if (deleteInitiatedAt) {
+        recordAccessDenial(req, "district_soft_deleted", 403, `District ${districtId} is scheduled for deletion (initiated ${deleteInitiatedAt.toISOString()})`);
+        res.status(403).json({
+          error: "This district is scheduled for deletion. Contact support@trellis.education to cancel.",
+          code: "DISTRICT_SOFT_DELETED",
+        });
+        return;
+      }
+      next();
+    } catch (err) {
+      // Fail-open on DB errors: blocking every request because of a transient
+      // outage would be worse than letting them through for the cache window.
+      console.error("[Auth] blockDeletedDistrict lookup failed:", err);
+      next();
+    }
+  })();
 }

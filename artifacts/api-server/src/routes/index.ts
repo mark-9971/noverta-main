@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireRoles, requireDistrictScope, enforceSupportReadOnly, logSupportSessionReads } from "../middlewares/auth";
+import { requireAuth, requireRoles, requireDistrictScope, enforceSupportReadOnly, logSupportSessionReads, blockDeletedDistrict } from "../middlewares/auth";
 import healthRouter from "./health";
 import schoolsRouter from "./schools";
 import studentsRouter from "./students";
@@ -172,6 +172,11 @@ router.use(supportSessionRouter);
 // in their token are blocked from all authenticated data routes. Platform admins pass through.
 // Individual sub-routers may add supplementary district checks on top of this.
 router.use(requireDistrictScope);
+
+// Block all data access for districts that have been soft-deleted (delete_initiated_at set).
+// Platform admins bypass so they can manage or cancel the scheduled deletion.
+// Mounted after requireDistrictScope so tenantDistrictId is populated.
+router.use(blockDeletedDistrict);
 
 // Read-only enforcement for active trellis_support sessions. Mounted AFTER the
 // support-session router (so /open and /end can still POST) and AFTER
