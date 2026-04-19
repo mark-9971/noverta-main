@@ -63,14 +63,87 @@ async function signIn(page: Page): Promise<void> {
 
   await setupClerkTestingToken({ page });
   await page.goto("/setup");
-  await clerk.signIn({
-    page,
-    signInParams: {
-      strategy: "password",
-      identifier: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
+  // Wait for Clerk SDK to finish loading before invoking the helper.
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as { Clerk?: { loaded?: boolean } };
+      return w.Clerk?.loaded === true;
     },
+    null,
+    { timeout: 30_000 },
+  );
+
+  // Use ticket-based sign-in (mints a one-time sign-in token via the Clerk
+  // Backend API and exchanges it client-side). This bypasses any 2FA / MFA
+  // requirements the Clerk instance may enforce on password sign-ins, which
+  // is essential for headless test runs where there is no human to satisfy
+  // the second factor.
+  await clerk.signIn({ page, emailAddress: ADMIN_EMAIL });
+
+  // Pull the active session JWT out of the browser context and attach it as a
+  // Bearer token on the Playwright request context so subsequent
+  // page.request.* calls authenticate as the signed-in user — this is more
+  // reliable than relying on first-party Clerk cookies being mirrored into
+  // the request context (which fails behind the Replit dev-domain proxy).
+  const token = await page.waitForFunction(
+    async () => {
+      const w = window as unknown as {
+        Clerk?: { session?: { getToken: () => Promise<string | null> } };
+      };
+      const t = await w.Clerk?.session?.getToken?.();
+      return typeof t === "string" && t.length > 0 ? t : null;
+    },
+    null,
+    { timeout: 30_000 },
+  );
+  const sessionJwt = (await token.jsonValue()) as string;
+  await page.context().setExtraHTTPHeaders({
+    Authorization: `Bearer ${sessionJwt}`,
   });
+
+  // Accept all required legal documents (idempotent) so /api/* requests aren't
+  // blocked by the requireLegalAcceptance middleware.
+  const statusRes = await page.request.get("/api/legal/acceptance-status");
+  expect(
+    statusRes.ok(),
+    `GET /api/legal/acceptance-status should succeed (status ${statusRes.status()})`,
+  ).toBeTruthy();
+  const statusBody = (await statusRes.json()) as {
+    required?: boolean;
+    documents?: Array<{
+      documentType: string;
+      documentVersion: string;
+      required: boolean;
+    }>;
+  };
+  const missing = (statusBody.documents ?? [])
+    .filter((d) => d.required)
+    .map((d) => ({
+      documentType: d.documentType,
+      documentVersion: d.documentVersion,
+    }));
+  if (missing.length > 0) {
+    const acceptRes = await page.request.post("/api/legal/accept", {
+      data: { acceptances: missing },
+    });
+    expect(
+      acceptRes.ok(),
+      `POST /api/legal/accept should succeed (status ${acceptRes.status()})`,
+    ).toBeTruthy();
+  }
+
+  // Sanity check: the API must now accept page.request as authenticated.
+  await expect
+    .poll(
+      async () => (await page.request.get("/api/sample-data")).status(),
+      {
+        timeout: 30_000,
+        message:
+          "API did not authenticate after clerk.signIn — Bearer token may be invalid or Clerk session not yet propagated.",
+      },
+    )
+    .toBe(200);
+
   // Confirm the AppLayout has rendered before tests issue API calls.
   await page.goto("/protective-measures");
   await expect(
@@ -229,6 +302,60 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
   const createdIds: number[] = [];
 
   test.beforeEach(async ({ page }) => {
+    // Stub out /api/sample-data so the SampleDataTour component (mounted
+    // globally in AppLayout) sees `hasSampleData: false` and never auto-
+    // activates. The tour's Step 1 navigates to /compliance-risk-report,
+    // which would hijack any later page-under-test navigations. This must be
+    // installed BEFORE signIn() — AppLayout mounts on the very first page
+    // load and useQuery caches the response in the QueryClient, so a route
+    // installed later would never be hit.
+    // Suppress the sample-data tour (which auto-navigates to
+    // /compliance-risk-report on Step 1) via the in-app E2E escape hatch
+    // and a localStorage proto monkey-patch as a belt-and-braces fallback.
+    await page.addInitScript(() => {
+      try {
+        (window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean })
+          .__TRELLIS_DISABLE_TOURS__ = true;
+        window.localStorage.setItem("trellis.disableTours", "1");
+      } catch {
+        // best-effort
+      }
+    });
+    page.on("console", (msg) => {
+      const t = msg.type();
+      if (t === "error" || t === "warning") {
+        // eslint-disable-next-line no-console
+        console.log(`[browser ${t}] ${msg.text().slice(0, 400)}`);
+      }
+    });
+    page.on("pageerror", (err) => {
+      // eslint-disable-next-line no-console
+      console.log(`[browser pageerror] ${err.message}`);
+    });
+    await page.addInitScript(() => {
+      try {
+        const orig = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key: string) {
+          if (typeof key === "string" && key.startsWith("trellis.sampleTour.v1.")) {
+            return "seen";
+          }
+          if (key === "trellis.sampleTour.start" || key === "trellis.showcaseTour.start") {
+            return null;
+          }
+          return orig.call(this, key);
+        };
+        const origSet = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key: string, value: string) {
+          // Block any code path that tries to (re-)arm the tour start flag.
+          if (key === "trellis.sampleTour.start" || key === "trellis.showcaseTour.start") {
+            return;
+          }
+          return origSet.call(this, key, value);
+        };
+      } catch {
+        // best-effort
+      }
+    });
     await signIn(page);
     await ensureSampleData(page);
   });
@@ -891,7 +1018,37 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     const incident = await createDraftIncident(page, student.id);
     createdIds.push(incident.id);
 
+    // Clear the test-only Authorization header before navigating: Clerk's
+    // browser SDK refuses any request that has BOTH the browser-set Origin
+    // header and an Authorization header ("only one of 'Origin' and
+    // 'Authorization' headers should be provided"). With the header set,
+    // Clerk fails to load the session client-side and the React app never
+    // mounts past <RedirectToSignIn />, leaving the page blank. We clear it
+    // for the navigation, let Clerk initialize from session cookies, then
+    // restore the Bearer token so the in-app API calls authenticate.
+    const savedAuth = `Bearer ${await page.evaluate(async () => {
+      const w = window as unknown as {
+        Clerk?: { session?: { getToken: () => Promise<string | null> } };
+      };
+      return (await w.Clerk?.session?.getToken?.()) ?? "";
+    })}`;
+    await page.context().setExtraHTTPHeaders({});
+
     await page.goto("/protective-measures");
+
+    // Wait for Clerk's browser SDK to finish loading on the new page (it
+    // re-initializes on every full navigation) before re-attaching the
+    // Authorization header — otherwise the very next Clerk fetch races and
+    // rejects with the same Origin/Authorization conflict.
+    await page.waitForFunction(
+      () => {
+        const w = window as unknown as { Clerk?: { loaded?: boolean } };
+        return w.Clerk?.loaded === true;
+      },
+      null,
+      { timeout: 30_000 },
+    );
+    await page.context().setExtraHTTPHeaders({ Authorization: savedAuth });
 
     // The page should not show a hard error.
     await expect(page.getByText("Something went wrong")).toHaveCount(0, {
@@ -907,10 +1064,12 @@ test.describe("Incident lifecycle and parent notification (603 CMR 46.00)", () =
     await expect(heading).toBeVisible({ timeout: 30_000 });
 
     // The incident we just created should appear in the list once the query
-    // resolves.  We match the incident ID as a string since it appears in
-    // aria labels, table cells, or badge text.
+    // resolves.  The list does not render numeric incident IDs, so we match
+    // the student's full name (which is rendered as the row title for each
+    // incident button).
+    const studentFullName = `${student.firstName} ${student.lastName}`;
     await expect(
-      page.getByText(new RegExp(`#?${incident.id}`, "i")).first(),
+      page.getByText(studentFullName, { exact: false }).first(),
     ).toBeVisible({ timeout: 30_000 });
   });
 

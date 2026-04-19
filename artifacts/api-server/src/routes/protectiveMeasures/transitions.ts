@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, restraintIncidentsTable, incidentSignaturesTable, incidentStatusHistoryTable, studentsTable, staffTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
-import { getPublicMeta } from "../../lib/clerkClaims";
+import { getPublicMetaAsync } from "../../lib/clerkClaims";
 import { registerIncidentIdParam } from "./utils";
 
 // tenant-scope: district-join
@@ -19,13 +19,7 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
     return;
   }
 
-  const actorStaffId = getPublicMeta(req).staffId ?? null;
-
-  const TERMINAL_TRANSITIONS = new Set(["under_review", "resolved", "dese_reported"]);
-  if (TERMINAL_TRANSITIONS.has(toStatus) && !actorStaffId) {
-    res.status(401).json({ error: "Actor identity required for terminal transitions. Ensure your session is authenticated." });
-    return;
-  }
+  const actorStaffId = (await getPublicMetaAsync(req)).staffId ?? null;
 
   const VALID_TRANSITIONS: Record<string, string[]> = {
     draft: ["open"],
@@ -42,6 +36,12 @@ router.post("/protective-measures/incidents/:id/transition", async (req: Request
   const allowedNext = VALID_TRANSITIONS[existing.status] ?? [];
   if (!allowedNext.includes(toStatus)) {
     res.status(400).json({ error: `Cannot transition from '${existing.status}' to '${toStatus}'. Allowed: ${allowedNext.join(", ") || "none"}` });
+    return;
+  }
+
+  const TERMINAL_TRANSITIONS = new Set(["under_review", "resolved", "dese_reported"]);
+  if (TERMINAL_TRANSITIONS.has(toStatus) && !actorStaffId) {
+    res.status(401).json({ error: "Actor identity required for terminal transitions. Ensure your session is authenticated." });
     return;
   }
 
@@ -119,7 +119,7 @@ router.post("/protective-measures/incidents/:id/dese-report", async (req: Reques
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  const actorStaffId = (await getPublicMetaAsync(req)).staffId ?? null;
   if (!actorStaffId) {
     res.status(401).json({ error: "Authenticated actor identity required to file DESE report." });
     return;

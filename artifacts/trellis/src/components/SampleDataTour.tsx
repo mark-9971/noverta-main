@@ -108,6 +108,19 @@ function consumeStartFlag(): boolean {
 }
 
 export function SampleDataTour() {
+  // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__=true or
+  // set localStorage["trellis.disableTours"]="1" to fully suppress the tour
+  // (no auto-open, no replay event handling, no overlay render). Checked at
+  // the top of render so all activation paths are short-circuited.
+  if (typeof window !== "undefined") {
+    const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+    if (w.__TRELLIS_DISABLE_TOURS__ === true) return null;
+    try {
+      if (window.localStorage.getItem("trellis.disableTours") === "1") return null;
+    } catch {
+      // ignore
+    }
+  }
   const { role } = useRole();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const userId = clerkUser?.id ?? null;
@@ -136,6 +149,19 @@ export function SampleDataTour() {
   // has not yet seen it.
   useEffect(() => {
     if (!clerkLoaded) return;
+    // E2E escape hatch: tests inject window.__TRELLIS_DISABLE_TOURS__ or set
+    // localStorage["trellis.disableTours"]="1" to prevent the tour from
+    // auto-opening (and auto-navigating to /compliance-risk-report on Step 1)
+    // during automated runs.
+    if (typeof window !== "undefined") {
+      const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+      if (w.__TRELLIS_DISABLE_TOURS__ === true) return;
+      try {
+        if (window.localStorage.getItem("trellis.disableTours") === "1") return;
+      } catch {
+        // ignore
+      }
+    }
     if (!isAdmin || !data?.hasSampleData) return;
     if (active) return;
     if (consumeStartFlag()) {

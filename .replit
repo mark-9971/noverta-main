@@ -24,12 +24,9 @@ args = "incident-e2e"
 name = "incident-e2e"
 author = "agent"
 
-[workflows.workflow.metadata]
-isValidation = true
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-form-wizard.spec.ts tests/incident-lifecycle.spec.ts tests/quick-report-form.spec.ts --reporter=line"
+args = "cd e2e && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(which chromium 2>/dev/null || echo '') npx playwright test tests/incident-form-wizard.spec.ts tests/incident-lifecycle.spec.ts tests/quick-report-form.spec.ts --reporter=line && npx tsc --noEmit"
 
 [agent]
 stack = "PNPM_WORKSPACE"

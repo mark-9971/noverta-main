@@ -578,6 +578,7 @@ export async function seedSampleDataForDistrict(districtId: number): Promise<See
       grade,
       disabilityCategory: def.disability ?? pick(DISABILITY_POOL),
       schoolId: schools[def.schoolIdx].id,
+      districtId,
       caseManagerId: caseManager.id,
       status: "active",
       primaryLanguage: i % 7 === 0 ? "Spanish" : (i % 11 === 0 ? "Portuguese" : "English"),

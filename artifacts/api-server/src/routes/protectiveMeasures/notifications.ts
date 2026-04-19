@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db, restraintIncidentsTable, incidentStatusHistoryTable, studentsTable, staffTable, schoolsTable, guardiansTable, communicationEventsTable } from "@workspace/db";
 import { eq, desc, and, asc, inArray } from "drizzle-orm";
 import { logAudit } from "../../lib/auditLog";
-import { getPublicMeta } from "../../lib/clerkClaims";
+import { getPublicMetaAsync } from "../../lib/clerkClaims";
 import { sendEmail, buildIncidentNotificationEmail } from "../../lib/email";
 import { registerIncidentIdParam, getFullIncidentData } from "./utils";
 
@@ -105,7 +105,7 @@ router.post("/protective-measures/incidents/:id/review-notification", async (req
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  const actorStaffId = (await getPublicMetaAsync(req)).staffId ?? null;
   if (!actorStaffId) {
     res.status(401).json({ error: "Actor identity required to review a notification. Ensure your session is authenticated." });
     return;
@@ -158,7 +158,7 @@ router.post("/protective-measures/incidents/:id/send-parent-notification", async
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const actorStaffId = getPublicMeta(req).staffId ?? null;
+  const actorStaffId = (await getPublicMetaAsync(req)).staffId ?? null;
   if (!actorStaffId) {
     res.status(401).json({ error: "Actor identity required to send parent notification. Ensure your session is authenticated." });
     return;

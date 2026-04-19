@@ -147,6 +147,18 @@ function markSeen(
   }
 }
 
+function toursDisabled(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as { __TRELLIS_DISABLE_TOURS__?: boolean };
+  if (w.__TRELLIS_DISABLE_TOURS__ === true) return true;
+  try {
+    if (window.localStorage.getItem("trellis.disableTours") === "1") return true;
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 function consumeStartFlag(): boolean {
   try {
     const v = window.localStorage.getItem(START_FLAG) === "1";
@@ -183,6 +195,8 @@ export function startShowcaseTour() {
 }
 
 export function ShowcaseTour() {
+  // E2E escape hatch — see SampleDataTour for rationale.
+  if (toursDisabled()) return null;
   const { role } = useRole();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const userId = clerkUser?.id ?? null;
@@ -210,6 +224,7 @@ export function ShowcaseTour() {
   // and the tour mounts on the new page).
   useEffect(() => {
     if (!clerkLoaded) return;
+    if (toursDisabled()) return;
     if (!isAdmin || !data?.hasSampleData) return;
     if (active) return;
     if (consumeStartFlag()) {
@@ -221,6 +236,7 @@ export function ShowcaseTour() {
   // Live "start" event for the case where the tour is already mounted.
   useEffect(() => {
     function onStart() {
+      if (toursDisabled()) return;
       if (!isAdmin || !data?.hasSampleData) return;
       setStepIdx(0);
       setActive(true);
@@ -251,6 +267,7 @@ export function ShowcaseTour() {
       // because some target paths include `?tab=…`.
       const [stepPath] = step.path.split("?");
       if (location !== stepPath && location !== step.path) {
+        console.error("[ShowcaseTour] navigating to", step.path, "from", location);
         navigate(step.path);
       }
     }
