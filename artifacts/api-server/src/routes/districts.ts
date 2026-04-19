@@ -173,8 +173,11 @@ router.patch("/districts/:id", async (req, res): Promise<void> => {
       // the value safe to embed directly in <img src=...> in the PDF header.
       const isHttp = /^https?:\/\//i.test(trimmed);
       const isDataImage = /^data:image\/(png|jpeg|jpg|gif|svg\+xml|webp);base64,/i.test(trimmed);
-      if (!isHttp && !isDataImage) {
-        res.status(400).json({ error: "logoUrl must be an http(s) URL or a data:image/* URI" });
+      // Relative URL pointing at the in-app public object storage proxy. This
+      // is what the drag-and-drop logo upload flow returns.
+      const isUploadedAsset = /^\/api\/storage\/public-objects\/district-logos\//i.test(trimmed);
+      if (!isHttp && !isDataImage && !isUploadedAsset) {
+        res.status(400).json({ error: "logoUrl must be an http(s) URL, a data:image/* URI, or an uploaded asset path" });
         return;
       }
       updateData.logoUrl = trimmed;

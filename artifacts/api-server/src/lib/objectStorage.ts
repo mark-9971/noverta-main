@@ -120,6 +120,47 @@ export class ObjectStorageService {
     });
   }
 
+  /**
+   * Generates a presigned PUT URL that uploads a file directly under the
+   * public search path so it can later be served via
+   * `GET /api/storage/public-objects/<publicPath>`. Used for things like
+   * district branding logos that must be web-accessible without auth.
+   *
+   * Returns the presigned URL and the relative `publicPath` (the path to use
+   * with `/api/storage/public-objects/...`).
+   */
+  async getPublicAssetUploadURL(opts: {
+    folder: string;
+    fileExtension: string;
+    contentType: string;
+  }): Promise<{ uploadURL: string; publicPath: string }> {
+    const publicPaths = this.getPublicObjectSearchPaths();
+    // Use the first configured public search path as the write target.
+    const writeRoot = publicPaths[0];
+    // Sanitize each path segment individually so we keep the `/` separators
+    // between subfolders (e.g. "district-logos/123") while still scrubbing
+    // anything unsafe inside each segment.
+    const safeFolder = opts.folder
+      .split("/")
+      .map((seg) => seg.replace(/[^a-zA-Z0-9_-]/g, ""))
+      .filter((seg) => seg.length > 0)
+      .join("/");
+    const safeExt = opts.fileExtension.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    if (!safeFolder) throw new Error("folder is required");
+    if (!safeExt) throw new Error("fileExtension is required");
+    const objectId = randomUUID();
+    const publicPath = `${safeFolder}/${objectId}.${safeExt}`;
+    const fullPath = `${writeRoot}/${publicPath}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const uploadURL = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+    return { uploadURL, publicPath };
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();

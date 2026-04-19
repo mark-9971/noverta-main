@@ -203,6 +203,77 @@ router.get("/admin/upload-quota", requireRoles("admin"), async (req: Request, re
   });
 });
 
+/**
+ * Admin-only endpoint that returns a presigned PUT URL for uploading a
+ * district branding logo. Writes into the public search path so the resulting
+ * file is served (no auth) via `GET /api/storage/public-objects/<publicPath>`.
+ *
+ * The client uploads the file directly to the returned `uploadURL`, then
+ * persists `publicUrl` on the district record via PATCH /districts/:id.
+ */
+const LOGO_ALLOWED_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/svg+xml": "svg",
+  "image/webp": "webp",
+};
+const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB
+
+const RequestLogoUploadBody = z.object({
+  contentType: z.string(),
+  size: z.number().int().positive().max(MAX_LOGO_BYTES, {
+    message: `Logo file must not exceed ${MAX_LOGO_BYTES} bytes (2 MB)`,
+  }),
+});
+
+router.post("/storage/uploads/district-logo-url", requireRoles("admin"), async (req: Request, res: Response) => {
+  const parsed = RequestLogoUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Missing or invalid required fields", details: parsed.error.flatten() });
+    return;
+  }
+  const { contentType, size } = parsed.data;
+  const ext = LOGO_ALLOWED_TYPES[contentType.toLowerCase()];
+  if (!ext) {
+    res.status(400).json({
+      error: `Content type '${contentType}' is not permitted. Allowed: PNG, JPG, SVG, WEBP.`,
+    });
+    return;
+  }
+  if (size > MAX_LOGO_BYTES) {
+    res.status(400).json({ error: `Logo file ${size} bytes exceeds the 2 MB limit.` });
+    return;
+  }
+
+  const districtId = await resolveDistrictIdForCaller(req);
+  if (districtId === null) {
+    res.status(403).json({ error: "Your account is not linked to a district." });
+    return;
+  }
+
+  try {
+    const { uploadURL, publicPath } = await objectStorageService.getPublicAssetUploadURL({
+      folder: `district-logos/${districtId}`,
+      fileExtension: ext,
+      contentType,
+    });
+    // Relative URL the client should save on the district record.
+    const publicUrl = `/api/storage/public-objects/${publicPath}`;
+    logAudit(req, {
+      action: "create",
+      targetTable: "districts",
+      targetId: String(districtId),
+      summary: `Issued district logo upload URL for district ${districtId}`,
+      metadata: { event: "district_logo_upload_url_issued", districtId, contentType, size, publicUrl },
+    });
+    res.json({ uploadURL, publicUrl });
+  } catch (error) {
+    console.error("Error generating district logo upload URL:", error);
+    res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
