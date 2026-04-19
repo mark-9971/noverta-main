@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Stethoscope } from "lucide-react";
 
+import { QuickLogSheet } from "@/components/quick-log-sheet";
 import StudentGoalSection from "./student-detail/StudentGoalSection";
 import StudentServiceSection from "./student-detail/StudentServiceSection";
 import StudentBehaviorSection from "./student-detail/StudentBehaviorSection";
@@ -104,11 +105,12 @@ function StudentMedicaidField({ student, onSave }: { student: any; onSave: () =>
 export default function StudentDetail() {
   const params = useParams<{ id: string }>();
   const studentId = Number(params.id);
-  const { role } = useRole();
+  const { role, teacherId } = useRole();
   const bipReadOnly = !BIP_EDIT_ROLES.includes(role);
 
   const { data: student, isLoading: loadingStudent, refetch: refetchStudent } = useGetStudent(studentId);
   const { data: progress, refetch: refetchProgress } = useGetStudentMinuteProgress(studentId);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const { data: sessions } = useGetStudentSessions(studentId, { limit: 20 } as any);
 
   const [behaviorTargets, setBehaviorTargets] = useState<any[]>([]);
@@ -913,6 +915,15 @@ export default function StudentDetail() {
               <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${riskCfg.bg} ${riskCfg.color}`}>
                 {riskCfg.label}
               </span>
+              {(role === "para" || role === "provider" || role === "direct_provider") && (
+                <button
+                  onClick={() => setQuickLogOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors"
+                  data-testid="button-student-quick-log"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Log Session
+                </button>
+              )}
               <Link href={`/students/${studentId}/iep`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
                 <FileText className="w-3.5 h-3.5" /> IEP & Reports
               </Link>
@@ -1463,6 +1474,18 @@ export default function StudentDetail() {
         handlePrintSummary={handlePrintSummary}
         generateShareLink={generateShareLink}
         studentId={studentId}
+      />
+      <QuickLogSheet
+        isOpen={quickLogOpen}
+        onClose={() => setQuickLogOpen(false)}
+        onSuccess={() => {
+          setQuickLogOpen(false);
+          refetchStudent();
+          refetchProgress();
+        }}
+        staffId={teacherId ?? null}
+        prefillStudentId={studentId}
+        prefillStudentName={studentName}
       />
     </div>
   );
