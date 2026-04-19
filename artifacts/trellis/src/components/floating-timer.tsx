@@ -289,6 +289,7 @@ export function FloatingTimer() {
   const [studentRequirements, setStudentRequirements] = useState<ServiceRequirement[]>([]);
   const [suggestedServiceTypeId, setSuggestedServiceTypeId] = useState<number | null>(null);
   const [remainingByType, setRemainingByType] = useState<Map<number, RemainingByType>>(new Map());
+  const [suggestedFromHistory, setSuggestedFromHistory] = useState(false);
 
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [loggingTimerId, setLoggingTimerId] = useState<string | null>(null);
@@ -391,6 +392,7 @@ export function FloatingTimer() {
     setStudentSearch("");
     setStudentRequirements([]);
     setSuggestedServiceTypeId(null);
+    setSuggestedFromHistory(false);
     selectedStudentIdRef.current = null;
     loadData();
     setTimeout(() => searchRef.current?.focus(), 100);
@@ -420,45 +422,89 @@ export function FloatingTimer() {
     setSelectedStudent(s);
     setStudentRequirements([]);
     setSuggestedServiceTypeId(null);
+    setSuggestedFromHistory(false);
     setRemainingByType(new Map());
     setStartStep("service");
     selectedStudentIdRef.current = s.id;
-    try {
-      const [reqRes, progRes] = await Promise.all([
-        authFetch(`/api/service-requirements?studentId=${s.id}&active=true`),
-        authFetch(`/api/minute-progress?studentId=${s.id}`),
-      ]);
-      if (!reqRes.ok) return;
-      const reqs: ServiceRequirement[] = await reqRes.json();
-      // Guard against race: discard result if the user already switched to a different student
-      if (selectedStudentIdRef.current !== s.id) return;
-      // Sort by priority descending (higher priority = more important), then by id for stability
-      const sorted = [...reqs].sort((a, b) => {
-        const pa = (a as any).priority ?? 0;
-        const pb = (b as any).priority ?? 0;
-        return pb - pa || a.id - b.id;
+
+    // Fetch IEP requirements (for the "Based on IEP services" section / fallback
+    // suggestion), recent session history for this provider+student combo (to
+    // find the most-used service type), and remaining-minute progress in
+    // parallel.
+    const reqPromise = authFetch(`/api/service-requirements?studentId=${s.id}&active=true`)
+      .then(r => r.ok ? r.json() as Promise<ServiceRequirement[]> : [] as ServiceRequirement[])
+      .catch(() => [] as ServiceRequirement[]);
+    const historyPromise = teacherId
+      ? authFetch(`/api/sessions?studentId=${s.id}&staffId=${teacherId}&limit=500&status=completed`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      : Promise.resolve(null);
+    const progressPromise = authFetch(`/api/minute-progress?studentId=${s.id}`)
+      .then(r => r.ok ? r.json() as Promise<MinuteProgressEntry[]> : null)
+      .catch(() => null);
+
+    const [reqs, history, progress] = await Promise.all([reqPromise, historyPromise, progressPromise]);
+    // Guard against race: discard result if the user already switched students.
+    if (selectedStudentIdRef.current !== s.id) return;
+
+    // Sort requirements by priority descending, then by id for stability.
+    const sorted = [...reqs].sort((a, b) => {
+      const pa = (a as any).priority ?? 0;
+      const pb = (b as any).priority ?? 0;
+      return pb - pa || a.id - b.id;
+    });
+    setStudentRequirements(sorted);
+
+    // Tally service-type frequency across this provider's past sessions with
+    // this student. Most-used wins; ties broken by recency (the API returns
+    // sessions ordered by sessionDate desc, so the first occurrence is the
+    // most recent).
+    let mostUsedTypeId: number | null = null;
+    const sessions: Array<{ serviceTypeId: number | null }> = Array.isArray(history?.data)
+      ? history.data
+      : [];
+    if (sessions.length > 0) {
+      const counts = new Map<number, number>();
+      const firstSeen = new Map<number, number>();
+      sessions.forEach((row, idx) => {
+        const id = row.serviceTypeId;
+        if (typeof id !== "number") return;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+        if (!firstSeen.has(id)) firstSeen.set(id, idx);
       });
-      setStudentRequirements(sorted);
-      if (sorted.length > 0 && sorted[0].serviceTypeId) {
-        setSuggestedServiceTypeId(sorted[0].serviceTypeId);
-      }
-      if (progRes.ok) {
-        const progress: MinuteProgressEntry[] = await progRes.json();
-        if (selectedStudentIdRef.current !== s.id) return;
-        const map = new Map<number, RemainingByType>();
-        for (const p of progress) {
-          const existing = map.get(p.serviceTypeId);
-          if (existing) {
-            existing.remainingMinutes += p.remainingMinutes;
-            if (existing.intervalType !== p.intervalType) existing.intervalType = null;
-          } else {
-            map.set(p.serviceTypeId, { remainingMinutes: p.remainingMinutes, intervalType: p.intervalType });
-          }
+      let bestCount = 0;
+      let bestRecency = Number.POSITIVE_INFINITY;
+      for (const [id, c] of counts) {
+        const recency = firstSeen.get(id) ?? Number.POSITIVE_INFINITY;
+        if (c > bestCount || (c === bestCount && recency < bestRecency)) {
+          bestCount = c;
+          bestRecency = recency;
+          mostUsedTypeId = id;
         }
-        setRemainingByType(map);
       }
-    } catch {
-      // non-fatal — proceed without suggestions
+    }
+
+    if (mostUsedTypeId != null) {
+      setSuggestedServiceTypeId(mostUsedTypeId);
+      setSuggestedFromHistory(true);
+    } else if (sorted.length > 0 && sorted[0].serviceTypeId) {
+      // Fall back to IEP requirement when there is no past-session history.
+      setSuggestedServiceTypeId(sorted[0].serviceTypeId);
+      setSuggestedFromHistory(false);
+    }
+
+    if (progress) {
+      const map = new Map<number, RemainingByType>();
+      for (const p of progress) {
+        const existing = map.get(p.serviceTypeId);
+        if (existing) {
+          existing.remainingMinutes += p.remainingMinutes;
+          if (existing.intervalType !== p.intervalType) existing.intervalType = null;
+        } else {
+          map.set(p.serviceTypeId, { remainingMinutes: p.remainingMinutes, intervalType: p.intervalType });
+        }
+      }
+      setRemainingByType(map);
     }
   };
 
@@ -640,15 +686,23 @@ export function FloatingTimer() {
 
             {startStep === "service" && (() => {
               const matchedTypeIds = new Set(studentRequirements.map(r => r.serviceTypeId));
+              // Order: suggested first (always index 0), then IEP-matched, then everything else.
               const sortedServiceTypes = [...serviceTypes].sort((a, b) => {
+                const aSug = a.id === suggestedServiceTypeId ? 0 : 1;
+                const bSug = b.id === suggestedServiceTypeId ? 0 : 1;
+                if (aSug !== bSug) return aSug - bSug;
                 const aMatched = matchedTypeIds.has(a.id) ? 0 : 1;
                 const bMatched = matchedTypeIds.has(b.id) ? 0 : 1;
                 return aMatched - bMatched;
               });
               const hasMatches = matchedTypeIds.size > 0;
+              const suggestedFirstAndNonMatched =
+                suggestedServiceTypeId != null &&
+                sortedServiceTypes[0]?.id === suggestedServiceTypeId &&
+                !matchedTypeIds.has(suggestedServiceTypeId);
               return (
                 <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-                  {hasMatches && (
+                  {hasMatches && !suggestedFirstAndNonMatched && (
                     <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide px-1 pb-1">
                       Based on IEP services
                     </p>
@@ -656,7 +710,13 @@ export function FloatingTimer() {
                   {sortedServiceTypes.map((svc, idx) => {
                     const isMatched = matchedTypeIds.has(svc.id);
                     const isSuggested = svc.id === suggestedServiceTypeId;
-                    const isFirstOther = hasMatches && !isMatched && sortedServiceTypes[idx - 1] && matchedTypeIds.has(sortedServiceTypes[idx - 1].id);
+                    const prev = sortedServiceTypes[idx - 1];
+                    // Header before the first IEP-matched item when the suggested
+                    // history-based item sat above the IEP section.
+                    const isFirstMatched = hasMatches && isMatched && suggestedFirstAndNonMatched && (!prev || !matchedTypeIds.has(prev.id));
+                    // Header before the first non-matched item when the IEP
+                    // section is present.
+                    const isFirstOther = hasMatches && !isMatched && !isSuggested && prev && matchedTypeIds.has(prev.id);
                     const remaining = isMatched ? remainingByType.get(svc.id) : undefined;
                     const remainingLabel = remaining
                       ? `${Math.round(remaining.remainingMinutes)} min ${intervalLabel(remaining.intervalType)}`
@@ -664,6 +724,11 @@ export function FloatingTimer() {
                     const tallRow = isSuggested || (isMatched && remainingLabel);
                     return (
                       <div key={svc.id}>
+                        {isFirstMatched && (
+                          <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide px-1 pt-2 pb-1">
+                            Based on IEP services
+                          </p>
+                        )}
                         {isFirstOther && (
                           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-1 pt-2 pb-1">
                             Other services
@@ -694,7 +759,9 @@ export function FloatingTimer() {
                             )}
                           </div>
                           {isSuggested && (
-                            <span className="text-[10px] font-semibold text-emerald-600">Suggested</span>
+                            <span className="text-[10px] font-semibold text-emerald-600">
+                              {suggestedFromHistory ? "Based on past sessions" : "Suggested"}
+                            </span>
                           )}
                         </button>
                       </div>
