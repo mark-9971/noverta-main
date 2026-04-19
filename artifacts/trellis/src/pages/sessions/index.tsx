@@ -96,12 +96,28 @@ export default function Sessions({ embedded = false }: { embedded?: boolean }) {
     const params = new URLSearchParams(window.location.search);
     const studentIdParam = params.get("studentId");
     const quicklogParam = params.get("quicklog");
-    if (studentIdParam && quicklogParam === "true") {
-      const id = Number(studentIdParam);
-      if (!isNaN(id) && id > 0) {
-        setQuickLogPrefillStudentId(id);
-        setQuickLogOpen(true);
-      }
+    const logParam = params.get("log");
+    const dateParam = params.get("date");
+    if (!studentIdParam) return;
+    const id = Number(studentIdParam);
+    if (isNaN(id) || id <= 0) return;
+
+    setStudentFilter(String(id));
+    setPage(0);
+
+    const wantsLog = quicklogParam === "true" || logParam === "true";
+    if (!wantsLog) return;
+
+    if (quicklogParam === "true" || isHandsOnRole) {
+      setQuickLogPrefillStudentId(id);
+      setQuickLogOpen(true);
+    } else {
+      setForm(prev => ({
+        ...prev,
+        studentId: String(id),
+        ...(dateParam ? { sessionDate: dateParam } : {}),
+      }));
+      setShowAddModal(true);
     }
   }, []);
 

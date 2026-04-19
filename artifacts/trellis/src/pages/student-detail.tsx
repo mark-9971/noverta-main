@@ -928,7 +928,7 @@ export default function StudentDetail() {
                   <Plus className="w-3.5 h-3.5" /> Log Session
                 </button>
               ) : (
-                <Link href={`/sessions?studentId=${studentId}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
+                <Link href={`/sessions?studentId=${studentId}&log=true`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
                   <ClipboardList className="w-3.5 h-3.5" /> Log Session
                 </Link>
               )}

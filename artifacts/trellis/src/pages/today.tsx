@@ -534,7 +534,7 @@ export default function TodayPage() {
                         </div>
                       </div>
                       {a.studentId && refDate && (
-                        <Link href={`/sessions?studentId=${a.studentId}&date=${refDate}`}>
+                        <Link href={`/sessions?studentId=${a.studentId}&date=${refDate}&log=true`}>
                           <Button size="sm" className="h-7 text-[11px] bg-emerald-700 hover:bg-emerald-800 text-white">
                             Log
                           </Button>
