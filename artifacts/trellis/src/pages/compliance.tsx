@@ -377,6 +377,30 @@ function ServiceMinutesContent() {
       });
 
       openPrintWindow(html);
+
+      try {
+        const recordRes = await authFetch("/api/reports/executive-summary/record-export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schoolId: schoolId ?? undefined,
+            schoolYearId: schoolYearId ?? undefined,
+            districtName: riskReport.meta?.districtName ?? "District",
+            schoolYear,
+            complianceRate: rs.overallComplianceRate,
+            studentsServed: rs.totalStudents,
+            generatedAt: new Date().toISOString(),
+            htmlSnapshot: html,
+          }),
+        });
+        if (!recordRes.ok) {
+          let detail = "";
+          try { const body = await recordRes.json(); detail = body?.error ?? ""; } catch {}
+          console.warn(`Executive summary saved to PDF but not to history (HTTP ${recordRes.status}${detail ? `: ${detail}` : ""})`);
+        }
+      } catch (recordErr) {
+        console.warn("Failed to record executive summary in export history:", recordErr);
+      }
     } catch (err) {
       console.error("Failed to generate executive summary PDF:", err);
     } finally {

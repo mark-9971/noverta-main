@@ -5,10 +5,15 @@ import type { AuthedRequest } from "../../middlewares/auth";
 import {
   studentsTable, sessionLogsTable, serviceTypesTable,
   serviceRequirementsTable, iepDocumentsTable, alertsTable,
+  generatedDocumentsTable,
 } from "@workspace/db";
 import { GetExecutiveSummaryReportQueryParams } from "@workspace/api-zod";
 import { eq, and, gte, lte, sql, count, isNull } from "drizzle-orm";
 import { requireReportExport } from "./shared";
+import { recordExport } from "../reportExports/utils";
+import { z } from "zod";
+import { logAudit } from "../../lib/auditLog";
+import { sanitizeHtmlSnapshot } from "../generatedDocuments";
 
 const router: IRouter = Router();
 
@@ -210,6 +215,91 @@ export async function computeExecutiveSummary(opts: ExecutiveSummaryOptions): Pr
     reportPeriod: { start, end },
   };
 }
+
+const RecordExecSummaryBody = z.object({
+  schoolId: z.union([z.number().int().positive(), z.string()]).optional(),
+  schoolYearId: z.union([z.number().int().positive(), z.string()]).optional(),
+  districtName: z.string().max(500).optional(),
+  schoolYear: z.string().max(100).optional(),
+  complianceRate: z.number().optional(),
+  studentsServed: z.number().int().nonnegative().optional(),
+  generatedAt: z.string().optional(),
+  htmlSnapshot: z.string().max(2_000_000).optional(),
+});
+
+router.post("/reports/executive-summary/record-export", requireReportExport, async (req: Request, res): Promise<void> => {
+  const parsed = RecordExecSummaryBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const authed = req as unknown as AuthedRequest;
+  const districtId = getEnforcedDistrictId(authed);
+  if (!districtId) {
+    res.status(400).json({ error: "District scope is required to record executive summaries" });
+    return;
+  }
+
+  const { schoolId, schoolYearId, districtName, schoolYear, complianceRate, studentsServed, generatedAt, htmlSnapshot } = parsed.data;
+  const dateLabel = (() => {
+    try { return new Date(generatedAt ?? Date.now()).toISOString().split("T")[0]; }
+    catch { return new Date().toISOString().split("T")[0]; }
+  })();
+  const safeDistrict = (districtName ?? "District").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60) || "District";
+  const fileName = `Executive_Summary_${safeDistrict}_${dateLabel}.pdf`;
+  const recordCount = typeof studentsServed === "number" ? studentsServed : 0;
+  const friendlyDate = (() => {
+    try {
+      return new Date(generatedAt ?? Date.now()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    } catch { return dateLabel; }
+  })();
+  const title = `Executive Summary — ${districtName ?? "District"} — ${friendlyDate}`;
+
+  let docId: number | null = null;
+  try {
+    const [doc] = await db
+      .insert(generatedDocumentsTable)
+      .values({
+        studentId: null,
+        districtId,
+        type: "executive_summary",
+        status: "finalized",
+        title,
+        htmlSnapshot: htmlSnapshot ? sanitizeHtmlSnapshot(htmlSnapshot) : null,
+        createdByName: authed.displayName || null,
+      })
+      .returning();
+    docId = doc.id;
+    logAudit(req, {
+      action: "create",
+      targetTable: "generated_documents",
+      targetId: doc.id,
+      summary: `Generated executive summary for ${districtName ?? "district"}`,
+    });
+  } catch (e) {
+    console.error("Failed to insert executive_summary into generated_documents:", e);
+    res.status(500).json({ error: "Failed to save generated document" });
+    return;
+  }
+
+  recordExport(req, {
+    reportType: "executive-summary",
+    reportLabel: "Executive Summary",
+    format: "pdf",
+    fileName,
+    recordCount,
+    parameters: {
+      schoolId: schoolId ?? null,
+      schoolYearId: schoolYearId ?? null,
+      districtName: districtName ?? null,
+      schoolYear: schoolYear ?? null,
+      complianceRate: typeof complianceRate === "number" ? complianceRate : null,
+      generatedAt: generatedAt ?? new Date().toISOString(),
+      generatedDocumentId: docId,
+    },
+  });
+  res.status(201).json({ ok: true, id: docId, fileName, type: "executive_summary" });
+});
 
 router.get("/reports/executive-summary", requireReportExport, async (req: Request, res): Promise<void> => {
   try {

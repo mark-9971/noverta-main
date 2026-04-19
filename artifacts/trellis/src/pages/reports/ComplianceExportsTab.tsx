@@ -185,6 +185,7 @@ export function ComplianceExportsTab() {
     "active-ieps": "Active IEPs",
     "service-minutes": "Service Minutes",
     "incidents": "Restraint & Seclusion Incidents",
+    "executive-summary": "Executive Summary",
   };
 
   const committeeReports = [

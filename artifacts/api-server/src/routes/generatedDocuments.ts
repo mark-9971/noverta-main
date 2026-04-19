@@ -27,7 +27,7 @@ const ALLOWED_HTML_ATTRS: sanitizeHtml.IOptions["allowedAttributes"] = {
   "html": ["lang"],
 };
 
-function sanitizeHtmlSnapshot(html: string): string {
+export function sanitizeHtmlSnapshot(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: ALLOWED_HTML_TAGS,
     allowedAttributes: ALLOWED_HTML_ATTRS,
@@ -37,13 +37,17 @@ function sanitizeHtmlSnapshot(html: string): string {
 }
 
 const CreateBody = z.object({
-  studentId: z.number().int().positive(),
-  type: z.enum(["incident_report", "progress_report", "iep_draft"]),
+  studentId: z.number().int().positive().optional(),
+  districtId: z.number().int().positive().optional(),
+  type: z.enum(["incident_report", "progress_report", "iep_draft", "executive_summary"]),
   title: z.string().min(1).max(500),
   htmlSnapshot: z.string().max(2_000_000).optional(),
   linkedRecordId: z.number().int().positive().optional(),
   status: z.enum(["draft", "finalized"]).default("draft"),
-});
+}).refine(
+  (v) => (v.type === "executive_summary" ? v.districtId !== undefined : v.studentId !== undefined),
+  { message: "studentId is required, except for executive_summary which requires districtId" },
+);
 
 const UpdateBody = z.object({
   status: z.enum(["draft", "finalized", "archived"]).optional(),
@@ -67,13 +71,31 @@ async function assertStudentInDistrict(req: Request, studentId: number): Promise
   return rows.rows.length > 0;
 }
 
+function assertDistrictAccess(req: Request, districtId: number): boolean {
+  const authed = req as unknown as AuthedRequest;
+  const { platformAdmin } = getPublicMeta(authed);
+  if (platformAdmin) return true;
+  const enforced = getEnforcedDistrictId(authed);
+  return enforced !== null && enforced === districtId;
+}
+
+async function assertDocAccess(req: Request, doc: { studentId: number | null; districtId: number | null }): Promise<boolean> {
+  if (doc.studentId != null) return assertStudentInDistrict(req, doc.studentId);
+  if (doc.districtId != null) return assertDistrictAccess(req, doc.districtId);
+  return false;
+}
+
 router.get("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: Request, res: Response): Promise<void> => {
-  const studentId = Number(req.query.studentId);
-  if (!studentId) { res.status(400).json({ error: "studentId is required" }); return; }
-  if (!await assertStudentInDistrict(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+  const studentId = req.query.studentId ? Number(req.query.studentId) : undefined;
+  const districtId = req.query.districtId ? Number(req.query.districtId) : undefined;
+  if (!studentId && !districtId) { res.status(400).json({ error: "studentId or districtId is required" }); return; }
+  if (studentId && !await assertStudentInDistrict(req, studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+  if (districtId && !assertDistrictAccess(req, districtId)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const type = req.query.type as string | undefined;
-  const conditions = [eq(generatedDocumentsTable.studentId, studentId)];
+  const conditions = [] as ReturnType<typeof eq>[];
+  if (studentId) conditions.push(eq(generatedDocumentsTable.studentId, studentId));
+  if (districtId) conditions.push(eq(generatedDocumentsTable.districtId, districtId));
   if (type) conditions.push(eq(generatedDocumentsTable.type, type));
 
   const docs = await db
@@ -116,7 +138,7 @@ router.get("/generated-documents/:id", requireRoles(...ALLOWED_ROLES), async (re
   const id = Number(req.params.id);
   const [doc] = await db.select().from(generatedDocumentsTable).where(eq(generatedDocumentsTable.id, id));
   if (!doc) { res.status(404).json({ error: "Not found" }); return; }
-  if (!await assertStudentInDistrict(req, doc.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+  if (!await assertDocAccess(req, doc)) { res.status(403).json({ error: "Access denied" }); return; }
   res.json(doc);
 });
 
@@ -125,16 +147,27 @@ router.post("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: 
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const authed = req as unknown as AuthedRequest;
-  if (!await assertStudentInDistrict(req, parsed.data.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+
+  if (parsed.data.type === "executive_summary") {
+    if (!parsed.data.districtId || !assertDistrictAccess(req, parsed.data.districtId)) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+  } else {
+    if (!parsed.data.studentId || !await assertStudentInDistrict(req, parsed.data.studentId)) {
+      res.status(403).json({ error: "Access denied" }); return;
+    }
+  }
 
   const sanitizedHtml = parsed.data.htmlSnapshot
     ? sanitizeHtmlSnapshot(parsed.data.htmlSnapshot)
     : undefined;
 
+  const isExecSummary = parsed.data.type === "executive_summary";
   const [doc] = await db
     .insert(generatedDocumentsTable)
     .values({
-      studentId: parsed.data.studentId,
+      studentId: isExecSummary ? null : parsed.data.studentId!,
+      districtId: isExecSummary ? parsed.data.districtId! : null,
       type: parsed.data.type,
       status: parsed.data.status,
       title: parsed.data.title,
@@ -148,7 +181,7 @@ router.post("/generated-documents", requireRoles(...ALLOWED_ROLES), async (req: 
     action: "create",
     targetTable: "generated_documents",
     targetId: doc.id,
-    studentId: doc.studentId,
+    studentId: doc.studentId ?? undefined,
     summary: `Generated document "${doc.title}" (${doc.type})`,
   });
 
@@ -162,7 +195,7 @@ router.patch("/generated-documents/:id", requireRoles(...ALLOWED_ROLES), async (
 
   const [existing] = await db.select().from(generatedDocumentsTable).where(eq(generatedDocumentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-  if (!await assertStudentInDistrict(req, existing.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+  if (!await assertDocAccess(req, existing)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const [updated] = await db
     .update(generatedDocumentsTable)
@@ -174,7 +207,7 @@ router.patch("/generated-documents/:id", requireRoles(...ALLOWED_ROLES), async (
     action: "update",
     targetTable: "generated_documents",
     targetId: id,
-    studentId: existing.studentId,
+    studentId: existing.studentId ?? undefined,
     summary: `Updated generated document "${updated.title}" → ${updated.status}`,
   });
 
@@ -199,7 +232,7 @@ router.patch("/generated-documents/:id/share", requireRoles(...ALLOWED_ROLES), a
 
   const [existing] = await db.select().from(generatedDocumentsTable).where(eq(generatedDocumentsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-  if (!await assertStudentInDistrict(req, existing.studentId)) { res.status(403).json({ error: "Access denied" }); return; }
+  if (!await assertDocAccess(req, existing)) { res.status(403).json({ error: "Access denied" }); return; }
 
   const now = new Date();
   const [updated] = await db
