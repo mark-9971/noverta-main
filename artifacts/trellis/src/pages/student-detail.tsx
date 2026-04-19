@@ -11,6 +11,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { RISK_CONFIG } from "@/lib/constants";
 import StudentSnapshot from "@/components/student-snapshot";
 import { useRole } from "@/lib/role-context";
+import { getStudentWorkspaceConfig } from "@/pages/student-detail/role-config";
 import { IoaSummary } from "@/components/aba-graph";
 import {
   getStudentPhaseChanges,
@@ -550,9 +551,11 @@ export default function StudentDetail() {
     setAssignDialogOpen(true);
   }
 
-  const isEditable = role === "admin" || role === "case_manager";
+  const workspaceConfig = getStudentWorkspaceConfig(role);
+  const caps = workspaceConfig.caps;
+  const isEditable = caps.editIep;
 
-  const STUDENT_TABS = [
+  const ALL_STUDENT_TABS = [
     { id: "summary" as const, label: "Summary" },
     { id: "iep" as const, label: "IEP & Goals" },
     { id: "sessions" as const, label: "Sessions" },
@@ -563,11 +566,17 @@ export default function StudentDetail() {
     { id: "handoff" as const, label: "Staff Guide" },
   ] as const;
 
-  type StudentTab = typeof STUDENT_TABS[number]["id"];
+  type StudentTab = typeof ALL_STUDENT_TABS[number]["id"];
+
+  // Phase 2B: filter the tab strip by role. Default tab and visibility come
+  // from the role-config primitive; deep-links to a tab the current role
+  // cannot see fall back to the role's default tab silently.
+  const STUDENT_TABS = ALL_STUDENT_TABS.filter(t => workspaceConfig.visibleTabs.has(t.id));
 
   function resolveTab(s: string): StudentTab {
     const p = new URLSearchParams(s).get("tab") as StudentTab | null;
-    return p && STUDENT_TABS.some(t => t.id === p) ? p : "summary";
+    if (p && STUDENT_TABS.some(t => t.id === p)) return p;
+    return workspaceConfig.defaultTab as StudentTab;
   }
 
   const search = useSearch();
@@ -916,7 +925,7 @@ export default function StudentDetail() {
               >
                 <Share2 className="w-3.5 h-3.5" /> Share Progress
               </button>
-              {role === "admin" && (
+              {caps.archiveStudent && (
                 s.status === "inactive" ? (
                   <button
                     onClick={() => setReactivateDialogOpen(true)}
@@ -1090,7 +1099,7 @@ export default function StudentDetail() {
           </Card>
         </div>
 
-        {(role === "admin" || role === "coordinator") && s && (
+        {caps.editMedicaidId && s && (
           <StudentMedicaidField student={s} onSave={() => refetchStudent()} />
         )}
 

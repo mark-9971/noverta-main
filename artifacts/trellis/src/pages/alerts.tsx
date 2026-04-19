@@ -59,7 +59,7 @@ function computeSourceUrl(alert: any): string | null {
   return null;
 }
 
-export default function Alerts() {
+export default function Alerts({ embedded = false }: { embedded?: boolean } = {}) {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [tab, setTabState] = useState<Tab>(() => resolveTab(search));
@@ -208,10 +208,12 @@ export default function Alerts() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6">
+    <div className={embedded ? "space-y-4" : "p-4 md:p-6 lg:p-8 max-w-[1200px] mx-auto space-y-4 md:space-y-6"}>
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Alerts</h1>
+          {!embedded && (
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 tracking-tight">Alerts</h1>
+          )}
           <p className="text-xs md:text-sm text-gray-400 mt-1">
             {tab === "open" && `${alertTotal.toLocaleString()} open alert${alertTotal !== 1 ? "s" : ""}`}
             {tab === "resolved" && `${alertTotal.toLocaleString()} resolved alert${alertTotal !== 1 ? "s" : ""}`}

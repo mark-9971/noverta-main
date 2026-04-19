@@ -78,7 +78,7 @@ export const adminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      { href: "/_action-center-legacy?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
       // Phase 1b: promote Session Log into Overview so minute-tracking is
       // above the fold for admins. Removed from the Scheduling section to
       // avoid duplication.
@@ -96,8 +96,7 @@ export const adminNav: NavSection[] = [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
       { href: "/reports", label: "Reports", icon: BarChart3 },
       { href: "/weekly-compliance-summary", label: "Weekly Summary", icon: FileBarChart },
-      { href: "/compensatory-services", label: "Compensatory", icon: Scale },
-      { href: "/compensatory-finance", label: "Financial Exposure", icon: DollarSign },
+      { href: "/compensatory", label: "Compensatory", icon: Scale, featureKey: "compliance.compensatory" as FeatureKey },
       { href: "/document-workflow", label: "Document Workflow", icon: ClipboardList },
     ],
   },
@@ -203,7 +202,7 @@ export const focusedAdminNav: NavSection[] = [
           { href: "/staff", label: "Staff", icon: UserCheck },
         ],
       },
-      { href: "/alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
+      { href: "/_action-center-legacy?tab=alerts", label: "Alerts", icon: AlertTriangle, primary: true, alertBadge: true },
     ],
   },
   {
@@ -305,7 +304,7 @@ export const caseManagerNav: NavSection[] = adminNav
   .filter(s => s.items.length > 0);
 
 const COORDINATOR_EXCLUDED_SECTIONS = new Set(["IEP & Services", "ABA & Behavior", "Financial / Executive", "Admin / Tools"]);
-const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory-services"]);
+const COORDINATOR_COMPLIANCE_ALLOWED = new Set(["/compliance", "/compensatory"]);
 // Phase 1b: mirror case-manager's scheduling exclusions. Coordinator now keeps
 // only Sessions (which lives in Overview after the 1b move). The Scheduling
 // section ends up empty and gets filtered out below.
@@ -394,7 +393,7 @@ export const bcbaNav: NavSection[] = [
     defaultOpen: false,
     items: [
       { href: "/compliance", label: "Compliance", icon: ListChecks, featureKey: "compliance.service_minutes" as FeatureKey },
-      { href: "/compensatory-services", label: "Compensatory Services", icon: Scale },
+      { href: "/compensatory", label: "Compensatory", icon: Scale, featureKey: "compliance.compensatory" as FeatureKey },
       { href: "/protective-measures", label: "Restraint & Seclusion", icon: Shield, featureKey: "compliance.protective_measures" as FeatureKey },
       { href: "/parent-communication", label: "Parent Comms", icon: MessageSquare, featureKey: "engagement.parent_communication" as FeatureKey },
     ],

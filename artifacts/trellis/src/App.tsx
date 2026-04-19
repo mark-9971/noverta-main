@@ -42,6 +42,19 @@ function StaffCalendarRedirect() {
   if (params.has("date")) parts.push(`date=${params.get("date")!}`);
   return <Redirect to={`/scheduling?${parts.join("&")}`} />;
 }
+// Phase 2A: /compensatory-services has been folded into /compensatory.
+// Preserve the full query string so deep-links like
+// /compensatory-services?tab=cost-avoidance&studentId=42 still land correctly
+// (the new wrapper renders <CompensatoryServices embedded /> by default and
+// that component reads its own ?tab= and ?studentId= params).
+function CompensatoryServicesRedirect() {
+  const search = useSearch();
+  return <Redirect to={`/compensatory${search ? `?${search}` : ""}`} />;
+}
+// Phase 2A: /alerts has been folded into the Action Center as a tab.
+function AlertsRedirect() {
+  return <Redirect to="/_action-center-legacy?tab=alerts" />;
+}
 const StaffPage = lazy(() => import("@/pages/staff"));
 const AlertsPage = lazy(() => import("@/pages/alerts"));
 const ActionCenterPage = lazy(() => import("@/pages/action-center"));
@@ -86,6 +99,7 @@ const ExecutiveDashboard = lazy(() => import("@/pages/executive-dashboard"));
 const ResourceManagement = lazy(() => import("@/pages/resource-management"));
 const CaseloadBalancing = lazy(() => import("@/pages/caseload-balancing"));
 const CompensatoryServices = lazy(() => import("@/pages/compensatory-services"));
+const CompensatoryWorkspace = lazy(() => import("@/pages/compensatory"));
 const ParentCommunication = lazy(() => import("@/pages/parent-communication"));
 const Supervision = lazy(() => import("@/pages/supervision"));
 const ParaMyDayPage = lazy(() => import("@/pages/para-my-day"));
@@ -262,7 +276,9 @@ function StaffRouter() {
        * Do NOT add a featureKey prop to any of these three routes.
        */}
       <BoundedRoute path="/_action-center-legacy" component={ActionCenterPage} fallbackTitle="Action center error" />
-      <BoundedRoute path="/alerts" component={AlertsPage} fallbackTitle="Alerts error" />
+      {/* Phase 2A: /alerts is now a tab inside the Action Center. Old links keep working. */}
+      <Route path="/alerts" component={AlertsRedirect} />
+      <BoundedRoute path="/_alerts-legacy" component={AlertsPage} fallbackTitle="Alerts error" />
       <Route path="/compliance/timeline">{() => <Redirect to="/compliance?tab=timeline" />}</Route>
       <Route path="/compliance/checklist">{() => <Redirect to="/compliance?tab=checklist" />}</Route>
       <Route path="/compliance/trends">{() => <Redirect to="/compliance?tab=trends" />}</Route>
@@ -299,7 +315,11 @@ function StaffRouter() {
       <BoundedRoute path="/_district-legacy" component={DistrictOverview} fallbackTitle="District overview error" featureKey="district.overview" />
       <BoundedRoute path="/resource-management" component={ResourceManagement} fallbackTitle="Resource management error" featureKey="district.resource_management" />
       <BoundedRoute path="/caseload-balancing" component={CaseloadBalancing} fallbackTitle="Caseload balancing error" featureKey="district.caseload_balancing" />
-      <BoundedRoute path="/compensatory-services" component={CompensatoryServices} fallbackTitle="Compensatory services error" featureKey="compliance.compensatory" />
+      {/* Phase 2A: Compensatory consolidation — /compensatory hosts both Services and Finance as tabs.
+          Old standalone routes silently redirect (preserving query params). */}
+      <BoundedRoute path="/compensatory" component={CompensatoryWorkspace} fallbackTitle="Compensatory error" featureKey="compliance.compensatory" />
+      <Route path="/compensatory-services" component={CompensatoryServicesRedirect} />
+      <BoundedRoute path="/_compensatory-services-legacy" component={CompensatoryServices} fallbackTitle="Compensatory services error" featureKey="compliance.compensatory" />
       <BoundedRoute path="/parent-communication" component={ParentCommunication} fallbackTitle="Parent communication error" featureKey="engagement.parent_communication" />
       <BoundedRoute path="/supervision" component={Supervision} fallbackTitle="Supervision error" featureKey="clinical.supervision" />
       <BoundedRoute path="/my-day" component={ParaMyDayPage} fallbackTitle="My Day error" />
@@ -329,7 +349,8 @@ function StaffRouter() {
       <BoundedRoute path="/cost-avoidance" component={CostAvoidancePage} fallbackTitle="Cost avoidance error" />
       <Route path="/compliance-risk-report">{() => <Redirect to="/compliance?tab=risk-report" />}</Route>
       <BoundedRoute path="/weekly-compliance-summary" component={WeeklyComplianceSummaryPage} fallbackTitle="Weekly compliance summary error" />
-      <BoundedRoute path="/compensatory-finance" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
+      <Route path="/compensatory-finance">{() => <Redirect to="/compensatory?view=finance" />}</Route>
+      <BoundedRoute path="/_compensatory-finance-legacy" component={CompensatoryFinancePage} fallbackTitle="Compensatory finance error" />
       <BoundedRoute path="/tenants" component={TenantsPage} fallbackTitle="Tenants error" />
       <BoundedRoute path="/admin/demo-readiness" component={DemoReadinessPage} fallbackTitle="Demo readiness error" />
       <BoundedRoute path="/pilot-feedback" component={PilotFeedbackPage} fallbackTitle="Pilot feedback error" />

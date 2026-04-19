@@ -4,7 +4,8 @@ import { useListAlerts, useListStudents, useGetComplianceDeadlines } from "@work
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
+import AlertsView from "@/pages/alerts";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRole } from "@/lib/role-context";
 import { useSchoolContext } from "@/lib/school-context";
@@ -15,6 +16,7 @@ import {
   CheckCircle2, Target, RefreshCw, ChevronRight,
   ShieldAlert, FileWarning, UserCheck, Inbox, ClipboardEdit,
   CalendarX2, X, BellOff, EyeOff, Undo2, ChevronDown, ChevronUp,
+  Bell,
 } from "lucide-react";
 import { QuickLogSheet } from "@/components/quick-log-sheet";
 
@@ -681,14 +683,46 @@ function EmptyTab({ tab }: { tab: Priority }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const TABS: { key: Priority; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+// Phase 2A: "alerts" is a tab inside Action Center that hosts the full
+// Alerts management surface (formerly /alerts). The first three tabs are
+// the existing priority-based work queue; the fourth swaps the body to
+// the Alerts list view.
+type TabKey = Priority | "alerts";
+
+const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "urgent",   label: "Urgent",    icon: Zap },
   { key: "thisweek", label: "This Week", icon: Target },
   { key: "comingup", label: "Coming Up", icon: Calendar },
+  { key: "alerts",   label: "Alerts",    icon: Bell },
 ];
 
+const PRIORITY_TABS = TABS.filter(t => t.key !== "alerts");
+
+function isTabKey(v: string | null): v is TabKey {
+  return v === "urgent" || v === "thisweek" || v === "comingup" || v === "alerts";
+}
+
 export default function ActionCenter() {
-  const [activeTab, setActiveTab] = useState<Priority>("urgent");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const initialTab: TabKey = (() => {
+    const t = new URLSearchParams(search).get("tab");
+    return isTabKey(t) ? t : "urgent";
+  })();
+  const [activeTab, setActiveTabState] = useState<TabKey>(initialTab);
+  // Sync with the URL so /alerts → /_action-center-legacy?tab=alerts lands cleanly,
+  // and so the back/forward buttons restore the previously viewed tab.
+  useEffect(() => {
+    const t = new URLSearchParams(search).get("tab");
+    if (isTabKey(t) && t !== activeTab) setActiveTabState(t);
+  }, [search]);
+  function setActiveTab(t: TabKey) {
+    setActiveTabState(t);
+    const next = new URLSearchParams(search);
+    if (t === "urgent") next.delete("tab"); else next.set("tab", t);
+    const qs = next.toString();
+    navigate(`/_action-center-legacy${qs ? `?${qs}` : ""}`, { replace: true });
+  }
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const [quickLogStudent, setQuickLogStudent] = useState<{ id: number; name: string } | null>(null);
   const { user, role } = useRole();
@@ -993,10 +1027,11 @@ export default function ActionCenter() {
         <StudentSearch />
       </div>
 
-      {/* ── Priority stat pills ── */}
+      {/* ── Priority stat pills (only shown for the work-queue tabs) ── */}
+      {activeTab !== "alerts" && (
       <div className="grid grid-cols-3 gap-3">
-        {TABS.map(t => {
-          const count = counts[t.key];
+        {PRIORITY_TABS.map(t => {
+          const count = counts[t.key as Priority];
           const active = activeTab === t.key;
           const color =
             t.key === "urgent" ? (active ? "bg-red-600 text-white ring-red-200" : "bg-red-50 text-red-700 ring-red-100 hover:bg-red-100")
@@ -1016,13 +1051,14 @@ export default function ActionCenter() {
           );
         })}
       </div>
+      )}
 
-      {/* ── Work Queue ── */}
+      {/* ── Work Queue / Alerts ── */}
       <div className="space-y-2">
-        {/* Tab bar */}
+        {/* Tab bar — includes Alerts as a fourth tab (Phase 2A) */}
         <div className="flex gap-0 border-b border-gray-200">
           {TABS.map(t => {
-            const count = counts[t.key];
+            const count = t.key === "alerts" ? alertList.length : counts[t.key as Priority];
             return (
               <button
                 key={t.key}
@@ -1039,6 +1075,7 @@ export default function ActionCenter() {
                     activeTab === t.key
                       ? t.key === "urgent" ? "bg-red-100 text-red-700"
                         : t.key === "thisweek" ? "bg-amber-100 text-amber-700"
+                        : t.key === "alerts" ? "bg-emerald-100 text-emerald-700"
                         : "bg-gray-200 text-gray-600"
                       : "bg-gray-100 text-gray-500"
                   }`}>
@@ -1050,43 +1087,52 @@ export default function ActionCenter() {
           })}
         </div>
 
-        {/* Items */}
-        {isLoading ? (
-          <div className="space-y-2 pt-1">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3.5 rounded-lg border border-gray-100 bg-white">
-                <Skeleton className="w-7 h-7 rounded-md flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-3.5 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-                <Skeleton className="h-3 w-16" />
-              </div>
-            ))}
-          </div>
-        ) : visibleItems.length === 0 && visibleAgg.length === 0 ? (
-          <EmptyTab tab={activeTab} />
+        {activeTab === "alerts" ? (
+          /* Alerts tab — render the full Alerts management surface inline.
+             AlertsView is the existing /alerts page component; it owns its own
+             header, filters and list/snooze/resolve UI. */
+          <div className="pt-2"><AlertsView embedded /></div>
         ) : (
-          <div className="space-y-2 pt-1">
-            {/* Aggregate count-level items first */}
-            {visibleAgg.map((agg, i) => (
-              <AggregateRow key={`agg-${i}`} {...agg} />
-            ))}
-            {/* Per-student/per-alert items */}
-            {visibleItems.map(item => (
-              <WorkItemRow
-                key={item.id}
-                item={item}
-                onLogSession={openQuickLog}
-                onDismiss={handleDismiss}
-                onSnooze={handleSnooze}
-              />
-            ))}
-          </div>
-        )}
+          <>
+            {/* Items */}
+            {isLoading ? (
+              <div className="space-y-2 pt-1">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-lg border border-gray-100 bg-white">
+                    <Skeleton className="w-7 h-7 rounded-md flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : visibleItems.length === 0 && visibleAgg.length === 0 ? (
+              <EmptyTab tab={activeTab as Priority} />
+            ) : (
+              <div className="space-y-2 pt-1">
+                {/* Aggregate count-level items first */}
+                {visibleAgg.map((agg, i) => (
+                  <AggregateRow key={`agg-${i}`} {...agg} />
+                ))}
+                {/* Per-student/per-alert items */}
+                {visibleItems.map(item => (
+                  <WorkItemRow
+                    key={item.id}
+                    item={item}
+                    onLogSession={openQuickLog}
+                    onDismiss={handleDismiss}
+                    onSnooze={handleSnooze}
+                  />
+                ))}
+              </div>
+            )}
 
-        {/* Hidden items footer — restore dismissed/snoozed items */}
-        <HiddenItemsFooter hidden={liveHidden} onRestore={restore} onRestoreAll={restoreAll} />
+            {/* Hidden items footer — restore dismissed/snoozed items */}
+            <HiddenItemsFooter hidden={liveHidden} onRestore={restore} onRestoreAll={restoreAll} />
+          </>
+        )}
       </div>
 
       <QuickLogSheet
@@ -1104,12 +1150,12 @@ export default function ActionCenter() {
         <div className="flex flex-wrap gap-2">
           {[
             { href: "/compliance", label: "Compliance" },
-            { href: "/alerts", label: "All Alerts" },
+            { href: "/_action-center-legacy?tab=alerts", label: "All Alerts" },
             { href: "/reports?tab=risk", label: "At-Risk Export" },
             { href: "/iep-meetings", label: "IEP Meetings" },
             { href: "/evaluations", label: "Evaluations" },
             { href: "/sessions", label: "Sessions" },
-            { href: "/compensatory-services", label: "Compensatory" },
+            { href: "/compensatory", label: "Compensatory" },
             { href: "/transitions", label: "Transitions" },
             { href: "/parent-communication", label: "Parent Comms" },
           ].map(l => (

@@ -16,7 +16,7 @@ import { ShortfallCalculator } from "./ShortfallCalculator";
 import { CreateObligationForm } from "./CreateObligationForm";
 import { ObligationList } from "./ObligationList";
 
-export default function CompensatoryServices() {
+export default function CompensatoryServices({ embedded = false }: { embedded?: boolean } = {}) {
   const { selectedSchoolId } = useSchoolContext();
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -24,11 +24,12 @@ export default function CompensatoryServices() {
   const rawTab = searchParams.get("tab");
   const urlStudentId = searchParams.get("studentId") ? Number(searchParams.get("studentId")) : null;
   const activeTab: "obligations" | "cost-avoidance" = rawTab === "cost-avoidance" ? "cost-avoidance" : "obligations";
+  const basePath = embedded ? "/compensatory" : "/compensatory-services";
   function setActiveTab(t: "obligations" | "cost-avoidance") {
     const next = new URLSearchParams();
     next.set("tab", t);
     if (urlStudentId) next.set("studentId", String(urlStudentId));
-    navigate(`/compensatory-services?${next.toString()}`, { replace: true });
+    navigate(`${basePath}?${next.toString()}`, { replace: true });
   }
   const [obligations, setObligations] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
