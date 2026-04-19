@@ -65,7 +65,21 @@ export interface DashboardData {
   missingPlan: number;
   incompletePlans: number;
   missingPlanStudents: { id: number; name: string; age: number | null; grade: string | null }[];
-  incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[]; missingGraduationPathway: boolean }[];
+  incompletePlanStudents: {
+    id: number;
+    name: string;
+    age: number | null;
+    grade: string | null;
+    missingDomains: string[];
+    missingGraduationPathway: boolean;
+    planSummary: {
+      graduationPathway: string | null;
+      studentVisionStatement: string | null;
+      assessmentsUsed: string | null;
+      goalsCount: number;
+      referralsCount: number;
+    };
+  }[];
   approachingStudents: { id: number; name: string; age: number | null; grade: string | null }[];
   pendingAgencyReferrals: number;
   overdueFollowups: number;

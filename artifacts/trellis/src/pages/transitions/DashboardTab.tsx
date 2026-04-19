@@ -2,7 +2,8 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Clock, Plus, Users } from "lucide-react";
-import type { DashboardData } from "./types";
+import type { DashboardData, TransitionPlan } from "./types";
+import { TransitionPlanBadge } from "@/components/transition-plan-badge";
 
 export function DashboardTab({ dashboard, onCreatePlan }: { dashboard: DashboardData | null; onCreatePlan: (studentId?: number) => void }) {
   if (!dashboard) return <div className="text-[13px] text-gray-500 py-8 text-center">Loading transition data...</div>;
@@ -99,18 +100,42 @@ export function DashboardTab({ dashboard, onCreatePlan }: { dashboard: Dashboard
           </CardHeader>
           <CardContent>
             <div className="divide-y divide-gray-100">
-              {dashboard.incompletePlanStudents.map(s => (
-                <div key={s.id} className="py-2 flex items-center justify-between">
-                  <div>
-                    <Link href={`/students/${s.id}`} className="text-[13px] font-medium text-emerald-700 hover:text-emerald-800">{s.name}</Link>
-                    <p className="text-[11px] text-gray-500">
-                      Age {s.age ?? "?"} · Grade {s.grade ?? "?"}
-                      {s.missingDomains.length > 0 && ` · Missing: ${s.missingDomains.map(d => d.replace(/_/g, " ")).join(", ")}`}
-                      {s.missingGraduationPathway && ` · No graduation pathway`}
-                    </p>
+              {dashboard.incompletePlanStudents.map(s => {
+                const syntheticPlan = {
+                  id: 0,
+                  studentId: s.id,
+                  planDate: "",
+                  ageOfMajorityNotified: false,
+                  ageOfMajorityDate: null,
+                  graduationPathway: s.planSummary.graduationPathway,
+                  expectedGraduationDate: null,
+                  diplomaType: null,
+                  creditsEarned: null,
+                  creditsRequired: null,
+                  assessmentsUsed: s.planSummary.assessmentsUsed,
+                  studentVisionStatement: s.planSummary.studentVisionStatement,
+                  coordinatorId: null,
+                  status: "",
+                  notes: null,
+                  goalsCount: s.planSummary.goalsCount,
+                  referralsCount: s.planSummary.referralsCount,
+                  createdAt: "",
+                  updatedAt: "",
+                } satisfies TransitionPlan;
+                return (
+                  <div key={s.id} className="py-2 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link href={`/students/${s.id}`} className="text-[13px] font-medium text-emerald-700 hover:text-emerald-800">{s.name}</Link>
+                      <p className="text-[11px] text-gray-500">
+                        Age {s.age ?? "?"} · Grade {s.grade ?? "?"}
+                        {s.missingDomains.length > 0 && ` · Missing: ${s.missingDomains.map(d => d.replace(/_/g, " ")).join(", ")}`}
+                        {s.missingGraduationPathway && ` · No graduation pathway`}
+                      </p>
+                    </div>
+                    <TransitionPlanBadge plan={syntheticPlan} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

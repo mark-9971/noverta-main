@@ -554,6 +554,8 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
       id: transitionPlansTable.id,
       studentId: transitionPlansTable.studentId,
       graduationPathway: transitionPlansTable.graduationPathway,
+      studentVisionStatement: transitionPlansTable.studentVisionStatement,
+      assessmentsUsed: transitionPlansTable.assessmentsUsed,
       status: transitionPlansTable.status,
     })
       .from(transitionPlansTable)
@@ -569,6 +571,7 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
 
     const allPlanIds = existingPlans.map(p => p.id);
     let goalsByPlan = new Map<number, string[]>();
+    let referralsByPlan = new Map<number, number>();
     if (allPlanIds.length > 0) {
       const goalRows = await db.select({
         transitionPlanId: transitionGoalsTable.transitionPlanId,
@@ -578,19 +581,44 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
         if (!goalsByPlan.has(g.transitionPlanId)) goalsByPlan.set(g.transitionPlanId, []);
         goalsByPlan.get(g.transitionPlanId)!.push(g.domain);
       }
+      const referralRows = await db.select({
+        transitionPlanId: transitionAgencyReferralsTable.transitionPlanId,
+      }).from(transitionAgencyReferralsTable).where(isNull(transitionAgencyReferralsTable.deletedAt));
+      for (const r of referralRows) {
+        referralsByPlan.set(r.transitionPlanId, (referralsByPlan.get(r.transitionPlanId) ?? 0) + 1);
+      }
     }
 
     const REQUIRED_DOMAINS = ["education", "employment", "independent_living"];
-    const incompletePlanStudents: { id: number; name: string; age: number | null; grade: string | null; missingDomains: string[]; missingGraduationPathway: boolean }[] = [];
+    const incompletePlanStudents: {
+      id: number; name: string; age: number | null; grade: string | null;
+      missingDomains: string[]; missingGraduationPathway: boolean;
+      planSummary: {
+        graduationPathway: string | null;
+        studentVisionStatement: string | null;
+        assessmentsUsed: string | null;
+        goalsCount: number;
+        referralsCount: number;
+      };
+    }[] = [];
     for (const s of transitionAgeStudents) {
       const sPlans = plansByStudent.get(s.id);
       if (!sPlans) continue;
       const allDomains = new Set<string>();
       let hasPathway = false;
+      let aggPathway: string | null = null;
+      let aggVision: string | null = null;
+      let aggAssessments: string | null = null;
+      let goalsCount = 0;
+      let referralsCount = 0;
       for (const p of sPlans) {
         const pGoalDomains = goalsByPlan.get(p.id) ?? [];
         for (const d of pGoalDomains) allDomains.add(d);
-        if (p.graduationPathway) hasPathway = true;
+        goalsCount += pGoalDomains.length;
+        referralsCount += referralsByPlan.get(p.id) ?? 0;
+        if (p.graduationPathway) { hasPathway = true; aggPathway = aggPathway ?? p.graduationPathway; }
+        if (p.studentVisionStatement) aggVision = aggVision ?? p.studentVisionStatement;
+        if (p.assessmentsUsed) aggAssessments = aggAssessments ?? p.assessmentsUsed;
       }
       const missing = REQUIRED_DOMAINS.filter(d => !allDomains.has(d));
       if (missing.length > 0 || !hasPathway) {
@@ -601,6 +629,13 @@ router.get("/transitions/dashboard", transitionAccess, async (req, res): Promise
           grade: s.grade,
           missingDomains: missing,
           missingGraduationPathway: !hasPathway,
+          planSummary: {
+            graduationPathway: aggPathway,
+            studentVisionStatement: aggVision,
+            assessmentsUsed: aggAssessments,
+            goalsCount,
+            referralsCount,
+          },
         });
       }
     }
